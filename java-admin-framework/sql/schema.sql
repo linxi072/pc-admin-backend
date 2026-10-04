@@ -1,0 +1,17 @@
+-- =============================================================
+-- 独立建表索引（非可执行 DDL）
+-- 本脚手架默认由 Flyway 自动初始化，完整建表语句见：
+--   src/main/resources/db/migration/V1__baseline.sql   (RBAC 11 张表 + 初始 admin/SUPER_ADMIN)
+--   src/main/resources/db/migration/V2__security.sql   (刷新令牌 / 密码历史 / 登录日志 / 操作日志)
+--   src/main/resources/db/migration/V3__workflow.sql   (工作流扩展 5 张表)
+--
+-- 若需脱离 Flyway 手动建库，请直接按顺序执行上述三个迁移文件。
+-- 字符集：utf8mb4 / utf8mb4_0900_ai_ci；主键 BIGINT UNSIGNED + MyBatis-Plus ASSIGN_ID。
+-- =============================================================
+
+-- 表清单（共 20 张）：
+-- RBAC：sys_user, sys_org, sys_user_org, sys_role, sys_user_role,
+--       sys_menu, sys_api_resource, sys_role_menu, sys_role_api,
+--       sys_role_data_scope, sys_role_data_scope_org
+-- 安全/审计：sys_refresh_token, sys_password_history, sys_login_log, sys_operation_log
+-- 工作流：wf_definition_ext, wf_node_config, wf_instance_ext, wf_task_ext, wf_approval_record

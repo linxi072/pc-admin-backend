@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+  flyway:
+    # 生产环境结构变更必须走已评审迁移文件
+    baseline-on-migrate: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# 生产不暴露 JobRunr Dashboard，仅运行后台作业服务
+jobrunr:
+  background-job-server:
+    enabled: true
+    worker-count: 8
+  dashboard:
+    enabled: false
+
+logging:
+  level:
+    com.acme.scaffold: INFO

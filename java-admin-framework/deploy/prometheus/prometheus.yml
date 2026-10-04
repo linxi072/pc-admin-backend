@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'java-admin-framework'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      # 应用 management 端口 9090。Prometheus 以原生进程方式运行（不使用 Docker），
+      # 因此直接抓取 localhost 即可。
+      - targets: ['localhost:9090']
