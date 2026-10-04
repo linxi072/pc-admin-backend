@@ -2915,3 +2915,122 @@ Caused by: java.net.ConnectException: Connection refused
 2026-10-04 17:15:42.520 [SpringApplicationShutdownHook] INFO  o.jobrunr.server.BackgroundJobServer - BackgroundJobServer and BackgroundJobPerformers stopped
 2026-10-04 17:15:42.554 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
 2026-10-04 17:15:42.571 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-10-04 17:16:53.668 [main] INFO  c.acme.scaffold.FrameworkApplication - Starting FrameworkApplication using Java 21.0.12.1 with PID 3100 (/Users/mezo/Documents/WorkBuddy/2026-09-28-23-37-14/outputs/java-admin-framework/target/classes started by mezo in /Users/mezo/Documents/WorkBuddy/2026-09-28-23-37-14/outputs/java-admin-framework)
+2026-10-04 17:16:53.670 [main] DEBUG c.acme.scaffold.FrameworkApplication - Running with Spring Boot v3.3.4, Spring v6.1.13
+2026-10-04 17:16:53.671 [main] INFO  c.acme.scaffold.FrameworkApplication - The following 1 profile is active: "local"
+2026-10-04 17:16:55.887 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-10-04 17:16:55.892 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-10-04 17:16:55.954 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 42 ms. Found 0 Redis repository interfaces.
+2026-10-04 17:16:57.512 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 49698 (http)
+2026-10-04 17:16:57.539 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-10-04 17:16:57.540 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.30]
+2026-10-04 17:16:57.665 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-10-04 17:16:57.665 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 3918 ms
+2026-10-04 17:16:58.038 [main] DEBUG c.acme.scaffold.config.TraceIdFilter - Filter 'traceIdFilter' configured for use
+2026-10-04 17:16:58.477 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-10-04 17:16:58.772 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@5d4a34ff
+2026-10-04 17:16:58.775 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-10-04 17:16:58.844 [main] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://127.0.0.1:13306/scaffold (MySQL 8.4)
+2026-10-04 17:16:58.876 [main] WARN  o.f.c.i.database.base.Database - Flyway upgrade recommended: MySQL 8.4 is newer than this version of Flyway and support has not been tested. The latest supported version of MySQL is 8.1.
+2026-10-04 17:16:58.926 [main] INFO  o.f.core.internal.command.DbValidate - Successfully validated 4 migrations (execution time 00:00.039s)
+2026-10-04 17:16:58.947 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `scaffold`: 4
+2026-10-04 17:16:58.950 [main] INFO  o.f.core.internal.command.DbMigrate - Schema `scaffold` is up to date. No migration necessary.
+2026-10-04 17:17:04.432 [main] INFO  o.j.s.t.ScheduledThreadPoolJobRunrExecutor - ThreadManager of type 'ScheduledThreadPool' started
+2026-10-04 17:17:04.465 [backgroundjob-zookeeper-pool-3-thread-1] INFO  o.jobrunr.server.BackgroundJobServer - JobRunr BackgroundJobServer (58479967-3dc6-4e90-b2dd-45a829b32490) using MySqlStorageProvider and 4 BackgroundJobPerformers started successfully
+2026-10-04 17:17:04.468 [backgroundjob-zookeeper-pool-3-thread-1] INFO  org.jobrunr.server.ServerZooKeeper - Server 58479967-3dc6-4e90-b2dd-45a829b32490 is master (this BackgroundJobServer)
+2026-10-04 17:17:04.476 [main] INFO  o.j.d.JobRunrDashboardWebServer - JobRunr Dashboard using MySqlStorageProvider started at http://localhost:8000/dashboard
+2026-10-04 17:17:05.613 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 49698 (http) with context path '/'
+2026-10-04 17:17:05.700 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 9090 (http)
+2026-10-04 17:17:05.701 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-10-04 17:17:05.702 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.30]
+2026-10-04 17:17:05.719 [main] INFO  o.a.c.c.C.[Tomcat-1].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-10-04 17:17:05.719 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 102 ms
+2026-10-04 17:17:05.750 [main] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 7 endpoints beneath base path '/actuator'
+2026-10-04 17:17:05.809 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 9090 (http) with context path '/'
+2026-10-04 17:17:05.830 [main] INFO  c.acme.scaffold.FrameworkApplication - Started FrameworkApplication in 12.969 seconds (process running for 13.514)
+2026-10-04 17:17:05.865 [main] INFO  c.acme.scaffold.config.JobRunrConfig - 已注册 JobRunr 周期任务 id=demo-job cron=*/5 * * * *
+2026-10-04 17:17:17.906 [http-nio-9090-exec-1] INFO  o.a.c.c.C.[Tomcat-1].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServletRegistration'
+2026-10-04 17:17:17.907 [http-nio-9090-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServletRegistration'
+2026-10-04 17:17:17.907 [http-nio-9090-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+2026-10-04 17:17:18.303 [boundedElastic-1] WARN  o.s.b.a.d.r.RedisReactiveHealthIndicator - Redis health check failed
+org.springframework.data.redis.RedisConnectionFailureException: Unable to connect to Redis
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory$ExceptionTranslatingConnectionProvider.translateException(LettuceConnectionFactory.java:1849)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory$ExceptionTranslatingConnectionProvider.getConnection(LettuceConnectionFactory.java:1780)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory$SharedConnection.getNativeConnection(LettuceConnectionFactory.java:1582)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory$SharedConnection.lambda$getConnection$0(LettuceConnectionFactory.java:1562)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory.doInLock(LettuceConnectionFactory.java:1523)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory$SharedConnection.getConnection(LettuceConnectionFactory.java:1559)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory.getSharedReactiveConnection(LettuceConnectionFactory.java:1270)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory.getReactiveConnection(LettuceConnectionFactory.java:1145)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory.getReactiveConnection(LettuceConnectionFactory.java:118)
+	at reactor.core.publisher.MonoSupplier.call(MonoSupplier.java:67)
+	at reactor.core.publisher.FluxSubscribeOnCallable$CallableSubscribeOnSubscription.run(FluxSubscribeOnCallable.java:228)
+	at reactor.core.scheduler.SchedulerTask.call(SchedulerTask.java:68)
+	at reactor.core.scheduler.SchedulerTask.call(SchedulerTask.java:28)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:304)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: io.lettuce.core.RedisConnectionException: Unable to connect to 127.0.0.1/<unresolved>:6379
+	at io.lettuce.core.RedisConnectionException.create(RedisConnectionException.java:78)
+	at io.lettuce.core.RedisConnectionException.create(RedisConnectionException.java:56)
+	at io.lettuce.core.AbstractRedisClient.getConnection(AbstractRedisClient.java:350)
+	at io.lettuce.core.RedisClient.connect(RedisClient.java:215)
+	at org.springframework.data.redis.connection.lettuce.StandaloneConnectionProvider.lambda$getConnection$1(StandaloneConnectionProvider.java:112)
+	at java.base/java.util.Optional.orElseGet(Optional.java:364)
+	at org.springframework.data.redis.connection.lettuce.StandaloneConnectionProvider.getConnection(StandaloneConnectionProvider.java:112)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory$ExceptionTranslatingConnectionProvider.getConnection(LettuceConnectionFactory.java:1778)
+	... 16 common frames omitted
+Caused by: io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:6379
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:690)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:973)
+	at io.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:776)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:724)
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:650)
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:997)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-10-04 17:17:18.353 [http-nio-49698-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-04 17:17:18.353 [http-nio-49698-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-10-04 17:17:18.355 [http-nio-49698-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2026-10-04 17:17:18.793 [http-nio-49698-exec-1] INFO  org.jooq.Constants - 
+                                      
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@  @@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@  @@  @@    @@@@@@@@@@
+@@@@@@@@@@  @@@@  @@  @@    @@@@@@@@@@
+@@@@@@@@@@        @@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@        @@        @@@@@@@@@@
+@@@@@@@@@@    @@  @@  @@@@  @@@@@@@@@@
+@@@@@@@@@@    @@  @@  @@@@  @@@@@@@@@@
+@@@@@@@@@@        @@  @  @  @@@@@@@@@@
+@@@@@@@@@@        @@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@  @@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Thank you for using jOOQ 3.19.11 (Build date: 2024-08-13T06:15:09Z)
+                                      
+2026-10-04 17:17:18.794 [http-nio-49698-exec-1] INFO  org.jooq.Constants - 
+
+jOOQ tip of the day: By default, all user values generate implicit bind values in jOOQ. But you can use DSL.val() explicitly, or create inline values (constants, literals) using DSL.inline(), too: https://www.jooq.org/doc/latest/manual/sql-building/bind-values/
+
+2026-10-04 17:17:18.840 [http-nio-49698-exec-1] INFO  o.j.i.D.logVersionSupport - Version                  : Database version is supported by dialect MYSQL: 8.4.11
+2026-10-04 17:18:14.895 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-04 17:18:14.899 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-10-04 17:18:14.909 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-04 17:18:14.912 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2026-10-04 17:18:14.928 [SpringApplicationShutdownHook] INFO  o.j.d.JobRunrDashboardWebServer - JobRunr dashboard stopped
+2026-10-04 17:18:14.928 [SpringApplicationShutdownHook] INFO  o.jobrunr.server.BackgroundJobServer - BackgroundJobServer and BackgroundJobPerformers - stopping (waiting for all jobs to complete - max 10 seconds)
+2026-10-04 17:18:14.932 [SpringApplicationShutdownHook] INFO  o.jobrunr.server.BackgroundJobServer - BackgroundJobServer and BackgroundJobPerformers stopped
+2026-10-04 17:18:14.951 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-10-04 17:18:14.959 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
