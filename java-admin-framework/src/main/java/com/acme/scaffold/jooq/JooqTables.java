@@ -73,6 +73,20 @@ public final class JooqTables {
     public static final TableRef SYS_ROLE_DATA_SCOPE_ORG = new TableRef("sys_role_data_scope_org",
             "tenant_id", "rule_id", "org_id");
 
+    // ---------------- 系统配置类 ----------------
+
+    public static final TableRef SYS_DICT_TYPE = new TableRef("sys_dict_type",
+            "id", "tenant_id", "dict_code", "dict_name", "status", "sort_no", "remark",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    public static final TableRef SYS_DICT_DATA = new TableRef("sys_dict_data",
+            "id", "tenant_id", "dict_type_code", "dict_label", "dict_value", "dict_sort", "status",
+            "remark", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    public static final TableRef SYS_CONFIG = new TableRef("sys_config",
+            "id", "tenant_id", "config_key", "config_name", "config_value", "config_type", "remark",
+            "status", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
     // ---------------- 安全与审计 ----------------
 
     /** 注意：该表无 created_at / updated_at 列，时间语义为 issued_at / expires_at。 */
