@@ -16,6 +16,13 @@ public class SysUserDO {
     private String mobile;
     private String email;
     private Long primaryOrgId;
+
+    /** 单一角色ID：用户仅可绑定一个角色（V6 收敛后由 sys_user.role_id 直接承载）。 */
+    private Long roleId;
+
+    /** 单一部门ID：用户仅可归属一个部门。 */
+    private Long orgId;
+
     private String status;
     private Integer failedLoginCount = 0;
     private LocalDateTime lockedUntil;

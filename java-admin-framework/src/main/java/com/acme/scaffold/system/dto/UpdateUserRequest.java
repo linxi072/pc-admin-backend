@@ -1,14 +1,14 @@
 package com.acme.scaffold.system.dto;
 
-import com.acme.scaffold.common.validation.UpdateGroup;
-
-import java.util.Set;
-
+/**
+ * 更新用户请求（部分更新，null 表示不修改该字段）。
+ * <p>约束（V6 收敛）：roleId / orgId 均为单值，null 表示保持原绑定不变。
+ */
 public record UpdateUserRequest(
         String displayName,
         String mobile,
         String email,
-        Long primaryOrgId,
+        Long orgId,
         String status,
-        Set<Long> roleIds) {
+        Long roleId) {
 }

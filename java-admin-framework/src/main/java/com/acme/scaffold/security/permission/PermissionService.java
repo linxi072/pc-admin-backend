@@ -7,7 +7,7 @@ import com.acme.scaffold.system.entity.SysMenuDO;
 import com.acme.scaffold.system.entity.SysRoleApiDO;
 import com.acme.scaffold.system.entity.SysRoleDO;
 import com.acme.scaffold.system.entity.SysRoleMenuDO;
-import com.acme.scaffold.system.entity.SysUserRoleDO;
+import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -73,8 +73,11 @@ public class PermissionService {
     }
 
     private Set<Long> roleIdsOf(Long userId) {
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
-                .map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
+        // V6 收敛：用户仅绑定单个角色，直接读 sys_user.role_id，不再走 sys_user_role 关联表。
+        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        if (user == null || user.getRoleId() == null) {
+            return Set.of();
+        }
+        return Set.of(user.getRoleId());
     }
 }

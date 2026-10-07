@@ -32,8 +32,9 @@ public class UserController {
                                             @RequestParam(defaultValue = "20") int size,
                                             @RequestParam(required = false) String username,
                                             @RequestParam(required = false) String status,
-                                            @RequestParam(required = false) Long orgId) {
-        return Result.success(userService.list(new UserQuery(page, size, username, status, orgId)));
+                                            @RequestParam(required = false) Long orgId,
+                                            @RequestParam(required = false) Long roleId) {
+        return Result.success(userService.list(new UserQuery(page, size, username, status, orgId, roleId)));
     }
 
     @Operation(summary = "用户详情")

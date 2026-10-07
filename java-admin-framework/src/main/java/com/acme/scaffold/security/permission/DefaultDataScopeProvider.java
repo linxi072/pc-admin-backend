@@ -6,7 +6,6 @@ import com.acme.scaffold.system.entity.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeOrgDO;
 import com.acme.scaffold.system.entity.SysUserDO;
-import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
@@ -31,12 +30,13 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
 
     @Override
     public Set<Long> resolveOrgIds(Long userId, String resourceCode) {
-        Set<Long> roleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
-                .map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
-        if (roleIds.isEmpty()) {
+        // V6 收敛：用户仅绑定单个角色，直接读 sys_user.role_id。
+        SysUserDO current = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        if (current == null || current.getRoleId() == null) {
             return Set.of();
         }
+        Set<Long> roleIds = Set.of(current.getRoleId());
+
         List<SysRoleDataScopeDO> rules = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE,
                 SysRoleDataScopeDO.class,
                 DSL.and(JooqTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).in(roleIds),
@@ -46,14 +46,13 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
         }
 
         Set<Long> result = new HashSet<>();
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
-        Long primaryOrgId = user == null ? null : user.getPrimaryOrgId();
+        Long primaryOrgId = current.getOrgId();
 
         for (SysRoleDataScopeDO rule : rules) {
             DataScopeType type = safeType(rule.getScopeType());
             switch (type) {
                 case ALL -> {
-                    return Set.of(); // 任一角色拥有全部权限即放行
+                    return Set.of(); // 角色拥有全部权限即放行
                 }
                 case SELF, DEPT -> {
                     if (primaryOrgId != null) {
