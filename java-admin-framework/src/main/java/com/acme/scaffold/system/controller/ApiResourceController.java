@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.system.dto.ApiResourceView;
 import com.acme.scaffold.system.dto.CreateApiResourceRequest;
+import com.acme.scaffold.system.dto.UpdateApiResourceRequest;
 import com.acme.scaffold.system.service.ApiResourceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,6 +44,15 @@ public class ApiResourceController {
     @AuditOperation(module = "system", type = "DELETE", name = "删除接口资源")
     public Result<Void> delete(@PathVariable Long id) {
         apiResourceService.delete(id);
+        return Result.success();
+    }
+
+    @Operation(summary = "更新接口资源")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:api:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "更新接口资源")
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateApiResourceRequest request) {
+        apiResourceService.update(id, request);
         return Result.success();
     }
 }

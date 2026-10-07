@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
 import com.acme.scaffold.system.dto.MenuTreeVO;
+import com.acme.scaffold.system.dto.UpdateMenuRequest;
 import com.acme.scaffold.system.service.MenuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,6 +44,15 @@ public class MenuController {
     @AuditOperation(module = "system", type = "DELETE", name = "删除菜单")
     public Result<Void> delete(@PathVariable Long id) {
         menuService.delete(id);
+        return Result.success();
+    }
+
+    @Operation(summary = "更新菜单")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:menu:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "更新菜单")
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateMenuRequest request) {
+        menuService.update(id, request);
         return Result.success();
     }
 }

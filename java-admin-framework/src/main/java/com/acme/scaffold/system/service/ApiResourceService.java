@@ -6,6 +6,7 @@ import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.system.dto.ApiResourceView;
 import com.acme.scaffold.system.dto.CreateApiResourceRequest;
+import com.acme.scaffold.system.dto.UpdateApiResourceRequest;
 import com.acme.scaffold.system.entity.SysApiResourceDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -54,5 +55,25 @@ public class ApiResourceService {
         }
         // 该表无 deleted 列，保持与迁移前一致的物理删除语义
         JooqWriters.delete(dsl, JooqTables.SYS_API_RESOURCE, id, false);
+    }
+
+    @Transactional
+    public void update(Long id, UpdateApiResourceRequest request) {
+        SysApiResourceDO existing = JooqWriters.fetchById(dsl, JooqTables.SYS_API_RESOURCE,
+                SysApiResourceDO.class, id);
+        if (existing == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "接口资源不存在");
+        }
+        // 该表无 deleted 列；tenant_id 维持原值
+        SysApiResourceDO api = new SysApiResourceDO();
+        api.setTenantId(existing.getTenantId());
+        api.setResourceName(request.resourceName());
+        api.setPermissionCode(request.permissionCode());
+        api.setHttpMethod(request.httpMethod().toUpperCase());
+        api.setPathPattern(request.pathPattern());
+        api.setAuthMode(request.authMode() == null ? existing.getAuthMode() : request.authMode());
+        api.setStatus(request.status() == null ? existing.getStatus() : request.status());
+        api.setRiskLevel(request.riskLevel() == null ? existing.getRiskLevel() : request.riskLevel());
+        JooqWriters.updateById(dsl, JooqTables.SYS_API_RESOURCE, id, api);
     }
 }
