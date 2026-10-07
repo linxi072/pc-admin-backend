@@ -68,4 +68,13 @@ public class UserController {
         userService.resetPassword(id, request.password());
         return Result.success();
     }
+
+    @Operation(summary = "删除用户（物理删除/硬删除）")
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:user:delete')")
+    @AuditOperation(module = "system", type = "DELETE", name = "物理删除用户")
+    public Result<Void> delete(@PathVariable Long id) {
+        userService.delete(id);
+        return Result.success();
+    }
 }

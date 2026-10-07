@@ -97,6 +97,18 @@ public class UserService {
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
     }
 
+    /**
+     * 物理删除用户及其角色关联（硬删除）。
+     * 调用 JooqWriters.delete(..., false) 绕过逻辑删除，直接移除数据行；
+     * 同时清理 SYS_USER_ROLE 关联，避免孤儿记录。
+     */
+    @Transactional
+    public void delete(Long id) {
+        get(id); // 校验存在性，不存在抛 NOT_FOUND
+        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "user_id", id);
+        JooqWriters.delete(dsl, JooqTables.SYS_USER, id, false);
+    }
+
     public UserView getView(Long id) {
         SysUserDO user = get(id);
         return UserView.from(user, permissionService.getRoleCodes(user.getId()));
