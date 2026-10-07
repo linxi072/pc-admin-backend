@@ -27,25 +27,18 @@ public final class JooqTables {
 
     public static final TableRef SYS_USER = new TableRef("sys_user",
             "id", "tenant_id", "username", "password_hash", "display_name", "mobile", "email",
-            "primary_org_id", "status", "failed_login_count", "locked_until", "password_changed_at",
-            "password_expired", "token_version", "mfa_enabled", "last_login_at", "version", "deleted",
-            "created_by", "created_at", "updated_by", "updated_at");
+            "primary_org_id", "role_id", "org_id", "status", "failed_login_count", "locked_until",
+            "password_changed_at", "password_expired", "token_version", "mfa_enabled", "last_login_at",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
     public static final TableRef SYS_ORG = new TableRef("sys_org",
             "id", "tenant_id", "parent_id", "ancestors", "org_code", "org_name", "org_type", "sort_no",
             "leader_user_id", "status", "version", "deleted", "created_by", "created_at", "updated_by",
             "updated_at");
 
-    public static final TableRef SYS_USER_ORG = new TableRef("sys_user_org",
-            "id", "tenant_id", "user_id", "org_id", "is_primary", "created_at");
-
     public static final TableRef SYS_ROLE = new TableRef("sys_role",
             "id", "tenant_id", "role_code", "role_name", "role_type", "status", "sort_no", "version",
             "deleted", "created_by", "created_at", "updated_by", "updated_at");
-
-    public static final TableRef SYS_USER_ROLE = new TableRef("sys_user_role",
-            "id", "tenant_id", "user_id", "role_id", "scope_org_id", "valid_from", "valid_until",
-            "created_at");
 
     public static final TableRef SYS_MENU = new TableRef("sys_menu",
             "id", "tenant_id", "parent_id", "menu_code", "menu_name", "menu_type", "route_path",
@@ -86,6 +79,26 @@ public final class JooqTables {
     public static final TableRef SYS_CONFIG = new TableRef("sys_config",
             "id", "tenant_id", "config_key", "config_name", "config_value", "config_type", "remark",
             "status", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    // ---------------- 公告 / 站内信 / 监控 ----------------
+
+    public static final TableRef SYS_ANNOUNCEMENT = new TableRef("sys_announcement",
+            "id", "tenant_id", "title", "content", "status", "is_top", "publish_at", "expire_at",
+            "published_at", "offline_at", "publisher_id", "view_count", "version", "deleted",
+            "created_by", "created_at", "updated_by", "updated_at");
+
+    public static final TableRef SYS_MESSAGE = new TableRef("sys_message",
+            "id", "tenant_id", "title", "content", "msg_type", "sender_id", "filter_role_ids",
+            "filter_org_ids", "receiver_ids", "total_count", "read_count", "sent_at", "version",
+            "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    public static final TableRef SYS_MESSAGE_RECEIPT = new TableRef("sys_message_receipt",
+            "id", "tenant_id", "message_id", "user_id", "is_read", "read_at", "created_at");
+
+    public static final TableRef SYS_MONITOR_SAMPLE = new TableRef("sys_monitor_sample",
+            "id", "tenant_id", "cpu_usage", "memory_usage", "system_memory_usage", "disk_usage",
+            "used_heap_bytes", "max_heap_bytes", "used_memory_bytes", "total_memory_bytes",
+            "online_users", "active_sessions", "thread_count", "sampled_at");
 
     // ---------------- 安全与审计 ----------------
 

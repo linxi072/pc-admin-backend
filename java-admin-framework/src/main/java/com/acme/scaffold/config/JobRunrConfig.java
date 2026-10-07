@@ -1,6 +1,8 @@
 package com.acme.scaffold.config;
 
+import com.acme.scaffold.job.AnnouncementExpiryJob;
 import com.acme.scaffold.job.DemoJob;
+import com.acme.scaffold.job.MonitorSampleJob;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jobrunr.scheduling.JobScheduler;
@@ -29,6 +31,14 @@ public class JobRunrConfig implements ApplicationRunner {
     private static final String DEMO_JOB_ID = "demo-job";
     private static final String DEMO_JOB_CRON = "*/5 * * * *";
 
+    /** 公告过期自动下线：每 5 分钟。 */
+    private static final String ANNOUNCEMENT_EXPIRY_JOB_ID = "announcement-expiry-job";
+    private static final String ANNOUNCEMENT_EXPIRY_JOB_CRON = "*/5 * * * *";
+
+    /** 监控指标采样：每 1 分钟。 */
+    private static final String MONITOR_SAMPLE_JOB_ID = "monitor-sample-job";
+    private static final String MONITOR_SAMPLE_JOB_CRON = "* * * * *";
+
     /**
      * 采用 ObjectProvider 懒获取，而非构造器直注 + {@code @ConditionalOnBean}。
      * 原因：普通 {@code @Configuration} 先于自动配置解析，{@code @ConditionalOnBean(JobScheduler.class)}
@@ -36,6 +46,8 @@ public class JobRunrConfig implements ApplicationRunner {
      */
     private final ObjectProvider<JobScheduler> jobSchedulerProvider;
     private final DemoJob demoJob;
+    private final AnnouncementExpiryJob announcementExpiryJob;
+    private final MonitorSampleJob monitorSampleJob;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -46,5 +58,13 @@ public class JobRunrConfig implements ApplicationRunner {
         }
         jobScheduler.scheduleRecurrently(DEMO_JOB_ID, DEMO_JOB_CRON, demoJob::run);
         log.info("已注册 JobRunr 周期任务 id={} cron={}", DEMO_JOB_ID, DEMO_JOB_CRON);
+
+        jobScheduler.scheduleRecurrently(ANNOUNCEMENT_EXPIRY_JOB_ID, ANNOUNCEMENT_EXPIRY_JOB_CRON,
+                announcementExpiryJob::offlineExpired);
+        log.info("已注册 JobRunr 周期任务 id={} cron={}", ANNOUNCEMENT_EXPIRY_JOB_ID, ANNOUNCEMENT_EXPIRY_JOB_CRON);
+
+        jobScheduler.scheduleRecurrently(MONITOR_SAMPLE_JOB_ID, MONITOR_SAMPLE_JOB_CRON,
+                monitorSampleJob::sample);
+        log.info("已注册 JobRunr 周期任务 id={} cron={}", MONITOR_SAMPLE_JOB_ID, MONITOR_SAMPLE_JOB_CRON);
     }
 }
