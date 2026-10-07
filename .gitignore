@@ -1,0 +1,20 @@
+# Build artifacts
+target/
+dist/
+build/
+
+# IDE
+.idea/
+*.iml
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+
+# Node (frontend has its own, this is a safeguard)
+node_modules/
