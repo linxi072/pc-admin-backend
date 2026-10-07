@@ -8,6 +8,7 @@ import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.permission.DataScopeProvider;
+import com.acme.scaffold.security.permission.DataScopeResult;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.dto.UpdateUserRequest;
 import com.acme.scaffold.system.dto.UserQuery;
@@ -121,8 +122,8 @@ public class UserService {
 
     public PageResult<UserView> list(UserQuery query) {
         CurrentPrincipal principal = securityContextFacade.getCurrentPrincipal().orElse(null);
-        Set<Long> orgIds = principal == null ? Set.of() :
-                dataScopeProvider.resolveOrgIds(principal.userId(), "system:user");
+        DataScopeResult scope = principal == null ? DataScopeResult.all()
+                : dataScopeProvider.resolve(principal.userId(), UserQuery.RESOURCE_CODE);
 
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(JooqTables.SYS_USER));
@@ -140,9 +141,11 @@ public class UserService {
         if (query.roleId() != null) {
             conds.add(JooqTables.SYS_USER.field("role_id", Long.class).eq(query.roleId()));
         }
-        // 数据权限：仅能查看数据范围内部门的用户
-        if (orgIds != null && !orgIds.isEmpty()) {
-            conds.add(JooqTables.SYS_USER.field("org_id", Long.class).in(orgIds));
+        // 数据权限：SELF 按本人过滤，其余受限范围按机构集合过滤
+        if (scope.selfOnly() && principal != null) {
+            conds.add(JooqTables.SYS_USER.field("id", Long.class).eq(principal.userId()));
+        } else if (!scope.unrestricted()) {
+            conds.add(JooqTables.SYS_USER.field("org_id", Long.class).in(scope.orgIds()));
         }
 
         PageResult<SysUserDO> page = JooqWriters.page(dsl, JooqTables.SYS_USER, SysUserDO.class,

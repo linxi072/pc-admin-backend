@@ -3,7 +3,10 @@ package com.acme.scaffold.system.controller;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
+import com.acme.scaffold.system.dto.DataScopeRuleView;
 import com.acme.scaffold.system.dto.RoleView;
+import com.acme.scaffold.system.dto.SaveDataScopeRequest;
+import com.acme.scaffold.system.service.RoleDataScopeService;
 import com.acme.scaffold.system.service.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,6 +24,7 @@ import java.util.List;
 public class RoleController {
 
     private final RoleService roleService;
+    private final RoleDataScopeService roleDataScopeService;
 
     @Operation(summary = "角色列表")
     @GetMapping
@@ -59,6 +63,23 @@ public class RoleController {
     @AuditOperation(module = "system", type = "DELETE", name = "删除角色")
     public Result<Void> delete(@PathVariable Long id) {
         roleService.delete(id);
+        return Result.success();
+    }
+
+    @Operation(summary = "角色数据权限列表")
+    @GetMapping("/{id}/data-scopes")
+    @PreAuthorize("hasAuthority('system:role:read')")
+    public Result<List<DataScopeRuleView>> listDataScopes(@PathVariable Long id) {
+        return Result.success(roleDataScopeService.list(id));
+    }
+
+    @Operation(summary = "保存角色数据权限（覆盖式）")
+    @PutMapping("/{id}/data-scopes")
+    @PreAuthorize("hasAuthority('system:role:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "保存角色数据权限")
+    public Result<Void> saveDataScope(@PathVariable Long id,
+                                       @Valid @RequestBody SaveDataScopeRequest request) {
+        roleDataScopeService.save(id, request);
         return Result.success();
     }
 }

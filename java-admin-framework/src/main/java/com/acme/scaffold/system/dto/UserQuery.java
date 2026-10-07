@@ -8,6 +8,12 @@ import com.acme.scaffold.common.api.PageQuery;
  */
 public record UserQuery(int page, int size, String username, String status, Long orgId, Long roleId) {
 
+    /**
+     * 用户资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。
+     * 数据权限配置页面按该编码读写规则，故提取为常量避免散落字面量。
+     */
+    public static final String RESOURCE_CODE = "system:user";
+
     public PageQuery toPageQuery() {
         return PageQuery.of(page, size);
     }

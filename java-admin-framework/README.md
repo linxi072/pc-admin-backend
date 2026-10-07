@@ -96,7 +96,7 @@ mvn spring-boot:run
 #    Actuator:       http://localhost:9090/actuator/health
 #    Prometheus:     http://localhost:9090/actuator/prometheus
 #    Swagger:        http://localhost:8080/swagger-ui.html   （仅 local）
-#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 14 节说明）
+#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 15 节说明）
 ```
 
 > **默认账号**：`V1__baseline.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），
@@ -347,13 +347,95 @@ JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 
 其他角色的授权仍由「角色管理」页面显式勾选，不受 V11 影响。
 
-## 13. 后续建议
+## 13. 角色数据权限
+
+控制「同一功能下，某个角色能看到哪些行」，与菜单/接口权限（控制能否发起请求）相互独立。
+
+### 背景：此前是「有表无入口」的半成品
+
+`sys_role_data_scope` / `sys_role_data_scope_org` 两张表自 V1 建表起**零写入方、零种子数据、零配置界面**，
+导致 `DefaultDataScopeProvider` 永远查不到规则，`UserService#list` 的数据权限分支形同虚设 ——
+表面上「支持数据权限」，实际任何配置都不会生效。本节补齐配置入口并修复两处越权缺陷。
+
+### 五种范围类型
+
+| scopeType | 含义 | 过滤条件 |
+|---|---|---|
+| `ALL` | 全部数据（默认） | 不加过滤条件 |
+| `DEPT_AND_CHILD` | 本部门及下级 | `org_id IN (本部门 + ancestors 含本部门的部门)` |
+| `DEPT` | 仅本部门 | `org_id = 本部门` |
+| `SELF` | 仅本人 | `id = 当前用户`（**不按机构过滤**） |
+| `CUSTOM` | 自定义部门 | `org_id IN (sys_role_data_scope_org 配置集合)` |
+
+合并规则：命中 `ALL` 即整体放行；`SELF` 优先于机构类规则（更严格者胜）并短路；其余取并集。
+
+### 接口
+
+| 方法 | 路径 | 权限码 | 说明 |
+|---|---|---|---|
+| GET | `/api/system/roles/{id}/data-scopes` | `system:role:read` | 查询该角色已配置的规则 |
+| PUT | `/api/system/roles/{id}/data-scopes` | `system:role:update` | **覆盖式**保存（先删后插） |
+
+复用既有权限码、不新增，与角色 CRUD 的读写分离一致：看数据权限不需改角色，改数据权限才需要。
+
+写入采用覆盖式语义，前端只需提交「当前生效的完整规则」，无需做三态 diff；
+表上唯一键 `uk_role_resource` 使重复保存天然幂等。
+
+### 两处已修复的越权缺陷
+
+**1. ancestors 子串匹配**
+
+原实现取下级部门用 `ancestors LIKE '%orgId%'`。但 `ancestors` 是逗号分隔的物化路径（如 `0,1,11`），
+子串匹配会让 `orgId=1` 命中 `ancestors='0,11,111'` —— **id=1 的部门能看到 id=11、111 这类无关机构**。
+
+已改为两侧补逗号后匹配完整片段：
+
+```sql
+CONCAT(',', ancestors, ',') LIKE '%,1,%'
+```
+
+实测：机构 `1 / 11 / 21 / 211 / 2111` 中，旧实现把 `211`、`2111`（`21` 体系，与 `1` 无父子关系）
+误判为 `1` 的后代；修复后仅命中真后代 `11`。
+
+**2. SELF 被并入 DEPT**
+
+原实现里 `SELF` 与 `DEPT` 共用一个分支，都只返回机构集合 —— 于是「仅本人」实际变成了「本部门所有人可见」，
+比配置意图宽松。同时 `resolveOrgIds` 的「返回空集合 = 不限制」约定无法区分
+「查无规则」与「命中 ALL」，解析出错会静默退化为全量可见。
+
+已重构为显式的 `DataScopeResult(type, orgIds)` 记录类型，调用方用 `unrestricted()` / `selfOnly()` 判断，
+不再依赖「空集合即不限」的隐式约定。
+
+### 边界处理
+
+| 场景 | 行为 |
+|---|---|
+| `CUSTOM` 未选部门 | 400「自定义范围必须至少选择一个部门」 |
+| `CUSTOM` 选了不存在的部门 | 400 并列出具体 ID（否则规则静默失效，查不到任何数据） |
+| `SELF`/`DEPT` 等传了 `orgIds` | 400，避免前端误以为生效 |
+| 非法 `scopeType` | 400（枚举解析失败） |
+| 角色不存在 | 404 |
+| 配了机构规则但解析不出机构（如用户未挂部门） | 降级为不限制 **并打 WARN 日志**，避免整个角色查不到数据 |
+| `scope_type` 库中脏数据 | 按 `ALL` 兜底 + 告警，列表接口不 500 |
+| 删除角色 | 级联清理其数据权限规则与 CUSTOM 机构关联（该表无外键，漏删会留孤儿行） |
+
+### 当前接入范围
+
+仅 `system:user`（用户列表）实际接入了过滤。
+其余资源编码已在 Provider 层预留，但需在对应 Service 中显式调用 `dataScopeProvider.resolve(...)` 才生效。
+前端不提供资源自由输入，避免配出后端未接线的编码导致「配了却不生效」。
+
+## 14. 后续建议
 
 1. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
 2. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
 3. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
 4. `PageQuery.sorts` 已定义但各 Service 尚未消费，排序目前一律硬编码，可考虑接入服务端白名单映射。
-## 14. 验证记录（原生 MySQL + Redis，无 Docker）
+5. 数据权限目前仅 `system:user` 接入过滤，其余 11 个 Service 需按需显式调用
+   `DataScopeProvider#resolve`；`security/permission/DataScope` 注解仍为零使用，
+   可考虑改为 AOP 环绕自动注入，避免每个 Service 手工接线。
+
+## 15. 验证记录（原生 MySQL + Redis，无 Docker）
 
 已在**原生 MySQL 8.4.11 + Redis** 环境完成实际启动验证，全程未使用任何容器：
 

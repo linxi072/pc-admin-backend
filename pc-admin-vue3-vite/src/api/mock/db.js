@@ -25,6 +25,11 @@ const db = {
     { id: 2, roleCode: 'OPERATOR', roleName: '运营专员', roleType: 'BUSINESS', status: 'ACTIVE', sortNo: 2, menuIds: [1, 4, 5], apiIds: [3, 4] },
     { id: 3, roleCode: 'AUDITOR', roleName: '审计员', roleType: 'BUSINESS', status: 'ACTIVE', sortNo: 3, menuIds: [1, 6], apiIds: [5] }
   ],
+  // 角色数据权限规则，结构对齐 sys_role_data_scope / sys_role_data_scope_org
+  // resourceCode 当前仅 system:user 接入过滤（与后端 DefaultDataScopeProvider 一致）
+  roleDataScopes: [
+    { id: 1, roleId: 2, resourceCode: 'system:user', scopeType: 'DEPT_AND_CHILD', orgIds: [] }
+  ],
   menus: [
     { id: 1, parentId: 0, menuCode: 'dashboard', menuName: '工作台', menuType: 'M', routePath: '/dashboard', permissionCode: '', sortNo: 1, status: 'ENABLED', children: [] },
     { id: 2, parentId: 0, menuCode: 'sys', menuName: '系统管理', menuType: 'C', routePath: '', permissionCode: '', sortNo: 2, status: 'ENABLED', children: [
@@ -214,6 +219,19 @@ function findOrg(nodes, id) {
   }
   return null
 }
+/** 拍平部门树的所有节点，用于校验自定义范围里的部门是否真实存在。 */
+function flattenOrgIds(nodes, acc = []) {
+  for (const n of nodes) {
+    acc.push(n.id)
+    if (n.children?.length) flattenOrgIds(n.children, acc)
+  }
+  return acc
+}
+/** 按部门 ID 取名称；已删除的部门返回占位文案，与后端 orgNames 降级行为一致。 */
+function orgNameOf(nodes, id) {
+  const o = findOrg(nodes, id)
+  return o ? o.orgName : `已删除部门(${id})`
+}
 function removeOrg(nodes, id) {
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i]
@@ -392,6 +410,54 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     const i = db.roles.findIndex((x) => x.id === idOf(url))
     if (i < 0) throw bizError('NOT_FOUND', '角色不存在')
     db.roles.splice(i, 1)
+    // 级联清理数据权限，避免角色重建后读到旧规则
+    db.roleDataScopes = db.roleDataScopes.filter((x) => x.roleId !== idOf(url))
+    return null
+  }
+
+  // ---- 角色数据权限（覆盖式保存，语义与后端 RoleDataScopeService 一致）----
+  if (m === 'GET' && /^\/api\/system\/roles\/\d+\/data-scopes$/.test(url)) {
+    const roleId = Number(url.match(/\/roles\/(\d+)\/data-scopes/)[1])
+    if (!db.roles.some((x) => x.id === roleId)) throw bizError('NOT_FOUND', '角色不存在')
+    return db.roleDataScopes
+      .filter((x) => x.roleId === roleId)
+      .map((r) => ({
+        ...r,
+        orgIds: r.scopeType === 'CUSTOM' ? [...(r.orgIds || [])] : [],
+        orgNames: r.scopeType === 'CUSTOM'
+          ? (r.orgIds || []).map((oid) => orgNameOf(db.orgs, oid))
+          : []
+      }))
+  }
+  if (m === 'PUT' && /^\/api\/system\/roles\/\d+\/data-scopes$/.test(url)) {
+    const roleId = Number(url.match(/\/roles\/(\d+)\/data-scopes/)[1])
+    if (!db.roles.some((x) => x.id === roleId)) throw bizError('NOT_FOUND', '角色不存在')
+    if (!data.resourceCode) throw bizError('VALIDATION_ERROR', '资源编码不能为空')
+    if (!data.scopeType) throw bizError('VALIDATION_ERROR', '数据范围类型不能为空')
+    const orgIds = data.orgIds || []
+    // 与后端 validateScopeInput 相同的组合校验
+    if (data.scopeType === 'CUSTOM') {
+      if (!orgIds.length) throw bizError('VALIDATION_ERROR', '自定义范围必须至少选择一个部门')
+      const existing = new Set(flattenOrgIds(db.orgs))
+      const missing = orgIds.filter((id) => !existing.has(id))
+      if (missing.length) throw bizError('VALIDATION_ERROR', `部门不存在或已删除: ${missing}`)
+    } else if (orgIds.length) {
+      throw bizError('VALIDATION_ERROR', `${data.scopeType} 范围不适用自定义部门列表，请清空后重试`)
+    }
+    // 覆盖式：先清该角色该资源的旧规则
+    db.roleDataScopes = db.roleDataScopes.filter(
+      (x) => !(x.roleId === roleId && x.resourceCode === data.resourceCode)
+    )
+    // ALL 表示不限制，直接不落规则（与后端一致：删除后即回到不限）
+    if (data.scopeType !== 'ALL') {
+      db.roleDataScopes.push({
+        id: ++seq,
+        roleId,
+        resourceCode: data.resourceCode,
+        scopeType: data.scopeType,
+        orgIds: data.scopeType === 'CUSTOM' ? [...orgIds] : []
+      })
+    }
     return null
   }
 

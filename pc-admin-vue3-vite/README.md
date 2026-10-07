@@ -73,7 +73,7 @@ npm run preview  # 预览构建产物
 |---|---|---|
 | 认证 | 登录/登出 | `POST /api/auth/login`、`POST /api/auth/logout` |
 | 用户 | 分页/筛选/新建/编辑/重置密码/**硬删除** | `GET /users/page`、`POST /users`、`PUT /users/{id}`、`POST /users/{id}/reset-password`、`DELETE /users/{id}` |
-| 角色 | 列表/新建/编辑/删除/**权限树** | `GET /roles`、`POST /roles`、`PUT /roles/{id}`、`DELETE /roles/{id}` |
+| 角色 | 列表/新建/编辑/删除/**权限树**/**数据权限** | `GET /roles`、`POST /roles`、`PUT /roles/{id}`、`DELETE /roles/{id}`、`GET /roles/{id}/data-scopes`、`PUT /roles/{id}/data-scopes` |
 | 菜单 | 树形列表/关键词筛选/新增/编辑/删除 | `GET /menus/tree`、`POST /menus`、`PUT /menus/{id}`、`DELETE /menus/{id}` |
 | 接口资源 | 列表/名称·权限·方法筛选/分页/注册/编辑/删除/**扫描对比/同步** | `GET /api-resources`、`POST /api-resources`、`PUT /api-resources/{id}`、`DELETE /api-resources/{id}`、`GET /api-resources/scan`、`POST /api-resources/scan/sync` |
 | 待办 | 审批/驳回/转办 | `GET /tasks/mine`、`POST /tasks/complete`、`POST /tasks/transfer` |
@@ -96,6 +96,21 @@ npm run preview  # 预览构建产物
 - 角色编辑/新建弹窗内置两棵 `el-tree`（菜单树来自 `GET /menus/tree`、接口资源树来自 `GET /api-resources`，均带复选框）。
 - 打开编辑时，通过 `getRole(id)` 取回该角色已分配的 `menuIds / apiIds`，用 `setCheckedKeys` 回填勾选状态（联动）。
 - 保存时收集 `getCheckedKeys()` 一并提交，后端 `RoleService` 已支持 `menuIds / apiIds` 的持久化与回填。
+
+### ③ 角色数据权限
+
+角色列表新增「数据权限」列与操作按钮，控制该角色**能看到哪些行数据**（与菜单/接口权限相互独立）。
+
+- **概览标签**：列表页展示已配置的范围类型（如「本部门及下级」）；未配置显示灰色「未配置（全部数据）」。
+  概览随角色列表一并加载，单个角色查询失败会被 catch 并跳过，不影响整表渲染。
+- **配置弹窗**：资源下拉当前固定为「用户数据」（`system:user`）—— 前端不提供自由输入，
+  避免配出后端尚未接线过滤的资源编码，导致「配了却不生效」。
+- **五种范围**：全部数据 / 本部门及下级 / 仅本部门 / 仅本人 / 自定义部门，
+  单选切换，下方实时显示该范围的具体含义说明。
+- **自定义部门**：仅 `CUSTOM` 时展示部门树（`GET /orgs/tree`），保存时取 `getCheckedKeys(true)`
+  只提交叶子节点，避免把父节点也写进规则；未勾选任何部门时前端拦截并提示。
+- **覆盖式保存**：调 `PUT /roles/{id}/data-scopes` 提交完整规则，后端先删后插，
+  因此前端无需做新增/修改/删除三态 diff。保存成功后局部更新列表标签，无需重载整表。
 
 ## 新增页面：菜单管理 / 接口资源管理
 

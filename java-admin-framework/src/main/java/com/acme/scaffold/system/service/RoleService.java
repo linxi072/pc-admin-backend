@@ -8,6 +8,7 @@ import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.RoleView;
 import com.acme.scaffold.system.entity.SysRoleApiDO;
 import com.acme.scaffold.system.entity.SysRoleDO;
+import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleMenuDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -87,6 +88,17 @@ public class RoleService {
         JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "role_id", id);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_API, "role_id", id);
+        // 数据权限：先清 CUSTOM 机构关联再清规则，否则残留孤儿行。
+        // 该表无外键约束，漏删不会报错但会在角色重建（同 id）时读到旧机构。
+        List<Long> ruleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE, SysRoleDataScopeDO.class,
+                        JooqTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(id))
+                .stream().map(SysRoleDataScopeDO::getId).toList();
+        if (!ruleIds.isEmpty()) {
+            dsl.delete(JooqTables.SYS_ROLE_DATA_SCOPE_ORG.table())
+                    .where(JooqTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).in(ruleIds))
+                    .execute();
+        }
+        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_DATA_SCOPE, "role_id", id);
     }
 
     private void assignMenus(Long roleId, Set<Long> menuIds) {

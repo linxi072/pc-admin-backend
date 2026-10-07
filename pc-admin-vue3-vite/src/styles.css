@@ -99,6 +99,23 @@ body {
   padding: 8px;
 }
 
+/* 数据权限弹窗：部门树与范围说明 */
+.scope-tree {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px;
+  width: 100%;
+}
+
+.scope-hint {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
 .page-title {
   font-size: 18px;
   font-weight: 600;

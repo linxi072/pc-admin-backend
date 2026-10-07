@@ -19,3 +19,14 @@ export const updateRole = (id, body) =>
 // DELETE /api/system/roles/{id} -> void
 export const deleteRole = (id) =>
   request({ method: 'DELETE', url: `/api/system/roles/${id}` })
+
+// GET /api/system/roles/{id}/data-scopes -> List<DataScopeRuleView>
+// DataScopeRuleView: { id, roleId, resourceCode, scopeType, orgIds, orgNames }
+// scopeType ∈ ALL | SELF | DEPT | DEPT_AND_CHILD | CUSTOM
+export const listRoleDataScopes = (id) =>
+  request({ method: 'GET', url: `/api/system/roles/${id}/data-scopes` })
+
+// PUT /api/system/roles/{id}/data-scopes -> void（覆盖式保存）
+// body: { resourceCode, scopeType, orgIds }；scopeType=CUSTOM 时 orgIds 必填，其余须为空
+export const saveRoleDataScope = (id, body) =>
+  request({ method: 'PUT', url: `/api/system/roles/${id}/data-scopes`, data: body })
