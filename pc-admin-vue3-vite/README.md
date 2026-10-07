@@ -24,6 +24,7 @@ src/
 │   ├── http.js            # request() 统一封装（mock / 真实二选一）
 │   ├── auth.js user.js role.js menu.js apiResource.js workflow.js
 │   ├── org.js dictType.js dictData.js sysConfig.js   # 部门/字典/系统变量接口封装
+│   ├── announcement.js message.js monitor.js          # 公告/站内信/系统监控接口封装
 │   └── mock/db.js         # 前端内置 mock 数据层（模拟全部后端接口）
 ├── layout/
 │   ├── AppLayout.vue       # 顶部栏 + 侧边栏 + 主区 + 底部栏
@@ -39,6 +40,9 @@ src/
     ├── system/DictView.vue          # 字典管理（分类主从联动 + 键值配置）
     ├── system/ApiResourceView.vue   # 接口资源管理（筛选 + 分页 + 注册 + 编辑 + 删除）
     ├── system/ConfigView.vue        # 系统变量（参数配置 + 按 key 动态读取）
+    ├── system/AnnouncementView.vue  # 系统公告（关键词搜索 + 定时生效/下线 + 置顶）
+    ├── system/MessageView.vue       # 站内信（单条/批量发送 + 已读未读 + 未读徽标）
+    ├── system/MonitorView.vue       # 系统监控（运行指标 + 在线会话 + 异常日志 + 刷新）
     └── workflow/TaskView.vue        # 我的待办（审批/驳回/转办）
         workflow/InstanceView.vue     # 我发起的流程（发起/审批记录）
 ```
@@ -78,12 +82,15 @@ npm run preview  # 预览构建产物
 | 字典分类 | 列表/新增/编辑/删除 | `GET /dict-types`、`POST /dict-types`、`PUT /dict-types/{id}`、`DELETE /dict-types/{id}` |
 | 字典数据 | 按分类筛选/新增/编辑/删除 | `GET /dict-data?dictType=`、`POST /dict-data`、`PUT /dict-data/{id}`、`DELETE /dict-data/{id}` |
 | 系统变量 | 列表/新增/编辑/删除/**按 key 动态读取** | `GET /configs`、`POST /configs`、`PUT /configs/{id}`、`DELETE /configs/{id}`、`GET /configs/key/{key}` |
+| 系统公告 | 搜索/分页/新增/编辑/**发布**/**下线**/**置顶** | `GET /announcements/page`、`POST /announcements`、`PUT /announcements/{id}`、`POST /announcements/{id}/publish`、`POST /announcements/{id}/offline`、`POST /announcements/{id}/toggle-top` |
+| 站内信 | 收件箱/未读数/**单条·批量发送**/标记已读/已发 | `GET /messages/mine`、`GET /messages/unread-count`、`POST /messages/send`、`POST /messages/{id}/read`、`POST /messages/read-all`、`GET /messages/sent` |
+| 系统监控 | 运行指标/在线会话/**异常日志(时间范围)**/刷新 | `GET /monitor/metrics`、`GET /monitor/online-summary`、`GET /monitor/online-sessions`、`GET /monitor/error-logs`、`GET /monitor/samples`、`POST /monitor/sample` |
 
 ## 两项增强说明
 
 ### ① 用户硬删除
 - 前端：用户列表「删除」按钮使用 `el-popconfirm` 二次确认后调用 `DELETE /api/system/users/{id}`，成功后刷新列表。
-- 后端（本次新增）：`UserController` 增加 `DELETE /api/system/users/{id}`，`UserService.delete(id)` 调用 `JooqWriters.delete(..., false)` 做**物理删除**并清理 `SYS_USER_ROLE` 关联（与既有逻辑删除语义区分）。
+- 后端（本次新增）：`UserController` 增加 `DELETE /api/system/users/{id}`，`UserService.delete(id)` 调用 `JooqWriters.delete(..., false)` 做**物理删除**（与既有逻辑删除语义区分）。
 
 ### ② 角色权限树联动
 - 角色编辑/新建弹窗内置两棵 `el-tree`（菜单树来自 `GET /menus/tree`、接口资源树来自 `GET /api-resources`，均带复选框）。
@@ -108,6 +115,17 @@ npm run preview  # 预览构建产物
 - **系统变量 `ConfigView`**：系统参数表格 CRUD；顶部提供「按配置键动态读取」演示区，调 `GET /configs/key/{key}` 回显 `名称=值(类型)`，直观展示后端内存缓存 + 动态读取能力。
 
 > mock 模式下 `db.js` 已补齐部门（含层级移动/防环）、字典分类与数据（唯一性/占用守卫）、系统变量（含按 key 读取）的全部路由，可直接离线演示。
+
+## 新增页面：系统公告 / 站内信 / 系统监控 + 用户角色部门改单选
+
+本轮新增三个页面，并同步把用户表单的角色、部门控件收敛为单值选择。
+
+- **系统公告 `AnnouncementView`**：关键词搜索（标题/内容）+ 状态筛选 + 分页浏览；列表支持**置顶**（置顶行前移）；「发布」弹窗可设 `publishAt`（**定时生效**）与 `expireAt`（**有效期**），已发布行展示「未生效 / 已过期」标记；「下线」与「删除」均有二次确认。状态机为 草稿 → 已发布 → 已下线。
+- **站内信 `MessageView`**：收件箱带**未读徽标**与标题红点，打开详情即落**已读回执**并记录回执时间；支持「全部已读」与未读数查询；「发送」弹窗可切**单条 / 批量**，批量时按**角色与部门筛选接收人**（二者为**或关系**，前端校验至少选一项）；「已发送」列表可回查投递与阅读情况。
+- **系统监控 `MonitorView`**：4 个使用率指标卡（CPU / JVM 内存 / 物理内存 / 磁盘）+ 运行时详情（堆、线程、类加载、JVM 版本、运行时长、主机信息）；在线用户 / 会话 / 令牌三卡与在线会话明细；**异常日志按时间范围查询**（from / to）并可按模块与关键词过滤；支持 30s **自动刷新开关**与手动刷新（手动刷新同时触发一次指标采样落库）。
+- **用户表单改造**：角色 `el-select` 由 `multiple` 多选改为**单选且必填**，新增**部门单选**下拉；列表展示部门列与单个角色标签（不再遍历 `roleCodes`）；`api/user.js` 提交字段改为单值 `roleId` / `orgId`，与后端 V6 收敛后的数据模型一致。
+
+> mock 模式下 `db.js` 已补齐三模块的种子数据与全路由分发（含公告状态流转、投递去重、未读统计、异常日志时间范围过滤等校验），可直接离线演示。
 
 ## 后端改动
 

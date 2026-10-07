@@ -54,13 +54,17 @@ com.acme.scaffold
 │   └── controller/ AuthController
 ├── system
 │   ├── entity|service|controller|dto   用户/角色/菜单/机构(部门)/接口资源/字典/系统变量
+│                                          公告(SysAnnouncement)/站内信(SysMessage + SysMessageReceipt)
 ├── workflow
 │   ├── port/       WorkflowEnginePort（屏蔽 Flowable）
 │   ├── adapter/    FlowableWorkflowAdapter
 │   ├── service/    WorkflowService（不可变审批记录 + 幂等）
 │   └── controller|dto|entity
 ├── monitor/        BusinessMetrics / BusinessHealthIndicator / SlowQueryListener
+│                   RuntimeMetricsCollector(JDK 采集 CPU/内存/磁盘/JVM)
+│                   MonitorService / MonitorController(运行指标+在线会话+异常日志)
 ├── job/            DemoJob（JobRunr 示例，替代原 XXL-JOB 的 demoJobHandler）
+│                   AnnouncementExpiryJob(公告过期下线) / MonitorSampleJob(指标采样)
 └── config/         Jooq / JobRunr / Redis / Web(CORS) / TraceId / Observability / SpringDoc
 ```
 
@@ -92,7 +96,7 @@ mvn spring-boot:run
 #    Actuator:       http://localhost:9090/actuator/health
 #    Prometheus:     http://localhost:9090/actuator/prometheus
 #    Swagger:        http://localhost:8080/swagger-ui.html   （仅 local）
-#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 12 节说明）
+#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 13 节说明）
 ```
 
 > **默认账号**：`V1__baseline.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），
@@ -223,21 +227,78 @@ JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 
 > 迁移脚本：`V5__system_modules.sql`（utf8mb4，`tenant_id` 默认 0，唯一键 `uk_tenant_dict_code` / `uk_tenant_config_key` 等）。
 
-## 10. 关键设计点
+## 10. 公告 / 站内信 / 系统监控 + 用户单角色单部门收敛
+
+本轮包含三个新增模块，以及一项**破坏性数据模型收敛**（用户不再支持多角色/多部门）。
+
+### 10.1 系统公告（`V7__announcement.sql`）
+
+`/api/system/announcements`，权限码 `system:announcement:read/create/update/delete`。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/page` | 分页；支持 `keyword`（标题或内容模糊）、`status`、`onlyValid` |
+| POST | `/`、`PUT /{id}` | 新增 / 编辑（**已发布禁止编辑**，须先下线） |
+| POST | `/{id}/publish` | 发布，可带 `publishAt`（定时生效）与 `expireAt`（有效期） |
+| POST | `/{id}/offline`、`/{id}/toggle-top` | 下线 / 切换置顶 |
+
+- **状态机**：`DRAFT → PUBLISHED → OFFLINE`。
+- **定时生效不依赖定时任务**：到达 `publishAt` 后由查询侧 `AnnouncementView#isEffective(now)` 实时判定可见，因此即使任务延迟也不会漏生效。`AnnouncementExpiryJob`（JobRunr `*/5`）只负责已发布公告**过期自动下线**。
+- 排序：`is_top` 倒序 → `publish_at` 倒序 → `id` 倒序，置顶恒在前。
+- 索引：`idx_tenant_status_pub`（状态+时间过滤）、`idx_tenant_top`（置顶排序）、`idx_expire`（过期扫描）。
+
+### 10.2 站内信（`V8__message.sql`）
+
+`/api/system/messages`，发送需 `system:message:send`，收件箱仅需登录。
+
+- **双表设计**：`sys_message` 为发件主表（一条消息 = 一次发送动作），`sys_message_receipt` 为收件明细，`is_read` / `read_at` 记录已读状态与**回执时间**。
+- `UNIQUE KEY uk_msg_user(tenant_id, message_id, user_id)` 保证批量投递**不重复**；`idx_user_read` 支撑「我的未读」。
+- **发送**：单条用显式 `receiverIds`；批量用 `roleIds` / `orgIds` 取**并集（或关系）**，匹配 `sys_user.role_id` / `org_id` 单值列（承接 V6 收敛）。保留 `filter_role_ids` / `filter_org_ids` 筛选快照便于审计「当时按什么范围发的」。单次上限 **5000** 接收人。
+- **已读跟踪**：`markRead` 幂等并回写 `read_count`；列表批量装载回执时间，避免 N+1。
+- 接口：`POST /send`、`GET /mine`（`onlyUnread`，未读优先）、`GET /unread-count`、`POST /{id}/read`、`POST /read-all`、`GET /sent`。
+
+### 10.3 系统监控（`V9__monitor_sample.sql`）
+
+`/api/system/monitor`，权限统一 `system:monitor:read`。
+
+- **零第三方依赖**：OSHI 不在本地 m2 仓库（禁离线引入），指标采集全部使用 **JDK Management API**。`RuntimeMetricsCollector` 中 CPU/物理内存需强转 `com.sun.management.OperatingSystemMXBean`，已加载类数取自 `ClassLoadingMXBean`（不在 `RuntimeMXBean` 上）；磁盘用 `File.getTotalSpace/getUsableSpace`；不可用指标返回 `null` 以便前端区分「无数据」。
+- **在线会话口径**：`sys_refresh_token` 中未吊销且未过期，按 `session_id` 去重。
+- **异常日志**：复用 `sys_operation_log` 中 `success=0` 的记录，按 `from` / `to` **时间范围**过滤，附 `errorSummary` 按模块 + 错误码聚合。
+- **采样**：`MonitorSampleJob`（JobRunr `* * * * *`）周期写入 `sys_monitor_sample`，供时间范围趋势查询；`POST /sample` 可手动刷新并落库。
+- 接口：`/metrics`、`/online-summary`、`/online-sessions`、`/error-logs`、`/error-summary`、`/samples`、`POST /sample`。
+
+### 10.4 用户收敛为单角色 + 单部门（`V6__user_single_role_org.sql`）
+
+**这是破坏性变更**：用户不再支持多角色、多部门。
+
+- `sys_user` 新增单值列 `role_id` / `org_id`；`primary_org_id = org_id` 兼容旧读路径；`DROP TABLE sys_user_role` / `sys_user_org`（后者本就未被业务消费）。
+- **回填策略（重要）**：历史多角色用户按「**数据范围最小（最严格）**」挑选角色——`CUSTOM > DEPT_AND_CHILD > DEPT/SELF > ALL`，避免收敛后权限被放大（越权）。
+- 权限链同步改造：`PermissionService#roleIdsOf` 与 `DefaultDataScopeProvider#resolveOrgIds` 均改为直读 `sys_user.role_id`；删除 `SysUserRoleDO` 实体。
+- DTO：`CreateUserRequest.roleId` 增加 `@NotNull`；`UserView` 由 `Set<String> roleCodes` 收敛为 `roleId` / `roleName` / `roleCode` / `orgId` / `orgName`；`UserQuery` 新增 `roleId`（`Long`）筛选，列表批量装载名称避免 N+1。
+
+> 迁移顺序说明：V1 种子仍先写 `sys_user_role`，V6 再回填 `role_id` 后 drop，顺序安全，`admin` 保留 `SUPER_ADMIN`。
+
+### 10.5 权限控制
+
+- 读写分离：公告 `read` 与 `publish/update/delete` 分开，普通用户可读已发布公告但不能改；站内信发送需 `system:message:send`；监控统一 `system:monitor:read`。
+- 全部写操作带 `@AuditOperation`，异常经 `GlobalExceptionHandler` 落 `sys_operation_log`，监控页即可查。
+- 新增权限码沿用 `模块:资源:动作` 约定。注意：`sys_api_resource` **本身没有种子数据**（既有待办），新接口与现有接口一样，需先在「接口资源管理」页面登记并授权给角色后才能访问。
+
+## 11. 关键设计点
 
 - **模块化单体**：单进程部署，认证/系统/工作流/调度/审计/监控按包边界隔离；达到独立扩容/发布条件后再拆微服务。
 - **安全**：JWT 仅承载非敏感声明；刷新令牌不透明且哈希存储；账号锁定、密码加密、登录失败计数、审计脱敏。
 - **数据权限扩展点**：`DataScopeProvider.resolveOrgIds(userId, resourceCode)` 预留，业务查询据此拼接机构过滤（见 `UserService#list`）。
 - **工作流端口**：业务层只依赖 `WorkflowEnginePort`，不直接调用 Flowable `RuntimeService`/`TaskService`。
 
-## 11. 后续建议
+## 12. 后续建议
 
 1. 接入 API 资源自动扫描，把 `@PreAuthorize` 权限码登记到 `sys_api_resource`。
 2. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
 3. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
 4. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
 
-## 12. 验证记录（原生 MySQL + Redis，无 Docker）
+## 13. 验证记录（原生 MySQL + Redis，无 Docker）
 
 已在**原生 MySQL 8.4.11 + Redis** 环境完成实际启动验证，全程未使用任何容器：
 
