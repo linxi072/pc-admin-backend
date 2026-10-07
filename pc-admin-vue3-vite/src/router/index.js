@@ -62,6 +62,24 @@ const routes = [
         meta: { title: '系统变量' }
       },
       {
+        path: 'system/announcement',
+        name: 'announcement',
+        component: () => import('@/views/system/AnnouncementView.vue'),
+        meta: { title: '系统公告', permission: 'system:announcement:read' }
+      },
+      {
+        path: 'system/message',
+        name: 'message',
+        component: () => import('@/views/system/MessageView.vue'),
+        meta: { title: '站内信' }
+      },
+      {
+        path: 'system/monitor',
+        name: 'monitor',
+        component: () => import('@/views/system/MonitorView.vue'),
+        meta: { title: '系统监控', permission: 'system:monitor:read' }
+      },
+      {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),

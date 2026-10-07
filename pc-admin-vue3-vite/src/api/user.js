@@ -1,6 +1,6 @@
 import { request } from './http'
 
-// GET /api/system/users/page?page&size&username&status&orgId -> PageResult<UserView>
+// GET /api/system/users/page?page&size&username&status&orgId&roleId -> PageResult<UserView>
 export const pageUsers = (query) =>
   request({ method: 'GET', url: '/api/system/users/page', params: query })
 

@@ -49,7 +49,10 @@ const menus = [
       { index: '/system/department', title: '部门管理', icon: 'OfficeBuilding' },
       { index: '/system/api-resource', title: '接口资源管理', icon: 'Connection' },
       { index: '/system/dict', title: '字典管理', icon: 'Notebook' },
-      { index: '/system/config', title: '系统变量', icon: 'Coin' }
+      { index: '/system/config', title: '系统变量', icon: 'Coin' },
+      { index: '/system/announcement', title: '系统公告', icon: 'Bell' },
+      { index: '/system/message', title: '站内信', icon: 'ChatDotRound' },
+      { index: '/system/monitor', title: '系统监控', icon: 'Odometer' }
     ]
   },
   {

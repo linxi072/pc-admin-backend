@@ -16,9 +16,9 @@ let seq = 100
 
 const db = {
   users: [
-    { id: 1, username: 'admin', displayName: '超级管理员', mobile: '13800000000', email: 'admin@example.com', primaryOrgId: 1, status: 'ACTIVE', roleCodes: ['SUPER_ADMIN'], createdAt: '2026-01-01 10:00:00' },
-    { id: 2, username: 'zhangsan', displayName: '张三', mobile: '13800000001', email: 'zhangsan@example.com', primaryOrgId: 1, status: 'ACTIVE', roleCodes: ['OPERATOR'], createdAt: '2026-02-01 09:00:00' },
-    { id: 3, username: 'lisi', displayName: '李四', mobile: '13800000002', email: 'lisi@example.com', primaryOrgId: 2, status: 'DISABLED', roleCodes: ['AUDITOR'], createdAt: '2026-03-01 09:00:00' }
+    { id: 1, username: 'admin', displayName: '超级管理员', mobile: '13800000000', email: 'admin@example.com', orgId: 1, roleId: 1, roleName: '超级管理员', roleCode: 'SUPER_ADMIN', status: 'ACTIVE', createdAt: '2026-01-01 10:00:00' },
+    { id: 2, username: 'zhangsan', displayName: '张三', mobile: '13800000001', email: 'zhangsan@example.com', orgId: 1, roleId: 2, roleName: '运营专员', roleCode: 'OPERATOR', status: 'ACTIVE', createdAt: '2026-02-01 09:00:00' },
+    { id: 3, username: 'lisi', displayName: '李四', mobile: '13800000002', email: 'lisi@example.com', orgId: 2, roleId: 3, roleName: '审计员', roleCode: 'AUDITOR', status: 'DISABLED', createdAt: '2026-03-01 09:00:00' }
   ],
   roles: [
     { id: 1, roleCode: 'SUPER_ADMIN', roleName: '超级管理员', roleType: 'SYSTEM', status: 'ACTIVE', sortNo: 1, menuIds: [1, 2, 3, 4, 5, 6, 7, 8], apiIds: [1, 2, 3, 4, 5] },
@@ -83,12 +83,43 @@ const db = {
     { id: 1, configKey: 'sys.title', configName: '系统标题', configValue: '管理框架', configType: 'STRING', remark: '前端展示标题', status: 'ACTIVE' },
     { id: 2, configKey: 'sys.max.login.fail', configName: '最大登录失败次数', configValue: '5', configType: 'INT', remark: '超过则锁定账户', status: 'ACTIVE' },
     { id: 3, configKey: 'sys.captcha.enabled', configName: '是否启用验证码', configValue: 'true', configType: 'BOOLEAN', remark: '登录验证码开关', status: 'ACTIVE' }
-  ]
-}
+  ],
 
-function roleCodesFor(roleIds) {
-  if (!roleIds) return []
-  return db.roles.filter((r) => roleIds.includes(r.id)).map((r) => r.roleCode)
+  // ---- 系统公告 ----
+  announcements: [
+    { id: 1, title: '关于系统升级维护的通知', content: '本系统将于本周六 22:00 - 次日 02:00 进行升级维护，期间可能短暂不可用，请提前保存工作内容。', status: 'PUBLISHED', isTop: 1, publishAt: '2026-10-01T09:00:00', expireAt: null, publishedAt: '2026-10-01 09:00:00', offlineAt: null, publisherId: 1, viewCount: 128, createdAt: '2026-10-01 08:50:00' },
+    { id: 2, title: '新版用户管理上线说明', content: '用户管理已收敛为「单角色 + 单部门」绑定模型，权限判定与数据范围按单值直读，详见变更说明。', status: 'PUBLISHED', isTop: 0, publishAt: '2026-10-05T10:00:00', expireAt: '2026-11-05T10:00:00', publishedAt: '2026-10-05 10:00:00', offlineAt: null, publisherId: 1, viewCount: 46, createdAt: '2026-10-05 09:40:00' },
+    { id: 3, title: '【草稿】季度表彰名单', content: '拟表彰三季度优秀员工，请补充名单后发布。', status: 'DRAFT', isTop: 0, publishAt: null, expireAt: null, publishedAt: null, offlineAt: null, publisherId: 1, viewCount: 0, createdAt: '2026-10-06 15:20:00' },
+    { id: 4, title: '【已下线】旧版操作手册', content: '本手册已由新版文档替代。', status: 'OFFLINE', isTop: 0, publishAt: '2026-09-01T09:00:00', expireAt: null, publishedAt: '2026-09-01 09:00:00', offlineAt: '2026-09-20 10:00:00', publisherId: 1, viewCount: 210, createdAt: '2026-08-31 18:00:00' }
+  ],
+
+  // ---- 站内信 ----
+  messages: [
+    { id: 1, title: '欢迎使用运营管理后台', content: '系统公告与站内信功能已上线，可在「系统管理」中查看。', msgType: 'SYSTEM', senderId: 1, totalCount: 3, readCount: 2, sentAt: '2026-10-06 09:00:00', createdAt: '2026-10-06 09:00:00' },
+    { id: 2, title: '请及时完善个人资料', content: '请于本月内完善手机号与邮箱信息，便于接收通知。', msgType: 'NOTICE', senderId: 1, totalCount: 2, readCount: 1, sentAt: '2026-10-06 10:00:00', createdAt: '2026-10-06 10:00:00' }
+  ],
+  // 收件明细：isRead 0/1，readAt 为已读回执时间
+  messageReceipts: [
+    { id: 1, messageId: 1, userId: 1, isRead: 1, readAt: '2026-10-06 09:05:00' },
+    { id: 2, messageId: 1, userId: 2, isRead: 0, readAt: null },
+    { id: 3, messageId: 1, userId: 3, isRead: 1, readAt: '2026-10-06 11:20:00' },
+    { id: 4, messageId: 2, userId: 1, isRead: 0, readAt: null },
+    { id: 5, messageId: 2, userId: 3, isRead: 1, readAt: '2026-10-06 12:00:00' }
+  ],
+
+  // ---- 系统监控采样 ----
+  monitorSamples: [],
+  // 在线会话（模拟刷新令牌口径：未吊销未过期）
+  onlineSessions: [
+    { userId: 1, username: 'admin', displayName: '超级管理员', sessionId: 'sess-001', clientId: 'web', ipAddress: '127.0.0.1', userAgent: 'Mozilla/5.0 (Macintosh)', issuedAt: '2026-10-07 08:00:00', lastUsedAt: '2026-10-07 17:20:00', expiresAt: '2026-10-14 08:00:00', remainingMinutes: 9600 },
+    { userId: 2, username: 'zhangsan', displayName: '张三', sessionId: 'sess-002', clientId: 'web', ipAddress: '127.0.0.1', userAgent: 'Mozilla/5.0 (Windows NT)', issuedAt: '2026-10-07 09:30:00', lastUsedAt: '2026-10-07 16:40:00', expiresAt: '2026-10-14 09:30:00', remainingMinutes: 9420 }
+  ],
+  // 异常日志（对应后端 sys_operation_log success=0）
+  errorLogs: [
+    { id: 1, moduleCode: 'system', operationType: 'CREATE', operationName: '创建用户', requestMethod: 'POST', requestPath: '/api/system/users', resultCode: 'COMMON_409', durationMs: 35, operatorName: 'admin', traceId: 'a1b2c3d4e5', success: 0, occurredAt: '2026-10-07 10:12:33' },
+    { id: 2, moduleCode: 'workflow', operationType: 'APPROVE', operationName: '审批任务', requestMethod: 'POST', requestPath: '/api/workflow/tasks/complete', resultCode: 'COMMON_422', durationMs: 128, operatorName: 'zhangsan', traceId: 'f6e7d8c9b0', success: 0, occurredAt: '2026-10-07 11:05:02' },
+    { id: 3, moduleCode: 'system', operationType: 'DELETE', operationName: '删除部门', requestMethod: 'DELETE', requestPath: '/api/system/orgs/4', resultCode: 'COMMON_409', durationMs: 22, operatorName: 'admin', traceId: '1122334455', success: 0, occurredAt: '2026-10-07 14:20:18' }
+  ]
 }
 
 function idOf(url) {
@@ -243,12 +274,17 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
   }
   if (m === 'POST' && url === '/api/auth/logout') return null
 
-  // ---- 用户 ----
+  // ---- 用户（V6 收敛：单角色 roleId + 单部门 orgId）----
   if (m === 'GET' && url === '/api/system/users/page') {
     let list = [...db.users]
-    if (params.username) list = list.filter((u) => u.username.includes(params.username))
+    if (params.username) {
+      list = list.filter(
+        (u) => u.username.includes(params.username) || (u.displayName || '').includes(params.username)
+      )
+    }
     if (params.status) list = list.filter((u) => u.status === params.status)
-    if (params.orgId) list = list.filter((u) => u.primaryOrgId === Number(params.orgId))
+    if (params.orgId) list = list.filter((u) => u.orgId === Number(params.orgId))
+    if (params.roleId) list = list.filter((u) => u.roleId === Number(params.roleId))
     const page = Number(params.page || 1)
     const size = Number(params.size || 20)
     const total = list.length
@@ -261,6 +297,9 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     return { ...u }
   }
   if (m === 'POST' && url === '/api/system/users') {
+    if (data.roleId == null) throw bizError('VALIDATION_ERROR', '角色不能为空，用户仅可绑定单个角色')
+    const role = db.roles.find((r) => r.id === Number(data.roleId))
+    if (!role) throw bizError('NOT_FOUND', '角色不存在')
     const id = ++seq
     db.users.push({
       id,
@@ -268,9 +307,11 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
       displayName: data.displayName,
       mobile: data.mobile || '',
       email: data.email || '',
-      primaryOrgId: data.primaryOrgId || null,
+      orgId: data.orgId != null ? Number(data.orgId) : null,
+      roleId: Number(data.roleId),
+      roleName: role.roleName,
+      roleCode: role.roleCode,
       status: 'ACTIVE',
-      roleCodes: roleCodesFor(data.roleIds),
       createdAt: now()
     })
     return id
@@ -281,9 +322,15 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     if (data.displayName != null) u.displayName = data.displayName
     if (data.mobile != null) u.mobile = data.mobile
     if (data.email != null) u.email = data.email
-    if (data.primaryOrgId != null) u.primaryOrgId = data.primaryOrgId
+    if (data.orgId != null) u.orgId = data.orgId
     if (data.status != null) u.status = data.status
-    if (data.roleIds != null) u.roleCodes = roleCodesFor(data.roleIds)
+    if (data.roleId != null) {
+      const role = db.roles.find((r) => r.id === Number(data.roleId))
+      if (!role) throw bizError('NOT_FOUND', '角色不存在')
+      u.roleId = role.id
+      u.roleName = role.roleName
+      u.roleCode = role.roleCode
+    }
     return null
   }
   // 【用户硬删除】物理移除用户及其角色映射（与后端 JooqWriters.delete(...,false) 语义一致）
@@ -451,6 +498,298 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     if (i < 0) throw bizError('NOT_FOUND', '接口资源不存在')
     db.apiResources.splice(i, 1)
     return null
+  }
+
+  // ---- 系统公告 ----
+  if (m === 'GET' && url === '/api/system/announcements/page') {
+    const t = Date.now()
+    const eff = (a) =>
+      a.status === 'PUBLISHED' &&
+      (!a.publishAt || new Date(a.publishAt).getTime() <= t) &&
+      (!a.expireAt || new Date(a.expireAt).getTime() > t)
+    let list = db.announcements.map((a) => ({ ...a, effective: eff(a) }))
+    if (params.keyword) {
+      list = list.filter(
+        (a) => a.title.includes(params.keyword) || (a.content || '').includes(params.keyword)
+      )
+    }
+    if (params.status) list = list.filter((a) => a.status === params.status)
+    if (params.onlyValid === true || params.onlyValid === 'true') {
+      list = list.filter((a) => a.effective)
+    }
+    list.sort((x, y) => {
+      if (x.isTop !== y.isTop) return y.isTop - x.isTop // 置顶优先
+      return String(y.publishAt || '').localeCompare(String(x.publishAt || ''))
+    })
+    const page = Number(params.page || 1)
+    const size = Number(params.size || 20)
+    return { page, size, total: list.length, records: list.slice((page - 1) * size, page * size) }
+  }
+  if (m === 'GET' && /^\/api\/system\/announcements\/\d+$/.test(url)) {
+    const a = db.announcements.find((x) => x.id === idOf(url))
+    if (!a) throw bizError('NOT_FOUND', '公告不存在')
+    a.viewCount = (a.viewCount || 0) + 1
+    const t = Date.now()
+    const effective =
+      a.status === 'PUBLISHED' &&
+      (!a.publishAt || new Date(a.publishAt).getTime() <= t) &&
+      (!a.expireAt || new Date(a.expireAt).getTime() > t)
+    return { ...a, effective }
+  }
+  if (m === 'POST' && url === '/api/system/announcements') {
+    const id = ++seq
+    db.announcements.push({
+      id,
+      title: data.title,
+      content: data.content,
+      status: 'DRAFT',
+      isTop: data.isTop || 0,
+      publishAt: data.publishAt || null,
+      expireAt: data.expireAt || null,
+      publishedAt: null,
+      offlineAt: null,
+      publisherId: 1,
+      viewCount: 0,
+      createdAt: now()
+    })
+    return id
+  }
+  if (m === 'PUT' && /^\/api\/system\/announcements\/\d+$/.test(url)) {
+    const a = db.announcements.find((x) => x.id === idOf(url))
+    if (!a) throw bizError('NOT_FOUND', '公告不存在')
+    if (a.status === 'PUBLISHED') throw bizError('CONFLICT', '公告已发布，请先下线后再编辑')
+    if (data.title != null) a.title = data.title
+    if (data.content != null) a.content = data.content
+    if (data.isTop != null) a.isTop = data.isTop
+    if (data.publishAt !== undefined) a.publishAt = data.publishAt
+    if (data.expireAt !== undefined) a.expireAt = data.expireAt
+    return null
+  }
+  if (m === 'POST' && /^\/api\/system\/announcements\/\d+\/publish$/.test(url)) {
+    const a = db.announcements.find((x) => x.id === idOf(url))
+    if (!a) throw bizError('NOT_FOUND', '公告不存在')
+    if (a.status === 'PUBLISHED') throw bizError('CONFLICT', '公告已是已发布状态')
+    if (params.publishAt) a.publishAt = params.publishAt
+    if (params.expireAt) a.expireAt = params.expireAt
+    a.status = 'PUBLISHED'
+    a.publishedAt = now()
+    a.offlineAt = null
+    return null
+  }
+  if (m === 'POST' && /^\/api\/system\/announcements\/\d+\/offline$/.test(url)) {
+    const a = db.announcements.find((x) => x.id === idOf(url))
+    if (!a) throw bizError('NOT_FOUND', '公告不存在')
+    if (a.status !== 'PUBLISHED') throw bizError('CONFLICT', '仅已发布的公告可以下线')
+    a.status = 'OFFLINE'
+    a.offlineAt = now()
+    return null
+  }
+  if (m === 'POST' && /^\/api\/system\/announcements\/\d+\/toggle-top$/.test(url)) {
+    const a = db.announcements.find((x) => x.id === idOf(url))
+    if (!a) throw bizError('NOT_FOUND', '公告不存在')
+    a.isTop = a.isTop === 1 ? 0 : 1
+    return null
+  }
+  if (m === 'DELETE' && /^\/api\/system\/announcements\/\d+$/.test(url)) {
+    const id = idOf(url)
+    const i = db.announcements.findIndex((x) => x.id === id)
+    if (i < 0) throw bizError('NOT_FOUND', '公告不存在')
+    db.announcements.splice(i, 1)
+    return null
+  }
+
+  // ---- 站内信 ----
+  if (m === 'POST' && url === '/api/system/messages/send') {
+    const hasExplicit = Array.isArray(data.receiverIds) && data.receiverIds.length > 0
+    const hasRole = Array.isArray(data.roleIds) && data.roleIds.length > 0
+    const hasOrg = Array.isArray(data.orgIds) && data.orgIds.length > 0
+    if (!hasExplicit && !hasRole && !hasOrg) {
+      throw bizError('VALIDATION_ERROR', '请指定接收人，或按角色/部门筛选接收人')
+    }
+    // 角色与部门为「或」关系；V6 收敛后用户为单角色单部门
+    let targets = hasExplicit
+      ? [...data.receiverIds]
+      : db.users
+          .filter((u) => u.status === 'ACTIVE')
+          .filter((u) => (hasRole && data.roleIds.includes(u.roleId)) || (hasOrg && data.orgIds.includes(u.orgId)))
+          .map((u) => u.id)
+    targets = [...new Set(targets)]
+    if (targets.length === 0) throw bizError('CONFLICT', '按当前筛选条件未匹配到任何接收人')
+    if (targets.length > 5000) throw bizError('VALIDATION_ERROR', '单次发送接收人不得超过 5000 人')
+
+    const id = ++seq
+    db.messages.push({
+      id,
+      title: data.title,
+      content: data.content,
+      msgType: data.msgType || 'NOTICE',
+      senderId: 1,
+      filterRoleIds: (data.roleIds || []).join(',') || null,
+      filterOrgIds: (data.orgIds || []).join(',') || null,
+      receiverIds: targets.join(','),
+      totalCount: targets.length,
+      readCount: 0,
+      sentAt: now(),
+      createdAt: now()
+    })
+    targets.forEach((uid) => {
+      db.messageReceipts.push({
+        id: ++seq,
+        messageId: id,
+        userId: uid,
+        isRead: 0,
+        readAt: null
+      })
+    })
+    return { receiverCount: targets.length }
+  }
+  // 演示：以 admin(id=1) 作为当前登录用户
+  if (m === 'GET' && url === '/api/system/messages/mine') {
+    const me = 1
+    let rows = db.messageReceipts.filter((r) => r.userId === me)
+    if (params.onlyUnread === true || params.onlyUnread === 'true') {
+      rows = rows.filter((r) => r.isRead === 0)
+    }
+    rows.sort((x, y) => x.isRead - y.isRead || y.id - x.id) // 未读优先
+    const records = rows.map((r) => {
+      const msg = db.messages.find((x) => x.id === r.messageId)
+      const sender = msg ? db.users.find((u) => u.id === msg.senderId) : null
+      return {
+        messageId: r.messageId,
+        title: msg?.title,
+        content: msg?.content,
+        msgType: msg?.msgType,
+        senderId: msg?.senderId,
+        senderName: sender?.displayName,
+        sentAt: msg?.sentAt,
+        isRead: r.isRead === 1,
+        readAt: r.readAt
+      }
+    })
+    const page = Number(params.page || 1)
+    const size = Number(params.size || 20)
+    return { page, size, total: records.length, records: records.slice((page - 1) * size, page * size) }
+  }
+  if (m === 'GET' && url === '/api/system/messages/unread-count') {
+    return { unread: db.messageReceipts.filter((r) => r.userId === 1 && r.isRead === 0).length }
+  }
+  if (m === 'POST' && url === '/api/system/messages/read-all') {
+    const me = 1
+    const unread = db.messageReceipts.filter((r) => r.userId === me && r.isRead === 0)
+    unread.forEach((r) => {
+      r.isRead = 1
+      r.readAt = now()
+      const msg = db.messages.find((x) => x.id === r.messageId)
+      if (msg) msg.readCount = (msg.readCount || 0) + 1
+    })
+    return { updated: unread.length }
+  }
+  if (m === 'POST' && /^\/api\/system\/messages\/\d+\/read$/.test(url)) {
+    const mid = idOf(url)
+    const r = db.messageReceipts.find((x) => x.messageId === mid && x.userId === 1)
+    if (!r) throw bizError('NOT_FOUND', '消息不存在或非本人接收')
+    if (r.isRead === 1) return null // 幂等
+    r.isRead = 1
+    r.readAt = now()
+    const msg = db.messages.find((x) => x.id === mid)
+    if (msg) msg.readCount = (msg.readCount || 0) + 1
+    return null
+  }
+  if (m === 'GET' && url === '/api/system/messages/sent') {
+    const sent = db.messages.filter((x) => x.senderId === 1)
+    const page = Number(params.page || 1)
+    const size = Number(params.size || 20)
+    return { page, size, total: sent.length, records: sent.slice((page - 1) * size, page * size) }
+  }
+
+  // ---- 系统监控 ----
+  if (m === 'GET' && url === '/api/system/monitor/metrics') {
+    const mt = Math.round((process.uptime() / 3600) * 100) / 100
+    const heapTotal = 512 * 1024 * 1024
+    return {
+      cpuUsage: 23.45,
+      cpuCores: 8,
+      loadAverage: mt,
+      memoryUsage: 46.8,
+      systemMemoryUsage: 58.2,
+      diskUsage: 41.7,
+      diskPath: '/',
+      usedHeapBytes: 239 * 1024 * 1024,
+      maxHeapBytes: heapTotal,
+      usedMemoryBytes: 9.7 * 1024 * 1024 * 1024,
+      totalMemoryBytes: 16 * 1024 * 1024 * 1024,
+      jvmName: 'OpenJDK 64-Bit Server VM',
+      javaVersion: '17.0.13',
+      osName: 'mac os x / aarch64',
+      uptimeMillis: Math.round(process.uptime() * 1000),
+      threadCount: 68,
+      peakThreadCount: 75,
+      loadedClassCount: 18234,
+      processId: 1001,
+      sampledAt: now()
+    }
+  }
+  if (m === 'GET' && url === '/api/system/monitor/online-summary') {
+    return {
+      activeTokens: db.onlineSessions.length,
+      activeSessions: db.onlineSessions.length,
+      onlineUsers: new Set(db.onlineSessions.map((s) => s.userId)).size
+    }
+  }
+  if (m === 'GET' && url === '/api/system/monitor/online-sessions') {
+    let list = db.onlineSessions
+    if (params.keyword) {
+      list = list.filter(
+        (s) => (s.username || '').includes(params.keyword) || (s.displayName || '').includes(params.keyword)
+      )
+    }
+    return list
+  }
+  if (m === 'GET' && url === '/api/system/monitor/error-logs') {
+    let list = [...db.errorLogs]
+    if (params.keyword) {
+      list = list.filter(
+        (e) =>
+          (e.requestPath || '').includes(params.keyword) ||
+          (e.operationName || '').includes(params.keyword) ||
+          (e.operatorName || '').includes(params.keyword) ||
+          (e.traceId || '').includes(params.keyword)
+      )
+    }
+    list.sort((x, y) => String(y.occurredAt).localeCompare(String(x.occurredAt)))
+    const page = Number(params.page || 1)
+    const size = Number(params.size || 20)
+    return { page, size, total: list.length, records: list.slice((page - 1) * size, page * size) }
+  }
+  if (m === 'GET' && url === '/api/system/monitor/error-summary') {
+    const groups = {}
+    db.errorLogs.forEach((e) => {
+      const key = `${e.moduleCode}|${e.resultCode}`
+      groups[key] = groups[key] || { moduleCode: e.moduleCode, resultCode: e.resultCode, count: 0 }
+      groups[key].count++
+    })
+    return Object.values(groups)
+  }
+  if (m === 'GET' && url === '/api/system/monitor/samples') {
+    return db.monitorSamples.slice(-Number(params.limit || 200))
+  }
+  if (m === 'POST' && url === '/api/system/monitor/sample') {
+    db.monitorSamples.push({
+      id: ++seq,
+      cpuUsage: 20 + Math.random() * 30,
+      memoryUsage: 40 + Math.random() * 20,
+      systemMemoryUsage: 50 + Math.random() * 20,
+      diskUsage: 41.7,
+      usedHeapBytes: 239 * 1024 * 1024,
+      maxHeapBytes: 512 * 1024 * 1024,
+      usedMemoryBytes: 9.7 * 1024 * 1024 * 1024,
+      totalMemoryBytes: 16 * 1024 * 1024 * 1024,
+      onlineUsers: new Set(db.onlineSessions.map((s) => s.userId)).size,
+      activeSessions: db.onlineSessions.length,
+      threadCount: 68,
+      sampledAt: now()
+    })
+    return { inserted: 1 }
   }
 
   // ---- 工作流 ----

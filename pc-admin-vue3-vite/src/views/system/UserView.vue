@@ -35,9 +35,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="角色" min-width="160">
+        <el-table-column prop="orgName" label="部门" width="130">
+          <template #default="{ row }">{{ row.orgName || '--' }}</template>
+        </el-table-column>
+        <el-table-column label="角色" width="130">
           <template #default="{ row }">
-            <el-tag v-for="r in row.roleCodes" :key="r" class="role-tag" size="small">{{ r }}</el-tag>
+            <el-tag v-if="row.roleCode" class="role-tag" size="small">{{ row.roleName || row.roleCode }}</el-tag>
+            <span v-else class="text-muted">未分配</span>
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" />
@@ -92,8 +96,13 @@
             <el-option label="停用" value="DISABLED" />
           </el-select>
         </el-form-item>
+        <el-form-item label="部门">
+          <el-select v-model="form.orgId" clearable filterable style="width: 100%" placeholder="选择部门（单选，可不选）">
+            <el-option v-for="o in orgOptions" :key="o.id" :label="o.orgName" :value="o.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="角色">
-          <el-select v-model="form.roleIds" multiple style="width: 100%" placeholder="分配角色">
+          <el-select v-model="form.roleId" style="width: 100%" placeholder="选择角色（单选，必选）">
             <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
@@ -129,24 +138,28 @@ import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Plus, Edit, Key, Delete } from '@element-plus/icons-vue'
 import { pageUsers, createUser, updateUser, deleteUser, resetPassword } from '@/api/user'
 import { listRoles } from '@/api/role'
+import { orgTree } from '@/api/org'
 
 const loading = ref(false)
 const saving = ref(false)
 const rows = ref([])
 const total = ref(0)
 const roleOptions = ref([])
+const orgOptions = ref([])
 const query = reactive({ page: 1, size: 10, username: '', status: '' })
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref()
 const form = reactive({
-  id: null, username: '', password: '', displayName: '', mobile: '', email: '', status: 'ACTIVE', roleIds: []
+  id: null, username: '', password: '', displayName: '', mobile: '', email: '',
+  status: 'ACTIVE', orgId: null, roleId: null
 })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, min: 8, message: '至少 8 位', trigger: 'blur' }],
-  displayName: [{ required: true, message: '请输入昵称', trigger: 'blur' }]
+  displayName: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  roleId: [{ required: true, message: '请选择角色（用户仅可绑定单个角色）', trigger: 'change' }]
 }
 
 const resetVisible = ref(false)
@@ -171,14 +184,25 @@ function resetQuery() {
   load()
 }
 
+/** 拍平部门树为下拉选项（带缩进前缀）。 */
+function flattenOrgs(nodes, depth = 0, acc = []) {
+  ;(nodes || []).forEach((n) => {
+    acc.push({ id: n.id, orgName: `${'　'.repeat(depth)}${n.orgName}` })
+    if (n.children) flattenOrgs(n.children, depth + 1, acc)
+  })
+  return acc
+}
+
 async function ensureRoles() {
   if (roleOptions.value.length === 0) roleOptions.value = await listRoles()
+  if (orgOptions.value.length === 0) orgOptions.value = flattenOrgs(await orgTree())
 }
 
 function openCreate() {
   isEdit.value = false
   Object.assign(form, {
-    id: null, username: '', password: '', displayName: '', mobile: '', email: '', status: 'ACTIVE', roleIds: []
+    id: null, username: '', password: '', displayName: '', mobile: '', email: '',
+    status: 'ACTIVE', orgId: null, roleId: null
   })
   ensureRoles()
   dialogVisible.value = true
@@ -188,7 +212,8 @@ async function openEdit(row) {
   isEdit.value = true
   Object.assign(form, {
     id: row.id, username: row.username, password: '', displayName: row.displayName,
-    mobile: row.mobile, email: row.email, status: row.status, roleIds: []
+    mobile: row.mobile, email: row.email, status: row.status,
+    orgId: row.orgId ?? null, roleId: row.roleId ?? null
   })
   ensureRoles()
   dialogVisible.value = true
@@ -202,13 +227,13 @@ async function onSubmit() {
     if (isEdit.value) {
       await updateUser(form.id, {
         displayName: form.displayName, mobile: form.mobile, email: form.email,
-        status: form.status, roleIds: form.roleIds
+        status: form.status, orgId: form.orgId, roleId: form.roleId
       })
       ElMessage.success('更新成功')
     } else {
       await createUser({
         username: form.username, password: form.password, displayName: form.displayName,
-        mobile: form.mobile, email: form.email, primaryOrgId: 1, roleIds: form.roleIds
+        mobile: form.mobile, email: form.email, orgId: form.orgId, roleId: form.roleId
       })
       ElMessage.success('创建成功')
     }
