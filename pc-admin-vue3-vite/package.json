@@ -1,0 +1,23 @@
+{
+  "name": "pc-admin-vue3-vite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "基于 Vue3 + Element Plus + Vite 的运营管理后台前端（对接 java-admin-framework 后端）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.7.7",
+    "element-plus": "^2.8.4",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "vite": "^5.4.8"
+  }
+}
