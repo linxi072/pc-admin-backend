@@ -18,8 +18,10 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * jOOQ 读写辅助层，替代 MyBatis-Plus 的 BaseMapper / Wrapper / 分页插件 / MetaObjectHandler。
@@ -60,6 +62,37 @@ public final class JooqWriters {
     /** 按 id 选择性更新（跳过 null 字段），自动刷新 updated_at。 */
     public static <T> void updateById(DSLContext dsl, JooqTables.TableRef table, Long id, T pojo) {
         Map<String, Object> values = columnValues(pojo, table);
+        putIfPresent(values, table, "updated_at", Timestamp.valueOf(LocalDateTime.now()));
+        if (values.isEmpty()) {
+            return;
+        }
+        dsl.update(table.table())
+                .set(toFieldMap(table, values))
+                .where(table.field("id", Long.class).eq(id))
+                .execute();
+    }
+
+    /**
+     * 按 id 更新，允许把指定列显式置为 NULL。
+     * <p>{@link #updateById} 出于「不覆盖未传字段」的考虑会跳过 null，
+     * 但「解绑手机号/邮箱」这类语义<b>必须</b>把列清空，故单独提供本方法。
+     *
+     * @param nullColumns 需要置空（NULL）的列名集合
+     */
+    public static <T> void updateByIdWithNulls(DSLContext dsl, JooqTables.TableRef table, Long id,
+                                              T pojo, Set<String> nullColumns) {
+        Map<String, Object> values = columnValues(pojo, table);
+        // 先移除这些列的 null 值（避免与显式置空冲突），再统一按 NULL 写入
+        Set<String> targets = new HashSet<>();
+        for (String col : nullColumns) {
+            if (table.has(col)) {
+                targets.add(col);
+                values.remove(col);
+            }
+        }
+        for (String col : targets) {
+            values.put(col, null);
+        }
         putIfPresent(values, table, "updated_at", Timestamp.valueOf(LocalDateTime.now()));
         if (values.isEmpty()) {
             return;

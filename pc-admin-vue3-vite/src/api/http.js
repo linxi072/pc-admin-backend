@@ -40,7 +40,7 @@ realAxios.interceptors.response.use(
  * - 否则：走 axios，拦截器已拆包，api 模块拿到的同样是 data。
  */
 export async function request(config) {
-  const { method = 'GET', url, params, data } = config
+  const { method = 'GET', url, params, data, headers } = config
   if (USE_MOCK) {
     try {
       return await mockRequest({
@@ -54,5 +54,5 @@ export async function request(config) {
       throw e
     }
   }
-  return realAxios.request({ method, url, params, data })
+  return realAxios.request({ method, url, params, data, headers })
 }

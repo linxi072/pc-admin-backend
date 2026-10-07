@@ -103,6 +103,28 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
                 .execute();
     }
 
+    @Override
+    public int revokeBySession(Long userId, String sessionId) {
+        return dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+                .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
+                .set(revokeReasonField(), "DEVICE_REVOKED")
+                .where(userIdField().eq(userId)
+                        .and(JooqTables.SYS_REFRESH_TOKEN.field("session_id", String.class).eq(sessionId))
+                        .and(revokedAtField().isNull()))
+                .execute();
+    }
+
+    @Override
+    public int revokeByUserAndClient(Long userId, String clientId) {
+        return dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+                .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
+                .set(revokeReasonField(), "DEVICE_REVOKED")
+                .where(userIdField().eq(userId)
+                        .and(JooqTables.SYS_REFRESH_TOKEN.field("client_id", String.class).eq(clientId))
+                        .and(revokedAtField().isNull()))
+                .execute();
+    }
+
     private void revokeFamily(String familyId) {
         dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))

@@ -25,8 +25,11 @@ public final class JooqTables {
 
     // ---------------- RBAC 核心 ----------------
 
+    // avatar_url 与偏好开关为 V10 个人中心新增，列名与 V10__user_profile.sql 严格一致
     public static final TableRef SYS_USER = new TableRef("sys_user",
             "id", "tenant_id", "username", "password_hash", "display_name", "mobile", "email",
+            "avatar_url", "notify_site_message", "notify_email", "notify_mobile",
+            "show_login_log", "mask_mobile", "discoverable",
             "primary_org_id", "role_id", "org_id", "status", "failed_login_count", "locked_until",
             "password_changed_at", "password_expired", "token_version", "mfa_enabled", "last_login_at",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");

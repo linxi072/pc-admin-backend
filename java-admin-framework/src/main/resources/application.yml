@@ -100,6 +100,10 @@ flowable:
   rest-enabled: false
 
 app:
+  # 头像上传目录（相对项目根或绝对路径）。仅存图片文件，文件名由服务端生成。
+  upload:
+    avatar-dir: ${AVATAR_DIR:./uploads/avatar}
+    max-avatar-bytes: 2097152
   security:
     issuer: java-admin-framework
     audience: admin-api

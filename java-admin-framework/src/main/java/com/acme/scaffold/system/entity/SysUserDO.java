@@ -15,6 +15,23 @@ public class SysUserDO {
     private String displayName;
     private String mobile;
     private String email;
+
+    /** 头像相对路径（V10 新增，如 /uploads/avatar/1_1710000000.png）。 */
+    private String avatarUrl;
+
+    // ---- 通知偏好（V10 新增）：三渠道独立开关，便于任意组合 ----
+    private Integer notifySiteMessage = 1;
+    private Integer notifyEmail = 1;
+    private Integer notifyMobile = 0;
+
+    // ---- 隐私偏好（V10 新增）----
+    /** 是否在个人中心展示我的登录记录。 */
+    private Integer showLoginLog = 1;
+    /** 对外展示时是否脱敏手机号（如 138****8000）。 */
+    private Integer maskMobile = 1;
+    /** 是否允许被其他用户搜索到。 */
+    private Integer discoverable = 1;
+
     private Long primaryOrgId;
 
     /** 单一角色ID：用户仅可绑定一个角色（V6 收敛后由 sys_user.role_id 直接承载）。 */

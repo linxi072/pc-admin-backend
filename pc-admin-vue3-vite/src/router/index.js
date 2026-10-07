@@ -20,6 +20,12 @@ const routes = [
         meta: { title: '工作台' }
       },
       {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('@/views/profile/ProfileView.vue'),
+        meta: { title: '个人中心' }
+      },
+      {
         path: 'system/user',
         name: 'user',
         component: () => import('@/views/system/UserView.vue'),

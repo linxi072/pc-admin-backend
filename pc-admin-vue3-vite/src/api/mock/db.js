@@ -16,7 +16,7 @@ let seq = 100
 
 const db = {
   users: [
-    { id: 1, username: 'admin', displayName: '超级管理员', mobile: '13800000000', email: 'admin@example.com', orgId: 1, roleId: 1, roleName: '超级管理员', roleCode: 'SUPER_ADMIN', status: 'ACTIVE', createdAt: '2026-01-01 10:00:00' },
+    { id: 1, username: 'admin', displayName: '超级管理员', mobile: '13800000000', email: 'admin@example.com', avatarUrl: null, notifySiteMessage: 1, notifyEmail: 1, notifyMobile: 0, showLoginLog: 1, maskMobile: 1, discoverable: 1, lastLoginAt: '2026-10-07 09:12:33', orgId: 1, roleId: 1, roleName: '超级管理员', roleCode: 'SUPER_ADMIN', status: 'ACTIVE', createdAt: '2026-01-01 10:00:00' },
     { id: 2, username: 'zhangsan', displayName: '张三', mobile: '13800000001', email: 'zhangsan@example.com', orgId: 1, roleId: 2, roleName: '运营专员', roleCode: 'OPERATOR', status: 'ACTIVE', createdAt: '2026-02-01 09:00:00' },
     { id: 3, username: 'lisi', displayName: '李四', mobile: '13800000002', email: 'lisi@example.com', orgId: 2, roleId: 3, roleName: '审计员', roleCode: 'AUDITOR', status: 'DISABLED', createdAt: '2026-03-01 09:00:00' }
   ],
@@ -91,6 +91,13 @@ const db = {
     { id: 2, title: '新版用户管理上线说明', content: '用户管理已收敛为「单角色 + 单部门」绑定模型，权限判定与数据范围按单值直读，详见变更说明。', status: 'PUBLISHED', isTop: 0, publishAt: '2026-10-05T10:00:00', expireAt: '2026-11-05T10:00:00', publishedAt: '2026-10-05 10:00:00', offlineAt: null, publisherId: 1, viewCount: 46, createdAt: '2026-10-05 09:40:00' },
     { id: 3, title: '【草稿】季度表彰名单', content: '拟表彰三季度优秀员工，请补充名单后发布。', status: 'DRAFT', isTop: 0, publishAt: null, expireAt: null, publishedAt: null, offlineAt: null, publisherId: 1, viewCount: 0, createdAt: '2026-10-06 15:20:00' },
     { id: 4, title: '【已下线】旧版操作手册', content: '本手册已由新版文档替代。', status: 'OFFLINE', isTop: 0, publishAt: '2026-09-01T09:00:00', expireAt: null, publishedAt: '2026-09-01 09:00:00', offlineAt: '2026-09-20 10:00:00', publisherId: 1, viewCount: 210, createdAt: '2026-08-31 18:00:00' }
+  ],
+
+  // ---- 登录设备（账号安全）：对应真实表 sys_refresh_token 的活跃会话 ----
+  devices: [
+    { sessionId: 'sess-current', deviceId: 'sess-current', deviceName: 'Chrome 浏览器', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120', ipAddress: '127.0.0.1', issuedAt: '2026-10-07 09:00:00', lastUsedAt: '2026-10-07 18:20:15', expiresAt: '2026-10-14 09:00:00', current: true },
+    { sessionId: 'sess-2', deviceId: 'sess-2', deviceName: 'iOS 设备', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/605', ipAddress: '10.0.1.23', issuedAt: '2026-10-05 20:11:02', lastUsedAt: '2026-10-06 21:02:44', expiresAt: '2026-10-12 20:11:02', current: false },
+    { sessionId: 'sess-3', deviceId: 'sess-3', deviceName: 'Windows 设备', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/120', ipAddress: '192.168.1.108', issuedAt: '2026-10-02 09:30:00', lastUsedAt: '2026-10-04 08:12:09', expiresAt: '2026-10-09 09:30:00', current: false }
   ],
 
   // ---- 站内信 ----
@@ -1005,6 +1012,101 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     if (i < 0) throw bizError('NOT_FOUND', '配置不存在')
     db.configs.splice(i, 1)
     return null
+  }
+
+  // ============ 个人中心 / 账号设置（/api/profile） ============
+  // 演示环境固定以 admin(id=1) 作为「当前登录用户」，与登录态保持一致。
+  const me = () => db.users.find((u) => u.id === 1)
+
+  if (m === 'GET' && url === '/api/profile') {
+    const u = me()
+    return {
+      id: u.id,
+      username: u.username,
+      displayName: u.displayName,
+      avatarUrl: u.avatarUrl || null,
+      mobile: u.mobile || null,
+      mobileBound: !!u.mobile,
+      email: u.email || null,
+      emailBound: !!u.email,
+      roleName: u.roleName,
+      orgName: '技术部',
+      status: u.status,
+      lastLoginAt: u.lastLoginAt || null,
+      passwordChangedAt: '2026-09-01 10:00:00',
+      createdAt: u.createdAt
+    }
+  }
+  if (m === 'PUT' && url === '/api/profile') {
+    const u = me()
+    if (data.displayName) u.displayName = data.displayName
+    if (data.mobile !== undefined) u.mobile = data.mobile || null
+    if (data.email !== undefined) u.email = data.email || null
+    if (data.avatarUrl !== undefined) u.avatarUrl = data.avatarUrl || null
+    return this.mockRequest({ method: 'GET', url: '/api/profile' })
+  }
+  if (m === 'PUT' && url === '/api/profile/contact') {
+    const u = me()
+    const v = (data.contact || '').trim()
+    if (data.channel === 'MOBILE') {
+      if (v && !/^1[3-9]\d{9}$/.test(v)) throw bizError('VALIDATION_ERROR', '手机号格式不正确')
+      u.mobile = v || null
+      if (!v) u.notifyMobile = 0
+    } else {
+      if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) throw bizError('VALIDATION_ERROR', '邮箱格式不正确')
+      u.email = v || null
+      if (!v) u.notifyEmail = 0
+    }
+    return this.mockRequest({ method: 'GET', url: '/api/profile' })
+  }
+  if (m === 'POST' && url === '/api/profile/avatar') {
+    // 演示环境不落盘，用 data URL 直接回显，所见即所得
+    const u = me()
+    u.avatarUrl = 'data:image/svg+xml;charset=utf-8,' +
+      encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><rect width="72" height="72" fill="#409eff"/><text x="36" y="46" font-size="32" fill="#fff" text-anchor="middle">${(u.displayName || 'U').charAt(0)}</text></svg>`)
+    return this.mockRequest({ method: 'GET', url: '/api/profile' })
+  }
+  if (m === 'POST' && url === '/api/profile/password') {
+    if (!data.oldPassword) throw bizError('VALIDATION_ERROR', '原密码不能为空')
+    if (!data.newPassword || data.newPassword.length < 8) {
+      throw bizError('VALIDATION_ERROR', '密码长度需为 8~64 位')
+    }
+    return null
+  }
+  if (m === 'GET' && url === '/api/profile/preference') {
+    const u = me()
+    return {
+      notifySiteMessage: !!u.notifySiteMessage,
+      notifyEmail: !!u.notifyEmail,
+      notifyMobile: !!u.notifyMobile,
+      showLoginLog: !!u.showLoginLog,
+      maskMobile: !!u.maskMobile,
+      discoverable: !!u.discoverable
+    }
+  }
+  if (m === 'PUT' && url === '/api/profile/preference') {
+    const u = me()
+    const keys = ['notifySiteMessage', 'notifyEmail', 'notifyMobile', 'showLoginLog', 'maskMobile', 'discoverable']
+    keys.forEach((k) => {
+      if (data[k] != null) u[k] = data[k]
+    })
+    return this.mockRequest({ method: 'GET', url: '/api/profile/preference' })
+  }
+  if (m === 'GET' && url === '/api/profile/devices') {
+    return db.devices
+  }
+  if (m === 'DELETE' && /^\/api\/profile\/devices\/.+$/.test(url)) {
+    const sessionId = decodeURIComponent(url.split('/').pop())
+    const i = db.devices.findIndex((x) => x.sessionId === sessionId)
+    if (i < 0) throw bizError('NOT_FOUND', '该设备不存在或已下线')
+    if (db.devices[i].current) throw bizError('VALIDATION_ERROR', '不能下线当前设备')
+    db.devices.splice(i, 1)
+    return null
+  }
+  if (m === 'POST' && url === '/api/profile/devices/logout-others') {
+    const others = db.devices.filter((x) => !x.current)
+    db.devices = db.devices.filter((x) => x.current)
+    return others.length
   }
 
   throw bizError('NOT_FOUND', `Mock 未实现的接口: ${m} ${url}`)
