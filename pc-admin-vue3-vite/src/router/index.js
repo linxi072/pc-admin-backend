@@ -44,6 +44,24 @@ const routes = [
         meta: { title: '接口资源管理' }
       },
       {
+        path: 'system/department',
+        name: 'department',
+        component: () => import('@/views/system/DepartmentView.vue'),
+        meta: { title: '部门管理' }
+      },
+      {
+        path: 'system/dict',
+        name: 'dict',
+        component: () => import('@/views/system/DictView.vue'),
+        meta: { title: '字典管理' }
+      },
+      {
+        path: 'system/config',
+        name: 'config',
+        component: () => import('@/views/system/ConfigView.vue'),
+        meta: { title: '系统变量' }
+      },
+      {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),

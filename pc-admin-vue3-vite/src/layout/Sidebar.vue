@@ -46,7 +46,10 @@ const menus = [
       { index: '/system/user', title: '用户管理', icon: 'User' },
       { index: '/system/role', title: '角色管理', icon: 'Avatar' },
       { index: '/system/menu', title: '菜单管理', icon: 'Menu' },
-      { index: '/system/api-resource', title: '接口资源管理', icon: 'Connection' }
+      { index: '/system/department', title: '部门管理', icon: 'OfficeBuilding' },
+      { index: '/system/api-resource', title: '接口资源管理', icon: 'Connection' },
+      { index: '/system/dict', title: '字典管理', icon: 'Notebook' },
+      { index: '/system/config', title: '系统变量', icon: 'Coin' }
     ]
   },
   {
