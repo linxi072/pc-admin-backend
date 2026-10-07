@@ -60,7 +60,30 @@ const db = {
     P2026002: [
       { operationId: 'OP3', action: 'START', operatorUserId: 3, fromUserId: null, toUserId: 1, opinion: '提交报销', occurredAt: '2026-10-02 09:00:00' }
     ]
-  }
+  },
+  orgs: [
+    { id: 1, parentId: 0, orgCode: 'HQ', orgName: '总公司', orgType: 'COMPANY', sortNo: 1, leaderUserId: 1, status: 'ACTIVE', children: [
+      { id: 2, parentId: 1, orgCode: 'TECH', orgName: '技术部', orgType: 'DEPARTMENT', sortNo: 1, leaderUserId: 2, status: 'ACTIVE', children: [
+        { id: 4, parentId: 2, orgCode: 'FE', orgName: '前端组', orgType: 'TEAM', sortNo: 1, leaderUserId: 3, status: 'ACTIVE', children: [] }
+      ]},
+      { id: 3, parentId: 1, orgCode: 'HR', orgName: '人事部', orgType: 'DEPARTMENT', sortNo: 2, leaderUserId: 2, status: 'ACTIVE', children: [] }
+    ]}
+  ],
+  dictTypes: [
+    { id: 1, dictCode: 'sys_normal_disable', dictName: '系统开关', status: 'ACTIVE', sortNo: 1, remark: '正常/停用' },
+    { id: 2, dictCode: 'sys_user_sex', dictName: '用户性别', status: 'ACTIVE', sortNo: 2, remark: '性别字典' }
+  ],
+  dictData: [
+    { id: 1, dictTypeCode: 'sys_normal_disable', dictLabel: '正常', dictValue: '0', dictSort: 1, status: 'ACTIVE', remark: null },
+    { id: 2, dictTypeCode: 'sys_normal_disable', dictLabel: '停用', dictValue: '1', dictSort: 2, status: 'ACTIVE', remark: null },
+    { id: 3, dictTypeCode: 'sys_user_sex', dictLabel: '男', dictValue: '0', dictSort: 1, status: 'ACTIVE', remark: null },
+    { id: 4, dictTypeCode: 'sys_user_sex', dictLabel: '女', dictValue: '1', dictSort: 2, status: 'ACTIVE', remark: null }
+  ],
+  configs: [
+    { id: 1, configKey: 'sys.title', configName: '系统标题', configValue: '管理框架', configType: 'STRING', remark: '前端展示标题', status: 'ACTIVE' },
+    { id: 2, configKey: 'sys.max.login.fail', configName: '最大登录失败次数', configValue: '5', configType: 'INT', remark: '超过则锁定账户', status: 'ACTIVE' },
+    { id: 3, configKey: 'sys.captcha.enabled', configName: '是否启用验证码', configValue: 'true', configType: 'BOOLEAN', remark: '登录验证码开关', status: 'ACTIVE' }
+  ]
 }
 
 function roleCodesFor(roleIds) {
@@ -120,6 +143,69 @@ function detachMenu(nodes, id) {
 
 // 收集节点及其全部子孙的 id 集合（用于菜单移动时的环路校验）
 function menuSubtreeIds(nodes, id) {
+  const set = new Set()
+  const walk = (list) => {
+    for (const n of list) {
+      if (n.id === id) {
+        set.add(n.id)
+        const collect = (node) => {
+          for (const c of node.children || []) {
+            set.add(c.id)
+            collect(c)
+          }
+        }
+        collect(n)
+        return true
+      }
+      if (n.children?.length && walk(n.children)) return true
+    }
+    return false
+  }
+  walk(nodes)
+  return set
+}
+
+// ---- 机构（部门）树辅助 ----
+function findOrg(nodes, id) {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    if (n.children?.length) {
+      const f = findOrg(n.children, id)
+      if (f) return f
+    }
+  }
+  return null
+}
+function removeOrg(nodes, id) {
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]
+    if (n.id === id) {
+      if (n.children?.length) return 'HAS_CHILDREN'
+      nodes.splice(i, 1)
+      return 'OK'
+    }
+    if (n.children?.length) {
+      const r = removeOrg(n.children, id)
+      if (r !== 'NOT_FOUND') return r
+    }
+  }
+  return 'NOT_FOUND'
+}
+function detachOrg(nodes, id) {
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]
+    if (n.id === id) {
+      nodes.splice(i, 1)
+      return n
+    }
+    if (n.children?.length) {
+      const d = detachOrg(n.children, id)
+      if (d) return d
+    }
+  }
+  return null
+}
+function orgSubtreeIds(nodes, id) {
   const set = new Set()
   const walk = (list) => {
     for (const n of list) {
@@ -396,6 +482,190 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
       finishedAt: null
     })
     return pid
+  }
+
+  // ---- 部门（机构）树 / 层级移动 / 删除 ----
+  if (m === 'GET' && url === '/api/system/orgs/tree') return db.orgs
+  if (m === 'POST' && url === '/api/system/orgs') {
+    const id = ++seq
+    const node = {
+      id,
+      parentId: data.parentId || 0,
+      orgCode: data.orgCode,
+      orgName: data.orgName,
+      orgType: data.orgType || 'DEPARTMENT',
+      sortNo: data.sortNo || 0,
+      leaderUserId: data.leaderUserId || 0,
+      status: data.status || 'ACTIVE',
+      children: []
+    }
+    if (!node.parentId || node.parentId === 0) {
+      db.orgs.push(node)
+    } else {
+      const p = findOrg(db.orgs, node.parentId)
+      if (!p) throw bizError('NOT_FOUND', '父部门不存在')
+      p.children = p.children || []
+      p.children.push(node)
+    }
+    return id
+  }
+  // 部门编辑：parentId 变化时在嵌套树内移动节点（保留 children），并做环路校验
+  if (m === 'PUT' && /^\/api\/system\/orgs\/\d+$/.test(url)) {
+    const node = findOrg(db.orgs, idOf(url))
+    if (!node) throw bizError('NOT_FOUND', '部门不存在')
+    const newParentId = data.parentId != null ? data.parentId : 0
+    if (data.parentId != null && newParentId !== node.parentId) {
+      if (newParentId === node.id) throw bizError('CONFLICT', '不能将部门挂到自身之下')
+      if (newParentId !== 0) {
+        const sub = orgSubtreeIds(db.orgs, node.id)
+        if (sub.has(newParentId)) throw bizError('CONFLICT', '不能将部门移动到其子部门之下')
+        const p = findOrg(db.orgs, newParentId)
+        if (!p) throw bizError('NOT_FOUND', '父部门不存在')
+      }
+      const detached = detachOrg(db.orgs, node.id)
+      if (!detached) throw bizError('NOT_FOUND', '部门不存在')
+      detached.parentId = newParentId
+      if (newParentId === 0) {
+        db.orgs.push(detached)
+      } else {
+        const p = findOrg(db.orgs, newParentId)
+        p.children = p.children || []
+        p.children.push(detached)
+      }
+    }
+    if (data.orgCode != null) node.orgCode = data.orgCode
+    if (data.orgName != null) node.orgName = data.orgName
+    if (data.orgType != null) node.orgType = data.orgType
+    if (data.sortNo != null) node.sortNo = data.sortNo
+    if (data.leaderUserId != null) node.leaderUserId = data.leaderUserId
+    if (data.status != null) node.status = data.status
+    return null
+  }
+  if (m === 'DELETE' && /^\/api\/system\/orgs\/\d+$/.test(url)) {
+    const res = removeOrg(db.orgs, idOf(url))
+    if (res === 'HAS_CHILDREN') throw bizError('CONFLICT', '请先删除子部门')
+    if (res === 'NOT_FOUND') throw bizError('NOT_FOUND', '部门不存在')
+    return null
+  }
+
+  // ---- 字典类型 ----
+  if (m === 'GET' && url === '/api/system/dict-types') return db.dictTypes.map((x) => ({ ...x }))
+  if (m === 'POST' && url === '/api/system/dict-types') {
+    if (db.dictTypes.some((t) => t.dictCode === data.dictCode)) throw bizError('CONFLICT', '字典编码已存在')
+    const id = ++seq
+    db.dictTypes.push({
+      id,
+      dictCode: data.dictCode,
+      dictName: data.dictName,
+      status: data.status || 'ACTIVE',
+      sortNo: data.sortNo || 0,
+      remark: data.remark || null
+    })
+    return id
+  }
+  if (m === 'PUT' && /^\/api\/system\/dict-types\/\d+$/.test(url)) {
+    const t = db.dictTypes.find((x) => x.id === idOf(url))
+    if (!t) throw bizError('NOT_FOUND', '字典类型不存在')
+    if (data.dictCode != null && data.dictCode !== t.dictCode &&
+        db.dictTypes.some((x) => x.dictCode === data.dictCode)) throw bizError('CONFLICT', '字典编码已存在')
+    if (data.dictCode != null) t.dictCode = data.dictCode
+    if (data.dictName != null) t.dictName = data.dictName
+    if (data.sortNo != null) t.sortNo = data.sortNo
+    if (data.remark != null) t.remark = data.remark
+    if (data.status != null) t.status = data.status
+    return null
+  }
+  if (m === 'DELETE' && /^\/api\/system\/dict-types\/\d+$/.test(url)) {
+    const t = db.dictTypes.find((x) => x.id === idOf(url))
+    if (!t) throw bizError('NOT_FOUND', '字典类型不存在')
+    if (db.dictData.some((d) => d.dictTypeCode === t.dictCode)) throw bizError('CONFLICT', '请先删除该字典类型下的字典数据')
+    db.dictTypes = db.dictTypes.filter((x) => x.id !== idOf(url))
+    return null
+  }
+
+  // ---- 字典数据 ----
+  if (m === 'GET' && url === '/api/system/dict-data') {
+    let list = db.dictData.map((x) => ({ ...x }))
+    if (params.dictType) list = list.filter((d) => d.dictTypeCode === params.dictType)
+    return list
+  }
+  if (m === 'POST' && url === '/api/system/dict-data') {
+    if (db.dictData.some((d) => d.dictTypeCode === data.dictTypeCode && d.dictValue === data.dictValue))
+      throw bizError('CONFLICT', '该字典类型下字典值已存在')
+    const id = ++seq
+    db.dictData.push({
+      id,
+      dictTypeCode: data.dictTypeCode,
+      dictLabel: data.dictLabel,
+      dictValue: data.dictValue,
+      dictSort: data.dictSort || 0,
+      status: data.status || 'ACTIVE',
+      remark: data.remark || null
+    })
+    return id
+  }
+  if (m === 'PUT' && /^\/api\/system\/dict-data\/\d+$/.test(url)) {
+    const d = db.dictData.find((x) => x.id === idOf(url))
+    if (!d) throw bizError('NOT_FOUND', '字典数据不存在')
+    const typeCode = data.dictTypeCode != null ? data.dictTypeCode : d.dictTypeCode
+    if (data.dictValue != null && data.dictValue !== d.dictValue &&
+        db.dictData.some((x) => x.dictTypeCode === typeCode && x.dictValue === data.dictValue && x.id !== d.id))
+      throw bizError('CONFLICT', '该字典类型下字典值已存在')
+    if (data.dictTypeCode != null) d.dictTypeCode = data.dictTypeCode
+    if (data.dictLabel != null) d.dictLabel = data.dictLabel
+    if (data.dictValue != null) d.dictValue = data.dictValue
+    if (data.dictSort != null) d.dictSort = data.dictSort
+    if (data.remark != null) d.remark = data.remark
+    if (data.status != null) d.status = data.status
+    return null
+  }
+  if (m === 'DELETE' && /^\/api\/system\/dict-data\/\d+$/.test(url)) {
+    const i = db.dictData.findIndex((x) => x.id === idOf(url))
+    if (i < 0) throw bizError('NOT_FOUND', '字典数据不存在')
+    db.dictData.splice(i, 1)
+    return null
+  }
+
+  // ---- 系统变量（参数配置）----
+  if (m === 'GET' && url === '/api/system/configs') return db.configs.map((x) => ({ ...x }))
+  if (m === 'GET' && /^\/api\/system\/configs\/key\/(.+)$/.test(url)) {
+    const key = url.match(/^\/api\/system\/configs\/key\/(.+)$/)[1]
+    const c = db.configs.find((x) => x.configKey === key)
+    if (!c) throw bizError('NOT_FOUND', '配置不存在')
+    return { ...c }
+  }
+  if (m === 'POST' && url === '/api/system/configs') {
+    if (db.configs.some((c) => c.configKey === data.configKey)) throw bizError('CONFLICT', '配置键已存在')
+    const id = ++seq
+    db.configs.push({
+      id,
+      configKey: data.configKey,
+      configName: data.configName,
+      configValue: data.configValue || '',
+      configType: data.configType || 'STRING',
+      remark: data.remark || null,
+      status: data.status || 'ACTIVE'
+    })
+    return id
+  }
+  if (m === 'PUT' && /^\/api\/system\/configs\/\d+$/.test(url)) {
+    const c = db.configs.find((x) => x.id === idOf(url))
+    if (!c) throw bizError('NOT_FOUND', '配置不存在')
+    if (data.configKey != null && data.configKey !== c.configKey &&
+        db.configs.some((x) => x.configKey === data.configKey)) throw bizError('CONFLICT', '配置键已存在')
+    if (data.configKey != null) c.configKey = data.configKey
+    if (data.configName != null) c.configName = data.configName
+    if (data.configValue != null) c.configValue = data.configValue
+    if (data.configType != null) c.configType = data.configType
+    if (data.remark != null) c.remark = data.remark
+    if (data.status != null) c.status = data.status
+    return null
+  }
+  if (m === 'DELETE' && /^\/api\/system\/configs\/\d+$/.test(url)) {
+    const i = db.configs.findIndex((x) => x.id === idOf(url))
+    if (i < 0) throw bizError('NOT_FOUND', '配置不存在')
+    db.configs.splice(i, 1)
+    return null
   }
 
   throw bizError('NOT_FOUND', `Mock 未实现的接口: ${m} ${url}`)
