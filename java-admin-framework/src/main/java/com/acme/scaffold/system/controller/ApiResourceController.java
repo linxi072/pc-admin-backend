@@ -2,6 +2,8 @@ package com.acme.scaffold.system.controller;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.dto.ApiResourceScanResult;
+import com.acme.scaffold.system.dto.ApiResourceSyncResult;
 import com.acme.scaffold.system.dto.ApiResourceView;
 import com.acme.scaffold.system.dto.CreateApiResourceRequest;
 import com.acme.scaffold.system.dto.UpdateApiResourceRequest;
@@ -54,5 +56,22 @@ public class ApiResourceController {
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateApiResourceRequest request) {
         apiResourceService.update(id, request);
         return Result.success();
+    }
+
+    @Operation(summary = "扫描接口资源并预览差异（不写库）",
+            description = "从 Spring MVC 路由表与 @PreAuthorize 注解中解析权限码，与库内现有记录比对")
+    @GetMapping("/scan")
+    @PreAuthorize("hasAuthority('system:api:read')")
+    public Result<ApiResourceScanResult> scanPreview() {
+        return Result.success(apiResourceService.scanPreview());
+    }
+
+    @Operation(summary = "执行接口资源扫描同步（写库）",
+            description = "新增缺失记录、同步变更字段；库中已失效的记录仅统计不删除，避免授权悬空。幂等，可重复执行")
+    @PostMapping("/scan/sync")
+    @PreAuthorize("hasAuthority('system:api:sync')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "扫描同步接口资源", recordResult = true)
+    public Result<ApiResourceSyncResult> sync() {
+        return Result.success(apiResourceService.sync());
     }
 }

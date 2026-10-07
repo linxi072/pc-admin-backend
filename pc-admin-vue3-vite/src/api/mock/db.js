@@ -506,6 +506,43 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     db.apiResources.splice(i, 1)
     return null
   }
+  // 接口资源扫描：模拟「后端注解扫描结果」，与 db.apiResources 比对后返回差异（不写库）
+  if (m === 'GET' && url === '/api/system/api-resources/scan') {
+    return scanApiResourceDiff()
+  }
+  if (m === 'POST' && url === '/api/system/api-resources/scan/sync') {
+    const diff = scanApiResourceDiff()
+    diff.newResources.forEach((r) => {
+      db.apiResources.push({
+        id: ++seq,
+        resourceName: r.resourceName,
+        permissionCode: r.permissionCode,
+        httpMethod: r.httpMethod,
+        pathPattern: r.pathPattern,
+        authMode: r.authMode,
+        status: 'ENABLED',
+        riskLevel: 'NORMAL'
+      })
+    })
+    diff.changedResources.forEach((r) => {
+      const cur = db.apiResources.find(
+        (x) => x.httpMethod === r.httpMethod && x.pathPattern === r.pathPattern
+      )
+      // 与真实后端一致：只覆盖权限标识/资源名/鉴权模式，status 与 riskLevel 保留人工维护值
+      if (cur) {
+        cur.resourceName = r.resourceName
+        cur.permissionCode = r.permissionCode
+        cur.authMode = r.authMode
+      }
+    })
+    return {
+      insertedCount: diff.newResources.length,
+      updatedCount: diff.changedResources.length,
+      unchangedCount: diff.unchangedCount,
+      skippedCount: diff.skippedCount,
+      orphanCount: diff.orphanedResources.length
+    }
+  }
 
   // ---- 系统公告 ----
   if (m === 'GET' && url === '/api/system/announcements/page') {
@@ -1014,7 +1051,75 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     return null
   }
 
-  // ============ 个人中心 / 账号设置（/api/profile） ============
+// ============ 接口资源扫描（模拟后端 @PreAuthorize 扫描结果） ============
+// 场景设计：多数已同步、少数新增、个别变更、一条库中失效，用于演示差异对比。
+const scannedApiResources = [
+  { httpMethod: 'GET', pathPattern: '/api/system/users/page', permissionCode: 'system:user:read', resourceName: '用户分页查询', controllerMethod: 'UserController#page', authMode: 'REQUIRED' },
+  { httpMethod: 'POST', pathPattern: '/api/system/users', permissionCode: 'system:user:create', resourceName: '新增用户', controllerMethod: 'UserController#create', authMode: 'REQUIRED' },
+  { httpMethod: 'PUT', pathPattern: '/api/system/users/{id}', permissionCode: 'system:user:update', resourceName: '更新用户', controllerMethod: 'UserController#update', authMode: 'REQUIRED' },
+  { httpMethod: 'DELETE', pathPattern: '/api/system/users/{id}', permissionCode: 'system:user:delete', resourceName: '删除用户', controllerMethod: 'UserController#delete', authMode: 'REQUIRED' },
+  { httpMethod: 'GET', pathPattern: '/api/system/roles', permissionCode: 'system:role:read', resourceName: '角色列表', controllerMethod: 'RoleController#list', authMode: 'REQUIRED' },
+  { httpMethod: 'POST', pathPattern: '/api/system/roles', permissionCode: 'system:role:create', resourceName: '新增角色', controllerMethod: 'RoleController#create', authMode: 'REQUIRED' },
+  { httpMethod: 'GET', pathPattern: '/api/system/roles/{id}/data-scopes', permissionCode: 'system:role:read', resourceName: '角色数据权限列表', controllerMethod: 'RoleController#listDataScopes', authMode: 'REQUIRED' },
+  { httpMethod: 'PUT', pathPattern: '/api/system/roles/{id}/data-scopes', permissionCode: 'system:role:update', resourceName: '保存角色数据权限（覆盖式）', controllerMethod: 'RoleController#saveDataScope', authMode: 'REQUIRED' },
+  { httpMethod: 'GET', pathPattern: '/api/system/menus/tree', permissionCode: 'system:menu:read', resourceName: '菜单树', controllerMethod: 'MenuController#tree', authMode: 'REQUIRED' },
+  { httpMethod: 'GET', pathPattern: '/api/system/orgs/tree', permissionCode: 'system:org:read', resourceName: '部门树', controllerMethod: 'OrgController#tree', authMode: 'REQUIRED' },
+  { httpMethod: 'GET', pathPattern: '/api/system/api-resources', permissionCode: 'system:api:read', resourceName: '接口资源列表', controllerMethod: 'ApiResourceController#list', authMode: 'REQUIRED' },
+  { httpMethod: 'POST', pathPattern: '/api/system/api-resources', permissionCode: 'system:api:create', resourceName: '注册接口资源', controllerMethod: 'ApiResourceController#create', authMode: 'REQUIRED' },
+  { httpMethod: 'PUT', pathPattern: '/api/system/api-resources/{id}', permissionCode: 'system:api:update', resourceName: '更新接口资源', controllerMethod: 'ApiResourceController#update', authMode: 'REQUIRED' },
+  { httpMethod: 'DELETE', pathPattern: '/api/system/api-resources/{id}', permissionCode: 'system:api:delete', resourceName: '删除接口资源', controllerMethod: 'ApiResourceController#delete', authMode: 'REQUIRED' },
+  // 以下为尚未登记的新接口 → 扫描后应出现在「待新增」
+  { httpMethod: 'GET', pathPattern: '/api/system/api-resources/scan', permissionCode: 'system:api:read', resourceName: '扫描接口资源并预览差异', controllerMethod: 'ApiResourceController#scanPreview', authMode: 'REQUIRED' },
+  { httpMethod: 'POST', pathPattern: '/api/system/api-resources/scan/sync', permissionCode: 'system:api:sync', resourceName: '执行接口资源扫描同步', controllerMethod: 'ApiResourceController#sync', authMode: 'REQUIRED' },
+  { httpMethod: 'GET', pathPattern: '/api/system/monitor/metrics', permissionCode: 'system:monitor:read', resourceName: '服务器指标', controllerMethod: 'MonitorController#metrics', authMode: 'REQUIRED' },
+  { httpMethod: 'GET', pathPattern: '/api/profile', permissionCode: '-', resourceName: '个人资料查询', controllerMethod: 'ProfileController#profile', authMode: 'REQUIRED' }
+]
+
+/**
+ * 比对「扫描结果」与「库中记录」，产出与真实后端同构的差异结构。
+ * 与后端 shouldPersist 保持一致：免鉴权接口、或无权限码（permissionCode='-'）的接口均不落库。
+ */
+function scanApiResourceDiff() {
+  const persist = scannedApiResources.filter(
+    (r) => r.authMode !== 'ANONYMOUS' && r.permissionCode && r.permissionCode !== '-'
+  )
+  const newResources = []
+  const changedResources = []
+  const liveKeys = new Set()
+  let unchangedCount = 0
+
+  persist.forEach((r) => {
+    const key = `${r.httpMethod} ${r.pathPattern}`
+    liveKeys.add(key)
+    const cur = db.apiResources.find((x) => x.httpMethod === r.httpMethod && x.pathPattern === r.pathPattern)
+    if (!cur) {
+      newResources.push({ ...r })
+    } else if (
+      cur.permissionCode !== r.permissionCode ||
+      cur.resourceName !== r.resourceName ||
+      cur.authMode !== r.authMode
+    ) {
+      changedResources.push({ ...r })
+    } else {
+      unchangedCount++
+    }
+  })
+
+  const orphanedResources = db.apiResources
+    .filter((x) => !liveKeys.has(`${x.httpMethod} ${x.pathPattern}`))
+    .map((x) => ({ ...x }))
+
+  return {
+    newResources,
+    changedResources,
+    orphanedResources,
+    unchangedCount,
+    total: scannedApiResources.length,
+    skippedCount: scannedApiResources.length - persist.length
+  }
+}
+
+// ============ 个人中心 / 账号设置（/api/profile） ============
   // 演示环境固定以 admin(id=1) 作为「当前登录用户」，与登录态保持一致。
   const me = () => db.users.find((u) => u.id === 1)
 

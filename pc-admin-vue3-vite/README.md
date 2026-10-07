@@ -75,7 +75,7 @@ npm run preview  # 预览构建产物
 | 用户 | 分页/筛选/新建/编辑/重置密码/**硬删除** | `GET /users/page`、`POST /users`、`PUT /users/{id}`、`POST /users/{id}/reset-password`、`DELETE /users/{id}` |
 | 角色 | 列表/新建/编辑/删除/**权限树** | `GET /roles`、`POST /roles`、`PUT /roles/{id}`、`DELETE /roles/{id}` |
 | 菜单 | 树形列表/关键词筛选/新增/编辑/删除 | `GET /menus/tree`、`POST /menus`、`PUT /menus/{id}`、`DELETE /menus/{id}` |
-| 接口资源 | 列表/名称·权限·方法筛选/分页/注册/编辑/删除 | `GET /api-resources`、`POST /api-resources`、`PUT /api-resources/{id}`、`DELETE /api-resources/{id}` |
+| 接口资源 | 列表/名称·权限·方法筛选/分页/注册/编辑/删除/**扫描对比/同步** | `GET /api-resources`、`POST /api-resources`、`PUT /api-resources/{id}`、`DELETE /api-resources/{id}`、`GET /api-resources/scan`、`POST /api-resources/scan/sync` |
 | 待办 | 审批/驳回/转办 | `GET /tasks/mine`、`POST /tasks/complete`、`POST /tasks/transfer` |
 | 流程 | 发起/我发起的/审批记录 | `POST /instances/start`、`GET /instances/mine`、`GET /instances/{pid}/records` |
 | 部门 | 树形列表/新增/编辑/层级移动/删除 | `GET /orgs/tree`、`POST /orgs`、`PUT /orgs/{id}`、`DELETE /orgs/{id}` |
@@ -102,7 +102,19 @@ npm run preview  # 预览构建产物
 为闭环 `system` 模块，新增两个与后端接口一一对应的管理页，现已支持**新增 / 编辑 / 删除**全链路闭环：
 
 - **菜单管理 `MenuView`**：以 `el-table` 树形表展示 `GET /menus/tree` 返回的层级菜单；支持按名称/编码关键词筛选（保留命中子孙的祖先）；「新增菜单」弹窗含上级菜单下拉（由树拍平生成）、菜单编码/名称/类型（目录/菜单/按钮）/路由/组件/权限/图标/显示/排序/状态；「编辑」复用同一弹窗（**允许改上级菜单以移动层级**，下拉已排除自身及其子孙防止环路，回填 `MenuTreeVO` 扩展出的 `componentPath / icon / visible`）；「删除」走 `el-popconfirm` 二次确认后调 `DELETE /menus/{id}`，后端有子菜单时拒绝。
-- **接口资源管理 `ApiResourceView`**：`GET /api-resources` 一次性返回全量列表，前端做名称/权限/方法的客户端筛选 + `el-pagination` 分页；「注册接口资源」弹窗含资源名/权限标识/HTTP 方法/路径模式/鉴权模式/风险等级；「编辑」复用同一弹窗回填 `ApiResourceView` 全部字段；「删除」调 `DELETE /api-resources/{id}`。
+- **接口资源管理 `ApiResourceView`**：`GET /api-resources` 一次性返回全量列表，前端做名称/权限/方法的客户端筛选 + `el-pagination` 分页；「注册接口资源」弹窗含资源名/权限标识/HTTP 方法/路径模式/鉴权模式/风险等级；「编辑」复用同一弹窗回填 `ApiResourceView` 全部字段；「删除」调 `DELETE /api-resources/{id}`。**工具栏另有「扫描对比」入口**，详见下节。
+
+## 接口资源管理：新增「扫描对比」
+
+后端新增扫描器后，新增接口不再需要手工逐条登记权限码。本页工具栏的「扫描对比」按钮调 `GET /api/system/api-resources/scan` 拉取差异，用 `el-drawer` 展示：
+
+- **统计卡**：扫描接口总数 / 待新增 / 待更新 / 无变化 / 库中失效；
+- **三个 Tab**：待新增、待更新（均含方法、路径、权限标识、资源名称、源码位置）、库中失效；
+- **同步按钮**：`POST /scan/sync` 写库，写入前用 `ElMessageBox` 二次确认并说明「会覆盖权限标识与资源名称，状态与风险等级保留」；无待同步项时按钮禁用。
+
+失效记录只提示不自动删除（`sys_role_api` 可能仍引用，删除会造成授权悬空），并在该 Tab 内以 `el-alert` 说明这一点。
+
+> mock 模式下 `db.js` 的 `scanApiResourceDiff()` 以「已同步 / 少量新增 / 个别变更 / 一条失效」的场景模拟差异，同步会真实写回 `db.apiResources`，可完整演示「扫描 → 预览 → 同步 → 再次扫描已一致」的闭环。
 
 > mock 模式下 `db.js` 已补齐菜单嵌套树与接口资源的创建/编辑/删除路由，可直接离线演示（含「有子菜单时拒绝删除」逻辑）。
 

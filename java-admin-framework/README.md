@@ -96,7 +96,7 @@ mvn spring-boot:run
 #    Actuator:       http://localhost:9090/actuator/health
 #    Prometheus:     http://localhost:9090/actuator/prometheus
 #    Swagger:        http://localhost:8080/swagger-ui.html   （仅 local）
-#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 13 节说明）
+#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 14 节说明）
 ```
 
 > **默认账号**：`V1__baseline.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），
@@ -291,14 +291,69 @@ JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 - **数据权限扩展点**：`DataScopeProvider.resolveOrgIds(userId, resourceCode)` 预留，业务查询据此拼接机构过滤（见 `UserService#list`）。
 - **工作流端口**：业务层只依赖 `WorkflowEnginePort`，不直接调用 Flowable `RuntimeService`/`TaskService`。
 
-## 12. 后续建议
+## 12. 接口资源自动扫描登记
 
-1. 接入 API 资源自动扫描，把 `@PreAuthorize` 权限码登记到 `sys_api_resource`。
-2. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
-3. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
-4. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
+新增接口后，**不再需要**手工到「接口资源管理」页面逐条登记权限码。
 
-## 13. 验证记录（原生 MySQL + Redis，无 Docker）
+### 背景
+
+项目所有 Controller 方法都用 `@PreAuthorize("hasAuthority('x:y:z')")` 声明权限码，
+而 `sys_api_resource` / `sys_role_api` 长期为空表 —— 意味着新接口上线后，
+除非人工登记，否则角色无法被授予该权限，调用直接 403。这是本项目最大的一笔手工成本。
+
+### 原理
+
+`ApiResourceScanner` 注入 Spring 的 `RequestMappingHandlerMapping`，读取**应用真实生效的路由表**
+（而非源码解析），因此拿到的路径已包含类级 `@RequestMapping` 前缀拼接结果，与最终对外暴露的一致：
+
+- 权限码：正则 `has(?:Any)?Authority\(\s*'([^']+)'` 从注解中提取，并校验 `module:resource:action` 格式，非法则跳过并告警；
+- 中文名：取 `@Operation(summary=...)`，缺失时回退为方法名；
+- 唯一键：`METHOD + " " + path`，与表上 `uk_method_path (tenant_id, http_method, path_pattern)` 对齐。
+
+### 接口
+
+| 方法 | 路径 | 权限码 | 说明 |
+|---|---|---|---|
+| GET | `/api/system/api-resources/scan` | `system:api:read` | 扫描并预览差异，**不写库** |
+| POST | `/api/system/api-resources/scan/sync` | `system:api:sync` | 执行同步写库，**幂等** |
+
+### 同步语义
+
+| 场景 | 行为 |
+|---|---|
+| 库中无此 (method, path) | 新增 |
+| 库中已有，但权限码/资源名/鉴权模式不一致 | **仅更新这 3 个字段**；`status` / `risk_level` 属人工维护，原样保留 |
+| 完全一致 | 不触碰（避免无意义刷新 `updated_at`） |
+| 库中存在但代码里已无对应接口 | **仅报告为「失效」，不自动删除** |
+
+> **为何不自动删除失效记录**：`sys_role_api` 可能仍引用它，贸然删除会造成授权悬空。
+> 需人工确认无角色引用后，在页面上删除。
+
+### 哪些接口不落库
+
+| 类型 | 例子 | 原因 |
+|---|---|---|
+| 免鉴权接口 | `/api/auth/login`、`/api/auth/refresh` | 不进授权模型，落库会让人误以为可授权 |
+| 无权限码接口 | `/api/profile/**` | 走「只能操作自己数据」的行级校验，不参与权限码授权 |
+
+若把这些接口以占位符写入 `permission_code`，会污染授权数据，故由 `shouldPersist()` 统一过滤。
+
+### V11 迁移
+
+`V11__api_resource_seed.sql` 一次性落库 **61 条接口资源 + SUPER_ADMIN 全量授权**。
+这一步同时解开了一个死锁：要调用同步接口需要权限，而要有权限得先同步。
+种子数据由扫描器真实扫描导出（`INSERT IGNORE` + `SELECT NOT EXISTS`，可重复执行）。
+之后的新增接口在页面点「扫描对比 → 同步」即可自助完成。
+
+其他角色的授权仍由「角色管理」页面显式勾选，不受 V11 影响。
+
+## 13. 后续建议
+
+1. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
+2. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
+3. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
+4. `PageQuery.sorts` 已定义但各 Service 尚未消费，排序目前一律硬编码，可考虑接入服务端白名单映射。
+## 14. 验证记录（原生 MySQL + Redis，无 Docker）
 
 已在**原生 MySQL 8.4.11 + Redis** 环境完成实际启动验证，全程未使用任何容器：
 
