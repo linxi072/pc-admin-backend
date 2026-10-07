@@ -11,6 +11,8 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+import org.springframework.stereotype.Component;
+
 /**
  * 运行时指标采集器（<b>零第三方依赖</b>）。
  *
@@ -23,6 +25,7 @@ import java.time.format.DateTimeFormatter;
  *   <li>运行时信息：{@link RuntimeMXBean} 提供 JVM 版本、启动时间、线程数、类加载数。</li>
  * </ul>
  */
+@Component
 public class RuntimeMetricsCollector {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

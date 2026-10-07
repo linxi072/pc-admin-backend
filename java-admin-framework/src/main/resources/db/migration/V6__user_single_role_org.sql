@@ -5,54 +5,113 @@
 -- 变更：把 role_id / org_id 直接落到 sys_user 实体列，关联表退化为过渡数据并清理。
 --
 -- 表名 / 列名与 com.acme.scaffold.jooq.JooqTables 中的注册严格一致。
+--
+-- 幂等性说明（重要）：
+--   本脚本全部 DDL/DML 均以 information_schema 判定做守卫，重复执行结果一致且不报错。
+--   原因：MySQL 无事务性 DDL，迁移中途失败时 Flyway 会回滚 schema history 行但保留已生效的结构，
+--   重跑同一版本必然撞上 1060 Duplicate column。此前三类场景均需靠幂等自愈：
+--     1) 全新空库（列与关联表都不存在）；
+--     2) V1 已建关联表的常规库（正常路径）；
+--     3) 结构已部分生效、关联表已被删除的「半迁移」库（role_id 已存在但历史行缺失）。
 
--- 1) sys_user 增加单值外键列（role_id 角色、org_id 部门）
-ALTER TABLE sys_user
-    ADD COLUMN role_id BIGINT UNSIGNED NULL COMMENT '单一角色ID(收敛后不再允许多角色)' AFTER primary_org_id,
-    ADD COLUMN org_id BIGINT UNSIGNED NULL COMMENT '单一部门ID(收敛后不再允许多部门)' AFTER role_id,
-    ADD KEY idx_tenant_role (tenant_id, role_id),
-    ADD KEY idx_tenant_org (tenant_id, org_id);
+-- 1) sys_user 增加单值外键列（role_id 角色、org_id 部门）：列缺失时才补
+SET @ddl = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE `sys_user`
+             ADD COLUMN `role_id` BIGINT UNSIGNED NULL COMMENT ''单一角色ID(收敛后不再允许多角色)'' AFTER `primary_org_id`',
+        'DO 0')
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'role_id'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @ddl = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE `sys_user`
+             ADD COLUMN `org_id` BIGINT UNSIGNED NULL COMMENT ''单一部门ID(收敛后不再允许多部门)'' AFTER `role_id`',
+        'DO 0')
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'org_id'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 索引同理，缺失才补（重复添加会报 1061 Duplicate key name）
+SET @ddl = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE `sys_user` ADD KEY `idx_tenant_role` (`tenant_id`, `role_id`)',
+        'DO 0')
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_role'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @ddl = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE `sys_user` ADD KEY `idx_tenant_org` (`tenant_id`, `org_id`)',
+        'DO 0')
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_org'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 2) 数据回填：多角色时取「数据范围最小(最严格)」的一条，保证降级后不放大权限。
 --    优先级：自定义(CUSTOM) > 本部门及子部门(DEPT_AND_CHILD) > 本部门(DEPT/SELF) > 全部(ALL)。
 --    仅当该角色在 sys_role_data_scope 上存在对应 resource_code 规则时才参与排序；
 --    无规则的视为不限制(ALL)，排在最后。
-UPDATE sys_user u
-LEFT JOIN (
-    SELECT ur.user_id,
-           ur.role_id,
-           ROW_NUMBER() OVER (
-               PARTITION BY ur.user_id
-               ORDER BY FIELD(
-                   COALESCE((
-                       SELECT MIN(r.scope_type)
-                       FROM sys_role_data_scope r
-                       WHERE r.role_id = ur.role_id
-                         AND r.resource_code = 'system:user'
-                   ), 'ALL'),
-                   'CUSTOM', 'DEPT_AND_CHILD', 'DEPT', 'SELF', 'ALL'
-               ),
-               ur.role_id
-           ) AS rn
-    FROM sys_user_role ur
-) picked ON picked.user_id = u.id AND picked.rn = 1
-SET u.role_id = picked.role_id;
+--    仅当旧关联表 sys_user_role 仍在时才执行；且只填补 role_id 为空的行，避免覆盖既有绑定。
+SET @ddl = (
+    SELECT IF(COUNT(*) > 0,
+        'UPDATE sys_user u
+         LEFT JOIN (
+             SELECT ur.user_id,
+                    ur.role_id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ur.user_id
+                        ORDER BY FIELD(
+                            COALESCE((
+                                SELECT MIN(r.scope_type)
+                                FROM sys_role_data_scope r
+                                WHERE r.role_id = ur.role_id
+                                  AND r.resource_code = ''system:user''
+                            ), ''ALL''),
+                            ''CUSTOM'', ''DEPT_AND_CHILD'', ''DEPT'', ''SELF'', ''ALL''
+                        ),
+                        ur.role_id
+                    ) AS rn
+             FROM sys_user_role ur
+         ) picked ON picked.user_id = u.id AND picked.rn = 1
+         SET u.role_id = picked.role_id
+         WHERE u.role_id IS NULL',
+        'DO 0')
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user_role'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 3) 部门回填：多部门时取 is_primary 优先，其次取最小 org_id，保证确定性。
-UPDATE sys_user u
-LEFT JOIN (
-    SELECT uo.user_id,
-           uo.org_id,
-           ROW_NUMBER() OVER (
-               PARTITION BY uo.user_id
-               ORDER BY uo.is_primary DESC, uo.org_id ASC
-           ) AS rn
-    FROM sys_user_org uo
-) picked ON picked.user_id = u.id AND picked.rn = 1
-SET u.org_id = picked.org_id;
+--    仅当旧关联表 sys_user_org 仍在时才执行；只填补 org_id 为空的行。
+SET @ddl = (
+    SELECT IF(COUNT(*) > 0,
+        'UPDATE sys_user u
+         LEFT JOIN (
+             SELECT uo.user_id,
+                    uo.org_id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY uo.user_id
+                        ORDER BY uo.is_primary DESC, uo.org_id ASC
+                    ) AS rn
+             FROM sys_user_org uo
+         ) picked ON picked.user_id = u.id AND picked.rn = 1
+         SET u.org_id = picked.org_id
+         WHERE u.org_id IS NULL',
+        'DO 0')
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user_org'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 4) 兼容期保留 primary_org_id：与 org_id 保持一致，供尚未切换的旧代码读取。
-UPDATE sys_user SET primary_org_id = org_id WHERE org_id IS NOT NULL;
+UPDATE sys_user SET primary_org_id = org_id WHERE org_id IS NOT NULL AND primary_org_id <=> org_id = 0;
 
 -- 5) 清理多对多关联表（收敛后不再有查询/写入方引用）。
 DROP TABLE IF EXISTS sys_user_role;
