@@ -132,8 +132,8 @@
         <el-button type="primary" :icon="Search" @click="loadErrors">查询</el-button>
       </div>
 
-      <el-table :data="errors" v-loading="errLoading" border stripe>
-        <el-table-column prop="occurredAt" label="时间" width="170" />
+      <el-table :data="errors" v-loading="errLoading" border stripe @sort-change="onErrorSortChange">
+        <el-table-column prop="occurredAt" label="时间" width="170" sortable="custom" />
         <el-table-column prop="moduleCode" label="模块" width="100" />
         <el-table-column prop="operationName" label="操作" min-width="150" show-overflow-tooltip />
         <el-table-column label="请求" min-width="200" show-overflow-tooltip>
@@ -145,7 +145,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="operatorName" label="操作人" width="110" />
-        <el-table-column prop="durationMs" label="耗时(ms)" width="100" />
+        <el-table-column prop="durationMs" label="耗时(ms)" width="100" sortable="custom" />
         <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
       </el-table>
 
@@ -183,7 +183,7 @@ const sessionKeyword = ref('')
 const errors = ref([])
 const errLoading = ref(false)
 const errTotal = ref(0)
-const errQuery = reactive({ page: 1, size: 20, keyword: '' })
+const errQuery = reactive({ page: 1, size: 20, keyword: '', sortField: '', sortDirection: '' })
 const range = ref('24')
 const autoRefresh = ref(false)
 const refreshing = ref(false)
@@ -236,12 +236,26 @@ async function loadSessions() {
 async function loadErrors() {
   errLoading.value = true
   try {
-    const data = await pageErrorLogs({ page: errQuery.page, size: errQuery.size, keyword: errQuery.keyword || undefined })
+    const data = await pageErrorLogs({
+      page: errQuery.page,
+      size: errQuery.size,
+      keyword: errQuery.keyword || undefined,
+      sortField: errQuery.sortField || undefined,
+      sortDirection: errQuery.sortDirection || undefined
+    })
     errors.value = data.records || []
     errTotal.value = data.total || 0
   } finally {
     errLoading.value = false
   }
+}
+
+/** 异常日志表头排序：走服务端白名单（occurredAt / durationMs 等）。 */
+function onErrorSortChange({ prop, order }) {
+  errQuery.sortField = order ? prop : ''
+  errQuery.sortDirection = order ? (order === 'ascending' ? 'ASC' : 'DESC') : ''
+  errQuery.page = 1
+  loadErrors()
 }
 
 function loadSamples() {

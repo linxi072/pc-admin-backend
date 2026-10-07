@@ -96,7 +96,7 @@ mvn spring-boot:run
 #    Actuator:       http://localhost:9090/actuator/health
 #    Prometheus:     http://localhost:9090/actuator/prometheus
 #    Swagger:        http://localhost:8080/swagger-ui.html   （仅 local）
-#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 15 节说明）
+#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 16 节说明）
 ```
 
 > **默认账号**：`V1__baseline.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），
@@ -425,17 +425,50 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 其余资源编码已在 Provider 层预留，但需在对应 Service 中显式调用 `dataScopeProvider.resolve(...)` 才生效。
 前端不提供资源自由输入，避免配出后端未接线的编码导致「配了却不生效」。
 
-## 14. 后续建议
+## 14. 服务端排序（白名单映射）
+
+`PageQuery.sorts` 此前已定义但没有任何 Service 消费，各列表排序一律硬编码、前端点了表头也不生效。
+本次接入白名单映射：前端可以指定**字段名**，但**不能直接指定列名**。
+
+### 契约
+
+- 请求参数：`sortField`（camelCase 字段名）+ `sortDirection`（`ASC`/`DESC`，缺省按 `ASC`）。
+- 映射声明：每个 Service 内用 `JooqSorts.whitelist("id","id", ...)` 声明「字段名 → 列名」。
+- 解析规则（`JooqSorts#resolve`）：
+
+| 场景 | 行为 |
+|---|---|
+| 字段在白名单内 | 映射为列名，生成 `ORDER BY 列 ASC/DESC` |
+| 字段不在白名单 / 表上不存在该列 | **忽略**，回落服务端默认排序（不报错，免得前端默认列把接口打挂） |
+| 同一字段重复出现 | 只取一次 |
+| 排序字段超过 3 个 | 截断为 3 个，避免超长 ORDER BY |
+| 未传 `sortField` | 回落默认排序 |
+| `sortDirection` 非 ASC/DESC | 400（`COMMON_001`「排序方向仅支持 ASC/DESC」），不静默降级成升序 |
+| 命中客户端排序 | 末位追加 `id DESC` 兜底，避免并列行在翻页时重复/漏行 |
+
+### 当前接入范围
+
+| 接口 | 白名单字段 | 默认排序 |
+|---|---|---|
+| `GET /api/system/users/page` | id / username / displayName / status / createdAt | `id DESC` |
+| `GET /api/system/announcements/page` | id / title / status / isTop / publishAt / expireAt / createdAt | 置顶优先 + `publish_at DESC NULLS LAST` + `id DESC` |
+| `GET /api/system/monitor/error-logs` | id / moduleCode / operationName / operatorName / durationMs / occurredAt | `occurred_at DESC` |
+
+其余列表（字典 / 菜单 / 接口资源 / 角色 / 部门）是一次性全量返回、由前端分页排序，不涉及服务端排序。
+
+> 顺带修复：`SnakeRecordMapper` 未处理 JSON 列，`sys_operation_log.request_summary` 映射进 `String`
+> 字段时抛 `argument type mismatch`，导致异常日志接口「一旦有数据就 500」。已按 `JSON#data()` 取文本。
+
+## 15. 后续建议
 
 1. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
 2. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
 3. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
-4. `PageQuery.sorts` 已定义但各 Service 尚未消费，排序目前一律硬编码，可考虑接入服务端白名单映射。
-5. 数据权限目前仅 `system:user` 接入过滤，其余 11 个 Service 需按需显式调用
+4. 数据权限目前仅 `system:user` 接入过滤，其余 11 个 Service 需按需显式调用
    `DataScopeProvider#resolve`；`security/permission/DataScope` 注解仍为零使用，
    可考虑改为 AOP 环绕自动注入，避免每个 Service 手工接线。
 
-## 15. 验证记录（原生 MySQL + Redis，无 Docker）
+## 16. 验证记录（原生 MySQL + Redis，无 Docker）
 
 已在**原生 MySQL 8.4.11 + Redis** 环境完成实际启动验证，全程未使用任何容器：
 

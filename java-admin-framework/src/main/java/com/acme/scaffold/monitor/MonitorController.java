@@ -68,8 +68,11 @@ public class MonitorController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(required = false) String module,
-            @RequestParam(required = false) String keyword) {
-        return Result.success(monitorService.errorLogs(page, size, from, to, module, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sortField,
+            @RequestParam(required = false) String sortDirection) {
+        return Result.success(monitorService.errorLogs(page, size, from, to, module, keyword,
+                sortField, sortDirection));
     }
 
     @Operation(summary = "异常日志按模块/错误码聚合")

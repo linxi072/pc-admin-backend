@@ -22,9 +22,9 @@
       </div>
 
       <!-- 列表 -->
-      <el-table :data="rows" v-loading="loading" border stripe height="480">
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="username" label="用户名" width="130" />
+      <el-table :data="rows" v-loading="loading" border stripe height="480" @sort-change="onSortChange">
+        <el-table-column prop="id" label="ID" width="70" sortable="custom" />
+        <el-table-column prop="username" label="用户名" width="130" sortable="custom" />
         <el-table-column prop="displayName" label="昵称" width="120" />
         <el-table-column prop="mobile" label="手机号" width="140" />
         <el-table-column prop="email" label="邮箱" min-width="180" />
@@ -44,7 +44,7 @@
             <span v-else class="text-muted">未分配</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="170" />
+        <el-table-column prop="createdAt" label="创建时间" width="170" sortable="custom" />
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
@@ -146,7 +146,7 @@ const rows = ref([])
 const total = ref(0)
 const roleOptions = ref([])
 const orgOptions = ref([])
-const query = reactive({ page: 1, size: 10, username: '', status: '' })
+const query = reactive({ page: 1, size: 10, username: '', status: '', sortField: '', sortDirection: '' })
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -177,9 +177,22 @@ async function load() {
   }
 }
 
+/**
+ * 表头排序：走服务端白名单，前端只提交字段名（id/username/createdAt），
+ * 不拼 SQL。order 为空表示取消排序，回到服务端默认（id 倒序）。
+ */
+function onSortChange({ prop, order }) {
+  query.sortField = order ? prop : ''
+  query.sortDirection = order ? (order === 'ascending' ? 'ASC' : 'DESC') : ''
+  query.page = 1
+  load()
+}
+
 function resetQuery() {
   query.username = ''
   query.status = ''
+  query.sortField = ''
+  query.sortDirection = ''
   query.page = 1
   load()
 }

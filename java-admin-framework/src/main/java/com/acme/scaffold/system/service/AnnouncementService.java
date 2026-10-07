@@ -3,6 +3,7 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.jooq.JooqSorts;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.context.SecurityContextFacade;
@@ -23,6 +24,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 系统公告服务：发布 / 编辑 / 定时生效 / 下线 / 置顶 / 关键词检索。
@@ -44,6 +46,16 @@ public class AnnouncementService {
     private static final String DRAFT = "DRAFT";
     private static final String PUBLISHED = "PUBLISHED";
     private static final String OFFLINE = "OFFLINE";
+
+    /** 公告列表可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
+    private static final Map<String, String> ANNOUNCEMENT_SORT_FIELDS = JooqSorts.whitelist(
+            "id", "id",
+            "title", "title",
+            "status", "status",
+            "isTop", "is_top",
+            "publishAt", "publish_at",
+            "expireAt", "expire_at",
+            "createdAt", "created_at");
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -78,12 +90,14 @@ public class AnnouncementService {
                     JooqTables.SYS_ANNOUNCEMENT.field("expire_at", LocalDateTime.class).gt(now)));
         }
 
+        var pageQuery = query.toPageQuery();
         PageResult<SysAnnouncementDO> page = JooqWriters.page(dsl, JooqTables.SYS_ANNOUNCEMENT,
-                SysAnnouncementDO.class, DSL.and(conds), query.toPageQuery(),
-                // 置顶优先(is_top 倒序)，其次发布时间倒序
-                JooqTables.SYS_ANNOUNCEMENT.field("is_top", Integer.class).desc(),
-                JooqTables.SYS_ANNOUNCEMENT.field("publish_at", LocalDateTime.class).desc().nullsLast(),
-                JooqTables.SYS_ANNOUNCEMENT.field("id", Long.class).desc());
+                SysAnnouncementDO.class, DSL.and(conds), pageQuery,
+                JooqSorts.resolve(JooqTables.SYS_ANNOUNCEMENT, pageQuery, ANNOUNCEMENT_SORT_FIELDS,
+                        // 默认：置顶优先(is_top 倒序)，其次发布时间倒序
+                        JooqTables.SYS_ANNOUNCEMENT.field("is_top", Integer.class).desc(),
+                        JooqTables.SYS_ANNOUNCEMENT.field("publish_at", LocalDateTime.class).desc().nullsLast(),
+                        JooqTables.SYS_ANNOUNCEMENT.field("id", Long.class).desc()));
 
         List<AnnouncementView> views = page.records().stream()
                 .map(a -> AnnouncementView.from(a, AnnouncementView.isEffective(a, now)))

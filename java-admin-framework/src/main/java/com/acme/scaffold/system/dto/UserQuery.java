@@ -5,8 +5,10 @@ import com.acme.scaffold.common.api.PageQuery;
 /**
  * 用户分页查询入参。
  * <p>约束（V6 收敛）：orgId / roleId 均为单值筛选条件（用户仅归属单部门、单角色）。
+ * <p>sortField / sortDirection 为扁平排序参数，由服务端白名单映射为数据库列（见 UserService）。
  */
-public record UserQuery(int page, int size, String username, String status, Long orgId, Long roleId) {
+public record UserQuery(int page, int size, String username, String status, Long orgId, Long roleId,
+                        String sortField, String sortDirection) {
 
     /**
      * 用户资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。
@@ -15,6 +17,6 @@ public record UserQuery(int page, int size, String username, String status, Long
     public static final String RESOURCE_CODE = "system:user";
 
     public PageQuery toPageQuery() {
-        return PageQuery.of(page, size);
+        return PageQuery.of(page, size, sortField, sortDirection);
     }
 }

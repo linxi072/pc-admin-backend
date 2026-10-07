@@ -21,6 +21,11 @@ public record PageQuery(int page, int size, List<SortItem> sorts) {
         return new PageQuery(page, size, List.of());
     }
 
+    /** 带扁平排序参数（sortField / sortDirection）的分页查询，方向非法时由 {@link SortItem#single} 抛 400。 */
+    public static PageQuery of(int page, int size, String sortField, String sortDirection) {
+        return new PageQuery(page, size, SortItem.single(sortField, sortDirection));
+    }
+
     /** 计算 SQL 偏移量（offset）。排序字段由服务端白名单映射，禁止直接使用客户端字段名。 */
     public long offset() {
         return (long) (page - 1) * size;

@@ -40,9 +40,11 @@ public class AnnouncementController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Boolean onlyValid) {
+            @RequestParam(required = false) Boolean onlyValid,
+            @RequestParam(required = false) String sortField,
+            @RequestParam(required = false) String sortDirection) {
         return Result.success(announcementService.list(
-                new AnnouncementQuery(page, size, keyword, status, onlyValid)));
+                new AnnouncementQuery(page, size, keyword, status, onlyValid, sortField, sortDirection)));
     }
 
     @Operation(summary = "公告详情（累加浏览次数）")

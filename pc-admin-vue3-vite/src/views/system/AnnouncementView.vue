@@ -30,8 +30,8 @@
         <el-button type="primary" :icon="Plus" @click="openCreate">新建公告</el-button>
       </div>
 
-      <el-table :data="list" v-loading="loading" border stripe>
-        <el-table-column label="标题" min-width="220" show-overflow-tooltip>
+      <el-table :data="list" v-loading="loading" border stripe @sort-change="onSortChange">
+        <el-table-column label="标题" min-width="220" show-overflow-tooltip prop="title" sortable="custom">
           <template #default="{ row }">
             <el-tag v-if="row.isTop === 1" type="danger" size="small" style="margin-right: 6px">置顶</el-tag>
             <a @click="openDetail(row)">{{ row.title }}</a>
@@ -45,8 +45,8 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="publishAt" label="生效时间" width="160" />
-        <el-table-column prop="expireAt" label="有效期至" width="160">
+        <el-table-column prop="publishAt" label="生效时间" width="160" sortable="custom" />
+        <el-table-column prop="expireAt" label="有效期至" width="160" sortable="custom">
           <template #default="{ row }">{{ row.expireAt || '长期有效' }}</template>
         </el-table-column>
         <el-table-column prop="viewCount" label="浏览" width="80" />
@@ -191,7 +191,7 @@ defineProps({ embedded: { type: Boolean, default: false } })
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
-const query = reactive({ page: 1, size: 20, keyword: '', status: '' })
+const query = reactive({ page: 1, size: 20, keyword: '', status: '', sortField: '', sortDirection: '' })
 
 const dialogVisible = ref(false)
 const editingId = ref(null)
@@ -224,6 +224,17 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+/**
+ * 表头排序：走服务端白名单（title/publishAt/expireAt 等），取消排序时回到
+ * 服务端默认（置顶优先 + 发布时间倒序）。
+ */
+function onSortChange({ prop, order }) {
+  query.sortField = order ? prop : ''
+  query.sortDirection = order ? (order === 'ascending' ? 'ASC' : 'DESC') : ''
+  query.page = 1
+  load()
 }
 
 function onSearch() {

@@ -284,6 +284,43 @@ function orgSubtreeIds(nodes, id) {
   return set
 }
 
+// ---- 服务端排序白名单（与后端 JooqSorts 的字段名 → 列名映射一一对应）----
+// 白名单外的字段、非法方向一律忽略，mock 行为与真实后端保持一致：不会静默按任意字段排序。
+const SORT_FIELDS = {
+  '/api/system/users/page': {
+    id: 'id', username: 'username', displayName: 'displayName', status: 'status', createdAt: 'createdAt'
+  },
+  '/api/system/announcements/page': {
+    id: 'id', title: 'title', status: 'status', isTop: 'isTop',
+    publishAt: 'publishAt', expireAt: 'expireAt', createdAt: 'createdAt'
+  },
+  '/api/system/monitor/error-logs': {
+    id: 'id', moduleCode: 'moduleCode', operationName: 'operationName',
+    operatorName: 'operatorName', durationMs: 'durationMs', occurredAt: 'occurredAt'
+  }
+}
+
+/**
+ * 按 sortField / sortDirection 排序，返回新数组。
+ * 字段不在白名单或方向非 ASC/DESC 时原样返回，由调用方沿用默认排序。
+ */
+function applyServerSort(list, url, sortField, sortDirection) {
+  const whitelist = SORT_FIELDS[url]
+  const dir = String(sortDirection || '').toUpperCase()
+  if (!whitelist || !sortField || !whitelist[sortField]) return list
+  if (dir !== 'ASC' && dir !== 'DESC') return list
+  const key = whitelist[sortField]
+  const sign = dir === 'DESC' ? -1 : 1
+  return [...list].sort((a, b) => {
+    const va = a?.[key]
+    const vb = b?.[key]
+    if (va === vb) return 0
+    if (va == null) return 1 // 空值恒排末尾，避免前端看到空行顶在前面
+    if (vb == null) return -1
+    return va > vb ? sign : -sign
+  })
+}
+
 // 简单的路由分发：根据 method + url 返回数据或抛出业务错误
 export async function mockRequest({ method, url, params = {}, data = {} }) {
   await new Promise((r) => setTimeout(r, 180)) // 模拟网络延迟
@@ -310,6 +347,8 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     if (params.status) list = list.filter((u) => u.status === params.status)
     if (params.orgId) list = list.filter((u) => u.orgId === Number(params.orgId))
     if (params.roleId) list = list.filter((u) => u.roleId === Number(params.roleId))
+    // 服务端排序：白名单内字段生效，未指定时保持默认（后端为 id 倒序）
+    list = applyServerSort(list, url, params.sortField, params.sortDirection)
     const page = Number(params.page || 1)
     const size = Number(params.size || 20)
     const total = list.length
@@ -627,10 +666,16 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     if (params.onlyValid === true || params.onlyValid === 'true') {
       list = list.filter((a) => a.effective)
     }
-    list.sort((x, y) => {
-      if (x.isTop !== y.isTop) return y.isTop - x.isTop // 置顶优先
-      return String(y.publishAt || '').localeCompare(String(x.publishAt || ''))
-    })
+    // 未指定排序时保持默认：置顶优先 + 发布时间倒序
+    const sorted = applyServerSort(list, url, params.sortField, params.sortDirection)
+    if (sorted === list) {
+      list.sort((x, y) => {
+        if (x.isTop !== y.isTop) return y.isTop - x.isTop // 置顶优先
+        return String(y.publishAt || '').localeCompare(String(x.publishAt || ''))
+      })
+    } else {
+      list = sorted
+    }
     const page = Number(params.page || 1)
     const size = Number(params.size || 20)
     return { page, size, total: list.length, records: list.slice((page - 1) * size, page * size) }
@@ -866,7 +911,11 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
           (e.traceId || '').includes(params.keyword)
       )
     }
-    list.sort((x, y) => String(y.occurredAt).localeCompare(String(x.occurredAt)))
+    // 未指定排序时保持默认（时间倒序），指定则按白名单字段排
+    const sorted = applyServerSort(list, url, params.sortField, params.sortDirection)
+    list = sorted === list
+      ? [...list].sort((x, y) => String(y.occurredAt).localeCompare(String(x.occurredAt)))
+      : sorted
     const page = Number(params.page || 1)
     const size = Number(params.size || 20)
     return { page, size, total: list.length, records: list.slice((page - 1) * size, page * size) }

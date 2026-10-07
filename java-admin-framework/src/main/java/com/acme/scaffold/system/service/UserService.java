@@ -3,6 +3,7 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.jooq.JooqSorts;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.context.CurrentPrincipal;
@@ -42,6 +43,14 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    /** 用户列表可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
+    private static final Map<String, String> USER_SORT_FIELDS = JooqSorts.whitelist(
+            "id", "id",
+            "username", "username",
+            "displayName", "display_name",
+            "status", "status",
+            "createdAt", "created_at");
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
@@ -148,9 +157,11 @@ public class UserService {
             conds.add(JooqTables.SYS_USER.field("org_id", Long.class).in(scope.orgIds()));
         }
 
+        var pageQuery = query.toPageQuery();
         PageResult<SysUserDO> page = JooqWriters.page(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(conds), query.toPageQuery(),
-                JooqTables.SYS_USER.field("id", Long.class).desc());
+                DSL.and(conds), pageQuery,
+                JooqSorts.resolve(JooqTables.SYS_USER, pageQuery, USER_SORT_FIELDS,
+                        JooqTables.SYS_USER.field("id", Long.class).desc()));
 
         Map<Long, SysOrgDO> orgCache = loadOrgs(page.records());
         Map<Long, SysRoleDO> roleCache = loadRoles(page.records());

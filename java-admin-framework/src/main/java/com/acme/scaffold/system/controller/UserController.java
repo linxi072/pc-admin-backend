@@ -33,8 +33,11 @@ public class UserController {
                                             @RequestParam(required = false) String username,
                                             @RequestParam(required = false) String status,
                                             @RequestParam(required = false) Long orgId,
-                                            @RequestParam(required = false) Long roleId) {
-        return Result.success(userService.list(new UserQuery(page, size, username, status, orgId, roleId)));
+                                            @RequestParam(required = false) Long roleId,
+                                            @RequestParam(required = false) String sortField,
+                                            @RequestParam(required = false) String sortDirection) {
+        return Result.success(userService.list(
+                new UserQuery(page, size, username, status, orgId, roleId, sortField, sortDirection)));
     }
 
     @Operation(summary = "用户详情")

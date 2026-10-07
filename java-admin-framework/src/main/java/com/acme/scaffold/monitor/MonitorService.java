@@ -3,6 +3,7 @@ package com.acme.scaffold.monitor;
 import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.api.PageQuery;
 import com.acme.scaffold.common.audit.SysOperationLogDO;
+import com.acme.scaffold.jooq.JooqSorts;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.token.SysRefreshTokenDO;
@@ -37,6 +38,15 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MonitorService {
+
+    /** 异常日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
+    private static final Map<String, String> ERROR_LOG_SORT_FIELDS = JooqSorts.whitelist(
+            "id", "id",
+            "moduleCode", "module_code",
+            "operationName", "operation_name",
+            "operatorName", "operator_name",
+            "durationMs", "duration_ms",
+            "occurredAt", "occurred_at");
 
     private final DSLContext dsl;
     private final RuntimeMetricsCollector collector;
@@ -132,9 +142,12 @@ public class MonitorService {
      * @param to       结束时间（含），为空默认当前
      * @param module   模块编码过滤，为空不过滤
      * @param keyword  请求路径/操作名/操作人模糊筛选
+     * @param sortField     排序字段（服务端白名单映射，白名单外忽略）
+     * @param sortDirection 排序方向：ASC / DESC，为空按 ASC
      */
     public PageResult<SysOperationLogDO> errorLogs(int page, int size, LocalDateTime from,
-                                                   LocalDateTime to, String module, String keyword) {
+                                                   LocalDateTime to, String module, String keyword,
+                                                   String sortField, String sortDirection) {
         LocalDateTime end = to == null ? LocalDateTime.now() : to;
         LocalDateTime begin = from == null ? end.minusHours(24) : from;
         if (begin.isAfter(end)) {
@@ -158,9 +171,11 @@ public class MonitorService {
                     JooqTables.SYS_OPERATION_LOG.field("trace_id", String.class).like(kw)));
         }
 
+        var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
         return JooqWriters.page(dsl, JooqTables.SYS_OPERATION_LOG, SysOperationLogDO.class,
-                DSL.and(conds), PageQuery.of(page, size),
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc());
+                DSL.and(conds), pageQuery,
+                JooqSorts.resolve(JooqTables.SYS_OPERATION_LOG, pageQuery, ERROR_LOG_SORT_FIELDS,
+                        JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc()));
     }
 
     /** 按时间范围查询历史采样（用于趋势图）。 */
