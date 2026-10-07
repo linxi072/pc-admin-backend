@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">
+    <h2 v-if="!embedded" class="page-title">
       站内信
       <el-badge :value="unread" :hidden="unread === 0" type="danger" class="unread-badge">
         <span class="unread-label">未读 {{ unread }}</span>
@@ -168,6 +168,9 @@ import {
   markMessageRead,
   markAllMessagesRead
 } from '../../api/message'
+
+// 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
+defineProps({ embedded: { type: Boolean, default: false } })
 import { listRoles } from '../../api/role'
 import { orgTree } from '../../api/org'
 import { pageUsers } from '../../api/user'

@@ -62,16 +62,20 @@ const routes = [
         meta: { title: '系统变量' }
       },
       {
+        // 消息中心：合并「系统公告」与「站内信」，页内以 Tab 切换
+        path: 'system/notice',
+        name: 'notice',
+        component: () => import('@/views/system/NoticeView.vue'),
+        meta: { title: '消息中心', permission: 'system:announcement:read' }
+      },
+      {
+        // 旧入口保留重定向，避免历史书签/菜单配置失效
         path: 'system/announcement',
-        name: 'announcement',
-        component: () => import('@/views/system/AnnouncementView.vue'),
-        meta: { title: '系统公告', permission: 'system:announcement:read' }
+        redirect: '/system/notice'
       },
       {
         path: 'system/message',
-        name: 'message',
-        component: () => import('@/views/system/MessageView.vue'),
-        meta: { title: '站内信' }
+        redirect: (to) => ({ path: '/system/notice', query: { tab: 'message', ...to.query } })
       },
       {
         path: 'system/monitor',

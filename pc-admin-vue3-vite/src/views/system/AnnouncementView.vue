@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">系统公告</h2>
+    <h2 v-if="!embedded" class="page-title">系统公告</h2>
 
     <el-card class="page-card" shadow="never">
       <el-alert type="info" :closable="false" show-icon>
@@ -171,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Edit, Delete, Search, Promotion, VideoPause, Top } from '@element-plus/icons-vue'
 import {
@@ -184,6 +184,9 @@ import {
   deleteAnnouncement,
   getAnnouncement
 } from '../../api/announcement'
+
+// 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
+defineProps({ embedded: { type: Boolean, default: false } })
 
 const loading = ref(false)
 const list = ref([])
