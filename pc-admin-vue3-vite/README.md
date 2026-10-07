@@ -23,6 +23,7 @@ src/
 │   ├── config.js          # USE_MOCK 开关、API_BASE
 │   ├── http.js            # request() 统一封装（mock / 真实二选一）
 │   ├── auth.js user.js role.js menu.js apiResource.js workflow.js
+│   ├── org.js dictType.js dictData.js sysConfig.js   # 部门/字典/系统变量接口封装
 │   └── mock/db.js         # 前端内置 mock 数据层（模拟全部后端接口）
 ├── layout/
 │   ├── AppLayout.vue       # 顶部栏 + 侧边栏 + 主区 + 底部栏
@@ -34,7 +35,10 @@ src/
     ├── system/UserView.vue          # 用户管理（含硬删除）
     ├── system/RoleView.vue          # 角色管理（含权限树联动）
     ├── system/MenuView.vue          # 菜单管理（树形列表 + 新增 + 编辑 + 删除）
+    ├── system/DepartmentView.vue    # 部门管理（树形层级 + 增删改 + 层级移动）
+    ├── system/DictView.vue          # 字典管理（分类主从联动 + 键值配置）
     ├── system/ApiResourceView.vue   # 接口资源管理（筛选 + 分页 + 注册 + 编辑 + 删除）
+    ├── system/ConfigView.vue        # 系统变量（参数配置 + 按 key 动态读取）
     └── workflow/TaskView.vue        # 我的待办（审批/驳回/转办）
         workflow/InstanceView.vue     # 我发起的流程（发起/审批记录）
 ```
@@ -70,6 +74,10 @@ npm run preview  # 预览构建产物
 | 接口资源 | 列表/名称·权限·方法筛选/分页/注册/编辑/删除 | `GET /api-resources`、`POST /api-resources`、`PUT /api-resources/{id}`、`DELETE /api-resources/{id}` |
 | 待办 | 审批/驳回/转办 | `GET /tasks/mine`、`POST /tasks/complete`、`POST /tasks/transfer` |
 | 流程 | 发起/我发起的/审批记录 | `POST /instances/start`、`GET /instances/mine`、`GET /instances/{pid}/records` |
+| 部门 | 树形列表/新增/编辑/层级移动/删除 | `GET /orgs/tree`、`POST /orgs`、`PUT /orgs/{id}`、`DELETE /orgs/{id}` |
+| 字典分类 | 列表/新增/编辑/删除 | `GET /dict-types`、`POST /dict-types`、`PUT /dict-types/{id}`、`DELETE /dict-types/{id}` |
+| 字典数据 | 按分类筛选/新增/编辑/删除 | `GET /dict-data?dictType=`、`POST /dict-data`、`PUT /dict-data/{id}`、`DELETE /dict-data/{id}` |
+| 系统变量 | 列表/新增/编辑/删除/**按 key 动态读取** | `GET /configs`、`POST /configs`、`PUT /configs/{id}`、`DELETE /configs/{id}`、`GET /configs/key/{key}` |
 
 ## 两项增强说明
 
@@ -91,18 +99,32 @@ npm run preview  # 预览构建产物
 
 > mock 模式下 `db.js` 已补齐菜单嵌套树与接口资源的创建/编辑/删除路由，可直接离线演示（含「有子菜单时拒绝删除」逻辑）。
 
-## 后端改动（需你确认提交）
+## 新增页面：部门管理 / 字典管理 / 系统变量
 
-为支持「用户硬删除」「菜单·接口资源编辑」，在后端 `java-admin-framework` 做了若干本地改动（尚未提交，按约定待你确认后再 commit/push）：
+本轮闭环 `system` 模块的三个新管理页，后端接口一一对应，具备输入校验与错误处理：
 
-- `src/main/java/com/acme/scaffold/system/controller/UserController.java`：新增 `DELETE /api/system/users/{id}`。
-- `src/main/java/com/acme/scaffold/system/service/UserService.java`：新增 `delete(Long id)` 物理删除实现。
-- `src/main/java/com/acme/scaffold/system/dto/UpdateMenuRequest.java`（**新增**）：菜单编辑请求体。
-- `src/main/java/com/acme/scaffold/system/dto/UpdateApiResourceRequest.java`（**新增**）：接口资源编辑请求体。
-- `src/main/java/com/acme/scaffold/system/dto/MenuTreeVO.java`：扩展 `componentPath / icon / visible` 字段，支撑前端编辑回填。
-- `src/main/java/com/acme/scaffold/system/controller/MenuController.java`：新增 `PUT /api/system/menus/{id}`（`@PreAuthorize("hasAuthority('system:menu:update')")` + 审计）。
-- `src/main/java/com/acme/scaffold/system/controller/ApiResourceController.java`：新增 `PUT /api/system/api-resources/{id}`（`@PreAuthorize("hasAuthority('system:api:update')")` + 审计）。
-- `src/main/java/com/acme/scaffold/system/service/MenuService.java`：新增 `update(id, req)`（`fetchById` 校验存在后 `JooqWriters.updateById` 选择性更新；`parentId` 允许变更（移动层级）并做防环校验——不能挂到自身或自身子孙之下、父菜单须存在；`version / tenantId` 维持原值）。
-- `src/main/java/com/acme/scaffold/system/service/ApiResourceService.java`：新增 `update(id, req)`（`fetchById` 校验存在后 `JooqWriters.updateById` 选择性更新；`tenantId` 维持原值）。
+- **部门管理 `DepartmentView`**：以 `el-table` 树形表展示 `GET /orgs/tree` 部门层级；支持按名称/编码关键词筛选（保留命中子孙的祖先）；「新增部门」弹窗含上级部门下拉（由树拍平生成）、部门编码/名称/类型/负责人/排序/状态；「编辑」复用同一弹窗并**允许改上级部门以移动层级**（下拉排除自身及其子孙防环）；「删除」走 `el-popconfirm` 二次确认，后端在存在子部门时拒绝。
+- **字典管理 `DictView`**：左字典分类列表（`highlight-current-row` 选中）+ 右字典数据表的**主从联动布局**；选中分类自动加载其键值数据；分类与数据各一个弹窗，删除分类时若已配置数据则后端返回冲突并由拦截器提示。
+- **系统变量 `ConfigView`**：系统参数表格 CRUD；顶部提供「按配置键动态读取」演示区，调 `GET /configs/key/{key}` 回显 `名称=值(类型)`，直观展示后端内存缓存 + 动态读取能力。
 
-已通过 `mvn -o compile` 离线编译验证。其余接口与 DTO 契约保持不变。
+> mock 模式下 `db.js` 已补齐部门（含层级移动/防环）、字典分类与数据（唯一性/占用守卫）、系统变量（含按 key 读取）的全部路由，可直接离线演示。
+
+## 后端改动
+
+本轮新增的三个模块对应后端改动（`java-admin-framework`，已随本轮提交落库）：
+
+- **部门管理（复用既有机构 `sys_org` 表，不新增冗余表）**：
+  - `system/controller/OrgController.java`：新增 `PUT /api/system/orgs/{id}`（`system:org:update` + 审计）与 `DELETE /api/system/orgs/{id}`（`system:org:delete` + 审计，存在子部门拒绝）。
+  - `system/service/OrgService.java`：新增 `update(id, req)`（`parentId` 变更时防环校验并 `recomputeSubtreeAncestors` 重算物化路径）与 `delete(id)`（子节点计数守卫 + 逻辑删除）。
+  - `system/dto/UpdateOrgRequest.java`（新增）、`system/dto/OrgTreeVO.java`（补 `leaderUserId`）。
+- **字典管理（新建 `sys_dict_type` / `sys_dict_data`）**：
+  - `system/entity/SysDictTypeDO.java`、`system/entity/SysDictDataDO.java` 及各 DTO/VO。
+  - `system/service/DictTypeService.java`（编码唯一、存在数据时拒绝删除）、`system/service/DictDataService.java`（分类+值唯一）。
+  - `system/controller/DictTypeController.java`、`system/controller/DictDataController.java`（`system:dict:*`）。
+- **系统变量（新建 `sys_config`）**：
+  - `system/entity/SysConfigDO.java` 及各 DTO/VO。
+  - `system/service/ConfigService.java`：`ConcurrentHashMap` 内存缓存 + `getByKey` 动态读取，写操作同步失效缓存。
+  - `system/controller/ConfigController.java`（`system:config:*`，含 `GET /configs/key/{key}`）。
+- **表注册与迁移**：`jooq/JooqTables.java` 注册 `SYS_DICT_TYPE`/`SYS_DICT_DATA`/`SYS_CONFIG`；新增 `db/migration/V5__system_modules.sql`（建三表 + 种子数据，含 `sys.title`/`sys.max.login.fail`/`sys.captcha.enabled`）。
+
+后端已通过 `mvn -o compile` 离线编译验证（131 个 class，BUILD SUCCESS）；前端新增/改动文件均通过 `node --check` 语法校验。`USE_MOCK` 与真实后端两种模式下行为一致。

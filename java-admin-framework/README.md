@@ -53,7 +53,7 @@ com.acme.scaffold
 │   ├── application/ AuthApplicationService
 │   └── controller/ AuthController
 ├── system
-│   ├── entity|service|controller|dto   用户/角色/菜单/机构/接口资源
+│   ├── entity|service|controller|dto   用户/角色/菜单/机构(部门)/接口资源/字典/系统变量
 ├── workflow
 │   ├── port/       WorkflowEnginePort（屏蔽 Flowable）
 │   ├── adapter/    FlowableWorkflowAdapter
@@ -92,7 +92,7 @@ mvn spring-boot:run
 #    Actuator:       http://localhost:9090/actuator/health
 #    Prometheus:     http://localhost:9090/actuator/prometheus
 #    Swagger:        http://localhost:8080/swagger-ui.html   （仅 local）
-#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 11 节说明）
+#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 12 节说明）
 ```
 
 > **默认账号**：`V1__baseline.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），
@@ -103,7 +103,8 @@ mvn spring-boot:run
 
 | 表 | 创建方式 |
 |---|---|
-| `sys_*` / `wf_*`（20 张） | Flyway：`src/main/resources/db/migration/V1~V3` |
+| `sys_*` / `wf_*`（20 张，V1~V4） | Flyway：`src/main/resources/db/migration/V1~V4` |
+| `sys_dict_type` / `sys_dict_data` / `sys_config`（3 张） | Flyway：`V5__system_modules.sql`（字典分类/字典数据/系统变量，含种子数据） |
 | `ACT_*`（Flowable） | Flowable 自动建表（`flowable.database-schema-update: true`） |
 | `jobrunr_*`（调度） | JobRunr 自动建表（`jobrunr.database.skip-create: false`） |
 
@@ -192,21 +193,51 @@ JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 
 若后续希望获得编译期强类型（生成 `Tables.SYS_USER` 等），可引入 `jooq-codegen-maven` 插件并基于迁移脚本离线生成；届时仅需替换 `JooqTables` 的引用方式，业务代码结构不变。
 
-## 9. 关键设计点
+## 9. 系统管理模块：部门 / 字典 / 系统变量
+
+本轮新增三个系统管理模块，均为「DTO 校验 → Service 业务规则 → Controller 权限 + 审计」三层结构，权限码遵循 `模块:资源:动作` 约定。
+
+### 部门管理（复用机构表 `sys_org`）
+
+部门即机构，**不新建冗余表**，直接补全既有 `Org` 模块的写操作：
+
+| 方法 | 路径 | 权限码 | 说明 |
+|---|---|---|---|
+| GET | `/api/system/orgs/tree` | `system:org:read` | 树形查询（含 `ancestors` 物化路径） |
+| POST | `/api/system/orgs` | `system:org:create` | 新增 |
+| PUT | `/api/system/orgs/{id}` | `system:org:update` | 编辑 + **层级移动** |
+| DELETE | `/api/system/orgs/{id}` | `system:org:delete` | 删除（存在子部门拒绝） |
+
+层级移动的核心是 `OrgService.recomputeSubtreeAncestors(id, newParentId)`：当 `parentId` 变更时，用 BFS 重算该节点**及其全部子孙**的 `ancestors` 物化路径再持久化；同时做防环校验——不能挂到自身或自身子孙之下，且父部门必须存在。
+
+### 字典管理（`sys_dict_type` + `sys_dict_data`）
+
+- `DictTypeController`（`/api/system/dict-types`）：分类 CRUD，权限码 `system:dict:read/create/update/delete`；`dict_code` 租户内唯一；**分类下存在字典数据时拒绝删除**（`CONFLICT`）。
+- `DictDataController`（`/api/system/dict-data?dictType=`）：按 `dictType` 筛选的键值 CRUD，同一权限码；`(dict_type_code, dict_value)` 唯一。
+
+### 系统变量（`sys_config`）
+
+- `ConfigController`（`/api/system/configs`）：参数 CRUD，权限码 `system:config:read/create/update/delete`；`config_key` 租户内唯一。
+- **动态读取**：`GET /api/system/configs/key/{key}`，由 `ConfigService.getByKey` 提供——先查 `ConcurrentHashMap` 缓存，命中直返；未命中查库并回填。`create/update/delete` 均同步 `cache.put/remove` 保证一致性，未命中抛 `NOT_FOUND`。
+- 内置种子参数：`sys.title`、`sys.max.login.fail`、`sys.captcha.enabled`。
+
+> 迁移脚本：`V5__system_modules.sql`（utf8mb4，`tenant_id` 默认 0，唯一键 `uk_tenant_dict_code` / `uk_tenant_config_key` 等）。
+
+## 10. 关键设计点
 
 - **模块化单体**：单进程部署，认证/系统/工作流/调度/审计/监控按包边界隔离；达到独立扩容/发布条件后再拆微服务。
 - **安全**：JWT 仅承载非敏感声明；刷新令牌不透明且哈希存储；账号锁定、密码加密、登录失败计数、审计脱敏。
 - **数据权限扩展点**：`DataScopeProvider.resolveOrgIds(userId, resourceCode)` 预留，业务查询据此拼接机构过滤（见 `UserService#list`）。
 - **工作流端口**：业务层只依赖 `WorkflowEnginePort`，不直接调用 Flowable `RuntimeService`/`TaskService`。
 
-## 10. 后续建议
+## 11. 后续建议
 
 1. 接入 API 资源自动扫描，把 `@PreAuthorize` 权限码登记到 `sys_api_resource`。
 2. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
 3. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
 4. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
 
-## 11. 验证记录（原生 MySQL + Redis，无 Docker）
+## 12. 验证记录（原生 MySQL + Redis，无 Docker）
 
 已在**原生 MySQL 8.4.11 + Redis** 环境完成实际启动验证，全程未使用任何容器：
 
