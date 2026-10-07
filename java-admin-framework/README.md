@@ -96,8 +96,8 @@ mvn spring-boot:run
 ```
 
 > **默认账号**：`V1__baseline.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），
-> 但其 `password_hash` 是占位值，**不存在可用的默认密码**（实测 `password`/`admin`/`123456`/`ChangeMe123!` 均不匹配）。
-> 首次启动后请先重置密码（数据库直改或 `POST /api/system/users/{id}/reset-password`）再登录。
+> 其原始 `password_hash` 为占位死值（无对应明文）。已通过 `V4__fix_admin_password.sql`
+> 将其重置为可用密码 **`admin123`**（bcrypt，`{bcrypt}` 前缀）。首次登录请使用 `admin / admin123`。
 
 ### 建表来源说明
 
@@ -214,7 +214,7 @@ JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 |---|---|
 | `mvn compile` | 通过，110 个 class |
 | 应用启动 | `Started FrameworkApplication in 28.4s`（首次，含建表）/ 14s（后续） |
-| Flyway | 应用 V1→V3，schema 至 `v3` |
+| Flyway | 应用 V1→V4，schema 至 `v4`（`V4` 为 admin 密码数据修复） |
 | 建表总数 | 72 张（`sys_*`/`wf_*` 20 张 + Flowable `ACT_*`/`FLW_*` + `jobrunr_*` + `flyway_schema_history`） |
 | JobRunr 存储 | 自动迁移 v000→v015，创建 `jobrunr_*` 表 |
 | jOOQ 运行时 | 日志确认 `Database version is supported by dialect MYSQL: 8.4.11` |
@@ -232,12 +232,31 @@ JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
    导致迁移前的 `demoJobHandler` 实际从未被调度。已改为 `ApplicationRunner` + `ObjectProvider<JobScheduler>`，
    修复后日志确认 `已注册 JobRunr 周期任务 id=demo-job cron=*/5 * * * *`。
 
+4. **BackgroundJobServer 未注册（任务不真正执行）**：JobRunr 6.x 将配置前缀由 5.x 的 `jobrunr` 改为
+   `org.jobrunr`（breaking change）。原 `jobrunr.background-job-server.enabled=true` 被静默忽略，
+   导致 BJS 不启动、`jobrunr_backgroundjobservers` 表恒为 0、周期任务永不执行。
+   已在 `application.yml` 与 `application-local.yml` 中将 JobRunr 配置块整体迁移到 `org.jobrunr:` 前缀下。
+   修复后启动日志确认 `BackgroundJobServer ... using MySqlStorageProvider and 4 BackgroundJobPerformers started successfully`，
+   `jobrunr_backgroundjobservers=1`，且 `demo-job`（`*/5 * * * *`）每 5 分钟真实执行（日志可见 `JobRunr 定时任务执行`）。
+
+5. **admin 默认密码不可用**：`V1__baseline.sql` 中 `admin` 的 `password_hash` 是占位死值，
+   经 `BCryptPasswordEncoder` 校验对任意常见明文（`password`/`admin`/`123456`/`ChangeMe123!`）均返回 false。
+   新增 `V4__fix_admin_password.sql`，将其更新为 `admin123` 的 bcrypt 哈希（`{bcrypt}` 前缀）并刷新 `password_changed_at`。
+   修复后 `POST /api/auth/login` 用 `admin / admin123` 返回 `200`，错误密码返回 `AUTH_001`。
+
 ### 已知待办（未修复）
 
-- **调度执行待确认**：`jobrunr_backgroundjobservers` 未见服务端注册记录，任务是否真正执行需进一步确认
-  （`/actuator/beans`、`/actuator/threaddump` 均被 Spring Security 拦截为 401，无法在线确认线程状态）。
-- **默认密码不可用**：见第 3 节「默认账号」说明，需先重置密码。
-- **JobRunr 面板**：JobRunr 6 已废弃 `jobrunr.dashboard.port: 8000`，面板实际挂载在主端口 `/dashboard`；
-  当前该路径被安全链路拦截返回 401，需在 `SecurityConfig` 放行后再访问。
+- **JobRunr 面板访问**：local 环境面板已在独立端口 `:8000/dashboard` 启动（不受主安全链路 `/dashboard` 路径拦截影响），可直接访问。
 - **Flyway 版本**：Flyway 10.10.0 提示 MySQL 8.4 高于其已验证版本（最高 8.1），仅为警告，不影响运行。
 - **Flowable 流程校验告警**：`leaveApproval` 的排他网关存在无条件出口流，建议补充默认流。
+
+### 沙箱/隔离环境验证注意事项
+
+- **Redis 必须运行**：`/actuator/health` 聚合了 `redis` 指示器，若 Redis 未启动则整体 `DOWN`（HTTP 503）。
+  本地验证前请先 `redis-server --port 6379 --bind 127.0.0.1` 启动实例（本仓库验证用隔离 datadir，不污染用户环境）。
+- **Netty DNS 解析**：沙箱内 Netty 异步 DNS 解析器对 `localhost`/`127.0.0.1` 均可能报 `<unresolved>`，
+  导致响应式 `RedisReactiveHealthIndicator` 失败。启动应用请加 JVM 参数
+  `-Dio.netty.resolver.dns.useJdkResolver=true` 全局回退到 JDK 解析器。
+- **本地代理占用端口**：WorkBuddy 沙箱会在 `127.0.0.1:<port>`（IPv4）注入一层 Express 反向代理，
+  直接 `curl 127.0.0.1:<port>` 会命中代理并返回 `{"error":{"code":"AUTH_REQUIRED"...}}`（非本应用响应）。
+  验证时请改走 IPv6 回环直连：`curl http://[::1]:<port>/... --noproxy '*'`。
