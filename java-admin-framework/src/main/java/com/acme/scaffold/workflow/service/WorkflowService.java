@@ -55,17 +55,19 @@ public class WorkflowService {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
         String approvalMode = request.approvalMode() == null ? "ALL" : request.approvalMode();
 
-        // 路由：若 processKey 对应已发布自定义工作流，则由设计解析各节点受让人与阈值；
-        // 否则走内置请假流程（沿用 assigneeList/manager/approvalMode 原变量契约）。
+        // 路由：所有流程（内置 leaveApproval 与自定义）均经 wf_workflow_design 的「已发布」设计驱动；
+        // 内置 leaveApproval 现在也是一条由 BuiltinWorkflowSeeder 种子写入并发布的可编辑设计，
+        // 不再依赖 classpath 下的静态 BPMN。若某 processKey 无已发布设计，则退回原变量契约兜底。
         Map<String, Object> variables;
         WorkflowDesignView design = designService.getPublished(request.processKey());
         if (design != null) {
             variables = designService.buildStartVariables(design, principal.userId(), 0L, request.formFields());
         } else {
             variables = new HashMap<>(4);
-            List<String> assignees = request.assigneeUserIds().stream().map(String::valueOf).toList();
+            List<String> assignees = request.assigneeUserIds() == null ? List.of()
+                    : request.assigneeUserIds().stream().map(String::valueOf).toList();
             variables.put("assigneeList", assignees);
-            variables.put("manager", String.valueOf(request.managerUserId()));
+            variables.put("manager", String.valueOf(request.managerUserId() == null ? 0L : request.managerUserId()));
             variables.put("approvalMode", approvalMode);
             variables.put("rejected", false);
             variables.put("managerApproved", true);
