@@ -18,6 +18,7 @@ import com.acme.scaffold.workflow.entity.WfInstanceExtDO;
 import com.acme.scaffold.workflow.entity.WfTaskExtDO;
 import com.acme.scaffold.workflow.model.ApprovalAction;
 import com.acme.scaffold.workflow.dto.design.WorkflowDesignView;
+import com.acme.scaffold.realtime.RealtimePushService;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
 import com.acme.scaffold.workflow.service.WorkflowDesignService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +51,7 @@ public class WorkflowService {
     private final SecurityContextFacade securityContextFacade;
     private final BusinessMetrics businessMetrics;
     private final WorkflowDesignService designService;
+    private final RealtimePushService realtimePushService;
 
     @Transactional
     public String start(StartProcessRequest request) {
@@ -88,8 +91,19 @@ public class WorkflowService {
         ext.setStartedAt(LocalDateTime.now());
         JooqWriters.insert(dsl, JooqTables.WF_INSTANCE_EXT, ext);
 
-        engine.activeTasks(instance.processInstanceId())
-                .forEach(t -> saveTaskExt(instance.processInstanceId(), t));
+        List<WorkflowEnginePort.TaskInfo> activeTasks = engine.activeTasks(instance.processInstanceId());
+        activeTasks.forEach(t -> saveTaskExt(instance.processInstanceId(), t));
+        // 实时推送待办提醒给当前活跃任务的审批人；离线用户进入页面时通过 REST 拉取待办（保证至少一次可见）
+        List<Long> todoAssignees = activeTasks.stream()
+                .map(WorkflowEnginePort.TaskInfo::assigneeUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (!todoAssignees.isEmpty()) {
+            realtimePushService.sendToUsers(todoAssignees, RealtimePushService.TYPE_TODO_REMINDER,
+                    Map.of("businessId", request.businessId(), "title", request.title(),
+                            "processKey", request.processKey(), "instanceId", instance.processInstanceId()));
+        }
         return instance.processInstanceId();
     }
 

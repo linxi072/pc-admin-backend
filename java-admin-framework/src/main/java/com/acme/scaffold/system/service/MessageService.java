@@ -5,6 +5,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.realtime.RealtimePushService;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageView;
 import com.acme.scaffold.system.dto.SendMessageRequest;
@@ -48,6 +49,7 @@ public class MessageService {
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
+    private final RealtimePushService realtimePushService;
 
     // ------------------------------------------------------------------
     // 发送
@@ -110,6 +112,9 @@ public class MessageService {
             JooqWriters.insert(dsl, JooqTables.SYS_MESSAGE_RECEIPT, r);
         }
         log.info("站内信发送完成 messageId={} 接收人数={}", msg.getId(), validUserIds.size());
+        // 实时推送未读提醒给在线接收人；离线用户进入页面时通过 REST 拉取全量未读（保证至少一次可见）
+        realtimePushService.sendToUsers(validUserIds, RealtimePushService.TYPE_UNREAD_MESSAGE,
+                Map.of("messageId", msg.getId(), "title", msg.getTitle(), "msgType", msg.getMsgType()));
         return validUserIds.size();
     }
 
