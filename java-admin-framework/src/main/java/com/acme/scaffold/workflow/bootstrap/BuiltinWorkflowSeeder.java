@@ -105,9 +105,10 @@ public class BuiltinWorkflowSeeder implements ApplicationRunner {
                 new WorkflowEdgeDTO("e2", "countersign", "manager", null, false),
                 new WorkflowEdgeDTO("e3", "manager", "approvedEnd", null, false)
         );
-        String formSchema = "[{\"field\":\"leaveType\",\"label\":\"请假类型\",\"type\":\"text\"},"
-                + "{\"field\":\"days\",\"label\":\"请假天数\",\"type\":\"number\"},"
-                + "{\"field\":\"reason\",\"label\":\"事由\",\"type\":\"textarea\"}]";
+        String formSchema = "[{\"field\":\"leaveType\",\"label\":\"请假类型\",\"type\":\"select\",\"required\":true,"
+                + "\"options\":[\"年假\",\"事假\",\"病假\"]},"
+                + "{\"field\":\"days\",\"label\":\"请假天数\",\"type\":\"number\",\"required\":true,\"placeholder\":\"请输入天数\"},"
+                + "{\"field\":\"reason\",\"label\":\"请假事由\",\"type\":\"textarea\",\"required\":true,\"placeholder\":\"请输入请假事由\"}]";
         return new SaveDesignRequest(processName,
                 "内置请假审批：会签/或签 -> 主管审批 -> 结束；任一节点驳回即终止。",
                 formSchema, nodes, edges);
@@ -137,9 +138,9 @@ public class BuiltinWorkflowSeeder implements ApplicationRunner {
                 new WorkflowEdgeDTO("e2", "deptManager", "finance", null, false),
                 new WorkflowEdgeDTO("e3", "finance", "approvedEnd", null, false)
         );
-        String formSchema = "[{\"field\":\"amount\",\"label\":\"报销金额\",\"type\":\"number\"},"
-                + "{\"field\":\"category\",\"label\":\"费用类别\",\"type\":\"text\"},"
-                + "{\"field\":\"reason\",\"label\":\"事由\",\"type\":\"textarea\"}]";
+        String formSchema = "[{\"field\":\"amount\",\"label\":\"报销金额(元)\",\"type\":\"number\",\"required\":true,\"placeholder\":\"请输入金额\"},"
+                + "{\"field\":\"category\",\"label\":\"费用类别\",\"type\":\"select\",\"required\":true,\"options\":[\"差旅\",\"办公\",\"招待\"]},"
+                + "{\"field\":\"reason\",\"label\":\"报销说明\",\"type\":\"textarea\",\"required\":false,\"placeholder\":\"可选\"}]";
         return new SaveDesignRequest(processName,
                 "内置报销审批：部门主管审批 -> 财务审批 -> 结束；任一节点驳回即终止。",
                 formSchema, nodes, edges);

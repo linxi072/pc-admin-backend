@@ -67,4 +67,20 @@ class BuiltinWorkflowSeederTest {
         // 确保各内置流程 processKey 不冲突，避免部署互相覆盖
         assertTrue(!BuiltinWorkflowSeeder.LEAVE_APPROVAL_KEY.equals(BuiltinWorkflowSeeder.EXPENSE_KEY));
     }
+
+    @Test
+    void bothSeedsCarryFormSchema() {
+        // 内置流程应携带业务表单 schema，供发起表单按字段动态渲染
+        SaveDesignRequest leave = BuiltinWorkflowSeeder.buildLeaveApprovalDesign("请假审批");
+        assertNotNull(leave.formSchema(), "请假设计应包含 formSchema");
+        assertTrue(leave.formSchema().contains("leaveType"), "应包含请假类型字段");
+        assertTrue(leave.formSchema().contains("days"), "应包含请假天数字段");
+        assertTrue(leave.formSchema().contains("reason"), "应包含事由字段");
+
+        SaveDesignRequest expense = BuiltinWorkflowSeeder.buildExpenseDesign("报销审批");
+        assertNotNull(expense.formSchema(), "报销设计应包含 formSchema");
+        assertTrue(expense.formSchema().contains("amount"), "应包含报销金额字段");
+        assertTrue(expense.formSchema().contains("category"), "应包含费用类别字段");
+        assertTrue(expense.formSchema().contains("reason"), "应包含说明字段");
+    }
 }
