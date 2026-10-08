@@ -421,9 +421,44 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 
 ### 当前接入范围
 
-仅 `system:user`（用户列表）实际接入了过滤。
-其余资源编码已在 Provider 层预留，但需在对应 Service 中显式调用 `dataScopeProvider.resolve(...)` 才生效。
+| 资源编码 | 接入位置 | 过滤维度 |
+|---|---|---|
+| `system:user` | `UserService#list` | `org_id IN (可见机构)`；`SELF` 退化为 `id = 当前用户` |
+| `system:org` | `OrgService#tree` | `id IN (可见机构)`，父节点不可见时升为森林根（避免整棵子树丢失） |
+
+其余资源编码已在 Provider 层预留，按需加 `@DataScope(resourceCode=...)` 并在查询内调用
+`DataScopeConditions.of(...)` 即可生效（见下「切面自动注入」）。
 前端不提供资源自由输入，避免配出后端未接线的编码导致「配了却不生效」。
+
+### 切面自动注入（DataScopeAspect）
+
+早期实现里 `DataScope` 注解零使用，每个需要过滤的 Service 都要自己调
+`DataScopeProvider#resolve(userId, resourceCode)`、自己判空、自己拼条件 —— 漏一处就是越权。
+现改为 AOP 环绕自动注入：
+
+1. 在查询方法上标注 `@DataScope(resourceCode = "system:xxx")`
+   （支持方法级或类级 `@DataScope`，类级对内部所有公开方法生效）。
+2. `DataScopeAspect` 在方法执行前解析范围：
+   - 有登录主体 → `dataScopeProvider.resolve(userId, resourceCode)`；
+   - 无登录主体（定时任务 / 内部调用）→ 记 DEBUG 日志并按「不限制」处理
+     （这类调用没有「谁在看」的语义，强行套用户范围会让定时任务查不到数据）。
+   解析结果写入 `DataScopeContext`（ThreadLocal），方法结束后 `finally` 清理，不跨请求、不进线程池任务。
+3. Service 方法内部只消费条件：`DataScopeConditions.of(table, orgColumn[, userColumn])`
+   把上下文翻译成 jOOQ 查询条件，无需改动任何上层方法签名。
+
+`DataScopeConditions` 的翻译规则（与 `DefaultDataScopeProvider` 解析语义一一对应）：
+
+| 范围 | 条件 |
+|---|---|
+| 无上下文 / `ALL` | 不加条件 |
+| `SELF` | 有「本人」列时 `userColumn = 当前用户`；无则退化为「本人所属部门」子查询（用户未挂部门则查不到行） |
+| `DEPT` / `DEPT_AND_CHILD` / `CUSTOM` | `orgColumn IN (可见机构集合)` |
+| 机构集合为空 | 不加条件（与 Provider「配空集合降级为不限」一致） |
+| 表上不存在目标列 | WARN 不加条件（配置错误可观测，但不让列表 500） |
+
+新增一个受控资源只需：① 确保该 `resource_code` 在 Provider 层可被解析；
+② 在目标查询方法加 `@DataScope(resourceCode=...)` 并调用 `DataScopeConditions.of(...)`。
+无需再手工接线 provider / 判空 / 拼条件。
 
 ## 14. 服务端排序（白名单映射）
 
@@ -464,9 +499,10 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 1. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
 2. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
 3. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
-4. 数据权限目前仅 `system:user` 接入过滤，其余 11 个 Service 需按需显式调用
-   `DataScopeProvider#resolve`；`security/permission/DataScope` 注解仍为零使用，
-   可考虑改为 AOP 环绕自动注入，避免每个 Service 手工接线。
+4. （已完成）数据权限切面自动注入已落地：`DataScope` 注解 + `DataScopeAspect` + `DataScopeContext` /
+   `DataScopeConditions` 替代逐 Service 手工接线，已接入 `system:user` 与 `system:org`。
+   后续新增受控资源只须在查询方法加 `@DataScope(resourceCode=...)` 并调用 `DataScopeConditions.of(...)`，
+   不再需要手工调用 `DataScopeProvider#resolve`。
 
 ## 16. 验证记录（原生 MySQL + Redis，无 Docker）
 
