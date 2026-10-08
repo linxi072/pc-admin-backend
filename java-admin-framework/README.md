@@ -1,6 +1,6 @@
 # Java 后端基础管理框架（可运行脚手架）
 
-基于 Spring Boot 的**模块化单体**企业后台基础框架，作为后续业务系统的脚手架。覆盖：RBAC 权限、认证授权与刷新令牌、性能监控、工作流审批、统一响应/异常/分页、操作审计、数据权限扩展点。
+基于 Spring Boot 的**模块化单体**企业后台基础框架，作为后续业务系统的脚手架。覆盖：RBAC 权限、认证授权与刷新令牌、性能监控、工作流审批、统一响应/异常/分页、操作审计与脱敏追溯、写接口幂等、Token 版本失效、数据权限扩展点。
 
 > 本脚手架已完成**技术栈迁移**：持久层由 **MyBatis-Plus → jOOQ**，任务调度由 **XXL-JOB → JobRunr**。  
 > 迁移后功能与原实现保持一致（表结构、接口契约、权限码、流程语义均未变更），且**全流程不使用 Docker**（构建与部署均以原生进程方式运行）。
@@ -314,7 +314,8 @@ JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 
 - 读写分离：公告 `read` 与 `publish/update/delete` 分开，普通用户可读已发布公告但不能改；站内信发送需 `system:message:send`；监控统一 `system:monitor:read`。
 - 全部写操作带 `@AuditOperation`，异常经 `GlobalExceptionHandler` 落 `sys_operation_log`，监控页即可查。
-- 新增权限码沿用 `模块:资源:动作` 约定。注意：`sys_api_resource` **本身没有种子数据**（既有待办），新接口与现有接口一样，需先在「接口资源管理」页面登记并授权给角色后才能访问。
+- 新增权限码沿用 `模块:资源:动作` 约定。注意：`sys_api_resource` **本身没有种子数据**（既有待办），新接口与现有接口一样，需先在「接口资源管理」页面登记并授权给角色后才能访问。  
+  `ApiResourceAutoSyncRunner` 会在启动时自动登记新接口（如 `system:audit:read`、`system:audit:sensitive`），但**不会自动授权**给任何角色——需管理员在「角色管理」中显式勾选后前端才可访问。
 
 ## 11. 关键设计点
 
@@ -528,7 +529,11 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 
 ## 15. 后续建议
 
+> 2026-10-08 更新：设计方案 §20 中「审计日志可按 traceId 查询」「写接口幂等」「Token 版本失效」三项
+> 已分别落地为第 17、18、19 节；下方为剩余建议。
+
 1. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
+1.1. 幂等与 Token 版本的**运行期行为**（并发同 key 去重、改角色后旧 token 401）同样依赖 MySQL/Redis，需本机验证。
 2. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
 3. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
 4. （已完成）数据权限切面自动注入已落地：`DataScope` 注解 + `DataScopeAspect` + `DataScopeContext` /  
@@ -628,7 +633,90 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
   -d '{"processKey":"purchase","businessType":"PURCHASE","businessId":"P001","title":"采购申请","assigneeUserIds":[1],"managerUserId":1}'
 ```
 
-## 17. 验证记录（原生 MySQL + Redis，无 Docker）
+## 17. 审计日志查询与脱敏
+
+补齐设计方案 §20「审计日志可按 traceId 查询且无敏感字段」。此前 `sys_operation_log` 由 `AuditAspect`
+**只写不查**，管理员无法在系统中追溯操作，只能直接连库。
+
+### 17.1 接口
+
+| 方法 | 路径 | 权限码 | 说明 |
+|------|------|--------|------|
+| GET | `/api/system/audit-logs/page` | `system:audit:read` | 分页多条件查询（模块/操作类型/操作人/结果/traceId/关键词/耗时/时间区间） |
+| GET | `/api/system/audit-logs/trace/{traceId}` | `system:audit:read` | 一次请求的完整操作链路，按发生时间正序 |
+| GET | `/api/system/audit-logs/summary` | `system:audit:read` | 总数/成功/失败/慢操作(>1s)/平均与最大耗时 |
+
+### 17.2 脱敏策略
+
+`SensitiveMasker` 为纯函数工具，按「先抹凭证键、再抹 PII 值」两步处理：
+
+- 凭证键（`password`/`token`/`refresh_token`/`client_secret`/`pin`…）整段值替换为 `******`，
+  兼容 camelCase / snake_case / kebab-case 三种命名；
+- 手机号 `138****1234`、邮箱 `z***@example.com`、身份证保留后 4 位；
+- IP 保留网段 `192.168.*.*`，IPv6 与代理链整体掩码。
+
+摘要默认脱敏；持有 `system:audit:sensitive` 的主体可见原文（IP 仍掩码）。
+该表无 `deleted` 列——审计数据不允许逻辑删除，归档由独立运维流程负责。
+
+## 18. 幂等性（Idempotency-Key）
+
+补齐设计方案 §12「写接口支持 Idempotency-Key，**审批类接口必须强制使用**」。
+
+### 18.1 用法
+
+客户端在写请求上带 `Idempotency-Key: <8~128 位字母数字_- >`（建议 UUID）：
+
+- 首次请求：登记 `PROCESSING`，执行业务，成功后写 `SUCCESS` + 响应快照；
+- 重复请求（同 key 同内容）：**重放首次响应**，业务不二次执行；
+- 处理中重复请求：返回 `409 IDEMPOTENCY_001`；
+- 同 key 不同内容：返回 `422 IDEMPOTENCY_003`；
+- 业务失败（`BusinessException`）：记 `FAILED` 保留错误码，允许修正后重试；
+- 系统异常：删除记录，不阻塞客户端重试。
+
+### 18.2 关键设计
+
+- **记录写在 `REQUIRES_NEW` 独立事务**：与业务共用事务会导致「业务回滚把幂等记录一起抹掉」，
+  重试就变成一次真实的新执行，幂等形同虚设；
+- **唯一索引 `uk_idem_key_scope` 兜底并发**：应用层判断与插入之间的时间窗由数据库裁决，
+  切面捕获 `DataIntegrityViolationException` 后按冲突处理（fail-closed）；
+- **切面顺序 `LOWEST_PRECEDENCE - 1000`**：必须包住 `@Transactional`，
+  只有事务提交后才写 `SUCCESS`，否则会出现「业务回滚但显示成功」；
+- **幂等基础设施故障降级放行**：去重功能故障不阻断业务（去重是增强，不是前提）。
+
+### 18.3 已接入
+
+| 方法 | scope | requireKey |
+|------|-------|-----------|
+| `WorkflowService#completeTask` | `workflow:task:complete` | 是 |
+| `WorkflowService#transfer` | `workflow:task:transfer` | 是 |
+| `MessageService#send` | `system:message:send` | 否 |
+
+> 抄送（`sendCcNotification`）走 `doSend` 而非 `send`：它由工作流引擎触发、请求上下文无幂等键，
+> 若复用带切面入口会因强制键校验全部失败。
+
+清理：`IdempotencyCleanupJob`（JobRunr，每小时）删除 `sys_idempotency_record` 过期行。
+
+## 19. Token 版本与权限缓存失效
+
+补齐设计方案 §20「权限变更后旧权限缓存与 Token 版本**正确失效**」。
+此前 `sys_user.token_version` 建了列、JWT 也带 `tokenVersion` 声明，但**全链路无人递增、无人校验**——
+改掉某人角色后其旧 token 仍可通行到自然过期。
+
+### 19.1 闭环
+
+- **递增（bump）**：`UserService#update`（角色或状态变化）、`UserService#resetPassword`、
+  `UserService#delete`、`RoleDataScopeService#save`（按角色反查全部持有者）；
+- **校验**：`TokenVersionVerifier` 过滤器挂在 Bearer 认证之后，比对声明与库中版本；
+- **判定**：`claim >= stored` 即有效——运维手工回退版本不会把用户永久锁死；
+- **缓存**：进程内 TTL 30s（缓存「版本号」而非「判定结果」，避免把某个旧 token 的有效误判为全局有效）；
+- **失效响应**：`401 AUTH_005 凭证已失效，请重新登录`。
+
+### 19.2 失败策略
+
+版本校验依赖 DB。读不到版本时**一律放行**（fail-open）并记 warn——
+基础设施故障不应表现为「全站被登出」；真正判定为落后时才拒绝。
+
+## 20. 验证记录（原生 MySQL + Redis，无 Docker）
 
 已在**原生 MySQL 8.4.11 + Redis** 环境完成实际启动验证，全程未使用任何容器：
 
