@@ -104,7 +104,7 @@
       </template>
     </el-dialog>
 
-    <!-- 数据权限：按资源配置可见范围。当前仅「用户」资源接入过滤，其余资源预留。 -->
+    <!-- 数据权限：按资源配置可见范围。当前「用户数据」「部门数据」已接入过滤，其余资源预留。 -->
     <el-dialog v-model="scopeVisible" title="数据权限" width="560px">
       <el-alert
         type="info"
@@ -119,8 +119,8 @@
           <span>{{ scopeForm.roleName }}</span>
         </el-form-item>
         <el-form-item label="资源">
-          <el-select v-model="scopeForm.resourceCode" style="width: 100%" :disabled="true">
-            <el-option label="用户数据" value="system:user" />
+          <el-select v-model="scopeForm.resourceCode" style="width: 100%" @change="onResourceChange">
+            <el-option v-for="r in SUPPORTED_RESOURCES" :key="r.code" :label="r.label" :value="r.code" />
           </el-select>
         </el-form-item>
         <el-form-item label="数据范围">
@@ -170,7 +170,10 @@ const SCOPE_OPTIONS = [
 ]
 
 // 当前接入数据权限过滤的资源。前端不提供自由输入，避免配出后端未接线的资源编码导致「配了却不生效」。
-const SUPPORTED_RESOURCES = [{ code: 'system:user', label: '用户数据' }]
+const SUPPORTED_RESOURCES = [
+  { code: 'system:user', label: '用户数据' },
+  { code: 'system:org', label: '部门数据' }
+]
 
 const loading = ref(false)
 const saving = ref(false)
@@ -194,6 +197,8 @@ const orgTreeRef = ref()
 const orgTreeData = ref([])
 // roleId -> 已配置规则的 scopeType，用于列表页概览标签
 const scopeMap = ref({})
+// 当前角色已拉取的全部数据权限规则（跨资源），切换资源时复用，不重新请求
+const currentRules = ref([])
 const scopeForm = reactive({
   roleId: null, roleName: '', resourceCode: 'system:user', scopeType: 'ALL', orgIds: []
 })
@@ -203,12 +208,9 @@ const scopeHint = computed(() => {
   return opt?.desc || ''
 })
 
-/** 列表页展示已配置的数据范围；未配置返回空串（模板降级为「未配置」）。 */
+/** 列表页展示已配置的资源（如「用户数据、部门数据」）；未配置返回空串（模板降级为「未配置」）。 */
 function scopeLabelOf(roleId) {
-  const type = scopeMap.value[roleId]
-  if (!type) return ''
-  const opt = SCOPE_OPTIONS.find((o) => o.value === type)
-  return opt ? opt.label : type
+  return scopeMap.value[roleId] || ''
 }
 
 const rules = {
@@ -242,22 +244,26 @@ async function load() {
 /**
  * 拉取每个角色的数据权限概览。
  * 单个角色查询失败不应让整个列表加载失败，故逐个 catch 并跳过。
+ * 概览展示已配置的资源名（如「用户数据、部门数据」），多个资源用顿号连接。
  */
 async function loadScopeSummaries(roles) {
   const entries = await Promise.all(
     roles.map(async (r) => {
       try {
         const rules = await listRoleDataScopes(r.id)
-        const rule = rules.find((x) => x.resourceCode === 'system:user')
-        return rule ? [r.id, rule.scopeType] : null
+        if (!rules.length) return null
+        const labels = rules
+          .map((x) => SUPPORTED_RESOURCES.find((s) => s.code === x.resourceCode)?.label)
+          .filter(Boolean)
+        return labels.length ? [r.id, labels.join('、')] : null
       } catch (e) {
         return null
       }
     })
   )
   const map = {}
-  entries.filter(Boolean).forEach(([id, type]) => {
-    map[id] = type
+  entries.filter(Boolean).forEach(([id, label]) => {
+    map[id] = label
   })
   scopeMap.value = map
 }
@@ -276,6 +282,7 @@ async function openDataScope(row) {
   orgTreeRef.value?.setCheckedKeys([])
   try {
     const [rules, tree] = await Promise.all([listRoleDataScopes(row.id), orgTree()])
+    currentRules.value = rules || []
     orgTreeData.value = tree || []
     const rule = rules.find((x) => x.resourceCode === scopeForm.resourceCode)
     if (rule) {
@@ -290,6 +297,25 @@ async function openDataScope(row) {
   } catch (e) {
     /* 拦截器已统一提示 */
   }
+}
+
+/** 切换资源时，从已拉取的规则中重新定位该资源的配置（不重新请求）。 */
+function onResourceChange() {
+  const rule = currentRules.value.find((x) => x.resourceCode === scopeForm.resourceCode)
+  if (rule) {
+    scopeForm.scopeType = rule.scopeType
+    scopeForm.orgIds = [...(rule.orgIds || [])]
+  } else {
+    scopeForm.scopeType = 'ALL'
+    scopeForm.orgIds = []
+  }
+  nextTick(() => {
+    if (scopeForm.scopeType === 'CUSTOM') {
+      orgTreeRef.value?.setCheckedKeys(scopeForm.orgIds)
+    } else {
+      orgTreeRef.value?.setCheckedKeys([])
+    }
+  })
 }
 
 /** 保存数据权限：覆盖式提交，CUSTOM 之外不带 orgIds。 */
