@@ -112,14 +112,20 @@ public class MessageService {
         return validUserIds.size();
     }
 
-    /** 按角色/部门解析接收人：角色与部门之间为「或」关系，命中任一即投递。 */
+    /** 按角色/部门解析接收人：角色与部门之间为「或」关系，命中任一即投递（基于多对多关联表）。 */
     private Set<Long> resolveReceivers(List<Long> roleIds, List<Long> orgIds) {
         List<Condition> conds = new ArrayList<>();
         if (roleIds != null && !roleIds.isEmpty()) {
-            conds.add(JooqTables.SYS_USER.field("role_id", Long.class).in(roleIds));
+            conds.add(JooqTables.SYS_USER.field("id", Long.class).in(
+                    dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
+                            .from(JooqTables.SYS_USER_ROLE.table())
+                            .where(JooqTables.SYS_USER_ROLE.field("role_id", Long.class).in(roleIds))));
         }
         if (orgIds != null && !orgIds.isEmpty()) {
-            conds.add(JooqTables.SYS_USER.field("org_id", Long.class).in(orgIds));
+            conds.add(JooqTables.SYS_USER.field("id", Long.class).in(
+                    dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
+                            .from(JooqTables.SYS_USER_ORG.table())
+                            .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).in(orgIds))));
         }
         if (conds.isEmpty()) {
             return Set.of();

@@ -19,9 +19,12 @@ import com.acme.scaffold.system.dto.UpdateProfileRequest;
 import com.acme.scaffold.system.entity.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDO;
 import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.entity.SysUserOrgDO;
+import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -410,28 +413,40 @@ public class ProfileService {
                 StringUtils.hasText(u.getMobile()),
                 u.getEmail(),
                 StringUtils.hasText(u.getEmail()),
-                loadRoleName(u.getRoleId()),
-                loadOrgName(u.getOrgId()),
+                loadRoleNames(u.getId()),
+                loadOrgNames(u.getId()),
                 u.getStatus(),
                 u.getLastLoginAt(),
                 u.getPasswordChangedAt(),
                 u.getCreatedAt());
     }
 
-    private String loadRoleName(Long roleId) {
-        if (roleId == null) {
-            return null;
+    /** 取用户全部角色名称（多对多，sys_user_role 关联表）。 */
+    private List<String> loadRoleNames(Long userId) {
+        List<Long> roleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
+                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
+                .map(SysUserRoleDO::getRoleId).toList();
+        if (roleIds.isEmpty()) {
+            return List.of();
         }
-        SysRoleDO role = JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, roleId);
-        return role == null ? null : role.getRoleName();
+        return JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
+                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ROLE),
+                                JooqTables.SYS_ROLE.field("id", Long.class).in(roleIds)))
+                .stream().map(SysRoleDO::getRoleName).toList();
     }
 
-    private String loadOrgName(Long orgId) {
-        if (orgId == null) {
-            return null;
+    /** 取用户全部部门名称（多对多，sys_user_org 关联表）。 */
+    private List<String> loadOrgNames(Long userId) {
+        List<Long> orgIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ORG, SysUserOrgDO.class,
+                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId)).stream()
+                .map(SysUserOrgDO::getOrgId).toList();
+        if (orgIds.isEmpty()) {
+            return List.of();
         }
-        SysOrgDO org = JooqWriters.fetchById(dsl, JooqTables.SYS_ORG, SysOrgDO.class, orgId);
-        return org == null ? null : org.getOrgName();
+        return JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
+                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
+                                JooqTables.SYS_ORG.field("id", Long.class).in(orgIds)))
+                .stream().map(SysOrgDO::getOrgName).toList();
     }
 
     /** 由 deviceId / User-Agent 生成可读的设备名称，覆盖浏览器与常见脚本客户端。 */

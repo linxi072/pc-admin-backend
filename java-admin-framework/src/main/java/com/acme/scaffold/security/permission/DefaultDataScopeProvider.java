@@ -5,7 +5,8 @@ import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.system.entity.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeOrgDO;
-import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.entity.SysUserRoleDO;
+import com.acme.scaffold.system.entity.SysUserOrgDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
@@ -41,12 +42,13 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
         if (userId == null) {
             return DataScopeResult.all();
         }
-        // V6 收敛：用户仅绑定单个角色，直接读 sys_user.role_id。
-        SysUserDO current = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
-        if (current == null || current.getRoleId() == null) {
-            return DataScopeResult.all();
+        // 多对多：用户角色来自 sys_user_role 关联表（并集）。
+        List<SysUserRoleDO> roleRows = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
+                JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId));
+        if (roleRows.isEmpty()) {
+            return DataScopeResult.all(); // 无角色 => 按不限制兜底（与 V6 语义一致）
         }
-        Set<Long> roleIds = Set.of(current.getRoleId());
+        Set<Long> roleIds = roleRows.stream().map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
 
         List<SysRoleDataScopeDO> rules = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE,
                 SysRoleDataScopeDO.class,
@@ -57,7 +59,11 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
         }
 
         Set<Long> orgIds = new HashSet<>();
-        Long primaryOrgId = current.getOrgId();
+        // 主部门由 sys_user_org 中 is_primary=1 推导（多部门时取主部门用于 DEPT 类数据范围）
+        List<SysUserOrgDO> orgRows = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ORG, SysUserOrgDO.class,
+                DSL.and(JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
+                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)));
+        Long primaryOrgId = orgRows.isEmpty() ? null : orgRows.get(0).getOrgId();
         boolean hasOrgRule = false;
 
         for (SysRoleDataScopeDO rule : rules) {
@@ -93,7 +99,7 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
         // 否则该角色会一条数据都看不到；告警指向配置问题而非静默生效。
         if (hasOrgRule && orgIds.isEmpty()) {
             log.warn("数据权限解析为空，按不限制处理；请检查用户是否已绑定部门或 CUSTOM 规则是否配置了机构。"
-                    + "resourceCode={}, roleId={}, orgId={}", resourceCode, current.getRoleId(), primaryOrgId);
+                    + "resourceCode={}, roleIds={}, orgId={}", resourceCode, roleIds, primaryOrgId);
             return DataScopeResult.all();
         }
         return DataScopeResult.ofOrgs(orgIds);

@@ -1,12 +1,17 @@
 package com.acme.scaffold.system.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 /**
  * 创建用户请求。
- * <p>约束（V6 收敛）：用户仅绑定「单个角色 + 单个部门」，因此角色为必填单值，部门为可选单值。
+ * <p>约束（多对多）：用户可绑定多个角色、归属多个部门。
+ * roleIds / deptIds 为必填集合（至少 1 个）；primaryRoleId / primaryDeptId 可选，
+ * 用于标记主角色 / 主部门（为空时取对应集合的首位），决定权限聚合与数据范围的「主」维度。
  */
 public record CreateUserRequest(
         @NotBlank String username,
@@ -14,6 +19,8 @@ public record CreateUserRequest(
         @NotBlank String displayName,
         String mobile,
         String email,
-        Long orgId,
-        @NotNull(message = "角色不能为空，用户仅可绑定单个角色") Long roleId) {
+        @NotEmpty(message = "至少绑定一个角色") List<Long> roleIds,
+        Long primaryRoleId,
+        @NotEmpty(message = "至少归属一个部门") List<Long> deptIds,
+        Long primaryDeptId) {
 }

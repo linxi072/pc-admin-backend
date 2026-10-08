@@ -30,7 +30,7 @@ public final class JooqTables {
             "id", "tenant_id", "username", "password_hash", "display_name", "mobile", "email",
             "avatar_url", "notify_site_message", "notify_email", "notify_mobile",
             "show_login_log", "mask_mobile", "discoverable",
-            "primary_org_id", "role_id", "org_id", "status", "failed_login_count", "locked_until",
+            "status", "failed_login_count", "locked_until",
             "password_changed_at", "password_expired", "token_version", "mfa_enabled", "last_login_at",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
@@ -68,6 +68,14 @@ public final class JooqTables {
     /** 复合主键关联表：无 id 列。 */
     public static final TableRef SYS_ROLE_DATA_SCOPE_ORG = new TableRef("sys_role_data_scope_org",
             "tenant_id", "rule_id", "org_id");
+
+    /** 用户-角色关联（多对多，回退 V6 收敛）。is_primary 标记主角色。无 deleted 列，物理删除。 */
+    public static final TableRef SYS_USER_ROLE = new TableRef("sys_user_role",
+            "tenant_id", "user_id", "role_id", "is_primary", "created_at");
+
+    /** 用户-部门关联（多对多，回退 V6 收敛）。sys_org 为部门表，is_primary 标记主部门。无 deleted 列，物理删除。 */
+    public static final TableRef SYS_USER_ORG = new TableRef("sys_user_org",
+            "tenant_id", "user_id", "org_id", "is_primary", "created_at");
 
     // ---------------- 系统配置类 ----------------
 

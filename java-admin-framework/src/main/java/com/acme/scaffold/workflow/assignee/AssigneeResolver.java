@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * 审批节点受让人解析：支持按人员(USER)、角色(ROLE)、部门(ORG)、发起人(INITIATOR)、发起人主管(INITIATOR_MANAGER)解析。
- * 基于收敛后的用户模型（sys_user 含 role_id / org_id 单列）直接查询，避免引入额外服务耦合。
+ * 基于多对多关联表（sys_user_role / sys_user_org）解析，支持用户多角色、多部门归属。
  */
 @Component
 @RequiredArgsConstructor
@@ -60,7 +60,7 @@ public class AssigneeResolver {
         if (roleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "角色不存在: " + roleCode);
         }
-        return userIds(JooqTables.SYS_USER.field("role_id", Long.class).eq(roleId));
+        return userIdsByRole(roleId);
     }
 
     private List<Long> resolveByOrg(String orgId) {
@@ -68,16 +68,13 @@ public class AssigneeResolver {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "ORG 受让人需指定部门ID");
         }
         long org = Long.parseLong(orgId);
-        return userIds(JooqTables.SYS_USER.field("org_id", Long.class).eq(org));
+        return userIdsByOrg(org);
     }
 
     private List<Long> resolveManager(Long starterUserId) {
-        Long orgId = dsl.select(JooqTables.SYS_USER.field("org_id", Long.class))
-                .from(JooqTables.SYS_USER.table())
-                .where(JooqTables.SYS_USER.field("id", Long.class).eq(starterUserId))
-                .fetchOne(0, Long.class);
+        Long orgId = primaryOrgOf(starterUserId);
         if (orgId == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "发起人所在部门未知");
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "发起人所在主部门未知");
         }
         Long managerRoleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
                 .from(JooqTables.SYS_ROLE.table())
@@ -86,21 +83,57 @@ public class AssigneeResolver {
         if (managerRoleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "未配置主管角色(" + MANAGER_ROLE_CODE + ")");
         }
-        return userIds(orgAndRole(orgId, managerRoleId));
+        return userIdsByRoleInOrg(managerRoleId, orgId);
     }
 
-    private List<Long> userIds(org.jooq.Condition cond) {
+    private Long primaryOrgOf(Long userId) {
+        return dsl.select(JooqTables.SYS_USER_ORG.field("org_id", Long.class))
+                .from(JooqTables.SYS_USER_ORG.table())
+                .where(org.jooq.impl.DSL.and(
+                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
+                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)))
+                .fetchOne(0, Long.class);
+    }
+
+    /** 取拥有指定角色的全部用户ID（关联表 sys_user_role，多对多）。 */
+    private List<Long> userIdsByRole(Long roleId) {
+        return dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
+                .from(JooqTables.SYS_USER_ROLE.table())
+                .where(org.jooq.impl.DSL.and(
+                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).eq(roleId),
+                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
+                .fetch().map(r -> r.get(0, Long.class));
+    }
+
+    /** 取归属指定部门的全部用户ID（关联表 sys_user_org，多对多）。 */
+    private List<Long> userIdsByOrg(Long orgId) {
+        return dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
+                .from(JooqTables.SYS_USER_ORG.table())
+                .where(org.jooq.impl.DSL.and(
+                        JooqTables.SYS_USER_ORG.field("org_id", Long.class).eq(orgId),
+                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).in(activeUserIds())))
+                .fetch().map(r -> r.get(0, Long.class));
+    }
+
+    /** 取某部门内拥有指定角色的用户ID（org + role 组合，多对多）。 */
+    private List<Long> userIdsByRoleInOrg(Long roleId, Long orgId) {
+        return dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
+                .from(JooqTables.SYS_USER_ROLE.table())
+                .where(org.jooq.impl.DSL.and(
+                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).eq(roleId),
+                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(
+                                dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
+                                        .from(JooqTables.SYS_USER_ORG.table())
+                                        .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).eq(orgId))),
+                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
+                .fetch().map(r -> r.get(0, Long.class));
+    }
+
+    /** 活跃（未删除）用户ID子查询，过滤已注销账号。 */
+    private org.jooq.Select<org.jooq.Record1<Long>> activeUserIds() {
         return dsl.select(JooqTables.SYS_USER.field("id", Long.class))
                 .from(JooqTables.SYS_USER.table())
-                .where(org.jooq.impl.DSL.and(cond, JooqTables.SYS_USER.field("deleted", Integer.class).eq(0)))
-                .fetch()
-                .map(r -> r.get(0, Long.class));
-    }
-
-    private org.jooq.Condition orgAndRole(Long orgId, Long roleId) {
-        return org.jooq.impl.DSL.and(
-                JooqTables.SYS_USER.field("org_id", Long.class).eq(orgId),
-                JooqTables.SYS_USER.field("role_id", Long.class).eq(roleId));
+                .where(JooqTables.SYS_USER.field("deleted", Integer.class).eq(0));
     }
 
     private static String orDefault(String value, String def) {

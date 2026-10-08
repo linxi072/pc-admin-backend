@@ -32,13 +32,8 @@ public class SysUserDO {
     /** 是否允许被其他用户搜索到。 */
     private Integer discoverable = 1;
 
-    private Long primaryOrgId;
-
-    /** 单一角色ID：用户仅可绑定一个角色（V6 收敛后由 sys_user.role_id 直接承载）。 */
-    private Long roleId;
-
-    /** 单一部门ID：用户仅可归属一个部门。 */
-    private Long orgId;
+    // 角色 / 部门改为多对多（sys_user_role / sys_user_org 关联表承载），
+    // 主角色 / 主部门由关联表 is_primary 标记推导，sys_user 不再保留单值列。
 
     private String status;
     private Integer failedLoginCount = 0;
