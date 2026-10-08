@@ -12,6 +12,10 @@ function bizError(code, message) {
   return Object.assign(new Error(message), { code })
 }
 
+// 浏览器内 mock 没有 Node 的 process 全局对象，用「模块加载时刻」模拟「服务启动时间」，供监控指标计算 uptime。
+// （原实现误用 process.uptime()，在 USE_MOCK 浏览器环境会抛 ReferenceError: process is not defined。）
+const MOCK_BOOT_MS = Date.now()
+
 let seq = 100
 
 const db = {
@@ -377,7 +381,7 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
   }
   if (m === 'POST' && url === '/api/auth/logout') return null
 
-  // ---- 用户（V6 收敛：单角色 roleId + 单部门 orgId）----
+  // ---- 用户（纯 N:N：多角色 roleIds + 多部门 deptIds 数组）----
   if (m === 'GET' && url === '/api/system/users/page') {
     let list = [...db.users]
     if (params.username) {
@@ -822,12 +826,16 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     if (!hasExplicit && !hasRole && !hasOrg) {
       throw bizError('VALIDATION_ERROR', '请指定接收人，或按角色/部门筛选接收人')
     }
-    // 角色与部门为「或」关系；V6 收敛后用户为单角色单部门
+    // 角色与部门为「或」关系；纯 N:N 下用户可多角色多部门，按数组包含匹配
     let targets = hasExplicit
       ? [...data.receiverIds]
       : db.users
           .filter((u) => u.status === 'ACTIVE')
-          .filter((u) => (hasRole && data.roleIds.includes(u.roleId)) || (hasOrg && data.orgIds.includes(u.orgId)))
+          .filter(
+            (u) =>
+              (hasRole && (u.roleIds || []).some((rid) => data.roleIds.includes(Number(rid)))) ||
+              (hasOrg && (u.deptIds || []).some((did) => data.orgIds.includes(Number(did))))
+          )
           .map((u) => u.id)
     targets = [...new Set(targets)]
     if (targets.length === 0) throw bizError('CONFLICT', '按当前筛选条件未匹配到任何接收人')
@@ -920,7 +928,8 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
 
   // ---- 系统监控 ----
   if (m === 'GET' && url === '/api/system/monitor/metrics') {
-    const mt = Math.round((process.uptime() / 3600) * 100) / 100
+    const uptimeMillis = Date.now() - MOCK_BOOT_MS
+    const mt = Math.round((uptimeMillis / 1000 / 3600) * 100) / 100 // 运行时长（小时），保留两位小数
     const heapTotal = 512 * 1024 * 1024
     return {
       cpuUsage: 23.45,
@@ -937,7 +946,7 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
       jvmName: 'OpenJDK 64-Bit Server VM',
       javaVersion: '17.0.13',
       osName: 'mac os x / aarch64',
-      uptimeMillis: Math.round(process.uptime() * 1000),
+      uptimeMillis,
       threadCount: 68,
       peakThreadCount: 75,
       loadedClassCount: 18234,
