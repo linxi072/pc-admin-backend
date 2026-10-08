@@ -62,6 +62,7 @@ const db = {
     {
       id: 1, processKey: 'leaveApproval', processName: '请假审批', description: '示例：发起 -> 直属主管审批 -> 结束',
       status: 'PUBLISHED', version: 2,
+      formSchema: '[{"field":"leaveType","label":"请假类型","type":"select","required":true,"options":["年假","事假","病假"]},{"field":"days","label":"请假天数","type":"number","required":true,"placeholder":"请输入天数"},{"field":"reason","label":"请假事由","type":"textarea","required":true,"placeholder":"请输入请假事由"}]',
       nodes: [
         { id: 'start', type: 'START', name: '发起' },
         { id: 'a1', type: 'APPROVAL', name: '直属主管审批', approvalMode: 'ANY', assigneeType: 'ROLE', assigneeExpression: 'MANAGER', rejectPolicy: 'PREVIOUS' },
@@ -77,6 +78,7 @@ const db = {
     {
       id: 2, processKey: 'expense', processName: '报销审批', description: '示例：发起 -> 部门主管审批 -> 财务审批 -> 结束',
       status: 'PUBLISHED', version: 1,
+      formSchema: '[{"field":"amount","label":"报销金额(元)","type":"number","required":true,"placeholder":"请输入金额"},{"field":"category","label":"费用类别","type":"select","required":true,"options":["差旅","办公","招待"]},{"field":"reason","label":"报销说明","type":"textarea","required":false,"placeholder":"可选"}]',
       nodes: [
         { id: 'start', type: 'START', name: '发起' },
         { id: 'deptManager', type: 'APPROVAL', name: '部门主管审批', approvalMode: 'ALL', assigneeType: 'INITIATOR_MANAGER', rejectPolicy: 'END' },
@@ -1048,6 +1050,7 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     def.description = data.description || ''
     def.nodes = data.nodes || []
     def.edges = data.edges || []
+    if (data.formSchema != null) def.formSchema = data.formSchema
     def.updatedAt = now()
     return def
   }
