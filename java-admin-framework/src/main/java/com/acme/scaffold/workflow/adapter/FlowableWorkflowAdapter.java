@@ -7,6 +7,8 @@ import org.flowable.engine.RepositoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.repository.Deployment;
+import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.springframework.stereotype.Component;
@@ -41,20 +43,35 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
     }
 
     @Override
-    public StartedInstance start(String processKey, String businessId, String title, Long starterUserId,
-                                Long starterOrgId, List<Long> assigneeUserIds, Long managerUserId, String approvalMode) {
-        Map<String, Object> variables = new HashMap<>();
-        List<String> assignees = assigneeUserIds.stream().map(String::valueOf).collect(Collectors.toList());
-        variables.put("assigneeList", assignees);
-        variables.put("manager", String.valueOf(managerUserId));
-        variables.put("approvalMode", approvalMode == null ? "ALL" : approvalMode);
-        variables.put("rejected", false);
-        variables.put("managerApproved", true);
-        variables.put("title", title);
-        variables.put("starterUserId", String.valueOf(starterUserId));
-        variables.put("starterOrgId", String.valueOf(starterOrgId));
+    public String deploy(String processKey, String processName, String bpmnXml) {
+        Deployment deployment = repositoryService.createDeployment()
+                .addString(processKey + ".bpmn20.xml", bpmnXml)
+                .name(processName)
+                .deploy();
+        return deployment.getId();
+    }
 
-        ProcessInstance instance = runtimeService.startProcessInstanceByKey(processKey, businessId, variables);
+    @Override
+    public String latestProcessDefinitionId(String processKey) {
+        ProcessDefinition pd = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionKey(processKey)
+                .latestVersion()
+                .singleResult();
+        if (pd == null) {
+            throw new IllegalStateException("流程定义不存在: " + processKey);
+        }
+        return pd.getId();
+    }
+
+    @Override
+    public StartedInstance start(String processKey, String businessId, String title, Long starterUserId,
+                                Long starterOrgId, Map<String, Object> variables) {
+        Map<String, Object> vars = new HashMap<>(variables == null ? Map.of() : variables);
+        vars.putIfAbsent("title", title);
+        vars.putIfAbsent("starterUserId", String.valueOf(starterUserId));
+        vars.putIfAbsent("starterOrgId", String.valueOf(starterOrgId));
+
+        ProcessInstance instance = runtimeService.startProcessInstanceByKey(processKey, businessId, vars);
         return new StartedInstance(instance.getId(), instance.getProcessDefinitionId());
     }
 
@@ -85,8 +102,8 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
     }
 
     @Override
-    public void setRejected(String executionId) {
-        runtimeService.setVariable(executionId, "rejected", true);
+    public void setRejected(String executionId, String variableName) {
+        runtimeService.setVariable(executionId, variableName, true);
     }
 
     @Override

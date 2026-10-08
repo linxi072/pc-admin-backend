@@ -17,7 +17,9 @@ import com.acme.scaffold.workflow.entity.WfApprovalRecordDO;
 import com.acme.scaffold.workflow.entity.WfInstanceExtDO;
 import com.acme.scaffold.workflow.entity.WfTaskExtDO;
 import com.acme.scaffold.workflow.model.ApprovalAction;
+import com.acme.scaffold.workflow.dto.design.WorkflowDesignView;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
+import com.acme.scaffold.workflow.service.WorkflowDesignService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
@@ -27,7 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -44,14 +48,31 @@ public class WorkflowService {
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
     private final BusinessMetrics businessMetrics;
+    private final WorkflowDesignService designService;
 
     @Transactional
     public String start(StartProcessRequest request) {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
         String approvalMode = request.approvalMode() == null ? "ALL" : request.approvalMode();
+
+        // 路由：若 processKey 对应已发布自定义工作流，则由设计解析各节点受让人与阈值；
+        // 否则走内置请假流程（沿用 assigneeList/manager/approvalMode 原变量契约）。
+        Map<String, Object> variables;
+        WorkflowDesignView design = designService.getPublished(request.processKey());
+        if (design != null) {
+            variables = designService.buildStartVariables(design, principal.userId(), 0L, request.formFields());
+        } else {
+            variables = new HashMap<>(4);
+            List<String> assignees = request.assigneeUserIds().stream().map(String::valueOf).toList();
+            variables.put("assigneeList", assignees);
+            variables.put("manager", String.valueOf(request.managerUserId()));
+            variables.put("approvalMode", approvalMode);
+            variables.put("rejected", false);
+            variables.put("managerApproved", true);
+        }
+
         WorkflowEnginePort.StartedInstance instance = engine.start(request.processKey(), request.businessId(),
-                request.title(), principal.userId(), 0L, request.assigneeUserIds(),
-                request.managerUserId(), approvalMode);
+                request.title(), principal.userId(), 0L, variables);
 
         WfInstanceExtDO ext = new WfInstanceExtDO();
         ext.setProcessInstanceId(instance.processInstanceId());
@@ -87,7 +108,9 @@ public class WorkflowService {
 
         long begin = System.currentTimeMillis();
         if (request.action() == ApprovalAction.REJECT) {
-            engine.setRejected(task.executionId());
+            // 内置流程读取 rejected；自定义流程读取 rejected_<节点id>，一并置位以兼容两类设计
+            engine.setRejected(task.executionId(), "rejected");
+            engine.setRejected(task.executionId(), "rejected_" + task.activityId());
         }
         engine.complete(task.taskId());
         businessMetrics.recordApproval(System.currentTimeMillis() - begin);
