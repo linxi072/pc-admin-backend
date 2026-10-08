@@ -120,6 +120,32 @@
                 <el-input v-model="current.assigneeExpression" placeholder="逗号分隔，如 20,21" />
               </el-form-item>
             </template>
+
+            <!-- 节点受让人预览：接已发布判定 -->
+            <el-divider content-position="left">受让人预览</el-divider>
+            <el-alert
+              v-if="isPublished"
+              type="success" :closable="false" show-icon
+              :title="`当前设计已发布（v${publishedVersion}）生效中；以下为草稿受让人预览，重新发布后生效。`"
+            />
+            <el-alert
+              v-else type="info" :closable="false" show-icon
+              title="未发布（草稿预览）：该设计尚未生效，保存并发布后受让人按此解析。"
+            />
+            <el-descriptions :column="1" border size="small" style="margin-top: 8px">
+              <el-descriptions-item v-if="current.type === 'APPROVAL'" label="审批模式">
+                {{ approvalModeText(current) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="受让人（草稿）">
+                {{ assigneePreviewText(current) }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="isPublished" label="受让人（生效）">
+                {{ assigneePreviewText(publishedNode) || '（该节点尚未在生效版本中）' }}
+              </el-descriptions-item>
+              <el-descriptions-item v-if="current.type === 'APPROVAL'" label="驳回策略">
+                {{ rejectPolicyText(current) }}
+              </el-descriptions-item>
+            </el-descriptions>
           </el-form>
         </el-card>
 
@@ -164,6 +190,48 @@
             type="info" :closable="false"
             title="提示：条件分支节点(网关)可有多条出边；每条出边可配置条件表达式，或指定一条为默认分支（无符合条件时走默认）。" />
         </el-card>
+
+        <el-card class="page-card" shadow="never" style="margin-top: 16px">
+          <template #header><span>业务表单字段（发起时动态渲染）</span></template>
+          <el-table :data="formFields" border size="small">
+            <el-table-column label="字段 key" width="140">
+              <template #default="{ row }"><el-input v-model="row.field" placeholder="如 amount" /></template>
+            </el-table-column>
+            <el-table-column label="标签" width="140">
+              <template #default="{ row }"><el-input v-model="row.label" placeholder="如 报销金额" /></template>
+            </el-table-column>
+            <el-table-column label="类型" width="110">
+              <template #default="{ row }">
+                <el-select v-model="row.type">
+                  <el-option label="文本" value="text" />
+                  <el-option label="多行" value="textarea" />
+                  <el-option label="数字" value="number" />
+                  <el-option label="日期" value="date" />
+                  <el-option label="下拉" value="select" />
+                  <el-option label="开关" value="switch" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="必填" width="64" align="center">
+              <template #default="{ row }"><el-checkbox v-model="row.required" :true-value="true" :false-value="false" /></template>
+            </el-table-column>
+            <el-table-column label="占位提示 / 选项" min-width="180">
+              <template #default="{ row }">
+                <el-input v-if="row.type === 'select'" v-model="row.optionsText" placeholder="逗号分隔，如 差旅,办公" />
+                <el-input v-else v-model="row.placeholder" placeholder="占位提示" />
+              </template>
+            </el-table-column>
+            <el-table-column label="" width="50" align="center">
+              <template #default="{ row }"><el-button link type="danger" :icon="Delete" @click="removeFormField(row)" /></template>
+            </el-table-column>
+          </el-table>
+          <div style="margin-top: 10px">
+            <el-button size="small" :icon="Plus" @click="addFormField">新增字段</el-button>
+            <span style="margin-left: 10px; color: var(--el-text-color-secondary); font-size: 12px">
+              字段将在发起流程时按类型动态渲染，提交值随流程变量下发。
+            </span>
+          </div>
+        </el-card>
       </el-col>
     </el-row>
 
@@ -181,7 +249,7 @@ import {
   ArrowLeft, View, Document, Upload, Download, Plus, Edit, Delete, Top, Bottom
 } from '@element-plus/icons-vue'
 import {
-  getDefinition, saveDefinition, publishDefinition, unpublishDefinition, getDefinitionBpmn
+  getDefinition, saveDefinition, publishDefinition, unpublishDefinition, getDefinitionBpmn, getPublishedDefinition
 } from '@/api/workflow'
 
 const route = useRoute()
@@ -196,11 +264,53 @@ const saving = ref(false)
 const publishing = ref(false)
 const bpmnVisible = ref(false)
 const bpmnXml = ref('')
+const publishedDesign = ref(null)
+const formFields = ref([])
 
 const current = computed(() => (selectedIndex.value >= 0 ? nodes.value[selectedIndex.value] : null))
 const nodeIdOptions = computed(() => nodes.value.map((n) => n.id))
 function nodeName(nid) {
   return nodes.value.find((n) => n.id === nid)?.name || nid
+}
+
+// ---- 已发布判定（与发起表单一致，统一以 getPublishedDefinition 为权威来源） ----
+const isPublished = computed(() => !!publishedDesign.value)
+const publishedVersion = computed(() => publishedDesign.value?.version || 0)
+const publishedNode = computed(() => {
+  if (!publishedDesign.value || !current.value) return null
+  return (publishedDesign.value.nodes || []).find((n) => n.id === current.value.id) || null
+})
+
+const ASSIGNEE_TYPE_LABEL = {
+  USER: '指定人员', ROLE: '角色', ORG: '部门',
+  INITIATOR: '发起人本人', INITIATOR_MANAGER: '发起人主管'
+}
+const APPROVAL_MODE_LABEL = { ANY: '或签（任一通过）', ALL: '会签（全部通过）', RATIO: '按比例通过' }
+const REJECT_POLICY_LABEL = { NONE: '不允许驳回', PREVIOUS: '驳回到上一审批', END: '驳回到结束', SPECIFIC: '驳回到指定节点' }
+
+function approvalModeText(node) {
+  return APPROVAL_MODE_LABEL[node?.approvalMode] || node?.approvalMode || '—'
+}
+function rejectPolicyText(node) {
+  if (!node) return '—'
+  const t = REJECT_POLICY_LABEL[node.rejectPolicy] || node.rejectPolicy || 'NONE'
+  if (node.rejectPolicy === 'SPECIFIC' && node.rejectTargetNodeId) {
+    return t + '（→ ' + nodeName(node.rejectTargetNodeId) + '）'
+  }
+  return t
+}
+function assigneePreviewText(node) {
+  if (!node) return '—'
+  if (node.type === 'CC') {
+    return node.assigneeExpression ? ('抄送人 ID：' + node.assigneeExpression) : '（未设置抄送人）'
+  }
+  if (node.type !== 'APPROVAL') return '—'
+  const t = node.assigneeType
+  let text = ASSIGNEE_TYPE_LABEL[t] || t || '（未设置）'
+  if ((t === 'USER' || t === 'ROLE' || t === 'ORG') && node.assigneeExpression) {
+    text += '：' + node.assigneeExpression
+  }
+  return text
 }
 
 let seq = 0
@@ -262,6 +372,48 @@ function removeEdge(row) {
   if (i >= 0) edges.value.splice(i, 1)
 }
 
+// ---- 业务表单字段（formSchema）编辑 ----
+function parseFormSchema(json) {
+  if (!json) return []
+  try {
+    const arr = typeof json === 'string' ? JSON.parse(json) : json
+    if (!Array.isArray(arr)) return []
+    return arr.map((f) => ({
+      field: f.field || '',
+      label: f.label || '',
+      type: f.type || 'text',
+      required: !!f.required,
+      placeholder: f.placeholder || '',
+      optionsText: Array.isArray(f.options) ? f.options.join(',') : (f.optionsText || '')
+    }))
+  } catch {
+    return []
+  }
+}
+
+function serializeFormSchema() {
+  const arr = formFields.value
+    .filter((f) => f.field && f.label)
+    .map((f) => {
+      const o = { field: f.field, label: f.label, type: f.type, required: !!f.required }
+      if (f.placeholder) o.placeholder = f.placeholder
+      if (f.type === 'select') {
+        o.options = (f.optionsText || '').split(',').map((s) => s.trim()).filter(Boolean)
+      }
+      return o
+    })
+  return JSON.stringify(arr)
+}
+
+function addFormField() {
+  formFields.value.push({ field: '', label: '', type: 'text', required: false, placeholder: '', optionsText: '' })
+}
+
+function removeFormField(row) {
+  const i = formFields.value.indexOf(row)
+  if (i >= 0) formFields.value.splice(i, 1)
+}
+
 async function load() {
   const d = await getDefinition(id)
   def.processName = d.processName
@@ -281,6 +433,14 @@ async function load() {
   ]
   edges.value = loadedEdges
   selectedIndex.value = -1
+  // 解析已保存的表单字段 schema
+  formFields.value = parseFormSchema(d.formSchema)
+  // 已发布判定：拉取权威已发布版本，用于受让人预览对比
+  try {
+    publishedDesign.value = await getPublishedDefinition(d.processKey)
+  } catch {
+    publishedDesign.value = null
+  }
 }
 
 async function saveDraft() {
@@ -290,6 +450,7 @@ async function saveDraft() {
     await saveDefinition(id, {
       processName: def.processName,
       description: def.description,
+      formSchema: serializeFormSchema(),
       nodes: nodes.value,
       edges: edges.value
     })
@@ -312,6 +473,7 @@ async function doPublish() {
     await saveDefinition(id, {
       processName: def.processName,
       description: def.description,
+      formSchema: serializeFormSchema(),
       nodes: nodes.value,
       edges: edges.value
     })
