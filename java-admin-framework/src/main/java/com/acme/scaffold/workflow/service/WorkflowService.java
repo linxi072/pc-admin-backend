@@ -55,9 +55,9 @@ public class WorkflowService {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
         String approvalMode = request.approvalMode() == null ? "ALL" : request.approvalMode();
 
-        // 路由：所有流程（内置 leaveApproval 与自定义）均经 wf_workflow_design 的「已发布」设计驱动；
-        // 内置 leaveApproval 现在也是一条由 BuiltinWorkflowSeeder 种子写入并发布的可编辑设计，
-        // 不再依赖 classpath 下的静态 BPMN。若某 processKey 无已发布设计，则退回原变量契约兜底。
+        // 路由：所有流程（内置 leaveApproval / expense 与自定义）均经 wf_workflow_design 的「已发布」设计驱动；
+        // 内置流程现在都是 BuiltinWorkflowSeeder 种子写入并发布的可编辑设计，不再依赖 classpath 下的静态 BPMN。
+        // 若某 processKey 无已发布设计（如用户仅保存草稿未发布），则退回原变量契约兜底（前端会显示审批人/主管选择框）。
         Map<String, Object> variables;
         WorkflowDesignView design = designService.getPublished(request.processKey());
         if (design != null) {

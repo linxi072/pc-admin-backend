@@ -54,6 +54,14 @@ public class WorkflowDefinitionController {
         return Result.success(designService.get(id));
     }
 
+    @Operation(summary = "按 processKey 获取已发布设计（前端发起表单联动：用于判定设计是否已发布）")
+    @GetMapping("/published/{processKey}")
+    @PreAuthorize("hasAuthority('workflow:definition:read')")
+    public Result<WorkflowDesignView> getPublishedByKey(@PathVariable String processKey) {
+        // 未发布时返回 null，前端据此隐藏审批人/主管选择框
+        return Result.success(designService.getPublished(processKey));
+    }
+
     @Operation(summary = "删除工作流草稿")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('workflow:definition:delete')")
