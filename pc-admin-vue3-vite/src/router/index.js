@@ -100,6 +100,18 @@ const routes = [
         name: 'instance',
         component: () => import('@/views/workflow/InstanceView.vue'),
         meta: { title: '我发起的流程' }
+      },
+      {
+        path: 'workflow/definition',
+        name: 'definition',
+        component: () => import('@/views/workflow/DesignListView.vue'),
+        meta: { title: '工作流设计', permission: 'workflow:definition:read' }
+      },
+      {
+        path: 'workflow/designer/:id',
+        name: 'designer',
+        component: () => import('@/views/workflow/WorkflowDesigner.vue'),
+        meta: { title: '工作流设计器', permission: 'workflow:definition:update' }
       }
     ]
   },

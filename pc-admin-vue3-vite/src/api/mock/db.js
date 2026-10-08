@@ -39,7 +39,8 @@ const db = {
     ] },
     { id: 6, parentId: 0, menuCode: 'wf', menuName: '工作流', menuType: 'C', routePath: '', permissionCode: '', sortNo: 3, status: 'ENABLED', children: [
       { id: 7, parentId: 6, menuCode: 'wf:task', menuName: '我的待办', menuType: 'M', routePath: '/workflow/task', permissionCode: 'workflow:task:read', sortNo: 1, status: 'ENABLED', children: [] },
-      { id: 8, parentId: 6, menuCode: 'wf:instance', menuName: '我发起的流程', menuType: 'M', routePath: '/workflow/instance', permissionCode: 'workflow:instance:read', sortNo: 2, status: 'ENABLED', children: [] }
+      { id: 8, parentId: 6, menuCode: 'wf:instance', menuName: '我发起的流程', menuType: 'M', routePath: '/workflow/instance', permissionCode: 'workflow:instance:read', sortNo: 2, status: 'ENABLED', children: [] },
+      { id: 9, parentId: 6, menuCode: 'wf:definition', menuName: '工作流设计', menuType: 'M', routePath: '/workflow/definition', permissionCode: 'workflow:definition:read', sortNo: 3, status: 'ENABLED', children: [] }
     ] }
   ],
   apiResources: [
@@ -57,6 +58,24 @@ const db = {
     { processInstanceId: 'P2026001', businessType: 'LEAVE', businessId: 'L001', title: '张三的请假申请', status: 'RUNNING', startedAt: '2026-10-01 09:00:00', finishedAt: null },
     { processInstanceId: 'P2026002', businessType: 'EXPENSE', businessId: 'E001', title: '李四的报销申请', status: 'RUNNING', startedAt: '2026-10-02 09:00:00', finishedAt: null }
   ],
+  definitions: [
+    {
+      id: 1, processKey: 'leave', processName: '请假审批', description: '示例：发起 -> 直属主管审批 -> 结束',
+      status: 'PUBLISHED', version: 2,
+      nodes: [
+        { id: 'start', type: 'START', name: '发起' },
+        { id: 'a1', type: 'APPROVAL', name: '直属主管审批', approvalMode: 'ANY', assigneeType: 'ROLE', assigneeExpression: 'MANAGER', rejectPolicy: 'PREVIOUS' },
+        { id: 'end', type: 'END', name: '结束' }
+      ],
+      edges: [
+        { id: 'e1', sourceNodeId: 'start', targetNodeId: 'a1' },
+        { id: 'e2', sourceNodeId: 'a1', targetNodeId: 'end' }
+      ],
+      bpmnXml: '', deploymentId: 'dep-mock-1', processDefinitionId: 'leave:2:mock',
+      publishedAt: '2026-10-01 10:00:00', createdAt: '2026-09-30 10:00:00', updatedAt: '2026-10-01 10:00:00'
+    }
+  ],
+  defSeq: 1,
   records: {
     P2026001: [
       { operationId: 'OP1', action: 'START', operatorUserId: 2, fromUserId: null, toUserId: 1, opinion: '提交申请', occurredAt: '2026-10-01 09:00:00' },
@@ -980,6 +999,68 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
       finishedAt: null
     })
     return pid
+  }
+
+  // ---- 自定义工作流定义 ----
+  if (m === 'GET' && url === '/api/workflow/definitions') return db.definitions
+  if (m === 'POST' && url === '/api/workflow/definitions') {
+    const id = ++db.defSeq
+    const def = {
+      id, processKey: data.processKey, processName: data.processName, description: data.description || '',
+      status: 'DRAFT', version: 0, nodes: [], edges: [], bpmnXml: '',
+      deploymentId: null, processDefinitionId: null, publishedAt: null,
+      createdAt: now(), updatedAt: now()
+    }
+    db.definitions.push(def)
+    return def
+  }
+  if (m === 'GET' && /^\/api\/workflow\/definitions\/\d+$/.test(url)) {
+    const id = Number(url.split('/').pop())
+    return db.definitions.find((d) => d.id === id) || bizError('NOT_FOUND', '工作流定义不存在')
+  }
+  if (m === 'PUT' && /^\/api\/workflow\/definitions\/\d+$/.test(url)) {
+    const id = Number(url.split('/').pop())
+    const def = db.definitions.find((d) => d.id === id)
+    if (!def) return bizError('NOT_FOUND', '工作流定义不存在')
+    if (def.status !== 'DRAFT') return bizError('VALIDATION_ERROR', '仅草稿态可编辑（已发布请先取消发布）')
+    def.processName = data.processName
+    def.description = data.description || ''
+    def.nodes = data.nodes || []
+    def.edges = data.edges || []
+    def.updatedAt = now()
+    return def
+  }
+  if (m === 'DELETE' && /^\/api\/workflow\/definitions\/\d+$/.test(url)) {
+    const id = Number(url.split('/').pop())
+    const i = db.definitions.findIndex((d) => d.id === id)
+    if (i >= 0) db.definitions.splice(i, 1)
+    return null
+  }
+  if (m === 'POST' && /^\/api\/workflow\/definitions\/\d+\/publish$/.test(url)) {
+    const id = Number(url.split('/')[4])
+    const def = db.definitions.find((d) => d.id === id)
+    if (!def) return bizError('NOT_FOUND', '工作流定义不存在')
+    def.version = (def.version || 0) + 1
+    def.status = 'PUBLISHED'
+    def.deploymentId = 'dep-mock-' + def.version
+    def.processDefinitionId = def.processKey + ':' + def.version + ':mock'
+    def.publishedAt = now()
+    def.updatedAt = now()
+    return def
+  }
+  if (m === 'POST' && /^\/api\/workflow\/definitions\/\d+\/unpublish$/.test(url)) {
+    const id = Number(url.split('/')[4])
+    const def = db.definitions.find((d) => d.id === id)
+    if (!def) return bizError('NOT_FOUND', '工作流定义不存在')
+    def.status = 'DRAFT'
+    def.updatedAt = now()
+    return def
+  }
+  if (m === 'GET' && /^\/api\/workflow\/definitions\/\d+\/bpmn$/.test(url)) {
+    const id = Number(url.split('/')[4])
+    const def = db.definitions.find((d) => d.id === id)
+    if (!def) return bizError('NOT_FOUND', '工作流定义不存在')
+    return { processKey: def.processKey, bpmnXml: def.bpmnXml || '<!-- 草稿尚未生成 BPMN -->' }
   }
 
   // ---- 部门（机构）树 / 层级移动 / 删除 ----
