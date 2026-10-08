@@ -18,6 +18,12 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true
+      },
+      // 实时 WebSocket：代理 /ws 到本地 8080（ws:true 启用协议升级）
+      '/ws': {
+        target: 'http://127.0.0.1:8080',
+        ws: true,
+        changeOrigin: true
       }
     }
   }

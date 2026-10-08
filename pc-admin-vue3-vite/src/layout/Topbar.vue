@@ -81,6 +81,8 @@ import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { getUnreadCount } from '@/api/message'
+import { USE_MOCK } from '@/api/config'
+import { initRealtime, onRealtime } from '@/api/realtime'
 
 defineProps({ collapsed: Boolean })
 defineEmits(['toggle'])
@@ -99,6 +101,7 @@ const overflowing = ref(false)
 let timer = null
 let offset = 0
 let raf = null
+let offRealtime = null
 
 const trackStyle = computed(() => ({
   // 仅在溢出且未暂停时位移；否则回到起点
@@ -144,6 +147,16 @@ async function loadUnread() {
     unread.value = res?.data?.unread ?? res?.unread ?? 0
   } catch (e) {
     // 轮询失败静默处理，保留上一次计数
+  }
+}
+
+/** 实时消息处理：未读/待办事件触发角标刷新。mock 模式由模拟事件驱动演示增量（不覆盖轮询），真实模式重新拉取权威值。 */
+function handleRealtime(msg) {
+  if (!msg || (msg.type !== 'UNREAD_MESSAGE' && msg.type !== 'TODO_REMINDER')) return
+  if (USE_MOCK && msg.payload && msg.payload.simulated) {
+    unread.value += (msg.payload.delta || 1)
+  } else {
+    loadUnread()
   }
 }
 
@@ -196,13 +209,19 @@ onMounted(async () => {
   await loadNotice()
   loadUnread()
   raf = requestAnimationFrame(step)
-  // 未读数每 60 秒轮询一次
-  timer = setInterval(loadUnread, 60000)
+  // 实时消息：连接 WebSocket（真实模式）或启动模拟推送（mock 模式），未读/待办实时刷新角标
+  initRealtime()
+  offRealtime = onRealtime(handleRealtime)
+  // 真实模式保留未读轮询兜底；mock 模式由实时模拟事件驱动，避免轮询覆盖演示增量
+  if (!USE_MOCK) {
+    timer = setInterval(loadUnread, 60000)
+  }
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (raf) cancelAnimationFrame(raf)
+  if (offRealtime) offRealtime()
 })
 </script>
 
