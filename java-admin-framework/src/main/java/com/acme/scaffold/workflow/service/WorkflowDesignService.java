@@ -114,6 +114,12 @@ public class WorkflowDesignService {
         }
         List<WorkflowNodeDTO> nodes = parseNodes(e.getNodesJson());
         List<WorkflowEdgeDTO> edges = parseEdges(e.getEdgesJson());
+        // 发布前校验审批节点受让人配置可解析（角色/部门存在性），避免发布后发起时静默失效
+        for (WorkflowNodeDTO node : nodes) {
+            if (node.type() == WorkflowNodeType.APPROVAL) {
+                assigneeResolver.validateConfig(node);
+            }
+        }
         String bpmn = BpmnWorkflowBuilder.build(e.getProcessKey(), e.getProcessName(), nodes, edges);
         String deploymentId = engine.deploy(e.getProcessKey(), e.getProcessName(), bpmn);
         String defId = engine.latestProcessDefinitionId(e.getProcessKey());
@@ -160,16 +166,31 @@ public class WorkflowDesignService {
             vars.putAll(formFields);
         }
         for (WorkflowNodeDTO node : design.nodes()) {
-            if (node.type() != WorkflowNodeType.APPROVAL) {
+            WorkflowNodeType type = node.type();
+            if (type != WorkflowNodeType.APPROVAL
+                    && type != WorkflowNodeType.CC
+                    && type != WorkflowNodeType.SERVICE) {
                 continue;
             }
             List<Long> assignees = assigneeResolver.resolve(node, starterUserId, starterOrgId);
-            int size = assignees.size();
-            int threshold = computeThreshold(node, size);
             String suffix = node.id();
-            vars.put("node_" + suffix + "_assignees", assignees.stream().map(String::valueOf).toList());
-            vars.put("node_" + suffix + "_threshold", threshold);
-            vars.put("rejected_" + suffix, false);
+            if (type == WorkflowNodeType.APPROVAL) {
+                // 审批节点受让人为空属于配置错误，必须拦截（否则流程会跳过/卡死该节点）
+                if (assignees.isEmpty()) {
+                    String nodeName = node.name() != null ? node.name() : node.id();
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "审批节点「" + nodeName + "」未解析出任何有效审批人，请检查该节点的受让人配置"
+                                    + "（发起人主管/角色/用户/部门），确保对应组织对应用户存在。");
+                }
+                int size = assignees.size();
+                int threshold = computeThreshold(node, size);
+                vars.put("node_" + suffix + "_assignees", assignees.stream().map(String::valueOf).toList());
+                vars.put("node_" + suffix + "_threshold", threshold);
+                vars.put("rejected_" + suffix, false);
+            } else {
+                // CC / SERVICE 节点：注入受让人供委托类读取（空则委托类告警跳过，不阻断流程）
+                vars.put("node_" + suffix + "_assignees", assignees.stream().map(String::valueOf).toList());
+            }
         }
         return vars;
     }

@@ -35,6 +35,59 @@ public class AssigneeResolver {
         };
     }
 
+    /**
+     * 发布时配置校验：校验节点受让人是否可解析（不依赖具体发起人）。
+     * 仅对 ROLE（角色码必须存在）、ORG（部门必须存在）做存在性校验；
+     * USER / INITIATOR / INITIATOR_MANAGER 依赖运行时发起人，其最终非空由 {@code buildStartVariables} 在发起时拦截。
+     */
+    public void validateConfig(WorkflowNodeDTO node) {
+        String type = node.assigneeType() == null ? "USER" : node.assigneeType().toUpperCase();
+        switch (type) {
+            case "ROLE" -> {
+                String code = orDefault(node.assigneeExpression(), "");
+                if (code.isBlank()) {
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "审批节点 " + nodeDesc(node) + " 的 ROLE 受让人需指定角色码");
+                }
+                Long roleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
+                        .from(JooqTables.SYS_ROLE.table())
+                        .where(JooqTables.SYS_ROLE.field("role_code", String.class).eq(code))
+                        .fetchOne(0, Long.class);
+                if (roleId == null) {
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "审批节点 " + nodeDesc(node) + " 引用的角色不存在: " + code);
+                }
+            }
+            case "ORG" -> {
+                String expr = orDefault(node.assigneeExpression(), "");
+                if (expr.isBlank()) {
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "审批节点 " + nodeDesc(node) + " 的 ORG 受让人需指定部门ID");
+                }
+                long orgId;
+                try {
+                    orgId = Long.parseLong(expr.trim());
+                } catch (NumberFormatException e) {
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "审批节点 " + nodeDesc(node) + " 的 ORG 受让人部门ID非法: " + expr);
+                }
+                Long exist = dsl.select(JooqTables.SYS_ORG.field("id", Long.class))
+                        .from(JooqTables.SYS_ORG.table())
+                        .where(JooqTables.SYS_ORG.field("id", Long.class).eq(orgId))
+                        .fetchOne(0, Long.class);
+                if (exist == null) {
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "审批节点 " + nodeDesc(node) + " 引用的部门不存在: " + orgId);
+                }
+            }
+            default -> { /* USER / INITIATOR / INITIATOR_MANAGER 由运行时校验 */ }
+        }
+    }
+
+    private static String nodeDesc(WorkflowNodeDTO node) {
+        return node.name() != null ? node.name() : (node.id() == null ? "(未命名)" : node.id());
+    }
+
     private List<Long> resolveByUserIds(String expr) {
         List<Long> ids = new ArrayList<>();
         if (expr.isBlank()) {
