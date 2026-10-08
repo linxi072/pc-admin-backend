@@ -29,8 +29,13 @@
     <el-dialog v-model="startVisible" title="发起审批流程" width="520px">
       <el-form :model="startForm" label-width="90px">
         <el-form-item label="流程定义">
-          <el-select v-model="startForm.processKey" style="width: 100%">
-            <el-option label="请假审批（可编辑设计）" value="leaveApproval" />
+          <el-select v-model="startForm.processKey" style="width: 100%" @change="onProcessChange">
+            <el-option
+              v-for="p in processOptions"
+              :key="p.processKey"
+              :label="p.processName + (p.status === 'PUBLISHED' ? '（已发布·自动审批人）' : '（草稿·需手动选审批人）')"
+              :value="p.processKey"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="业务类型">
@@ -42,16 +47,23 @@
         <el-form-item label="标题">
           <el-input v-model="startForm.title" />
         </el-form-item>
-        <el-form-item label="审批人">
+        <el-form-item v-if="!designPublished" label="审批人">
           <el-select v-model="startForm.assigneeUserIds" multiple style="width: 100%">
             <el-option v-for="u in userOptions" :key="u.id" :label="u.displayName" :value="u.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="主管">
+        <el-form-item v-if="!designPublished" label="主管">
           <el-select v-model="startForm.managerUserId" style="width: 100%">
             <el-option v-for="u in userOptions" :key="u.id" :label="u.displayName" :value="u.id" />
           </el-select>
         </el-form-item>
+        <el-alert
+          v-if="designPublished"
+          type="success"
+          :closable="false"
+          show-icon
+          title="该流程已发布设计，审批人/主管由设计自动解析，无需手动选择。"
+        />
       </el-form>
       <template #footer>
         <el-button @click="startVisible = false">取消</el-button>
@@ -80,17 +92,19 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Document } from '@element-plus/icons-vue'
-import { myInstances, instanceRecords, startProcess } from '@/api/workflow'
+import { myInstances, instanceRecords, startProcess, listDefinitions, getPublishedDefinition } from '@/api/workflow'
 import { pageUsers } from '@/api/user'
 
 const loading = ref(false)
 const rows = ref([])
 const userOptions = ref([])
+const processOptions = ref([])
+const designPublished = ref(false)
 
 const startVisible = ref(false)
 const starting = ref(false)
 const startForm = reactive({
-  processKey: 'leaveApproval', businessType: 'LEAVE', businessId: '', title: '', assigneeUserIds: [], managerUserId: null
+  processKey: '', businessType: '', businessId: '', title: '', assigneeUserIds: [], managerUserId: null
 })
 
 const recordsVisible = ref(false)
@@ -102,6 +116,29 @@ function statusLabel(s) {
 }
 function actionLabel(a) {
   return a === 'APPROVE' ? '通过' : a === 'REJECT' ? '驳回' : a === 'START' ? '发起' : a === 'TRANSFER' ? '转办' : a
+}
+
+/** 业务类型默认取自 processKey 大写下划线转驼峰缩写（如 leaveApproval -> LEAVE）。 */
+function defaultBusinessType(processKey) {
+  if (!processKey) return ''
+  return processKey.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase().split('_')[0]
+}
+
+/** 切换流程定义时，查询其是否已发布设计；已发布则隐藏审批人/主管选择框。 */
+async function onProcessChange(key) {
+  designPublished.value = false
+  startForm.businessType = defaultBusinessType(key)
+  try {
+    const published = await getPublishedDefinition(key)
+    designPublished.value = !!published
+    if (published) {
+      // 设计已发布：审批人/主管由设计解析，清空手动选择
+      startForm.assigneeUserIds = []
+      startForm.managerUserId = null
+    }
+  } catch {
+    designPublished.value = false
+  }
 }
 
 async function load() {
@@ -118,7 +155,13 @@ async function load() {
 async function submitStart() {
   starting.value = true
   try {
-    const pid = await startProcess({ ...startForm })
+    const payload = { ...startForm }
+    // 设计已发布时，审批人/主管由设计自动解析，不向后端传手动选择
+    if (designPublished.value) {
+      delete payload.assigneeUserIds
+      delete payload.managerUserId
+    }
+    const pid = await startProcess(payload)
     ElMessage.success('流程已发起：' + pid)
     startVisible.value = false
     load()
@@ -138,5 +181,22 @@ async function openRecords(row) {
   }
 }
 
-onMounted(load)
+async function loadProcessOptions() {
+  try {
+    const defs = await listDefinitions()
+    processOptions.value = defs || []
+    if (processOptions.value.length > 0) {
+      const initial = processOptions.value.find((d) => d.processKey === 'leaveApproval')
+          || processOptions.value[0]
+      startForm.processKey = initial.processKey
+      await onProcessChange(initial.processKey)
+    }
+  } catch {
+    processOptions.value = []
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([load(), loadProcessOptions()])
+})
 </script>

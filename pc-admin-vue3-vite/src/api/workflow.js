@@ -42,6 +42,11 @@ export const listDefinitions = () =>
 export const getDefinition = (id) =>
   request({ method: 'GET', url: `/api/workflow/definitions/${id}` })
 
+// GET /api/workflow/definitions/published/{processKey} -> WorkflowDesignView | null
+// 用于前端发起表单联动：返回非 null 表示该 processKey 已发布设计（隐藏审批人/主管选择框）
+export const getPublishedDefinition = (processKey) =>
+  request({ method: 'GET', url: `/api/workflow/definitions/published/${processKey}` })
+
 // DELETE /api/workflow/definitions/{id} -> void
 export const deleteDefinition = (id) =>
   request({ method: 'DELETE', url: `/api/workflow/definitions/${id}` })

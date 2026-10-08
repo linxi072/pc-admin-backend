@@ -73,6 +73,23 @@ const db = {
       ],
       bpmnXml: '', deploymentId: 'dep-mock-1', processDefinitionId: 'leave:2:mock',
       publishedAt: '2026-10-01 10:00:00', createdAt: '2026-09-30 10:00:00', updatedAt: '2026-10-01 10:00:00'
+    },
+    {
+      id: 2, processKey: 'expense', processName: '报销审批', description: '示例：发起 -> 部门主管审批 -> 财务审批 -> 结束',
+      status: 'PUBLISHED', version: 1,
+      nodes: [
+        { id: 'start', type: 'START', name: '发起' },
+        { id: 'deptManager', type: 'APPROVAL', name: '部门主管审批', approvalMode: 'ALL', assigneeType: 'INITIATOR_MANAGER', rejectPolicy: 'END' },
+        { id: 'finance', type: 'APPROVAL', name: '财务审批', approvalMode: 'ALL', assigneeType: 'ROLE', assigneeExpression: 'FINANCE', rejectPolicy: 'END' },
+        { id: 'end', type: 'END', name: '结束' }
+      ],
+      edges: [
+        { id: 'e1', sourceNodeId: 'start', targetNodeId: 'deptManager' },
+        { id: 'e2', sourceNodeId: 'deptManager', targetNodeId: 'finance' },
+        { id: 'e3', sourceNodeId: 'finance', targetNodeId: 'end' }
+      ],
+      bpmnXml: '', deploymentId: 'dep-mock-2', processDefinitionId: 'expense:1:mock',
+      publishedAt: '2026-10-02 10:00:00', createdAt: '2026-10-01 10:00:00', updatedAt: '2026-10-02 10:00:00'
     }
   ],
   defSeq: 1,
@@ -1003,6 +1020,10 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
 
   // ---- 自定义工作流定义 ----
   if (m === 'GET' && url === '/api/workflow/definitions') return db.definitions
+  if (m === 'GET' && /^\/api\/workflow\/definitions\/published\/[^/]+$/.test(url)) {
+    const key = decodeURIComponent(url.split('/').pop())
+    return db.definitions.find((d) => d.processKey === key && d.status === 'PUBLISHED') || null
+  }
   if (m === 'POST' && url === '/api/workflow/definitions') {
     const id = ++db.defSeq
     const def = {
