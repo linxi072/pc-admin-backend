@@ -30,8 +30,7 @@
       <el-form :model="startForm" label-width="90px">
         <el-form-item label="流程定义">
           <el-select v-model="startForm.processKey" style="width: 100%">
-            <el-option label="请假流程" value="leave" />
-            <el-option label="报销流程" value="expense" />
+            <el-option label="请假审批（可编辑设计）" value="leaveApproval" />
           </el-select>
         </el-form-item>
         <el-form-item label="业务类型">
@@ -91,7 +90,7 @@ const userOptions = ref([])
 const startVisible = ref(false)
 const starting = ref(false)
 const startForm = reactive({
-  processKey: 'leave', businessType: 'LEAVE', businessId: '', title: '', assigneeUserIds: [], managerUserId: null
+  processKey: 'leaveApproval', businessType: 'LEAVE', businessId: '', title: '', assigneeUserIds: [], managerUserId: null
 })
 
 const recordsVisible = ref(false)

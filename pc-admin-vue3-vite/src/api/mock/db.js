@@ -60,7 +60,7 @@ const db = {
   ],
   definitions: [
     {
-      id: 1, processKey: 'leave', processName: '请假审批', description: '示例：发起 -> 直属主管审批 -> 结束',
+      id: 1, processKey: 'leaveApproval', processName: '请假审批', description: '示例：发起 -> 直属主管审批 -> 结束',
       status: 'PUBLISHED', version: 2,
       nodes: [
         { id: 'start', type: 'START', name: '发起' },
