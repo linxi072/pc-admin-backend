@@ -497,6 +497,13 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 ## 15. 后续建议
 
 1. 补充集成测试覆盖登录、刷新轮换、会签、驳回、转办（使用本地 MySQL 实例，不使用容器）。
+   - **已完成（沙箱已验证）**：纯逻辑单元测试 24 例全绿 —— `SortItemTest`（方向校验）、`JooqSortsTest`（白名单映射/忽略/去重/截断/id 兜底）、
+     `DataScopeResultTest`（不限制/仅本人/机构集合语义）、`DataScopeConditionsTest`（上下文→jOOQ 条件翻译，含 SELF 降级子查询与缺列降级）。
+     用 `DSL.using(SQLDialect.MYSQL)` 仅做 SQL 渲染断言，不依赖数据库。
+   - **已完成（编译校验，待本机 MySQL 运行）**：集成测试脚手架 `AuthFlowIT`（登录成功/密码错误 AUTH_001/刷新令牌轮换）、
+     `LeaveApprovalWorkflowIT`（会签/驳回/转办，含 `BaseIntegrationTest` 与 `application-integration.yml` 数据源 profile）。
+     运行：`mvn -o test -Dtest=AuthFlowIT,LeaveApprovalWorkflowIT -Dspring.profiles.active=integration -DTEST_DB_URL=... -DTEST_DB_USER=... -DTEST_DB_PASSWORD=...`
+     （`LeaveApprovalWorkflowIT` 的 `PLACEHOLDER_TASK_ID` 需替换为真实 taskId，详见文件头注释）。
 2. 接入 Prometheus + Grafana + Alertmanager（均以原生进程部署），沉淀仪表盘与告警规则。
 3. 如需更强类型安全，引入 jOOQ 代码生成替换当前动态 DSL（见第 8 节）。
 4. （已完成）数据权限切面自动注入已落地：`DataScope` 注解 + `DataScopeAspect` + `DataScopeContext` /
