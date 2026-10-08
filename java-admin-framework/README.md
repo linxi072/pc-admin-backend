@@ -132,19 +132,19 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/system/users/p
 
 ## 5. 工作流审批
 
-提供 `leaveApproval` 示例流程（会签/或签 + 主管审批 + 驳回）：
+提供 `leaveApproval` 内置示例流程，现已改造为**可编辑设计**（会签/或签 + 主管审批 + 驳回）：
 
-- 多实例节点 `assigneeList` 支持 **会签（ALL）** 与 **或签（ANY）**，由变量 `approvalMode` 驱动。
-- 驳回通过将流程变量 `rejected=true` 提前结束多实例并走驳回分支。
+- 该流程不再依赖 classpath 下的静态 BPMN，而是由 `BuiltinWorkflowSeeder` 在应用启动时写入 `wf_workflow_design` 并发布；节点顺序、受让人、审批模式（会签/或签/比例）、驳回策略均可在「工作流设计」后台二次编辑并一键发布即时生效。
+- 审批节点为**多实例**：会签阈值由设计解析（`node_<id>_threshold`），驳回通过将 `rejected_<id>=true` 提前结束多实例并走驳回分支。
 - 转办：更换任务 assignee 并写入不可变审批记录。
 - 每次审批/驳回/转办先校验任务归属与 `operationId` 幂等键，再写 `wf_approval_record`（不可变）。
 
 ```bash
-# 发起（assigneeUserIds 为会签人，managerUserId 为主管）
+# 发起（受让人/驳回策略来自已发布设计，无需在请求中指定；formFields 可透传业务表单）
 curl -X POST http://localhost:8080/api/workflow/instances/start \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"leaveApproval","businessType":"LEAVE","businessId":"L001",
-       "title":"张三请假","assigneeUserIds":[2,3],"managerUserId":4,"approvalMode":"ANY"}'
+       "title":"张三请假"}'
 
 # 待办 / 审批 / 转办
 GET  /api/workflow/tasks/mine
@@ -152,7 +152,7 @@ POST /api/workflow/tasks/complete   {"taskId":"...","action":"APPROVE","opinion"
 POST /api/workflow/tasks/transfer   {"taskId":"...","toUserId":5,"opinion":"转交","operationId":"op-yyy"}
 ```
 
-> 除内置 `leaveApproval` 外，已支持**自定义工作流**：后台可动态设计审批/执行/抄送/条件分支节点并发布生效，详见 [第 16 节](#16-自定义工作流动态设计器)。
+> 内置 `leaveApproval` 与「自定义工作流」共用同一套设计/发布机制，详见 [第 16 节](#16-自定义工作流动态设计器)。
 
 ## 6. 可观测性
 
@@ -531,7 +531,7 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 - **单一可信源**：`wf_workflow_design`（`V13`）存储 `process_key`、节点/连线 JSON、生成的 BPMN、部署信息、版本与状态，**不再写入**遗留的 `wf_definition_ext` / `wf_node_config`（留作历史表，未参与新链路）。
 - **运行时生成 BPMN**：`BpmnWorkflowBuilder` 将「节点 + 连线」编译为合法 BPMN 2.0 XML（`APPROVAL` → 多实例 userTask，`SERVICE`/`CC` → serviceTask，`GATEWAY` → 排他网关，驳回策略 → 额外驳回网关分支），经 `WorkflowEnginePort#deploy` 部署为新版本流程定义。
 - **实时生效**：同一 `processKey` 多次发布形成版本链；新发起实例经 `WorkflowService#start` 路由到「已发布」设计，由 `WorkflowDesignService#buildStartVariables` 解析各节点受让人、计算会签阈值（`node_<id>_threshold`）并注入业务表单字段；在途实例沿用其原版本。
-- **端口/适配器不变**：业务层仍只依赖 `WorkflowEnginePort`，自定义设计与内置 `leaveApproval` 通过 `processKey` 在 `start` 中路由，互不影响。
+- **端口/适配器不变**：业务层仍只依赖 `WorkflowEnginePort`；内置 `leaveApproval` 本身也是一条写入 `wf_workflow_design` 的可编辑设计，所有流程（内置/自定义）统一经 `getPublished(processKey)` 路由到「已发布」设计后发起，互不影响。
 
 ### 16.3 关键文件
 
@@ -636,7 +636,7 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 
 - **JobRunr 面板访问**：local 环境面板已在独立端口 `:8000/dashboard` 启动（不受主安全链路 `/dashboard` 路径拦截影响），可直接访问。
 - **Flyway 版本**：Flyway 10.10.0 提示 MySQL 8.4 高于其已验证版本（最高 8.1），仅为警告，不影响运行。
-- **Flowable 流程校验告警**：`leaveApproval` 的排他网关存在无条件出口流，建议补充默认流。
+- **（已修复）Flowable 流程校验告警**：原 `leaveApproval` 静态 BPMN 的排他网关存在无条件出口流；改造为设计驱动后，驳回网关由 `BpmnWorkflowBuilder` 统一注入默认（正常流转）分支，告警消除。
 
 ### 沙箱/隔离环境验证注意事项
 
