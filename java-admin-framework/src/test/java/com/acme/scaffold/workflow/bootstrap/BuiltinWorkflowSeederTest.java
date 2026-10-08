@@ -26,6 +26,15 @@ class BuiltinWorkflowSeederTest {
         assertEquals(4, nodes.size(), "应包含 start/countersign/manager/approvedEnd");
         assertEquals(3, edges.size());
 
+        // 受让人动态化回归：会签取发起人主管，主管节点取财务角色（不再写死 user id）；
+        // 与报销流程保持一致，适配纯 N:N 组织模型。
+        assertTrue(req.nodes().stream().anyMatch(n -> "countersign".equals(n.id())
+                && "INITIATOR_MANAGER".equals(n.assigneeType())),
+                "会签节点应为 INITIATOR_MANAGER");
+        assertTrue(req.nodes().stream().anyMatch(n -> "manager".equals(n.id())
+                && "ROLE".equals(n.assigneeType()) && "FINANCE".equals(n.assigneeExpression())),
+                "主管节点应为 ROLE=FINANCE");
+
         String bpmn = BpmnWorkflowBuilder.build(BuiltinWorkflowSeeder.LEAVE_APPROVAL_KEY,
                 req.processName(), req.nodes(), req.edges());
         assertNotNull(bpmn);

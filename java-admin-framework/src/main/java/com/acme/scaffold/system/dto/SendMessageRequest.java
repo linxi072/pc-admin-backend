@@ -15,7 +15,8 @@ import java.util.List;
  *       由服务端解析出接收人集合（角色与部门之间为「或」关系，命中任一即投递）；</li>
  *   <li>两者都不传 → 请求非法，返回校验失败。</li>
  * </ol>
- * 注意：V6 收敛后用户仅绑定单角色单部门，因此批量筛选只需匹配 sys_user.role_id / sys_user.org_id。
+ * 注意：纯 N:N（用户可绑定多角色多部门），批量筛选基于 sys_user_role / sys_user_org 关联表解析，
+ * 角色与部门之间为「或」关系，命中任一即投递。
  */
 public record SendMessageRequest(
         @NotBlank @Size(max = 200, message = "标题长度不能超过200") String title,

@@ -36,7 +36,8 @@ import java.util.stream.Collectors;
  * <p>投递模型：一条 {@link SysMessageDO}（发件）+ N 条 {@link SysMessageReceiptDO}（收件明细）。
  * 收件明细表以 (message_id, user_id) 唯一，批量发送天然幂等——同一消息不会重复投递给同一人。
  *
- * <p>V6 收敛后用户仅绑定单角色单部门，故批量筛选直接匹配 sys_user.role_id / sys_user.org_id。
+ * <p>纯 N:N（用户可绑定多角色多部门），批量筛选基于 sys_user_role / sys_user_org 关联表解析，
+ * 角色与部门之间为「或」关系，命中任一即投递。
  */
 @Slf4j
 @Service
@@ -110,6 +111,24 @@ public class MessageService {
         }
         log.info("站内信发送完成 messageId={} 接收人数={}", msg.getId(), validUserIds.size());
         return validUserIds.size();
+    }
+
+    /**
+     * 工作流抄送 / 执行步骤通知：向显式接收人列表发送一条站内信（msgType=CC）。
+     * 供 CC / SERVICE 节点委托类在流程流转时调用，使抄送不再只是结构化日志。
+     *
+     * @return 实际投递的接收人数量
+     */
+    @Transactional
+    public int sendCcNotification(List<Long> userIds, String title, String content) {
+        if (userIds == null || userIds.isEmpty()) {
+            return 0;
+        }
+        SendMessageRequest req = new SendMessageRequest(
+                title == null || title.isBlank() ? "流程抄送通知" : title,
+                content == null || content.isBlank() ? "您有一条流程待关注。" : content,
+                "CC", userIds, null, null);
+        return send(req);
     }
 
     /** 按角色/部门解析接收人：角色与部门之间为「或」关系，命中任一即投递（基于多对多关联表）。 */

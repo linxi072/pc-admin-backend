@@ -86,7 +86,8 @@ public class BuiltinWorkflowSeeder implements ApplicationRunner {
      * 构造内置请假审批的设计（与历史静态 BPMN 语义一致）：
      * 发起 → 会签/或签(ALL) → 主管审批(ALL) → 审批通过；任一审批节点驳回即终止（rejectEnd）。
      *
-     * <p>默认受让人写死为用户 id=1（种子 admin），仅作占位；生产环境请在设计器中改为真实审批人/角色。
+     * <p>受让人采用「发起人主管（INITIATOR_MANAGER）」与「财务角色（ROLE=FINANCE）」动态解析，
+     * 与报销流程一致，避免把审批人写死为固定用户 id。仍可在设计器中按需调整为具体人员/部门/角色。
      * 节点 id 使用稳定可读命名，便于在设计器中引用与条件分支配置。</p>
      */
     public static SaveDesignRequest buildLeaveApprovalDesign(String processName) {
@@ -94,9 +95,9 @@ public class BuiltinWorkflowSeeder implements ApplicationRunner {
                 new WorkflowNodeDTO("start", WorkflowNodeType.START, "发起",
                         null, null, null, null, null, null, null, null, null, null, null),
                 new WorkflowNodeDTO("countersign", WorkflowNodeType.APPROVAL, "会签/或签", "ALL", null,
-                        "USER", "1", null, null, null, "END", null, null, null),
+                        "INITIATOR_MANAGER", null, null, null, null, "END", null, null, null),
                 new WorkflowNodeDTO("manager", WorkflowNodeType.APPROVAL, "主管审批", "ALL", null,
-                        "USER", "1", null, null, null, "END", null, null, null),
+                        "ROLE", "FINANCE", null, null, null, "END", null, null, null),
                 new WorkflowNodeDTO("approvedEnd", WorkflowNodeType.END, "审批通过",
                         null, null, null, null, null, null, null, null, null, null, null)
         );
