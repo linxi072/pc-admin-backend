@@ -64,6 +64,9 @@ public class SecurityConfig {
                 .cors(org.springframework.security.config.Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_API).permitAll()
+                        // WebSocket 握手走 HTTP 升级，token 在 query 参数（浏览器 WS 不支持自定义 header），
+                        // 此处放行后由 RealtimeHandshakeInterceptor 手动校验 JWT，失败则拒绝握手
+                        .requestMatchers(new AntPathRequestMatcher("/ws/**")).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthConverter))

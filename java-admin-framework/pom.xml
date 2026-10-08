@@ -55,6 +55,12 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
+        <!-- 实时通信：原生 WebSocket（站内信/待办实时推送），前端用浏览器原生 API，零额外依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- ORM: jOOQ（替代 MyBatis-Plus）。仅依赖运行时，代码使用动态 DSL，无需构建期代码生成 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
