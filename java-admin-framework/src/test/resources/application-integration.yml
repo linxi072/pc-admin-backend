@@ -1,0 +1,30 @@
+spring:
+  # 集成测试专用数据源：默认连本机 MySQL，可用环境变量覆盖（不使用容器）。
+  datasource:
+    url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8}
+    username: ${TEST_DB_USER:root}
+    password: ${TEST_DB_PASSWORD:}
+  jooq:
+    sql-dialect: MYSQL
+  # Flyway 在应用启动时自动建表/迁移，无需手工初始化。
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: false
+    locations: classpath:db/migration
+
+org:
+  jobrunr:
+    job-scheduler:
+      enabled: true
+    # 集成测试不需要真正调度任务，关掉后台执行器与面板，避免额外线程/端口。
+    background-job-server:
+      enabled: false
+    dashboard:
+      enabled: false
+
+management:
+  # 本机可能未启动 Redis，关闭其健康探针以免整体 health 变 DOWN（不影响应用启动）。
+  health:
+    redis:
+      enabled: false
