@@ -1,6 +1,8 @@
 package com.acme.scaffold.security.config;
 
 import com.acme.scaffold.security.jwt.JwtAuthConverter;
+import com.acme.scaffold.security.token.TokenVersionVerifier;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -58,7 +60,8 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain apiSecurity(HttpSecurity http, JwtAuthConverter jwtAuthConverter,
-                                          org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder) throws Exception {
+                                          org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder,
+                                          TokenVersionVerifier tokenVersionVerifier) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(org.springframework.security.config.Customizer.withDefaults())
@@ -71,8 +74,27 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthConverter))
                         .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
-                        .accessDeniedHandler(new BearerTokenAccessDeniedHandler()));
+                        .accessDeniedHandler(new BearerTokenAccessDeniedHandler()))
+                // Token 版本校验必须排在 Bearer 认证之后：先有主体（含 userId 与 tokenVersion 声明）才谈得上比对
+                .addFilterAfter(tokenVersionVerifier,
+                        org.springframework.security.oauth2.server.resource.web.authentication
+                                .BearerTokenAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * 关闭 {@link TokenVersionVerifier} 的 Servlet 容器自动注册。
+     *
+     * <p>原因：它是 {@code Filter} 类型的 Bean，Spring Boot 会把它同时挂到容器级过滤链上，
+     * 导致请求在进入 Security 链之前先跑一遍——那时根本没有认证主体，纯属空转。
+     * 真正需要的注册点只有一处：Security 链内 Bearer 认证之后（见 {@code addFilterAfter}）。
+     */
+    @Bean
+    public FilterRegistrationBean<TokenVersionVerifier> tokenVersionVerifierRegistration(
+            TokenVersionVerifier verifier) {
+        FilterRegistrationBean<TokenVersionVerifier> registration = new FilterRegistrationBean<>(verifier);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

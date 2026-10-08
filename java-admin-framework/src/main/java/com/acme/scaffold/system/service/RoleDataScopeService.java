@@ -5,6 +5,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.permission.DataScopeType;
+import com.acme.scaffold.security.token.TokenVersionService;
 import com.acme.scaffold.system.dto.DataScopeRuleView;
 import com.acme.scaffold.system.dto.SaveDataScopeRequest;
 import com.acme.scaffold.system.entity.SysOrgDO;
@@ -47,6 +48,7 @@ public class RoleDataScopeService {
     private static final int MAX_CUSTOM_ORGS = 500;
 
     private final DSLContext dsl;
+    private final TokenVersionService tokenVersionService;
 
     /**
      * 查询某角色已配置的全部数据权限规则。
@@ -89,9 +91,11 @@ public class RoleDataScopeService {
         String resourceCode = request.resourceCode().trim();
         SaveDataScopeRequest.DataScopeTypeView scopeType = request.scopeType();
 
-        // 未配置资源 => 删除该角色该资源的全部规则，回到「不限制」
+        // 未配置资源 => 删除该角色该资源的全部规则，回到「不限制」。
+        // 可见范围变大也是权限变更，同样要作废持有该角色用户的旧凭证
         if (scopeType == SaveDataScopeRequest.DataScopeTypeView.ALL) {
             deleteRules(roleId, resourceCode);
+            tokenVersionService.bumpRoleHolders(List.of(roleId));
             return;
         }
 
@@ -118,6 +122,9 @@ public class RoleDataScopeService {
         }
         log.info("数据权限规则已更新: roleId={}, resourceCode={}, scopeType={}, orgCount={}",
                 roleId, resourceCode, scopeType, orgIds.size());
+        // 数据范围变更会影响持有该角色的全部用户可见数据：递增其 token 版本，
+        // 否则用户手里的旧凭证仍会带着过期的权限继续访问
+        tokenVersionService.bumpRoleHolders(List.of(roleId));
     }
 
     /**

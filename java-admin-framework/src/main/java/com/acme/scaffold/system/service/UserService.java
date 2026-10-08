@@ -8,6 +8,7 @@ import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
+import com.acme.scaffold.security.token.TokenVersionService;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.dto.UpdateUserRequest;
 import com.acme.scaffold.system.dto.UserQuery;
@@ -55,6 +56,7 @@ public class UserService {
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
+    private final TokenVersionService tokenVersionService;
 
     @Transactional
     public Long create(CreateUserRequest request) {
@@ -89,6 +91,8 @@ public class UserService {
     @Transactional
     public void update(Long id, UpdateUserRequest request) {
         SysUserDO user = get(id);
+        // 角色或状态变化会影响该用户实际权限，需在事务内递增 token 版本使旧凭证失效
+        boolean permissionChanged = false;
         if (request.displayName() != null) {
             user.setDisplayName(request.displayName());
         }
@@ -100,6 +104,7 @@ public class UserService {
         }
         if (request.status() != null) {
             user.setStatus(request.status());
+            permissionChanged = true;
         }
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
 
@@ -110,6 +115,7 @@ public class UserService {
             }
             request.roleIds().forEach(this::requireRole);
             assignRoles(id, request.roleIds(), request.primaryRoleId());
+            permissionChanged = true;
         }
         if (request.deptIds() != null) {
             if (request.deptIds().isEmpty()) {
@@ -117,6 +123,9 @@ public class UserService {
             }
             request.deptIds().forEach(this::requireOrg);
             assignOrgs(id, request.deptIds(), request.primaryDeptId());
+        }
+        if (permissionChanged) {
+            tokenVersionService.bumpUser(id);
         }
     }
 
@@ -126,8 +135,9 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setPasswordChangedAt(LocalDateTime.now());
         user.setPasswordExpired(0);
-        user.setTokenVersion((user.getTokenVersion() == null ? 1 : user.getTokenVersion()) + 1);
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
+        // 统一走 TokenVersionService 递增：既写库又失效缓存，避免与「仅改内存」的写法分叉
+        tokenVersionService.bumpUser(id);
     }
 
     /**
@@ -140,6 +150,8 @@ public class UserService {
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "user_id", id);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ORG, "user_id", id);
         JooqWriters.delete(dsl, JooqTables.SYS_USER, id, false);
+        // 用户已不存在：递增影响 0 行，但会失效缓存，使该用户残留的凭证在下一次请求即被判失效
+        tokenVersionService.bumpUser(id);
     }
 
     public UserView getView(Long id) {
