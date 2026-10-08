@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  *   <li>原生 MySQL 8.x，库名 java_admin，启动时由 Flyway 自动建表；</li>
  *   <li>至少存在两个具备工作流权限（workflow:instance:start / workflow:task:approve /
  *       workflow:task:transfer）的测试用户；admin 默认拥有全部权限，可复用为发起人与审批人；</li>
- *   <li>leaveApproval 流程定义随应用启动从 classpath:/processes 自动部署；</li>
+ *   <li>leaveApproval 现由 {@code BuiltinWorkflowSeeder} 在应用启动时以 {@code wf_workflow_design}
+ *       可编辑设计形式发布（不再依赖 classpath 静态 BPMN）；受让人/驳回策略来自设计，发起请求中的
+ *       assigneeUserIds/managerUserId/approvalMode 已无需传入；</li>
  *   <li>启动需带 {@code -Dio.netty.resolver.dns.useJdkResolver=true} 并直连 IPv6 回环。</li>
  * </ol>
  *
@@ -49,15 +51,12 @@ class LeaveApprovalWorkflowIT extends BaseIntegrationTest {
 
     @Test
     void startAndApproveCountersign() {
-        // 发起会签（approvalMode=ALL）：多个审批人需全部通过
+        // 发起请假：受让人/驳回策略来自 leaveApproval 已发布设计（无需在请求中指定）
         Map<String, Object> start = Map.of(
                 "processKey", "leaveApproval",
                 "businessType", "LEAVE",
                 "businessId", "IT-" + System.nanoTime(),
-                "title", "集成测试-请假",
-                "assigneeUserIds", List.of(2L, 3L),
-                "managerUserId", 1L,
-                "approvalMode", "ALL");
+                "title", "集成测试-请假");
         ResponseEntity<Result> started = rest.postForEntity(
                 baseUrl() + "/api/workflow/instances/start", json(start), Result.class);
         assertNotNull(started.getBody());
