@@ -15,15 +15,18 @@ function bizError(code, message) {
 let seq = 100
 
 const db = {
+  // 多对多模型：用户可绑定多个角色（roleIds/roleNames/roleCodes）、归属多个部门（deptIds/deptNames）。
+  // primaryRoleId / primaryDeptId 为「主」维度标记（mock 扩展字段，真实后端 UserView 不回传，前端回退取首位）。
   users: [
-    { id: 1, username: 'admin', displayName: '超级管理员', mobile: '13800000000', email: 'admin@example.com', avatarUrl: null, notifySiteMessage: 1, notifyEmail: 1, notifyMobile: 0, showLoginLog: 1, maskMobile: 1, discoverable: 1, lastLoginAt: '2026-10-07 09:12:33', orgId: 1, roleId: 1, roleName: '超级管理员', roleCode: 'SUPER_ADMIN', status: 'ACTIVE', createdAt: '2026-01-01 10:00:00' },
-    { id: 2, username: 'zhangsan', displayName: '张三', mobile: '13800000001', email: 'zhangsan@example.com', orgId: 1, roleId: 2, roleName: '运营专员', roleCode: 'OPERATOR', status: 'ACTIVE', createdAt: '2026-02-01 09:00:00' },
-    { id: 3, username: 'lisi', displayName: '李四', mobile: '13800000002', email: 'lisi@example.com', orgId: 2, roleId: 3, roleName: '审计员', roleCode: 'AUDITOR', status: 'DISABLED', createdAt: '2026-03-01 09:00:00' }
+    { id: 1, username: 'admin', displayName: '超级管理员', mobile: '13800000000', email: 'admin@example.com', avatarUrl: null, notifySiteMessage: 1, notifyEmail: 1, notifyMobile: 0, showLoginLog: 1, maskMobile: 1, discoverable: 1, lastLoginAt: '2026-10-07 09:12:33', roleIds: [1], roleNames: ['超级管理员'], roleCodes: ['SUPER_ADMIN'], deptIds: [1], deptNames: ['总公司'], primaryRoleId: 1, primaryDeptId: 1, status: 'ACTIVE', createdAt: '2026-01-01 10:00:00' },
+    { id: 2, username: 'zhangsan', displayName: '张三', mobile: '13800000001', email: 'zhangsan@example.com', avatarUrl: null, roleIds: [2, 4], roleNames: ['运营专员', '财务'], roleCodes: ['OPERATOR', 'FINANCE'], deptIds: [2, 4], deptNames: ['技术部', '前端组'], primaryRoleId: 2, primaryDeptId: 2, status: 'ACTIVE', createdAt: '2026-02-01 09:00:00' },
+    { id: 3, username: 'lisi', displayName: '李四', mobile: '13800000002', email: 'lisi@example.com', avatarUrl: null, roleIds: [3], roleNames: ['审计员'], roleCodes: ['AUDITOR'], deptIds: [3], deptNames: ['人事部'], primaryRoleId: 3, primaryDeptId: 3, status: 'DISABLED', createdAt: '2026-03-01 09:00:00' }
   ],
   roles: [
     { id: 1, roleCode: 'SUPER_ADMIN', roleName: '超级管理员', roleType: 'SYSTEM', status: 'ACTIVE', sortNo: 1, menuIds: [1, 2, 3, 4, 5, 6, 7, 8], apiIds: [1, 2, 3, 4, 5] },
     { id: 2, roleCode: 'OPERATOR', roleName: '运营专员', roleType: 'BUSINESS', status: 'ACTIVE', sortNo: 2, menuIds: [1, 4, 5], apiIds: [3, 4] },
-    { id: 3, roleCode: 'AUDITOR', roleName: '审计员', roleType: 'BUSINESS', status: 'ACTIVE', sortNo: 3, menuIds: [1, 6], apiIds: [5] }
+    { id: 3, roleCode: 'AUDITOR', roleName: '审计员', roleType: 'BUSINESS', status: 'ACTIVE', sortNo: 3, menuIds: [1, 6], apiIds: [5] },
+    { id: 4, roleCode: 'FINANCE', roleName: '财务', roleType: 'BUSINESS', status: 'ACTIVE', sortNo: 4, menuIds: [], apiIds: [] }
   ],
   // 角色数据权限规则，结构对齐 sys_role_data_scope / sys_role_data_scope_org
   // resourceCode 当前仅 system:user 接入过滤（与后端 DefaultDataScopeProvider 一致）
@@ -383,8 +386,8 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
       )
     }
     if (params.status) list = list.filter((u) => u.status === params.status)
-    if (params.orgId) list = list.filter((u) => u.orgId === Number(params.orgId))
-    if (params.roleId) list = list.filter((u) => u.roleId === Number(params.roleId))
+    if (params.orgId) list = list.filter((u) => (u.deptIds || []).includes(Number(params.orgId)))
+    if (params.roleId) list = list.filter((u) => (u.roleIds || []).includes(Number(params.roleId)))
     // 服务端排序：白名单内字段生效，未指定时保持默认（后端为 id 倒序）
     list = applyServerSort(list, url, params.sortField, params.sortDirection)
     const page = Number(params.page || 1)
@@ -399,9 +402,16 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     return { ...u }
   }
   if (m === 'POST' && url === '/api/system/users') {
-    if (data.roleId == null) throw bizError('VALIDATION_ERROR', '角色不能为空，用户仅可绑定单个角色')
-    const role = db.roles.find((r) => r.id === Number(data.roleId))
-    if (!role) throw bizError('NOT_FOUND', '角色不存在')
+    const roleIds = (data.roleIds || []).map((x) => Number(x))
+    const deptIds = (data.deptIds || []).map((x) => Number(x))
+    if (!roleIds.length) throw bizError('VALIDATION_ERROR', '角色不能为空，用户至少绑定一个角色')
+    if (!deptIds.length) throw bizError('VALIDATION_ERROR', '部门不能为空，用户至少归属一个部门')
+    const roles = roleIds.map((id) => db.roles.find((r) => r.id === id)).filter(Boolean)
+    if (roles.length !== roleIds.length) throw bizError('NOT_FOUND', '存在不存在的角色')
+    const orgs = deptIds.map((id) => findOrg(db.orgs, id)).filter(Boolean)
+    if (orgs.length !== deptIds.length) throw bizError('NOT_FOUND', '存在不存在的部门')
+    const primaryRoleId = data.primaryRoleId != null ? Number(data.primaryRoleId) : roles[0].id
+    const primaryDeptId = data.primaryDeptId != null ? Number(data.primaryDeptId) : orgs[0].id
     const id = ++seq
     db.users.push({
       id,
@@ -409,10 +419,13 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
       displayName: data.displayName,
       mobile: data.mobile || '',
       email: data.email || '',
-      orgId: data.orgId != null ? Number(data.orgId) : null,
-      roleId: Number(data.roleId),
-      roleName: role.roleName,
-      roleCode: role.roleCode,
+      roleIds: roles.map((r) => r.id),
+      roleNames: roles.map((r) => r.roleName),
+      roleCodes: roles.map((r) => r.roleCode),
+      deptIds: orgs.map((o) => o.id),
+      deptNames: orgs.map((o) => o.orgName),
+      primaryRoleId,
+      primaryDeptId,
       status: 'ACTIVE',
       createdAt: now()
     })
@@ -424,14 +437,24 @@ export async function mockRequest({ method, url, params = {}, data = {} }) {
     if (data.displayName != null) u.displayName = data.displayName
     if (data.mobile != null) u.mobile = data.mobile
     if (data.email != null) u.email = data.email
-    if (data.orgId != null) u.orgId = data.orgId
     if (data.status != null) u.status = data.status
-    if (data.roleId != null) {
-      const role = db.roles.find((r) => r.id === Number(data.roleId))
-      if (!role) throw bizError('NOT_FOUND', '角色不存在')
-      u.roleId = role.id
-      u.roleName = role.roleName
-      u.roleCode = role.roleCode
+    // 多对多：roleIds / deptIds 传入时整体替换关联；primaryRoleId / primaryDeptId 缺省取首位
+    if (data.roleIds != null) {
+      const ids = (data.roleIds || []).map((x) => Number(x))
+      const roles = ids.map((id) => db.roles.find((r) => r.id === id)).filter(Boolean)
+      if (roles.length !== ids.length) throw bizError('NOT_FOUND', '存在不存在的角色')
+      u.roleIds = roles.map((r) => r.id)
+      u.roleNames = roles.map((r) => r.roleName)
+      u.roleCodes = roles.map((r) => r.roleCode)
+      u.primaryRoleId = data.primaryRoleId != null ? Number(data.primaryRoleId) : (roles[0] ? roles[0].id : null)
+    }
+    if (data.deptIds != null) {
+      const ids = (data.deptIds || []).map((x) => Number(x))
+      const orgs = ids.map((id) => findOrg(db.orgs, id)).filter(Boolean)
+      if (orgs.length !== ids.length) throw bizError('NOT_FOUND', '存在不存在的部门')
+      u.deptIds = orgs.map((o) => o.id)
+      u.deptNames = orgs.map((o) => o.orgName)
+      u.primaryDeptId = data.primaryDeptId != null ? Number(data.primaryDeptId) : (orgs[0] ? orgs[0].id : null)
     }
     return null
   }
@@ -1345,6 +1368,9 @@ function scanApiResourceDiff() {
 
   if (m === 'GET' && url === '/api/profile') {
     const u = me()
+    // 多对多：角色 / 部门均为集合，对齐后端 ProfileView 的 roleNames / orgNames（List<String>）
+    const roleNames = (u.roleIds || []).map((id) => db.roles.find((r) => r.id === id)).filter(Boolean).map((r) => r.roleName)
+    const orgNames = (u.deptIds || []).map((id) => orgNameOf(db.orgs, id))
     return {
       id: u.id,
       username: u.username,
@@ -1354,8 +1380,8 @@ function scanApiResourceDiff() {
       mobileBound: !!u.mobile,
       email: u.email || null,
       emailBound: !!u.email,
-      roleName: u.roleName,
-      orgName: '技术部',
+      roleNames,
+      orgNames,
       status: u.status,
       lastLoginAt: u.lastLoginAt || null,
       passwordChangedAt: '2026-09-01 10:00:00',

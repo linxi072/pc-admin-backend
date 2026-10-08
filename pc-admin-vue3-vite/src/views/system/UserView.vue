@@ -35,13 +35,22 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="orgName" label="部门" width="130">
-          <template #default="{ row }">{{ row.orgName || '--' }}</template>
-        </el-table-column>
-        <el-table-column label="角色" width="130">
+        <el-table-column label="部门" min-width="150">
           <template #default="{ row }">
-            <el-tag v-if="row.roleCode" class="role-tag" size="small">{{ row.roleName || row.roleCode }}</el-tag>
-            <span v-else class="text-muted">未分配</span>
+            <el-tag v-for="(n, i) in (row.deptNames || [])" :key="'d' + i" class="role-tag" size="small" type="info">{{ n }}</el-tag>
+            <span v-if="!(row.deptNames || []).length" class="text-muted">未分配</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" min-width="180">
+          <template #default="{ row }">
+            <el-tag
+              v-for="(n, i) in (row.roleNames || [])"
+              :key="'r' + i"
+              class="role-tag"
+              size="small"
+              :type="row.roleCodes && row.roleCodes[i] === 'SUPER_ADMIN' ? 'danger' : 'primary'"
+            >{{ n }}</el-tag>
+            <span v-if="!(row.roleNames || []).length" class="text-muted">未分配</span>
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" sortable="custom" />
@@ -96,14 +105,24 @@
             <el-option label="停用" value="DISABLED" />
           </el-select>
         </el-form-item>
-        <el-form-item label="部门">
-          <el-select v-model="form.orgId" clearable filterable style="width: 100%" placeholder="选择部门（单选，可不选）">
+        <el-form-item label="部门" prop="deptIds">
+          <el-select v-model="form.deptIds" multiple filterable clearable style="width: 100%" placeholder="选择部门（可多选，至少 1 个）">
             <el-option v-for="o in orgOptions" :key="o.id" :label="o.orgName" :value="o.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="form.roleId" style="width: 100%" placeholder="选择角色（单选，必选）">
+        <el-form-item label="主部门">
+          <el-select v-model="form.primaryDeptId" clearable filterable style="width: 100%" placeholder="不选则取首个部门">
+            <el-option v-for="o in selectedDeptOptions" :key="o.id" :label="o.orgName" :value="o.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="角色" prop="roleIds">
+          <el-select v-model="form.roleIds" multiple filterable style="width: 100%" placeholder="选择角色（可多选，至少 1 个）">
             <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="主角色">
+          <el-select v-model="form.primaryRoleId" clearable filterable style="width: 100%" placeholder="不选则取首个角色">
+            <el-option v-for="r in selectedRoleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -133,7 +152,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Plus, Edit, Key, Delete } from '@element-plus/icons-vue'
 import { pageUsers, createUser, updateUser, deleteUser, resetPassword } from '@/api/user'
@@ -153,14 +172,20 @@ const isEdit = ref(false)
 const formRef = ref()
 const form = reactive({
   id: null, username: '', password: '', displayName: '', mobile: '', email: '',
-  status: 'ACTIVE', orgId: null, roleId: null
+  status: 'ACTIVE',
+  roleIds: [], primaryRoleId: null,
+  deptIds: [], primaryDeptId: null
 })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, min: 8, message: '至少 8 位', trigger: 'blur' }],
   displayName: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
-  roleId: [{ required: true, message: '请选择角色（用户仅可绑定单个角色）', trigger: 'change' }]
+  roleIds: [{ required: true, type: 'array', min: 1, message: '至少绑定一个角色', trigger: 'change' }],
+  deptIds: [{ required: true, type: 'array', min: 1, message: '至少归属一个部门', trigger: 'change' }]
 }
+// 主角色 / 主部门的候选：仅从已选角色 / 部门中挑选（mock 与真实后端语义一致）
+const selectedRoleOptions = computed(() => roleOptions.value.filter((r) => form.roleIds.includes(r.id)))
+const selectedDeptOptions = computed(() => orgOptions.value.filter((o) => form.deptIds.includes(o.id)))
 
 const resetVisible = ref(false)
 const resetRef = ref()
@@ -215,7 +240,7 @@ function openCreate() {
   isEdit.value = false
   Object.assign(form, {
     id: null, username: '', password: '', displayName: '', mobile: '', email: '',
-    status: 'ACTIVE', orgId: null, roleId: null
+    status: 'ACTIVE', roleIds: [], primaryRoleId: null, deptIds: [], primaryDeptId: null
   })
   ensureRoles()
   dialogVisible.value = true
@@ -226,7 +251,10 @@ async function openEdit(row) {
   Object.assign(form, {
     id: row.id, username: row.username, password: '', displayName: row.displayName,
     mobile: row.mobile, email: row.email, status: row.status,
-    orgId: row.orgId ?? null, roleId: row.roleId ?? null
+    roleIds: [...(row.roleIds || [])],
+    primaryRoleId: row.primaryRoleId ?? (row.roleIds && row.roleIds[0] != null ? row.roleIds[0] : null),
+    deptIds: [...(row.deptIds || [])],
+    primaryDeptId: row.primaryDeptId ?? (row.deptIds && row.deptIds[0] != null ? row.deptIds[0] : null)
   })
   ensureRoles()
   dialogVisible.value = true
@@ -240,13 +268,17 @@ async function onSubmit() {
     if (isEdit.value) {
       await updateUser(form.id, {
         displayName: form.displayName, mobile: form.mobile, email: form.email,
-        status: form.status, orgId: form.orgId, roleId: form.roleId
+        status: form.status,
+        roleIds: form.roleIds, primaryRoleId: form.primaryRoleId || undefined,
+        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined
       })
       ElMessage.success('更新成功')
     } else {
       await createUser({
         username: form.username, password: form.password, displayName: form.displayName,
-        mobile: form.mobile, email: form.email, orgId: form.orgId, roleId: form.roleId
+        mobile: form.mobile, email: form.email,
+        roleIds: form.roleIds, primaryRoleId: form.primaryRoleId || undefined,
+        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined
       })
       ElMessage.success('创建成功')
     }

@@ -45,10 +45,12 @@
           <span class="readonly">{{ profile.displayName || '-' }}</span>
         </el-form-item>
         <el-form-item label="角色">
-          <span>{{ profile.roleName || '未分配角色' }}</span>
+          <span v-if="(profile.roleNames || []).length">{{ (profile.roleNames || []).join(' / ') }}</span>
+          <span v-else class="text-muted">未分配角色</span>
         </el-form-item>
         <el-form-item label="部门">
-          <span>{{ profile.orgName || '未分配部门' }}</span>
+          <span v-if="(profile.orgNames || []).length">{{ (profile.orgNames || []).join(' / ') }}</span>
+          <span v-else class="text-muted">未分配部门</span>
         </el-form-item>
         <el-form-item label="状态">
           <el-tag :type="statusType(profile.status)" size="small">

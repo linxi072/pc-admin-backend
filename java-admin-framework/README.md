@@ -109,8 +109,23 @@ mvn spring-boot:run
 | ----------------------------------------------------- | ------------------------------------------------------ |
 | `sys_*` / `wf_*`（20 张，V1~V4）                          | Flyway：`src/main/resources/db/migration/V1~V4`         |
 | `sys_dict_type` / `sys_dict_data` / `sys_config`（3 张） | Flyway：`V5__system_modules.sql`（字典分类/字典数据/系统变量，含种子数据）  |
+| `sys_user_role` / `sys_user_org`（2 张，纯 N:N 中间表）     | Flyway：`V15__user_role_org_many_to_many.sql`（回退 V6 单列收敛，可重跑） |
 | `ACT_*`（Flowable）                                     | Flowable 自动建表（`flowable.database-schema-update: true`） |
 | `jobrunr_*`（调度）                                       | JobRunr 自动建表（`jobrunr.database.skip-create: false`）    |
+
+### 用户-角色 / 用户-部门：纯多对多模型（V15，回退 V6 收敛）
+
+用户与角色、用户与部门均为**纯 N:N**（中间表 `sys_user_role`、`sys_user_org`），不再保留 `sys_user` 上的 `role_id` / `org_id` / `primary_org_id` 单列。
+
+- `V6__user_single_role_org.sql` 曾将多对多收敛为单列（理由：避免权限并集越权）。`V15__user_role_org_many_to_many.sql` 回退该收敛，全程用 `information_schema` 守卫、可重复执行：
+  - 幂等建 `sys_user_role`（`uk_user_role(user_id,role_id)` + `idx`）、`sys_user_org`（`uk_user_org(user_id,org_id)` + `idx`）；
+  - 把 `sys_user` 的 `role_id` / `org_id` / `primary_org_id` 数据回填进关联表（`is_primary=1`），再 `DROP` 这三列及 `idx_tenant_role` / `idx_tenant_org` 索引。
+- **权限聚合取并集**：`PermissionService.roleIdsOf(userId)` 改为从 `sys_user_role` 读取该用户全部角色 ID 取并集；JWT 层 `JwtAuthConverter` 本就按逗号 `split` 成 `Set`，多角色天然就绪。
+- **主维度**：`primaryRoleId` / `primaryDeptId` 标记「主」角色 / 部门（传空取集合首位），用于权限聚合与数据范围（如 `DEPT` 类数据权限依赖主部门）。
+- **数据权限联动**：`DefaultDataScopeProvider`、`DataScopeConditions` 的部门过滤与 `orgOfUser` 改走 `sys_user_org`（`is_primary=1`）子查询；`AssigneeResolver`、站内信收件解析（`MessageService.resolveReceivers`）同步基于关联表。
+- **改动面**：`JooqTables`（注册 `SYS_USER_ROLE` / `SYS_USER_ORG`、移除 `SYS_USER` 三列）、`SysUserDO`、`PermissionService`、`DefaultDataScopeProvider`、`AssigneeResolver`、`MessageService`、`DataScopeConditions`、`ProfileView` / `ProfileService`、`UserView` / `UserService` 及 `CreateUserRequest` / `UpdateUserRequest` DTO。
+
+> 部门树 + 用户多部门归属 + `SUPER_ADMIN` 角色/菜单关联的种子见仓库根 `permission-schema.sql`（第 9–10 节），为可独立执行的初始化脚本，与 Flyway V15 互补。
 
 ## 4. 认证与权限
 
@@ -145,6 +160,7 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/system/users/p
 - 每次审批/驳回/转办先校验任务归属与 `operationId` 幂等键，再写 `wf_approval_record`（不可变）。
 - **前端发起联动**：`InstanceView` 发起表单按 `processKey` 调用 `GET /api/workflow/definitions/published/{key}`；若设计已发布，则隐藏「审批人/主管」选择框（受让人由设计解析），仅当设计未发布（草稿）才显示手动选择框。
 - **业务表单动态渲染**：已发布设计携带 `formSchema`（JSON，描述字段 key/标签/类型/必填/选项）。发起表单读取该 schema，按类型（文本/多行/数字/日期/下拉/开关）动态渲染业务字段，提交时将字段值收集进 `formFields` 随流程变量下发，无需在前端硬编码。内置 `leaveApproval`（请假类型/天数/事由）、`expense`（金额/类别/说明）均已预置 schema。
+- **动态业务字段必填强制校验**：发起表单提交时，对 `formSchema` 中 `required=true` 的字段执行强制拦截——若必填字段为空或缺失（数字 0 视为有效、开关类须为开启态），阻止提交并以 `ElMessage` 提示具体缺失的字段标签，同时在对应字段下方显示内联错误；待全部必填项校验通过后才会真正发起流程。
 
 ```bash
 # 发起（受让人/驳回策略来自已发布设计；业务字段经 formFields 透传，键名需与设计 schema 的 field 一致）
@@ -545,8 +561,9 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 - **端口/适配器不变**：业务层仍只依赖 `WorkflowEnginePort`；内置 `leaveApproval` / `expense` 本身也是写入 `wf_workflow_design` 的可编辑设计，所有流程（内置/自定义）统一经 `getPublished(processKey)` 路由到「已发布」设计后发起，互不影响。
 - **内置流程播种**：`BuiltinWorkflowSeeder`（`@Order(200)`，`seedAll` 注册表式）在启动时为每个内置流程巡检：若已发布则跳过；否则创建草稿，仅当草稿仍 pristine（无节点且 version=0，即未被用户编辑/发布过）时写入内置节点并发布。**新增内置流程只需在 `seedAll` 追加一条 `{key, name, desc, designer}`，并视情况补 `BuiltinWorkflowSeederTest` 断言。**
 - **前端发起联动**：`InstanceView` 发起表单按所选 `processKey` 调用 `GET /api/workflow/definitions/published/{key}`，以「设计是否已发布」作为隐藏「审批人/主管」选择框的判定条件——已发布则隐藏（受让人由设计解析，提交时不传 `assigneeUserIds`/`managerUserId`）；未发布（草稿）则显示供手动选择。同一判定还驱动**业务表单动态渲染**：已发布设计携带 `formSchema`，发起表单按字段类型（文本/多行/数字/日期/下拉/开关）动态渲染并收集为 `formFields` 下发。
-- **设计器节点受让人预览（接已发布判定）**：`WorkflowDesigner` 编辑节点时，属性面板底部「受让人预览」会调用 `getPublishedDefinition(processKey)` 取得权威已发布版本，给出状态提示（已发布 vN 生效中 / 未发布草稿预览），并同时列出**草稿受让人**与（已发布时）**生效版本受让人**的对比，便于发布前确认差异。
+- **设计器节点受让人预览（接已发布判定 + 用户/角色名反查）**：`WorkflowDesigner` 编辑节点时，属性面板底部「受让人预览」会调用 `getPublishedDefinition(processKey)` 取得权威已发布版本，给出状态提示（已发布 vN 生效中 / 未发布草稿预览），并同时列出**草稿受让人**与（已发布时）**生效版本受让人**的对比，便于发布前确认差异。预览中的受让人标识会经**用户/角色名反查**解析为真实姓名/角色名：设计器加载时调用 `GET /api/system/users/page` 与 `GET /api/system/roles` 构建「用户ID→姓名」「角色编码→角色名」映射，`USER`/`CC` 的 ID 列表与 `ROLE` 的编码列表在预览时替换为 `张三、李四`、`财务` 等可读名称（未命中时回退为原始标识），`INITIATOR`/`INITIATOR_MANAGER` 仍显示语义标签。
 - **设计器业务表单字段编辑**：设计器新增「业务表单字段」编辑卡片，可增删字段（字段 key / 标签 / 类型 / 必填 / 占位提示或下拉选项），保存/发布时序列化进 `formSchema` 一并提交，供发起表单动态渲染。
+- **动态业务字段必填强制校验**：发起表单 `submitStart` 在提交前对 `formSchema` 中 `required=true` 的字段做强制校验——必填为空或缺失（数字 `0` 视为有效、开关须为开启态）则拦截提交，弹窗式 `ElMessage` 提示具体缺失字段标签，并在字段下方展示内联错误；切换流程定义时重置校验态，待全部必填项通过才真正发起。
 
 ### 16.3 关键文件
 
