@@ -251,6 +251,8 @@ import {
 import {
   getDefinition, saveDefinition, publishDefinition, unpublishDefinition, getDefinitionBpmn, getPublishedDefinition
 } from '@/api/workflow'
+import { listRoles } from '@/api/role'
+import { pageUsers } from '@/api/user'
 
 const route = useRoute()
 const router = useRouter()
@@ -266,6 +268,9 @@ const bpmnVisible = ref(false)
 const bpmnXml = ref('')
 const publishedDesign = ref(null)
 const formFields = ref([])
+// 用户/角色反查映射：{ [userId]: displayName } 与 { [roleCode]: roleName }
+const userMap = ref({})
+const roleMap = ref({})
 
 const current = computed(() => (selectedIndex.value >= 0 ? nodes.value[selectedIndex.value] : null))
 const nodeIdOptions = computed(() => nodes.value.map((n) => n.id))
@@ -299,18 +304,34 @@ function rejectPolicyText(node) {
   }
   return t
 }
+// 受让人标识反查：将用户ID / 角色编码解析为真实姓名 / 角色名
+function resolveAssignees(expr, kind) {
+  if (!expr) return ''
+  const tokens = String(expr).split(',').map((s) => s.trim()).filter(Boolean)
+  if (tokens.length === 0) return ''
+  if (kind === 'USER' || kind === 'CC') {
+    return tokens.map((id) => userMap.value[String(id)] || `用户#${id}`).join('、')
+  }
+  if (kind === 'ROLE') {
+    return tokens.map((code) => roleMap.value[code] || code).join('、')
+  }
+  // ORG 等未提供反查接口的场景，回退展示原始标识
+  return tokens.join('、')
+}
+
 function assigneePreviewText(node) {
   if (!node) return '—'
   if (node.type === 'CC') {
-    return node.assigneeExpression ? ('抄送人 ID：' + node.assigneeExpression) : '（未设置抄送人）'
+    const names = resolveAssignees(node.assigneeExpression, 'CC')
+    return names ? ('抄送人：' + names) : '（未设置抄送人）'
   }
   if (node.type !== 'APPROVAL') return '—'
   const t = node.assigneeType
-  let text = ASSIGNEE_TYPE_LABEL[t] || t || '（未设置）'
-  if ((t === 'USER' || t === 'ROLE' || t === 'ORG') && node.assigneeExpression) {
-    text += '：' + node.assigneeExpression
-  }
-  return text
+  if (t === 'INITIATOR') return '发起人本人'
+  if (t === 'INITIATOR_MANAGER') return '发起人主管'
+  const typeLabel = ASSIGNEE_TYPE_LABEL[t] || t || '（未设置）'
+  const names = resolveAssignees(node.assigneeExpression, t)
+  return names ? `${typeLabel}：${names}` : `${typeLabel}（未指定具体对象）`
 }
 
 let seq = 0
@@ -414,6 +435,24 @@ function removeFormField(row) {
   if (i >= 0) formFields.value.splice(i, 1)
 }
 
+// 拉取用户/角色清单，构建「标识 -> 名称」映射，供受让人预览反查真实姓名 / 角色名
+async function loadRefData() {
+  try {
+    const [roles, usersPage] = await Promise.all([listRoles(), pageUsers({ page: 1, size: 1000 })])
+    const rMap = {}
+    for (const r of (roles || [])) rMap[r.roleCode] = r.roleName
+    roleMap.value = rMap
+    const uMap = {}
+    const recs = (usersPage && usersPage.records) || []
+    for (const u of recs) uMap[String(u.id)] = u.displayName
+    userMap.value = uMap
+  } catch {
+    // 反查失败不影响设计器其余功能，预览回退为原始标识
+    userMap.value = {}
+    roleMap.value = {}
+  }
+}
+
 async function load() {
   const d = await getDefinition(id)
   def.processName = d.processName
@@ -441,6 +480,8 @@ async function load() {
   } catch {
     publishedDesign.value = null
   }
+  // 用户/角色反查：加载映射，使受让人预览展示真实姓名 / 角色名
+  await loadRefData()
 }
 
 async function saveDraft() {

@@ -60,6 +60,7 @@
             </el-select>
             <el-switch v-else-if="f.type === 'switch'" v-model="formValues[f.field]" />
             <span v-if="f.required" style="color: var(--el-color-danger); margin-left: 4px">*</span>
+            <div v-if="showErrors && missingFields.has(f.field)" class="field-error">该字段为必填项，请填写后提交</div>
           </el-form-item>
         </template>
 
@@ -120,6 +121,22 @@ const formSchemaFields = ref([])
 const formValues = reactive({})
 const hasDynamicFields = computed(() => designPublished.value && formSchemaFields.value.length > 0)
 
+// 必填校验状态：提交前若必填字段为空则拦截；showErrors 控制内联错误展示
+const showErrors = ref(false)
+const missingFields = computed(() => {
+  const s = new Set()
+  for (const f of formSchemaFields.value) {
+    if (!f.required) continue
+    const v = formValues[f.field]
+    const empty = f.type === 'switch' ? v !== true : (v === undefined || v === null || v === '')
+    if (empty) s.add(f.field)
+  }
+  return s
+})
+function fieldLabelOf(field) {
+  return formSchemaFields.value.find((f) => f.field === field)?.label || field
+}
+
 const startVisible = ref(false)
 const starting = ref(false)
 const startForm = reactive({
@@ -166,6 +183,7 @@ function parseSchema(json) {
 async function onProcessChange(key) {
   designPublished.value = false
   formSchemaFields.value = []
+  showErrors.value = false
   startForm.businessType = defaultBusinessType(key)
   // 清理上一次的动态字段值
   for (const k in formValues) delete formValues[k]
@@ -198,6 +216,12 @@ async function load() {
 async function submitStart() {
   starting.value = true
   try {
+    // 必填业务字段强制校验：未通过则拦截提交并提示具体缺失项，待全部通过方可继续
+    if (missingFields.value.size > 0) {
+      showErrors.value = true
+      ElMessage.error('请先填写必填项：' + [...missingFields.value].map(fieldLabelOf).join('、'))
+      return
+    }
     const payload = { ...startForm }
     // 设计已发布时，审批人/主管由设计自动解析，不向后端传手动选择
     if (designPublished.value) {
@@ -216,6 +240,7 @@ async function submitStart() {
     }
     payload.formFields = formFields
     const pid = await startProcess(payload)
+    showErrors.value = false
     ElMessage.success('流程已发起：' + pid)
     startVisible.value = false
     load()
@@ -254,3 +279,13 @@ onMounted(async () => {
   await Promise.all([load(), loadProcessOptions()])
 })
 </script>
+
+<style scoped>
+.field-error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+</style>
+
