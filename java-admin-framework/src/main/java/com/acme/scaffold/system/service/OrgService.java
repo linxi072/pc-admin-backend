@@ -4,6 +4,8 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.security.permission.DataScope;
+import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.system.dto.CreateOrgRequest;
 import com.acme.scaffold.system.dto.OrgTreeVO;
 import com.acme.scaffold.system.dto.UpdateOrgRequest;
@@ -30,15 +32,33 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrgService {
 
+    /** 部门资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。 */
+    public static final String RESOURCE_CODE = "system:org";
+
     private final DSLContext dsl;
 
+    /**
+     * 机构树。数据权限由 {@link DataScope} 切面解析：ALL 时返回完整树；
+     * 受限时按可见机构集合过滤，并以「父节点不在可见集合内」的节点作为根（森林）。
+     */
+    @DataScope(resourceCode = RESOURCE_CODE)
     public List<OrgTreeVO> tree() {
         List<SysOrgDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                JooqWriters.notDeleted(JooqTables.SYS_ORG),
+                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
+                        DataScopeConditions.of(JooqTables.SYS_ORG, "id")),
                 JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
         Map<Long, List<SysOrgDO>> byParent = all.stream()
                 .collect(Collectors.groupingBy(o -> o.getParentId() == null ? 0L : o.getParentId()));
-        return buildChildren(0L, byParent);
+        Set<Long> visible = all.stream().map(SysOrgDO::getId).collect(Collectors.toSet());
+        List<OrgTreeVO> result = new ArrayList<>();
+        for (SysOrgDO o : all) {
+            Long parentId = o.getParentId() == null ? 0L : o.getParentId();
+            // 顶层节点：无父，或其父被数据权限过滤掉（此时它应升为根，避免整棵子树丢失）
+            if (parentId == 0L || !visible.contains(parentId)) {
+                result.add(toTree(o, byParent));
+            }
+        }
+        return result;
     }
 
     @Transactional
@@ -71,15 +91,13 @@ public class OrgService {
                         JooqTables.SYS_ORG.field("org_code", String.class).eq(code))) > 0;
     }
 
-    private List<OrgTreeVO> buildChildren(Long parentId, Map<Long, List<SysOrgDO>> byParent) {
-        List<SysOrgDO> children = byParent.getOrDefault(parentId, List.of());
-        List<OrgTreeVO> result = new ArrayList<>();
-        for (SysOrgDO o : children) {
-            result.add(new OrgTreeVO(o.getId(), o.getParentId(), o.getOrgCode(), o.getOrgName(),
-                    o.getOrgType(), o.getSortNo(), o.getStatus(), o.getLeaderUserId(),
-                    buildChildren(o.getId(), byParent)));
+    private OrgTreeVO toTree(SysOrgDO node, Map<Long, List<SysOrgDO>> byParent) {
+        List<OrgTreeVO> children = new ArrayList<>();
+        for (SysOrgDO child : byParent.getOrDefault(node.getId(), List.of())) {
+            children.add(toTree(child, byParent));
         }
-        return result;
+        return new OrgTreeVO(node.getId(), node.getParentId(), node.getOrgCode(), node.getOrgName(),
+                node.getOrgType(), node.getSortNo(), node.getStatus(), node.getLeaderUserId(), children);
     }
 
     @Transactional

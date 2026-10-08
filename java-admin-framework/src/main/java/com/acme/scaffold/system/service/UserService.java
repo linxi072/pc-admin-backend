@@ -6,10 +6,8 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.JooqSorts;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
-import com.acme.scaffold.security.context.CurrentPrincipal;
-import com.acme.scaffold.security.context.SecurityContextFacade;
-import com.acme.scaffold.security.permission.DataScopeProvider;
-import com.acme.scaffold.security.permission.DataScopeResult;
+import com.acme.scaffold.security.permission.DataScope;
+import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.dto.UpdateUserRequest;
 import com.acme.scaffold.system.dto.UserQuery;
@@ -54,8 +52,6 @@ public class UserService {
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
-    private final DataScopeProvider dataScopeProvider;
-    private final SecurityContextFacade securityContextFacade;
 
     @Transactional
     public Long create(CreateUserRequest request) {
@@ -129,11 +125,8 @@ public class UserService {
         return toView(user);
     }
 
+    @DataScope(resourceCode = UserQuery.RESOURCE_CODE)
     public PageResult<UserView> list(UserQuery query) {
-        CurrentPrincipal principal = securityContextFacade.getCurrentPrincipal().orElse(null);
-        DataScopeResult scope = principal == null ? DataScopeResult.all()
-                : dataScopeProvider.resolve(principal.userId(), UserQuery.RESOURCE_CODE);
-
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(JooqTables.SYS_USER));
         if (StringUtils.hasText(query.username())) {
@@ -150,12 +143,9 @@ public class UserService {
         if (query.roleId() != null) {
             conds.add(JooqTables.SYS_USER.field("role_id", Long.class).eq(query.roleId()));
         }
-        // 数据权限：SELF 按本人过滤，其余受限范围按机构集合过滤
-        if (scope.selfOnly() && principal != null) {
-            conds.add(JooqTables.SYS_USER.field("id", Long.class).eq(principal.userId()));
-        } else if (!scope.unrestricted()) {
-            conds.add(JooqTables.SYS_USER.field("org_id", Long.class).in(scope.orgIds()));
-        }
+        // 数据权限由 DataScopeAspect 解析后写入上下文，这里只负责翻译成条件：
+        // SELF -> id = 当前用户；DEPT/DEPT_AND_CHILD/CUSTOM -> org_id IN (机构集合)；ALL -> 不加条件
+        conds.add(DataScopeConditions.of(JooqTables.SYS_USER, "org_id", "id"));
 
         var pageQuery = query.toPageQuery();
         PageResult<SysUserDO> page = JooqWriters.page(dsl, JooqTables.SYS_USER, SysUserDO.class,
