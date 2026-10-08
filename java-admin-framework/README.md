@@ -144,13 +144,15 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/system/users/p
 - 转办：更换任务 assignee 并写入不可变审批记录。
 - 每次审批/驳回/转办先校验任务归属与 `operationId` 幂等键，再写 `wf_approval_record`（不可变）。
 - **前端发起联动**：`InstanceView` 发起表单按 `processKey` 调用 `GET /api/workflow/definitions/published/{key}`；若设计已发布，则隐藏「审批人/主管」选择框（受让人由设计解析），仅当设计未发布（草稿）才显示手动选择框。
+- **业务表单动态渲染**：已发布设计携带 `formSchema`（JSON，描述字段 key/标签/类型/必填/选项）。发起表单读取该 schema，按类型（文本/多行/数字/日期/下拉/开关）动态渲染业务字段，提交时将字段值收集进 `formFields` 随流程变量下发，无需在前端硬编码。内置 `leaveApproval`（请假类型/天数/事由）、`expense`（金额/类别/说明）均已预置 schema。
 
 ```bash
-# 发起（受让人/驳回策略来自已发布设计，无需在请求中指定；formFields 可透传业务表单）
+# 发起（受让人/驳回策略来自已发布设计；业务字段经 formFields 透传，键名需与设计 schema 的 field 一致）
 curl -X POST http://localhost:8080/api/workflow/instances/start \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"leaveApproval","businessType":"LEAVE","businessId":"L001",
-       "title":"张三请假"}'
+       "title":"张三请假",
+       "formFields":{"leaveType":"年假","days":3,"reason":"回家探亲"}}'
 
 # 查询某流程是否已发布（前端联动判定依据）
 GET /api/workflow/definitions/published/{processKey}
@@ -542,7 +544,9 @@ CONCAT(',', ancestors, ',') LIKE '%,1,%'
 - **实时生效**：同一 `processKey` 多次发布形成版本链；新发起实例经 `WorkflowService#start` 路由到「已发布」设计，由 `WorkflowDesignService#buildStartVariables` 解析各节点受让人、计算会签阈值（`node_<id>_threshold`）并注入业务表单字段；在途实例沿用其原版本。
 - **端口/适配器不变**：业务层仍只依赖 `WorkflowEnginePort`；内置 `leaveApproval` / `expense` 本身也是写入 `wf_workflow_design` 的可编辑设计，所有流程（内置/自定义）统一经 `getPublished(processKey)` 路由到「已发布」设计后发起，互不影响。
 - **内置流程播种**：`BuiltinWorkflowSeeder`（`@Order(200)`，`seedAll` 注册表式）在启动时为每个内置流程巡检：若已发布则跳过；否则创建草稿，仅当草稿仍 pristine（无节点且 version=0，即未被用户编辑/发布过）时写入内置节点并发布。**新增内置流程只需在 `seedAll` 追加一条 `{key, name, desc, designer}`，并视情况补 `BuiltinWorkflowSeederTest` 断言。**
-- **前端发起联动**：`InstanceView` 发起表单按所选 `processKey` 调用 `GET /api/workflow/definitions/published/{key}`，以「设计是否已发布」作为隐藏「审批人/主管」选择框的判定条件——已发布则隐藏（受让人由设计解析，提交时不传 `assigneeUserIds`/`managerUserId`）；未发布（草稿）则显示供手动选择。
+- **前端发起联动**：`InstanceView` 发起表单按所选 `processKey` 调用 `GET /api/workflow/definitions/published/{key}`，以「设计是否已发布」作为隐藏「审批人/主管」选择框的判定条件——已发布则隐藏（受让人由设计解析，提交时不传 `assigneeUserIds`/`managerUserId`）；未发布（草稿）则显示供手动选择。同一判定还驱动**业务表单动态渲染**：已发布设计携带 `formSchema`，发起表单按字段类型（文本/多行/数字/日期/下拉/开关）动态渲染并收集为 `formFields` 下发。
+- **设计器节点受让人预览（接已发布判定）**：`WorkflowDesigner` 编辑节点时，属性面板底部「受让人预览」会调用 `getPublishedDefinition(processKey)` 取得权威已发布版本，给出状态提示（已发布 vN 生效中 / 未发布草稿预览），并同时列出**草稿受让人**与（已发布时）**生效版本受让人**的对比，便于发布前确认差异。
+- **设计器业务表单字段编辑**：设计器新增「业务表单字段」编辑卡片，可增删字段（字段 key / 标签 / 类型 / 必填 / 占位提示或下拉选项），保存/发布时序列化进 `formSchema` 一并提交，供发起表单动态渲染。
 
 ### 16.3 关键文件
 
