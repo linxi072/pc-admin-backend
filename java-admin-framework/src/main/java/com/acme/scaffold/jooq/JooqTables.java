@@ -119,6 +119,14 @@ public final class JooqTables {
             "device_id", "user_agent", "ip_address", "issued_at", "expires_at", "last_used_at",
             "revoked_at", "revoke_reason", "replaced_by_id", "reuse_detected", "version");
 
+    /**
+     * 幂等记录表（V16）。无 deleted / version 列：到期物理删除，并发由唯一索引裁决而非乐观锁。
+     */
+    public static final TableRef SYS_IDEMPOTENCY_RECORD = new TableRef("sys_idempotency_record",
+            "id", "tenant_id", "idempotency_key", "api_scope", "user_id", "request_fingerprint",
+            "status", "response_snapshot", "error_code", "error_message", "expires_at",
+            "created_at", "updated_at");
+
     public static final TableRef SYS_PASSWORD_HISTORY = new TableRef("sys_password_history",
             "id", "tenant_id", "user_id", "password_hash", "created_at");
 

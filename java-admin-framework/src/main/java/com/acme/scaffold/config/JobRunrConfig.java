@@ -2,6 +2,7 @@ package com.acme.scaffold.config;
 
 import com.acme.scaffold.job.AnnouncementExpiryJob;
 import com.acme.scaffold.job.DemoJob;
+import com.acme.scaffold.job.IdempotencyCleanupJob;
 import com.acme.scaffold.job.MonitorSampleJob;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,10 @@ public class JobRunrConfig implements ApplicationRunner {
     private static final String MONITOR_SAMPLE_JOB_ID = "monitor-sample-job";
     private static final String MONITOR_SAMPLE_JOB_CRON = "* * * * *";
 
+    /** 幂等记录清理：每小时。 */
+    private static final String IDEMPOTENCY_CLEANUP_JOB_ID = "idempotency-cleanup-job";
+    private static final String IDEMPOTENCY_CLEANUP_JOB_CRON = "0 * * * *";
+
     /**
      * 采用 ObjectProvider 懒获取，而非构造器直注 + {@code @ConditionalOnBean}。
      * 原因：普通 {@code @Configuration} 先于自动配置解析，{@code @ConditionalOnBean(JobScheduler.class)}
@@ -48,6 +53,7 @@ public class JobRunrConfig implements ApplicationRunner {
     private final DemoJob demoJob;
     private final AnnouncementExpiryJob announcementExpiryJob;
     private final MonitorSampleJob monitorSampleJob;
+    private final IdempotencyCleanupJob idempotencyCleanupJob;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -66,5 +72,10 @@ public class JobRunrConfig implements ApplicationRunner {
         jobScheduler.scheduleRecurrently(MONITOR_SAMPLE_JOB_ID, MONITOR_SAMPLE_JOB_CRON,
                 monitorSampleJob::sample);
         log.info("已注册 JobRunr 周期任务 id={} cron={}", MONITOR_SAMPLE_JOB_ID, MONITOR_SAMPLE_JOB_CRON);
+
+        jobScheduler.scheduleRecurrently(IDEMPOTENCY_CLEANUP_JOB_ID, IDEMPOTENCY_CLEANUP_JOB_CRON,
+                idempotencyCleanupJob::purgeExpired);
+        log.info("已注册 JobRunr 周期任务 id={} cron={}", IDEMPOTENCY_CLEANUP_JOB_ID,
+                IDEMPOTENCY_CLEANUP_JOB_CRON);
     }
 }

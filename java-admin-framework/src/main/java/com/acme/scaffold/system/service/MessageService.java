@@ -3,6 +3,7 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.realtime.RealtimePushService;
@@ -56,12 +57,25 @@ public class MessageService {
     // ------------------------------------------------------------------
 
     /**
-     * 发送站内信（单条或批量）。
+     * 发送站内信（单条或批量）——对 HTTP 调用的入口。
+     *
+     * <p>幂等：支持 {@code Idempotency-Key}，重复提交只发一次。此处 requireKey 保持 false，
+     * 因为群发也可能被内部流程复用；不带键时完全按原语义放行，不增加内部调用方负担。
+     *
+     * <p><b>为什么拆出 {@link #doSend}</b>：抄送（{@link #sendCcNotification}）走的是同一个落库实现，
+     * 但它由工作流引擎在流程流转时触发，请求上下文里没有幂等键——若直接复用本方法，
+     * 强制键校验会让抄送全部失败。故内部调用一律走 {@code doSend}，绕开幂等切面。
      *
      * @return 实际投递的接收人数量
      */
+    @Idempotent(scope = "system:message:send")
     @Transactional
     public int send(SendMessageRequest request) {
+        return doSend(request);
+    }
+
+    /** 落库实现：对外入口与内部抄送共用，事务由调用方（{@code send} / {@code sendCcNotification}）开启。 */
+    protected int doSend(SendMessageRequest request) {
         boolean hasExplicit = request.receiverIds() != null && !request.receiverIds().isEmpty();
         boolean hasFilter = (request.roleIds() != null && !request.roleIds().isEmpty())
                 || (request.orgIds() != null && !request.orgIds().isEmpty());
@@ -133,7 +147,8 @@ public class MessageService {
                 title == null || title.isBlank() ? "流程抄送通知" : title,
                 content == null || content.isBlank() ? "您有一条流程待关注。" : content,
                 "CC", userIds, null, null);
-        return send(req);
+        // 走 doSend 而非 send：抄送由引擎触发，没有 HTTP 幂等键，不应经过幂等切面
+        return doSend(req);
     }
 
     /** 按角色/部门解析接收人：角色与部门之间为「或」关系，命中任一即投递（基于多对多关联表）。 */

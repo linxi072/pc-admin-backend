@@ -2,6 +2,7 @@ package com.acme.scaffold.workflow.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.monitor.BusinessMetrics;
@@ -107,6 +108,14 @@ public class WorkflowService {
         return instance.processInstanceId();
     }
 
+    /**
+     * 审批 / 驳回任务。
+     *
+     * <p>双重幂等：{@code operationId} 兜住「同一审批动作重复送达」（引擎层），
+     * {@link Idempotent}（requireKey=true）兜住「请求头缺键 / 并发重复提交」——
+     * 审批重复执行一次就是一次业务事故，故强制要求客户端带 {@code Idempotency-Key}。
+     */
+    @Idempotent(scope = "workflow:task:complete", requireKey = true)
     @Transactional
     public void completeTask(CompleteTaskRequest request) {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
@@ -137,6 +146,8 @@ public class WorkflowService {
         refreshInstanceStatus(task.processInstanceId());
     }
 
+    /** 转办任务：同样强制幂等键，避免重复转办把任务来回搬移。 */
+    @Idempotent(scope = "workflow:task:transfer", requireKey = true)
     @Transactional
     public void transfer(TransferTaskRequest request) {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
