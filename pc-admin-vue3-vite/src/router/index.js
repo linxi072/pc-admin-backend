@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated } from '@/store/auth'
+import { isAuthenticated, authState } from '@/store/auth'
 
 const routes = [
   {
@@ -123,12 +123,37 @@ const router = createRouter({
   routes
 })
 
+// 收集菜单树中所有可见叶子路由路径（用于在路由守卫中判断「是否在当前用户角色菜单范围内」）
+function collectAuthorizedPaths(menus) {
+  const set = new Set()
+  const walk = (nodes) => {
+    for (const n of nodes || []) {
+      if (n.routePath) set.add(n.routePath)
+      walk(n.children)
+    }
+  }
+  walk(menus)
+  return set
+}
+
 router.beforeEach((to) => {
-  if (!to.meta.public && !isAuthenticated()) {
+  if (to.meta.public) return true
+  if (!isAuthenticated()) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.name === 'login' && isAuthenticated()) {
     return { name: 'dashboard' }
+  }
+  // 动态菜单范围鉴权：菜单尚未加载（首屏/刷新瞬间）时放行，避免误拦截；
+  // 菜单加载完成后，凡不在用户菜单树中的受保护路由，视为未授权，重定向到工作台。
+  // 带路径参数的详情页（如 /workflow/designer/:id）通常由已授权列表页进入，予以放行。
+  const menus = authState.menus
+  if (menus && menus.length) {
+    const authorized = collectAuthorizedPaths(menus)
+    const isDetail = to.matched.some((r) => r.path.includes(':'))
+    if (to.path !== '/' && to.path !== '/dashboard' && !authorized.has(to.path) && !isDetail) {
+      return { name: 'dashboard' }
+    }
   }
   return true
 })

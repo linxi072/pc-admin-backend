@@ -4,6 +4,10 @@ import { request } from './http'
 export const menuTree = () =>
   request({ method: 'GET', url: '/api/system/menus/tree' })
 
+// GET /api/system/menus/mine -> List<MenuTreeVO>（按当前登录用户角色过滤，动态菜单核心接口）
+export const myMenus = () =>
+  request({ method: 'GET', url: '/api/system/menus/mine' })
+
 // POST /api/system/menus -> Long (CreateMenuRequest: parentId, menuCode, menuName, menuType, routePath, componentPath, permissionCode, icon, visible, sortNo, status)
 export const createMenu = (data) =>
   request({ method: 'POST', url: '/api/system/menus', data })

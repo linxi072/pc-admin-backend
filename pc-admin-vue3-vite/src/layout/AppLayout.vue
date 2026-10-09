@@ -23,11 +23,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Topbar from './Topbar.vue'
 import Sidebar from './Sidebar.vue'
+import { authState, isAuthenticated, loadMenus } from '@/store/auth'
 
 const collapsed = ref(false)
+
+// 登录后（含刷新直接进入）加载当前用户角色菜单树，驱动侧边栏动态渲染
+onMounted(() => {
+  if (isAuthenticated() && (!authState.menus || authState.menus.length === 0)) {
+    loadMenus().catch(() => {})
+  }
+})
 </script>
 
 <style scoped>

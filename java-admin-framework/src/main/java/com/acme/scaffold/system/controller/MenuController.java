@@ -2,6 +2,7 @@ package com.acme.scaffold.system.controller;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
 import com.acme.scaffold.system.dto.MenuTreeVO;
 import com.acme.scaffold.system.dto.UpdateMenuRequest;
@@ -22,6 +23,14 @@ import java.util.List;
 public class MenuController {
 
     private final MenuService menuService;
+    private final SecurityContextFacade securityContextFacade;
+
+    @Operation(summary = "我的菜单（按当前登录用户角色过滤）")
+    @GetMapping("/mine")
+    public Result<List<MenuTreeVO>> mine() {
+        Long userId = securityContextFacade.requireCurrentPrincipal().userId();
+        return Result.success(menuService.menusForCurrentUser(userId));
+    }
 
     @Operation(summary = "菜单树")
     @GetMapping("/tree")

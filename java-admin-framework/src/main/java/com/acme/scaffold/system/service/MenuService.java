@@ -8,6 +8,8 @@ import com.acme.scaffold.system.dto.CreateMenuRequest;
 import com.acme.scaffold.system.dto.MenuTreeVO;
 import com.acme.scaffold.system.dto.UpdateMenuRequest;
 import com.acme.scaffold.system.entity.SysMenuDO;
+import com.acme.scaffold.system.entity.SysRoleMenuDO;
+import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -16,10 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -38,6 +42,53 @@ public class MenuService {
                 JooqWriters.notDeleted(JooqTables.SYS_MENU),
                 JooqTables.SYS_MENU.field("sort_no", Integer.class).asc());
         Map<Long, List<SysMenuDO>> byParent = all.stream()
+                .collect(Collectors.groupingBy(m -> m.getParentId() == null ? 0L : m.getParentId()));
+        return buildChildren(0L, byParent);
+    }
+
+    /**
+     * 返回当前登录用户「角色范围内」的菜单树（动态加载的核心）。
+     *
+     * <p>链路：用户 → 角色（sys_user_role）→ 菜单（sys_role_menu）→ 菜单树。
+     * 仅纳入可见且启用的授权菜单，并补全其祖先链，保证前端渲染的树结构连通（子菜单不会悬空）。
+     * 菜单数据完全源自角色配置，无任何前端硬编码，支持后续角色 / 权限的灵活调整。
+     */
+    public List<MenuTreeVO> menusForCurrentUser(Long userId) {
+        List<Long> roleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
+                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
+                .map(SysUserRoleDO::getRoleId).distinct().toList();
+        if (roleIds.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> authorizedMenuIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
+                        JooqTables.SYS_ROLE_MENU.field("role_id", Long.class).in(roleIds)).stream()
+                .map(SysRoleMenuDO::getMenuId).collect(Collectors.toSet());
+        if (authorizedMenuIds.isEmpty()) {
+            return List.of();
+        }
+        List<SysMenuDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_MENU, SysMenuDO.class,
+                JooqWriters.notDeleted(JooqTables.SYS_MENU));
+        all.sort(Comparator.comparingInt(m -> m.getSortNo() == null ? 0 : m.getSortNo()));
+        Map<Long, SysMenuDO> byId = all.stream()
+                .collect(Collectors.toMap(SysMenuDO::getId, m -> m, (a, b) -> a));
+        Set<Long> visibleIds = authorizedMenuIds.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .filter(m -> m.getVisible() != null && m.getVisible() == 1)
+                .filter(m -> "ACTIVE".equals(m.getStatus()))
+                .map(SysMenuDO::getId)
+                .collect(Collectors.toSet());
+        // 补全祖先链，避免子菜单悬空导致渲染异常
+        Set<Long> expanded = new HashSet<>(visibleIds);
+        for (Long id : new ArrayList<>(visibleIds)) {
+            SysMenuDO node = byId.get(id);
+            Long pid = node != null ? node.getParentId() : 0L;
+            while (pid != null && pid != 0L && byId.containsKey(pid) && expanded.add(pid)) {
+                pid = byId.get(pid).getParentId();
+            }
+        }
+        List<SysMenuDO> included = expanded.stream().map(byId::get).filter(Objects::nonNull).toList();
+        Map<Long, List<SysMenuDO>> byParent = included.stream()
                 .collect(Collectors.groupingBy(m -> m.getParentId() == null ? 0L : m.getParentId()));
         return buildChildren(0L, byParent);
     }
