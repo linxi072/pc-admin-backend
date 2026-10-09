@@ -117,14 +117,16 @@ public class MessageService {
         msg.setSentAt(LocalDateTime.now());
         JooqWriters.insert(dsl, JooqTables.SYS_MESSAGE, msg);
 
-        // 批量插入收件明细（逐条 insert 以复用主键回填与审计字段填充逻辑）
+        // 批量插入收件明细：先收集全部回执再一次性 batch 写入，避免逐条 insert 的多次往返（M2/M3 批量写入缺陷修复）
+        List<SysMessageReceiptDO> receipts = new ArrayList<>(validUserIds.size());
         for (Long userId : validUserIds) {
             SysMessageReceiptDO r = new SysMessageReceiptDO();
             r.setMessageId(msg.getId());
             r.setUserId(userId);
             r.setIsRead(0);
-            JooqWriters.insert(dsl, JooqTables.SYS_MESSAGE_RECEIPT, r);
+            receipts.add(r);
         }
+        JooqWriters.batchInsert(dsl, JooqTables.SYS_MESSAGE_RECEIPT, receipts);
         log.info("站内信发送完成 messageId={} 接收人数={}", msg.getId(), validUserIds.size());
         // 实时推送未读提醒给在线接收人；离线用户进入页面时通过 REST 拉取全量未读（保证至少一次可见）
         realtimePushService.sendToUsers(validUserIds, RealtimePushService.TYPE_UNREAD_MESSAGE,

@@ -7,6 +7,7 @@ import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.OrderField;
+import org.jooq.Query;
 import org.jooq.impl.DSL;
 
 import java.beans.IntrospectionException;
@@ -17,6 +18,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -57,6 +59,36 @@ public final class JooqWriters {
             return;
         }
         dsl.insertInto(table.table()).set(toFieldMap(table, values)).execute();
+    }
+
+    /**
+     * 批量插入实体集合，复用与 {@link #insert} 一致的 id / tenant_id / deleted / version / 时间字段自动填充。
+     * <p>逐行构造同构 INSERT 并通过 {@code dsl.batch(...)} 合并为单次批处理，消除逐条 insert 的多次往返开销；
+     * 每行生成的 id 会回填到对应 POJO（与 {@link #insert} 行为一致）。
+     */
+    public static <T> void batchInsert(DSLContext dsl, JooqTables.TableRef table, List<T> pojos) {
+        if (pojos == null || pojos.isEmpty()) {
+            return;
+        }
+        List<Query> queries = new ArrayList<>(pojos.size());
+        for (T pojo : pojos) {
+            Map<String, Object> values = columnValues(pojo, table);
+            Long id = IdGenerator.nextId();
+            setIdIfPresent(pojo, id);
+            putIfPresent(values, table, "id", id);
+            putIfPresent(values, table, "tenant_id", 0L);
+            putIfPresent(values, table, "deleted", 0);
+            putIfPresent(values, table, "version", 0);
+            putIfPresent(values, table, "created_at", Timestamp.valueOf(LocalDateTime.now()));
+            putIfPresent(values, table, "updated_at", Timestamp.valueOf(LocalDateTime.now()));
+            if (values.isEmpty()) {
+                continue;
+            }
+            queries.add(dsl.insertInto(table.table()).set(toFieldMap(table, values)));
+        }
+        if (!queries.isEmpty()) {
+            dsl.batch(queries).execute();
+        }
     }
 
     /** 按 id 选择性更新（跳过 null 字段），自动刷新 updated_at。 */
