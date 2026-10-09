@@ -4,8 +4,6 @@ import com.acme.scaffold.security.config.JwtProperties;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -32,7 +30,7 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
     private final SecretKey key;
 
     public JwtAuthConverter(JwtProperties properties) {
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(properties.getJwtSecret()));
+        this.key = properties.resolveSigningKey();
     }
 
     @Override

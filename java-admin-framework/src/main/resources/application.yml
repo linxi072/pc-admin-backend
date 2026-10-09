@@ -111,7 +111,9 @@ app:
     refresh-token-ttl: 7d
     max-login-failures: 5
     lock-duration: 15m
-    jwt-secret: ${JWT_SECRET:ZmQ4ZjMxYmEtY2IzMC00Y2IwLTkzNmItM2I0Y2MxNzQwYzYz}
+    # JWT 签名密钥：必须通过环境变量 JWT_SECRET 提供（Base64 编码、≥256 位）。
+    # 未配置时不使用任何硬编码默认值，将自动生成仅当前进程有效的随机临时密钥（重启失效），仅用于开发/测试。
+    jwt-secret: ${JWT_SECRET:}
   # 慢 SQL 阈值（毫秒），由 JooqConfig 注入 SlowQueryListener
   jooq:
     slow-query-threshold-ms: 500

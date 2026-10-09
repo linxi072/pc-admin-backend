@@ -1,8 +1,15 @@
 package com.acme.scaffold.security.config;
 
+import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.StringUtils;
 
+import javax.crypto.SecretKey;
+import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Base64;
 
 /**
  * JWT 与账号安全策略配置，绑定自 {@code app.security.*}。
@@ -72,5 +79,33 @@ public class JwtProperties {
 
     public void setLockDuration(Duration lockDuration) {
         this.lockDuration = lockDuration;
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(JwtProperties.class);
+    private SecretKey signingKey;
+
+    /**
+     * 解析 HS256 签名密钥，全程不使用任何硬编码默认值。
+     *
+     * <ul>
+     *   <li>若通过环境变量 {@code JWT_SECRET}（Base64 编码、≥256 位）显式配置，则使用之；</li>
+     *   <li>若未配置，则生成<b>随机临时密钥</b>且仅在当前进程有效（重启失效，已签发 token 同步失效），
+     *       适用于本地开发/测试；生产环境<b>必须</b>通过环境变量设置 {@code JWT_SECRET}。</li>
+     * </ul>
+     *
+     * <p>结果按进程内单例记忆，确保同一组 JwtProvider / JwtAuthConverter / JwtDecoderConfig 使用同一把密钥。
+     */
+    public SecretKey resolveSigningKey() {
+        if (signingKey == null) {
+            if (!StringUtils.hasText(jwtSecret)) {
+                byte[] random = new byte[32];
+                new SecureRandom().nextBytes(random);
+                signingKey = Keys.hmacShaKeyFor(random);
+                log.warn("JWT_SECRET 未配置，已使用随机临时签名密钥（仅限开发/测试，重启后失效）。生产环境请通过环境变量设置 JWT_SECRET。");
+            } else {
+                signingKey = Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));
+            }
+        }
+        return signingKey;
     }
 }

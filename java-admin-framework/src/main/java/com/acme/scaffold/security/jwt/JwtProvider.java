@@ -24,7 +24,7 @@ public class JwtProvider {
 
     public JwtProvider(JwtProperties properties) {
         this.properties = properties;
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(properties.getJwtSecret()));
+        this.key = properties.resolveSigningKey();
     }
 
     public String generateAccessToken(CurrentPrincipal principal) {
