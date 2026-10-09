@@ -231,7 +231,7 @@ public class UserService {
     /** 整体替换用户角色关联：删除旧关联后按新集合写入，primaryRoleId 标记主角色（为空取首位）。 */
     private void assignRoles(Long userId, List<Long> roleIds, Long primaryRoleId) {
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "user_id", userId);
-        Long primary = primaryRoleId != null ? primaryRoleId : roleIds.get(0);
+        Long primary = roleIds.isEmpty() ? null : (primaryRoleId != null ? primaryRoleId : roleIds.get(0));
         for (Long roleId : roleIds) {
             SysUserRoleDO ur = new SysUserRoleDO();
             ur.setUserId(userId);
@@ -244,7 +244,7 @@ public class UserService {
     /** 整体替换用户部门关联：删除旧关联后按新集合写入，primaryDeptId 标记主部门（为空取首位）。 */
     private void assignOrgs(Long userId, List<Long> deptIds, Long primaryDeptId) {
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ORG, "user_id", userId);
-        Long primary = primaryDeptId != null ? primaryDeptId : deptIds.get(0);
+        Long primary = deptIds.isEmpty() ? null : (primaryDeptId != null ? primaryDeptId : deptIds.get(0));
         for (Long deptId : deptIds) {
             SysUserOrgDO uo = new SysUserOrgDO();
             uo.setUserId(userId);
