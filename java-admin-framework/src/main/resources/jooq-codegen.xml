@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  jOOQ 代码生成配置（设计 §15：以代码生成替换手写动态 DSL）。
+
+  数据源：Flyway 迁移脚本（src/main/resources/db/migration/V1~V16），
+  通过 org.jooq.meta.extensions.ddl.DDLDatabase 直接解析 DDL，
+  无需连接数据库、无需 Docker。
+
+  触发方式（需联网拉取 jooq-codegen / jooq-meta-extensions / h2）：
+      mvn -Pjooq-codegen generate-sources
+  生成结果直接写入 src/main/java/com/acme/scaffold/jooq/ 并纳入版本控制，
+  因此常规离线构建（mvn -o compile）可直接使用已提交生成代码，无需联网重跑。
+
+  表/列/类型与迁移脚本严格一致；新增迁移后再次执行上述命令即可刷新。
+-->
+<configuration xmlns="http://www.jooq.org/xsd/jooq-codegen-3.19.0.xsd">
+    <!-- 无 JDBC：DDLDatabase 直接从 SQL 脚本反向工程，故省略 <jdbc> 元素 -->
+
+    <generator>
+        <database>
+            <name>org.jooq.meta.extensions.ddl.DDLDatabase</name>
+            <properties>
+                <property>
+                    <key>scripts</key>
+                    <!-- 指向归一化后的 H2 兼容 DDL（由 scripts/normalize-ddl-for-codegen.py 从 db/migration 生成）。
+                         使用相对项目根的完整路径，便于 DDLDatabase 以文件方式定位。 -->
+                    <value>src/main/resources/db/codegen/V1__baseline.sql,src/main/resources/db/codegen/V2__security.sql,src/main/resources/db/codegen/V3__workflow.sql,src/main/resources/db/codegen/V4__fix_admin_password.sql,src/main/resources/db/codegen/V5__system_modules.sql,src/main/resources/db/codegen/V6__user_single_role_org.sql,src/main/resources/db/codegen/V7__announcement.sql,src/main/resources/db/codegen/V8__message.sql,src/main/resources/db/codegen/V9__monitor_sample.sql,src/main/resources/db/codegen/V10__user_profile.sql,src/main/resources/db/codegen/V11__api_resource_seed.sql,src/main/resources/db/codegen/V12__role_data_scope_api.sql,src/main/resources/db/codegen/V13__workflow_design.sql,src/main/resources/db/codegen/V14__workflow_definition_resource.sql,src/main/resources/db/codegen/V15__user_role_org_many_to_many.sql,src/main/resources/db/codegen/V16__idempotency_record.sql</value>
+                </property>
+                <!-- 按文件名语义排序（V1 < V2 < ... < V16），保证外键/依赖顺序正确 -->
+                <property>
+                    <key>sort</key>
+                    <value>semantic</value>
+                </property>
+                <!-- 迁移脚本不带 schema 限定符，统一归入默认 schema -->
+                <property>
+                    <key>unqualifiedSchema</key>
+                    <value>none</value>
+                </property>
+            </properties>
+
+            <includes>.*</includes>
+            <excludes>flyway_schema_history</excludes>
+        </database>
+
+        <generate>
+            <!-- 实体 / DAO / 查询接口（POJO + Record + DAO + Interface） -->
+            <pojos>true</pojos>
+            <records>true</records>
+            <daos>true</daos>
+            <interfaces>true</interfaces>
+            <!-- 使用 java.time 类型（LocalDateTime / LocalDate / LocalTime） -->
+            <javaTimeTypes>true</javaTimeTypes>
+            <!-- Tables.SYS_USER 这类全局静态引用，命名与现有 JooqTables.SYS_USER 对齐 -->
+            <globalObjectReferences>true</globalObjectReferences>
+            <generatedAnnotation>true</generatedAnnotation>
+            <generatedAnnotationType>ORG_JOOQ_GENERATED</generatedAnnotationType>
+            <fullyQualifiedTypes>false</fullyQualifiedTypes>
+            <!-- 乐观锁/逻辑删除/审计字段由业务层统一处理，生成层不固化 -->
+            <springAnnotations>false</springAnnotations>
+        </generate>
+
+        <target>
+            <packageName>com.acme.scaffold.jooq</packageName>
+            <!-- 直接生成进源码树，纳入版本控制，支持离线编译 -->
+            <directory>src/main/java</directory>
+        </target>
+    </generator>
+</configuration>

@@ -23,6 +23,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <flowable.version>7.1.0</flowable.version>
+        <jooq.version>3.19.11</jooq.version>
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.6.0</springdoc.version>
         <jobrunr.version>6.3.4</jobrunr.version>
@@ -61,10 +62,15 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
-        <!-- ORM: jOOQ（替代 MyBatis-Plus）。仅依赖运行时，代码使用动态 DSL，无需构建期代码生成 -->
+        <!-- ORM: jOOQ（替代 MyBatis-Plus）。版本钉定为 3.19.11，与代码生成器保持一致 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jooq</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq</artifactId>
+            <version>${jooq.version}</version>
         </dependency>
 
         <!-- 关系型数据库 -->
@@ -166,4 +172,106 @@
             </plugin>
         </plugins>
     </build>
+
+    <!--
+      jOOQ 代码生成 profile（设计 §15）。
+      常规离线构建不需要此 profile；仅当数据库表结构（Flyway 迁移）变更后，
+      联网执行 `mvn -Pjooq-codegen generate-sources` 重新生成实体/DAO/查询接口。
+      生成结果写入 src/main/java/com/acme.scaffold.jooq 并纳入版本控制。
+    -->
+    <profiles>
+        <profile>
+            <id>jooq-codegen</id>
+            <!--
+              代码生成期需联网拉取 jooq-codegen 等构件。本机 maven 的 tencent 镜像
+              (mirrorOf=central) 未收录 jooq-codegen-maven-plugin，故在此追加一个
+              id 非 central 的仓库直连 Maven Central（镜像按仓库 ID 匹配，repo-central
+              不会被 tencent 镜像拦截），用于解析代码生成器及其依赖。
+            -->
+            <repositories>
+                <repository>
+                    <id>repo-central</id>
+                    <name>Maven Central (codegen)</name>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>repo-central</id>
+                    <name>Maven Central (codegen plugins)</name>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <dependencies>
+                            <!-- 代码生成器本体：提供 org.jooq.codegen.GenerationTool 主类 -->
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-codegen</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <!-- 运行时 jOOQ（含 meta 模块，GenerationTool 依赖） -->
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-meta</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <!-- DDLDatabase：从 SQL 脚本反向工程，无需活库/ Docker -->
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-meta-extensions</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <!-- DDLDatabase 内部使用的内存库（仅代码生成期） -->
+                            <dependency>
+                                <groupId>com.h2database</groupId>
+                                <artifactId>h2</artifactId>
+                                <version>2.2.224</version>
+                            </dependency>
+                        </dependencies>
+                        <executions>
+                            <execution>
+                                <id>generate-jooq-sources</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>org.jooq.codegen.GenerationTool</mainClass>
+                                    <arguments>
+                                        <argument>src/main/resources/jooq-codegen.xml</argument>
+                                    </arguments>
+                                    <!-- 仅使用上面的插件依赖（jooq-codegen 等）作为运行 classpath -->
+                                    <includePlugins>true</includePlugins>
+                                    <includeProjectDependencies>false</includeProjectDependencies>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
