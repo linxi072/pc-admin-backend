@@ -53,5 +53,15 @@ public interface WorkflowEnginePort {
 
     void setAssignee(String taskId, Long userId);
 
+    /**
+     * 认领任务：把当前无办理人的池化任务绑定到指定用户。
+     *
+     * <p>若任务已被他人认领（引擎层 {@code assignee} 已非空且非该用户），
+     * 实现应抛出 {@link com.acme.scaffold.common.exception.BusinessException}（CONFLICT），
+     * 由业务层统一转 409。直接 assignee 非空的任务不适合走 claim，
+     * 应使用 {@link #setAssignee}（转办语义）。
+     */
+    void claim(String taskId, Long userId);
+
     String status(String processInstanceId);
 }

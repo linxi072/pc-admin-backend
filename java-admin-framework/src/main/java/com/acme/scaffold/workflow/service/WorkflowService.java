@@ -21,6 +21,7 @@ import com.acme.scaffold.workflow.model.ApprovalAction;
 import com.acme.scaffold.workflow.dto.design.WorkflowDesignView;
 import com.acme.scaffold.realtime.RealtimePushService;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
+import com.acme.scaffold.workflow.ClaimRules;
 import com.acme.scaffold.workflow.service.WorkflowDesignService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -170,6 +171,38 @@ public class WorkflowService {
                 .execute();
         saveApprovalRecord(request.operationId(), task, "TRANSFER",
                 principal.userId(), fromUserId, request.toUserId(), request.opinion(), null);
+    }
+
+    /**
+     * 认领任务：仅适用于尚未指定办理人（assignee 为空）的池化任务。
+     *
+     * <p>规则：任务不存在 → 404；已被他人认领 → 409（不可抢占）；
+     * 已是自己认领 → 幂等成功（重复认领无副作用）；无办理人 → 调引擎 claim 并回写扩展表。
+     * 认领动作天然幂等，故不强制 {@code Idempotency-Key}（与审批/转办不同，重复认领不会产生业务副作用）。
+     */
+    @Transactional
+    public void claim(String taskId) {
+        CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
+        WorkflowEnginePort.TaskInfo task = engine.getTask(taskId);
+        if (task == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "任务不存在或已完成");
+        }
+        ClaimRules.Decision decision = ClaimRules.decide(task.assigneeUserId(), principal.userId());
+        switch (decision) {
+            case TAKEN_BY_OTHER -> throw new BusinessException(CommonErrorCode.CONFLICT, "任务已被他人认领");
+            case ALREADY_MINE -> {
+                // 幂等：无需任何操作，直接返回成功
+                return;
+            }
+            case CLAIMABLE -> {
+                engine.claim(taskId, principal.userId());
+                dsl.update(JooqTables.WF_TASK_EXT.table())
+                        .set(JooqTables.WF_TASK_EXT.field("assignee_user_id", Long.class), principal.userId())
+                        .where(JooqTables.WF_TASK_EXT.field("task_id", String.class).eq(taskId))
+                        .execute();
+            }
+            default -> throw new IllegalStateException("未覆盖的认领判定: " + decision);
+        }
     }
 
     public List<TaskView> myTasks() {

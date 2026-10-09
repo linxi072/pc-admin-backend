@@ -1,7 +1,10 @@
 package com.acme.scaffold.workflow.adapter;
 
+import com.acme.scaffold.common.error.CommonErrorCode;
+import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
 import lombok.extern.slf4j.Slf4j;
+import org.flowable.common.engine.api.FlowableTaskAlreadyClaimedException;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.RepositoryService;
 import org.flowable.engine.RuntimeService;
@@ -109,6 +112,17 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
     @Override
     public void setAssignee(String taskId, Long userId) {
         taskService.setAssignee(taskId, String.valueOf(userId));
+    }
+
+    @Override
+    public void claim(String taskId, Long userId) {
+        try {
+            // Flowable 的 claim 仅对「无办理人」的任务合法；若已被他人认领会抛 FlowableTaskAlreadyClaimedException。
+            // 业务层已对 assignee 做了预检，这里仍兜底转换，防止并发认领或引擎态与服务端缓存不一致导致 500。
+            taskService.claim(taskId, String.valueOf(userId));
+        } catch (FlowableTaskAlreadyClaimedException e) {
+            throw new BusinessException(CommonErrorCode.CONFLICT, "任务已被他人认领");
+        }
     }
 
     @Override

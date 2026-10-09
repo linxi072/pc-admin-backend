@@ -47,4 +47,13 @@ public class TaskController {
         workflowService.transfer(request);
         return Result.success();
     }
+
+    @Operation(summary = "认领任务")
+    @PostMapping("/{taskId}/claim")
+    @PreAuthorize("hasAuthority('workflow:task:claim')")
+    @AuditOperation(module = "workflow", type = "CLAIM", name = "认领任务")
+    public Result<Void> claim(@PathVariable String taskId) {
+        workflowService.claim(taskId);
+        return Result.success();
+    }
 }
