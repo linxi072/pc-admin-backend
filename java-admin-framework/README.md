@@ -157,6 +157,7 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/system/users/p
 - 全部内置流程由 `BuiltinWorkflowSeeder` 在应用启动时写入 `wf_workflow_design` 并发布；节点顺序、受让人、审批模式（会签/或签/比例）、驳回策略均可在「工作流设计」后台二次编辑并一键发布即时生效。
 - 审批节点为**多实例**：会签阈值由设计解析（`node_<id>_threshold`），驳回通过将 `rejected_<id>=true` 提前结束多实例并走驳回分支。
 - 转办：更换任务 assignee 并写入不可变审批记录。
+- 认领（claim）：仅适用于**尚未指定办理人（assignee 为空）的池化任务**；已被他人认领返回 409，已是自己认领则幂等成功。认领天然幂等，不强制 `Idempotency-Key`。
 - 每次审批/驳回/转办先校验任务归属与 `operationId` 幂等键，再写 `wf_approval_record`（不可变）。
 - **前端发起联动**：`InstanceView` 发起表单按 `processKey` 调用 `GET /api/workflow/definitions/published/{key}`；若设计已发布，则隐藏「审批人/主管」选择框（受让人由设计解析），仅当设计未发布（草稿）才显示手动选择框。
 - **业务表单动态渲染**：已发布设计携带 `formSchema`（JSON，描述字段 key/标签/类型/必填/选项）。发起表单读取该 schema，按类型（文本/多行/数字/日期/下拉/开关）动态渲染业务字段，提交时将字段值收集进 `formFields` 随流程变量下发，无需在前端硬编码。内置 `leaveApproval`（请假类型/天数/事由）、`expense`（金额/类别/说明）均已预置 schema。
@@ -173,10 +174,11 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 # 查询某流程是否已发布（前端联动判定依据）
 GET /api/workflow/definitions/published/{processKey}
 
-# 待办 / 审批 / 转办
+# 待办 / 审批 / 转办 / 认领
 GET  /api/workflow/tasks/mine
 POST /api/workflow/tasks/complete   {"taskId":"...","action":"APPROVE","opinion":"同意","operationId":"op-xxx"}
 POST /api/workflow/tasks/transfer   {"taskId":"...","toUserId":5,"opinion":"转交","operationId":"op-yyy"}
+POST /api/workflow/tasks/{taskId}/claim   # 认领池化任务（无办理人）；已属他人→409，已属自己→幂等成功
 ```
 
 > 内置流程与「自定义工作流」共用同一套设计/发布机制，详见 [第 16 节](#16-自定义工作流动态设计器)。
