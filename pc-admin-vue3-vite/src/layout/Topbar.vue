@@ -81,7 +81,6 @@ import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { getUnreadCount } from '@/api/message'
-import { USE_MOCK } from '@/api/config'
 import { initRealtime, onRealtime } from '@/api/realtime'
 
 defineProps({ collapsed: Boolean })
@@ -150,14 +149,10 @@ async function loadUnread() {
   }
 }
 
-/** 实时消息处理：未读/待办事件触发角标刷新。mock 模式由模拟事件驱动演示增量（不覆盖轮询），真实模式重新拉取权威值。 */
+/** 实时消息处理：未读/待办事件触发角标刷新，始终以后端接口返回的权威值为准。 */
 function handleRealtime(msg) {
   if (!msg || (msg.type !== 'UNREAD_MESSAGE' && msg.type !== 'TODO_REMINDER')) return
-  if (USE_MOCK && msg.payload && msg.payload.simulated) {
-    unread.value += (msg.payload.delta || 1)
-  } else {
-    loadUnread()
-  }
+  loadUnread()
 }
 
 async function openAnnouncement() {
@@ -195,7 +190,7 @@ async function onCmd(cmd) {
     try {
       await logout()
     } catch (e) {
-      // mock 直接返回；真实后端失败时仍清理本地会话
+      // 后端登出失败仍清理本地会话，保证前端状态一致
     }
     clearAuth()
     ElMessage.success('已退出登录')
@@ -209,13 +204,11 @@ onMounted(async () => {
   await loadNotice()
   loadUnread()
   raf = requestAnimationFrame(step)
-  // 实时消息：连接 WebSocket（真实模式）或启动模拟推送（mock 模式），未读/待办实时刷新角标
+  // 实时消息：连接后端 WebSocket，未读/待办事件实时刷新角标
   initRealtime()
   offRealtime = onRealtime(handleRealtime)
-  // 真实模式保留未读轮询兜底；mock 模式由实时模拟事件驱动，避免轮询覆盖演示增量
-  if (!USE_MOCK) {
-    timer = setInterval(loadUnread, 60000)
-  }
+  // 未读轮询兜底：WebSocket 不可用时仍保证角标与后端一致
+  timer = setInterval(loadUnread, 60000)
 })
 
 onUnmounted(() => {

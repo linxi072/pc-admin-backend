@@ -183,7 +183,7 @@ const rules = {
   roleIds: [{ required: true, type: 'array', min: 1, message: '至少绑定一个角色', trigger: 'change' }],
   deptIds: [{ required: true, type: 'array', min: 1, message: '至少归属一个部门', trigger: 'change' }]
 }
-// 主角色 / 主部门的候选：仅从已选角色 / 部门中挑选（mock 与真实后端语义一致）
+// 主角色 / 主部门的候选：仅从已选角色 / 部门中挑选
 const selectedRoleOptions = computed(() => roleOptions.value.filter((r) => form.roleIds.includes(r.id)))
 const selectedDeptOptions = computed(() => orgOptions.value.filter((o) => form.deptIds.includes(o.id)))
 

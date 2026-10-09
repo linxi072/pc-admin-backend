@@ -5,10 +5,6 @@
         <el-icon size="28" color="#409eff"><Setting /></el-icon>
         <h2>运营管理后台</h2>
       </div>
-      <el-alert v-if="USE_MOCK" type="warning" :closable="false" show-icon class="mock-tip">
-        <template #title>当前为 Mock 演示模式（USE_MOCK=true）</template>
-        可使用 <b>admin / admin123</b> 登录体验全部功能。
-      </el-alert>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent>
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="请输入用户名" :prefix-icon="User" />
@@ -36,7 +32,6 @@ import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { login } from '@/api/auth'
 import { setAuth } from '@/store/auth'
-import { USE_MOCK } from '@/api/config'
 
 const route = useRoute()
 const router = useRouter()

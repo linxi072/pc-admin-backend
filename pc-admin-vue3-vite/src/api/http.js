@@ -1,7 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import { USE_MOCK, API_BASE } from './config'
-import { mockRequest } from './mock/db'
+import { API_BASE } from './config'
 import { clearAuth } from '../store/auth'
 
 const realAxios = axios.create({ baseURL: API_BASE, timeout: 15000 })
@@ -35,24 +34,12 @@ realAxios.interceptors.response.use(
 )
 
 /**
- * 统一请求入口。
- * - USE_MOCK=true：交给前端 mock 层（返回的数据已是 Result.data，与真实拦截器拆包后一致）。
- * - 否则：走 axios，拦截器已拆包，api 模块拿到的同样是 data。
+ * 统一请求入口：页面与组件获取数据的唯一通道（后端为唯一数据源，前端无任何 mock 分支）。
+ *
+ * 响应拦截器已拆包 Result<T>{code,message,data}，
+ * 因此 API 模块与组件拿到的直接是 data，无需再判 code。
  */
-export async function request(config) {
+export function request(config) {
   const { method = 'GET', url, params, data, headers } = config
-  if (USE_MOCK) {
-    try {
-      return await mockRequest({
-        method: method.toUpperCase(),
-        url,
-        params: params || {},
-        data: data || {}
-      })
-    } catch (e) {
-      ElMessage.error(e.message || '请求失败')
-      throw e
-    }
-  }
   return realAxios.request({ method, url, params, data, headers })
 }
