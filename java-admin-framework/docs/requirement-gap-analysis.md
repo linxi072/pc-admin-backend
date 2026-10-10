@@ -85,7 +85,9 @@
 | 模块 | 需求（《方案》） | 实现证据 | 状态 |
 |---|---|---|---|
 | 认证 | 登录 / 刷新（轮换）/ 登出 | `AuthController`（`/login` `/refresh` `/logout`）+ `RefreshTokenService` | ✅ |
-| 认证安全 | 登录失败锁定、Token 版本失效 | `AuthApplicationService.handleLoginFailure` + `maxLoginFailures`；`TokenVersionVerifier` | ✅ |
+| 认证安全 | 登录失败渐进式锁定、Token 版本失效 | `AuthApplicationService.handleLoginFailure` 改用 `LockoutRules`（15m→30m→1h→…封顶 24h）；`TokenVersionVerifier` | ✅ |
+| 密码安全 | 禁止复用最近 5 次密码 | `PasswordHistoryService` + `PasswordHistoryRules` + `sys_password_history`；`create/resetPassword/changePassword` 三处校验与记录 | ✅ |
+| 密码安全 | 首次登录 / 管理员重置后强制改密 | `sys_user.password_expired` 在 `create/resetPassword` 置 1；`login` 校验并抛 `MUST_CHANGE_PASSWORD`；新增会话无关 `POST /api/auth/change-password` 闭环 | ✅ |
 | RBAC | 用户/机构/角色/菜单/接口资源 CRUD | `User/Org/Role/Menu/ApiResource` Controller + Service | ✅ |
 | 接口扫描 | 动态扫描并登记接口资源 | `ApiResourceScanner` + `/scan` `/scan/sync`；V11 种子 61 条 | ✅ |
 | 数据权限 | 五类范围 + AOP 注入 | `DefaultDataScopeProvider` + `DataScopeAspect` + `DataScopeConditions` | ✅ |
