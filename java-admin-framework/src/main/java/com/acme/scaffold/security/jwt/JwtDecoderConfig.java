@@ -2,6 +2,7 @@ package com.acme.scaffold.security.jwt;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
@@ -15,6 +16,7 @@ import javax.crypto.SecretKey;
 public class JwtDecoderConfig {
 
     @Bean
+    @DependsOn("secretBootstrap")
     public JwtDecoder jwtDecoder(JwtKeyRotationService rotation) {
         JwtDecoder active = NimbusJwtDecoder.withSecretKey(rotation.activeKey()).build();
         JwtDecoder previous = rotation.previousKey()

@@ -144,6 +144,19 @@ monitoring:
       token: ${ALERT_WEBHOOK_TOKEN:}
     inbox-capacity: 200
 
+# 外部密钥源（A4）：默认 local（沿用环境变量 / 随机临时密钥，离线可用）；
+# 接入 HashiCorp Vault 时置 provider=vault 并配置 address / token / paths。
+secret:
+  provider: ${SECRET_PROVIDER:local}
+  vault:
+    address: ${VAULT_ADDR:http://localhost:8200}
+    token: ${VAULT_TOKEN:}
+    paths:
+      jwt-secret: secret/data/admin/jwt
+      previous-jwt-secret: secret/data/admin/jwt-previous
+  local:
+    secrets: {}
+
 logging:
   level:
     root: INFO
