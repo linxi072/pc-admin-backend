@@ -139,18 +139,21 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         if (keepCount < 0) {
             keepCount = 0;
         }
-        // 取活跃会话，按「最近使用」降序：优先 last_used_at，缺失回退 issued_at
-        List<Long> activeIds = dsl.select(idField())
+        // 取活跃会话（id + 登录时间 + 最近使用时间），交由纯函数挑选「最早登录」的待淘汰会话
+        List<SessionLimitRules.SessionInfo> infos = dsl
+                .select(idField(), issuedAtField(), lastUsedAtField())
                 .from(JooqTables.SYS_REFRESH_TOKEN.table())
                 .where(userIdField().eq(userId)
                         .and(revokedAtField().isNull())
                         .and(expiresAtField().greaterThan(Timestamp.valueOf(LocalDateTime.now()))))
-                .orderBy(lastUsedAtField().desc().nullsLast(), issuedAtField().desc())
-                .fetch(idField());
-        if (activeIds.size() <= keepCount) {
+                .fetch(r -> new SessionLimitRules.SessionInfo(
+                        r.value1(),
+                        r.value2() != null ? r.value2().toLocalDateTime() : null,
+                        r.value3() != null ? r.value3().toLocalDateTime() : null));
+        List<Long> toRevoke = SessionLimitRules.selectToEvict(infos, keepCount);
+        if (toRevoke.isEmpty()) {
             return;
         }
-        List<Long> toRevoke = activeIds.subList(keepCount, activeIds.size());
         dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "SESSION_LIMIT")

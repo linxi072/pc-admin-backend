@@ -28,8 +28,8 @@ public class JwtProperties {
     /** 同一账号允许同时在线的最大设备/会话数；<=0 表示不限制。默认 3。 */
     private int maxConcurrentSessions = 3;
 
-    /** 超出限制时的处理策略：reject（拒绝新登录）或 evict_oldest（踢掉最久未使用的会话）。默认 reject。 */
-    private String sessionEvictionStrategy = "reject";
+    /** 超出限制时的处理策略：reject（拒绝新登录）或 evict_oldest（淘汰最早登录的会话，实现会话挤占）。默认 evict_oldest。 */
+    private String sessionEvictionStrategy = "evict_oldest";
 
     /** 当前生效密钥的 kid（JWT 头 kid 声明）。默认 "1"。 */
     private String keyId = "1";

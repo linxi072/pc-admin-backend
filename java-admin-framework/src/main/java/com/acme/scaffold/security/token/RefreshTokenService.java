@@ -50,14 +50,16 @@ public interface RefreshTokenService {
     int countActiveSessions(Long userId);
 
     /**
-     * 吊销某用户最旧的若干会话，仅保留最近使用的 {@code keepCount} 个。
-     * 用于多端登录限制策略 evict_oldest：保留 {@code keepCount} 个最新会话，其余予以吊销。
+     * 吊销某用户<b>最早登录</b>的若干会话，仅保留最晚登录的 {@code keepCount} 个。
+     * 用于多端登录限制策略 evict_oldest（会话挤占）：新登录占用名额，
+     * 最早上线的会话被挤出。
      *
-     * <p>排序依据：先按 {@code last_used_at} 降序（越近使用的越保留），
-     * 缺失时回退到 {@code issued_at} 降序；仅作用于未吊销且未过期的会话。
+     * <p>挑选依据（纯函数 {@code SessionLimitRules.selectToEvict}）：按 {@code issued_at} 升序，
+     * 登录时间最早的排在最前、最先被淘汰；登录时间相同则按 {@code last_used_at} 升序兜底。
+     * 仅作用于未吊销且未过期的会话。
      *
      * @param userId    当前用户
-     * @param keepCount 保留的最近使用会话数（自动收敛为不小于 0）
+     * @param keepCount 保留的最晚登录会话数（自动收敛为不小于 0）
      */
     void revokeOldestSessions(Long userId, int keepCount);
 }
