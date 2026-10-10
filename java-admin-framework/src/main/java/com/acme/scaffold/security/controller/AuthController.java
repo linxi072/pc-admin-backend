@@ -2,6 +2,7 @@ package com.acme.scaffold.security.controller;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.security.application.AuthApplicationService;
+import com.acme.scaffold.security.dto.AuthChangePasswordRequest;
 import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.vo.TokenView;
@@ -42,6 +43,13 @@ public class AuthController {
     @PostMapping("/logout")
     public Result<Void> logout() {
         authApplicationService.logout();
+        return Result.success();
+    }
+
+    @Operation(summary = "会话无关改密（强制改密闭环）：以用户名+原密码认证后修改密码，无需已登录会话")
+    @PostMapping("/change-password")
+    public Result<Void> changePassword(@Valid @RequestBody AuthChangePasswordRequest request) {
+        authApplicationService.changePassword(request.username(), request.oldPassword(), request.newPassword());
         return Result.success();
     }
 

@@ -12,6 +12,9 @@ import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.jwt.JwtProvider;
+import com.acme.scaffold.security.password.LockoutRules;
+import com.acme.scaffold.security.password.PasswordHistoryService;
+import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.permission.PermissionService;
 import com.acme.scaffold.security.token.RefreshTokenService;
 import com.acme.scaffold.security.token.SessionLimitRules;
@@ -25,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -46,6 +50,7 @@ public class AuthApplicationService {
     private final SecurityContextFacade securityContextFacade;
     private final CaptchaService captchaService;
     private final CaptchaProperties captchaProperties;
+    private final PasswordHistoryService passwordHistoryService;
 
     @Transactional
     public TokenView login(LoginCommand command, String ip, String userAgent, String deviceId) {
@@ -73,6 +78,10 @@ public class AuthApplicationService {
         if (!passwordEncoder.matches(command.password(), user.getPasswordHash())) {
             handleLoginFailure(user);
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
+        }
+        // 设计文档 §5.3：被标记为「需改密」(password_expired=1) 的用户必须先改密再登录
+        if (user.getPasswordExpired() != null && user.getPasswordExpired() == 1) {
+            throw new BusinessException(SecurityErrorCode.MUST_CHANGE_PASSWORD, "请修改初始/重置密码后再登录");
         }
         resetLoginFailure(user);
 
@@ -116,6 +125,50 @@ public class AuthApplicationService {
     public void logout() {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
         refreshTokenService.revokeByUser(userId);
+    }
+
+    /**
+     * 会话无关改密：闭合「首次登录 / 管理员重置后强制改密」链路。
+     * <p>由「用户名 + 原密码」完成身份认证（无需已登录会话），因此被标记为
+     * {@code password_expired=1}、无法走正常登录的用户，也能先改密再进入系统，
+     * 避免「登录被拦却无法改密」的死锁。改密成功后清除 {@code password_expired} 并吊销全部刷新令牌。
+     *
+     * @param username     用户名
+     * @param oldPassword  原密码（身份认证用）
+     * @param newPassword  新密码
+     */
+    @Transactional
+    public void changePassword(String username, String oldPassword, String newPassword) {
+        SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
+                        JooqTables.SYS_USER.field("username", String.class).eq(username)));
+        // 统一返回 BAD_CREDENTIALS，防止账号枚举（不区分「用户不存在」与「原密码错误」）
+        if (user == null || !passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
+        }
+        if ("LOCKED".equals(user.getStatus())) {
+            throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
+        }
+        // 设计文档 §5.3：禁止复用最近 5 次密码
+        if (passwordHistoryService.isReused(user.getId(), newPassword)) {
+            throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "不能与最近使用的密码相同");
+        }
+        PasswordPolicy.validate(newPassword);
+
+        String encoded = passwordEncoder.encode(newPassword);
+        SysUserDO patch = new SysUserDO();
+        patch.setPasswordHash(encoded);
+        patch.setPasswordChangedAt(LocalDateTime.now());
+        patch.setPasswordExpired(0);
+        patch.setFailedLoginCount(0);
+        patch.setLockedUntil(null);
+        patch.setTokenVersion((user.getTokenVersion() == null ? 1 : user.getTokenVersion()) + 1);
+        JooqWriters.updateById(dsl, JooqTables.SYS_USER, user.getId(), patch);
+
+        // 记录本次改密后的口令到密码历史，纳入「禁止复用最近 5 次」基线
+        passwordHistoryService.record(user.getId(), encoded);
+        // 改密后吊销全部刷新令牌，强制使用新口令重新登录
+        refreshTokenService.revokeByUser(user.getId());
     }
 
     private CurrentPrincipal buildPrincipal(SysUserDO user) {

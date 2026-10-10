@@ -40,6 +40,7 @@ public class SecurityConfig {
     private static final RequestMatcher PUBLIC_API = new OrRequestMatcher(
             new AntPathRequestMatcher("/api/auth/login", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/api/auth/refresh", HttpMethod.POST.name()),
+            new AntPathRequestMatcher("/api/auth/change-password", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/api/auth/captcha", HttpMethod.GET.name()),
             // 健康探针（k8s 风格）：liveness/readiness 不应要求鉴权
             new AntPathRequestMatcher("/livez", HttpMethod.GET.name()),
