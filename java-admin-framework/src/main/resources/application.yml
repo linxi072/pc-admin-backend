@@ -124,6 +124,17 @@ app:
   audit:
     async: true
 
+# 可观测性导出（A1）：OTLP/HTTP span 导出至 Collector（Jaeger / Tempo / OTel Collector）。
+# 默认关闭；具备 Collector 的环境置 enabled=true 并指向其 /v1/traces 端点。
+# 说明：本项目离线构建未引入 opentelemetry-sdk，此处为零依赖自研 OTLP 导出器，
+#       与既有 W3C traceparent / MDC traceId 对齐；联网环境可平滑切换至官方 SDK（-Potel）。
+observability:
+  otlp:
+    enabled: false
+    endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+    service-name: ${spring.application.name}
+    timeout-ms: 2000
+
 logging:
   level:
     root: INFO
