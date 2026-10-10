@@ -25,6 +25,17 @@ public class JwtProperties {
     private int maxLoginFailures = 5;
     private Duration lockDuration = Duration.ofMinutes(15);
 
+    /**
+     * 渐进式锁定封顶时长（设计文档 §5.3「继续失败采用渐进式锁定」）。
+     * 锁定时长从 {@link #lockDuration} 起逐级翻倍，但不超过该上限。默认 24h。
+     */
+    private Duration lockDurationMax = Duration.ofHours(24);
+
+    /**
+     * 密码历史保留条数（设计文档 §5.3「保留最近 5 次密码哈希，禁止重复使用」）。默认 5。
+     */
+    private int passwordHistoryLimit = 5;
+
     /** 同一账号允许同时在线的最大设备/会话数；<=0 表示不限制。默认 3。 */
     private int maxConcurrentSessions = 3;
 
@@ -94,6 +105,22 @@ public class JwtProperties {
 
     public void setLockDuration(Duration lockDuration) {
         this.lockDuration = lockDuration;
+    }
+
+    public Duration getLockDurationMax() {
+        return lockDurationMax;
+    }
+
+    public void setLockDurationMax(Duration lockDurationMax) {
+        this.lockDurationMax = lockDurationMax;
+    }
+
+    public int getPasswordHistoryLimit() {
+        return passwordHistoryLimit;
+    }
+
+    public void setPasswordHistoryLimit(int passwordHistoryLimit) {
+        this.passwordHistoryLimit = passwordHistoryLimit;
     }
 
     public int getMaxConcurrentSessions() {

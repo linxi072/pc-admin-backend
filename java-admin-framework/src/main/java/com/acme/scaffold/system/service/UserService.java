@@ -8,7 +8,9 @@ import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
+import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
+import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.token.TokenVersionService;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.dto.UpdateUserRequest;
@@ -58,6 +60,7 @@ public class UserService {
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
     private final TokenVersionService tokenVersionService;
+    private final PasswordHistoryService passwordHistoryService;
 
     @Transactional
     public Long create(CreateUserRequest request) {
@@ -76,15 +79,21 @@ public class UserService {
         request.roleIds().forEach(this::requireRole);
         request.deptIds().forEach(this::requireOrg);
 
+        String encodedPassword = passwordEncoder.encode(request.password());
         SysUserDO user = new SysUserDO();
         user.setUsername(request.username());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setPasswordHash(encodedPassword);
         user.setDisplayName(request.displayName());
         user.setMobile(request.mobile());
         user.setEmail(request.email());
         user.setStatus("ACTIVE");
         user.setPasswordChangedAt(LocalDateTime.now());
+        // 设计文档 §5.3：首次登录强制改密（password_expired=1），新用户必须先改密再进入系统
+        user.setPasswordExpired(1);
         JooqWriters.insert(dsl, JooqTables.SYS_USER, user);
+
+        // 记录初始口令到密码历史，纳入「禁止复用最近 5 次」安全基线
+        passwordHistoryService.record(user.getId(), encodedPassword);
 
         assignRoles(user.getId(), request.roleIds(), request.primaryRoleId());
         assignOrgs(user.getId(), request.deptIds(), request.primaryDeptId());
@@ -136,10 +145,18 @@ public class UserService {
     public void resetPassword(Long id, String newPassword) {
         SysUserDO user = get(id);
         PasswordPolicy.validate(newPassword);
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        // 设计文档 §5.3：禁止复用最近 5 次密码
+        if (passwordHistoryService.isReused(id, newPassword)) {
+            throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "不能与最近使用的密码相同");
+        }
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setPasswordHash(encodedPassword);
         user.setPasswordChangedAt(LocalDateTime.now());
-        user.setPasswordExpired(0);
+        // 设计文档 §5.3：管理员重置后强制改密，用户下次登录须先改密
+        user.setPasswordExpired(1);
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
+        // 记录本次重置后的口令到密码历史
+        passwordHistoryService.record(id, encodedPassword);
         // 统一走 TokenVersionService 递增：既写库又失效缓存，避免与「仅改内存」的写法分叉
         tokenVersionService.bumpUser(id);
     }

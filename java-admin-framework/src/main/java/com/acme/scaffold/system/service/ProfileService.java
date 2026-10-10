@@ -7,6 +7,7 @@ import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.token.RefreshTokenService;
 import com.acme.scaffold.security.token.SysRefreshTokenDO;
@@ -59,6 +60,7 @@ public class ProfileService {
     private final PasswordEncoder passwordEncoder;
     private final SecurityContextFacade securityContextFacade;
     private final RefreshTokenService refreshTokenService;
+    private final PasswordHistoryService passwordHistoryService;
 
     private static final DateTimeFormatter UA_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -179,17 +181,25 @@ public class ProfileService {
         if (passwordEncoder.matches(request.newPassword(), current.getPasswordHash())) {
             throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "新密码不能与原密码相同");
         }
+        // 设计文档 §5.3：禁止复用最近 5 次历史口令
+        if (passwordHistoryService.isReused(current.getId(), request.newPassword())) {
+            throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "不能与最近使用的密码相同");
+        }
         // 密码强度策略：修改密码同样要求合规
         PasswordPolicy.validate(request.newPassword());
 
+        String encoded = passwordEncoder.encode(request.newPassword());
         SysUserDO patch = new SysUserDO();
-        patch.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        patch.setPasswordHash(encoded);
         patch.setPasswordChangedAt(LocalDateTime.now());
         patch.setPasswordExpired(0);
         patch.setFailedLoginCount(0);
         patch.setLockedUntil(null);
         patch.setTokenVersion((current.getTokenVersion() == null ? 1 : current.getTokenVersion()) + 1);
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, current.getId(), patch);
+
+        // 记录本次改密后的口令到密码历史，纳入「禁止复用最近 5 次」基线
+        passwordHistoryService.record(current.getId(), encoded);
 
         // 改密后吊销全部刷新令牌：即便攻击者持有旧的 refresh token 也无法续期
         refreshTokenService.revokeByUser(current.getId());
