@@ -15,6 +15,71 @@
 
 ---
 
+## 功能状态总览（已实现 / 开发中 / 待实现）
+
+> 快速掌握系统整体进展。权威分类如下；§1–§9 为逐项证据与「实施」注记。
+> 分类口径：
+> - **已实现**：功能代码完成、单测 / 构建通过，核心链路可用（部分以配置项 opt-in 点亮或前端已对接）。
+> - **开发中**：代码已就绪但尚未提交仓库，或需原生环境（MySQL / Tempo·Jaeger / Vault / K8s）验证闭环，或仅完成部分（并行层）待后续替换。
+> - **待实现**：尚未启动，或《方案》声明范围外 / 设计 N/A。
+>
+> 数据截至 2026-10-10；git 提交 / 推送由本机执行（沙箱仅完成编码与离线编译验证）。
+
+### ✅ 已实现（Implemented）
+
+**核心业务与权限**
+- 认证（登录 / 刷新 / 登出、Token 轮换）— `AuthController` + `RefreshTokenService`
+- 认证安全（登录失败锁定、Token 版本失效）— `handleLoginFailure` + `TokenVersionVerifier`
+- RBAC（用户 / 机构 / 角色 / 菜单 / 接口资源 CRUD）— 全套 Controller / Service
+- 接口资源扫描（动态登记）— `ApiResourceScanner` + 种子 61 条
+- 数据权限（五类范围 + AOP 注入）— `DataScopeAspect` 等
+- 操作审计（脱敏 + traceId 查询）— `AuditAspect` + `AuditLogController`
+- 幂等（Idempotency-Key，审批强制）— `IdempotencyAspect` / Service / Job
+- 工作流（内置 + 自定义设计器 / 发布 / 会签或签 / 驳回 / 转办 / 认领）— 含业务表单动态渲染
+- 工作流实例详情 `GET /instances/{id}`（G6）— `InstanceController.detail`
+- 系统模块（部门 / 字典 / 系统变量 / 公告 / 站内信）— 对应 Controller 齐备
+- 实时推送（WebSocket）— `RealtimeWebSocketHandler` 等
+- 服务端排序白名单 — `JooqSorts`
+- 工作台聚合统计 — `WorkbenchController` `/stats`
+
+**可观测与运维**
+- 可观测基座（Actuator `/prometheus` + Micrometer）— JVM / HTTP / HikariCP / 业务 / 审批耗时指标
+- OTel 分布式链路追踪（G1）— W3C `traceparent` 传播 + 零依赖 OTLP 导出器（A1，配置 `observability.otlp.enabled:true` 点亮）；`TraceContextTest` 9/9
+- Grafana 仪表盘 + Alertmanager 规则 + 应用内接收端（G2 / A2）— `monitoring/` 配置交付（5 块看板 + 5 条告警规则 + `AlertWebhookController`）
+- 健康探针 `/livez`、`/readyz`（§9）— `monitor/health` 包，4 单测
+
+**安全与质量**
+- 登录验证码（G3）— 后端启用 + 前端对接，7 单测 + vite build 通过
+- 登录安全增强三项（§7）— 验证码接入、Token TTL 延长（30m / 30d）、多端登录限制（`SessionLimitRules`，7 单测）
+- 密钥轮换（kid 双密钥）— `JwtKeyRotationService` + `RotatingJwtDecoder`
+- 外部密钥源 Vault / KMS（A4）— 零依赖 `security/secret/`，3 单测
+- 速率限制 / 防重放（G5b）— `RateLimitFilter` + `AntiReplayFilter`（opt-in）
+- 依赖 SCA（G5d）— CI `sca` 作业 + 定期扫描 workflow
+- 密码强度策略（G7）— `PasswordPolicy`，7 单测
+- CI 质量门禁（G4）— `.github/workflows/ci.yml`（单元 + 集成测试接入本机 MySQL）
+- 角色管理权限树整合（最新）— 菜单 + 接口单树、勾选菜单默认勾选接口，前端 `vite build` 通过
+
+### 🚧 开发中（In Progress）
+
+- **角色管理权限树整合（提交 / 联调）** — 前端代码完成、build 通过，尚未提交；待本机 commit 至 `feat/V1.0.2` 并运行环境联调确认。
+- **登录安全增强三项（提交）** — 代码完成并通过全量单测（123/123）+ 前端 build，尚未提交；待确认分支后提交。
+- **OTel 完整链路验证** — 导出器（A1）代码就绪，验收 2「完整父子 span 在 Tempo / Jaeger 呈现」需追踪后端 + 配置点亮后观察（预计随原生环境接入完成）。
+- **Alertmanager 告警闭环验证** — A2 应用内接收端已建，验收 3「真实告警被接收」需原生环境注入高错误率触发验证。
+- **外部密钥源真实接入（A4）** — `VaultSecretProvider` 代码完成，真实 Vault 接入需本机配置 `secret.vault.*` 并验证。
+- **jOOQ codegen 全量替换手写 DSL（A6）** — 并行层（目标包 `com.acme.scaffold.jooqgen`）已建，但**全量替换手写 DSL 暂缓**：需真实库验证 + 风险评审；生成需联网（`mvn -Pjooq-codegen generate-sources`），离线仓库暂缺 h2 / jooq-codegen jar。
+- **各增强项 git 提交 / 推送** — A1 / A2 / A4 / 探针 / 登录增强等已实现代码均**未提交**（沙箱无法直推 GitHub），待本机 `git push origin feat/V1.0.2`。
+
+### ⬜ 待实现 / 范围外 / N/A（To Be Implemented / Out of Scope）
+
+- **多租户（G8）** — 《方案》§18 声明「未启用」，当前明确不启用、范围外；`tenant_id` 仅预留，无解析 / 隔离 / 测试矩阵；启用须独立规划与设计评审。
+- **上传安全（G5c）** — N/A：项目无文件上传接口，无需校验。
+- **压测 / 容量基线 · 故障注入 · 回滚预案 · 备份恢复演练（G5e）** — N/A（沙箱）：需原生环境执行，当前无记录。
+- **Docker Compose 启动** — N/A by design：README 已改为原生进程启动（无 Docker）。
+- **《方案》独立端点回补（§2 形态偏差）** — 非阻断：如 `PUT /roles/{id}/menus` 等已并入 DTO，未来若对接 OpenAPI / 第三方可补回或文档明确「以 DTO 承载为准」。
+- **第三方 OpenAPI / 外部系统对齐** — 建议性：待对外暴露 API 时补充。
+
+---
+
 ## 1. 已确认实现（对照通过，不列入待办）
 
 | 模块 | 需求（《方案》） | 实现证据 | 状态 |
@@ -52,9 +117,9 @@
 
 ---
 
-## 3. 明确未实现的功能点（需求有描述、代码中无对应实现）
+## 3. 原「未实现」功能点（G1–G8，现已按「实施」注记完成；权威状态见「功能状态总览」）
 
-> 每项含：需求来源、具体要求、验收标准。
+> 每项含：需求来源、具体要求、验收标准，以及 2026-10-10 的「实施」注记（代码已完成、单测 / 构建通过，部分需原生环境验证闭环）。本节能见「现状」与「实施」对照，便于追溯。
 
 ### G1 OpenTelemetry 分布式链路追踪
 - **来源**：《方案》§15 阶段 4、§20「一次请求可从 trace 找到日志、SQL 与外部调用」
