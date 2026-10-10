@@ -5,10 +5,27 @@ import { clearAuth } from '../store/auth'
 
 const realAxios = axios.create({ baseURL: API_BASE, timeout: 15000 })
 
-// 请求拦截：注入 JWT
+// 稳定的设备标识：每个浏览器首次访问时生成并持久化，用于后端「同账号多端登录限制」统计在线设备数。
+// 该标识随每个请求经 X-Device-Id 头上报，后端据此区分不同登录设备。
+function getDeviceId() {
+  let id = localStorage.getItem('pc_admin_device_id')
+  if (id) return id
+  try {
+    id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'dev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+  } catch (e) {
+    id = 'dev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+  }
+  localStorage.setItem('pc_admin_device_id', id)
+  return id
+}
+
+// 请求拦截：注入 JWT 与设备标识
 realAxios.interceptors.request.use((cfg) => {
   const token = localStorage.getItem('pc_admin_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
+  if (!cfg.headers['X-Device-Id']) cfg.headers['X-Device-Id'] = getDeviceId()
   return cfg
 })
 
