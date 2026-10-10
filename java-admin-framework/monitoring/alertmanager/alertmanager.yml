@@ -19,13 +19,16 @@ route:
       continue: true
 
 receivers:
+  # A2：应用内真实接收端（java-admin-framework 的 /api/monitoring/alerts/webhook）。
+  # 应用侧完成解析、入库与事件发布；如需额外外部通道（企业微信/钉钉/Slack），
+  # 可在此追加 webhook_configs 指向对应网关，或订阅 AlertReceivedEvent 转发。
   - name: default-webhook
     webhook_configs:
-      - url: "http://localhost:5001/alerts"   # 占位：替换为实际告警网关
+      - url: "http://localhost:8080/api/monitoring/alerts/webhook"
         send_resolved: true
   - name: critical-webhook
     webhook_configs:
-      - url: "http://localhost:5001/critical" # 占位：替换为实际高优告警通道（如企业微信/钉钉/Slack）
+      - url: "http://localhost:8080/api/monitoring/alerts/webhook"
         send_resolved: true
     email_configs:
       - to: "oncall@java-admin-framework.local"

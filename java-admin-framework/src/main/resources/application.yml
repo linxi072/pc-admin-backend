@@ -135,6 +135,15 @@ observability:
     service-name: ${spring.application.name}
     timeout-ms: 2000
 
+# 告警接收（A2）：作为 Alertmanager 的真实 webhook 接收端（应用内）。
+# token 非空时要求请求携带匹配的 X-Alert-Token 头；生产须由网络/网关层加固。
+monitoring:
+  alert:
+    webhook:
+      enabled: true
+      token: ${ALERT_WEBHOOK_TOKEN:}
+    inbox-capacity: 200
+
 logging:
   level:
     root: INFO
