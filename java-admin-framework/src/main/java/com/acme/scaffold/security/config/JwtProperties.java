@@ -112,6 +112,42 @@ public class JwtProperties {
         this.sessionEvictionStrategy = sessionEvictionStrategy;
     }
 
+    /**
+     * 异常退出会话回收：刷新令牌空闲（未刷新）超过该时长即被吊销，实现「进程崩溃 / 连接中断后 token 及时失效」。
+     * 与 access-token-ttl 协同：access token 在空闲阈值内自然过期，refresh token 超过该阈值后被回收。默认 30m。
+     */
+    private Duration sessionMaxInactive = Duration.ofMinutes(30);
+
+    /** 是否启用会话空闲回收定时任务与启动回收。默认 true。 */
+    private boolean sessionCleanupEnabled = true;
+
+    /** 会话空闲回收定时任务执行间隔（毫秒）。默认 300000（5 分钟）。 */
+    private long sessionCleanupIntervalMs = 300_000;
+
+    public Duration getSessionMaxInactive() {
+        return sessionMaxInactive;
+    }
+
+    public void setSessionMaxInactive(Duration sessionMaxInactive) {
+        this.sessionMaxInactive = sessionMaxInactive;
+    }
+
+    public boolean isSessionCleanupEnabled() {
+        return sessionCleanupEnabled;
+    }
+
+    public void setSessionCleanupEnabled(boolean sessionCleanupEnabled) {
+        this.sessionCleanupEnabled = sessionCleanupEnabled;
+    }
+
+    public long getSessionCleanupIntervalMs() {
+        return sessionCleanupIntervalMs;
+    }
+
+    public void setSessionCleanupIntervalMs(long sessionCleanupIntervalMs) {
+        this.sessionCleanupIntervalMs = sessionCleanupIntervalMs;
+    }
+
     public String getKeyId() {
         return keyId;
     }

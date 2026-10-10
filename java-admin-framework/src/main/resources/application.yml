@@ -112,9 +112,13 @@ app:
     refresh-token-ttl: 30d
     max-login-failures: 5
     lock-duration: 15m
-    # 同一账号同时在线设备数上限（<=0 不限制）；超出时策略 reject=拒绝新登录 / evict_oldest=踢最久未用
+    # 同一账号同时在线设备数上限（<=0 不限制）；超出时策略 reject=拒绝新登录 / evict_oldest=淘汰最早登录（会话挤占）
     max-concurrent-sessions: 3
-    session-eviction-strategy: reject
+    session-eviction-strategy: evict_oldest
+    # 异常退出会话回收：刷新令牌空闲超过该时长即被吊销（进程崩溃 / 连接中断后 token 及时失效）
+    session-max-inactive: 30m
+    session-cleanup-enabled: true
+    session-cleanup-interval-ms: 300000
     # JWT 签名密钥：必须通过环境变量 JWT_SECRET 提供（Base64 编码、≥256 位）。
     # 未配置时不使用任何硬编码默认值，将自动生成仅当前进程有效的随机临时密钥（重启失效），仅用于开发/测试。
     jwt-secret: ${JWT_SECRET:}
