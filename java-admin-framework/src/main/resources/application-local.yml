@@ -31,6 +31,13 @@ auth:
     enabled: true
     expire-seconds: 120
     max-number: 20
+  # 请求级防重放（opt-in）：默认关闭，避免未携带时间戳/nonce 头的既有登录链路（含前端、InstanceIntegrationIT）被阻断。
+  # 启用后前端需为每个 /api/auth/login、/api/auth/refresh 请求附带 X-Request-Timestamp 与 X-Request-Nonce 头。
+  anti-replay:
+    enabled: false
+    max-clock-skew-millis: 5000
+    nonce-ttl-seconds: 60
+    max-nonce-cache-size: 100000
 
 management:
   endpoints:

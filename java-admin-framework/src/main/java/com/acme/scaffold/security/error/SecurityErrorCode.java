@@ -15,7 +15,9 @@ public enum SecurityErrorCode implements ErrorCode {
     CAPTCHA_REQUIRED("AUTH_008", "请先获取并完成验证码", HttpStatus.BAD_REQUEST.value()),
     CAPTCHA_INVALID("AUTH_009", "验证码错误或已失效", HttpStatus.BAD_REQUEST.value()),
     RATE_LIMITED("AUTH_010", "请求过于频繁，请稍后再试", 429),
-    TOO_MANY_SESSIONS("AUTH_011", "同一账号同时登录设备数已达上限", 409);
+    TOO_MANY_SESSIONS("AUTH_011", "同一账号同时登录设备数已达上限", 409),
+    REPLAY_TIMESTAMP_INVALID("AUTH_012", "请求时间戳无效或已过期", 400),
+    REPLAY_DETECTED("AUTH_013", "检测到重放请求", 409);
 
     private final String code;
     private final String message;

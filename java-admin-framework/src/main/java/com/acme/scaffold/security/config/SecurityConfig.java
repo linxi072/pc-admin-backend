@@ -2,6 +2,7 @@ package com.acme.scaffold.security.config;
 
 import com.acme.scaffold.security.jwt.JwtAuthConverter;
 import com.acme.scaffold.security.captcha.CaptchaProperties;
+import com.acme.scaffold.security.antireplay.AntiReplayProperties;
 import com.acme.scaffold.security.token.TokenVersionVerifier;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +34,7 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, CaptchaProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, CaptchaProperties.class, AntiReplayProperties.class})
 public class SecurityConfig {
 
     private static final RequestMatcher PUBLIC_API = new OrRequestMatcher(
