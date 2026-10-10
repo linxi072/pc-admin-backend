@@ -17,6 +17,7 @@ import java.security.SecureRandom;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.List;
 
 /**
  * 刷新令牌实现。服务端仅存储 SHA-256 哈希，原始令牌只在签发时返回一次。
@@ -125,6 +126,38 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
                 .execute();
     }
 
+    @Override
+    public int countActiveSessions(Long userId) {
+        return dsl.fetchCount(JooqTables.SYS_REFRESH_TOKEN.table(),
+                userIdField().eq(userId)
+                        .and(revokedAtField().isNull())
+                        .and(expiresAtField().greaterThan(Timestamp.valueOf(LocalDateTime.now()))));
+    }
+
+    @Override
+    public void revokeOldestSessions(Long userId, int keepCount) {
+        if (keepCount < 0) {
+            keepCount = 0;
+        }
+        // 取活跃会话，按「最近使用」降序：优先 last_used_at，缺失回退 issued_at
+        List<Long> activeIds = dsl.select(idField())
+                .from(JooqTables.SYS_REFRESH_TOKEN.table())
+                .where(userIdField().eq(userId)
+                        .and(revokedAtField().isNull())
+                        .and(expiresAtField().greaterThan(Timestamp.valueOf(LocalDateTime.now()))))
+                .orderBy(lastUsedAtField().desc().nullsLast(), issuedAtField().desc())
+                .fetch(idField());
+        if (activeIds.size() <= keepCount) {
+            return;
+        }
+        List<Long> toRevoke = activeIds.subList(keepCount, activeIds.size());
+        dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+                .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
+                .set(revokeReasonField(), "SESSION_LIMIT")
+                .where(idField().in(toRevoke))
+                .execute();
+    }
+
     private void revokeFamily(String familyId) {
         dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
@@ -169,6 +202,14 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     private Field<Timestamp> revokedAtField() {
         return JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", Timestamp.class);
+    }
+
+    private Field<Timestamp> issuedAtField() {
+        return JooqTables.SYS_REFRESH_TOKEN.field("issued_at", Timestamp.class);
+    }
+
+    private Field<Timestamp> expiresAtField() {
+        return JooqTables.SYS_REFRESH_TOKEN.field("expires_at", Timestamp.class);
     }
 
     private Field<String> revokeReasonField() {

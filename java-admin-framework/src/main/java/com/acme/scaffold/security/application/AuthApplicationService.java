@@ -14,6 +14,7 @@ import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.jwt.JwtProvider;
 import com.acme.scaffold.security.permission.PermissionService;
 import com.acme.scaffold.security.token.RefreshTokenService;
+import com.acme.scaffold.security.token.SessionLimitRules;
 import com.acme.scaffold.security.vo.TokenView;
 import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
@@ -74,6 +75,23 @@ public class AuthApplicationService {
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
         }
         resetLoginFailure(user);
+
+        // 多端登录限制：控制同一账号同时在线设备数（每个活跃刷新令牌即一个在线设备）
+        int maxSessions = jwtProperties.getMaxConcurrentSessions();
+        if (maxSessions > 0) {
+            int active = refreshTokenService.countActiveSessions(user.getId());
+            SessionLimitRules.Strategy strategy = "evict_oldest".equalsIgnoreCase(jwtProperties.getSessionEvictionStrategy())
+                    ? SessionLimitRules.Strategy.EVICT_OLDEST
+                    : SessionLimitRules.Strategy.REJECT;
+            SessionLimitRules.Decision decision = SessionLimitRules.evaluate(active, maxSessions, strategy);
+            if (decision == SessionLimitRules.Decision.REJECT) {
+                throw new BusinessException(SecurityErrorCode.TOO_MANY_SESSIONS,
+                        "同一账号同时登录设备数已达上限 " + maxSessions);
+            } else if (decision == SessionLimitRules.Decision.EVICT_OLDEST) {
+                // 保留 maxSessions-1 个最新会话，其余（含本次将签发的）总计不超过上限
+                refreshTokenService.revokeOldestSessions(user.getId(), maxSessions - 1);
+            }
+        }
 
         CurrentPrincipal principal = buildPrincipal(user);
         String accessToken = jwtProvider.generateAccessToken(principal);

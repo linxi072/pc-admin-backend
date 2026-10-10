@@ -35,6 +35,13 @@ jobrunr:
   dashboard:
     enabled: false
 
+# 登录验证码：开启后 /api/auth/login 必须携带 GET /api/auth/captcha 下发的 token 与答案
+auth:
+  captcha:
+    enabled: true
+    expire-seconds: 120
+    max-number: 20
+
 logging:
   level:
     com.acme.scaffold: INFO

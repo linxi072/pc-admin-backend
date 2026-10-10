@@ -19,11 +19,17 @@ public class JwtProperties {
 
     private String issuer = "java-admin-framework";
     private String audience = "admin-api";
-    private Duration accessTokenTtl = Duration.ofMinutes(15);
-    private Duration refreshTokenTtl = Duration.ofDays(7);
+    private Duration accessTokenTtl = Duration.ofMinutes(30);
+    private Duration refreshTokenTtl = Duration.ofDays(30);
     private String jwtSecret;
     private int maxLoginFailures = 5;
     private Duration lockDuration = Duration.ofMinutes(15);
+
+    /** 同一账号允许同时在线的最大设备/会话数；<=0 表示不限制。默认 3。 */
+    private int maxConcurrentSessions = 3;
+
+    /** 超出限制时的处理策略：reject（拒绝新登录）或 evict_oldest（踢掉最久未使用的会话）。默认 reject。 */
+    private String sessionEvictionStrategy = "reject";
 
     /** 当前生效密钥的 kid（JWT 头 kid 声明）。默认 "1"。 */
     private String keyId = "1";
@@ -88,6 +94,22 @@ public class JwtProperties {
 
     public void setLockDuration(Duration lockDuration) {
         this.lockDuration = lockDuration;
+    }
+
+    public int getMaxConcurrentSessions() {
+        return maxConcurrentSessions;
+    }
+
+    public void setMaxConcurrentSessions(int maxConcurrentSessions) {
+        this.maxConcurrentSessions = maxConcurrentSessions;
+    }
+
+    public String getSessionEvictionStrategy() {
+        return sessionEvictionStrategy;
+    }
+
+    public void setSessionEvictionStrategy(String sessionEvictionStrategy) {
+        this.sessionEvictionStrategy = sessionEvictionStrategy;
     }
 
     public String getKeyId() {
