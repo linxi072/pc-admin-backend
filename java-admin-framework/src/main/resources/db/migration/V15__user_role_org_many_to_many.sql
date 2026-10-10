@@ -72,14 +72,14 @@ PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- 4) 收敛列下线：删除 sys_user 的 role_id / org_id / primary_org_id（含索引）。
 --    删除前关联数据已写入 sys_user_role / sys_user_org，主角色/主部门改由关联表 is_primary 推导。
 SET @ddl = (
-    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP INDEX IF EXISTS `idx_tenant_role`', 'DO 0')
+    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP INDEX `idx_tenant_role`', 'DO 0')
     FROM information_schema.STATISTICS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_role'
 );
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @ddl = (
-    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP INDEX IF EXISTS `idx_tenant_org`', 'DO 0')
+    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP INDEX `idx_tenant_org`', 'DO 0')
     FROM information_schema.STATISTICS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_org'
 );
