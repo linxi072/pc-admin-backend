@@ -218,6 +218,13 @@
 
 > 设计原则：所有新增实现**不引入沙箱离线仓库缺失的依赖**，全部通过 `mvn -o test` 编译+单测验证；涉及外部系统（OTel Collector / 真实 Vault / jOOQ 代码生成）的能力，均以「配置项 opt-in + 独立说明文档」形式交付，待本机/联网环境点亮，避免污染离线构建稳定性。
 
+## 9. 健康探针 /livez、/readyz（2026-10-10 追加）
+
+- **来源**：《方案》§10.3（健康检查）与 §20 验收清单明确要求 k8s 风格自定义探针 `/livez`（仅 JVM/主循环，不依赖 DB）与 `/readyz`（检查必需依赖 DB）。
+- **原缺口**：此前仅有 `/actuator/health`（`BusinessHealthIndicator`），缺少独立的 liveness/readiness 端点；`liveness` 不应依赖 DB（避免 DB 抖动导致 Pod 被误杀重启），`readiness` 应在 DB 不可用时返回 503。
+- **实现**：新增 `monitor/health` 包——`ProbeStatus`/`ProbeResult`（纯数据）、`LivenessProbe`（纯函数，仅校验 JVM/主循环存活，不触碰 DB）、`DatabaseProbe` 接口 + `JooqDatabaseProbe`（`dsl.fetchExists(DSL.selectOne())` 探测）、`ReadinessService`（聚合依赖检查结果）、`ProbeController`（`GET /livez` 恒 200；`GET /readyz` 依赖不可用返回 503）；`SecurityConfig.PUBLIC_API` 加入 `/livez`、`/readyz` 免鉴权。
+- **测试**：`LivenessProbeTest` / `ReadinessServiceTest`（共 4 用例，全离线通过）。
+
 ---
 
 > 注：需求文档中「Docker Compose 启动」一项，README 已明确改为**原生进程启动（无 Docker）**，属有意偏差；§20 验收清单中「docker compose up -d」视为 N/A by design。
