@@ -1,9 +1,10 @@
 spring:
-  # 集成测试专用数据源：默认连本机 MySQL，可用环境变量覆盖（不使用容器）。
+  # 集成测试专用数据源：默认连本机 MySQL（root/root，可用环境变量覆盖，不使用容器）。
+  # createDatabaseIfNotExist=true 使 java_admin 在不存在时自动创建，便于本地直接跑集成测试。
   datasource:
-    url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8}
+    url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8&createDatabaseIfNotExist=true}
     username: ${TEST_DB_USER:root}
-    password: ${TEST_DB_PASSWORD:}
+    password: ${TEST_DB_PASSWORD:root}
   jooq:
     sql-dialect: MYSQL
   # Flyway 在应用启动时自动建表/迁移，无需手工初始化。
