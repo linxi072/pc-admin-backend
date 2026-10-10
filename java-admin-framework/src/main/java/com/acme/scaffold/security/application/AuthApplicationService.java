@@ -186,10 +186,13 @@ public class AuthApplicationService {
     private void handleLoginFailure(SysUserDO user) {
         int failed = (user.getFailedLoginCount() == null ? 0 : user.getFailedLoginCount()) + 1;
         user.setFailedLoginCount(failed);
-        if (failed >= jwtProperties.getMaxLoginFailures()) {
+        // 设计文档 §5.3：渐进式锁定——达到阈值后锁定时长随失败次数递增，封顶 lockDurationMax
+        if (LockoutRules.shouldLock(failed, jwtProperties.getMaxLoginFailures())) {
+            Duration dur = LockoutRules.computeDuration(failed, jwtProperties.getMaxLoginFailures(),
+                    jwtProperties.getLockDuration(), jwtProperties.getLockDurationMax());
             user.setStatus("LOCKED");
-            user.setLockedUntil(LocalDateTime.now().plus(jwtProperties.getLockDuration()));
-            log.warn("账号锁定 username={} 失败次数={}", user.getUsername(), failed);
+            user.setLockedUntil(LocalDateTime.now().plus(dur));
+            log.warn("账号锁定 username={} 失败次数={} 时长={}", user.getUsername(), failed, dur);
         }
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, user.getId(), user);
     }
