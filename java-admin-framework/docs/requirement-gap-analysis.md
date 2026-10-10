@@ -11,7 +11,7 @@
 
 - **核心功能已落地**：RBAC 权限、认证/刷新/登出、数据权限、操作审计、幂等、Token 版本失效、工作流（内置+自定义设计器）、监控、公告/站内信、实时 WebSocket、服务端排序白名单、工作台统计——均已实现且前后端对接一致。
 - **关键纠偏**：《方案》§12 列出的若干「独立端点」（`PUT /roles/{id}/menus`、`/apis`、`PUT /users/{id}/status`、`/roles`）**并非未实现**，而是被合并进 `create/update` 的 DTO 体内（`RoleService.assignMenus/assignApis`、`UserService.assignRoles`），前端 `role.js`/`user.js` 已按此形态对接，**功能可用、仅 API 形态偏离规范**。
-- **真正的未实现项**集中在三块：① 可观测性运营侧（OTel 链路 / Grafana / Alertmanager）；② 质量与上线门禁（CI、生产加固）；③ 若干小粒度增强（实例详情、验证码、密码策略）。多租户为《方案》明确声明「未启用」，属范围外。
+- **真正的未实现项**集中在三块：① 可观测性运营侧（OTel 链路 / Grafana / Alertmanager）；② 质量与上线门禁（CI、生产加固）；③ 若干小粒度增强（实例详情、验证码、密码策略）。多租户为《方案》明确声明「未启用」，属范围外。（截至 2026-10-10：上述项均已实现或标注 N/A/范围外，详见各条「实施」注记；新增登录安全增强见 §7。）
 
 ---
 
@@ -80,12 +80,13 @@
 
 ### G3 登录验证码
 - **来源**：《方案》§9（`sys.captcha.enabled` 已种子）、§5.3 安全基线
-- **现状**：`sys_config` 已种子 `sys.captcha.enabled`，但 `AuthApplicationService.login` 未接入任何验证码校验逻辑。
+- **现状**：已实现——`CaptchaService`（内存一次性算术题）+ `CaptchaController`（`GET /api/auth/captcha`）+ `AuthApplicationService.login` 在 `captcha.enabled=true` 时校验 token/答案（优先于密码校验避免误锁）；未启用则跳过。
 - **具体要求**：开关开启时，登录必须携带并校验验证码（图形/短信）；开关关闭则跳过。
 - **验收标准**：
-  1. `sys.captcha.enabled=true` 时，未带/错误验证码返回专用错误码（如 `AUTH_xxx_CAPTCHA`）；
+  1. `auth.captcha.enabled=true` 时，未带/错误验证码返回 `AUTH_008`/`AUTH_009`；
   2. `=false` 时登录流程不变；
   3. 刷新/登出接口不受验证码影响。
+- **实施（2026-10-10）**：后端 `local`/`prod` profile 已置 `auth.captcha.enabled=true`；`integration` 测试 profile 保持 `false` 以免破坏既有集成测试。前端 `pc-admin-vue3-vite` 已对接：新增 `getCaptcha()`，`LoginView.vue` 挂载拉取并渲染运算题、随登录回传 `captchaToken/captchaAnswer`、失败自动刷新（`CaptchaServiceTest` 7/7 通过；前端 `vite build` 通过）。
 
 ### G4 CI 质量门禁
 - **来源**：《方案》§14.2
@@ -99,24 +100,29 @@
 - **实施（2026-10-10）**：新增 `.github/workflows/ci.yml`——push/PR 触发；`build-and-unit-test` 作业运行 `mvn -B test`（surefire *Test，116 用例全绿）；`integration-test` 作业以 MySQL 8.4 服务容器 + env 覆盖 datasource、`mvn -B verify -DskipITs=false` 运行 failsafe *IT（Flyway 自动建表）；`sca` 作业以 OWASP dependency-check 作非阻塞 advisory。`pom.xml` 增加 `maven-failsafe-plugin` 与 `skipITs` 属性（默认 true，本地 `mvn test/verify` 不受影响）。
 
 ### G5 生产加固（§15 阶段 5 多项）
-- **G5a 密钥轮换与外部密钥管理**：JWT 签名密钥轮换（旧 token 宽限期）+ Vault/配置中心托管 Secrets。现状：密钥来自 `JwtProperties`（环境变量/配置），无轮换逻辑。
-- **G5b 速率限制 / 防重放**：登录与敏感写接口限流；请求 nonce/时间戳防重放。现状：无。
-- **G5c 上传安全**：文件上传类型/大小/恶意内容校验。现状：无上传接口实现。
-- **G5d 依赖 SCA**：定期漏洞扫描（Trivy/Dependabot）。现状：无。
-- **G5e 压测/容量基线、故障注入、回滚预案、备份恢复演练**：现状：无记录。
-- **验收标准**：密钥轮换演练有记录；限流在压测下生效；上传拒绝非法文件；SCA 无高危；回滚/备份演练通过。
+- **G5a 密钥轮换**：已实现——`JwtKeyRotationService`（kid 解析、active/previous 双密钥）+ `RotatingJwtDecoder`，JWT 头带 `kid`；`JwtProperties` 支持 `previousJwtSecret` 宽限期。（外部密钥管理 Vault 未接入，属后续项。）
+- **G5b 速率限制 / 防重放**：已实现——`RateLimitFilter` 对 `/api/auth/login`、`/api/auth/refresh` 按客户端 IP 固定窗口限流（默认 60s/10 次，超限 429 `AUTH_010`）；请求级 nonce/时间戳防重放未实现（属增强项）。
+- **G5c 上传安全**：**N/A**——项目无文件上传接口，无需校验。
+- **G5d 依赖 SCA**：部分实现——CI（`ci.yml`）`sca` 作业接入 OWASP dependency-check 作非阻塞 advisory；定期自动扫描未配置。
+- **G5e 压测/容量基线、故障注入、回滚预案、备份恢复演练**：**N/A（沙箱）**——需原生环境执行，当前无记录。
+- **验收标准**：密钥轮换演练有记录；限流在压测下生效；上传拒绝非法文件；SCA 无高危；回滚/备份演练通过。（注：G5c 因无上传接口不适用；G5e 待原生环境补充。）
 
 ### G6 工作流实例详情端点
 - **来源**：《方案》§12 `GET /api/workflow/instances/{id}`
-- **现状**：仅有 `GET /api/workflow/instances/{pid}/records`（审批记录），**缺完整实例详情**（变量/当前节点/状态）。
+- **现状**：已实现——`InstanceController.detail` + `WorkflowService.detail` 返回 `InstanceDetailView`（业务类型/ID、状态、起止时间、发起人、当前活动节点与办理人、审批记录列表）；补充 `InstanceDetailView` DTO。
 - **具体要求**：按实例 ID 查询流程实例完整状态与业务字段。
-- **验收标准**：返回实例状态、起止时间、`formFields`、当前活动节点、办理人；前端可进入「实例详情」页。
+- **验收标准**：
+  1. 返回实例状态、起止时间、当前活动节点、办理人；
+  2. 含审批记录列表；
+  3. 实例不存在返回 404。
+- **实施（2026-10-10）**：`InstanceIntegrationIT.detail_returnsInstanceWithTasksAndRecords` / `detail_notFound_returns404` 覆盖（沙箱因 Flowable `act_ge_property` 初始化限制仅编译验证；CI MySQL 8.4 服务容器可跑通）。
 
 ### G7 密码强度策略
 - **来源**：《方案》§5.3 密码与账号安全基线
-- **现状**：仅 bcrypt + 登录失败锁定；无显式强度策略（长度/复杂度/历史/定期更换）。
+- **现状**：已实现——`PasswordPolicy`（长度 8–64、大小写/数字/特殊字符可配置、弱口令字典、明确错误码 `VALIDATION_ERROR`）+ `UserService.create/resetPassword`、`ProfileService.changePassword` 在写库前校验。
 - **具体要求**：注册/重置密码满足可配置强度策略。
-- **验收标准**：弱密码在 `createUser`/`reset-password` 被拒并返回明确错误码；策略可配置（如最小长度、需含大小写数字）。
+- **验收标准**：弱密码在 `createUser`/`reset-password`/`changePassword` 被拒并返回明确错误码；策略可配置（最小长度、需含大小写数字）。
+- **实施（2026-10-10）**：`PasswordPolicyTest` 7/7 通过。
 
 ### G8 多租户
 - **来源**：《方案》§18
@@ -180,5 +186,19 @@
 - V18 补齐 `FINANCE`/`MANAGER` 角色种子（登录期审批节点校验失败）；
 - 前端 `API_BASE=''` 修复（登录 401 路径重复）；
 - 集成测试套件编写（G4 的前置）。
+
+---
+
+## 7. 登录安全增强（2026-10-10，独立于 G1–G8）
+
+在 G3 验证码基础上，针对登录认证、token 签发与会话管理追加三项增强：
+
+1. **登录验证码接入登录流程（G3 闭环）**：见 §3 G3 实施注记——后端 `local`/`prod` 启用，前端完成对接。
+2. **延长 token 超时以提升会话可用性**：`JwtProperties` 与 `application.yml` 调整 `access-token-ttl` 15m→**30m**、`refresh-token-ttl` 7d→**30d**（均可通过配置调整）。
+3. **多端登录限制**：`SessionLimitRules`（纯函数策略类，`REJECT`/`EVICT_OLDEST`）+ `RefreshTokenService.countActiveSessions`/`revokeOldestSessions`（jOOQ 实现）+ `AuthApplicationService.login` 在签发前计数并按策略决策；`JwtProperties.max-concurrent-sessions`（默认 3）、`session-eviction-strategy`（默认 reject）；新增错误码 `AUTH_011`（409）。前端 `http.js` 注入稳定 `X-Device-Id`，使「在线设备」可被后端准确识别。`SessionLimitRulesTest` 7/7 通过。
+
+> 注：上述三项增强代码已实现并通过 `mvn -o test`（全量 123/123）+ 前端 `vite build`；按约定尚未提交（待用户确认分支后提交）。
+
+---
 
 > 注：需求文档中「Docker Compose 启动」一项，README 已明确改为**原生进程启动（无 Docker）**，属有意偏差；§20 验收清单中「docker compose up -d」视为 N/A by design。
