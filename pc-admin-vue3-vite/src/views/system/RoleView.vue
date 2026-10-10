@@ -74,27 +74,30 @@
           <el-input-number v-model="form.sortNo" :min="0" />
         </el-form-item>
 
-        <!-- 角色权限树联动：菜单树 + 接口资源树，保存时回填 menuIds / apiIds -->
-        <el-form-item label="菜单权限">
-          <div class="tree-panel">
-            <el-tree
-              ref="menuTreeRef"
-              :data="menuTree"
-              :props="{ label: 'menuName', children: 'children' }"
-              node-key="id"
-              show-checkbox
-            />
+        <!-- 权限树：菜单与接口整合为单棵权限树，接口归入所属菜单之下。
+             勾选菜单默认勾选其下接口权限；可单独取消某接口；保存时分别回填 menuIds / apiIds。 -->
+        <el-form-item label="菜单与接口权限">
+          <div class="perm-toolbar" style="margin-bottom: 8px; display: flex; gap: 4px">
+            <el-button size="small" text type="primary" @click="expandAll">展开全部</el-button>
+            <el-button size="small" text type="primary" @click="collapseAll">折叠全部</el-button>
+            <el-button size="small" text type="primary" @click="checkAll">全选</el-button>
+            <el-button size="small" text @click="clearAll">清空</el-button>
           </div>
-        </el-form-item>
-        <el-form-item label="接口权限">
           <div class="tree-panel">
             <el-tree
-              ref="apiTreeRef"
-              :data="apiTree"
+              ref="permTreeRef"
+              :data="permTree"
               :props="{ label: 'label', children: 'children' }"
               node-key="id"
               show-checkbox
+              check-strictly
+              :expand-on-click-node="false"
+              default-expand-all
+              @check-change="onPermCheckChange"
             />
+          </div>
+          <div style="color: #909399; font-size: 12px; margin-top: 6px">
+            接口已归入对应菜单之下；勾选菜单将默认勾选其下接口权限，也可单独取消某个接口。
           </div>
         </el-form-item>
       </el-form>
@@ -178,10 +181,11 @@ const SUPPORTED_RESOURCES = [
 const loading = ref(false)
 const saving = ref(false)
 const rows = ref([])
-const menuTree = ref([])
-const apiTree = ref([])
-const menuTreeRef = ref()
-const apiTreeRef = ref()
+const permTree = ref([])
+const permTreeRef = ref()
+// 权限树节点 key（前缀 M:/A:）→ 原始数值 id 映射，便于提交时拆分 menuIds / apiIds
+const permMenuId = ref(new Map())
+const permApiId = ref(new Map())
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -218,8 +222,143 @@ const rules = {
   roleName: [{ required: true, message: '请输入角色名称', trigger: 'blur' }]
 }
 
-function buildApiTree(list) {
-  return list.map((a) => ({ id: a.id, label: `${a.httpMethod} ${a.resourceName}` }))
+// ---- 菜单与接口权限整合为单棵权限树 ----
+// 菜单与接口资源通过 permission_code 的「资源前缀」归属：
+//   菜单 permission_code 形如 system:user:read，接口形如 system:user:create，
+//   二者资源前缀均为 system:user，视为同一资源的「菜单」与「接口权限」，接口归入菜单之下。
+// 历史种子数据存在两处命名不一致，用别名对齐：api-resource↔api、department↔org。
+const RESOURCE_ALIASES = {
+  'system:api-resource': 'system:api',
+  'system:department': 'system:org'
+}
+
+/** 从 permission_code 提取资源前缀：system:user:read → system:user；无冒号则原样返回。 */
+function resourceKeyOf(pc) {
+  if (!pc) return null
+  const idx = pc.lastIndexOf(':')
+  return idx > 0 ? pc.substring(0, idx) : pc
+}
+
+// 权限树节点 key 统一加前缀，避免菜单 id 与接口 id 冲突，并用于提交时拆分：
+//   菜单节点 key = 'M:' + menuId；接口节点 key = 'A:' + apiId
+function buildPermissionTree(menus, apis) {
+  permMenuId.value.clear()
+  permApiId.value.clear()
+  const apiByKey = new Map()
+  for (const a of apis || []) {
+    const k = resourceKeyOf(a.permissionCode)
+    if (!k) continue
+    const key = RESOURCE_ALIASES[k] || k
+    if (!apiByKey.has(key)) apiByKey.set(key, [])
+    apiByKey.get(key).push(a)
+  }
+  const usedApiIds = new Set()
+  const makeApiNodes = (list) =>
+    (list || []).map((a) => {
+      const key = 'A:' + a.id
+      permApiId.value.set(key, a.id)
+      return { id: key, apiId: a.id, label: `${a.httpMethod} ${a.resourceName}`, permissionCode: a.permissionCode }
+    })
+  const walk = (nodes) =>
+    (nodes || []).map((n) => {
+      const k = resourceKeyOf(n.permissionCode)
+      const key = k ? RESOURCE_ALIASES[k] || k : null
+      let children = n.children && n.children.length ? walk(n.children) : []
+      if (key && apiByKey.has(key)) {
+        const matched = apiByKey.get(key)
+        matched.forEach((a) => usedApiIds.add(a.id))
+        children = children.concat(makeApiNodes(matched))
+      }
+      const mKey = 'M:' + n.id
+      permMenuId.value.set(mKey, n.id)
+      return { id: mKey, menuId: n.id, label: n.menuName, permissionCode: n.permissionCode, children }
+    })
+  const tree = walk(menus)
+  // 未能归属到任何菜单的接口，归入「其他接口权限」分组，保证仍可勾选
+  const orphans = (apis || []).filter((a) => !usedApiIds.has(a.id))
+  if (orphans.length) {
+    tree.push({ id: 'M:orphan', menuId: null, label: '其他接口权限', children: makeApiNodes(orphans) })
+  }
+  return tree
+}
+
+// 权限树全部 key（菜单 + 接口）
+const allPermKeys = computed(() => {
+  const keys = []
+  const walk = (ns) => ns.forEach((n) => { keys.push(n.id); if (n.children) walk(n.children) })
+  walk(permTree.value)
+  return keys
+})
+
+// 程序化回填（打开弹窗/初始化）期间抑制级联，避免回显时被联动改写
+const programmatic = ref(false)
+// 级联执行期间抑制子节点 check-change 重入
+const cascading = ref(false)
+
+/** 收集节点下所有后代节点 key（用于勾选菜单时级联其下接口与子菜单）。 */
+function collectDescendantKeys(tn) {
+  const keys = []
+  const walk = (n) => {
+    n.childNodes.forEach((c) => {
+      keys.push(c.key)
+      if (c.childNodes && c.childNodes.length) walk(c)
+    })
+  }
+  walk(tn)
+  return keys
+}
+
+/** 权限树 check-change：勾选/取消菜单时，级联其下全部接口与子菜单。接口节点不触发级联。 */
+function onPermCheckChange(data, checked) {
+  if (programmatic.value || cascading.value) return
+  if (!String(data.id).startsWith('M:')) return
+  const tree = permTreeRef.value
+  const tn = tree && tree.getNode(data.id)
+  if (!tn) return
+  cascading.value = true
+  collectDescendantKeys(tn).forEach((k) => tree.setChecked(k, checked, false))
+  cascading.value = false
+}
+
+/** 从已勾选 key 中拆分出 menuIds / apiIds（排除虚拟分组节点）。 */
+function collectCheckedIds(keys) {
+  const menuIds = []
+  const apiIds = []
+  for (const k of keys || []) {
+    const s = String(k)
+    if (s.startsWith('A:')) {
+      const id = permApiId.value.get(s)
+      if (id != null) apiIds.push(id)
+    } else if (s.startsWith('M:')) {
+      const id = permMenuId.value.get(s)
+      if (id != null) menuIds.push(id)
+    }
+  }
+  return { menuIds, apiIds }
+}
+
+// ---- 权限树工具栏：展开/折叠/全选/清空 ----
+function allTreeNodes() {
+  const tree = permTreeRef.value
+  if (!tree || !tree.store) return []
+  if (typeof tree.store._getAllNodes === 'function') return tree.store._getAllNodes()
+  return []
+}
+function expandAll() {
+  allTreeNodes().forEach((n) => { n.expanded = true })
+}
+function collapseAll() {
+  allTreeNodes().forEach((n) => { n.expanded = false })
+}
+function checkAll() {
+  programmatic.value = true
+  permTreeRef.value?.setCheckedKeys(allPermKeys.value)
+  nextTick(() => { programmatic.value = false })
+}
+function clearAll() {
+  programmatic.value = true
+  permTreeRef.value?.setCheckedKeys([])
+  nextTick(() => { programmatic.value = false })
 }
 
 function resetForm() {
@@ -233,8 +372,7 @@ async function load() {
   try {
     const [roles, menus, apis] = await Promise.all([listRoles(), fetchMenuTree(), listApiResources()])
     rows.value = roles
-    menuTree.value = menus
-    apiTree.value = buildApiTree(apis)
+    permTree.value = buildPermissionTree(menus, apis)
     await loadScopeSummaries(roles)
   } finally {
     loading.value = false
@@ -353,8 +491,9 @@ function openCreate() {
   resetForm()
   dialogVisible.value = true
   nextTick(() => {
-    menuTreeRef.value?.setCheckedKeys([])
-    apiTreeRef.value?.setCheckedKeys([])
+    programmatic.value = true
+    permTreeRef.value?.setCheckedKeys([])
+    nextTick(() => { programmatic.value = false })
   })
 }
 
@@ -369,9 +508,15 @@ async function openEdit(row) {
   })
   dialogVisible.value = true
   await nextTick()
-  // 权限树联动回填：勾选该角色已分配的菜单 / 接口
-  menuTreeRef.value?.setCheckedKeys(form.menuIds)
-  apiTreeRef.value?.setCheckedKeys(form.apiIds)
+  // 权限树回填：勾选该角色已分配的菜单 / 接口（统一 key 前缀）
+  // 先置 programmatic 抑制级联，避免「勾选菜单」事件把接口权限改写成全量
+  programmatic.value = true
+  const keys = [
+    ...(detail.menuIds || []).map((id) => 'M:' + id),
+    ...(detail.apiIds || []).map((id) => 'A:' + id)
+  ].filter((k) => permMenuId.value.has(k) || permApiId.value.has(k))
+  permTreeRef.value?.setCheckedKeys(keys)
+  nextTick(() => { programmatic.value = false })
 }
 
 async function onSubmit() {
@@ -379,14 +524,16 @@ async function onSubmit() {
   if (!valid) return
   saving.value = true
   try {
+    const checked = permTreeRef.value ? permTreeRef.value.getCheckedKeys() : []
+    const { menuIds, apiIds } = collectCheckedIds(checked)
     const payload = {
       roleCode: form.roleCode,
       roleName: form.roleName,
       roleType: form.roleType,
       status: form.status,
       sortNo: form.sortNo,
-      menuIds: menuTreeRef.value.getCheckedKeys(),
-      apiIds: apiTreeRef.value.getCheckedKeys()
+      menuIds,
+      apiIds
     }
     if (isEdit.value) {
       await updateRole(form.id, payload)
