@@ -8,6 +8,7 @@ import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
+import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.token.TokenVersionService;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.dto.UpdateUserRequest;
@@ -69,6 +70,8 @@ public class UserService {
         if (request.deptIds() == null || request.deptIds().isEmpty()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "至少归属一个部门");
         }
+        // 密码强度策略：创建用户即要求合规（弱口令 / 复杂度不足直接拒绝）
+        PasswordPolicy.validate(request.password());
         // 校验角色 / 部门存在且可用（逐个走 require* 校验）
         request.roleIds().forEach(this::requireRole);
         request.deptIds().forEach(this::requireOrg);
@@ -132,6 +135,7 @@ public class UserService {
     @Transactional
     public void resetPassword(Long id, String newPassword) {
         SysUserDO user = get(id);
+        PasswordPolicy.validate(newPassword);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setPasswordChangedAt(LocalDateTime.now());
         user.setPasswordExpired(0);

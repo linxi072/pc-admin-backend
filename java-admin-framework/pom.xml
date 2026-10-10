@@ -27,6 +27,11 @@
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.6.0</springdoc.version>
         <jobrunr.version>6.3.4</jobrunr.version>
+        <!-- 集成测试默认跳过：本地 mvn test/verify 不触发 *IT；CI 通过 -DskipITs=false + MySQL 服务容器开启 -->
+        <skipITs>true</skipITs>
+        <!-- OTel SDK 版本（仅 -Potel 激活时使用；默认离线构建不涉及，故不影响 mvn -o） -->
+        <otel.version>1.43.0</otel.version>
+        <otel.instrumentation.version>2.9.0</otel.instrumentation.version>
     </properties>
 
     <dependencies>
@@ -170,6 +175,26 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!--
+              集成测试（*IT / *IntegrationIT）由 failsafe 在 verify 阶段执行。
+              默认 skipITs=true，本地 mvn test/verify 不触发；CI 以 -DskipITs=false 配合 MySQL 服务容器开启。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <skipITs>${skipITs}</skipITs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -180,6 +205,41 @@
       生成结果写入 src/main/java/com/acme.scaffold.jooq 并纳入版本控制。
     -->
     <profiles>
+        <profile>
+            <id>otel</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <dependencies>
+                <!--
+                  G1 增强项：OpenTelemetry 分布式链路 SDK 桥接。
+                  默认构建不启用本 profile（离线仓库未收录 OTel SDK，否则会破坏 mvn -o 离线编译）。
+                  在具备 OTel 构件仓库 / 网络的环境中，激活 -Potel 即可接入 SDK，
+                  将既有 W3C traceparent / MDC traceId 导出至 OTel Collector（Jaeger / Tempo）。
+                  版本需与 spring-boot 3.3.4 兼容，激活前请对齐下方属性。
+                -->
+                <dependency>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-api</artifactId>
+                    <version>${otel.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk</artifactId>
+                    <version>${otel.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-exporter-otlp</artifactId>
+                    <version>${otel.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>io.opentelemetry.instrumentation</groupId>
+                    <artifactId>opentelemetry-spring-boot-starter</artifactId>
+                    <version>${otel.instrumentation.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
         <profile>
             <id>jooq-codegen</id>
             <!--

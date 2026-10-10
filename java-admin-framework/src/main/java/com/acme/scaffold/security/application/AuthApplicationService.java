@@ -6,6 +6,8 @@ import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.config.JwtProperties;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
+import com.acme.scaffold.security.captcha.CaptchaProperties;
+import com.acme.scaffold.security.captcha.CaptchaService;
 import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.error.SecurityErrorCode;
@@ -41,9 +43,20 @@ public class AuthApplicationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProperties jwtProperties;
     private final SecurityContextFacade securityContextFacade;
+    private final CaptchaService captchaService;
+    private final CaptchaProperties captchaProperties;
 
     @Transactional
     public TokenView login(LoginCommand command, String ip, String userAgent, String deviceId) {
+        // 验证码校验优先于密码校验：避免在验证码缺失/错误时消耗登录失败计数导致误锁账号
+        if (captchaProperties.isEnabled()) {
+            if (command.captchaToken() == null || command.captchaAnswer() == null) {
+                throw new BusinessException(SecurityErrorCode.CAPTCHA_REQUIRED, "请先获取并完成验证码");
+            }
+            if (!captchaService.verify(command.captchaToken(), command.captchaAnswer())) {
+                throw new BusinessException(SecurityErrorCode.CAPTCHA_INVALID, "验证码错误或已失效");
+            }
+        }
         SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
                         JooqTables.SYS_USER.field("username", String.class).eq(command.username())));

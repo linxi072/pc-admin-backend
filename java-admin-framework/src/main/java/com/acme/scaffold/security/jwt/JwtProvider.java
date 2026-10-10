@@ -2,6 +2,7 @@ package com.acme.scaffold.security.jwt;
 
 import com.acme.scaffold.security.config.JwtProperties;
 import com.acme.scaffold.security.context.CurrentPrincipal;
+import com.acme.scaffold.security.jwt.JwtKeyRotationService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -13,18 +14,20 @@ import java.util.Date;
 import java.util.UUID;
 
 /**
- * Access Token 签发与解析。使用 HS256，密钥来自配置（Base64 编码）。
+ * Access Token 签发与解析。使用 HS256，密钥来自 {@link JwtKeyRotationService}（支持密钥轮换）。
  * 仅承载非敏感声明：用户 ID、用户名、权限码、角色、tokenVersion。
  */
 @Component
 public class JwtProvider {
 
     private final JwtProperties properties;
+    private final JwtKeyRotationService rotation;
     private final SecretKey key;
 
-    public JwtProvider(JwtProperties properties) {
+    public JwtProvider(JwtProperties properties, JwtKeyRotationService rotation) {
         this.properties = properties;
-        this.key = properties.resolveSigningKey();
+        this.rotation = rotation;
+        this.key = rotation.activeKey();
     }
 
     public String generateAccessToken(CurrentPrincipal principal) {
@@ -34,6 +37,7 @@ public class JwtProvider {
         String authorities = principal.permissions() == null ? "" : String.join(",", principal.permissions());
         String roles = principal.roles() == null ? "" : String.join(",", principal.roles());
         return Jwts.builder()
+                .setHeaderParam("kid", rotation.activeKid())
                 .subject(String.valueOf(principal.userId()))
                 .issuer(properties.getIssuer())
                 .issuedAt(now)
@@ -51,7 +55,10 @@ public class JwtProvider {
 
     public Claims parse(String token) {
         return Jwts.parser()
-                .verifyWith(key)
+                .keyLocator(header -> {
+                    Object kid = header.get("kid");
+                    return rotation.keyFor(kid == null ? null : kid.toString()).orElse(null);
+                })
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

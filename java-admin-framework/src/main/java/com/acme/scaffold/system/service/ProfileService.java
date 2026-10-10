@@ -7,6 +7,7 @@ import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.token.RefreshTokenService;
 import com.acme.scaffold.security.token.SysRefreshTokenDO;
 import com.acme.scaffold.system.dto.BindContactRequest;
@@ -178,6 +179,8 @@ public class ProfileService {
         if (passwordEncoder.matches(request.newPassword(), current.getPasswordHash())) {
             throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "新密码不能与原密码相同");
         }
+        // 密码强度策略：修改密码同样要求合规
+        PasswordPolicy.validate(request.newPassword());
 
         SysUserDO patch = new SysUserDO();
         patch.setPasswordHash(passwordEncoder.encode(request.newPassword()));

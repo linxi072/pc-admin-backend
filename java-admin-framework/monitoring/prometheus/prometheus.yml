@@ -1,0 +1,25 @@
+# Prometheus 抓取配置（G2 原生部署）
+# 应用管理端口 9090 暴露 /actuator/prometheus（见 application.yml management.server.port=9090）。
+# 为避免与 Prometheus 默认 9090 冲突，本进程以 --web.listen-address=:9091 启动。
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: java-admin-framework
+
+rule_files:
+  - "alert-rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["localhost:9093"]
+
+scrape_configs:
+  - job_name: java-admin-framework
+    metrics_path: /actuator/prometheus
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: java-admin-framework

@@ -3,6 +3,7 @@ package com.acme.scaffold.workflow.controller;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.workflow.dto.ApprovalRecordView;
+import com.acme.scaffold.workflow.dto.InstanceDetailView;
 import com.acme.scaffold.workflow.dto.InstanceView;
 import com.acme.scaffold.workflow.dto.StartProcessRequest;
 import com.acme.scaffold.workflow.service.WorkflowService;
@@ -43,5 +44,12 @@ public class InstanceController {
     @PreAuthorize("hasAuthority('workflow:instance:read')")
     public Result<List<ApprovalRecordView>> records(@PathVariable String processInstanceId) {
         return Result.success(workflowService.records(processInstanceId));
+    }
+
+    @Operation(summary = "流程实例详情")
+    @GetMapping("/{processInstanceId}")
+    @PreAuthorize("hasAuthority('workflow:instance:read')")
+    public Result<InstanceDetailView> detail(@PathVariable String processInstanceId) {
+        return Result.success(workflowService.detail(processInstanceId));
     }
 }

@@ -39,7 +39,7 @@ public class WebConfig implements WebMvcConfigurer {
         config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("X-Trace-Id"));
+        config.setExposedHeaders(List.of("X-Trace-Id", "traceparent"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

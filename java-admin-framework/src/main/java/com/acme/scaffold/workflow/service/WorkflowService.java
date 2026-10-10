@@ -8,8 +8,10 @@ import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.monitor.BusinessMetrics;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
+import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.workflow.dto.ApprovalRecordView;
 import com.acme.scaffold.workflow.dto.CompleteTaskRequest;
+import com.acme.scaffold.workflow.dto.InstanceDetailView;
 import com.acme.scaffold.workflow.dto.InstanceView;
 import com.acme.scaffold.workflow.dto.StartProcessRequest;
 import com.acme.scaffold.workflow.dto.TaskView;
@@ -221,14 +223,42 @@ public class WorkflowService {
                 .stream().map(this::toInstanceView).collect(Collectors.toList());
     }
 
-    public List<ApprovalRecordView> records(String processInstanceId) {
-        return JooqWriters.fetchList(dsl, JooqTables.WF_APPROVAL_RECORD, WfApprovalRecordDO.class,
+    public List<ApprovalRecordView> records(String processInstanceId) {        return JooqWriters.fetchList(dsl, JooqTables.WF_APPROVAL_RECORD, WfApprovalRecordDO.class,
                         JooqTables.WF_APPROVAL_RECORD.field("process_instance_id", String.class)
                                 .eq(processInstanceId),
                         JooqTables.WF_APPROVAL_RECORD.field("occurred_at", LocalDateTime.class).asc())
                 .stream().map(r -> new ApprovalRecordView(r.getOperationId(), r.getAction(), r.getOperatorUserId(),
                         r.getFromUserId(), r.getToUserId(), r.getOpinion(), r.getOccurredAt()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 实例详情：聚合实例基础信息、发起用户姓名、当前活跃任务与历史审批记录。
+     * 供「流程详情」页一次拉取，避免多次往返。
+     */
+    public InstanceDetailView detail(String processInstanceId) {
+        WfInstanceExtDO ext = JooqWriters.fetchOne(dsl, JooqTables.WF_INSTANCE_EXT, WfInstanceExtDO.class,
+                JooqTables.WF_INSTANCE_EXT.field("process_instance_id", String.class).eq(processInstanceId));
+        if (ext == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "流程实例不存在");
+        }
+        String starterUsername = resolveUsername(ext.getStarterUserId());
+        List<TaskView> currentTasks = engine.activeTasks(processInstanceId).stream()
+                .map(t -> new TaskView(t.taskId(), t.processInstanceId(), t.activityId(), t.name(),
+                        "PENDING", t.assigneeUserId(), t.dueAt()))
+                .collect(Collectors.toList());
+        List<ApprovalRecordView> records = records(processInstanceId);
+        return new InstanceDetailView(ext.getProcessInstanceId(), ext.getBusinessType(), ext.getBusinessId(),
+                ext.getTitle(), ext.getStatus(), ext.getStartedAt(), ext.getFinishedAt(),
+                ext.getStarterUserId(), starterUsername, ext.getCurrentActivityId(), currentTasks, records);
+    }
+
+    private String resolveUsername(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        return user == null ? null : user.getUsername();
     }
 
     private boolean existsOperation(String operationId) {

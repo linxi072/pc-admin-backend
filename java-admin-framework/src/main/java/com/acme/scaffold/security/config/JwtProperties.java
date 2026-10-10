@@ -25,6 +25,15 @@ public class JwtProperties {
     private int maxLoginFailures = 5;
     private Duration lockDuration = Duration.ofMinutes(15);
 
+    /** 当前生效密钥的 kid（JWT 头 kid 声明）。默认 "1"。 */
+    private String keyId = "1";
+
+    /** 上一版本密钥的 kid，仅用于校验旧 token（轮换过渡期）。默认 "0"。 */
+    private String previousKeyId = "0";
+
+    /** 上一版本密钥（Base64 编码、≥256 位）；留空表示未启用密钥轮换。 */
+    private String previousJwtSecret;
+
     public String getIssuer() {
         return issuer;
     }
@@ -81,8 +90,33 @@ public class JwtProperties {
         this.lockDuration = lockDuration;
     }
 
+    public String getKeyId() {
+        return keyId;
+    }
+
+    public void setKeyId(String keyId) {
+        this.keyId = keyId;
+    }
+
+    public String getPreviousKeyId() {
+        return previousKeyId;
+    }
+
+    public void setPreviousKeyId(String previousKeyId) {
+        this.previousKeyId = previousKeyId;
+    }
+
+    public String getPreviousJwtSecret() {
+        return previousJwtSecret;
+    }
+
+    public void setPreviousJwtSecret(String previousJwtSecret) {
+        this.previousJwtSecret = previousJwtSecret;
+    }
+
     private static final Logger log = LoggerFactory.getLogger(JwtProperties.class);
     private SecretKey signingKey;
+    private SecretKey previousSigningKey;
 
     /**
      * 解析 HS256 签名密钥，全程不使用任何硬编码默认值。
@@ -107,5 +141,15 @@ public class JwtProperties {
             }
         }
         return signingKey;
+    }
+
+    /**
+     * 解析上一版本签名密钥（用于轮换过渡期校验旧 token）。未配置 {@code previousJwtSecret} 时返回 null。
+     */
+    public SecretKey resolvePreviousSigningKey() {
+        if (previousSigningKey == null && StringUtils.hasText(previousJwtSecret)) {
+            previousSigningKey = Keys.hmacShaKeyFor(Base64.getDecoder().decode(previousJwtSecret));
+        }
+        return previousSigningKey;
     }
 }

@@ -1,0 +1,39 @@
+# Alertmanager 配置（G2 原生部署）
+# 启动：alertmanager --config.file=alertmanager.yml
+global:
+  resolve_timeout: 5m
+  # 以下 SMTP / webhook 为占位，请按实际环境替换
+  smtp_smarthost: "localhost:25"
+  smtp_from: "alertmanager@java-admin-framework.local"
+
+route:
+  receiver: default-webhook
+  group_by: ["alertname", "service", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - match:
+        severity: critical
+      receiver: critical-webhook
+      continue: true
+
+receivers:
+  - name: default-webhook
+    webhook_configs:
+      - url: "http://localhost:5001/alerts"   # 占位：替换为实际告警网关
+        send_resolved: true
+  - name: critical-webhook
+    webhook_configs:
+      - url: "http://localhost:5001/critical" # 占位：替换为实际高优告警通道（如企业微信/钉钉/Slack）
+        send_resolved: true
+    email_configs:
+      - to: "oncall@java-admin-framework.local"
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: "critical"
+    target_match:
+      severity: "warning"
+    equal: ["alertname", "service"]
