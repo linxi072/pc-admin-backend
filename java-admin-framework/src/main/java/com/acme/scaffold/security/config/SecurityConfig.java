@@ -41,6 +41,9 @@ public class SecurityConfig {
             new AntPathRequestMatcher("/api/auth/login", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/api/auth/refresh", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/api/auth/captcha", HttpMethod.GET.name()),
+            // 健康探针（k8s 风格）：liveness/readiness 不应要求鉴权
+            new AntPathRequestMatcher("/livez", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/readyz", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/v3/api-docs/**"),
             new AntPathRequestMatcher("/swagger-ui/**"),
             new AntPathRequestMatcher("/swagger-ui.html"),
