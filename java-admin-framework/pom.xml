@@ -199,10 +199,11 @@
     </build>
 
     <!--
-      jOOQ 代码生成 profile（设计 §15）。
+      jOOQ 代码生成 profile（设计 §15）：作为「并行层」探索，不替换手写动态 DSL。
       常规离线构建不需要此 profile；仅当数据库表结构（Flyway 迁移）变更后，
-      联网执行 `mvn -Pjooq-codegen generate-sources` 重新生成实体/DAO/查询接口。
-      生成结果写入 src/main/java/com/acme.scaffold.jooq 并纳入版本控制。
+      联网执行 `mvn -Pjooq-codegen generate-sources` 重新生成实体/DAO/查询接口，
+      落入独立包 com.acme.scaffold.jooqgen（与手写 DSL com.acme.scaffold.jooq 并行共存）。
+      全量替换手写 DSL 属高风险改造，需真实库验证 + 风险评审，当前暂缓。
     -->
     <profiles>
         <profile>

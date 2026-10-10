@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
-  jOOQ 代码生成配置（设计 §15：以代码生成替换手写动态 DSL）。
+  jOOQ 代码生成配置（设计 §15：作为「并行层」探索，不替换手写动态 DSL）。
+
+  重要：本配置生成到独立包 com.acme.scaffold.jooqgen，而非手写 DSL 所在的
+  com.acme.scaffold.jooq（JooqTables / TableRef）。二者并存、互不覆盖；
+  生产数据访问主线仍为手写动态 DSL。将生成代码全面替换手写 DSL 属高风险改造，
+  需真实库验证 + 风险评审，当前暂缓（见需求差距分析文档 A6 / G5a 注记）。
 
   数据源：Flyway 迁移脚本（src/main/resources/db/migration/V1~V16），
   通过 org.jooq.meta.extensions.ddl.DDLDatabase 直接解析 DDL，
   无需连接数据库、无需 Docker。
 
-  触发方式（需联网拉取 jooq-codegen / jooq-meta-extensions / h2）：
+  触发方式（需联网拉取 jooq-codegen / jooq-meta-extensions / h2，离线仓库未收录）：
       mvn -Pjooq-codegen generate-sources
-  生成结果直接写入 src/main/java/com/acme/scaffold/jooq/ 并纳入版本控制，
+  生成结果写入 src/main/java/com/acme/scaffold/jooqgen/ 并纳入版本控制，
   因此常规离线构建（mvn -o compile）可直接使用已提交生成代码，无需联网重跑。
 
   表/列/类型与迁移脚本严格一致；新增迁移后再次执行上述命令即可刷新。
@@ -60,8 +65,8 @@
         </generate>
 
         <target>
-            <packageName>com.acme.scaffold.jooq</packageName>
-            <!-- 直接生成进源码树，纳入版本控制，支持离线编译 -->
+            <packageName>com.acme.scaffold.jooqgen</packageName>
+            <!-- 生成进独立包，纳入版本控制，支持离线编译；与手写 DSL（com.acme.scaffold.jooq）并行共存 -->
             <directory>src/main/java</directory>
         </target>
     </generator>
