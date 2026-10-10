@@ -65,7 +65,8 @@
   2. 一次登录→菜单查询→DB 查询在追踪后端呈现为同一 trace 下的父子 span；
   3. `traceId` 同时出现在日志与 span，可双向跳转。
 
-- **实施（2026-10-10）**：实现 W3C `traceparent` 传播层（`observability/TraceContext` 纯函数 + `TraceIdFilter` 延续上游链路并写回 `traceparent`/`X-Trace-Id` 响应头，MDC `traceId` 与 W3C traceId 对齐，审计日志/`Result`/异常处理器共用），`TraceContextTest` 9/9 通过；`pom.xml` 增加非激活 `otel` profile（`-Potel`）作为 OTel SDK 桥接位。OTel Collector 导出待具备环境后开启（验收 1/2 属 SDK 接入，当前以 W3C 传播层 + 单元验证闭环）。
+- **实施（2026-10-10）**：实现 W3C `traceparent` 传播层（`observability/TraceContext` 纯函数 + `TraceIdFilter` 延续上游链路并写回 `traceparent`/`X-Trace-Id` 响应头，MDC `traceId` 与 W3C traceId 对齐，审计日志/`Result`/异常处理器共用），`TraceContextTest` 9/9 通过；`pom.xml` 增加非激活 `otel` profile（`-Potel`）作为 OTel SDK 桥接位。
+- **A1 导出器（2026-10-10 追加）**：离线仓库无 `opentelemetry-sdk` jar，故**不引入官方 SDK**，改为零依赖实现 OTLP/HTTP 导出器——`observability/export/` 包：`OtlpSpan`（span 模型）、`OtlpSpanSerializer`（纯函数 OTLP/HTTP v1 JSON 序列化，与官方 schema 对齐）、`SpanExporter` 接口、`OtlpSpanExporter`（JDK `HttpClient` POST 至 `otlp.endpoint`，默认关闭）、`ObservabilityProperties`、`OtlpTracingFilter`（`@Order` 在 `TraceIdFilter` 之后运行，导出 server span，traceId 与 MDC 对齐）。`ObservabilityConfig` 注册 exporter bean。**验收 1（SDK 接入）以零依赖导出器替代**；验收 2（完整父子 span 链路）需在追踪后端（Tempo/Jaeger）观察，导出器默认关闭、配置 `observability.otlp.enabled: true` 即可点亮。3 个单测（`OtlpSpanSerializerTest`/`OtlpSpanExporterTest`/`OtlpTracingFilterTest`）覆盖。
 
 ### G2 Grafana 仪表盘 + Alertmanager 告警规则
 - **来源**：《方案》§15 阶段 4
@@ -77,6 +78,7 @@
   3. 在原生进程环境触发一条告警可被 Alertmanager 接收。
 
 - **实施（2026-10-10）**：提供 `monitoring/` 原生部署产物——`prometheus/prometheus.yml`（scrape 应用 9090/actuator/prometheus）、`prometheus/alert-rules.yml`（错误率>1% / P99>800ms / 老年代>80% / 连接池>85% / JobRunr 失败>0 共 5 条）、`alertmanager/alertmanager.yml`（路由+接收端占位）、`grafana/provisioning`（数据源+看板自动加载）、`grafana/dashboards/*.json` 五块看板（JVM/HTTP/HikariCP/工作流/调度）、`monitoring/README.md`。验收 1/2 以配置交付，验收 3 需在原生环境注入高错误率验证。
+- **A2 应用内接收端（2026-10-10 追加）**：验收 3「告警被 Alertmanager 接收」原依赖外部网关（沙箱无）。改为**应用内接收端**：`monitor/alert/` 包——`AlertPayload`（Alertmanager webhook 体）、`AlertInboxEntry`、`AlertReceivedEvent`、`AlertReceiverService`（内存收件箱 + 事件发布，容量裁剪）、`AlertWebhookController`（`POST /api/monitoring/alerts/webhook`，可选 `X-Alert-Token` 校验；`GET /webhook/inbox` 查收件箱）、`AlertProperties`、`MonitoringConfig`；并将 `monitoring/alertmanager/alertmanager.yml` 的 webhook URL 指向应用该接收端。验收 3 无需外部网关即可在原生环境闭环（Alertmanager → 应用接收端 → 收件箱可查）。2 个单测（`AlertReceiverServiceTest`/`AlertWebhookControllerTest`）覆盖。
 
 ### G3 登录验证码
 - **来源**：《方案》§9（`sys.captcha.enabled` 已种子）、§5.3 安全基线
@@ -100,10 +102,10 @@
 - **实施（2026-10-10）**：新增 `.github/workflows/ci.yml`——push/PR 触发；`build-and-unit-test` 作业运行 `mvn -B test`（surefire *Test，116 用例全绿）；`integration-test` 作业以 MySQL 8.4 服务容器 + env 覆盖 datasource、`mvn -B verify -DskipITs=false` 运行 failsafe *IT（Flyway 自动建表）；`sca` 作业以 OWASP dependency-check 作非阻塞 advisory。`pom.xml` 增加 `maven-failsafe-plugin` 与 `skipITs` 属性（默认 true，本地 `mvn test/verify` 不受影响）。
 
 ### G5 生产加固（§15 阶段 5 多项）
-- **G5a 密钥轮换**：已实现——`JwtKeyRotationService`（kid 解析、active/previous 双密钥）+ `RotatingJwtDecoder`，JWT 头带 `kid`；`JwtProperties` 支持 `previousJwtSecret` 宽限期。（外部密钥管理 Vault 未接入，属后续项。）
-- **G5b 速率限制 / 防重放**：已实现——`RateLimitFilter` 对 `/api/auth/login`、`/api/auth/refresh` 按客户端 IP 固定窗口限流（默认 60s/10 次，超限 429 `AUTH_010`）；请求级 nonce/时间戳防重放未实现（属增强项）。
+- **G5a 密钥轮换 + 外部密钥源**：密钥轮换已实现——`JwtKeyRotationService`（kid 解析、active/previous 双密钥）+ `RotatingJwtDecoder`，JWT 头带 `kid`；`JwtProperties` 支持 `previousJwtSecret` 宽限期。**A4 外部密钥源（2026-10-10 追加）**：离线仓库无 Spring Cloud Vault jar，故**不引入该依赖**，改为零依赖实现——`security/secret/` 包：`SecretProvider` 接口、`LocalSecretProvider`（回退到环境变量/配置）、`VaultSecretProvider`（JDK `HttpClient` 调 Vault KV v2 API `GET /v1/{mount}/data/{path}`，解析 `data.data`）、`SecretProperties`、`SecretResolver`（可测 helper）、`SecretBootstrap`（`@PostConstruct` 在 `vault` 模式下解析 JWT 密钥写入 `JwtProperties`，`local` 模式无操作）；`JwtDecoderConfig.jwtDecoder` 加 `@DependsOn("secretBootstrap")` 保证密钥先于解码器就绪。`application.yml` 增 `secret.*` 配置（默认 `local`）。3 个单测（`VaultSecretProviderTest`/`LocalSecretProviderTest`/`SecretResolverTest`）覆盖，含 Vault 响应解析与失败降级。
+- **G5b 速率限制 / 防重放**：已实现——`RateLimitFilter` 对 `/api/auth/login`、`/api/auth/refresh` 按客户端 IP 固定窗口限流（默认 60s/10 次，超限 429 `AUTH_010`）；请求级 anti-replay（nonce + 客户端时间戳）**现已实现**：`AntiReplayFilter`（+ `ReplayProtectionRules` 纯校验 + `ReplayNonceService` 内存存储），opt-in 由 `auth.anti-replay.enabled` 控制（默认 false），需携带请求头 `X-Request-Timestamp`（epoch ms，须在 ±max-clock-skew-millis 内）与 `X-Request-Nonce`（在 nonce-ttl-seconds 内单次有效）；错误码 `AUTH_012`/`AUTH_013`。故 G5b 的 nonce/时间戳防重放部分**现已 DONE（opt-in）**。
 - **G5c 上传安全**：**N/A**——项目无文件上传接口，无需校验。
-- **G5d 依赖 SCA**：部分实现——CI（`ci.yml`）`sca` 作业接入 OWASP dependency-check 作非阻塞 advisory；定期自动扫描未配置。
+- **G5d 依赖 SCA**：部分实现——CI（`ci.yml`）`sca` 作业接入 OWASP dependency-check 作非阻塞 advisory；新增 `.github/workflows/security-scan-scheduled.yml` 提供**定期自动扫描**：`cron "0 3 * * 1"`（每周一 03:00）+ 手动 `workflow_dispatch`，独立于 ci.yml，与按需 `sca` 作业互补。故**周期性 SCA 现已 DONE**。
 - **G5e 压测/容量基线、故障注入、回滚预案、备份恢复演练**：**N/A（沙箱）**——需原生环境执行，当前无记录。
 - **验收标准**：密钥轮换演练有记录；限流在压测下生效；上传拒绝非法文件；SCA 无高危；回滚/备份演练通过。（注：G5c 因无上传接口不适用；G5e 待原生环境补充。）
 
@@ -128,6 +130,7 @@
 - **来源**：《方案》§18
 - **现状**：`tenant_id` 字段预留但无租户解析 / SQL 隔离 / 缓存隔离 / 测试矩阵；设计已声明「真正启用前需补充」。
 - **决策**：**当前明确不启用**，列为范围外。如需启用须独立规划（不在本分阶段方案内）。
+- **G8 范围外确认（2026-10-10 追加）**：经复核《方案》§18 与现有 `tenant_id` 预留状态，维持「范围外」结论。本次**不新增任何多租户代码**（无租户解析、无 SQL/缓存隔离、无测试矩阵）——任何上述实现均属重大变更且需独立设计评审，故仅记录决策、不产生代码。
 
 ---
 
@@ -198,6 +201,22 @@
 3. **多端登录限制**：`SessionLimitRules`（纯函数策略类，`REJECT`/`EVICT_OLDEST`）+ `RefreshTokenService.countActiveSessions`/`revokeOldestSessions`（jOOQ 实现）+ `AuthApplicationService.login` 在签发前计数并按策略决策；`JwtProperties.max-concurrent-sessions`（默认 3）、`session-eviction-strategy`（默认 reject）；新增错误码 `AUTH_011`（409）。前端 `http.js` 注入稳定 `X-Device-Id`，使「在线设备」可被后端准确识别。`SessionLimitRulesTest` 7/7 通过。
 
 > 注：上述三项增强代码已实现并通过 `mvn -o test`（全量 123/123）+ 前端 `vite build`；按约定尚未提交（待用户确认分支后提交）。
+
+---
+
+## 8. A1/A2/A4/A6/G8 增强实现（2026-10-10 追加）
+
+在 G1–G8 基础上，针对原「环境依赖/风险较高」而被暂缓的若干项，采用**零依赖、离线可编译可测试**的实现策略补齐（不引入沙箱离线仓库缺失的 `opentelemetry-sdk` / `spring-cloud-vault` / `jooq-codegen` 等 jar）。
+
+| 项 | 目标 | 实现策略（零依赖离线可编译） | 新增文件 | 测试 | 离线限制 / 后续步骤 |
+|---|---|---|---|---|---|
+| **A1** OTel SDK 导出 | 将 span 导出至 OTLP 后端 | 自研 `observability/export/`：纯函数 `OtlpSpanSerializer`（OTLP/HTTP JSON）+ JDK `HttpClient` `OtlpSpanExporter` + `OtlpTracingFilter`（在 `TraceIdFilter` 之后导出 server span），默认关闭，配置 `observability.otlp.enabled:true` 点亮 | `OtlpSpan`/`OtlpSpanSerializer`/`SpanExporter`/`OtlpSpanExporter`/`ObservabilityProperties`/`OtlpTracingFilter` | `OtlpSpanSerializerTest`/`OtlpSpanExporterTest`/`OtlpTracingFilterTest` | 不依赖官方 SDK；验收 2 完整链路需在 Tempo/Jaeger 观察 |
+| **A2** Alertmanager 接收端 | 验收 3「告警被接收」闭环 | 应用内 `monitor/alert/`：`AlertWebhookController`（`POST /api/monitoring/alerts/webhook`，可选 Token）+ `AlertReceiverService`（内存收件箱+事件）+ `MonitoringConfig`；`alertmanager.yml` webhook 指向应用 | `AlertPayload`/`AlertInboxEntry`/`AlertReceivedEvent`/`AlertReceiverService`/`AlertWebhookController`/`AlertProperties`/`MonitoringConfig` | `AlertReceiverServiceTest`/`AlertWebhookControllerTest` | 无需外部网关即可闭环 |
+| **A4** 外部密钥源 (Vault/KMS) | JWT 密钥来自外部密钥库 | 零依赖 `security/secret/`：`VaultSecretProvider`（JDK `HttpClient` 调 Vault KV v2）+ `LocalSecretProvider` 回退 + `SecretBootstrap`（`@PostConstruct` 写 `JwtProperties`，`JwtDecoderConfig` 加 `@DependsOn`） | `SecretProvider`/`LocalSecretProvider`/`VaultSecretProvider`/`SecretProperties`/`SecretResolver`/`SecretBootstrap` | `VaultSecretProviderTest`/`LocalSecretProviderTest`/`SecretResolverTest` | 不依赖 Spring Cloud Vault；真实 Vault 接入需本机配置 `secret.vault.*` |
+| **A6** jOOQ codegen | 替换手写 DSL（高风险） | **不替换**，改为并行层：`jooq-codegen.xml` 目标包改为 `com.acme.scaffold.jooqgen`（与手写 `jooq` 并行共存）；`db/codegen/README.md` 说明；`pom.xml` 注释更新 | `db/codegen/README.md`（`jooq-codegen.xml`/`pom.xml` 修改） | —（配置类，无单测） | 生成需联网（`mvn -Pjooq-codegen generate-sources`，h2/jooq-codegen 不在离线仓库）；全量替换 DSL 仍暂缓（需真实库验证+风险评审） |
+| **G8** 多租户 | 范围外 | 维持「范围外」结论，**不新增任何代码** | — | — | 启用须独立规划与设计评审 |
+
+> 设计原则：所有新增实现**不引入沙箱离线仓库缺失的依赖**，全部通过 `mvn -o test` 编译+单测验证；涉及外部系统（OTel Collector / 真实 Vault / jOOQ 代码生成）的能力，均以「配置项 opt-in + 独立说明文档」形式交付，待本机/联网环境点亮，避免污染离线构建稳定性。
 
 ---
 
