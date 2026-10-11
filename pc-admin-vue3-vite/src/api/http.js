@@ -60,3 +60,18 @@ export function request(config) {
   const { method = 'GET', url, params, data, headers } = config
   return realAxios.request({ method, url, params, data, headers })
 }
+
+// 原始请求通道：不经过「拆包」响应拦截，用于文件下载（blob）等需要原始响应的场景
+export const rawAxios = axios.create({ baseURL: API_BASE, timeout: 30000 })
+
+rawAxios.interceptors.request.use((cfg) => {
+  const token = localStorage.getItem('pc_admin_token')
+  if (token) cfg.headers.Authorization = `Bearer ${token}`
+  if (!cfg.headers['X-Device-Id']) cfg.headers['X-Device-Id'] = getDeviceId()
+  return cfg
+})
+
+export function requestRaw(config) {
+  const { method = 'GET', url, params, data, headers } = config
+  return rawAxios.request({ method, url, params, data, headers })
+}

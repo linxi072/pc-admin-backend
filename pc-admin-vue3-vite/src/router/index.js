@@ -112,6 +112,13 @@ const routes = [
         name: 'designer',
         component: () => import('@/views/workflow/WorkflowDesigner.vue'),
         meta: { title: '工作流设计器', permission: 'workflow:definition:update' }
+      },
+      {
+        // 报表管理：独立页面，菜单与权限由后端驱动（permission 仅作文档标注）
+        path: 'report/management',
+        name: 'reportManagement',
+        component: () => import('@/views/ReportManagementView.vue'),
+        meta: { title: '报表管理', permission: 'report:read' }
       }
     ]
   },

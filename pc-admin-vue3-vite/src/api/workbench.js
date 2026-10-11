@@ -15,3 +15,13 @@ import { request } from './http'
  */
 export const workbenchStats = () =>
   request({ method: 'GET', url: '/api/workbench/stats' })
+
+// 报表相关接口已迁移至 ./report.js（reportTypes / reportData / reportExport）
+
+/**
+ * GET /api/workbench/recent-activities -> AuditLogView[]
+ *
+ * 最近动态：当前登录人自己最近的操作记录（最多 limit 条）。响应拦截器已拆包，直接返回数组。
+ */
+export const recentActivities = (limit = 8) =>
+  request({ method: 'GET', url: '/api/workbench/recent-activities', params: { limit } })
