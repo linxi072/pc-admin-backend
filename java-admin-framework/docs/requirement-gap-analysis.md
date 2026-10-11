@@ -23,7 +23,7 @@
 > - **开发中**：代码已就绪但尚未提交仓库，或需原生环境（MySQL / Tempo·Jaeger / Vault / K8s）验证闭环，或仅完成部分（并行层）待后续替换。
 > - **待实现**：尚未启动，或《方案》声明范围外 / 设计 N/A。
 >
-> 数据截至 2026-10-10；git 提交 / 推送由本机执行（沙箱仅完成编码与离线编译验证）。
+> 数据截至 2026-10-10（已同步至 2026-10-10 晚间）；全部已实现代码均已提交并推送至 `origin/feat/V1.0.2`（含 §5.3 安全基线、A1/A2/A4、G1–G7、健康探针、登录安全增强、Metrics 桥接等）。本仓库为离线沙箱编码 + 离线编译验证后由本机推送。
 
 ### ✅ 已实现（Implemented）
 
@@ -59,15 +59,15 @@
 - CI 质量门禁（G4）— `.github/workflows/ci.yml`（单元 + 集成测试接入本机 MySQL）
 - 角色管理权限树整合（最新）— 菜单 + 接口单树、勾选菜单默认勾选接口，前端 `vite build` 通过
 
-### 🚧 开发中（In Progress）
+### 🚧 待原生环境验证（In Progress — Native-Env Verification Only）
 
-- **角色管理权限树整合（提交 / 联调）** — 前端代码完成、build 通过，尚未提交；待本机 commit 至 `feat/V1.0.2` 并运行环境联调确认。
-- **登录安全增强三项（提交）** — 代码完成并通过全量单测（123/123）+ 前端 build，尚未提交；待确认分支后提交。
-- **OTel 完整链路验证** — 导出器（A1）代码就绪，验收 2「完整父子 span 在 Tempo / Jaeger 呈现」需追踪后端 + 配置点亮后观察（预计随原生环境接入完成）。
-- **Alertmanager 告警闭环验证** — A2 应用内接收端已建，验收 3「真实告警被接收」需原生环境注入高错误率触发验证。
-- **外部密钥源真实接入（A4）** — `VaultSecretProvider` 代码完成，真实 Vault 接入需本机配置 `secret.vault.*` 并验证。
-- **jOOQ codegen 全量替换手写 DSL（A6）** — 并行层（目标包 `com.acme.scaffold.jooqgen`）已建，但**全量替换手写 DSL 暂缓**：需真实库验证 + 风险评审；生成需联网（`mvn -Pjooq-codegen generate-sources`），离线仓库暂缺 h2 / jooq-codegen jar。
-- **各增强项 git 提交 / 推送** — A1 / A2 / A4 / 探针 / 登录增强等已实现代码均**未提交**（沙箱无法直推 GitHub），待本机 `git push origin feat/V1.0.2`。
+> 以下各项**代码已完成、单测 / 构建通过、并已提交推送至 `origin/feat/V1.0.2`**；仅「完整链路验证」需在原生环境（MySQL / Tempo·Jaeger / Vault / K8s）点亮配置后观察，沙箱无法闭环。其中「角色管理权限树整合」「登录安全增强三项」等早期标注「未提交」的项，现均已提交推送，已从本清单移除。
+
+- **OTel 完整链路验证（G1/A1）** — 导出器代码已提交；验收 2「完整父子 span 在 Tempo / Jaeger 呈现」需追踪后端 + 配置 `observability.otlp.enabled:true` 点亮后观察。
+- **Alertmanager 告警闭环验证（G2/A2）** — 应用内接收端已提交；验收 3「真实告警被接收」需原生环境注入高错误率触发验证（或本机起 Alertmanager 指向应用 webhook）。
+- **外部密钥源真实接入（A4）** — `VaultSecretProvider` 已提交；真实 Vault 接入需本机配置 `secret.vault.*` 并验证；`local` 模式已可离线运行。
+- **jOOQ codegen 全量替换手写 DSL（A6）** — 并行层（包 `com.acme.scaffold.jooqgen`）已建，但**全量替换手写 DSL 暂缓**：需真实库验证 + 风险评审；生成需联网，离线仓库暂缺 jar。
+- **多租户（G8）** — 范围外，不新增代码（见 §3 G8）。
 
 ### ⬜ 待实现 / 范围外 / N/A（To Be Implemented / Out of Scope）
 
@@ -267,7 +267,7 @@
 2. **延长 token 超时以提升会话可用性**：`JwtProperties` 与 `application.yml` 调整 `access-token-ttl` 15m→**30m**、`refresh-token-ttl` 7d→**30d**（均可通过配置调整）。
 3. **多端登录限制**：`SessionLimitRules`（纯函数策略类，`REJECT`/`EVICT_OLDEST`）+ `RefreshTokenService.countActiveSessions`/`revokeOldestSessions`（jOOQ 实现）+ `AuthApplicationService.login` 在签发前计数并按策略决策；`JwtProperties.max-concurrent-sessions`（默认 3）、`session-eviction-strategy`（默认 reject）；新增错误码 `AUTH_011`（409）。前端 `http.js` 注入稳定 `X-Device-Id`，使「在线设备」可被后端准确识别。`SessionLimitRulesTest` 7/7 通过。
 
-> 注：上述三项增强代码已实现并通过 `mvn -o test`（全量 123/123）+ 前端 `vite build`；按约定尚未提交（待用户确认分支后提交）。
+> 注：上述三项增强代码已实现并通过 `mvn -o test`（全量 123/123）+ 前端 `vite build`，并已提交推送至 `origin/feat/V1.0.2`。
 
 ---
 
@@ -295,3 +295,15 @@
 ---
 
 > 注：需求文档中「Docker Compose 启动」一项，README 已明确改为**原生进程启动（无 Docker）**，属有意偏差；§20 验收清单中「docker compose up -d」视为 N/A by design。
+
+---
+
+## 10. 报表管理与工作台优化（2026-10-10 追加，feat/V1.0.2 待提交）
+
+运营分析能力交付，均经离线验证（`mvn -o test` 纯函数 10 例全绿 + 前端 `vite build` 成功）：
+
+- **报表管理（原「使用报表」重命名）**：`GET /api/report/data?type=USAGE|CATEGORY|STATUS&rangeType=TODAY|LAST_7D|LAST_30D|CUSTOM` 基于 `sys_operation_log` 多维聚合（时间趋势补零、类别 Top10 + 排序、成功/失败状态分布、汇总：访问量/活跃用户数/成功率/模块数/平均耗时），并支持 `module`/`success` 筛选与 `sortBy/order` 排序；另含 `GET /api/report/types` 与 `GET /api/report/export`（CSV 导出）；新包 `workbench/report/*`（ReportRange / ReportQuery / ReportService / ReportController + VO）+ `V19__usage_report_menu.sql`（菜单/接口资源/SUPER_ADMIN 绑定，权限码 `report:read`），并由 `V20__report_management_rename_fix.sql` 兼容历史库重命名。
+- **工作台优化**：`DashboardView` 卡片加图标/趋势、新增「最近动态」面板（`GET /api/workbench/recent-activities`，复用审计查询、按当前登录人收敛）、快捷入口增加「报表管理」、响应式栅格；前端新增 `BaseChart.vue`（ECharts 封装）、`ReportManagementView.vue`（报表管理页：类型 Tab / 筛选 / 排序 / 图表 / 导出）与 `api/report.js`，路由 `/report/management` 注册。
+- **约束遵循**：未新增独立统计表、未改动既有业务/接口/表结构；菜单与权限完全后端驱动，与既有风格一致。
+
+> 提交状态：上述改动与 §5.3/§7/§8/§9 一样，代码已就绪但**尚未本地提交**（沙箱不推送，按用户确认后由本机提交至 `feat/V1.0.2`）。

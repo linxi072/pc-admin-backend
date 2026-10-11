@@ -770,3 +770,51 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 - **本地代理占用端口**：WorkBuddy 沙箱会在 `127.0.0.1:<port>`（IPv4）注入一层 Express 反向代理，  
   直接 `curl 127.0.0.1:<port>` 会命中代理并返回 `{"error":{"code":"AUTH_REQUIRED"...}}`（非本应用响应）。  
   验证时请改走 IPv6 回环直连：`curl http://[::1]:<port>/... --noproxy '*'`。
+
+## 17. 报表管理与工作台优化
+
+运营分析能力：在工作台基础上新增「报表管理」独立模块（原「使用报表」已重命名为「报表管理」），并优化工作台布局与可读性。
+
+### 17.1 数据来源
+
+直接基于 `sys_operation_log`（操作审计日志）聚合，**不新增独立统计表**——审计日志已覆盖
+`module_code / operation_type / operator_id / occurred_at / success / duration_ms`，足以支撑
+访问量、功能使用频次、活跃用户数、成功失败分布等指标（见 §20 审计设计）。
+
+### 17.2 后端接口
+
+| 接口 | 说明 | 权限 |
+| --- | --- | --- |
+| `GET /api/workbench/stats` | 工作台统计卡片（按当前登录人收敛） | 仅认证 |
+| `GET /api/workbench/recent-activities?limit=8` | 当前登录人最近操作记录（脱敏视图） | 仅认证 |
+| `GET /api/report/types` | 报表类型列表（使用统计 / 类别统计 / 状态统计） | `report:read` |
+| `GET /api/report/data?type=&rangeType=TODAY\|LAST_7D\|LAST_30D\|CUSTOM[&start=&end=&module=&success=&sortBy=&order=]` | 报表数据（多维聚合 + 筛选 + 排序） | `report:read` |
+| `GET /api/report/export?...` | 报表数据导出（CSV，UTF-8 BOM） | `report:read` |
+
+报表聚合（`workbench/report/ReportService`）为纯 jOOQ 聚合，支持三类维度：
+- **时间维度（趋势）**：按小时（TODAY）/ 按天（其余）分桶，对窗口内全部桶位补零，前端可直接渲染折线/面积图（`ReportSeriesPointVO` 含 `visits` 与 `activeUsers`）；
+- **类别维度**：按 `module_code` 聚合计数 Top10（`ReportCategoryStatVO`），支持按次数 / 占比 / 名称排序与升/降序；
+- **状态维度**：按 `success` 聚合成功/失败分布（`ReportStatusStatVO`）；
+- **筛选**：可选 `module`（类别）与 `success`（状态）过滤；**汇总**：总量 / 去重活跃用户数 / 成功率 / 涉及模块数 / 平均耗时（`ReportSummaryVO`）。
+
+时间窗解析（`ReportRange#resolve`）与连续补零（`ReportService#fillHourly/fillDaily`）均为
+无 IO 依赖的纯函数，已配套离线单测（13 例全绿）。
+
+### 17.3 菜单与权限（V19 + V20 迁移）
+
+`V19__usage_report_menu.sql` 插入「报表管理」顶级菜单（`route_path=/report/management`、`icon=DataAnalysis`、
+`permission_code=report:read`）与对应接口资源（路径 `/api/report/**`），并绑定 `SUPER_ADMIN(role_id=1)`。
+权限码同时登记于 `sys_menu` 与 `sys_api_resource`，故侧边栏可见性与 `@PreAuthorize` 均生效。
+
+> 为兼容已执行过旧版 V19（菜单名「使用报表」/ 路由 `/report/usage` / 权限 `report:usage:read`）的历史库，
+> 新增 `V20__report_management_rename_fix.sql`（幂等 `UPDATE`）将既有行统一修正为「报表管理 / /report/management / report:read」，
+> 保证重命名后功能逻辑一致、不影响原有业务流程。
+
+### 17.4 前端（pc-admin-vue3-vite）
+
+- 新增 `src/components/BaseChart.vue`：ECharts 封装（init / setOption / resize / dispose），经 npm 依赖引入 `echarts`；
+- 新增 `src/views/ReportManagementView.vue`：报表类型 Tab + 时间范围/类别/状态筛选 + 排序 + 汇总卡片 + 访问趋势图 + 类别分布柱状图 + 状态分布饼图 + 导出 CSV 按钮；
+- 重写 `src/views/DashboardView.vue`：卡片加图标/趋势、新增「最近动态」面板、快捷入口增加「报表管理」、响应式栅格；
+- 路由 `src/router/index.js` 注册 `/report/management`（懒加载，name=reportManagement）；
+- `src/api/report.js` 新增 `reportTypes` / `reportData` / `reportExport`（原 `usageReport` 已迁移至此）。
+
