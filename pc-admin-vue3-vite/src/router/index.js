@@ -119,6 +119,13 @@ const routes = [
         name: 'reportManagement',
         component: () => import('@/views/ReportManagementView.vue'),
         meta: { title: '报表管理', permission: 'report:read' }
+      },
+      {
+        // 定时任务：在线任务管理（列表/启动/暂停/编辑/日志），菜单与权限由后端驱动
+        path: 'job/list',
+        name: 'jobList',
+        component: () => import('@/views/JobListView.vue'),
+        meta: { title: '定时任务', permission: 'job:read' }
       }
     ]
   },

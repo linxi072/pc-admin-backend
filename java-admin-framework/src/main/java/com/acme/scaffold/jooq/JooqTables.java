@@ -139,6 +139,21 @@ public final class JooqTables {
             "operator_name", "request_method", "request_path", "request_summary", "result_summary",
             "result_code", "duration_ms", "ip_address", "trace_id", "success", "occurred_at");
 
+    // ---------------- 定时任务管理（JobRunr 双层架构：配置/日志自管，调度交 JobRunr） ----------------
+
+    /** 定时任务配置表（列名与 V21__job_management.sql 严格一致）。 */
+    public static final TableRef SYS_JOB = new TableRef("sys_job",
+            "id", "tenant_id", "job_name", "job_group", "task_key", "trigger_type", "cron_expression",
+            "interval_value", "interval_unit", "one_time_at", "job_params", "status", "scheduler_ref",
+            "last_fire_time", "next_fire_time", "total_runs", "success_runs", "failure_runs",
+            "last_status", "last_error", "last_duration_ms", "remark",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    /** 定时任务执行日志表（列名与 V21__job_management.sql 严格一致）。 */
+    public static final TableRef SYS_JOB_LOG = new TableRef("sys_job_log",
+            "id", "tenant_id", "job_id", "job_name", "task_key", "trigger_type", "fire_time",
+            "finished_time", "duration_ms", "status", "error_message", "trace_id", "created_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",

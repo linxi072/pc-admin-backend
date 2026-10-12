@@ -9,14 +9,17 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD:}
 
-# 本地开启 JobRunr 内嵌 Dashboard（端口 8000），便于观察任务执行情况
+# 本地开启 JobRunr 内嵌 Dashboard，便于观察任务执行情况
+# 端口可用 JOBRUNR_DASHBOARD_PORT 覆盖（默认 8000）。
+# 注意：Dashboard 为固定端口绑定，若启动报 java.net.BindException: Address already in use，
+# 说明已有实例（旧进程）占用该端口——需先停止旧实例，或换端口启动新实例。
 org:
   jobrunr:
     background-job-server:
       enabled: true
     dashboard:
       enabled: true
-      port: 8000
+      port: ${JOBRUNR_DASHBOARD_PORT:8000}
 
 # 本地开启文档与全部端点（仅本机）
 springdoc:

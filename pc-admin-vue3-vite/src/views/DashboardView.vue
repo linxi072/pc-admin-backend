@@ -71,6 +71,9 @@
             <el-button type="success" @click="go('reportManagement')">
               <el-icon class="btn-icon"><DataAnalysis /></el-icon>报表管理
             </el-button>
+            <el-button type="success" @click="go('jobList')">
+              <el-icon class="btn-icon"><Timer /></el-icon>定时任务
+            </el-button>
           </div>
         </el-card>
         <el-card class="page-card" header="系统信息">
@@ -87,7 +90,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { CircleCheck, CircleClose, DataAnalysis } from '@element-plus/icons-vue'
+import { CircleCheck, CircleClose, DataAnalysis, Timer } from '@element-plus/icons-vue'
 import { workbenchStats, recentActivities } from '@/api/workbench'
 
 const router = useRouter()
