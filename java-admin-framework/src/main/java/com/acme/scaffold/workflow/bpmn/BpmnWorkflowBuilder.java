@@ -135,8 +135,11 @@ public class BpmnWorkflowBuilder {
                 src = "start";
             }
             if (rejectGwOf.containsKey(edge.sourceNodeId())) {
+                // 审批节点的出边整体改源到其驳回网关：正常流转由网关分流，
+                // 驳回流转由网关的条件边承担。flow id 保持 flow_<edgeId> 不变，
+                // 供下方驳回网关默认流直接引用（不得重复新建，否则 XML 元素 id 冲突）。
                 src = rejectGwOf.get(edge.sourceNodeId());
-                approvalNextFlowOf.put(edge.sourceNodeId(), "flow_" + edge.id());
+                approvalNextFlowOf.putIfAbsent(edge.sourceNodeId(), "flow_" + edge.id());
             }
             SequenceFlow sf = new SequenceFlow();
             sf.setId("flow_" + edge.id());
@@ -148,7 +151,8 @@ public class BpmnWorkflowBuilder {
             process.addFlowElement(sf);
 
             if (Boolean.TRUE.equals(edge.isDefault())) {
-                FlowElement fe = process.getFlowElement(edge.sourceNodeId());
+                // 必须用改源后的 src 查找元素：审批节点带驳回策略时该 id 上是驳回网关而非 UserTask
+                FlowElement fe = process.getFlowElement(src);
                 if (fe instanceof ExclusiveGateway gw) {
                     gw.setDefaultFlow("flow_" + edge.id());
                 }
@@ -161,21 +165,31 @@ public class BpmnWorkflowBuilder {
             if (rgId == null) {
                 continue;
             }
-            String nextFlowId = approvalNextFlowOf.getOrDefault(node.id(), "flow_" + node.id() + "_next");
             // task -> reject gateway
             SequenceFlow toRg = new SequenceFlow();
             toRg.setId(node.id() + "_to_rg");
             toRg.setSourceRef(node.id());
             toRg.setTargetRef(rgId);
             process.addFlowElement(toRg);
-            // reject gateway -> normal next (default)
-            SequenceFlow normal = new SequenceFlow();
-            normal.setId(nextFlowId);
-            normal.setSourceRef(rgId);
-            normal.setTargetRef(rejectGwNormalTarget(edges, node.id(), startNodeId));
-            process.addFlowElement(normal);
             ExclusiveGateway rg = (ExclusiveGateway) process.getFlowElement(rgId);
-            rg.setDefaultFlow(nextFlowId);
+            String existingFlowId = approvalNextFlowOf.get(node.id());
+            if (existingFlowId != null) {
+                // 该审批节点的出边已在连线阶段改源到本网关并保留原 flow_<edgeId>，
+                // 此处直接引用为默认流，禁止重复新建（重复元素 id 会导致部署时 XSD 校验失败）；
+                // 设计显式指定默认边时（边循环已设置）以设计为准。
+                if (rg.getDefaultFlow() == null) {
+                    rg.setDefaultFlow(existingFlowId);
+                }
+            } else {
+                // 无出边的兜底（校验器已拦截死路，防御性保留）：合成默认流
+                String nextFlowId = "flow_" + node.id() + "_next";
+                SequenceFlow normal = new SequenceFlow();
+                normal.setId(nextFlowId);
+                normal.setSourceRef(rgId);
+                normal.setTargetRef(rejectGwNormalTarget(edges, node.id(), startNodeId));
+                process.addFlowElement(normal);
+                rg.setDefaultFlow(nextFlowId);
+            }
             // reject gateway -> reject target (condition)
             SequenceFlow reject = new SequenceFlow();
             reject.setId(node.id() + "_rg_reject");
