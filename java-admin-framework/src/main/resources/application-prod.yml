@@ -41,6 +41,9 @@ auth:
     enabled: true
     expire-seconds: 120
     max-number: 20
+    # 乘 / 除操作数上界；运算类型默认四则全集，可收窄为 operators: ADD,SUB
+    mul-max-number: 10
+    operators: ADD,SUB,MUL,DIV
   # 请求级防重放（opt-in）：默认关闭，避免未携带时间戳/nonce 头的既有登录链路（含前端、InstanceIntegrationIT）被阻断。
   # 启用后前端需为每个 /api/auth/login、/api/auth/refresh 请求附带 X-Request-Timestamp 与 X-Request-Nonce 头。
   anti-replay:

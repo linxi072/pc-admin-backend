@@ -9,15 +9,16 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 登录验证码服务：生成「加法运算题」验证码，token→答案 存放于内存（单次有效、带过期）。
+ * 登录验证码服务：生成「四则运算题」验证码（加 / 减 / 乘 / 除，运算符集合可配置），
+ * token→答案 存放于内存（单次有效、带过期）。
  *
  * <p>设计要点：
  * <ul>
  *   <li>token 为一次性：校验成功后即销毁，重放同一 token 无效；</li>
  *   <li>带过期时间（{@link CaptchaProperties#getExpireSeconds()}）；</li>
- *   <li>纯内存存储，适用于单实例；多实例部署可替换为 Redis（按 token 维度共享）。</li>
+ *   <li>纯内存存储，适用于单实例；多实例部署可替换为 Redis（按 token 维度共享）；</li>
+ *   <li>出题与计分委托 {@link ArithmeticRules} 纯函数：减法保证非负、除法保证整除，与 Spring 解耦便于离线单测。</li>
  * </ul>
- * 算法与 Spring 解耦，便于离线单测。
  */
 @Service
 public class CaptchaService {
@@ -30,8 +31,8 @@ public class CaptchaService {
         this.props = props;
     }
 
-    /** 生成结果：token 与问题对外暴露，answer 仅内部用于校验。 */
-    public record Captcha(String token, String question, int answer) {
+    /** 生成结果：token 与问题对外暴露，answer 仅内部用于校验；operator 用于观测与日志。 */
+    public record Captcha(String token, String question, int answer, ArithmeticRules.Operator operator) {
     }
 
     /** 对外视图：仅含 token 与问题，绝不泄露答案。 */
@@ -39,12 +40,11 @@ public class CaptchaService {
     }
 
     public Captcha generate() {
-        int a = random.nextInt(props.getMaxNumber()) + 1;
-        int b = random.nextInt(props.getMaxNumber()) + 1;
-        int answer = a + b;
+        ArithmeticRules.Problem p = ArithmeticRules.draw(
+                random, props.getMaxNumber(), props.getMulMaxNumber(), props.getOperators());
         String token = UUID.randomUUID().toString().replace("-", "");
-        store.put(token, new Entry(answer, Instant.now().plusSeconds(props.getExpireSeconds())));
-        return new Captcha(token, a + " + " + b + " = ?", answer);
+        store.put(token, new Entry(p.answer(), Instant.now().plusSeconds(props.getExpireSeconds())));
+        return new Captcha(token, p.question(), p.answer(), p.op());
     }
 
     /**
