@@ -37,7 +37,11 @@
             <el-button
               v-else link type="warning" :icon="Download"
               :loading="row._publishing" @click="doUnpublish(row)">取消发布</el-button>
-            <el-button link type="primary" :icon="View" @click="previewBpmn(row)">BPMN</el-button>
+            <el-tooltip :content="row.status === 'PUBLISHED' ? '' : '发布后可查看 BPMN'" :disabled="row.status === 'PUBLISHED'">
+              <span>
+                <el-button link type="primary" :icon="View" :disabled="row.status !== 'PUBLISHED'" @click="previewBpmn(row)">BPMN</el-button>
+              </span>
+            </el-tooltip>
             <el-button link type="danger" :icon="Delete" @click="doDelete(row)">删除</el-button>
           </template>
         </el-table-column>
