@@ -2,6 +2,8 @@ package com.acme.scaffold.security.captcha;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -16,12 +18,33 @@ class CaptchaServiceTest {
         return new CaptchaService(props);
     }
 
+    private CaptchaService newService(int expireSeconds, List<ArithmeticRules.Operator> operators) {
+        CaptchaProperties props = new CaptchaProperties();
+        props.setExpireSeconds(expireSeconds);
+        props.setMaxNumber(10);
+        props.setOperators(operators);
+        return new CaptchaService(props);
+    }
+
     @Test
     void generate_returnsTokenAndQuestion() {
         CaptchaService.Captcha c = newService(120).generate();
         assertNotNull(c.token());
-        assertTrue(c.question().contains("+"));
-        assertTrue(c.answer() >= 2);
+        // 四则全集：问题必含某一运算符且以「= ?」结尾
+        assertTrue(c.question().matches("\\d+ [+\\-×÷] \\d+ = \\?"), c.question());
+        assertNotNull(c.operator());
+        assertTrue(c.answer() >= 0);
+    }
+
+    @Test
+    void generate_restrictedOperators_onlyAdd() {
+        // 限定仅加法时应稳定出加法题（随机 50 次均为 +）
+        CaptchaService service = newService(120, List.of(ArithmeticRules.Operator.ADD));
+        for (int i = 0; i < 50; i++) {
+            CaptchaService.Captcha c = service.generate();
+            assertEquals(ArithmeticRules.Operator.ADD, c.operator());
+            assertTrue(c.question().contains("+"), c.question());
+        }
     }
 
     @Test
