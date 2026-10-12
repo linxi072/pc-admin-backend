@@ -818,6 +818,31 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 - 路由 `src/router/index.js` 注册 `/report/management`（懒加载，name=reportManagement）；
 - `src/api/report.js` 新增 `reportTypes` / `reportData` / `reportExport`（原 `usageReport` 已迁移至此）。
 
+### 17.5 统计报表扩展（定时任务执行 / 系统登录 / 接口调用）
+
+在使用视角（USAGE / CATEGORY / STATUS）之外新增三类统计视角，数据源均为既有业务日志、**不新增统计表**：
+
+| 报表类型 | 数据源 | 关键指标 |
+| --- | --- | --- |
+| `JOB_EXEC` 定时任务执行统计 | `sys_job_log` | 执行次数、成功率、失败率、平均/最大/P95 耗时、耗时分布、最近执行明细 |
+| `LOGIN` 系统登录统计 | `sys_login_log` | 登录次数、成功率、活跃登录用户、异常登录记录、登录类型分布 |
+| `API_CALL` 接口调用统计 | `sys_operation_log` | 调用量、错误率、平均/最大/P95 响应时间、响应时间分布、Top 接口明细 |
+
+设计要点：
+
+- **登录日志落库**：新增 `security/log/LoginLogRecorder`（`@Transactional(REQUIRES_NEW)` 独立事务，
+  防止登录失败主事务回滚丢失异常登录记录），在 `AuthApplicationService#login` 各失败分支与成功路径埋点，
+  `failure_code` 取 `SecurityErrorCode#code()`（如 `AUTH_001`）；
+- **关键字筛选**（`ReportQuery#keyword`）：JOB_EXEC→任务名、LOGIN→用户名、API_CALL→请求路径，
+  含 SQL 通配符 `%`/`_` 转义；使用视角忽略；
+- **分布分桶**（`ReportDistributionVO`）：耗时 SQL 侧 `CASE` 聚合（`<100ms / 100-500ms / 500ms-1s / 1s-5s / >5s / 无耗时记录`），
+  登录视角为登录类型分布；占比换算为纯函数 `toDistribution`；
+- **P95 策略**：样本 ≤ 5000 内存精确（最近秩法纯函数 `p95Of`），超过退化为最大值，避免大窗口全量排序；
+- **明细表**（`ReportDetailTableVO`）：列驱动（`columns` + `rows` 字符串映射），
+  最近执行 / 异常登录 / Top 接口统一收敛，前端动态渲染 `el-table`；
+- **CSV 导出分段**：统计视角输出「汇总 + 分布 + 明细 + 趋势」四段，使用视角维持原「汇总 + 类别 + 状态 + 趋势」；
+- **纯函数单测**：`ReportServiceStatsTest` 13 例覆盖分布换算 / P95 / 三序列兼容 / 关键字条件，全量单测 238 例全绿。
+
 ## 21. 在线定时任务管理（JobRunr 双层架构）
 
 提供任务配置（执行时间 / 触发周期 / 任务参数）、启动、暂停、列表与实时状态、执行日志的完整闭环，
