@@ -256,7 +256,8 @@ import { pageUsers } from '@/api/user'
 
 const route = useRoute()
 const router = useRouter()
-const id = Number(route.params.id)
+// 雪花 ID 以字符串透传：后端已按字符串序列化下发，Number() 转换会超出 2^53 精度损失
+const id = route.params.id == null ? null : String(route.params.id)
 
 const def = reactive({ id, processName: '', description: '', status: 'DRAFT', version: 0 })
 const nodes = ref([])
