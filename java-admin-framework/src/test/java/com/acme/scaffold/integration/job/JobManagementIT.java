@@ -20,7 +20,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,32 +62,21 @@ class JobManagementIT extends BaseIntegrationTest {
         }
     }
 
+    /**
+     * 构造请求头。token 为 null 时<b>不</b>设置 Authorization 头——
+     * {@code setBearerAuth(null)} 会发出字面量 "Bearer null"，被 JWT 过滤器判为 Malformed token 直接 401，
+     * 且该短路发生在放行决策之前（曾导致 /api/auth/login 误报 401，排查见 §11）。
+     */
     private HttpHeaders authHeaders(String token) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.setBearerAuth(token);
+        if (token != null) {
+            h.setBearerAuth(token);
+        }
         return h;
     }
 
     private String login() {
-        System.out.println("[DEBUG] baseUrl=" + baseUrl() + " port=" + port);
-        try {
-            System.out.println("[DEBUG] livez=" + rest.getForEntity(baseUrl() + "/livez", String.class).getStatusCode());
-        } catch (Exception e) {
-            System.out.println("[DEBUG] livez ex=" + e.getMessage());
-        }
-        try {
-            ResponseEntity<String> health = rest.exchange(baseUrl() + "/actuator/health", HttpMethod.GET,
-                    new HttpEntity<>(authHeaders(null)), String.class);
-            System.out.println("[DEBUG] health status=" + health.getStatusCode() + " body=" + health.getBody());
-        } catch (Exception e) {
-            System.out.println("[DEBUG] health ex=" + e.getMessage());
-        }
-        ResponseEntity<String> raw = rest.exchange(baseUrl() + "/api/auth/login", HttpMethod.POST,
-                new HttpEntity<>(Map.of("username", "admin", "password", "admin123"), authHeaders(null)),
-                String.class);
-        System.out.println("[DEBUG] login status=" + raw.getStatusCode() + " headers=" + raw.getHeaders()
-                + " body=" + raw.getBody());
         ResponseEntity<Result> resp = rest.exchange(baseUrl() + "/api/auth/login", HttpMethod.POST,
                 new HttpEntity<>(Map.of("username", "admin", "password", "admin123"), authHeaders(null)),
                 Result.class);
@@ -154,12 +142,14 @@ class JobManagementIT extends BaseIntegrationTest {
         assertOk(rest.exchange(baseUrl() + "/api/jobs/" + id, HttpMethod.DELETE,
                 new HttpEntity<>(authHeaders(token)), String.class), "删除");
 
-        // 6. 删除后按同一 id 再操作应业务失败（证明 id 语义精确，未误命中其他记录）
+        // 6. 删除后按同一 id 再操作应 404 + COMMON_404（项目约定：错误码携带 HTTP 语义，
+        //    GlobalExceptionHandler 按 ErrorCode.httpStatus() 返回，前端 reject 分支展示 message）
         ResponseEntity<String> afterDelete = rest.exchange(baseUrl() + "/api/jobs/" + id + "/start",
                 HttpMethod.POST, new HttpEntity<>(authHeaders(token)), String.class);
-        assertEquals(200, afterDelete.getStatusCode().value(), "删除后启动 HTTP 状态");
-        assertFalse(afterDelete.getBody().contains("\"code\":\"0\""),
-                "删除后启动应业务失败: " + afterDelete.getBody());
+        assertEquals(404, afterDelete.getStatusCode().value(), "删除后启动应返回 404");
+        assertNotNull(afterDelete.getBody());
+        assertTrue(afterDelete.getBody().contains("COMMON_404"),
+                "删除后启动应返回 COMMON_404 业务码: " + afterDelete.getBody());
     }
 
     private void assertOk(ResponseEntity<String> resp, String op) {
