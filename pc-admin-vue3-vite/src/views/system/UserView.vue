@@ -2,23 +2,36 @@
   <div>
     <h2 class="page-title">用户管理</h2>
     <el-card class="page-card">
-      <!-- 搜索筛选 -->
+      <!-- 搜索筛选：条件区（上）/ 操作区（下）分区布局 -->
       <div class="toolbar">
-        <el-input
-          v-model="query.username"
-          placeholder="用户名（模糊）"
-          clearable
-          style="width: 180px"
-          @keyup.enter="load"
-        />
-        <el-select v-model="query.status" placeholder="状态" clearable style="width: 140px">
-          <el-option label="启用" value="ACTIVE" />
-          <el-option label="停用" value="DISABLED" />
-        </el-select>
-        <el-button type="primary" :icon="Search" @click="load">查询</el-button>
-        <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-        <span class="spacer" />
-        <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">用户名</span>
+            <el-input
+              v-model="query.username"
+              placeholder="用户名（模糊）"
+              clearable
+              style="width: 180px"
+              @keyup.enter="load"
+            />
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">状态</span>
+            <el-select v-model="query.status" placeholder="状态" clearable style="width: 140px">
+              <el-option label="启用" value="ACTIVE" />
+              <el-option label="停用" value="DISABLED" />
+            </el-select>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Search" @click="load">查询</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+          </div>
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
+          </div>
+        </div>
       </div>
 
       <!-- 列表 -->

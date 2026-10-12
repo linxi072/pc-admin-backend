@@ -47,6 +47,49 @@ body {
   flex: 1;
 }
 
+/* ===== 工具栏分区布局：条件区（上）/ 操作区（下）分层，避免筛选控件与按钮单行堆积 ===== */
+/* flex-basis:100% 兼容两种父容器：div.toolbar 为 flex 行布局时强制两区分行堆叠；
+   el-card.toolbar 内部分区位于块级 card body 中，该属性自然失效保持块级堆叠 */
+.toolbar-filters {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+}
+
+.toolbar-filters .filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-filters .filter-label {
+  color: #8a919f;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.toolbar-actions {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #ebeef5;
+}
+
+.toolbar-actions .action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

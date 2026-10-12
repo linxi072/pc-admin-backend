@@ -12,35 +12,53 @@
       title="调度引擎当前不可用：任务可正常配置，但「启动」将无法生效。请联系管理员检查 JobRunr 配置。"
     />
 
-    <!-- 筛选工具栏 -->
+    <!-- 筛选工具栏：条件区（筛选控件分组）/ 操作区（查询动作与主操作分层） -->
     <el-card class="toolbar" shadow="never">
-      <el-input
-        v-model="query.jobName"
-        placeholder="任务名称"
-        clearable
-        class="filter-item"
-        @keyup.enter="onSearch"
-      />
-      <el-select v-model="query.status" placeholder="全部状态" clearable class="filter-item" @change="onSearch">
-        <el-option label="运行中" value="RUNNING" />
-        <el-option label="已暂停" value="PAUSED" />
-        <el-option label="已完成" value="COMPLETED" />
-      </el-select>
-      <el-select v-model="query.triggerType" placeholder="全部触发类型" clearable class="filter-item" @change="onSearch">
-        <el-option label="cron 表达式" value="CRON" />
-        <el-option label="固定间隔" value="SIMPLE" />
-        <el-option label="单次执行" value="ONE_TIME" />
-      </el-select>
-      <el-select v-model="query.taskKey" placeholder="全部处理器" clearable class="filter-item" @change="onSearch">
-        <el-option v-for="h in handlers" :key="h.key" :label="h.name" :value="h.key" />
-      </el-select>
+      <div class="toolbar-filters">
+        <div class="filter-group">
+          <span class="filter-label">任务名称</span>
+          <el-input
+            v-model="query.jobName"
+            placeholder="任务名称"
+            clearable
+            style="width: 170px"
+            @keyup.enter="onSearch"
+          />
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">状态</span>
+          <el-select v-model="query.status" placeholder="全部状态" clearable style="width: 170px" @change="onSearch">
+            <el-option label="运行中" value="RUNNING" />
+            <el-option label="已暂停" value="PAUSED" />
+            <el-option label="已完成" value="COMPLETED" />
+          </el-select>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">触发类型</span>
+          <el-select v-model="query.triggerType" placeholder="全部触发类型" clearable style="width: 170px" @change="onSearch">
+            <el-option label="cron 表达式" value="CRON" />
+            <el-option label="固定间隔" value="SIMPLE" />
+            <el-option label="单次执行" value="ONE_TIME" />
+          </el-select>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">处理器</span>
+          <el-select v-model="query.taskKey" placeholder="全部处理器" clearable style="width: 170px" @change="onSearch">
+            <el-option v-for="h in handlers" :key="h.key" :label="h.name" :value="h.key" />
+          </el-select>
+        </div>
+      </div>
 
-      <span class="toolbar-actions">
-        <el-button :loading="loading" @click="onSearch">查询</el-button>
-        <el-button @click="reset">重置</el-button>
-        <el-switch v-model="autoRefresh" active-text="自动刷新" inline-prompt class="ml-8" />
-        <el-button type="primary" @click="openCreate">新建任务</el-button>
-      </span>
+      <div class="toolbar-actions">
+        <div class="action-buttons">
+          <el-button :loading="loading" @click="onSearch">查询</el-button>
+          <el-button @click="reset">重置</el-button>
+          <el-switch v-model="autoRefresh" active-text="自动刷新" inline-prompt />
+        </div>
+        <div class="action-buttons">
+          <el-button type="primary" @click="openCreate">新建任务</el-button>
+        </div>
+      </div>
     </el-card>
 
     <!-- 列表 -->
@@ -578,9 +596,6 @@ onBeforeUnmount(stopTimer)
 
 <style scoped>
 .page-title { margin: 0 0 12px; font-size: 20px; font-weight: 600; }
-.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.filter-item { width: 170px; }
-.toolbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .ml-4 { margin-left: 4px; }
 .ml-8 { margin-left: 8px; }
 .mt-12 { margin-top: 12px; }

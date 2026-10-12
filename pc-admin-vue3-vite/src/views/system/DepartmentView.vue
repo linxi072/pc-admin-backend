@@ -3,16 +3,24 @@
     <h2 class="page-title">部门管理</h2>
     <el-card class="page-card">
       <div class="toolbar">
-        <el-input
-          v-model="keyword"
-          placeholder="搜索部门名称 / 编码"
-          clearable
-          :prefix-icon="Search"
-          style="width: 240px"
-          @clear="keyword = ''"
-        />
-        <span class="spacer" />
-        <el-button type="primary" :icon="Plus" @click="openCreate">新增部门</el-button>
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input
+              v-model="keyword"
+              placeholder="搜索部门名称 / 编码"
+              clearable
+              :prefix-icon="Search"
+              style="width: 240px"
+              @clear="keyword = ''"
+            />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Plus" @click="openCreate">新增部门</el-button>
+          </div>
+        </div>
       </div>
 
       <el-table

@@ -7,62 +7,83 @@
       <el-tab-pane v-for="t in types" :key="t.code" :name="t.code" :label="t.label" />
     </el-tabs>
 
-    <!-- 筛选工具栏：时间范围 + 关键字（统计视角）/ 类别 + 状态 + 排序（使用视角） -->
+    <!-- 筛选工具栏：上「条件区」+ 下「操作区」两行布局，按钮与条件分区展示，避免挤压堆积 -->
     <el-card class="toolbar" shadow="never">
-      <el-radio-group v-model="rangeType" @change="onFilterChange">
-        <el-radio-button value="TODAY">今日</el-radio-button>
-        <el-radio-button value="LAST_7D">近 7 天</el-radio-button>
-        <el-radio-button value="LAST_30D">近 30 天</el-radio-button>
-        <el-radio-button value="CUSTOM">自定义</el-radio-button>
-      </el-radio-group>
-      <el-date-picker
-        v-if="rangeType === 'CUSTOM'"
-        v-model="dateRange"
-        type="daterange"
-        value-format="YYYY-MM-DD"
-        range-separator="至"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        :disabled-date="disableFuture"
-        class="ml-12"
-        @change="onFilterChange"
-      />
-      <!-- 关键字筛选：仅统计视角（任务名 / 用户名 / 请求路径） -->
-      <el-input
-        v-if="isStatView"
-        v-model="keyword"
-        :placeholder="keywordPlaceholder"
-        clearable
-        class="ml-12 filter-item keyword-input"
-        @keyup.enter="load"
-        @clear="load"
-      />
-      <template v-else>
-        <el-select v-model="module" placeholder="全部类别" clearable class="ml-12 filter-item" @change="onFilterChange">
-          <el-option v-for="m in moduleOptions" :key="m.value" :label="m.label" :value="m.value" />
-        </el-select>
-        <el-select v-model="status" placeholder="全部状态" class="ml-12 filter-item" @change="onFilterChange">
-          <el-option label="全部状态" value="" />
-          <el-option label="成功" :value="true" />
-          <el-option label="失败" :value="false" />
-        </el-select>
-        <el-select v-model="sortBy" class="ml-12 filter-item" @change="onFilterChange">
-          <el-option label="按次数" value="COUNT" />
-          <el-option label="按占比" value="RATIO" />
-          <el-option label="按名称" value="NAME" />
-        </el-select>
-        <el-select v-model="order" class="ml-12 filter-item" @change="onFilterChange">
-          <el-option label="降序" value="DESC" />
-          <el-option label="升序" value="ASC" />
-        </el-select>
-      </template>
+      <div class="toolbar-filters">
+        <div class="filter-group">
+          <span class="filter-label">时间范围</span>
+          <el-radio-group v-model="rangeType" @change="onFilterChange">
+            <el-radio-button value="TODAY">今日</el-radio-button>
+            <el-radio-button value="LAST_7D">近 7 天</el-radio-button>
+            <el-radio-button value="LAST_30D">近 30 天</el-radio-button>
+            <el-radio-button value="CUSTOM">自定义</el-radio-button>
+          </el-radio-group>
+          <el-date-picker
+            v-if="rangeType === 'CUSTOM'"
+            v-model="dateRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :disabled-date="disableFuture"
+            class="ml-8"
+            @change="onFilterChange"
+          />
+        </div>
 
-      <span class="toolbar-actions">
-        <el-button type="primary" :loading="loading" @click="load">查询</el-button>
-        <el-button @click="reset">重置</el-button>
-        <el-button type="success" :loading="exporting" @click="download">导出 CSV</el-button>
-      </span>
-      <span class="window-hint">统计窗口：{{ report?.start }} ~ {{ report?.end }}</span>
+        <!-- 关键字筛选：仅统计视角（任务名 / 用户名 / 请求路径） -->
+        <div v-if="isStatView" class="filter-group">
+          <span class="filter-label">关键字</span>
+          <el-input
+            v-model="keyword"
+            :placeholder="keywordPlaceholder"
+            clearable
+            class="keyword-input"
+            @keyup.enter="load"
+            @clear="load"
+          />
+        </div>
+
+        <!-- 类别 / 状态 / 排序：仅使用视角 -->
+        <template v-else>
+          <div class="filter-group">
+            <span class="filter-label">类别</span>
+            <el-select v-model="module" placeholder="全部类别" clearable class="filter-select" @change="onFilterChange">
+              <el-option v-for="m in moduleOptions" :key="m.value" :label="m.label" :value="m.value" />
+            </el-select>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">状态</span>
+            <el-select v-model="status" placeholder="全部状态" class="filter-select" @change="onFilterChange">
+              <el-option label="全部状态" value="" />
+              <el-option label="成功" :value="true" />
+              <el-option label="失败" :value="false" />
+            </el-select>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">排序</span>
+            <el-select v-model="sortBy" class="filter-select" @change="onFilterChange">
+              <el-option label="按次数" value="COUNT" />
+              <el-option label="按占比" value="RATIO" />
+              <el-option label="按名称" value="NAME" />
+            </el-select>
+            <el-select v-model="order" class="filter-select" @change="onFilterChange">
+              <el-option label="降序" value="DESC" />
+              <el-option label="升序" value="ASC" />
+            </el-select>
+          </div>
+        </template>
+      </div>
+
+      <div class="toolbar-actions">
+        <span class="window-hint">统计窗口：{{ report?.start }} ~ {{ report?.end }}</span>
+        <span class="action-buttons">
+          <el-button type="primary" :loading="loading" @click="load">查询</el-button>
+          <el-button @click="reset">重置</el-button>
+          <el-button type="success" :loading="exporting" @click="download">导出 CSV</el-button>
+        </span>
+      </div>
     </el-card>
 
     <el-alert v-if="error" class="mt-12" type="error" show-icon :closable="false" :title="error" />
@@ -447,12 +468,14 @@ onMounted(async () => {
 
 <style scoped>
 .page-title { margin: 0 0 12px; font-size: 20px; font-weight: 600; }
-.type-tabs { margin-bottom: 4px; }
-.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.filter-item { width: 140px; }
-.keyword-input { width: 200px; }
-.toolbar-actions { margin-left: auto; display: flex; gap: 8px; }
-.window-hint { margin-left: 8px; color: #8a919f; font-size: 13px; }
+.type-tabs { margin-bottom: 12px; }
+/* 工具栏分区类（toolbar-filters / filter-group / filter-label / toolbar-actions / action-buttons）
+   已沉淀至全局 styles.css，此处仅保留页面特有规则 */
+.toolbar :deep(.el-card__body) { padding: 14px 18px; }
+.filter-select { width: 140px; }
+.keyword-input { width: 220px; }
+.window-hint { color: #8a919f; font-size: 13px; }
+.ml-8 { margin-left: 8px; }
 .ml-12 { margin-left: 12px; }
 .mt-12 { margin-top: 12px; }
 .mt-16 { margin-top: 16px; }

@@ -4,13 +4,24 @@
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
-        <span class="card-title">动态读取（按配置键）</span>
-        <el-input v-model="readKey" placeholder="输入配置键，如 sys.title" clearable style="width: 260px" @keyup.enter="onRead" />
-        <el-button type="primary" :icon="Search" @click="onRead">读取</el-button>
-        <el-tag v-if="readResult" type="success" class="read-result">
-          {{ readResult.configName }} = {{ readResult.configValue }}（{{ readResult.configType }}）
-        </el-tag>
-        <el-tag v-else-if="readMiss" type="info" class="read-result">未找到该配置键</el-tag>
+        <div class="toolbar-filters">
+          <span class="card-title">动态读取（按配置键）</span>
+          <div class="filter-group">
+            <span class="filter-label">配置键</span>
+            <el-input v-model="readKey" placeholder="输入配置键，如 sys.title" clearable style="width: 260px" @keyup.enter="onRead" />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-tag v-if="readResult" type="success">
+              {{ readResult.configName }} = {{ readResult.configValue }}（{{ readResult.configType }}）
+            </el-tag>
+            <el-tag v-else-if="readMiss" type="info">未找到该配置键</el-tag>
+          </div>
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Search" @click="onRead">读取</el-button>
+          </div>
+        </div>
       </div>
     </el-card>
 

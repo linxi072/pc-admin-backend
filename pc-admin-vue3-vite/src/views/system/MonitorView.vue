@@ -5,16 +5,26 @@
     <!-- 运行指标 -->
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
-        <span class="card-title">服务器与运行状态</span>
-        <span class="spacer" />
-        <el-select v-model="range" style="width: 150px" @change="loadSamples">
-          <el-option label="最近1小时" value="1" />
-          <el-option label="最近6小时" value="6" />
-          <el-option label="最近24小时" value="24" />
-          <el-option label="最近7天" value="168" />
-        </el-select>
-        <el-checkbox v-model="autoRefresh">自动刷新(30s)</el-checkbox>
-        <el-button type="primary" :icon="Refresh" :loading="refreshing" @click="refreshAll">刷新</el-button>
+        <div class="toolbar-filters">
+          <span class="card-title">服务器与运行状态</span>
+          <div class="filter-group">
+            <span class="filter-label">时间范围</span>
+            <el-select v-model="range" style="width: 150px" @change="loadSamples">
+              <el-option label="最近1小时" value="1" />
+              <el-option label="最近6小时" value="6" />
+              <el-option label="最近24小时" value="24" />
+              <el-option label="最近7天" value="168" />
+            </el-select>
+          </div>
+          <div class="filter-group">
+            <el-checkbox v-model="autoRefresh">自动刷新(30s)</el-checkbox>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Refresh" :loading="refreshing" @click="refreshAll">刷新</el-button>
+          </div>
+        </div>
       </div>
 
       <el-row :gutter="16">
@@ -67,16 +77,24 @@
     <!-- 在线用户 -->
     <el-card class="page-card">
       <div class="toolbar">
-        <span class="card-title">在线用户与会话</span>
-        <span class="spacer" />
-        <el-input
-          v-model="sessionKeyword"
-          placeholder="按用户名/姓名筛选"
-          clearable
-          style="width: 220px"
-          @keyup.enter="loadSessions"
-        />
-        <el-button :icon="Search" @click="loadSessions">查询</el-button>
+        <div class="toolbar-filters">
+          <span class="card-title">在线用户与会话</span>
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input
+              v-model="sessionKeyword"
+              placeholder="按用户名/姓名筛选"
+              clearable
+              style="width: 220px"
+              @keyup.enter="loadSessions"
+            />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button :icon="Search" @click="loadSessions">查询</el-button>
+          </div>
+        </div>
       </div>
 
       <el-row :gutter="16" class="online-row">
@@ -120,16 +138,24 @@
     <!-- 异常日志 -->
     <el-card class="page-card">
       <div class="toolbar">
-        <span class="card-title">关键接口 / 任务异常日志</span>
-        <span class="spacer" />
-        <el-input
-          v-model="errQuery.keyword"
-          placeholder="按路径/操作/操作人/traceId"
-          clearable
-          style="width: 240px"
-          @keyup.enter="loadErrors"
-        />
-        <el-button type="primary" :icon="Search" @click="loadErrors">查询</el-button>
+        <div class="toolbar-filters">
+          <span class="card-title">关键接口 / 任务异常日志</span>
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input
+              v-model="errQuery.keyword"
+              placeholder="按路径/操作/操作人/traceId"
+              clearable
+              style="width: 240px"
+              @keyup.enter="loadErrors"
+            />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Search" @click="loadErrors">查询</el-button>
+          </div>
+        </div>
       </div>
 
       <el-table :data="errors" v-loading="errLoading" border stripe @sort-change="onErrorSortChange">

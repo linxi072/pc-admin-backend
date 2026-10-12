@@ -12,10 +12,19 @@
       <el-tab-pane label="我的消息" name="mine">
         <el-card class="page-card">
           <div class="toolbar">
-            <el-checkbox v-model="onlyUnread" @change="onSearch">仅看未读</el-checkbox>
-            <span class="spacer" />
-            <el-button :icon="Select" @click="onReadAll">全部标记已读</el-button>
-            <el-button type="primary" :icon="Promotion" @click="openSend">发送站内信</el-button>
+            <div class="toolbar-filters">
+              <div class="filter-group">
+                <el-checkbox v-model="onlyUnread" @change="onSearch">仅看未读</el-checkbox>
+              </div>
+            </div>
+            <div class="toolbar-actions">
+              <div class="action-buttons">
+                <el-button :icon="Select" @click="onReadAll">全部标记已读</el-button>
+              </div>
+              <div class="action-buttons">
+                <el-button type="primary" :icon="Promotion" @click="openSend">发送站内信</el-button>
+              </div>
+            </div>
           </div>
 
           <el-table :data="list" v-loading="loading" border stripe>

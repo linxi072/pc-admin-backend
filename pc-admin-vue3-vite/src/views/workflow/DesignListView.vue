@@ -3,9 +3,17 @@
     <h2 class="page-title">工作流设计</h2>
     <el-card class="page-card">
       <div class="toolbar">
-        <el-button type="primary" :icon="Plus" @click="openCreate">新建工作流</el-button>
-        <span class="spacer" />
-        <el-input v-model="keyword" placeholder="按流程名称/编码搜索" style="width: 220px" clearable />
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input v-model="keyword" placeholder="按流程名称/编码搜索" style="width: 220px" clearable />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Plus" @click="openCreate">新建工作流</el-button>
+          </div>
+        </div>
       </div>
       <el-table :data="filteredRows" v-loading="loading" border stripe>
         <el-table-column prop="processKey" label="流程编码" width="140" />

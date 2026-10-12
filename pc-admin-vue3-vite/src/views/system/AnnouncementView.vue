@@ -13,21 +13,34 @@
 
     <el-card class="page-card">
       <div class="toolbar">
-        <el-input
-          v-model="query.keyword"
-          placeholder="按标题/内容搜索"
-          clearable
-          style="width: 240px"
-          @keyup.enter="onSearch"
-        />
-        <el-select v-model="query.status" placeholder="状态" clearable style="width: 140px">
-          <el-option label="草稿" value="DRAFT" />
-          <el-option label="已发布" value="PUBLISHED" />
-          <el-option label="已下线" value="OFFLINE" />
-        </el-select>
-        <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-        <span class="spacer" />
-        <el-button type="primary" :icon="Plus" @click="openCreate">新建公告</el-button>
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input
+              v-model="query.keyword"
+              placeholder="按标题/内容搜索"
+              clearable
+              style="width: 240px"
+              @keyup.enter="onSearch"
+            />
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">状态</span>
+            <el-select v-model="query.status" placeholder="状态" clearable style="width: 140px">
+              <el-option label="草稿" value="DRAFT" />
+              <el-option label="已发布" value="PUBLISHED" />
+              <el-option label="已下线" value="OFFLINE" />
+            </el-select>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
+          </div>
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Plus" @click="openCreate">新建公告</el-button>
+          </div>
+        </div>
       </div>
 
       <el-table :data="list" v-loading="loading" border stripe @sort-change="onSortChange">
