@@ -928,4 +928,61 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 - 本机端到端（需 MySQL + 真实启动）：`POST /api/jobs` 建任务 → `POST /api/jobs/{id}/start` 启动 →
   观察 `sys_job_log` 与 `sys_job.next_fire_time` 更新 → `POST /api/jobs/{id}/pause` 后不再产生新日志。
 
+## 22. 代码生成器与验证码四则运算
+
+### 22.1 代码生成器（`codegen` 包）
+
+按数据库表结构生成 CRUD 骨架：**后端六层**（DO / VO / Query / Controller / Service / ServiceImpl）
++ **前端两文件**（Vue 页面 / api.js）。定位为开发提效工具，生成结果是**文本预览**——服务端不落盘，
+由开发者复制或打包 zip 下载后自行入库，业务规则需手工补齐。
+
+| 组件 | 职责 |
+| --- | --- |
+| `TableSchemaService` | 原生 SQL 读 `information_schema.TABLES/COLUMNS`（`DATABASE()` 限定当前库，避免跨库串表） |
+| `JavaTypeMapper` | JDBC 类型 → Java 类型纯函数（`tinyint(1)` → `Boolean` 等），列名 → 字段名/类名推导 |
+| `CodeTemplates` | `renderAll(meta, option, props)` 渲染八类文件；文件头注释由各模板自带（无重复头） |
+| `CodeGenService` | 编排预览 / zip 打包（内存 `ZipOutputStream`，entry 为建议落盘相对路径） |
+| `CodeGenController` | 表清单 / 字段元信息 / 预览 / 下载四端点 |
+| `CodeGenConfig` | `@EnableConfigurationProperties(CodeGenProperties.class)`（包名前缀 / 默认作者 / 前端路径提示） |
+
+**安全边界**：SQL 参数经 jOOQ 绑定；表名仅用于 `WHERE TABLE_NAME = ?` 查询，不参与拼表；
+生成结果仅以文本 / zip 返回，服务端不写业务磁盘，生成器无权改动源码树。
+
+**接口**：
+
+| 方法 | 路径 | 说明 | 权限 |
+| --- | --- | --- | --- |
+| GET | `/api/codegen/tables` | 库内业务表清单（排除视图） | `codegen:read` |
+| GET | `/api/codegen/tables/{tableName}` | 表字段元信息（含 Java 映射） | `codegen:read` |
+| POST | `/api/codegen/preview` | 生成预览（后端六层 + 可选前端两文件） | `codegen:read` |
+| POST | `/api/codegen/download` | zip 打包下载 | `codegen:download` |
+
+**菜单与权限（V22 迁移）**：`V22__codegen_menu.sql` 插入「代码生成」顶级菜单
+（`route_path=/dev/codegen`、`icon=MagicStick`、`permission_code=codegen:read`）与四个接口资源，
+并绑定 `SUPER_ADMIN(role_id=1)`；全部 `INSERT IGNORE` 幂等。
+
+**前端（pc-admin-vue3-vite）**：`src/api/codegen.js`（下载走 `http.js` 的 `requestRaw` blob）；
+`src/views/CodegenView.vue`（表名下拉 + 关键字过滤、模块名/功能名/类名推导、作者、前端生成勾选、
+右侧 el-tabs 多文件预览 + clipboard 复制 + zip 下载，工具栏沿用全局 `toolbar-filters/toolbar-actions` 分区）；
+路由 `dev/codegen`（meta permission `codegen:read`）。
+
+### 22.2 登录验证码四则运算
+
+`security/captcha/ArithmeticRules` 纯函数出题（默认仍受 `auth.captcha.enabled` 开关控制，默认关闭）：
+
+- 运算类型 `Operator`：`ADD` / `SUB` / `MUL` / `DIV`，默认四则全集，配置 `auth.captcha.operators: ADD,SUB` 可收窄；
+- `SUB` 两数随机后**交换保非负**；`DIV` **先定商**再反推被除数，保证整除且除数 ∈ [2, mulMaxNumber]；
+- `MUL` / `DIV` 操作数使用独立上界 `auth.captcha.mul-max-number`（默认 10），避免乘积过大；
+- 加减操作数上界仍为 `auth.captcha.max-number`（默认 20）；问题文本使用 `×` `÷` 符号；
+- `CaptchaService.generate` 改调 `draw(...)`，验证码 record 新增 `operator` 字段，校验链路不变。
+
+### 22.3 验证状态
+
+- 后端 `mvn -o test`：**265/265 全绿**（原 262 + `CodeGenConfigTest` 3 例）；
+- `CodeGenConfigTest` 覆盖 `CodeGenProperties` 注册与绑定回归（`ApplicationContextRunner` 离线验证，
+  曾遗漏 `@EnableConfigurationProperties` 导致启动即注入失败，已修复并经负向验证：移除注解后 3/3 失败）；
+- 生成的 6 个 Java 文件曾以 javac 全量 classpath 实测编译通过；生成的 `.vue` / `.js` 经
+  `@vue/compiler-sfc` 与 `node --check` 校验通过；
+- 前端 `npm run build` 通过（`CodegenView` chunk 7.53 kB，>500kB 警告为既有 ECharts 体积，非本次引入）。
+
 
