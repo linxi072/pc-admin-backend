@@ -183,7 +183,7 @@ public final class JooqTables {
 
     public static final TableRef WF_WORKFLOW_DESIGN = new TableRef("wf_workflow_design",
             "id", "tenant_id", "process_key", "process_name", "description", "status", "version",
-            "nodes_json", "edges_json", "form_schema", "bpmn_xml", "deployment_id",
+            "deleted", "nodes_json", "edges_json", "form_schema", "bpmn_xml", "deployment_id",
             "process_definition_id", "published_by", "published_at", "created_at", "updated_at");
 
     /**

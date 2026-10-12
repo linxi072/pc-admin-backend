@@ -54,8 +54,10 @@ public class WorkflowDesignService {
 
     @Transactional
     public WorkflowDesignView create(CreateDesignRequest req) {
+        // 仅认未删除行：逻辑删除的墓碑行不可见，否则会返回一条随即 404 的设计
         WfWorkflowDesignDO existing = JooqWriters.fetchOne(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                JooqTables.WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(req.processKey()));
+                JooqWriters.notDeleted(JooqTables.WF_WORKFLOW_DESIGN)
+                        .and(JooqTables.WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(req.processKey())));
         if (existing != null) {
             return get(existing.getId());
         }
@@ -100,7 +102,18 @@ public class WorkflowDesignService {
 
     @Transactional
     public void delete(Long id) {
-        requireDraft(id);
+        WfWorkflowDesignDO e = requireDraft(id);
+        // 逻辑删除后墓碑行仍占用 uk_tenant_key(tenant_id, process_key)，
+        // 先给 key 加墓碑后缀释放唯一键：保证同一 processKey 可重新创建，
+        // 内置流程被用户删除后 seeder 也能在下次启动重建（依赖 create 幂等路径）。
+        String suffix = "_del_" + id;
+        String key = e.getProcessKey();
+        String tombstoneKey = key.length() + suffix.length() > 128
+                ? key.substring(0, 128 - suffix.length()) + suffix
+                : key + suffix;
+        WfWorkflowDesignDO patch = new WfWorkflowDesignDO();
+        patch.setProcessKey(tombstoneKey);
+        JooqWriters.updateById(dsl, JooqTables.WF_WORKFLOW_DESIGN, id, patch);
         JooqWriters.delete(dsl, JooqTables.WF_WORKFLOW_DESIGN, id, true);
     }
 
@@ -149,7 +162,8 @@ public class WorkflowDesignService {
 
     public WorkflowDesignView getPublished(String processKey) {
         WfWorkflowDesignDO e = JooqWriters.fetchOne(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                JooqTables.WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(processKey)
+                JooqWriters.notDeleted(JooqTables.WF_WORKFLOW_DESIGN)
+                        .and(JooqTables.WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(processKey))
                         .and(JooqTables.WF_WORKFLOW_DESIGN.field("status", String.class).eq("PUBLISHED")));
         return e == null ? null : toView(e);
     }
