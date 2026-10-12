@@ -23,8 +23,9 @@ import java.util.stream.Collectors;
 /**
  * 报表管理接口。
  *
- * <p>基于审计日志聚合（设计方案 §报表管理）：提供使用统计 / 类别统计 / 状态统计三类视角，
- * 支持按时间范围、类别、状态筛选与排序，并可导出 CSV。</p>
+ * <p>基于业务日志聚合（设计方案 §报表管理）：提供使用 / 类别 / 状态三类使用视角，
+ * 以及定时任务执行 / 系统登录 / 接口调用三类统计视角；支持按时间范围、类别、状态、关键字筛选与排序，
+ * 并可导出 CSV。关键字按报表类型作用于不同字段（任务名 / 用户名 / 请求路径），使用视角忽略。</p>
  *
  * <p><b>权限</b>：须持有 {@code report:read}（由 V19 菜单+接口资源种子、并经 V20 修正授予 SUPER_ADMIN）。
  * 与审计日志一样属于运营分析类敏感数据，故加 {@code @PreAuthorize}；侧边栏菜单亦仅在授权角色下可见。</p>
@@ -47,7 +48,7 @@ public class ReportController {
         return Result.success(list);
     }
 
-    @Operation(summary = "报表数据：按时间范围 / 类别 / 状态聚合（支持筛选与排序）")
+    @Operation(summary = "报表数据：按时间范围 / 类别 / 状态 / 关键字聚合（支持筛选与排序）")
     @GetMapping("/data")
     public Result<ReportVO> data(
             @RequestParam(defaultValue = "USAGE") ReportType type,
@@ -58,9 +59,10 @@ public class ReportController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
             @RequestParam(required = false) String module,
             @RequestParam(required = false) Boolean success,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "COUNT") SortField sortBy,
             @RequestParam(required = false, defaultValue = "DESC") SortOrder order) {
-        ReportQuery query = new ReportQuery(type, rangeType, start, end, module, success, sortBy, order);
+        ReportQuery query = new ReportQuery(type, rangeType, start, end, module, success, keyword, sortBy, order);
         return Result.success(reportService.report(query));
     }
 
@@ -75,9 +77,10 @@ public class ReportController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
             @RequestParam(required = false) String module,
             @RequestParam(required = false) Boolean success,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "COUNT") SortField sortBy,
             @RequestParam(required = false, defaultValue = "DESC") SortOrder order) {
-        ReportQuery query = new ReportQuery(type, rangeType, start, end, module, success, sortBy, order);
+        ReportQuery query = new ReportQuery(type, rangeType, start, end, module, success, keyword, sortBy, order);
         ReportCsvExport export = reportService.exportCsv(query);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

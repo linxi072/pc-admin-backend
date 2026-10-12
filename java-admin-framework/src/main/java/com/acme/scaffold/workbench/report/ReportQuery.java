@@ -17,11 +17,12 @@ import java.time.LocalDate;
  * @param end      自定义范围结束日期（仅 CUSTOM 使用）
  * @param module   类别筛选（module_code，可选；为空表示不筛选）
  * @param success  状态筛选（true=成功 / false=失败，可选；为空表示不筛选）
+ * @param keyword  关键字筛选（按类型作用于不同字段：JOB_EXEC→任务名、LOGIN→用户名、API_CALL→请求路径；其余类型忽略）
  * @param sortBy   类别统计排序字段（默认 COUNT）
  * @param order    排序方向（默认 DESC）
  */
 public record ReportQuery(ReportType type, ReportRange rangeType, LocalDate start, LocalDate end,
-                          String module, Boolean success, SortField sortBy, SortOrder order) {
+                          String module, Boolean success, String keyword, SortField sortBy, SortOrder order) {
 
     public ReportQuery {
         if (rangeType == null) {

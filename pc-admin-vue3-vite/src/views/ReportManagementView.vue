@@ -7,7 +7,7 @@
       <el-tab-pane v-for="t in types" :key="t.code" :name="t.code" :label="t.label" />
     </el-tabs>
 
-    <!-- 筛选工具栏：时间范围 + 类别 + 状态 + 排序 -->
+    <!-- 筛选工具栏：时间范围 + 关键字（统计视角）/ 类别 + 状态 + 排序（使用视角） -->
     <el-card class="toolbar" shadow="never">
       <el-radio-group v-model="rangeType" @change="onFilterChange">
         <el-radio-button value="TODAY">今日</el-radio-button>
@@ -27,23 +27,35 @@
         class="ml-12"
         @change="onFilterChange"
       />
-      <el-select v-model="module" placeholder="全部类别" clearable class="ml-12 filter-item" @change="onFilterChange">
-        <el-option v-for="m in moduleOptions" :key="m.value" :label="m.label" :value="m.value" />
-      </el-select>
-      <el-select v-model="status" placeholder="全部状态" class="ml-12 filter-item" @change="onFilterChange">
-        <el-option label="全部状态" value="" />
-        <el-option label="成功" :value="true" />
-        <el-option label="失败" :value="false" />
-      </el-select>
-      <el-select v-model="sortBy" class="ml-12 filter-item" @change="onFilterChange">
-        <el-option label="按次数" value="COUNT" />
-        <el-option label="按占比" value="RATIO" />
-        <el-option label="按名称" value="NAME" />
-      </el-select>
-      <el-select v-model="order" class="ml-12 filter-item" @change="onFilterChange">
-        <el-option label="降序" value="DESC" />
-        <el-option label="升序" value="ASC" />
-      </el-select>
+      <!-- 关键字筛选：仅统计视角（任务名 / 用户名 / 请求路径） -->
+      <el-input
+        v-if="isStatView"
+        v-model="keyword"
+        :placeholder="keywordPlaceholder"
+        clearable
+        class="ml-12 filter-item keyword-input"
+        @keyup.enter="load"
+        @clear="load"
+      />
+      <template v-else>
+        <el-select v-model="module" placeholder="全部类别" clearable class="ml-12 filter-item" @change="onFilterChange">
+          <el-option v-for="m in moduleOptions" :key="m.value" :label="m.label" :value="m.value" />
+        </el-select>
+        <el-select v-model="status" placeholder="全部状态" class="ml-12 filter-item" @change="onFilterChange">
+          <el-option label="全部状态" value="" />
+          <el-option label="成功" :value="true" />
+          <el-option label="失败" :value="false" />
+        </el-select>
+        <el-select v-model="sortBy" class="ml-12 filter-item" @change="onFilterChange">
+          <el-option label="按次数" value="COUNT" />
+          <el-option label="按占比" value="RATIO" />
+          <el-option label="按名称" value="NAME" />
+        </el-select>
+        <el-select v-model="order" class="ml-12 filter-item" @change="onFilterChange">
+          <el-option label="降序" value="DESC" />
+          <el-option label="升序" value="ASC" />
+        </el-select>
+      </template>
 
       <span class="toolbar-actions">
         <el-button type="primary" :loading="loading" @click="load">查询</el-button>
@@ -69,26 +81,60 @@
         </el-col>
       </el-row>
 
-      <!-- 访问趋势 -->
-      <el-card class="mt-16" header="访问趋势（访问量 / 活跃用户数）">
+      <!-- 趋势（使用视角：访问量/活跃用户；统计视角：主指标/次指标/失败数） -->
+      <el-card class="mt-16" :header="trendTitle">
         <BaseChart :option="trendOption" height="340px" />
       </el-card>
 
-      <el-row :gutter="16" class="mt-16">
-        <!-- 类别分布 -->
-        <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
-          <el-card header="类别分布（模块使用频次 Top 10）">
-            <el-empty v-if="!report.categoryStats.length" description="该筛选条件下暂无数据" />
-            <BaseChart v-else :option="categoryOption" height="420px" />
-          </el-card>
-        </el-col>
-        <!-- 状态分布 -->
-        <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
-          <el-card header="状态分布（成功 / 失败）">
-            <BaseChart :option="statusOption" height="420px" />
-          </el-card>
-        </el-col>
-      </el-row>
+      <template v-if="isStatView">
+        <el-row :gutter="16" class="mt-16">
+          <!-- 分布分桶（耗时 / 响应时间 / 登录类型） -->
+          <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
+            <el-card :header="distributionTitle">
+              <el-empty v-if="!distribution.length" description="该筛选条件下暂无数据" />
+              <BaseChart v-else :option="distributionOption" height="420px" />
+            </el-card>
+          </el-col>
+          <!-- 状态分布 -->
+          <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
+            <el-card header="状态分布（成功 / 失败）">
+              <BaseChart :option="statusOption" height="420px" />
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <!-- 明细表（最近执行 / 异常登录 / Top 接口） -->
+        <el-card class="mt-16" :header="detailsTitle">
+          <el-empty v-if="!detailsRows.length" description="该筛选条件下暂无数据" />
+          <el-table v-else :data="detailsRows" border stripe size="small" max-height="460">
+            <el-table-column
+              v-for="c in detailsColumns"
+              :key="c.key"
+              :prop="c.key"
+              :label="c.label"
+              show-overflow-tooltip
+            />
+          </el-table>
+        </el-card>
+      </template>
+
+      <template v-else>
+        <el-row :gutter="16" class="mt-16">
+          <!-- 类别分布 -->
+          <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
+            <el-card header="类别分布（模块使用频次 Top 10）">
+              <el-empty v-if="!report.categoryStats.length" description="该筛选条件下暂无数据" />
+              <BaseChart v-else :option="categoryOption" height="420px" />
+            </el-card>
+          </el-col>
+          <!-- 状态分布 -->
+          <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
+            <el-card header="状态分布（成功 / 失败）">
+              <BaseChart :option="statusOption" height="420px" />
+            </el-card>
+          </el-col>
+        </el-row>
+      </template>
     </template>
   </div>
 </template>
@@ -108,6 +154,18 @@ const MODULE_LABELS = {
 const labelOf = (code) => MODULE_LABELS[code] || code || '未知'
 const moduleOptions = Object.keys(MODULE_LABELS).map((k) => ({ value: k, label: MODULE_LABELS[k] }))
 
+// 统计视角元数据：主/次指标、失败口径、是否有耗时维度
+const STAT_META = {
+  JOB_EXEC: { main: '执行次数', secondary: '涉及任务数', fail: '失败次数', duration: true, dist: '耗时分布', details: '最近执行明细' },
+  LOGIN: { main: '登录次数', secondary: '活跃登录用户', fail: '失败次数', duration: false, dist: '登录类型分布', details: '异常登录记录' },
+  API_CALL: { main: '调用量', secondary: '涉及端点数', fail: '错误数', duration: true, dist: '响应时间分布', details: 'Top 接口（按调用量）' }
+}
+const KEYWORD_PLACEHOLDERS = {
+  JOB_EXEC: '任务名称关键字',
+  LOGIN: '用户名关键字',
+  API_CALL: '请求路径关键字'
+}
+
 const types = ref([])
 const type = ref('USAGE')
 const rangeType = ref('LAST_7D')
@@ -116,11 +174,28 @@ const module = ref('')
 const status = ref('')
 const sortBy = ref('COUNT')
 const order = ref('DESC')
+const keyword = ref('')
 
 const loading = ref(false)
 const exporting = ref(false)
 const error = ref('')
 const report = ref(null)
+
+const isStatView = computed(() => Object.prototype.hasOwnProperty.call(STAT_META, type.value))
+const statMeta = computed(() => STAT_META[type.value] || null)
+const keywordPlaceholder = computed(() => KEYWORD_PLACEHOLDERS[type.value] || '关键字')
+
+const distribution = computed(() => report.value?.distribution || [])
+const detailsColumns = computed(() => report.value?.details?.columns || [])
+const detailsRows = computed(() => report.value?.details?.rows || [])
+
+const trendTitle = computed(() =>
+  isStatView.value
+    ? `${statMeta.value.main}趋势（${statMeta.value.main} / ${statMeta.value.secondary} / ${statMeta.value.fail}）`
+    : '访问趋势（访问量 / 活跃用户数）'
+)
+const distributionTitle = computed(() => statMeta.value?.dist || '分布')
+const detailsTitle = computed(() => statMeta.value?.details || '明细')
 
 function disableFuture(date) {
   return date.getTime() > Date.now()
@@ -134,8 +209,12 @@ function buildParams() {
       params.end = dateRange.value[1]
     }
   }
-  if (module.value) params.module = module.value
-  if (status.value !== '' && status.value !== null) params.success = status.value
+  if (!isStatView.value) {
+    if (module.value) params.module = module.value
+    if (status.value !== '' && status.value !== null) params.success = status.value
+  } else if (keyword.value && keyword.value.trim()) {
+    params.keyword = keyword.value.trim()
+  }
   return params
 }
 
@@ -147,6 +226,23 @@ function fmtDuration(ms) {
 const summaries = computed(() => {
   const s = report.value?.summary
   if (!s) return []
+  if (isStatView.value) {
+    const meta = statMeta.value
+    const list = [
+      { key: 'visits', label: meta.main, value: s.totalVisits, unit: '次' },
+      { key: 'active', label: meta.secondary, value: s.activeUsers, unit: '人' },
+      { key: 'success', label: '成功率', value: s.successRate, unit: '%' },
+      { key: 'failed', label: meta.fail, value: s.failedVisits, unit: '次' }
+    ]
+    if (meta.duration) {
+      list.push(
+        { key: 'avg', label: '平均耗时', value: fmtDuration(s.avgDurationMs), unit: '' },
+        { key: 'max', label: '最大耗时', value: fmtDuration(s.maxDurationMs), unit: '' },
+        { key: 'p95', label: 'P95 耗时', value: fmtDuration(s.p95DurationMs), unit: '' }
+      )
+    }
+    return list
+  }
   return [
     { key: 'visits', label: '访问量', value: s.totalVisits, unit: '次' },
     { key: 'active', label: '活跃用户数', value: s.activeUsers, unit: '人' },
@@ -158,22 +254,75 @@ const summaries = computed(() => {
 
 const trendOption = computed(() => {
   const trend = report.value?.trend || []
+  const grid = { left: 48, right: 24, top: 40, bottom: 32 }
+  if (!isStatView.value) {
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['访问量', '活跃用户数'] },
+      grid,
+      xAxis: { type: 'category', boundaryGap: false, data: trend.map((p) => p.bucket) },
+      yAxis: { type: 'value' },
+      series: [
+        {
+          name: '访问量', type: 'line', smooth: true, showSymbol: false,
+          areaStyle: { opacity: 0.12 }, itemStyle: { color: '#409eff' },
+          data: trend.map((p) => p.visits)
+        },
+        {
+          name: '活跃用户数', type: 'line', smooth: true, showSymbol: false,
+          areaStyle: { opacity: 0.12 }, itemStyle: { color: '#67c23a' },
+          data: trend.map((p) => p.activeUsers)
+        }
+      ]
+    }
+  }
+  const meta = statMeta.value
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['访问量', '活跃用户数'] },
-    grid: { left: 48, right: 24, top: 40, bottom: 32 },
+    legend: { data: [meta.main, meta.secondary, meta.fail] },
+    grid,
     xAxis: { type: 'category', boundaryGap: false, data: trend.map((p) => p.bucket) },
     yAxis: { type: 'value' },
     series: [
       {
-        name: '访问量', type: 'line', smooth: true, showSymbol: false,
+        name: meta.main, type: 'line', smooth: true, showSymbol: false,
         areaStyle: { opacity: 0.12 }, itemStyle: { color: '#409eff' },
         data: trend.map((p) => p.visits)
       },
       {
-        name: '活跃用户数', type: 'line', smooth: true, showSymbol: false,
+        name: meta.secondary, type: 'line', smooth: true, showSymbol: false,
         areaStyle: { opacity: 0.12 }, itemStyle: { color: '#67c23a' },
         data: trend.map((p) => p.activeUsers)
+      },
+      {
+        name: meta.fail, type: 'line', smooth: true, showSymbol: false,
+        areaStyle: { opacity: 0.08 }, itemStyle: { color: '#f56c6c' },
+        data: trend.map((p) => p.failed)
+      }
+    ]
+  }
+})
+
+const distributionOption = computed(() => {
+  const dist = distribution.value
+  const meta = dist.slice().reverse()
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        const d = meta[params[0].dataIndex]
+        return `${d.label}<br/>数量：${d.count}<br/>占比：${d.ratio}%`
+      }
+    },
+    grid: { left: 96, right: 48, top: 16, bottom: 24 },
+    xAxis: { type: 'value' },
+    yAxis: { type: 'category', data: dist.map((d) => d.label).reverse() },
+    series: [
+      {
+        type: 'bar', data: dist.map((d) => d.count).reverse(), barWidth: '55%',
+        itemStyle: { color: '#e6a23c', borderRadius: [0, 4, 4, 0] },
+        label: { show: true, position: 'right' }
       }
     ]
   }
@@ -265,7 +414,11 @@ async function download() {
 }
 
 function onFilterChange() { load() }
-function onTypeChange() { load() }
+function onTypeChange() {
+  // 切换视角时清空关键字，避免跨类型残留造成空结果困惑
+  keyword.value = ''
+  load()
+}
 function reset() {
   type.value = types.value[0]?.code || 'USAGE'
   rangeType.value = 'LAST_7D'
@@ -274,6 +427,7 @@ function reset() {
   status.value = ''
   sortBy.value = 'COUNT'
   order.value = 'DESC'
+  keyword.value = ''
   load()
 }
 
@@ -294,6 +448,7 @@ onMounted(async () => {
 .type-tabs { margin-bottom: 4px; }
 .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .filter-item { width: 140px; }
+.keyword-input { width: 200px; }
 .toolbar-actions { margin-left: auto; display: flex; gap: 8px; }
 .window-hint { margin-left: 8px; color: #8a919f; font-size: 13px; }
 .ml-12 { margin-left: 12px; }
