@@ -126,6 +126,13 @@ const routes = [
         name: 'jobList',
         component: () => import('@/views/JobListView.vue'),
         meta: { title: '定时任务', permission: 'job:read' }
+      },
+      {
+        // 代码生成：按表结构生成 CRUD 骨架（后端六层 + 前端两文件），菜单与权限由后端驱动
+        path: 'dev/codegen',
+        name: 'codegen',
+        component: () => import('@/views/CodegenView.vue'),
+        meta: { title: '代码生成', permission: 'codegen:read' }
       }
     ]
   },
