@@ -12,6 +12,7 @@ import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.jwt.JwtProvider;
+import com.acme.scaffold.security.log.LoginLogRecorder;
 import com.acme.scaffold.security.password.LockoutRules;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
@@ -51,37 +52,45 @@ public class AuthApplicationService {
     private final CaptchaService captchaService;
     private final CaptchaProperties captchaProperties;
     private final PasswordHistoryService passwordHistoryService;
+    private final LoginLogRecorder loginLogRecorder;
 
     @Transactional
     public TokenView login(LoginCommand command, String ip, String userAgent, String deviceId) {
         // 验证码校验优先于密码校验：避免在验证码缺失/错误时消耗登录失败计数导致误锁账号
         if (captchaProperties.isEnabled()) {
             if (command.captchaToken() == null || command.captchaAnswer() == null) {
-                throw new BusinessException(SecurityErrorCode.CAPTCHA_REQUIRED, "请先获取并完成验证码");
+                throw loginFailure(command.username(), null, SecurityErrorCode.CAPTCHA_REQUIRED,
+                        "请先获取并完成验证码", ip, userAgent);
             }
             if (!captchaService.verify(command.captchaToken(), command.captchaAnswer())) {
-                throw new BusinessException(SecurityErrorCode.CAPTCHA_INVALID, "验证码错误或已失效");
+                throw loginFailure(command.username(), null, SecurityErrorCode.CAPTCHA_INVALID,
+                        "验证码错误或已失效", ip, userAgent);
             }
         }
         SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
                         JooqTables.SYS_USER.field("username", String.class).eq(command.username())));
         if (user == null) {
-            throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
+            throw loginFailure(command.username(), null, SecurityErrorCode.BAD_CREDENTIALS,
+                    "用户名或密码错误", ip, userAgent);
         }
         if (isLocked(user)) {
-            throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
+            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_LOCKED,
+                    "账号已锁定，请稍后再试", ip, userAgent);
         }
         if ("DISABLED".equals(user.getStatus())) {
-            throw new BusinessException(SecurityErrorCode.ACCOUNT_DISABLED, "账号已禁用");
+            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_DISABLED,
+                    "账号已禁用", ip, userAgent);
         }
         if (!passwordEncoder.matches(command.password(), user.getPasswordHash())) {
             handleLoginFailure(user);
-            throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
+            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.BAD_CREDENTIALS,
+                    "用户名或密码错误", ip, userAgent);
         }
         // 设计文档 §5.3：被标记为「需改密」(password_expired=1) 的用户必须先改密再登录
         if (user.getPasswordExpired() != null && user.getPasswordExpired() == 1) {
-            throw new BusinessException(SecurityErrorCode.MUST_CHANGE_PASSWORD, "请修改初始/重置密码后再登录");
+            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.MUST_CHANGE_PASSWORD,
+                    "请修改初始/重置密码后再登录", ip, userAgent);
         }
         resetLoginFailure(user);
 
@@ -94,8 +103,8 @@ public class AuthApplicationService {
                     : SessionLimitRules.Strategy.REJECT;
             SessionLimitRules.Decision decision = SessionLimitRules.evaluate(active, maxSessions, strategy);
             if (decision == SessionLimitRules.Decision.REJECT) {
-                throw new BusinessException(SecurityErrorCode.TOO_MANY_SESSIONS,
-                        "同一账号同时登录设备数已达上限 " + maxSessions);
+                throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.TOO_MANY_SESSIONS,
+                        "同一账号同时登录设备数已达上限 " + maxSessions, ip, userAgent);
             } else if (decision == SessionLimitRules.Decision.EVICT_OLDEST) {
                 // 保留 maxSessions-1 个最新会话，其余（含本次将签发的）总计不超过上限
                 refreshTokenService.revokeOldestSessions(user.getId(), maxSessions - 1);
@@ -105,7 +114,30 @@ public class AuthApplicationService {
         CurrentPrincipal principal = buildPrincipal(user);
         String accessToken = jwtProvider.generateAccessToken(principal);
         String refreshToken = refreshTokenService.issue(user.getId(), "web", deviceId, userAgent, ip);
+        // 登录成功落审计日志（REQUIRES_NEW 独立事务，供「报表管理 - 登录统计」取数）
+        loginLogRecorder.record(user.getUsername(), user.getId(), true, null, ip, userAgent);
         return new TokenView(accessToken, refreshToken, jwtProperties.getAccessTokenTtl().getSeconds());
+    }
+
+    /**
+     * 记录一次登录失败审计（sys_login_log）并构造业务异常。
+     *
+     * <p>失败路径最终抛出 RuntimeException 导致登录主事务回滚，故失败日志必须由
+     * {@link LoginLogRecorder} 以 REQUIRES_NEW 独立事务落库，否则异常登录记录将随回滚丢失，
+     * 「登录统计 - 异常登录记录」永远空态。</p>
+     *
+     * @param username  尝试登录的用户名（用户不存在时为客户端的输入值）
+     * @param userId    用户主键（用户不存在时传 null）
+     * @param code      安全错误码（其 code() 即 failure_code，如 AUTH_001）
+     * @param message   面向客户端的提示信息
+     * @param ip        客户端 IP
+     * @param userAgent 客户端 UA
+     * @return 构造好的业务异常（由调用方 throw）
+     */
+    private BusinessException loginFailure(String username, Long userId, SecurityErrorCode code,
+                                           String message, String ip, String userAgent) {
+        loginLogRecorder.record(username, userId, false, code.code(), ip, userAgent);
+        return new BusinessException(code, message);
     }
 
     @Transactional
