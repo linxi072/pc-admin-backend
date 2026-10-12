@@ -843,6 +843,12 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 - **CSV 导出分段**：统计视角输出「汇总 + 分布 + 明细 + 趋势」四段，使用视角维持原「汇总 + 类别 + 状态 + 趋势」；
 - **纯函数单测**：`ReportServiceStatsTest` 13 例覆盖分布换算 / P95 / 三序列兼容 / 关键字条件，全量单测 238 例全绿。
 
+> **白屏缺陷修复（前端）**：`ReportManagementView.vue` 曾因首渲染时序问题整页空白——`report` 初始为 `null`、
+> `loading` 初始为 `false`，而 Vue 首渲染发生在 `onMounted`（数据加载）之前，内容分支的
+> `report.categoryStats.length` 对 null 解引用抛 `TypeError`，挂载中止且不触发任何请求。
+> 修复：该表达式改可选链 `report?.categoryStats?.length`，同时 `loading` 初始值改 `true`（首渲染走骨架屏）做纵深防御。
+> 排查方法：用 `@vue/compiler-dom` 编译真实模板 + 模拟 setup 状态执行 render/slot，可在无浏览器环境下复现类问题。
+
 ## 21. 在线定时任务管理（JobRunr 双层架构）
 
 提供任务配置（执行时间 / 触发周期 / 任务参数）、启动、暂停、列表与实时状态、执行日志的完整闭环，

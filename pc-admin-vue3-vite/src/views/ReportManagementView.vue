@@ -123,7 +123,7 @@
           <!-- 类别分布 -->
           <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
             <el-card header="类别分布（模块使用频次 Top 10）">
-              <el-empty v-if="!report.categoryStats.length" description="该筛选条件下暂无数据" />
+              <el-empty v-if="!report?.categoryStats?.length" description="该筛选条件下暂无数据" />
               <BaseChart v-else :option="categoryOption" height="420px" />
             </el-card>
           </el-col>
@@ -176,7 +176,9 @@ const sortBy = ref('COUNT')
 const order = ref('DESC')
 const keyword = ref('')
 
-const loading = ref(false)
+// 初始 loading=true：首渲染发生在 onMounted 之前，若为 false 会直接进入内容分支，
+// 而 report 初始为 null，任何未防御的点访问都会让整页渲染崩溃（白屏）
+const loading = ref(true)
 const exporting = ref(false)
 const error = ref('')
 const report = ref(null)
