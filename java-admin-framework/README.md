@@ -818,3 +818,83 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 - 路由 `src/router/index.js` 注册 `/report/management`（懒加载，name=reportManagement）；
 - `src/api/report.js` 新增 `reportTypes` / `reportData` / `reportExport`（原 `usageReport` 已迁移至此）。
 
+## 21. 在线定时任务管理（JobRunr 双层架构）
+
+提供任务配置（执行时间 / 触发周期 / 任务参数）、启动、暂停、列表与实时状态、执行日志的完整闭环，
+所有操作**即时生效**，并含参数校验与错误处理。
+
+### 21.1 为什么是「双层架构」
+
+JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承载业务侧的「任务定义 / 参数 / 统计」。
+因此拆为两层：
+
+| 层 | 载体 | 职责 |
+| --- | --- | --- |
+| 配置与日志层 | `sys_job` / `sys_job_log`（本模块自管） | 任务定义元数据、参数、统计、执行日志 |
+| 调度执行层 | JobRunr（`jobrunr-spring-boot-3-starter` 6.3.4） | 按 CRON / 间隔 / 单次触发并回调执行器 |
+
+两层通过 `sys_job.scheduler_ref` 关联：`CRON`/`SIMPLE` 存 recurring job id（约定 `sysjob-<id>`），
+`ONE_TIME` 存一次性 Job 的 UUID 字符串。任务状态 `JobStatus`：`PAUSED`（默认，未调度）/
+`RUNNING`（已调度）/ `COMPLETED`（一次性任务执行完成）。
+
+> 零新增依赖：JobRunr 6.3.4 与 spring-boot-3-starter 已在 `pom.xml` 声明并离线可用。
+
+### 21.2 关键设计
+
+- **默认暂停**：新建任务落库为 `PAUSED` 且不注册调度，必须显式「启动」才参与调度，避免误触发；
+- **即时生效**：启动 → 立即调用 JobRunr 注册（`scheduleRecurrently(id, cron, λ)` /
+  `scheduleRecurrently(id, Duration, λ)` / `schedule(UUID, Instant, λ)`）；暂停 → `delete(...)` 取消；
+  编辑运行中任务 → 先取消旧调度、写入新配置、再按新配置重启；
+- **下次执行时间实时计算**：不依赖 JobRunr 查询 API，由纯函数 `JobNextFire#compute` 计算
+  （CRON 复用 JobRunr 的 `org.jobrunr.scheduling.cron.CronExpression#next`，与调度器同源；
+  SIMPLE = 上次触发 + 间隔；ONE_TIME 未到期返回其时间，否则 `null`）；
+- **校验复用调度器解析器**：`JobValidator` 直接用 `CronExpression.create(...)` 校验 cron，
+  保证「校验通过」即「可被调度」（支持 5 段分钟精度 / 6 段秒精度）；SIMPLE 间隔不得小于 5 秒
+  （对齐 `Schedule.SMALLEST_SCHEDULE_IN_SECONDS`）；ONE_TIME 必须晚于当前；`params` 须为合法 JSON；
+- **执行与统计**：JobRunr 到点回调 `JobExecutor#run(jobId)` → 解析 `taskKey` 对应处理器 → 执行 →
+  回写 `last_fire_time / next_fire_time / total_runs / success_runs / failure_runs / last_status /
+  last_error / last_duration_ms` → 写 `sys_job_log`（含 `trace_id`，与审计/异常日志串联）。
+  执行过程**不包长事务**（处理器可能含慢外部调用）；
+- **可扩展的处理器**：业务实现 `JobHandler`（`key()/name()/execute(ctx)`）并标注 `@Component`
+  即被 `JobHandlerRegistry` 自动收录，前端下拉可直接选择。内置 `demo-echo`（打印参数，参数含
+  `{"fail":true}` 可模拟失败）与 `demo-sysinfo`（输出堆内存/线程数）。
+
+### 21.3 接口
+
+| 方法 | 路径 | 说明 | 权限 |
+| --- | --- | --- | --- |
+| GET | `/api/jobs/meta` | 调度引擎可用性 / 最小间隔秒数 | `job:read` |
+| GET | `/api/jobs/handlers` | 可选处理器列表 | `job:read` |
+| GET | `/api/jobs` | 分页查询（名称/分组/状态/触发类型/处理器筛选） | `job:read` |
+| GET | `/api/jobs/{id}` | 任务详情 | `job:read` |
+| GET | `/api/jobs/{id}/logs` | 执行日志（按触发时间倒序） | `job:read` |
+| POST | `/api/jobs` | 新建（初始暂停） | `job:manage` |
+| PUT | `/api/jobs/{id}` | 编辑（运行中先暂停再按新配置重启） | `job:manage` |
+| POST | `/api/jobs/{id}/start` | 启动（立即注册调度） | `job:manage` |
+| POST | `/api/jobs/{id}/pause` | 暂停（立即取消调度） | `job:manage` |
+| DELETE | `/api/jobs/{id}` | 删除（逻辑删除，运行中先取消调度） | `job:manage` |
+
+### 21.4 菜单与权限（V21 迁移）
+
+`V21__job_management.sql` 建 `sys_job` / `sys_job_log` 两张表，插入「定时任务」顶级菜单
+（`route_path=/job/list`、`icon=Timer`、`permission_code=job:read`）与逐端点接口资源
+（`job:read` / `job:manage`），并绑定 `SUPER_ADMIN(role_id=1)`。全部走 `CREATE TABLE IF NOT EXISTS`
+与 `INSERT IGNORE`，可重复执行。
+
+### 21.5 前端（pc-admin-vue3-vite）
+
+- `src/api/job.js`：`jobMeta/jobHandlers/jobPage/jobDetail/jobLogs/jobCreate/jobUpdate/jobStart/jobPause/jobDelete`；
+- `src/views/JobListView.vue`：筛选工具栏 + 自动刷新开关 + 任务表格（名称/分组/处理器/触发规则/参数/
+  状态/上次执行/下次执行/执行次数/操作）+ 新建/编辑对话框（触发类型单选联动 CRON/间隔/单次字段、
+  参数 JSON 校验）+ 执行日志对话框（含耗时迷你柱状图）；
+- 路由注册 `/job/list`（懒加载，name=jobList）；`DashboardView` 快捷入口新增「定时任务」。
+
+### 21.6 验证状态
+
+- 后端离线编译 `mvn -o test-compile` 通过；
+- 离线单测：`JobValidatorTest`（17 例）+ `JobNextFireTest`（12 例）共 **29 例全绿**；
+- 前端 `npm run build` 通过；
+- 本机端到端（需 MySQL + 真实启动）：`POST /api/jobs` 建任务 → `POST /api/jobs/{id}/start` 启动 →
+  观察 `sys_job_log` 与 `sys_job.next_fire_time` 更新 → `POST /api/jobs/{id}/pause` 后不再产生新日志。
+
+

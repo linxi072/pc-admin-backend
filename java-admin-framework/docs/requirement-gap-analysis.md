@@ -298,7 +298,7 @@
 
 ---
 
-## 10. 报表管理与工作台优化（2026-10-10 追加，feat/V1.0.2 待提交）
+## 10. 报表管理与工作台优化（2026-10-10 追加）
 
 运营分析能力交付，均经离线验证（`mvn -o test` 纯函数 10 例全绿 + 前端 `vite build` 成功）：
 
@@ -306,4 +306,18 @@
 - **工作台优化**：`DashboardView` 卡片加图标/趋势、新增「最近动态」面板（`GET /api/workbench/recent-activities`，复用审计查询、按当前登录人收敛）、快捷入口增加「报表管理」、响应式栅格；前端新增 `BaseChart.vue`（ECharts 封装）、`ReportManagementView.vue`（报表管理页：类型 Tab / 筛选 / 排序 / 图表 / 导出）与 `api/report.js`，路由 `/report/management` 注册。
 - **约束遵循**：未新增独立统计表、未改动既有业务/接口/表结构；菜单与权限完全后端驱动，与既有风格一致。
 
-> 提交状态：上述改动与 §5.3/§7/§8/§9 一样，代码已就绪但**尚未本地提交**（沙箱不推送，按用户确认后由本机提交至 `feat/V1.0.2`）。
+> 提交状态：上述改动已本地提交至 `feat/V1.0.2`（`1c3a4f0` feat / `dc4dde3` test / `71a0444` docs），沙箱不推送，待用户本机执行 `git push origin feat/V1.0.2`。
+
+## 11. 在线定时任务管理（2026-10-12 追加）
+
+基于既定 JobRunr 6.3.4 引擎落地「配置-启动-暂停-列表-实时状态-日志」全闭环，均经离线验证（`mvn -o test-compile` 通过 + `JobValidatorTest`/`JobNextFireTest` 29 例全绿 + 前端 `vite build` 成功）：
+
+- **双层架构**：JobRunr 原生 `jobrunr_*` 表不可 CRUD，故新增自管配置表 `sys_job`（任务定义元数据）+ `sys_job_log`（执行日志，`V21__job_management.sql`）；调度执行仍由 JobRunr 负责，`JobSchedulerPort`/`JobRunrSchedulerPort` 端口封装 `scheduleRecurrently(CRON/Duration)`/`schedule(ONE_TIME)`/`delete`，`ObjectProvider<JobScheduler>` 防御式获取（对齐既有 `JobRunrConfig` 模式）。
+- **触发类型**：`JobTriggerType` ∈ {CRON, SIMPLE, ONE_TIME}；校验统一走 JobRunr 同源 API `org.jobrunr.scheduling.cron.CronExpression.create`（非法抛异常），与 `next()` 计算格式天然一致；SIMPLE 间隔 > 0、ONE_TIME 执行时间须晚于当前、params 须合法 JSON。
+- **执行链路**：JobRunr 到点触发 `JobExecutor.run(jobId)` → `JobHandlerRegistry` 解析 handler（内置 `demo-echo`/`demo-sys-info`，未注册 key 走 `TraceFallbackHandler` 记 traceId 不静默丢失）→ 回写 `last_fire_time/next_fire_time/total_runs/last_status/last_error` + 写 `sys_job_log`；实时 `nextFireTime` 由 `JobNextFire.compute` 投影计算（CRON 用 `CronExpression.next`、SIMPLE 用间隔、ONE_TIME 返回 null），不依赖 JobRunr 查询 API。
+- **服务语义**：create 默认 `PAUSED`（落库不调度）；start 按类型调度即时生效；pause `delete` 取消调度；update 运行中先暂停再重启；remove 逻辑删除；list 分页 + 状态/分组/关键词筛选 + 实时 nextFireTime。
+- **接口与权限**：`JobController` `/api/jobs`（GET 列表/详情/日志、POST 创建、PUT 更新、POST start/pause、DELETE 删除），读 `job:read` / 写 `job:manage`，`@PreAuthorize` 方法级管控；V21 同步种「定时任务」顶级菜单（route=/job/list、icon=Timer）与 `sys_api_resource` 并绑定 SUPER_ADMIN，`INSERT IGNORE` 幂等。
+- **前端**：`api/job.js` + `JobListView.vue`（筛选/自动刷新/启停即时/编辑删除/日志对话框 + 耗时迷你柱状图）+ 路由 `/job/list` + 工作台快捷入口。
+- **约束遵循**：未改动既有业务/接口/表结构，未新增 Maven 依赖（JobRunr 已在离线仓库）；本机端到端（需 MySQL + 真实启动）验证步骤已写入 README §21。
+
+> 提交状态：代码已就绪但**尚未本地提交**（沙箱不推送，按用户确认后由本机提交至 `feat/V1.0.2`）。
