@@ -51,8 +51,8 @@ public class UserController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:user:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建用户")
-    public Result<Long> create(@Valid @RequestBody CreateUserRequest request) {
-        return Result.success(userService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateUserRequest request) {
+        return Result.success(String.valueOf(userService.create(request)));
     }
 
     @Operation(summary = "更新用户")

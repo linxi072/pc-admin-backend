@@ -223,6 +223,19 @@ async function load() {
   }
 }
 
+
+/**
+ * 归一化行的 parentId：顶级统一为数值 0，其余为字符串 id。
+ *
+ * <p>后端 Long 一律序列化为字符串（18 位雪花 ID 超出 JS Number.MAX_SAFE_INTEGER，
+ * 防前端 round 后按 id 操作失配），顶层菜单的 parentId 上链后是字符串 "0"，
+ * 不能直接用 ?? 0 / || null 判断（"0" 为 truthy），故统一走本函数归一化。
+ */
+function parentIdOf(row) {
+  const p = row.parentId
+  return p == null || p === '' || p === '0' || p === 0 ? 0 : p
+}
+
 function openCreate() {
   editingId.value = null
   Object.assign(form, {
@@ -244,7 +257,7 @@ function openCreate() {
 function openEdit(row) {
   editingId.value = row.id
   Object.assign(form, {
-    parentId: row.parentId || null,
+    parentId: parentIdOf(row) || null,
     menuCode: row.menuCode,
     menuName: row.menuName,
     menuType: row.menuType,

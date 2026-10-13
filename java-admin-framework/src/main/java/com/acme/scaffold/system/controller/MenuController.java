@@ -39,12 +39,13 @@ public class MenuController {
         return Result.success(menuService.tree());
     }
 
+    /** 创建菜单，返回新菜单 id（字符串：18 位雪花 ID 超出 JS 安全整数范围，防前端精度丢失）。 */
     @Operation(summary = "创建菜单")
     @PostMapping
     @PreAuthorize("hasAuthority('system:menu:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建菜单")
-    public Result<Long> create(@Valid @RequestBody CreateMenuRequest request) {
-        return Result.success(menuService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateMenuRequest request) {
+        return Result.success(String.valueOf(menuService.create(request)));
     }
 
     @Operation(summary = "删除菜单")

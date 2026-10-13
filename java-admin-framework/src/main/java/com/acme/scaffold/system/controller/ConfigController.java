@@ -47,8 +47,8 @@ public class ConfigController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:config:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建系统配置")
-    public Result<Long> create(@Valid @RequestBody CreateConfigRequest request) {
-        return Result.success(configService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateConfigRequest request) {
+        return Result.success(String.valueOf(configService.create(request)));
     }
 
     @Operation(summary = "更新配置")
