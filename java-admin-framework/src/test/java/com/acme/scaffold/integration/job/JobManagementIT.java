@@ -77,8 +77,11 @@ class JobManagementIT extends BaseIntegrationTest {
     }
 
     private String login() {
+        HttpHeaders h = authHeaders(null);
+        // 独立客户端 IP：避免与其他 IT 类共享 Spring 上下文时登录限流计数累计触发 429
+        h.set("X-Forwarded-For", clientIp());
         ResponseEntity<Result> resp = rest.exchange(baseUrl() + "/api/auth/login", HttpMethod.POST,
-                new HttpEntity<>(Map.of("username", "admin", "password", "admin123"), authHeaders(null)),
+                new HttpEntity<>(Map.of("username", "admin", "password", "admin123"), h),
                 Result.class);
         assertNotNull(resp.getBody(), "登录响应不应为空");
         assertTrue(resp.getBody().isSuccess(), "登录应成功: " + resp.getBody());

@@ -85,7 +85,8 @@ class MenuIntegrationIT extends AbstractHttpIntegrationTest {
         List<Map<String, Object>> menus = (List<Map<String, Object>>) resp.getBody().data();
         Set<Long> returnedIds = new HashSet<>();
         for (Map<String, Object> m : menus) {
-            returnedIds.add(((Number) m.get("id")).longValue());
+            // 雪花 ID（18 位）经 @JsonSerialize(ToStringSerializer) 以字符串下发，避免 JS Number 精度丢失
+            returnedIds.add(Long.parseLong(m.get("id").toString()));
         }
 
         // 角色绑定的菜单
