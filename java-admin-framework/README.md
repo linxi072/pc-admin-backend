@@ -774,6 +774,7 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 ## 17. 报表管理与工作台优化
 
 运营分析能力：在工作台基础上新增「报表管理」独立模块（原「使用报表」已重命名为「报表管理」），并优化工作台布局与可读性。
+**V24 起原单页内的 6 个报表类型 Tab 已拆分为 6 个独立功能菜单项**（父菜单「报表管理」目录化，见 §17.6），各报表页业务功能、数据展示与交互逻辑与原页签一致。
 
 ### 17.1 数据来源
 
@@ -810,12 +811,31 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
 > 新增 `V20__report_management_rename_fix.sql`（幂等 `UPDATE`）将既有行统一修正为「报表管理 / /report/management / report:read」，
 > 保证重命名后功能逻辑一致、不影响原有业务流程。
 
+### 17.6 报表页签拆分为独立菜单（V24 迁移）
+
+原「报表管理」单页以 `el-tabs` 承载 6 个报表视角，V24 起每个视角独立为菜单页：
+
+| 子菜单（id） | 菜单名 | 路由 | 图标 | 对应原页签 |
+| --- | --- | --- | --- | --- |
+| 1050 | 使用统计 | `/report/usage` | DataLine | `USAGE` |
+| 1051 | 类别统计 | `/report/category` | PieChart | `CATEGORY` |
+| 1052 | 状态统计 | `/report/status` | DataAnalysis | `STATUS` |
+| 1053 | 定时任务执行统计 | `/report/job-exec` | Timer | `JOB_EXEC` |
+| 1054 | 登录统计 | `/report/login` | User | `LOGIN` |
+| 1055 | 接口调用统计 | `/report/api-call` | Connection | `API_CALL` |
+
+- 父菜单 id=1030 由叶子 `MENU` 升级为 `CATALOG`（`route_path` / `permission_code` 置空），与 V17「系统管理 / 工作流」目录范式一致；侧边栏渲染为可折叠分组（`layout/MenuTree.vue` 按 `children` 自动分组）；
+- **权限模型不变**：6 个子菜单 `permission_code` 统一为 `report:read`，接口 `/api/report/**` 仍由 `report:read` 鉴权（`ReportController` 类级 `@PreAuthorize` 不动）；菜单可见性经 `sys_role_menu` **按菜单独立绑定**，角色可只绑定单个报表菜单；
+- 前端旧路由 `/report/management` 保留重定向至 `/report/usage`（历史书签/外部链接不失效，与「消息中心」合并时的兼容做法一致）；
+- 全部 `UPDATE` / `INSERT IGNORE` 幂等；后端 Java 代码零改动。
+
 ### 17.4 前端（pc-admin-vue3-vite）
 
 - 新增 `src/components/BaseChart.vue`：ECharts 封装（init / setOption / resize / dispose），经 npm 依赖引入 `echarts`；
-- 新增 `src/views/ReportManagementView.vue`：报表类型 Tab + 时间范围/类别/状态筛选 + 排序 + 汇总卡片 + 访问趋势图 + 类别分布柱状图 + 状态分布饼图 + 导出 CSV 按钮；
 - 重写 `src/views/DashboardView.vue`：卡片加图标/趋势、新增「最近动态」面板、快捷入口增加「报表管理」、响应式栅格；
-- 路由 `src/router/index.js` 注册 `/report/management`（懒加载，name=reportManagement）；
+- 新增 `src/components/ReportPanel.vue`：通用报表面板（筛选工具栏 + 汇总卡片 + 趋势图 + 分布/明细 + 导出 CSV），由原 `ReportManagementView.vue` 抽取而去掉 Tab 切换，报表类型与标题经 props 固定；
+- 新增 `src/views/report/` 下 6 个薄壳页面（`UsageReportView` / `CategoryReportView` / `StatusReportView` / `JobExecReportView` / `LoginReportView` / `ApiCallReportView`），各固定一个报表视角，业务逻辑全部复用 `ReportPanel`（与原页签一致）；
+- 路由 `src/router/index.js` 注册 `/report/usage` 等 6 个独立路由（懒加载，name=reportUsage 等），旧 `/report/management` 重定向至 `/report/usage`；原 `ReportManagementView.vue` 已删除；
 - `src/api/report.js` 新增 `reportTypes` / `reportData` / `reportExport`（原 `usageReport` 已迁移至此）。
 
 ### 17.5 统计报表扩展（定时任务执行 / 系统登录 / 接口调用）
@@ -986,3 +1006,156 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 - 前端 `npm run build` 通过（`CodegenView` chunk 7.53 kB，>500kB 警告为既有 ECharts 体积，非本次引入）。
 
 
+
+## 23. 菜单拖拽排序（V25 迁移）
+
+菜单管理页（`MenuView.vue`）支持调整菜单展示顺序：**仅同级排序**（跨父级调整仍走「编辑 → 上级菜单」，
+与层级移动的环路校验保持同一入口）。
+
+### 排序规则（后端权威）
+
+- 同级内 `sort_no ASC`，**二级键 `id ASC`**：`sortNo` 相同或未设置（默认 0）时按创建先后稳定排列，
+  不依赖数据库返回顺序（`MenuService.tree()` 与 `menusForCurrentUser()` 采用同一规则）；
+- 前端「我的菜单」与「菜单管理」因此看到一致顺序。
+
+### 交互与持久化
+
+- **拖拽**：菜单名称列手柄（HTML5 DnD）上下拖动；**上移/下移按钮**为点按等价操作（触屏/无拖拽环境可用）；
+- **边界**：拖到同级首位之前/末位之后为合法落点；已在首位时「上移」禁用、末位时「下移」禁用；
+  拖出表格或按 Esc 取消 → `dragend` 清理拖拽态，无副作用；
+- **跨级拒绝**：目标行与源行 `parentId` 不一致时不给放置反馈，误放后提示「仅支持同级菜单排序」；
+- **视觉反馈**：拖拽源行半透明；目标行上沿/下沿 2px 主色指示线标识落点（before/after）；
+- **空列表**：`empty-text` 明确引导「暂无菜单数据（点击右上角「新增菜单」创建）」；
+- **搜索态禁用**：关键字过滤拖拽/移动的是过滤视图而非真实同级集合，手柄置灰并提示先清空关键字；
+- **持久化**：本地移动后按 **10 步进**重算该级全部 `sortNo`（留出中间值空间，便于手动编辑插队），
+  整级提交 `PUT /api/system/menus/sort`（body `[{id, sortNo}]`，权限 `system:menu:update`，
+  与单条编辑同域）；失败即重新拉取列表**回滚**，保证界面与后端一致。
+
+### 实现要点
+
+- `MenuService.reorder()`：事务内逐项 `fetchById` 校验存在（不存在 → 404 整体回滚），
+  复制现有行仅覆盖 `sortNo` 再 `updateById`——避免 `SysMenuDO` 字段默认值（`parentId=0`、`status=ACTIVE`
+  等非 null 默认值）经 NOT_NULL 策略误覆盖其他列（与 `update()` 同一范式）；
+- `MenuSortItem`（`@NotNull id` / `@NotNull @Min(0) sortNo`）+ Controller `List<@Valid MenuSortItem>` 级联校验；
+- `V25__menu_sort_api.sql`：登记接口资源 `PUT /api/system/menus/sort`（id=900000000409）并绑定
+  SUPER_ADMIN（`INSERT IGNORE` 幂等，与 `ApiResourceScanner` 扫描结果一致）；
+- 前端 `api/menu.js` 新增 `sortMenus`；`MenuView.vue` 新增 `dragState` / `siblingList` / `applyReorder`，
+  行反馈经 `row-class-name` + scoped `:deep()` 样式实现（el-table 行 class 在子组件渲染，需 `:deep()` 穿透）。
+
+### 验证
+
+- `MenuSortIT`（3 例，真实 MySQL）：批量排序后树接口按新 `sortNo` 返回（c→a→b）；
+  同 `sortNo` 按 `id` 升序稳定返回；不存在 id 提交返回 404；
+- `mvn -o test` 273/273 全绿；`npm run build` 通过。
+
+> 本机环境备忘：同一 MySQL 实例上 local 库（scaffold）已建 Flowable schema，而 Flowable 的
+> `isTablePresent`（`DatabaseMetaData.getTables` 不限定库名）会跨库误判「schema 已存在」，
+> 使 IT 库（java_admin）走 upgrade 路径并在读不到版本号时以 `FlowableWrongDbException` 失败。
+> 本机已在 java_admin 预建 Flowable schema（common/engine/history + IDM 表，`ACT_GE_PROPERTY` 写入
+> common/schema/eventregistry 版本行，`ACT_ID_PROPERTY` 写入 schema.version，均 7.1.0.2）。
+> CI 为全新实例，无跨库干扰，`database-schema-update=true` 的标准 create 路径可直接建表，无需此修复。
+
+## 24. 雪花 ID 前端精度丢失修复（Long → String 序列化）
+
+### 症状
+
+「添加菜单后，再次编辑提示『菜单不存在』」——**新建**的菜单/用户/部门/字典等实体一编辑就 404，
+而迁移种子预置的老实体（id 为 4~12 位小数字）编辑正常。
+
+### 根因
+
+- `IdGenerator`（雪花算法）生成的 id 为 **18 位**（当前 `(ts-EPOCH)<<22` 量级 ≈3.8e17），
+  远超 JavaScript `Number.MAX_SAFE_INTEGER`（2^53-1 ≈ 9.0e15，16 位）；
+- 相关 VO 的 id / parentId / roleIds 等为裸 `Long`，Jackson 序列化为 JSON **number**；
+- 前端 axios `JSON.parse` 后 JS number 末位被 round（如 `385378331056410624 → 385378331056410600`），
+  编辑提交失真 id → `MenuService.update()` 的 `fetchById` 查无此行 → `NOT_FOUND "菜单不存在"`；
+- 种子 id（4~12 位）在安全区内不失真，故只有新建实体踩雷——与症状完全吻合。
+
+> JobVO / JobLogVO / WorkflowDesignView 早已按 `@JsonSerialize(using = ToStringSerializer.class)`
+> 防护（其 javadoc 亦记载此坑），本次是手工编写的其余 VO 与 create 端点漏防护的系统性收口。
+
+### 修复范围
+
+| 层 | 文件 | 改动 |
+| --- | --- | --- |
+| VO | `MenuTreeVO` | id / parentId → ToStringSerializer |
+| VO | `UserView` | id + roleIds / deptIds（contentUsing）→ 字符串 |
+| VO | `RoleView` | id + menuIds / apiIds → 字符串 |
+| VO | `DictTypeVO` / `DictDataVO` / `ConfigVO` | id → 字符串 |
+| VO | `OrgTreeVO` | id / parentId / leaderUserId → 字符串 |
+| VO | `ApprovalRecordView` / `TaskView` / `InstanceDetailView` | userId 字段 → 字符串 |
+| 端点 | 9 个 `create`（Menu/User/Role/Dict/DictData/Config/Org/Announcement/ApiResource） | `Result<Long>` → `Result<String>`（`String.valueOf`） |
+
+### 前端契约变化与兼容
+
+- 响应中 id 一律为**字符串**（URL 拼接、`el-select` value、el-tree key、JSON body 均天然兼容）；
+- 反序列化方向不受影响：`@PathVariable Long` 与请求体 `Long` / `List<Long>` 字段接收数字字符串由
+  Jackson / Spring ConversionService 正常 coercion；
+- `MenuView.vue` 新增 `parentIdOf(row)` 归一化：顶层 parentId 上链后为字符串 `"0"`（truthy），
+  `?? 0` / `|| null` 判断失效会导致顶级菜单拖拽/上下移失灵、上级下拉显示异常，统一归一位 `0`；
+- 其余页面（User/Role/Dict/Config/Department/Announcement/ApiResource/Job）的 id 用法均为
+  同源比较或 URL 传参，string 化后无需改动。
+
+### 验证
+
+- `mvn -o test` 单测 273/273 全绿；`npm run build` 通过；
+- 库内实测：`sys_menu` 新建行 id 均为 18 位（`SELECT CHAR_LENGTH(id)`），修复前 JS 端读取即失真。
+
+## 25. 集成测试全量回归修复（9 类 IT，22 例）
+
+上一轮「菜单拖拽排序 + 雪花 ID 字符串化」落地后，首次跑齐全部 9 个 IT 类（22 例）暴露 7 个失败。
+逐项定位根因并修复，最终 `Tests run: 22, Failures: 0, Errors: 0` 全绿。
+
+### ① 菜单两个 IT 按 Number 读取 id（ClassCastException）
+
+- **根因**：§24 的雪花 ID 字符串化契约生效后，树 VO 的 `id` 与 create 端点的 `Result<String>`
+  均以 JSON 字符串下发，而 `MenuIntegrationIT` / `MenuSortIT` 仍按 `((Number) ...).longValue()`
+  强转 → `ClassCastException: String cannot be cast to Number`。
+- **修复**：两处 IT 的 id 读取改为 `Long.parseLong(...toString())`（4 处）。
+  生产行为正确（字符串化正是 §24 的修复），测试适配新契约。
+
+### ② UserIntegrationIT 密码夹具违反密码策略（BusinessException）
+
+- **根因**：`PasswordPolicy`（P1 安全基线：大写+小写+数字+特殊字符、8–64 位、禁弱口令）
+  加固后，IT 夹具 `"Password123"`（无特殊字符）从未同步更新；该 IT 自策略上线后未再跑过，
+  直到本次全量回归才暴露（3 例均在 `UserService.create` 抛出「密码必须包含特殊字符」）。
+- **修复**：3 处夹具改 `"Password123!"`。
+
+### ③ UserIntegrationIT 空角色守卫反射打到代理（NPE）
+
+- **根因**：`UserService` 带 `@Transactional` 由 CGLIB 代理，
+  `ReflectionTestUtils.invokeMethod(userService, "assignRoles", ...)` 对**代理实例**反射调用
+  私有方法，方法体内的 `this.dsl` 取到代理类自身从未注入的字段 → null →
+  `Cannot invoke "DSLContext.deleteFrom(Table)" because "dsl" is null`。
+- **修复**：`AopTestUtils.getTargetObject(userService)` 解包取得目标实例后再调用。
+  注意须先将解包结果存入 `UserService` 类型局部变量——泛型多态表达式作参数时，
+  编译器按「最具体重载」规则会误选 `invokeMethod(Class<?>, String, Object...)`
+  并插入 `checkcast Class`，运行期抛 `ClassCastException`（本次二轮修复实测踩中）。
+
+### ④ AuthFlowIT 401 响应体不可读（HttpRetryException）
+
+- **根因**（两层叠加）：
+  1. Spring 6.1 的 `SimpleClientHttpRequest.executeInternal` 对带 body 的请求**总是**调用
+     `setFixedLengthStreamingMode/setChunkedStreamingMode`；工厂的
+     `setOutputStreaming(false)` / `setBufferRequestBody(true)` 已弃用且**不再生效**，
+     JDK `HttpURLConnection.streaming()` 恒为 true；
+  2. JDK `HttpURLConnection` 收到 401 且处于 streaming 模式时，无条件抛
+     `HttpRetryException("cannot retry due to server authentication, in streaming mode")`
+     （源码 `if (respCode == HTTP_UNAUTHORIZED) { if (streaming()) throw ... }`），
+     错误密码登录的 401 + `AUTH_001` 响应体无法读取。
+- **修复**：`AuthFlowIT` 改用 JDK 内置 `java.net.http.HttpClient`（零依赖，JDK 11+），
+  任意状态码响应体均可读取；移除失效的 `SimpleClientHttpRequestFactory` 定制。
+- **验证**：反编译实证（`javap -c`）确认 6.1.13 的 `SimpleClientHttpRequest` 恒设流式模式；
+  JDK src.zip 确认 401 分支抛出条件；修复后 401 体断言通过。
+
+### 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单测 | `mvn -o test` | 273/273 BUILD SUCCESS |
+| 集成测试（9 类） | `mvn -o -DskipITs=false test-compile failsafe:integration-test failsafe:verify` | 22/22 BUILD SUCCESS |
+| 前端 | `vite build` | 2299 模块转换、构建成功 |
+
+> 注：`mvn verify` 完整生命周期在离线环境下会失败于 `maven-jar-plugin` 依赖缺失
+> （本地仓库从未下载 file-management/plexus-archiver 等 11 个构件 JAR，仅 POM），
+> 属离线仓库完整性问题而非代码缺陷；IT 经直接调用 failsafe 目标验证，CI（有网）不受影响。
