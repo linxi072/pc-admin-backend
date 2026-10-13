@@ -5,6 +5,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
+import com.acme.scaffold.system.dto.MenuSortItem;
 import com.acme.scaffold.system.dto.MenuTreeVO;
 import com.acme.scaffold.system.dto.UpdateMenuRequest;
 import com.acme.scaffold.system.entity.SysMenuDO;
@@ -36,11 +37,17 @@ public class MenuService {
 
     private final DSLContext dsl;
 
-    /** 返回菜单树（按 parentId 聚合，按 sortNo 排序）。 */
+    /**
+     * 返回菜单树（按 parentId 聚合排序）。
+     *
+     * <p>排序规则：同级内 {@code sort_no ASC, id ASC}。二级键 id 保证 sortNo 相同或未设置（默认 0）时
+     * 顺序确定（按创建先后），避免同值情况下依赖数据库返回顺序导致列表展示不稳定。
+     */
     public List<MenuTreeVO> tree() {
         List<SysMenuDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_MENU, SysMenuDO.class,
                 JooqWriters.notDeleted(JooqTables.SYS_MENU),
-                JooqTables.SYS_MENU.field("sort_no", Integer.class).asc());
+                JooqTables.SYS_MENU.field("sort_no", Integer.class).asc(),
+                JooqTables.SYS_MENU.field("id", Long.class).asc());
         Map<Long, List<SysMenuDO>> byParent = all.stream()
                 .collect(Collectors.groupingBy(m -> m.getParentId() == null ? 0L : m.getParentId()));
         return buildChildren(0L, byParent);
@@ -68,7 +75,9 @@ public class MenuService {
         }
         List<SysMenuDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_MENU, SysMenuDO.class,
                 JooqWriters.notDeleted(JooqTables.SYS_MENU));
-        all.sort(Comparator.comparingInt(m -> m.getSortNo() == null ? 0 : m.getSortNo()));
+        // 与 tree() 保持同一排序规则：sortNo ASC，二级键 id ASC 保证同值顺序确定
+        all.sort(Comparator.comparingInt((SysMenuDO m) -> m.getSortNo() == null ? 0 : m.getSortNo())
+                .thenComparing(SysMenuDO::getId));
         Map<Long, SysMenuDO> byId = all.stream()
                 .collect(Collectors.toMap(SysMenuDO::getId, m -> m, (a, b) -> a));
         Set<Long> visibleIds = authorizedMenuIds.stream()
@@ -162,6 +171,46 @@ public class MenuService {
         menu.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
         menu.setStatus(request.status() == null ? existing.getStatus() : request.status());
         JooqWriters.updateById(dsl, JooqTables.SYS_MENU, id, menu);
+    }
+
+    /**
+     * 批量调整菜单排序（拖拽排序 / 上移下移的持久化入口）。
+     *
+     * <p>仅更新 {@code sort_no} 一列：先按 id 取回现有行，复制其全部字段后仅覆盖 sortNo，
+     * 避免 SysMenuDO 字段默认值（parentId=0、status=ACTIVE 等非 null 默认值）经 updateById
+     * 的 NOT_NULL 策略误覆盖其他列（与 {@link #update} 同一范式）。任一菜单不存在即整体回滚。
+     *
+     * @param items 排序项列表（通常为同一父级下的全部子菜单，前端拖拽后按新顺序重算 sortNo）
+     */
+    @Transactional
+    public void reorder(List<MenuSortItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        for (MenuSortItem item : items) {
+            SysMenuDO existing = JooqWriters.fetchById(dsl, JooqTables.SYS_MENU, SysMenuDO.class, item.id());
+            if (existing == null) {
+                throw new BusinessException(CommonErrorCode.NOT_FOUND, "菜单不存在: " + item.id());
+            }
+            // 复制现有行，仅覆盖 sortNo（version/tenant_id 维持原值，与 update() 一致）
+            SysMenuDO menu = new SysMenuDO();
+            menu.setParentId(existing.getParentId());
+            menu.setTenantId(existing.getTenantId());
+            menu.setVersion(existing.getVersion());
+            menu.setMenuCode(existing.getMenuCode());
+            menu.setMenuName(existing.getMenuName());
+            menu.setMenuType(existing.getMenuType());
+            menu.setRoutePath(existing.getRoutePath());
+            menu.setComponentPath(existing.getComponentPath());
+            menu.setPermissionCode(existing.getPermissionCode());
+            menu.setIcon(existing.getIcon());
+            menu.setVisible(existing.getVisible());
+            menu.setKeepAlive(existing.getKeepAlive());
+            menu.setExternalUrl(existing.getExternalUrl());
+            menu.setStatus(existing.getStatus());
+            menu.setSortNo(item.sortNo());
+            JooqWriters.updateById(dsl, JooqTables.SYS_MENU, item.id(), menu);
+        }
     }
 
     /** 收集指定节点的全部子孙 id（含自身用于环路判断）。 */
