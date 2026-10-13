@@ -1,11 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">报表管理</h2>
-
-    <!-- 报表类型 Tab -->
-    <el-tabs v-model="type" class="type-tabs" @tab-change="onTypeChange">
-      <el-tab-pane v-for="t in types" :key="t.code" :name="t.code" :label="t.label" />
-    </el-tabs>
+    <h2 class="page-title">{{ title }}</h2>
 
     <!-- 筛选工具栏：上「条件区」+ 下「操作区」两行布局，按钮与条件分区展示，避免挤压堆积 -->
     <el-card class="toolbar" shadow="never">
@@ -163,7 +158,24 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import BaseChart from '@/components/BaseChart.vue'
-import { reportTypes, reportData, reportExport } from '@/api/report'
+import { reportData, reportExport } from '@/api/report'
+
+/**
+ * 通用报表面板：承载单个报表视角的完整交互（筛选 / 汇总 / 趋势 / 分布 / 明细 / 导出）。
+ *
+ * <p>由原「报表管理」单页多 Tab 拆分而来（V24 起每个报表视角独立为菜单页）：
+ * 页面通过 props 固定报表类型 {@code type} 与标题 {@code title}，
+ * 其余业务功能、数据展示与交互逻辑与原页签完全一致。</p>
+ */
+const props = defineProps({
+  // 报表类型（ReportType.code）：USAGE / CATEGORY / STATUS / JOB_EXEC / LOGIN / API_CALL
+  type: { type: String, required: true },
+  // 页面标题（与菜单名一致）
+  title: { type: String, required: true }
+})
+
+// 报表类型为页面固有属性（原页签切换语义由菜单导航取代），包一层 computed 供下方沿用 type.value 写法
+const type = computed(() => props.type)
 
 // 模块编码 → 中文名（仅展示用，缺失时回退原始编码；非业务映射，可随菜单扩展）
 const MODULE_LABELS = {
@@ -187,8 +199,6 @@ const KEYWORD_PLACEHOLDERS = {
   API_CALL: '请求路径关键字'
 }
 
-const types = ref([])
-const type = ref('USAGE')
 const rangeType = ref('LAST_7D')
 const dateRange = ref([])
 const module = ref('')
@@ -437,13 +447,7 @@ async function download() {
 }
 
 function onFilterChange() { load() }
-function onTypeChange() {
-  // 切换视角时清空关键字，避免跨类型残留造成空结果困惑
-  keyword.value = ''
-  load()
-}
 function reset() {
-  type.value = types.value[0]?.code || 'USAGE'
   rangeType.value = 'LAST_7D'
   dateRange.value = []
   module.value = ''
@@ -454,21 +458,11 @@ function reset() {
   load()
 }
 
-onMounted(async () => {
-  try {
-    types.value = await reportTypes()
-    if (types.value.length) type.value = types.value[0].code
-  } catch (e) {
-    // 类型列表为可选增强，失败不影响默认 USAGE 渲染
-    types.value = [{ code: 'USAGE', label: '使用统计', description: '' }]
-  }
-  load()
-})
+onMounted(load)
 </script>
 
 <style scoped>
 .page-title { margin: 0 0 12px; font-size: 20px; font-weight: 600; }
-.type-tabs { margin-bottom: 12px; }
 /* 工具栏分区类（toolbar-filters / filter-group / filter-label / toolbar-actions / action-buttons）
    已沉淀至全局 styles.css，此处仅保留页面特有规则 */
 .toolbar :deep(.el-card__body) { padding: 14px 18px; }

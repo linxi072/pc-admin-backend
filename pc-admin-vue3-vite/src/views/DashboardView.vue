@@ -68,7 +68,7 @@
             <el-button type="primary" @click="go('role')">角色管理</el-button>
             <el-button type="primary" @click="go('task')">我的待办</el-button>
             <el-button type="primary" @click="go('instance')">我发起的流程</el-button>
-            <el-button type="success" @click="go('reportManagement')">
+            <el-button type="success" @click="go('reportUsage')">
               <el-icon class="btn-icon"><DataAnalysis /></el-icon>报表管理
             </el-button>
             <el-button type="success" @click="go('jobList')">
