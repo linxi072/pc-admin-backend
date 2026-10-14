@@ -157,6 +157,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import BaseChart from '@/components/BaseChart.vue'
 import { reportData, reportExport } from '@/api/report'
 
@@ -426,7 +427,27 @@ async function download() {
   try {
     const params = buildParams()
     const resp = await reportExport(params)
-    const blob = resp.data
+    // requestRaw 不拆包：业务错误时 content-type 为 application/json，需转文本提示。
+    // 正常导出才是 CSV Blob——非 Blob 一律显式包装，杜绝 createObjectURL 类型不匹配。
+    const raw = resp?.data
+    if (raw == null) {
+      error.value = '导出失败：服务端未返回文件内容'
+      return
+    }
+    const blob = raw instanceof Blob ? raw : new Blob([raw])
+    if (!blob.size) {
+      error.value = '导出内容为空'
+      return
+    }
+    if (blob.type && blob.type.includes('application/json')) {
+      const text = await blob.text()
+      let msg = '导出失败'
+      try {
+        msg = JSON.parse(text).message || msg
+      } catch (je) { /* 非 JSON 错误体，保留通用文案 */ }
+      error.value = msg
+      return
+    }
     const cd = resp.headers?.['content-disposition'] || resp.headers?.contentDisposition || ''
     let filename = '报表管理.csv'
     const m = /filename="?([^"]+)"?/.exec(cd)
@@ -439,6 +460,7 @@ async function download() {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
+    ElMessage.success(`已导出：${filename}`)
   } catch (e) {
     error.value = e.message || '导出失败'
   } finally {

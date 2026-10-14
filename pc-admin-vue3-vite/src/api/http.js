@@ -61,7 +61,11 @@ export function request(config) {
   return realAxios.request({ method, url, params, data, headers })
 }
 
-// 原始请求通道：不经过「拆包」响应拦截，用于文件下载（blob）等需要原始响应的场景
+// 原始请求通道：不经过「拆包」响应拦截，用于文件下载（blob）等需要原始响应的场景。
+// responseType 等调用方显式声明的 axios 配置必须透传——早前白名单式解构只取了
+// method/url/params/data/headers，导致调用方传的 responseType: 'blob' 被静默丢弃，
+// 文件下载按默认 JSON 解析响应（CSV/ZIP 文本以 string 形式返回），
+// 调用方 URL.createObjectURL(string) 直接抛 "Overload resolution failed"。
 export const rawAxios = axios.create({ baseURL: API_BASE, timeout: 30000 })
 
 rawAxios.interceptors.request.use((cfg) => {
@@ -72,6 +76,6 @@ rawAxios.interceptors.request.use((cfg) => {
 })
 
 export function requestRaw(config) {
-  const { method = 'GET', url, params, data, headers } = config
-  return rawAxios.request({ method, url, params, data, headers })
+  const { method = 'GET', url, params, data, headers, responseType } = config
+  return rawAxios.request({ method, url, params, data, headers, responseType })
 }
