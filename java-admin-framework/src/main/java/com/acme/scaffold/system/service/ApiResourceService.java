@@ -11,9 +11,12 @@ import com.acme.scaffold.system.dto.CreateApiResourceRequest;
 import com.acme.scaffold.system.dto.ScannedApiResource;
 import com.acme.scaffold.system.dto.UpdateApiResourceRequest;
 import com.acme.scaffold.system.entity.SysApiResourceDO;
+import com.acme.scaffold.system.entity.SysRoleApiDO;
+import com.acme.scaffold.system.entity.SysRoleDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -145,6 +148,9 @@ public class ApiResourceService {
      *       人工填写的 status / riskLevel 原样保留</li>
      *   <li>完全一致 → 不触碰（保证 updated_at 不被无意义刷新）</li>
      *   <li>库中失效记录 → 保留，不删除</li>
+     *   <li><b>本次新增的资源自动授予 SUPER_ADMIN</b>（幂等）：兑现
+     *       {@code ApiResourceAutoSyncRunner} 「新增接口无需手工登记也不会出现 403」的承诺。
+     *       仅覆盖本次新插入的行，人工收回的授权不会被重新插入</li>
      * </ul>
      *
      * @return 本次写入统计
@@ -167,6 +173,7 @@ public class ApiResourceService {
             api.setControllerMethod(item.controllerMethod());
             api.setAuthMode(item.authMode());
             JooqWriters.insert(dsl, JooqTables.SYS_API_RESOURCE, api);
+            grantToSuperAdmin(api.getId());
             inserted++;
         }
 
@@ -182,6 +189,7 @@ public class ApiResourceService {
                 api.setControllerMethod(item.controllerMethod());
                 api.setAuthMode(item.authMode());
                 JooqWriters.insert(dsl, JooqTables.SYS_API_RESOURCE, api);
+                grantToSuperAdmin(api.getId());
                 inserted++;
                 continue;
             }
@@ -208,6 +216,34 @@ public class ApiResourceService {
                 inserted, updated, preview.unchangedCount(), Math.max(skipped, 0), preview.orphanedResources().size());
         log.info("接口资源同步完成: {}", result);
         return result;
+    }
+
+    /**
+     * 把本次同步新插入的接口资源授予 SUPER_ADMIN（幂等）。
+     *
+     * <p>背景：V11 一次性把当时全部接口授予 SUPER_ADMIN，但 {@code sync()} 历来只登记
+     * 资源不授权，导致 V11 之后新增的端点（审计日志、工作流设计、任务认领等）对超管
+     * 一律 403——与 {@code ApiResourceAutoSyncRunner} 承诺的「新增接口无需手工登记
+     * 也不会出现 403」相悖。这里在新增时补齐授权；已存在绑定不重复插入，人工收回的
+     * 授权也不会被重新插入（只在 insert 路径授予一次）。
+     */
+    private void grantToSuperAdmin(Long apiId) {
+        SysRoleDO superAdmin = JooqWriters.fetchOne(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
+                JooqTables.SYS_ROLE.field("role_code", String.class).eq("SUPER_ADMIN"));
+        if (superAdmin == null) {
+            log.warn("未找到 SUPER_ADMIN 角色，跳过新接口自动授权 apiId={}", apiId);
+            return;
+        }
+        long exists = JooqWriters.count(dsl, JooqTables.SYS_ROLE_API,
+                DSL.and(JooqTables.SYS_ROLE_API.field("role_id", Long.class).eq(superAdmin.getId()),
+                        JooqTables.SYS_ROLE_API.field("api_id", Long.class).eq(apiId)));
+        if (exists == 0) {
+            SysRoleApiDO grant = new SysRoleApiDO();
+            grant.setRoleId(superAdmin.getId());
+            grant.setApiId(apiId);
+            JooqWriters.insert(dsl, JooqTables.SYS_ROLE_API, grant);
+            log.info("新接口已自动授予 SUPER_ADMIN apiId={} permissionCode 见 sys_api_resource", apiId);
+        }
     }
 
     /** 现有记录按「METHOD path」建索引，与扫描结果的 uniqueKey 对齐。单次查询，避免 N+1。 */

@@ -78,6 +78,11 @@ public class UserService {
         // 校验角色 / 部门存在且可用（逐个走 require* 校验）
         request.roleIds().forEach(this::requireRole);
         request.deptIds().forEach(this::requireOrg);
+        // 手机 / 邮箱唯一性预校验：与 ProfileService.bindContact/updateProfile 同一契约。
+        // 手机有 uk_tenant_mobile 兜底（冲突时 409 但提示不可读），邮箱无唯一索引，
+        // 不预校验会静默落入库，与个人中心「该邮箱已被其他账号绑定」的承诺相悖。
+        assertContactAvailable("mobile", request.mobile(), null);
+        assertContactAvailable("email", request.email(), null);
 
         String encodedPassword = passwordEncoder.encode(request.password());
         SysUserDO user = new SysUserDO();
@@ -109,12 +114,21 @@ public class UserService {
             user.setDisplayName(request.displayName());
         }
         if (request.mobile() != null) {
+            // 唯一性预校验（排除自身）：手机有 DB 唯一索引兜底但提示不可读，邮箱无索引
+            assertContactAvailable("mobile", request.mobile(), id);
             user.setMobile(request.mobile());
         }
         if (request.email() != null) {
+            assertContactAvailable("email", request.email(), id);
             user.setEmail(request.email());
         }
         if (request.status() != null) {
+            // 状态白名单：登录链路只识别 ACTIVE/DISABLED（外加锁定态由登录失败计数驱动），
+            // 任意字符串可落库会成为永久数据噪声，故仅接受这两个值
+            if (!"ACTIVE".equals(request.status()) && !"DISABLED".equals(request.status())) {
+                throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                        "用户状态仅支持 ACTIVE / DISABLED");
+            }
             user.setStatus(request.status());
             permissionChanged = true;
         }
@@ -347,6 +361,27 @@ public class UserService {
         return JooqWriters.count(dsl, JooqTables.SYS_USER,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
                         JooqTables.SYS_USER.field("username", String.class).eq(username))) > 0;
+    }
+
+    /**
+     * 手机 / 邮箱唯一性预校验：排除自身（selfId 为空表示新建），冲突时给出可读提示。
+     *
+     * <p>与 {@code ProfileService.assertContactAvailable} 同一契约同一命名——两端都写
+     * 用户表，唯一性承诺必须一致，不能「个人中心拦、后台管理放」。空白值跳过（表示不绑定）。
+     */
+    private void assertContactAvailable(String column, String value, Long selfId) {
+        if (!StringUtils.hasText(value)) {
+            return;
+        }
+        Condition cond = JooqTables.SYS_USER.field(column, String.class).eq(value.trim())
+                .and(JooqWriters.notDeleted(JooqTables.SYS_USER));
+        if (selfId != null) {
+            cond = cond.and(JooqTables.SYS_USER.field("id", Long.class).ne(selfId));
+        }
+        if (JooqWriters.count(dsl, JooqTables.SYS_USER, cond) > 0) {
+            throw BusinessException.conflict("mobile".equals(column)
+                    ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
+        }
     }
 
     private SysUserDO get(Long id) {

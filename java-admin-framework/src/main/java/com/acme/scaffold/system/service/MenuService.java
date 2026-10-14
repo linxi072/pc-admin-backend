@@ -128,6 +128,10 @@ public class MenuService {
         if (childCount > 0) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "请先删除子菜单");
         }
+        // 角色-菜单关联先清：该表无外键约束，漏删会残留孤儿行（菜单已删但角色仍"挂"着它，
+        // 数据卫生失控且重建同 id 菜单时历史授权不会恢复）。与 RoleService.delete 的
+        // 级联清理互为补充——那里按 role_id 清，这里按 menu_id 清。
+        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "menu_id", id);
         JooqWriters.delete(dsl, JooqTables.SYS_MENU, id, true);
     }
 

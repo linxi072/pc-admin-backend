@@ -38,6 +38,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * 个人中心 / 账号设置应用服务。
@@ -64,6 +65,11 @@ public class ProfileService {
 
     private static final DateTimeFormatter UA_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
+    /** 中国大陆手机号：1 开头，第二位 3-9，共 11 位。 */
+    private static final Pattern MOBILE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
+    /** 邮箱：本地段@域名.顶级域，不含空白与多余 @。 */
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
     // ==================== 资料 ====================
 
     public ProfileView getProfile() {
@@ -73,8 +79,9 @@ public class ProfileService {
 
     /**
      * 修改本人资料。
-     * <p>手机/邮箱允许传空串表示「解绑」，但不允许与他人重复——
-     * uk_tenant_mobile / uk_tenant_username 上有唯一约束，冲突时给出可读提示而非暴露 SQL 错误。
+     * <p>手机/邮箱允许传空串表示「解绑」，非空值须通过格式校验与唯一性预检
+     * （uk_tenant_mobile / uk_tenant_username 上有唯一约束，冲突时给出可读提示
+     * 而非暴露 SQL 错误）；空串表示解绑，跳过格式与唯一性校验并显式置 NULL。
      */
     @Transactional
     public ProfileView updateProfile(UpdateProfileRequest request) {
@@ -88,7 +95,10 @@ public class ProfileService {
         Set<String> nullColumns = new HashSet<>();
         if (request.mobile() != null) {
             String mobile = normalize(request.mobile());
-            assertContactAvailable("mobile", mobile, current.getId());
+            if (!mobile.isEmpty()) {
+                assertMobileFormat(mobile);
+                assertContactAvailable("mobile", mobile, current.getId());
+            }
             patch.setMobile(mobile);
             if (mobile.isEmpty()) {
                 nullColumns.add("mobile");
@@ -96,7 +106,10 @@ public class ProfileService {
         }
         if (request.email() != null) {
             String email = normalize(request.email()).toLowerCase();
-            assertContactAvailable("email", email, current.getId());
+            if (!email.isEmpty()) {
+                assertEmailFormat(email);
+                assertContactAvailable("email", email, current.getId());
+            }
             patch.setEmail(email);
             if (email.isEmpty()) {
                 nullColumns.add("email");
@@ -119,11 +132,10 @@ public class ProfileService {
         String contact = normalize(request.contact());
 
         if (!contact.isEmpty()) {
-            if (isMobile && !contact.matches("^1[3-9]\\d{9}$")) {
-                throw BusinessException.badRequest("手机号格式不正确");
-            }
-            if (!isMobile && !contact.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-                throw BusinessException.badRequest("邮箱格式不正确");
+            if (isMobile) {
+                assertMobileFormat(contact);
+            } else {
+                assertEmailFormat(contact);
             }
             assertContactAvailable(isMobile ? "mobile" : "email", contact, current.getId());
         }
@@ -178,6 +190,12 @@ public class ProfileService {
         if (!passwordEncoder.matches(request.oldPassword(), current.getPasswordHash())) {
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "原密码不正确");
         }
+        // 校验顺序：原密码 → 强度策略 → 复用比对。策略先行的原因是——
+        // 「既弱又复用历史」的新口令应先报策略错（可操作的明确指引），
+        // 若复用校验在前会先抛 PASSWORD_REUSED，掩盖真正的格式问题；
+        // 同时避免对不合规口令白跑两次 bcrypt 比对。
+        // 设计文档 §5.3：修改密码同样要求强度合规
+        PasswordPolicy.validate(request.newPassword());
         if (passwordEncoder.matches(request.newPassword(), current.getPasswordHash())) {
             throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "新密码不能与原密码相同");
         }
@@ -185,8 +203,6 @@ public class ProfileService {
         if (passwordHistoryService.isReused(current.getId(), request.newPassword())) {
             throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "不能与最近使用的密码相同");
         }
-        // 密码强度策略：修改密码同样要求合规
-        PasswordPolicy.validate(request.newPassword());
 
         String encoded = passwordEncoder.encode(request.newPassword());
         SysUserDO patch = new SysUserDO();
@@ -394,6 +410,20 @@ public class ProfileService {
         if (JooqWriters.count(dsl, JooqTables.SYS_USER, cond) > 0) {
             throw BusinessException.conflict("MOBILE".equalsIgnoreCase(column) || "mobile".equals(column)
                     ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
+        }
+    }
+
+    /** 手机号格式校验（与 {@link #bindContact} 共用同一 Pattern 常量）。 */
+    private void assertMobileFormat(String mobile) {
+        if (!MOBILE_PATTERN.matcher(mobile).matches()) {
+            throw BusinessException.badRequest("手机号格式不正确");
+        }
+    }
+
+    /** 邮箱格式校验（与 {@link #bindContact} 共用同一 Pattern 常量）。 */
+    private void assertEmailFormat(String email) {
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            throw BusinessException.badRequest("邮箱格式不正确");
         }
     }
 

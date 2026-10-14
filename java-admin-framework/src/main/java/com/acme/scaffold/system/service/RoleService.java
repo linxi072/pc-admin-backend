@@ -60,8 +60,16 @@ public class RoleService {
             role.setSortNo(request.sortNo());
         }
         JooqWriters.updateById(dsl, JooqTables.SYS_ROLE, id, role);
-        assignMenus(id, request.menuIds());
-        assignApis(id, request.apiIds());
+        // 绑定语义：menuIds / apiIds 为 null 表示「本次不改动绑定」（保留原授权），
+        // 空集合表示「清空全部绑定」。原实现无条件重建绑定，调用方局部更新角色信息
+        // （如只改角色名）时漏传即把菜单/接口授权全部清空——契约二义且误清后果严重。
+        // 前端编辑角色始终回填两个集合（空集合=全部取消勾选），语义切换对其无感。
+        if (request.menuIds() != null) {
+            assignMenus(id, request.menuIds());
+        }
+        if (request.apiIds() != null) {
+            assignApis(id, request.apiIds());
+        }
     }
 
     public RoleView getView(Long id) {
@@ -85,6 +93,9 @@ public class RoleService {
 
     @Transactional
     public void delete(Long id) {
+        // 用户-角色关联先清：该表无外键约束，漏删会残留孤儿行（角色已不存在但用户仍"挂"着它，
+        // 权限计算靠 notDeleted 兜底过滤虽不泄露，但数据卫生失控且角色重建后历史绑定不会恢复）
+        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "role_id", id);
         JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "role_id", id);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_API, "role_id", id);
