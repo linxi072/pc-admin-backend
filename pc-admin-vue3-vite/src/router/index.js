@@ -149,31 +149,11 @@ const routes = [
         meta: { title: '工作流设计器', permission: 'workflow:definition:update' }
       },
       {
-        // 报表管理：原单页多 Tab 已拆分为 6 个独立菜单页（V24，父菜单「报表管理」目录化），
-        // 旧入口保留重定向，避免历史书签/外部链接失效
+        // 报表入口：V30 移除公共统计页（使用/类别/状态）后，旧入口重定向到保留的
+        // 首个统计页，避免历史书签/外部链接失效；V31 起 3 个统计页统一归属
+        // 「报表管理」一级菜单（后端菜单树驱动，路由 path 不变）
         path: 'report/management',
-        redirect: '/report/usage'
-      },
-      {
-        // 报表-使用统计：访问量 / 活跃用户数 / 成功率 / 类别分布 / 状态分布
-        path: 'report/usage',
-        name: 'reportUsage',
-        component: () => import('@/views/report/UsageReportView.vue'),
-        meta: { title: '使用统计', permission: 'report:read' }
-      },
-      {
-        // 报表-类别统计：按功能模块汇总操作频次与占比
-        path: 'report/category',
-        name: 'reportCategory',
-        component: () => import('@/views/report/CategoryReportView.vue'),
-        meta: { title: '类别统计', permission: 'report:read' }
-      },
-      {
-        // 报表-状态统计：按操作成功 / 失败状态汇总分布
-        path: 'report/status',
-        name: 'reportStatus',
-        component: () => import('@/views/report/StatusReportView.vue'),
-        meta: { title: '状态统计', permission: 'report:read' }
+        redirect: '/report/job-exec'
       },
       {
         // 报表-定时任务执行统计：成功率 / 失败率 / 耗时分布 / 最近执行明细
