@@ -1159,3 +1159,126 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 > 注：`mvn verify` 完整生命周期在离线环境下会失败于 `maven-jar-plugin` 依赖缺失
 > （本地仓库从未下载 file-management/plexus-archiver 等 11 个构件 JAR，仅 POM），
 > 属离线仓库完整性问题而非代码缺陷；IT 经直接调用 failsafe 目标验证，CI（有网）不受影响。
+
+## 26. 部门负责人字段改造与「清除不生效」缺陷修复
+
+### 26.1 负责人 ID → 姓名展示
+
+- 后端 `OrgTreeVO` 新增 `leaderUserName`（displayName，为空时回落 username）；
+  `OrgService.tree()` 收集全部 `leaderUserId` 后**一次 IN 批量查询**填充姓名映射，
+  避免逐节点回查用户表形成 N+1（空集合不发查询）。
+- 前端 `DepartmentView.vue` 列表/编辑标签「负责人ID」改「负责人」：列表展示姓名
+  （无负责人时显示「未设置」）；编辑项由数字输入框改为 `el-select` 远程搜索下拉，
+  复用 `GET /api/system/users/page?username=`（后端 LIKE %kw% 同时匹配 username 与
+  displayName），选中后以字符串雪花 ID 回填 `leaderUserId` 提交。
+- 编辑态打开时把已选负责人注入候选项，保证 `el-select` 回显姓名而非 ID 原文；
+  `leaderIdOf()` 将 null / '0' / 0（历史占位）统一归一为未设置。
+
+### 26.2 缺陷：清除负责人后不生效（根因与修复）
+
+- **现象**：编辑部门时清空负责人（或把负责人改为空）保存成功，但列表负责人仍在。
+- **根因**：`JooqWriters.updateById` 采用 NOT_NULL 策略——`columnValues()`
+  显式跳过 null 字段，null 不进入 UPDATE 语句。`OrgService.update()` 中
+  `org.setLeaderUserId(request.leaderUserId())` 在清除场景传 null，
+  导致 `leader_user_id` 列不更新、数据库旧值残留（其余字段均有 null 兜底，
+  唯独负责人是裸传，属遗漏而非设计）。
+- **实证复现**：`OrgLeaderUpdateIT` 三场景（设置 / 更换 / 清除），修复前
+  仅「清除」失败：`expected: <null> but was: <385633953089851392>`。
+- **修复**：`request.leaderUserId() == null` 时改走
+  `JooqWriters.updateByIdWithNulls(..., Set.of("leader_user_id"))` 显式置空，
+  与 `ProfileService` 解绑手机号/邮箱同一范式。
+- **前端无需改动**：`el-select` clearable 清空值为 `undefined`
+  （`useEmptyValues` 默认 `valueOnClear = undefined`），`form.leaderUserId || null`
+  已正确产出 null 上传；链路（提交 → 保存 → `load()` 重拉 → 无缓存）其余环节
+  经排查均正常（http.js 无缓存层、RateLimitFilter 仅限登录接口、
+  OrgService 无 `@Cacheable`）。
+
+### 26.3 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单测 | `mvn -o test` | 273/273 BUILD SUCCESS |
+| 集成测试（11 类） | `mvn -o -DskipITs=false test-compile failsafe:integration-test failsafe:verify` | 26/26 BUILD SUCCESS |
+| 前端 | `vite build` | 构建成功 |
+
+## 27. 在线用户管理（V27 迁移）
+
+### 27.1 功能概览
+
+- 菜单入口：系统管理 → 在线用户管理（`/system/online`，V27 种子菜单 id=1060，
+  SUPER_ADMIN 自动绑定）；
+- 接口前缀 `/api/system/online-users`，权限码三分（与 `sys_api_resource` 种子一一对应）：
+  - `system:online:read`：分页查询在线会话 / 登录限制记录；
+  - `system:online:force-logout`：批量强制下线；
+  - `system:online:restrict`：设置 / 解除临时限制登录；
+- 列表列：账号、姓名、登录 IP、登录时间、最近活跃时间、会话状态
+  （在线 / 空闲 / 已限制）、设备（当前设备打「本机」标）；
+- 筛选：账号模糊、IP 模糊、状态精确；分页；自动刷新（5/10/30/60 秒，默认关闭，
+  轮询静默拉取不触发 loading 闪烁，弹窗打开时跳过）；
+- 写操作均 `ElMessageBox` 二次确认；后端 `@AuditOperation` 落审计日志，
+  限制记录结构化沉淀于 `sys_login_restriction`，双重可追溯。
+
+### 27.2 数据模型（V27 两张新表，均无 deleted 列）
+
+- `sys_online_session`：一行 = 一个在线设备会话，业务键 `(tenant_id, user_id, device_id)`。
+  登录成功 upsert 登记（同设备重复登录重置登录时间而非插多行）；请求心跳节流更新
+  `last_active_at`；登出 / 强制下线 / 限制连带下线 / 空闲回收置 `OFFLINE` + `offline_reason`。
+  行不物理删除，历史行作为「最近下线记录」留存。
+- `sys_login_restriction`：临时限制记录即审计留痕，不物理删除。状态机
+  `ACTIVE → RELEASED`（`release_type` 区分 MANUAL / AUTO_EXPIRED）；
+  `duration_minutes=0` 为长期（`expire_at` 为空），仅可手动解除。
+
+### 27.3 核心机制
+
+- **心跳节流**：`HeartbeatThrottle` 按「用户+设备」维度限流
+  （默认 60s 最多一次写库，构造参数 <1s 按 1s 兜底），把写量压到
+  「在线设备数 / 间隔」；`ConcurrentHashMap` + 超 10,000 条目触发陈旧清理
+  （超过 2 个周期未出现），长期运行内存有界。
+- **强制下线实时生效**：吊销目标设备刷新令牌 + 会话置 `OFFLINE`；
+  已签发的 access token 由 `OnlineSessionFilter` 在下一个请求时校验拦截（401），
+  无需等待自然过期。过滤器对「无会话行」（改造前历史令牌）按 fail-open 放行，
+  保证平滑升级。
+- **限制登录语义**：登录链路 `AuthApplicationService` 强制校验
+  （423 `AUTH_015`，消息含预计解除时间）；限制生效时**同步强制下线其全部在线会话**，
+  避免「禁止新登录但在线会话继续操作」的漏洞。到期由 `LoginRestrictionJob`
+  每分钟自动解除；任务未执行的窗口期内，过期记录在登录侧同样判为不生效
+  （`RestrictionRules.isActive` 与定时任务互为兜底）。
+- **展示状态口径统一**：列表列「会话状态」由 `OnlineSessionRules.displayStatus`
+  计算（`RESTRICTED > IDLE > ONLINE`），与登录链路、筛选条件共用同一判定，
+  避免「页面显示生效中、登录却放行」的口径分裂。
+- **登出 / 改密联动**：登出与改密成功后将该用户全部在线会话置离线
+  （`REASON_LOGOUT` / `REASON_PASSWORD_CHANGED`）。
+
+### 27.4 新增文件与改动
+
+| 类型 | 文件 |
+| --- | --- |
+| 迁移 | `db/migration/V27__online_user_management.sql`（两表 + 菜单 + API 资源种子） |
+| 实体 | `system/entity/SysOnlineSessionDO.java`、`SysLoginRestrictionDO.java` |
+| 规则 | `security/online/OnlineSessionRules.java`、`RestrictionRules.java`、`HeartbeatThrottle.java` |
+| 过滤器 / 任务 | `security/online/OnlineSessionFilter.java`、`LoginRestrictionJob.java`、`LoginRestrictionRunner.java` |
+| DTO | `system/dto/OnlineUserQuery.java`、`OnlineUserView.java`、`ForceLogoutRequest.java`、`RestrictLoginRequest.java`、`LoginRestrictionView.java` |
+| 服务 / 接口 | `system/service/OnlineUserService.java`、`system/controller/OnlineUserController.java` |
+| 前端 | `api/onlineUser.js`、`views/system/OnlineUserView.vue`、`router/index.js`（路由注册） |
+| 改动 | `AuthApplicationService`（登录校验/登记/登出/改密联动）、`SessionCleanupService`（空闲回收联动会话置离线）、`RefreshTokenService(+Impl)`（按设备吊销）、`SecurityConfig`（过滤器注册）、`JwtProperties`（心跳/空闲阈值配置）、`SecurityErrorCode`（AUTH_015）、`JooqTables`（新表注册） |
+
+### 27.5 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单测 | `mvn -o test` | 309/309 BUILD SUCCESS（新增 36 例：规则类 29 + 服务守卫 7） |
+| 集成测试（12 类） | `mvn -o test -Dtest="*IT"` | 33/33 BUILD SUCCESS（新增 `OnlineUserIT` 7 例） |
+| 前端 | `vite build` | 构建成功 |
+
+`OnlineUserIT` 覆盖：登录登记闭环（账号/IP/状态）、账号与 IP 模糊筛选、
+强制下线（OFFLINE + FORCE_LOGOUT + 重复下线 404 幂等）、限制登录
+（423 AUTH_015 + 连带下线 + 记录可查 + 解除后登录恢复）、
+时长白名单 400 / 重复限制 409 / 用户不存在 404 守卫。
+
+### 27.6 已知边界与后续
+
+- 在线会话表按「当前在线 + 最近下线」语义查询，历史行无限增长；
+  后续可加保留期清理任务（与 `SessionCleanupService` 同周期）。
+- 批量强制下线上限 100（`ForceLogoutRequest` 校验），超量需分批。
+- `updateById` 的 NOT_NULL 跳过策略是全局约定，「解绑/清除」语义字段
+  均应走 `updateByIdWithNulls` 显式置空（V26 负责人修复同范式）。
