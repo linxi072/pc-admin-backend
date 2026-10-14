@@ -97,6 +97,34 @@ const routes = [
         meta: { title: '在线用户管理', permission: 'system:online:read' }
       },
       {
+        // 缓存监控（V29）：进程内缓存条目/命中率/淘汰统计与清理，菜单与权限由后端驱动
+        path: 'system/cache',
+        name: 'cacheMonitor',
+        component: () => import('@/views/system/CacheMonitorView.vue'),
+        meta: { title: '缓存监控', permission: 'system:monitor:read' }
+      },
+      {
+        // 连接池监控（V29）：HikariCP 活跃/空闲/等待线程与池配置，菜单与权限由后端驱动
+        path: 'system/datasource',
+        name: 'poolMonitor',
+        component: () => import('@/views/system/PoolMonitorView.vue'),
+        meta: { title: '连接池监控', permission: 'system:monitor:read' }
+      },
+      {
+        // 登录日志（V29）：登录成功/失败逐条明细（安全审计），菜单与权限由后端驱动
+        path: 'system/login-log',
+        name: 'loginLog',
+        component: () => import('@/views/system/LoginLogView.vue'),
+        meta: { title: '登录日志', permission: 'system:login-log:read' }
+      },
+      {
+        // 操作日志（V29）：审计日志明细与 traceId 链路，菜单与权限由后端驱动
+        path: 'system/operation-log',
+        name: 'operationLog',
+        component: () => import('@/views/system/OperationLogView.vue'),
+        meta: { title: '操作日志', permission: 'system:audit:read' }
+      },
+      {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),

@@ -7,8 +7,11 @@ import com.acme.scaffold.jooq.JooqSorts;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import com.acme.scaffold.security.token.SysRefreshTokenDO;
+import com.acme.scaffold.security.token.TokenVersionService;
 import com.acme.scaffold.system.entity.SysMonitorSampleDO;
 import com.acme.scaffold.system.entity.SysUserDO;
+import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.HikariPoolMXBean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
@@ -17,6 +20,7 @@ import org.jooq.Record3;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -50,10 +54,84 @@ public class MonitorService {
 
     private final DSLContext dsl;
     private final RuntimeMetricsCollector collector;
+    private final TokenVersionService tokenVersionService;
+    private final DataSource dataSource;
 
     /** 实时运行指标（CPU/内存/磁盘/JVM）。 */
     public ServerMetrics currentMetrics() {
         return collector.snapshot();
+    }
+
+    // ---------------- 缓存监控（V29） ----------------
+
+    /**
+     * 进程内缓存统计列表（V29 缓存监控页）。
+     *
+     * <p>当前仅有「Token 版本缓存」一项；{@link CacheStatView} 按可扩展形态设计，
+     * 后续接入 Caffeine/Redis 等实现时向列表追加即可，前端契约不变。
+     */
+    public List<CacheStatView> cacheStats() {
+        long[] stats = tokenVersionService.cacheStats();
+        long hit = stats[0];
+        long miss = stats[1];
+        long evict = stats[2];
+        CacheStatView tokenVersion = new CacheStatView(
+                "token-version",
+                "CONCURRENT_HASH_MAP",
+                tokenVersionService.cacheSize(),
+                hit,
+                miss,
+                evict,
+                CacheStatView.hitRateOf(hit, miss),
+                tokenVersionService.cacheTtlMillis(),
+                "Token 版本进程内缓存（权限变更后旧凭证失效判定，TTL 30s）");
+        return List.of(tokenVersion);
+    }
+
+    /**
+     * 清理指定名称的缓存。
+     *
+     * @return true=已清理；false=缓存名不存在（调用方据此返回 404 语义）
+     */
+    public boolean clearCache(String name) {
+        if ("token-version".equals(name)) {
+            tokenVersionService.clearCache();
+            return true;
+        }
+        return false;
+    }
+
+    // ---------------- 连接池监控（V29） ----------------
+
+    /**
+     * 数据库连接池统计（V29 连接池监控页）。
+     *
+     * <p>优先取 HikariCP 的 {@code HikariPoolMXBean} 实时计数；非 Hikari 数据源时
+     * 回退为配置项快照（计数为 -1），保证页面在任何数据源实现下都可展示。
+     */
+    public PoolStatView datasourceStats() {
+        if (dataSource instanceof HikariDataSource hikari) {
+            HikariPoolMXBean pool = hikari.getHikariPoolMXBean();
+            int max = hikari.getMaximumPoolSize();
+            long active = pool == null ? PoolStatView.UNAVAILABLE : pool.getActiveConnections();
+            long idle = pool == null ? PoolStatView.UNAVAILABLE : pool.getIdleConnections();
+            long total = pool == null ? PoolStatView.UNAVAILABLE : pool.getTotalConnections();
+            long waiting = pool == null ? PoolStatView.UNAVAILABLE : pool.getThreadsAwaitingConnection();
+            double usage = (pool != null && max > 0)
+                    ? (double) pool.getActiveConnections() / max
+                    : PoolStatView.UNAVAILABLE;
+            return new PoolStatView(
+                    hikari.getPoolName(),
+                    active, idle, total, waiting, usage,
+                    max, hikari.getMinimumIdle(),
+                    hikari.getConnectionTimeout(), hikari.getValidationTimeout(),
+                    hikari.getIdleTimeout(), hikari.getMaxLifetime(),
+                    hikari.getJdbcUrl());
+        }
+        return PoolStatView.configOnly("unknown", -1, -1,
+                PoolStatView.UNAVAILABLE, PoolStatView.UNAVAILABLE,
+                PoolStatView.UNAVAILABLE, PoolStatView.UNAVAILABLE,
+                null);
     }
 
     /**

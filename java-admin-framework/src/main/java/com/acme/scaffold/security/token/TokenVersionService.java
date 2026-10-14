@@ -105,6 +105,35 @@ public class TokenVersionService {
         bumpUsers(userId == null ? List.of() : List.of(userId));
     }
 
+    /**
+     * 缓存命中统计快照（V29 缓存监控页数据源）。
+     *
+     * @return 三元组：{命中数, 未命中数, 淘汰数}
+     */
+    public long[] cacheStats() {
+        return cache.stats();
+    }
+
+    /** 当前缓存条目数。 */
+    public int cacheSize() {
+        return cache.size();
+    }
+
+    /** 缓存 TTL（毫秒），监控页展示配置值。 */
+    public long cacheTtlMillis() {
+        return cache.ttlMillis();
+    }
+
+    /**
+     * 清空版本缓存（监控页「清理」操作）。
+     *
+     * <p>清理后下一次版本校验回源 {@code sys_user}，属于「牺牲一次查询换一致性」，
+     * 无正确性风险；已签发凭证不受影响（版本号事实不变，只是重新加载）。
+     */
+    public void clearCache() {
+        cache.clear();
+    }
+
     private Set<Long> normalize(Collection<Long> ids) {
         if (ids == null) {
             return Set.of();

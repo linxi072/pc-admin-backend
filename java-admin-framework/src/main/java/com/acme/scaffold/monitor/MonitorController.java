@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.audit.SysOperationLogDO;
+import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.system.entity.SysMonitorSampleDO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -104,5 +106,35 @@ public class MonitorController {
     @AuditOperation(module = "system", type = "UPDATE", name = "手动采集监控指标")
     public Result<Map<String, Object>> sample() {
         return Result.success(Map.of("inserted", monitorService.sampleOnce()));
+    }
+
+    // ---------------- 缓存监控（V29） ----------------
+
+    @Operation(summary = "进程内缓存统计（条目数/命中率/淘汰数/TTL）")
+    @GetMapping("/caches")
+    @PreAuthorize("hasAuthority('system:monitor:read')")
+    public Result<List<CacheStatView>> caches() {
+        return Result.success(monitorService.cacheStats());
+    }
+
+    @Operation(summary = "清理指定缓存（清理后下次读取回源数据库）")
+    @PostMapping("/caches/{name}/clear")
+    @PreAuthorize("hasAuthority('system:monitor:read')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "清理进程内缓存")
+    public Result<Map<String, Object>> clearCache(@PathVariable String name) {
+        boolean cleared = monitorService.clearCache(name);
+        if (!cleared) {
+            return Result.error(CommonErrorCode.NOT_FOUND.code(), "缓存不存在: " + name);
+        }
+        return Result.success(Map.of("name", name, "cleared", true));
+    }
+
+    // ---------------- 连接池监控（V29） ----------------
+
+    @Operation(summary = "数据库连接池统计（活跃/空闲/等待线程/池配置）")
+    @GetMapping("/datasource")
+    @PreAuthorize("hasAuthority('system:monitor:read')")
+    public Result<PoolStatView> datasource() {
+        return Result.success(monitorService.datasourceStats());
     }
 }
