@@ -1396,6 +1396,183 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 
 排障：`ProfileManagementIT` 首跑 5 例全因登录 423 LOCKED 失败——`UserService.create` 初始口令置 `password_expired=1`（首登须改密语义），夹具按 `UserLifecycleIT` 既有模式创建后 DSL 置 0 解决；2 例因 Bean Validation 顶层 message 为通用文案、字段级详情在 data 中，断言改按字段级校验。
 
+## 30. 系统管理新增监控/日志菜单（V29 迁移）
+
+### 30.1 功能清单
+
+| 菜单 | 路由 | 权限码 | 图标 | sort_no | 页面 |
+| --- | --- | --- | --- | --- | --- |
+| 缓存监控 | `system/cache` | `system:monitor:read` | `Coin` | 96 | `CacheMonitorView.vue` |
+| 连接池监控 | `system/pool` | `system:monitor:read` | `SetUp` | 97 | `PoolMonitorView.vue` |
+| 登录日志 | `system/login-log` | `system:login-log:read` | `Document` | 98 | `LoginLogView.vue` |
+| 操作日志 | `system/operation-log` | `system:audit:read` | `Tickets` | 99 | `OperationLogView.vue` |
+
+设计要点：
+- **权限隔离**：登录日志（含用户名/IP/UA 敏感数据）使用独立权限码 `system:login-log:read`，不与操作日志的 `system:audit:read` 混用，便于按角色最小化授权；缓存/连接池复用监控既有权限码 `system:monitor:read`。
+- **图标与排序**：均取 Element Plus 图标名，随 `sort_no` 步进 10 依次排在系统管理既有菜单（最大 95，即在线用户管理）之后，新增监控类菜单延续 96/97/98/99 即可，无需调整既有菜单。
+- **结构可扩展**：后端 `MonitorService.cacheStats()` 返回 `List<CacheStatView>`，新增缓存实现时向列表追加一项，前端表格零改动；前端 4 个页面统一「统计卡片 + 明细表格 + 自动刷新」骨架，后续监控类菜单可整体复制改造。
+
+### 30.2 后端新增端点
+
+| 端点 | 权限 | 说明 |
+| --- | --- | --- |
+| `GET /api/system/monitor/caches` | `system:monitor:read` | 进程内缓存统计（条目数/命中/未命中/淘汰/命中率/TTL/用途），当前含 `token-version`（TokenVersionCache，30s TTL） |
+| `POST /api/system/monitor/caches/{name}/clear` | `system:monitor:read` | 清理指定缓存（审计留痕）；不存在返回 NOT_FOUND 业务失败 |
+| `GET /api/system/monitor/datasource` | `system:monitor:read` | HikariCP 连接池统计（活跃/空闲/总数/等待线程/使用率 + 池配置 + JDBC URL）；非 Hikari 数据源回退 `configOnly` 哨兵形态 |
+| `GET /api/system/login-logs/page` | `system:login-log:read` | 登录日志分页（用户名/结果/类型/失败码/IP/关键字/时间区间，默认收敛最近 7 天防全表扫描） |
+| `GET /api/system/login-logs/summary` | `system:login-log:read` | 登录统计摘要（总数/成功/失败/失败率/独立用户/最近登录） |
+
+操作日志页直接对接既有 `AuditLogController`（`/api/system/audit-logs/page` + `/trace/{traceId}` 链路查询 + `/summary`），未新增端点。为支撑缓存监控，`TokenVersionCache` 增加命中/未命中/淘汰计数（`get` 命中与过期各计一次，`put`/`invalidate` 计淘汰），`TokenVersionService` 暴露 `stats()`/`clear()` 委托。
+
+### 30.3 V29 迁移（已并入 `V32__consolidated_schema.sql`，见 §34）
+
+一次性完成：4 条 `sys_menu` 记录（父菜单 1002 系统管理）、5 条 `sys_api_resource` 接口登记、SUPER_ADMIN 角色对 5 个新权限码的授权（INSERT IGNORE 幂等，重跑安全）。
+
+### 30.4 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单测（54 类） | `mvn -o test` | 317/317 BUILD SUCCESS |
+| 集成测试（21 类） | `mvn -o test -Dtest="*IT"` | 98/98 BUILD SUCCESS（91 原有 + MonitorLogIT 7 新增） |
+| 前端 | `vite build` | 2303 modules，构建成功 |
+
+新增 `MonitorLogIT`（7 例）：缓存统计含 `token-version` 条目与命中率字段、清理存在/不存在缓存、连接池统计字段齐全、登录日志分页与摘要、操作日志分页、无 `system:login-log:read` 权限用户访问登录日志 403。
+
+排障：首跑 4 失败均为测试夹具问题而非产品缺陷——缓存名实为 `token-version`（非方法名 `tokenVersionCache`）、`PageResult` 序列化字段为 `records`（非 `list`）、普通角色查询 `fetchOne` 遇多行抛 `TooManyRowsException`（改 `fetchList` 取首个）。
+
+## 31. 菜单重组：移除报表公共统计页，新增「运维管理」（V30 迁移）
+
+### 31.1 变更内容
+
+| 操作 | 对象 |
+| --- | --- |
+| 软删 | 「报表管理」目录(1030) + 3 个公共统计页：使用统计(1050) / 类别统计(1051) / 状态统计(1052)，`sys_role_menu` 关联同步清理（无孤儿行） |
+| 新增 | 「运维管理」一级目录(1070, CATALOG, 图标 Tools)，接手 sort_no=50 |
+| 迁入 | 接口资源管理(1014) / 代码生成(1040，原顶级菜单) / 系统监控(1018) / 缓存监控(1061) / 连接池监控(1062) / 登录日志(1063) / 操作日志(1064) |
+| 随迁 | 保留的 3 个运维向统计页：定时任务执行统计(1053) / 登录统计(1054) / 接口调用统计(1055) |
+
+### 31.2 运维管理菜单结构（sort_no 顺序）
+
+| sort_no | 菜单 | 路由 path | 权限码 |
+| --- | --- | --- | --- |
+| 10 | 接口资源管理 | `/system/api-resource` | `system:api-resource:read` |
+| 20 | 代码生成 | `/dev/codegen` | `codegen:read` |
+| 30 | 系统监控 | `/system/monitor` | `system:monitor:read` |
+| 40 | 缓存监控 | `/system/cache` | `system:monitor:read` |
+| 50 | 连接池监控 | `/system/datasource` | `system:monitor:read` |
+| 60 | 登录日志 | `/system/login-log` | `system:login-log:read` |
+| 70 | 操作日志 | `/system/operation-log` | `system:audit:read` |
+| 80 | 定时任务执行统计 | `/report/job-exec` | `report:read` |
+| 90 | 登录统计 | `/report/login` | `report:read` |
+| 100 | 接口调用统计 | `/report/api-call` | `report:read` |
+
+### 31.3 不变性保证
+
+- **权限零影响**：所有菜单 id 与 permission_code 不变 → `sys_role_api` / `sys_api_resource` 授权关系原样保留，接口访问控制无感知；`sys_role_menu` 按 menu_id 关联，id 不变即授权不丢失（1070 已由 V30 补绑 SUPER_ADMIN）。
+- **路由零影响**：前端路由 path 全部不变，侧边栏由后端「我的菜单」接口按角色动态渲染（`MenuTree` 递归），parent 变更后自动归组，无需前端菜单配置。
+- **业务零影响**：后端 Report/Monitor/Audit/LoginLog 等 Controller、Service 未做任何改动；报表后端 `/api/report/*` 端点保留（统计视角数据仍可查，仅前端 3 个公共视角页面移除）。
+
+### 31.4 前端清理（3 文件删除 + 2 处修正）
+
+- 删除 3 个公共统计页视图：`UsageReportView.vue` / `CategoryReportView.vue` / `StatusReportView.vue` 及 router 对应 3 条路由（`report/usage|category|status`）；
+- `report/management` 旧入口重定向由 `/report/usage` 改为 `/report/job-exec`（保留页首个），历史书签不失效；
+- 工作台「快捷入口」移除「报表管理」按钮（目标页已不存在）；
+- `ReportPanel.vue` 与 `api/report.js` 保留不动——3 个保留统计页仍以其为载体，业务逻辑零变更。
+
+### 31.5 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单测 | `mvn -o test` | 317/317 BUILD SUCCESS |
+| 集成测试（21 类） | `mvn -o test -Dtest="*IT"` | 98/98 BUILD SUCCESS（V30 随 Flyway 自动下发，`flyway_schema_history` version=30 success=1） |
+| 前端 | `vite build` | 2303 modules，构建成功 |
+| 菜单树核验 | SQL | 1070 下 10 个子菜单 sort_no 10~100 顺序正确；1030/1050/1051/1052 均 deleted=1 且 `sys_role_menu` 零残留（leaked=0）；SUPER_ADMIN 经 1070 可见全部子菜单 |
+
+> 注：`mvn -o test` 仅跑无 Spring 上下文的单元测试，不触发 Flyway；V30 等数据迁移随 IT（真实上下文）启动自动下发，开发库生效状态以 `flyway_schema_history` 为准。
+
+## 32. 报表/工作台优化与菜单图标选择器
+
+### 32.1 菜单图标选择器（IconPicker）
+
+菜单管理「图标」字段原为纯文本输入（需手背 Element Plus 图标名，错配即静默丢失图标）。新增 `components/IconPicker.vue`：
+
+- 输入框只读 + 前置当前图标预览，点击打开选择弹窗；
+- 精选 **135 个图标**按 6 组分类（监控运维 / 系统管理 / 工作流协作 / 报表统计 / 通用操作 / 开发工具），支持名称搜索，已用脚本对照 `@element-plus/icons-vue` 真实导出校验（零不存在、零重复）；
+- 「监控运维」组覆盖运维管理子树全部在用图标（Odometer/Monitor/Box/Link/Key/Document/Connection/Tools 等），新增运维类菜单从该组选用，保证图标风格统一（均为 Element Plus 线性图标）；
+- 支持一键清除；选中即写回 `form.icon`（与后端 `sys_menu.icon`、MenuTree 的 `component :is` 链路一致）。
+
+**MenuTree 防御**：数据库 icon 为自由文本（历史错配/空值会触发 Vue 运行时告警且图标静默丢失），`safeIcon` computed 增加图标名白名单校验，非法/缺失一律不渲染图标仅显示文字，侧边栏渲染稳定。
+
+### 32.2 报表管理优化（ReportPanel）
+
+V30 移除 3 个公共统计页后，ReportPanel 的使用视角（类别/状态/排序筛选、类别分布图、使用视角汇总与趋势）成为死代码，本轮清理并按统计视角收敛：
+
+- **死代码清理**：删除 `MODULE_LABELS`/`moduleOptions`/`categoryOption`、使用视角的 `summaries`/`trendOption` 分支、`module`/`status`/`sortBy`/`order` 筛选项（后端 `sortBy/order` 仅服务类别分布，统计视角不用，Controller 有 defaultValue 兜底）；
+- **类型白名单**：`load()` 入口校验 `type ∈ {JOB_EXEC, LOGIN, API_CALL}`，路由/菜单误配时给出可读错误而非静默空页；
+- **交互优化**：错误态从纯 alert 改为「alert + 重试按钮」（复用当前筛选条件）；自定义时间范围增加起止关系前端预校验（开始 > 结束时少发一次无效请求）；导出成功 ElMessage 提示文件名；汇总指标 null 值显示 `--` 而非 `undefined`；
+- **api/report.js**：注释同步为仅统计视角口径（后端 USAGE/CATEGORY/STATUS 类型与聚合逻辑保留未删，前端入口已移除）。
+
+### 32.3 工作台优化（DashboardView）
+
+- 统计卡与「最近动态」加载失败时，alert 内嵌**重试按钮**（原只能整页刷新）；
+- 「最近动态」时间列改**相对时间**（刚刚 / x 分钟前 / x 小时前 / x 天前，超 7 天回退绝对时间），`title` 悬浮保留精确时间；
+- 统计卡数值**千分位格式化**（大数值可读性）。
+
+### 32.4 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 前端构建 | `npm run build -- --emptyOutDir=false` | 2303 modules，构建成功（仅 chunk 体积提示） |
+| 图标名校验 | node 脚本对照 `@element-plus/icons-vue` 真实导出 | 135 个全部有效、零重复 |
+| 死代码自查 | grep `isStatView/moduleOptions/categoryOption/...` | ReportPanel 零残留 |
+
+## 33. 恢复「报表管理」一级菜单（V31 迁移）
+
+### 33.1 变更内容
+
+V30 将 3 个运维向统计页挂到「运维管理」后，报表域缺少一级入口。V31 复活 V30 软删的「报表管理」目录（id=1030，menu_code=report-management）作为一级 CATALOG，并将 3 个统计页从「运维管理」迁回：
+
+| 菜单 | id | parent | sort_no | 权限码 | 路由 path |
+| --- | --- | --- | --- | --- | --- |
+| 报表管理（一级目录） | 1030 | 0 | 45 | —（目录不鉴权） | — |
+| 定时任务执行统计 | 1053 | 1030 | 10 | report:read | /report/job-exec |
+| 登录统计 | 1054 | 1030 | 20 | report:read | /report/login |
+| 接口调用统计 | 1055 | 1030 | 30 | report:read | /report/api-call |
+
+排序位：接排个人中心(40)之后、运维管理(50)之前，其余一级菜单 sort_no 不变；子菜单 sort_no 按 10/20/30 重排。
+
+### 33.2 顺带修复：侧边栏菜单排序失效（MenuService）
+
+集成测试首跑暴露既有缺陷（`dfac8db` 引入）：`menusForCurrentUser` 中 `expanded` 为 `HashSet`，`included` 直接流式迭代该集合，**输出顺序退化为 id 哈希序**，令上方 `all.sort`（sort_no ASC, id ASC）成为死代码——侧边栏（`/api/system/menus/mine`）顺序与 sort_no 脱节，而管理端（`/api/system/menus/tree`，DB ORDER BY）一直正常。V31 的 sort_no 设计正依赖该顺序，故一并修复：
+
+- `included` 改为从已排序的 `all` 按 `expanded` 过滤，输出与 `tree()` 同序（sort_no ASC，二级键 id ASC）；
+- 仅修正展示顺序，菜单集合（授权菜单 + 祖先闭包）完全不变，无业务影响。
+
+### 33.3 不变性保证
+
+- **授权零影响**：3 个统计页菜单 id / 权限码 / route_path 均不变 → `sys_role_api` / `sys_api_resource` 授权原样保留；`sys_role_menu` 按 menu_id 关联，id 不变即授权不丢失（V30 清理过 1030 的 SUPER_ADMIN 绑定，V31 以 INSERT IGNORE 补回）；
+- **前端路由零改动**：`/report/job-exec`、`/report/login`、`/report/api-call` 路径不变，侧边栏由后端菜单树驱动自动归组；旧入口 `/report/management` 重定向至 `/report/job-exec` 仍有效；
+- **运维管理不受损**：保留其余 7 个功能菜单（接口资源管理 / 代码生成 / 系统监控 / 缓存监控 / 连接池监控 / 登录日志 / 操作日志，sort 10~70 不变）；
+- **公共统计页不复活**：V30 软删的使用 / 类别 / 状态统计页（1050/1051/1052）保持 deleted=1；
+- **幂等**：复活带 `deleted=1` 原值 WHERE 条件，INSERT IGNORE + NOT EXISTS，重复执行结果一致。
+
+### 33.4 前端同步
+
+- `DashboardView.vue` 快捷入口恢复「报表管理」按钮（跳转 `reportJobExec`，即报表管理下首个统计页），与一级菜单入口互补；
+- 路由注释补充 V31 归属说明（无结构变化，path 均不变）。
+
+### 33.5 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单元测试 | `mvn -o test` | 327/327 BUILD SUCCESS |
+| V31 集成测试 | `mvn -o test -Dtest="ReportMenuRestoreIT"` | 5/5 BUILD SUCCESS |
+| 全量集成测试 | `mvn -o test -Dtest="*IT"` | 103/103 BUILD SUCCESS（V31 随 Flyway 下发，`flyway_schema_history` version=31 success=1） |
+| 前端构建 | `npm run build -- --emptyOutDir=false` | 构建成功（仅 chunk 体积提示） |
+| 库状态核对 | mysql 直查 `sys_menu` / `sys_role_menu` | 1030 一级 CATALOG sort 45；1053/1054/1055 挂 1030（sort 10/20/30，report:read）；1050~1052 保持软删；1070 保留 7 子项；SUPER_ADMIN 绑定 1030/1053/1054/1055 齐全 |
+
+> 注：`mvn -o test` 仅跑无 Spring 上下文的单元测试，不触发 Flyway；V31 数据迁移随 IT（真实上下文）启动自动下发，开发库生效状态以 `flyway_schema_history` 为准。
+
 ## 34. SQL 资产整理：V32 合并迁移 + DDL / DML 分类参考件
 
 ### 34.1 变更概览
