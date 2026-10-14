@@ -90,6 +90,13 @@ const routes = [
         meta: { title: '系统监控', permission: 'system:monitor:read' }
       },
       {
+        // 在线用户管理（V27）：在线会话跟踪 / 强制下线 / 临时限制登录，菜单与权限由后端驱动
+        path: 'system/online',
+        name: 'onlineUser',
+        component: () => import('@/views/system/OnlineUserView.vue'),
+        meta: { title: '在线用户管理', permission: 'system:online:read' }
+      },
+      {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),

@@ -18,7 +18,8 @@ public enum SecurityErrorCode implements ErrorCode {
     TOO_MANY_SESSIONS("AUTH_011", "同一账号同时登录设备数已达上限", 409),
     REPLAY_TIMESTAMP_INVALID("AUTH_012", "请求时间戳无效或已过期", 400),
     REPLAY_DETECTED("AUTH_013", "检测到重放请求", 409),
-    MUST_CHANGE_PASSWORD("AUTH_014", "请修改初始/重置密码后再登录", 423);
+    MUST_CHANGE_PASSWORD("AUTH_014", "请修改初始/重置密码后再登录", 423),
+    ACCOUNT_RESTRICTED("AUTH_015", "账号已被限制登录，请联系管理员", 423);
 
     private final String code;
     private final String message;

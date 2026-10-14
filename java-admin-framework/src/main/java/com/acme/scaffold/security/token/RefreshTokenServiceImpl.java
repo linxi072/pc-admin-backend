@@ -127,6 +127,22 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     }
 
     @Override
+    public int revokeByUserAndDevice(Long userId, String deviceId) {
+        if (deviceId == null || deviceId.isBlank()) {
+            // 无设备标识时无法精确吊销，退化为按用户全量吊销（调用方已限定 userId）
+            revokeByUser(userId);
+            return -1;
+        }
+        return dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+                .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
+                .set(revokeReasonField(), "DEVICE_REVOKED")
+                .where(userIdField().eq(userId)
+                        .and(JooqTables.SYS_REFRESH_TOKEN.field("device_id", String.class).eq(deviceId))
+                        .and(revokedAtField().isNull()))
+                .execute();
+    }
+
+    @Override
     public int countActiveSessions(Long userId) {
         return dsl.fetchCount(JooqTables.SYS_REFRESH_TOKEN.table(),
                 userIdField().eq(userId)

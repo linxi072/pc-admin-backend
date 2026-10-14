@@ -3,6 +3,7 @@ package com.acme.scaffold.security.config;
 import com.acme.scaffold.security.jwt.JwtAuthConverter;
 import com.acme.scaffold.security.captcha.CaptchaProperties;
 import com.acme.scaffold.security.antireplay.AntiReplayProperties;
+import com.acme.scaffold.security.online.OnlineSessionFilter;
 import com.acme.scaffold.security.token.TokenVersionVerifier;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -68,7 +69,8 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain apiSecurity(HttpSecurity http, JwtAuthConverter jwtAuthConverter,
                                           org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder,
-                                          TokenVersionVerifier tokenVersionVerifier) throws Exception {
+                                          TokenVersionVerifier tokenVersionVerifier,
+                                          OnlineSessionFilter onlineSessionFilter) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(org.springframework.security.config.Customizer.withDefaults())
@@ -85,7 +87,9 @@ public class SecurityConfig {
                 // Token 版本校验必须排在 Bearer 认证之后：先有主体（含 userId 与 tokenVersion 声明）才谈得上比对
                 .addFilterAfter(tokenVersionVerifier,
                         org.springframework.security.oauth2.server.resource.web.authentication
-                                .BearerTokenAuthenticationFilter.class);
+                                .BearerTokenAuthenticationFilter.class)
+                // 在线会话校验 + 心跳（V27）：强制下线/登出/限制后设备侧下一个请求即 401
+                .addFilterAfter(onlineSessionFilter, TokenVersionVerifier.class);
         return http.build();
     }
 
@@ -100,6 +104,18 @@ public class SecurityConfig {
     public FilterRegistrationBean<TokenVersionVerifier> tokenVersionVerifierRegistration(
             TokenVersionVerifier verifier) {
         FilterRegistrationBean<TokenVersionVerifier> registration = new FilterRegistrationBean<>(verifier);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    /**
+     * 关闭 {@link OnlineSessionFilter} 的 Servlet 容器自动注册（原因同上）：
+     * 只在 Security 链内 Token 版本校验之后生效，保证认证主体已就绪。
+     */
+    @Bean
+    public FilterRegistrationBean<OnlineSessionFilter> onlineSessionFilterRegistration(
+            OnlineSessionFilter filter) {
+        FilterRegistrationBean<OnlineSessionFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
     }

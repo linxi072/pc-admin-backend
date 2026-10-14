@@ -151,6 +151,24 @@ public class JwtProperties {
     /** 会话空闲回收定时任务执行间隔（毫秒）。默认 300000（5 分钟）。 */
     private long sessionCleanupIntervalMs = 300_000;
 
+    /**
+     * 在线会话空闲展示阈值（V27 在线用户管理）：最近活跃距当前超过该值的会话在列表中标记为「空闲」。
+     * 与 {@link #sessionMaxInactive}（刷新令牌空闲吊销阈值）区分：前者只影响展示，后者触发真实回收。
+     * 默认 15m。
+     */
+    private Duration onlineSessionIdleThreshold = Duration.ofMinutes(15);
+
+    /**
+     * 在线会话心跳间隔（V27）：已认证请求按「每用户每设备每该时长最多一次」节流写库，
+     * 更新 sys_online_session.last_active_at。默认 60s。
+     */
+    private Duration onlineSessionHeartbeatInterval = Duration.ofSeconds(60);
+
+    /**
+     * 登录限制到期自动解除扫描间隔（毫秒，V27）。默认 60000（1 分钟）。
+     */
+    private long onlineSessionRestrictionScanIntervalMs = 60_000;
+
     public Duration getSessionMaxInactive() {
         return sessionMaxInactive;
     }
@@ -173,6 +191,30 @@ public class JwtProperties {
 
     public void setSessionCleanupIntervalMs(long sessionCleanupIntervalMs) {
         this.sessionCleanupIntervalMs = sessionCleanupIntervalMs;
+    }
+
+    public Duration getOnlineSessionIdleThreshold() {
+        return onlineSessionIdleThreshold;
+    }
+
+    public void setOnlineSessionIdleThreshold(Duration onlineSessionIdleThreshold) {
+        this.onlineSessionIdleThreshold = onlineSessionIdleThreshold;
+    }
+
+    public Duration getOnlineSessionHeartbeatInterval() {
+        return onlineSessionHeartbeatInterval;
+    }
+
+    public void setOnlineSessionHeartbeatInterval(Duration onlineSessionHeartbeatInterval) {
+        this.onlineSessionHeartbeatInterval = onlineSessionHeartbeatInterval;
+    }
+
+    public long getOnlineSessionRestrictionScanIntervalMs() {
+        return onlineSessionRestrictionScanIntervalMs;
+    }
+
+    public void setOnlineSessionRestrictionScanIntervalMs(long onlineSessionRestrictionScanIntervalMs) {
+        this.onlineSessionRestrictionScanIntervalMs = onlineSessionRestrictionScanIntervalMs;
     }
 
     public String getKeyId() {

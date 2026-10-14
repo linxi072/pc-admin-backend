@@ -20,7 +20,9 @@ import com.acme.scaffold.security.permission.PermissionService;
 import com.acme.scaffold.security.token.RefreshTokenService;
 import com.acme.scaffold.security.token.SessionLimitRules;
 import com.acme.scaffold.security.vo.TokenView;
+import com.acme.scaffold.system.entity.SysLoginRestrictionDO;
 import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.service.OnlineUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Set;
 
 /**
@@ -41,6 +44,9 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class AuthApplicationService {
+
+    /** 限制解除时间展示格式（yyyy-MM-dd HH:mm）。 */
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final DSLContext dsl;
     private final PermissionService permissionService;
@@ -53,6 +59,7 @@ public class AuthApplicationService {
     private final CaptchaProperties captchaProperties;
     private final PasswordHistoryService passwordHistoryService;
     private final LoginLogRecorder loginLogRecorder;
+    private final OnlineUserService onlineUserService;
 
     @Transactional
     public TokenView login(LoginCommand command, String ip, String userAgent, String deviceId) {
@@ -92,6 +99,13 @@ public class AuthApplicationService {
             throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.MUST_CHANGE_PASSWORD,
                     "请修改初始/重置密码后再登录", ip, userAgent);
         }
+        // V27 在线用户管理：临时登录限制校验。置于密码校验之后——
+        // 已认证方才有权得知「被限制」及其解除时间，未认证方只能得到通用错误，防账号状态探测。
+        SysLoginRestrictionDO restriction = onlineUserService.findActiveRestriction(user.getId());
+        if (restriction != null) {
+            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_RESTRICTED,
+                    restrictionMessage(restriction), ip, userAgent);
+        }
         resetLoginFailure(user);
 
         // 多端登录限制：控制同一账号同时在线设备数（每个活跃刷新令牌即一个在线设备）
@@ -114,9 +128,21 @@ public class AuthApplicationService {
         CurrentPrincipal principal = buildPrincipal(user);
         String accessToken = jwtProvider.generateAccessToken(principal);
         String refreshToken = refreshTokenService.issue(user.getId(), "web", deviceId, userAgent, ip);
+        // V27 在线用户管理：登记在线会话（upsert，供列表跟踪 / 强制下线 / 心跳）
+        onlineUserService.registerSession(user.getId(), user.getUsername(), user.getDisplayName(),
+                deviceId, "web", ip, userAgent);
         // 登录成功落审计日志（REQUIRES_NEW 独立事务，供「报表管理 - 登录统计」取数）
         loginLogRecorder.record(user.getUsername(), user.getId(), true, null, ip, userAgent);
         return new TokenView(accessToken, refreshToken, jwtProperties.getAccessTokenTtl().getSeconds());
+    }
+
+    /** 限制登录的面向用户提示：长期限制提示联系管理员，限时限制附带预计解除时间。 */
+    private String restrictionMessage(SysLoginRestrictionDO restriction) {
+        if (restriction.getExpireAt() == null) {
+            return SecurityErrorCode.ACCOUNT_RESTRICTED.message() + "（长期，请联系管理员）";
+        }
+        return SecurityErrorCode.ACCOUNT_RESTRICTED.message() + "，预计 "
+                + restriction.getExpireAt().format(DATE_TIME_FORMATTER) + " 解除";
     }
 
     /**
@@ -157,6 +183,8 @@ public class AuthApplicationService {
     public void logout() {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
         refreshTokenService.revokeByUser(userId);
+        // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
+        onlineUserService.markOfflineByUser(userId, OnlineUserService.REASON_LOGOUT);
     }
 
     /**
@@ -201,6 +229,8 @@ public class AuthApplicationService {
         passwordHistoryService.record(user.getId(), encoded);
         // 改密后吊销全部刷新令牌，强制使用新口令重新登录
         refreshTokenService.revokeByUser(user.getId());
+        // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
+        onlineUserService.markOfflineByUser(user.getId(), OnlineUserService.REASON_PASSWORD_CHANGED);
     }
 
     private CurrentPrincipal buildPrincipal(SysUserDO user) {

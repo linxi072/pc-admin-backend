@@ -139,6 +139,25 @@ public final class JooqTables {
             "operator_name", "request_method", "request_path", "request_summary", "result_summary",
             "result_code", "duration_ms", "ip_address", "trace_id", "success", "occurred_at");
 
+    // ---------------- 在线用户管理（V27） ----------------
+
+    /**
+     * 在线会话跟踪表（V27）。业务键 (tenant_id, user_id, device_id)，无 deleted 列：
+     * 会话行永久留存作为「最近下线记录」，通过 status 区分 ONLINE / OFFLINE。
+     */
+    public static final TableRef SYS_ONLINE_SESSION = new TableRef("sys_online_session",
+            "id", "tenant_id", "user_id", "device_id", "client_id", "username", "display_name",
+            "login_ip", "user_agent", "login_at", "last_active_at", "status", "offline_reason",
+            "created_at", "updated_at");
+
+    /**
+     * 临时登录限制表（V27）。无 deleted 列：记录即审计，ACTIVE / RELEASED 状态机流转。
+     */
+    public static final TableRef SYS_LOGIN_RESTRICTION = new TableRef("sys_login_restriction",
+            "id", "tenant_id", "user_id", "username", "display_name", "reason", "duration_minutes",
+            "restricted_by", "restricted_by_name", "restricted_at", "expire_at", "released_at",
+            "released_by", "release_type", "status", "created_at", "updated_at");
+
     // ---------------- 定时任务管理（JobRunr 双层架构：配置/日志自管，调度交 JobRunr） ----------------
 
     /** 定时任务配置表（列名与 V21__job_management.sql 严格一致）。 */

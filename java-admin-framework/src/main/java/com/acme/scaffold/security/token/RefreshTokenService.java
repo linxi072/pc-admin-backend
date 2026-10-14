@@ -42,6 +42,19 @@ public interface RefreshTokenService {
     int revokeBySession(Long userId, String sessionId);
 
     /**
+     * 吊销某用户在指定设备（device_id）上的全部刷新令牌，返回受影响行数。
+     * <p>用于「在线用户管理」强制下线单个设备会话：device_id 即前端 X-Device-Id 头，
+     * 与在线会话表 sys_online_session 的业务键同源。
+     *
+     * <p>安全说明：必须同时限定 userId，防止通过伪造 deviceId 越权吊销他人会话。
+     *
+     * @param userId 目标用户
+     * @param deviceId 目标设备标识
+     * @return 受影响行数；0 表示该设备无活跃会话
+     */
+    int revokeByUserAndDevice(Long userId, String deviceId);
+
+    /**
      * 统计某用户当前活跃会话数（未吊销且未过期）。用于多端登录并发限制。
      *
      * @param userId 当前用户
