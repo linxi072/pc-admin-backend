@@ -85,7 +85,7 @@ mysql -u root -e "CREATE DATABASE IF NOT EXISTS scaffold
 # 其它平台：使用系统包管理器安装 MySQL / Redis 并以服务方式启动即可，
 # 均不需要容器。
 
-# 2) 超级管理员账号由 Flyway 的 V1__baseline.sql 内置（admin / SUPER_ADMIN）
+# 2) 超级管理员账号由 Flyway 的 V32__consolidated_schema.sql 内置（admin / SUPER_ADMIN）
 
 # 3) 编译运行
 export SPRING_PROFILES_ACTIVE=local
@@ -99,17 +99,17 @@ mvn spring-boot:run
 #    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 16 节说明）
 ```
 
-> **默认账号**：`V1__baseline.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），  
-> 其原始 `password_hash` 为占位死值（无对应明文）。已通过 `V4__fix_admin_password.sql`  
+> **默认账号**：`V32__consolidated_schema.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），  
+> 其原始 `password_hash` 为占位死值（无对应明文）。已通过 `V32__consolidated_schema.sql`（原 V4 段）  
 > 将其重置为可用密码 **`admin123`**（bcrypt，`{bcrypt}` 前缀）。首次登录请使用 `admin / admin123`。
 
 ### 建表来源说明
 
 | 表                                                     | 创建方式                                                   |
 | ----------------------------------------------------- | ------------------------------------------------------ |
-| `sys_*` / `wf_*`（20 张，V1~V4）                          | Flyway：`src/main/resources/db/migration/V1~V4`         |
-| `sys_dict_type` / `sys_dict_data` / `sys_config`（3 张） | Flyway：`V5__system_modules.sql`（字典分类/字典数据/系统变量，含种子数据）  |
-| `sys_user_role` / `sys_user_org`（2 张，纯 N:N 中间表）     | Flyway：`V15__user_role_org_many_to_many.sql`（回退 V6 单列收敛，可重跑） |
+| `sys_*` / `wf_*`（20 张，V1~V4）                          | Flyway：`src/main/resources/db/migration/V32__consolidated_schema.sql`         |
+| `sys_dict_type` / `sys_dict_data` / `sys_config`（3 张） | Flyway：`V32__consolidated_schema.sql`（字典分类/字典数据/系统变量，含种子数据；原 V5 段）  |
+| `sys_user_role` / `sys_user_org`（2 张，纯 N:N 中间表）     | Flyway：`V32__consolidated_schema.sql`（原 V15 段，回退 V6 单列收敛） |
 | `ACT_*`（Flowable）                                     | Flowable 自动建表（`flowable.database-schema-update: true`） |
 | `jobrunr_*`（调度）                                       | JobRunr 自动建表（`jobrunr.database.skip-create: false`）    |
 
@@ -117,7 +117,7 @@ mvn spring-boot:run
 
 用户与角色、用户与部门均为**纯 N:N**（中间表 `sys_user_role`、`sys_user_org`），不再保留 `sys_user` 上的 `role_id` / `org_id` / `primary_org_id` 单列。
 
-- `V6__user_single_role_org.sql` 曾将多对多收敛为单列（理由：避免权限并集越权）。`V15__user_role_org_many_to_many.sql` 回退该收敛，全程用 `information_schema` 守卫、可重复执行：
+- `V32__consolidated_schema.sql` 中的 V6 段曾将多对多收敛为单列（理由：避免权限并集越权），其后的 V15 段回退该收敛，全程用 `information_schema` 守卫、可重复执行：
   - 幂等建 `sys_user_role`（`uk_user_role(user_id,role_id)` + `idx`）、`sys_user_org`（`uk_user_org(user_id,org_id)` + `idx`）；
   - 把 `sys_user` 的 `role_id` / `org_id` / `primary_org_id` 数据回填进关联表（`is_primary=1`），再 `DROP` 这三列及 `idx_tenant_role` / `idx_tenant_org` 索引。
 - **权限聚合取并集**：`PermissionService.roleIdsOf(userId)` 改为从 `sys_user_role` 读取该用户全部角色 ID 取并集；JWT 层 `JwtAuthConverter` 本就按逗号 `split` 成 `Set`，多角色天然就绪。
@@ -125,7 +125,7 @@ mvn spring-boot:run
 - **数据权限联动**：`DefaultDataScopeProvider`、`DataScopeConditions` 的部门过滤与 `orgOfUser` 改走 `sys_user_org`（`is_primary=1`）子查询；`AssigneeResolver`、站内信收件解析（`MessageService.resolveReceivers`）同步基于关联表。
 - **改动面**：`JooqTables`（注册 `SYS_USER_ROLE` / `SYS_USER_ORG`、移除 `SYS_USER` 三列）、`SysUserDO`、`PermissionService`、`DefaultDataScopeProvider`、`AssigneeResolver`、`MessageService`、`DataScopeConditions`、`ProfileView` / `ProfileService`、`UserView` / `UserService` 及 `CreateUserRequest` / `UpdateUserRequest` DTO。
 
-> 部门树 + 用户多部门归属 + `SUPER_ADMIN` 角色/菜单关联的种子见仓库根 `permission-schema.sql`（第 9–10 节），为可独立执行的初始化脚本，与 Flyway V15 互补。
+> 部门树 + 用户多部门归属 + `SUPER_ADMIN` 角色/菜单关联的种子原见仓库根 `permission-schema.sql`（第 9–10 节）；该脚本已并入分类参考件 `db/reference/schema_ddl.sql`（逐语句带来源注释），其种子内容仍与 V32 中的 V15 段互补。
 
 ## 4. 认证与权限
 
@@ -749,7 +749,7 @@ curl -X POST http://localhost:8080/api/workflow/instances/start \
    已在 `application.yml` 与 `application-local.yml` 中将 JobRunr 配置块整体迁移到 `org.jobrunr:` 前缀下。  
    修复后启动日志确认 `BackgroundJobServer ... using MySqlStorageProvider and 4 BackgroundJobPerformers started successfully`，  
    `jobrunr_backgroundjobservers=1`，且 `demo-job`（`*/5 * * * *`）每 5 分钟真实执行（日志可见 `JobRunr 定时任务执行`）。
-5. **admin 默认密码不可用**：`V1__baseline.sql` 中 `admin` 的 `password_hash` 是占位死值，  
+5. **admin 默认密码不可用**：`V32__consolidated_schema.sql`（原 V1 段）中 `admin` 的 `password_hash` 是占位死值，  
    经 `BCryptPasswordEncoder` 校验对任意常见明文（`password`/`admin`/`123456`/`ChangeMe123!`）均返回 false。  
    新增 `V4__fix_admin_password.sql`，将其更新为 `admin123` 的 bcrypt 哈希（`{bcrypt}` 前缀）并刷新 `password_changed_at`。  
    修复后 `POST /api/auth/login` 用 `admin / admin123` 返回 `200`，错误密码返回 `AUTH_001`。
@@ -1253,7 +1253,7 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 
 | 类型 | 文件 |
 | --- | --- |
-| 迁移 | `db/migration/V27__online_user_management.sql`（两表 + 菜单 + API 资源种子） |
+| 迁移 | `db/migration/V32__consolidated_schema.sql`（原 V27 段：两表 + 菜单 + API 资源种子） |
 | 实体 | `system/entity/SysOnlineSessionDO.java`、`SysLoginRestrictionDO.java` |
 | 规则 | `security/online/OnlineSessionRules.java`、`RestrictionRules.java`、`HeartbeatThrottle.java` |
 | 过滤器 / 任务 | `security/online/OnlineSessionFilter.java`、`LoginRestrictionJob.java`、`LoginRestrictionRunner.java` |
@@ -1395,3 +1395,97 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 新增/扩展 IT：`RoleManagementIT` +2（null 保持 / 空集合清空）、`MenuIntegrationIT` +1（删菜单无孤儿 role_menu）、`ProfileManagementIT` 新类 5 例（手机/邮箱格式 400 且字段级错误可读、空串解绑置 NULL、弱新密码 400、复用历史 422）。
 
 排障：`ProfileManagementIT` 首跑 5 例全因登录 423 LOCKED 失败——`UserService.create` 初始口令置 `password_expired=1`（首登须改密语义），夹具按 `UserLifecycleIT` 既有模式创建后 DSL 置 0 解决；2 例因 Bean Validation 顶层 message 为通用文案、字段级详情在 data 中，断言改按字段级校验。
+
+## 34. SQL 资产整理：V32 合并迁移 + DDL / DML 分类参考件
+
+### 34.1 变更概览
+
+把分散的 SQL 资产按类型重整：可执行的迁移链收敛为单个版本化迁移，结构与数据另出两份分类参考件。
+
+| 类别 | 文件 | 说明 |
+| --- | --- | --- |
+| 新增（可执行） | `db/migration/V32__consolidated_schema.sql`（1882 行 / 125206 字节） | V1~V31 逐版本**原样拼接**（语句级保持原始交错顺序），供 Flyway 在全新环境一次性建库 |
+| 新增（参考件） | `db/reference/schema_ddl.sql`（1311 行）、`db/reference/data_dml.sql`（1205 行） | 全部 DDL / DML 按类型分类汇总，逐语句带 `[源文件 L行号]` 来源注释 |
+| 新增（工具） | `scripts/build_v32.py`、`scripts/build_reference.py` | 生成与校验脚本，可复现（原件删除后自动从 V32 还原重跑） |
+| 删除 | 34 个：V1~V31 共 31 个迁移 + `db/scaffold_full_init.sql` + `sql/schema.sql` + 仓库根 `permission-schema.sql` | 内容已完整并入 V32 与分类参考件 |
+| **保留** | `db/codegen/`（16 个 SQL + README） | **不是重复副本**：是 jOOQ 代码生成并行层的 H2 归一化 DDL 输入，被 `src/main/resources/jooq-codegen.xml` 的 `<scripts>` 显式引用（见 §15），删除会破坏 `mvn -Pjooq-codegen generate-sources` |
+
+### 34.2 关键约束：分类文件不能直接当迁移执行
+
+DDL / DML 分类本身成立，但**这两份文件不可按「先 DDL 后 DML」的顺序直接执行**，原因是跨版本依赖被破坏：
+
+- `V6`：`DROP TABLE sys_user_role / sys_user_org`（删表前，其回填 UPDATE 先读这两张表）；
+- `V15`：重建两表 → `INSERT IGNORE ... SELECT ... FROM sys_user WHERE role_id IS NOT NULL` → 随后 `DROP COLUMN role_id / org_id / primary_org_id`。
+
+若拆成两份先后执行，DDL 文件跑完时 `sys_user.role_id` 列已被 V15 删除，DML 文件中的回填语句会直接抛 `ERROR 1054 Unknown column 'role_id'`，**任何新库都建不起来**。因此：
+
+- **可执行迁移链** = `V32__consolidated_schema.sql`（保持原始交错顺序）；
+- **分类文件** = 结构 / 数据的分类参考与评审件（文件头已写入同样警示）。
+
+### 34.3 分类规则
+
+| 项 | 规则 |
+| --- | --- |
+| 类型判定 | 语句首个关键字：`CREATE / ALTER / DROP / TRUNCATE / RENAME` → DDL；`INSERT / UPDATE / DELETE / REPLACE` → DML |
+| PREPARE 动态块 | `SET @ddl = (...)` + `PREPARE` + `EXECUTE` + `DEALLOCATE` 视为**一个执行单元**，按内部动态 SQL 的首个关键字整体归类（共 23 组，PREPARE / DEALLOCATE 数量 23:23 配平） |
+| 会话语句 | `SET NAMES` 等会话指令归一为各文件头单条（原始共 1 条） |
+| 顺序 | 各文件内按「源文件版本序 + 文件内原始顺序」排列 |
+| 来源追溯 | 每文件一段来源横幅，每条语句前带 `[源文件 L行号]` 注释，原始注释就地保留 |
+
+分类结果：DDL 62 个单元 / 119 条语句，DML 141 个单元 / 153 条语句（含 `permission-schema.sql` 的 7 DDL + 7 DML）。
+
+### 34.4 既有环境升级步骤（Flyway 历史替换）
+
+删除 V1~V31 后，已建库的 `flyway_schema_history` 仍留有 31 条记录，`validate-on-migrate: true` 会报 “applied migration not resolved locally”，故需先替换历史记录（**业务数据不受影响**）：
+
+```sql
+-- 1) 备份历史表（可回滚）
+--    mysqldump -h 127.0.0.1 -uroot -proot <db> flyway_schema_history > backup.sql
+
+-- 2) 删除旧的 31 条记录
+DELETE FROM flyway_schema_history WHERE CAST(version AS UNSIGNED) BETWEEN 1 AND 31;
+
+-- 3) 插入 V32 记录（checksum 必须取真实值，见下）
+INSERT INTO flyway_schema_history
+  (installed_rank, version, description, type, script, checksum, installed_by, installed_on, execution_time, success)
+VALUES (32, '32', 'consolidated schema', 'SQL', 'V32__consolidated_schema.sql', 726365994, 'root', NOW(), 1660, 1);
+```
+
+> **checksum 取真实值**：不能手算（Java CRC32 与文件裸字节 CRC32 并不一致）。正确做法是在一个临时库上让 Flyway 真正执行一次 V32，再从该库的 `flyway_schema_history` 读出 checksum：
+> ```bash
+> mkdir -p /tmp/v32only && cp src/main/resources/db/migration/V32__consolidated_schema.sql /tmp/v32only/
+> jshell --class-path "<flyway-core>:<flyway-mysql>:<mysql-connector-j>:<gson>:<jackson-*>" /tmp/v32_flyway.jsh
+> mysql -e "SELECT checksum FROM <tmp_db>.flyway_schema_history WHERE version='32';"
+> ```
+> 全新环境无需此步骤：空库直接执行 V32 即可。
+
+### 34.5 验证记录
+
+| 范围 | 方法 | 结果 |
+| --- | --- | --- |
+| V32 内容保真 | 剥离 31 个版本横幅后与原件拼接逐字节比对 | **True**（125206 字节，横幅 31 个） |
+| 分类完整性 | 源语句 ↔ DDL∪DML 多重集比对 | 缺失 0 / 多余 0 |
+| 分类保真 | 字符流守恒（剥离空白后与源文件逐字符比对）+ 终止符检查 | OK / 缺分号 0 |
+| 动态块配平 | PREPARE / DEALLOCATE 计数 | 23 : 23 |
+| 全新库回放 | Flyway core 在 `java_admin_verify` 独立执行 V32 | 1 migration applied，成功到 v32 |
+| 结构 Diff | 与开发库对比表 / 列 / 索引（共同 33 张表） | 列定义差异 0、索引差异 0、scratch 缺失表 0 |
+| 数据 Diff | `CHECKSUM TABLE` 逐表比对（33 张共同表） | **全部一致**（0 张不一致） |
+| 单元测试 | `mvn -o test` | 317/317 BUILD SUCCESS |
+| 集成测试 | `mvn -o test -Dtest="*IT"` | 103/103 BUILD SUCCESS（历史替换后应用正常启动、业务全通） |
+| 文档一致性 | 全仓扫描已删文件的引用 | README 7 处 + `docs/menu-api-and-schema.md` 3 处已同步，残留 0 |
+
+> 开发库 85 张表 vs scratch 34 张的差额（51 张）为 `ACT_* / FLW_*`（Flowable 预建，45 张）与 `jobrunr_*`（JobRunr 运行时自建，6 张），均非迁移产物，不影响等价性判定。
+
+### 34.6 影响与注意事项
+
+- **手工重建路径变化**：原 `db/scaffold_full_init.sql`（幂等手工全量初始化）已并入 V32，手工重建改为「全新库 + 执行 V32」；V32 非幂等，仅在空库或已按 §34.4 处理历史的库上执行。
+- **代码生成层不受影响**：`db/codegen/` 保留，`jooq-codegen.xml` 引用路径不变。
+- **生产环境（prod）** 若为既有库，升级时同样需按 §34.4 替换历史记录；全新库直接执行 V32。
+- **后续新增迁移** 从 `V33` 起编号，继续走 `db/migration/`。
+
+### 34.7 复现方式
+
+```bash
+python3 scripts/build_v32.py        # 重建 V32 并做字节级等价校验
+python3 scripts/build_reference.py  # 重建分类参考件（原件已删时自动从 V32 还原）
+```

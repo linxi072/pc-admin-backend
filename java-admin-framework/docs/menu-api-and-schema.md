@@ -1,7 +1,7 @@
 # 菜单功能 — 接口与数据库表结构说明文档
 
 > 适用范围：`java-admin-framework`（后端 Spring Boot 3.x + jOOQ）与 `pc-admin-vue3-vite`（前端 Vue 3 + Vite + Element Plus）。
-> 文档依据当前磁盘源码与迁移脚本（V1/V15/V17 及 `scaffold_full_init.sql`）整理，覆盖「按角色动态加载菜单」全链路。
+> 文档依据当前磁盘源码与迁移脚本（`V32__consolidated_schema.sql`；原 V1/V15/V17 与 `scaffold_full_init.sql` 已合并/移除）整理，覆盖「按角色动态加载菜单」全链路。
 > 最后核对时间：2026-10-09。
 
 ---
@@ -393,6 +393,6 @@ sys_menu (id, parent_id 自引用)
 | 实体 | `src/main/java/com/acme/scaffold/system/entity/SysMenuDO.java`、`SysRoleMenuDO.java`、`SysUserRoleDO.java` |
 | 响应封装 | `src/main/java/com/acme/scaffold/common/api/Result.java` |
 | 安全配置 | `src/main/java/com/acme/scaffold/security/config/SecurityConfig.java` |
-| 表迁移 | `db/migration/V1__baseline.sql`（sys_menu/sys_role_menu/sys_user_role/sys_role/sys_user 初始）、`V15__user_role_org_many_to_many.sql`（sys_user_role 重建）、`V17__menu_role_seed.sql`（菜单种子） |
-| 全量结构参考 | `src/main/resources/db/scaffold_full_init.sql` |
+| 表迁移 | `db/migration/V32__consolidated_schema.sql`（原 V1：sys_menu/sys_role_menu/sys_user_role/sys_role/sys_user 初始；原 V15：sys_user_role 重建；原 V17：菜单种子） |
+| 全量结构参考 | `src/main/resources/db/reference/schema_ddl.sql`（结构分类汇总；可执行迁移为 `db/migration/V32__consolidated_schema.sql`） |
 | 前端 | `pc-admin-vue3-vite/src/api/menu.js`、`store/auth.js`、`layout/Sidebar.vue`、`layout/MenuTree.vue`、`router/index.js`、`api/mock/db.js` |
