@@ -162,7 +162,7 @@
           <el-input v-model="form.permissionCode" placeholder="system:menu:read" />
         </el-form-item>
         <el-form-item label="图标">
-          <el-input v-model="form.icon" placeholder="如 Setting（Element Plus 图标名）" />
+          <IconPicker v-model="form.icon" />
         </el-form-item>
         <el-form-item label="是否显示">
           <el-switch v-model="form.visible" :active-value="1" :inactive-value="0" />
@@ -190,6 +190,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Search, Edit, Top, Bottom, More, QuestionFilled, WarningFilled, Menu as MenuIcon } from '@element-plus/icons-vue'
+import IconPicker from '@/components/IconPicker.vue'
 import { menuTree, createMenu, updateMenu, deleteMenu, sortMenus } from '@/api/menu'
 
 const loading = ref(false)
