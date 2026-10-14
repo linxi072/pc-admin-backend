@@ -10,17 +10,21 @@ import com.acme.scaffold.system.dto.CreateOrgRequest;
 import com.acme.scaffold.system.dto.OrgTreeVO;
 import com.acme.scaffold.system.dto.UpdateOrgRequest;
 import com.acme.scaffold.system.entity.SysOrgDO;
+import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,6 +51,13 @@ public class OrgService {
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
                         DataScopeConditions.of(JooqTables.SYS_ORG, "id")),
                 JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
+        // 负责人姓名映射：一次 IN 批量查询（displayName 优先、回落 username），
+        // 避免逐节点按 leaderUserId 回查用户表形成 N+1
+        Map<Long, String> leaderNames = loadLeaderNames(all.stream()
+                .map(SysOrgDO::getLeaderUserId)
+                .filter(Objects::nonNull)
+                .filter(id -> id > 0L)
+                .collect(Collectors.toSet()));
         Map<Long, List<SysOrgDO>> byParent = all.stream()
                 .collect(Collectors.groupingBy(o -> o.getParentId() == null ? 0L : o.getParentId()));
         Set<Long> visible = all.stream().map(SysOrgDO::getId).collect(Collectors.toSet());
@@ -55,10 +66,25 @@ public class OrgService {
             Long parentId = o.getParentId() == null ? 0L : o.getParentId();
             // 顶层节点：无父，或其父被数据权限过滤掉（此时它应升为根，避免整棵子树丢失）
             if (parentId == 0L || !visible.contains(parentId)) {
-                result.add(toTree(o, byParent));
+                result.add(toTree(o, byParent, leaderNames));
             }
         }
         return result;
+    }
+
+    /** 按用户 id 集合批量取姓名（displayName 为空时回落 username），空集合不发查询。 */
+    private Map<Long, String> loadLeaderNames(Set<Long> leaderIds) {
+        if (leaderIds.isEmpty()) {
+            return Map.of();
+        }
+        List<SysUserDO> users = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
+                        JooqTables.SYS_USER.field("id", Long.class).in(leaderIds)));
+        Map<Long, String> names = new HashMap<>();
+        for (SysUserDO u : users) {
+            names.put(u.getId(), StringUtils.hasText(u.getDisplayName()) ? u.getDisplayName() : u.getUsername());
+        }
+        return names;
     }
 
     @Transactional
@@ -91,13 +117,16 @@ public class OrgService {
                         JooqTables.SYS_ORG.field("org_code", String.class).eq(code))) > 0;
     }
 
-    private OrgTreeVO toTree(SysOrgDO node, Map<Long, List<SysOrgDO>> byParent) {
+    private OrgTreeVO toTree(SysOrgDO node, Map<Long, List<SysOrgDO>> byParent, Map<Long, String> leaderNames) {
         List<OrgTreeVO> children = new ArrayList<>();
         for (SysOrgDO child : byParent.getOrDefault(node.getId(), List.of())) {
-            children.add(toTree(child, byParent));
+            children.add(toTree(child, byParent, leaderNames));
         }
+        String leaderName = node.getLeaderUserId() == null
+                ? null : leaderNames.get(node.getLeaderUserId());
         return new OrgTreeVO(node.getId(), node.getParentId(), node.getOrgCode(), node.getOrgName(),
-                node.getOrgType(), node.getSortNo(), node.getStatus(), node.getLeaderUserId(), children);
+                node.getOrgType(), node.getSortNo(), node.getStatus(), node.getLeaderUserId(),
+                leaderName, children);
     }
 
     @Transactional
@@ -137,7 +166,13 @@ public class OrgService {
         org.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
         org.setLeaderUserId(request.leaderUserId());
         org.setStatus(request.status() == null ? existing.getStatus() : request.status());
-        JooqWriters.updateById(dsl, JooqTables.SYS_ORG, id, org);
+        if (request.leaderUserId() == null) {
+            // 清除负责人：updateById 的 NOT_NULL 策略会跳过 null 字段导致旧值残留，
+            // 须显式置空（与 ProfileService 解绑手机号/邮箱同一范式）
+            JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_ORG, id, org, Set.of("leader_user_id"));
+        } else {
+            JooqWriters.updateById(dsl, JooqTables.SYS_ORG, id, org);
+        }
     }
 
     @Transactional
