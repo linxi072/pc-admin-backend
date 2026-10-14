@@ -1282,3 +1282,61 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 - 批量强制下线上限 100（`ForceLogoutRequest` 校验），超量需分批。
 - `updateById` 的 NOT_NULL 跳过策略是全局约定，「解绑/清除」语义字段
   均应走 `updateByIdWithNulls` 显式置空（V26 负责人修复同范式）。
+
+## 28. 密码链路闭环：重置即用 + 登录页「忘记密码 / 修改密码」
+
+### 28.1 问题与根因
+
+现象：账号被管理员「重置密码」后，用新密码登录仍提示
+「请修改初始/重置密码后再登录」（423 AUTH_014），且登录页没有任何
+自助入口，用户卡死。
+
+根因（流程闭环断裂，非数据异常）：
+
+1. `UserService.resetPassword` 按设计文档 §5.3 置 `password_expired=1`
+   （语义：管理员重置后须再改一次密）；
+2. `AuthApplicationService.login` 对该标记返回 423 拦截；
+3. 后端虽有会话无关改密接口 `POST /api/auth/change-password`，但
+   **前端登录页没有「修改密码」「忘记密码」入口**——被拦用户无路可走。
+
+### 28.2 修复与新增
+
+| 项 | 内容 |
+| --- | --- |
+| 状态标识修正 | `UserService.resetPassword` 重置后**清除** `password_expired=0`：重置即赋予可用口令，重置后可直接登录。语义区分：`create` 的初始口令仍置 1（首次登录必须由本人更换），管理员重置是「已知会告知用户的新口令」，再强制改密只会把用户拦在登录页外 |
+| 忘记密码 | 新接口 `POST /api/auth/forgot-password`（用户名 + 手机号/邮箱二选一核验 + 新密码），无需原密码；成功后与改密链路完全收敛（新口令生效 + `password_expired` 清零 + 密码历史留痕 + `token_version` 递增 + 刷新令牌吊销 + 在线会话置离线） |
+| 修改密码 | 复用既有 `POST /api/auth/change-password`（用户名 + 原密码 + 新密码），登录页补入口 |
+| 安全 | 防账号枚举（「用户不存在」与「验证信息不匹配」返回同一 `AUTH_001`）；`forgot-password` 纳入 `RateLimitFilter`（与 login 同阈值 10 次/60s/IP）；密码强度与「禁止复用最近 5 次」与改密链路共用 |
+| 前端 | `LoginView.vue`：登录按钮下「忘记密码 / 修改密码」链接 + 两个弹窗（新密码两次一致性校验、凭据二选一校验）；登录被 AUTH_014 拦截时**自动弹出修改密码弹窗并预填用户名**，闭合「重置→被拦→改密→登录」环路；`api/auth.js` 增加两个封装 |
+
+### 28.3 文件清单
+
+| 类型 | 文件 |
+| --- | --- |
+| 新增 | `security/password/ForgotPasswordRules.java`（纯函数核验规则）、`security/dto/ForgotPasswordRequest.java` |
+| 改动 | `system/service/UserService.java`（resetPassword 清标记）、`security/application/AuthApplicationService.java`（forgotPassword）、`security/controller/AuthController.java`（接口）、`security/config/SecurityConfig.java`（放行）、`security/ratelimit/RateLimitFilter.java`（限流纳入） |
+| 前端 | `views/LoginView.vue`、`api/auth.js` |
+| 测试 | `security/password/ForgotPasswordRulesTest.java`（8 例）、`integration/auth/ForgotPasswordIT.java`（9 例） |
+
+### 28.4 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单测 | `mvn -o test` | 317/317 BUILD SUCCESS（新增 8 例规则测试） |
+| 集成测试（13 类） | `mvn -o test -Dtest="*IT"` | 42/42 BUILD SUCCESS（新增 `ForgotPasswordIT` 9 例） |
+| 前端 | `vite build` | 构建成功 |
+
+`ForgotPasswordIT` 覆盖：手机号/邮箱核验双闭环（重置后新密码可登录、
+旧密码被拒）、重置后旧令牌 401、防账号枚举同错、未提供凭据 400、
+复用最近 5 次密码 422、**管理员重置后可直接登录（修复验证）**、
+首次创建仍 423（语义保留）、重置后库状态核对。
+
+### 28.5 排障记录（测试假象，非缺陷）
+
+`ForgotPasswordIT` 首跑全量 401，曾疑 MySQL collation/索引/连接池快照，
+逐层排除（CLI 复现正常、同 URL 对照、`HEX()`/`innodb_trx`/autocommit
+证据）后实锤为**测试代码自身变量错误**：`createTestUser` 内部与各测试
+方法各自调用 `System.nanoTime()` 生成用户名，拼出两个不同的 username，
+「库里有的查不到、查不到的偏要登」。修复：用户名统一在 `createTestUser`
+内生成并以 `TestUser(id, username)` 句柄返回。教训：测试夹具的标识
+必须单一来源生成并随句柄返回，不得由调用方重复拼接。
