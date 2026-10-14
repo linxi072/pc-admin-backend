@@ -1340,3 +1340,58 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 「库里有的查不到、查不到的偏要登」。修复：用户名统一在 `createTestUser`
 内生成并以 `TestUser(id, username)` 句柄返回。教训：测试夹具的标识
 必须单一来源生成并随句柄返回，不得由调用方重复拼接。
+
+## 29. V28 QA 业务测试与缺陷修复（6 缺陷全闭环）
+
+### 29.1 测试范围与方法
+
+对核心模块开展黑盒 HTTP 集成测试 + 白盒代码审查 + 数据层核验，覆盖
+核心功能流程、业务逻辑、边界条件、异常场景四类。完整报告见
+`outputs/QA业务测试报告与修复总结-V28.md`。
+
+### 29.2 缺陷清单（全部修复，各由新增 IT 固化回归）
+
+| 编号 | 等级 | 问题 | 根因 | 修复 |
+| --- | --- | --- | --- | --- |
+| D-5 | P0 | 7 个权限码未授 SUPER_ADMIN，超管访问审计/工作流端点 403 | `ApiResourceService.sync` 只登记 `sys_api_resource` 不建角色授权；V11 后新增端点从未补授 | sync 两处 insert 后调 `grantToSuperAdmin`（查重插入 `sys_role_api`）+ `V28__grant_missing_api_to_super_admin.sql` 幂等补授 |
+| D-2 | P1 | 手机/邮箱唯一性无服务层预校验（邮箱无唯一索引） | create/update 只依赖 DB 约束，与 ProfileService 不同构 | `UserService.assertContactAvailable` 预校验，冲突抛 409 明确中文信息 |
+| D-4 | P1 | 删角色残留 `sys_user_role` 孤儿行 | `RoleService.delete` 未级联 N:N 关联表 | delete 首行 `JooqWriters.deleteByColumn(..., "role_id", id)` |
+| D-6 | P1 | void 方法（completeTask/transfer）幂等重放必 409 | `toSnapshot(null)` 存 Java null，重放路径误判「快照缺失」 | null 响应存 `"null"` JSON 字面量 sentinel |
+| D-1 | P2 | 用户 `status` 无白名单 | update 未做枚举校验 | 仅允许 ACTIVE/DISABLED，否则 400 |
+| D-3 | P2 | 公告重发布不清 `offline_at` | `JooqWriters.updateById` 的 NOT_NULL 策略丢弃 null | 改 `updateByIdWithNulls(..., Set.of("offline_at"))` 显式置空 |
+
+### 29.3 新增集成测试（6 类 41 用例）
+
+| IT 类 | 用例数 | 覆盖重点 |
+| --- | --- | --- |
+| `UserLifecycleIT` | 10 | 弱口令 400、重名/手机/邮箱撞车 409、缺角色 400、非法状态 400、局部更新、删除后登录 401、禁用/启用闭环 |
+| `RoleManagementIT` | 7 | 绑定回读、编码冲突 409、更新替换绑定、删除级联无孤儿（D-4）、停用角色绑定 409 |
+| `AuthSessionIT` | 7 | 登出后刷新令牌 401（AUTH_005）、改密后旧令牌全失效、伪造/缺失令牌 401、防枚举同错 |
+| `AnnouncementAuditIT` | 6 | 重发布清 offlineAt（D-3）、非法有效期 400、已发布不可编辑 409、onlyValid 可见性、审计日志落库 |
+| `WorkflowTaskIT` | 6 | 超管可访问工作流 API（D-5 回归）、缺幂等键 400、非处理人 403、认领/审批幂等（D-6） |
+| `DictConfigIT` | 5 | 字典类型 CRUD+冲突、同类型值唯一、配置缓存写后失效 |
+
+### 29.4 验证记录
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 单测（54 类） | `mvn -o test` | 317/317 BUILD SUCCESS |
+| 集成测试（20 类） | `mvn -o test -Dtest="*IT"` | 91/91 BUILD SUCCESS（第一轮 6 类 41 例 + 第二轮 3 类 8 例；V28 迁移随启动自动生效） |
+| 前端 | `vite build` | 2303 modules，构建成功 |
+
+> 注：`surefire-reports` 目录存有 3 个历史残留报告（10 例，源文件已在早前重构更名/移除），不纳入统计；上表为实际执行结果。
+
+### 29.5 遗留观察项：第二轮已全部修复（O-1 ~ O-4）
+
+第一轮记录的 4 个低危观察项在第二轮完成修复，各由新增 IT 固化回归：
+
+| 编号 | 观察项 | 根因 | 修复 |
+| --- | --- | --- | --- |
+| O-1 | 更新角色传 null `menuIds`/`apiIds` 会清空绑定 | `update` 无条件重建绑定，null 入参「删完不插」即清空，契约二义 | null=保持原绑定、空集合=清空、非空=全量替换；`CreateRoleRequest` javadoc 固化契约；前端编辑始终回填集合，无感切换 |
+| O-2 | `MenuService.delete` 残留 `sys_role_menu` 孤儿行 | 只删主表不级联 N:N 关联表（该表无外键约束） | `delete` 前按 `menu_id` 调 `deleteByColumn`，与 RoleService.delete 的级联（按 role_id）互为补充 |
+| O-3 | `ProfileService.updateProfile` 不校验手机/邮箱格式 | 格式校验只在 `bindContact` 与 DTO `@Pattern`（Web 层），服务层裸奔 | 非空值补 `assertMobileFormat`/`assertEmailFormat`（空串仍表解绑跳过校验）；正则抽为静态常量，`bindContact` 同款内联正则一并收敛到单一来源 |
+| O-4 | `changePassword` 校验顺序不当 | 复用校验排在强度策略之前，「既弱又复用」先报 AUTH_007 掩盖策略问题 | 顺序调整为 原密码 → 强度策略 → 与原密码相同 → 历史复用 |
+
+新增/扩展 IT：`RoleManagementIT` +2（null 保持 / 空集合清空）、`MenuIntegrationIT` +1（删菜单无孤儿 role_menu）、`ProfileManagementIT` 新类 5 例（手机/邮箱格式 400 且字段级错误可读、空串解绑置 NULL、弱新密码 400、复用历史 422）。
+
+排障：`ProfileManagementIT` 首跑 5 例全因登录 423 LOCKED 失败——`UserService.create` 初始口令置 `password_expired=1`（首登须改密语义），夹具按 `UserLifecycleIT` 既有模式创建后 DSL 置 0 解决；2 例因 Bean Validation 顶层 message 为通用文案、字段级详情在 data 中，断言改按字段级校验。
