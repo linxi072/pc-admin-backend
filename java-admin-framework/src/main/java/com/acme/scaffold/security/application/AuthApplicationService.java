@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.application;
 
+import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
@@ -13,6 +14,7 @@ import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.jwt.JwtProvider;
 import com.acme.scaffold.security.log.LoginLogRecorder;
+import com.acme.scaffold.security.password.ForgotPasswordRules;
 import com.acme.scaffold.security.password.LockoutRules;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
@@ -228,6 +230,73 @@ public class AuthApplicationService {
         // 记录本次改密后的口令到密码历史，纳入「禁止复用最近 5 次」基线
         passwordHistoryService.record(user.getId(), encoded);
         // 改密后吊销全部刷新令牌，强制使用新口令重新登录
+        refreshTokenService.revokeByUser(user.getId());
+        // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
+        onlineUserService.markOfflineByUser(user.getId(), OnlineUserService.REASON_PASSWORD_CHANGED);
+    }
+
+    /**
+     * 「忘记密码」自助重置：以「用户名 + 手机号/邮箱核验」完成身份认证，无需原密码。
+     *
+     * <p>与 {@link #changePassword} 的分工：后者面向「知道原密码」的主动改密；
+     * 本方法面向「忘记原密码」的自助找回。两者成功后的状态收敛完全一致
+     * （新口令生效 + password_expired 清零 + 密码历史留痕 + 旧凭证全部失效）。
+     *
+     * <p>安全约定：
+     * <ul>
+     *   <li><b>防账号枚举</b>：「用户不存在」与「验证信息不匹配」返回同一错误
+     *       （{@code AUTH_001 用户名或验证信息不匹配}），攻击者无法通过差异提示枚举有效账号；</li>
+     *   <li><b>接口限流</b>：{@code /api/auth/forgot-password} 与 login 同阈值限流
+     *       （见 {@code RateLimitFilter}），防撞库；</li>
+     *   <li><b>强度与历史</b>：与改密链路共用 {@link PasswordPolicy} 与「禁止复用最近 5 次」。</li>
+     * </ul>
+     *
+     * @param username    用户名
+     * @param newPassword 新密码
+     * @param mobile      手机号（与库中记录匹配，二选一）
+     * @param email       邮箱（与库中记录匹配，二选一）
+     */
+    @Transactional
+    public void forgotPassword(String username, String newPassword, String mobile, String email) {
+        // 验证凭据充分性：手机号/邮箱至少提供一个（前端同效校验，服务端为权威）
+        if (!ForgotPasswordRules.hasVerifier(mobile, email)) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "请填写手机号或邮箱用于身份验证");
+        }
+        // 密码强度策略：忘记密码重置同样要求合规
+        PasswordPolicy.validate(newPassword);
+
+        SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
+                        JooqTables.SYS_USER.field("username", String.class).eq(username)));
+        // 统一返回 BAD_CREDENTIALS，防止账号枚举（不区分「用户不存在」与「验证信息不匹配」）
+        if (user == null || !ForgotPasswordRules.verified(user.getMobile(), user.getEmail(), mobile, email)) {
+            throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或验证信息不匹配");
+        }
+        if ("LOCKED".equals(user.getStatus())) {
+            throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
+        }
+        if ("DISABLED".equals(user.getStatus())) {
+            throw new BusinessException(SecurityErrorCode.ACCOUNT_DISABLED, "账号已禁用");
+        }
+        // 设计文档 §5.3：禁止复用最近 5 次密码
+        if (passwordHistoryService.isReused(user.getId(), newPassword)) {
+            throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "不能与最近使用的密码相同");
+        }
+
+        String encoded = passwordEncoder.encode(newPassword);
+        SysUserDO patch = new SysUserDO();
+        patch.setPasswordHash(encoded);
+        patch.setPasswordChangedAt(LocalDateTime.now());
+        // 重置即赋予可用口令：清除「需改密」标记（与 UserService.resetPassword 语义一致）
+        patch.setPasswordExpired(0);
+        patch.setFailedLoginCount(0);
+        patch.setLockedUntil(null);
+        patch.setTokenVersion((user.getTokenVersion() == null ? 1 : user.getTokenVersion()) + 1);
+        JooqWriters.updateById(dsl, JooqTables.SYS_USER, user.getId(), patch);
+
+        // 记录本次重置后的口令到密码历史，纳入「禁止复用最近 5 次」基线
+        passwordHistoryService.record(user.getId(), encoded);
+        // 重置后吊销全部刷新令牌，旧设备全部下线
         refreshTokenService.revokeByUser(user.getId());
         // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
         onlineUserService.markOfflineByUser(user.getId(), OnlineUserService.REASON_PASSWORD_CHANGED);

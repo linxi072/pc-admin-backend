@@ -34,7 +34,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         String method = request.getMethod();
         boolean authEndpoint = ("/api/auth/login".equals(uri) && "POST".equals(method))
-                || ("/api/auth/refresh".equals(uri) && "POST".equals(method));
+                || ("/api/auth/refresh".equals(uri) && "POST".equals(method))
+                // 忘记密码自助重置：按用户名+手机号/邮箱核验，与登录同阈值限流防撞库
+                || ("/api/auth/forgot-password".equals(uri) && "POST".equals(method));
         if (authEndpoint) {
             String ip = clientIp(request);
             if (!limiter.tryAcquire("login:" + ip, MAX_PER_WINDOW, WINDOW_SECONDS)) {

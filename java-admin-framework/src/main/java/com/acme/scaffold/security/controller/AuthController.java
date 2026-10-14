@@ -3,6 +3,7 @@ package com.acme.scaffold.security.controller;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.security.application.AuthApplicationService;
 import com.acme.scaffold.security.dto.AuthChangePasswordRequest;
+import com.acme.scaffold.security.dto.ForgotPasswordRequest;
 import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.vo.TokenView;
@@ -50,6 +51,14 @@ public class AuthController {
     @PostMapping("/change-password")
     public Result<Void> changePassword(@Valid @RequestBody AuthChangePasswordRequest request) {
         authApplicationService.changePassword(request.username(), request.oldPassword(), request.newPassword());
+        return Result.success();
+    }
+
+    @Operation(summary = "忘记密码自助重置：以用户名+手机号/邮箱核验后重置密码，无需原密码")
+    @PostMapping("/forgot-password")
+    public Result<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authApplicationService.forgotPassword(request.username(), request.newPassword(),
+                request.mobile(), request.email());
         return Result.success();
     }
 
