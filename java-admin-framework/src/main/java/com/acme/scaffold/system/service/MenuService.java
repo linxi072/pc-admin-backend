@@ -96,7 +96,10 @@ public class MenuService {
                 pid = byId.get(pid).getParentId();
             }
         }
-        List<SysMenuDO> included = expanded.stream().map(byId::get).filter(Objects::nonNull).toList();
+        // expanded 为 HashSet，直接流式迭代会按其哈希序输出，令上方 all.sort 失效、
+        // 侧边栏顺序与 sort_no 脱节；改从已排序的 all 过滤，输出与 tree() 同序
+        // （sort_no ASC，二级键 id ASC），仅修正展示顺序，菜单集合不变。
+        List<SysMenuDO> included = all.stream().filter(m -> expanded.contains(m.getId())).toList();
         Map<Long, List<SysMenuDO>> byParent = included.stream()
                 .collect(Collectors.groupingBy(m -> m.getParentId() == null ? 0L : m.getParentId()));
         return buildChildren(0L, byParent);
