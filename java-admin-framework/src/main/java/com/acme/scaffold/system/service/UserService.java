@@ -152,8 +152,11 @@ public class UserService {
         String encodedPassword = passwordEncoder.encode(newPassword);
         user.setPasswordHash(encodedPassword);
         user.setPasswordChangedAt(LocalDateTime.now());
-        // 设计文档 §5.3：管理员重置后强制改密，用户下次登录须先改密
-        user.setPasswordExpired(1);
+        // 重置即赋予可用口令：清除「需改密」标记，用户下次登录直接用新密码进入系统。
+        // 语义区分：UserService.create 的初始口令仍置 password_expired=1（首次登录必须由本人更换），
+        // 而管理员重置是「已知会告知用户的新口令」，若再强制改密一次会把用户拦在登录页外
+        // （登录被 423 拦截且无自助改密入口时形成死锁），故此处显式清零。
+        user.setPasswordExpired(0);
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
         // 记录本次重置后的口令到密码历史
         passwordHistoryService.record(id, encodedPassword);
