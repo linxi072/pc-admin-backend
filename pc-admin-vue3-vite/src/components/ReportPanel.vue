@@ -27,8 +27,8 @@
           />
         </div>
 
-        <!-- 关键字筛选：仅统计视角（任务名 / 用户名 / 请求路径） -->
-        <div v-if="isStatView" class="filter-group">
+        <!-- 关键字筛选：统计视角（任务名 / 用户名 / 请求路径） -->
+        <div class="filter-group">
           <span class="filter-label">关键字</span>
           <el-input
             v-model="keyword"
@@ -39,36 +39,6 @@
             @clear="load"
           />
         </div>
-
-        <!-- 类别 / 状态 / 排序：仅使用视角 -->
-        <template v-else>
-          <div class="filter-group">
-            <span class="filter-label">类别</span>
-            <el-select v-model="module" placeholder="全部类别" clearable class="filter-select" @change="onFilterChange">
-              <el-option v-for="m in moduleOptions" :key="m.value" :label="m.label" :value="m.value" />
-            </el-select>
-          </div>
-          <div class="filter-group">
-            <span class="filter-label">状态</span>
-            <el-select v-model="status" placeholder="全部状态" class="filter-select" @change="onFilterChange">
-              <el-option label="全部状态" value="" />
-              <el-option label="成功" :value="true" />
-              <el-option label="失败" :value="false" />
-            </el-select>
-          </div>
-          <div class="filter-group">
-            <span class="filter-label">排序</span>
-            <el-select v-model="sortBy" class="filter-select" @change="onFilterChange">
-              <el-option label="按次数" value="COUNT" />
-              <el-option label="按占比" value="RATIO" />
-              <el-option label="按名称" value="NAME" />
-            </el-select>
-            <el-select v-model="order" class="filter-select" @change="onFilterChange">
-              <el-option label="降序" value="DESC" />
-              <el-option label="升序" value="ASC" />
-            </el-select>
-          </div>
-        </template>
       </div>
 
       <div class="toolbar-actions">
@@ -81,7 +51,11 @@
       </div>
     </el-card>
 
-    <el-alert v-if="error" class="mt-12" type="error" show-icon :closable="false" :title="error" />
+    <!-- 错误态：alert + 重试入口（重试与「查询」按钮等价，复用当前筛选条件） -->
+    <div v-if="error" class="mt-12 error-row">
+      <el-alert type="error" show-icon :closable="false" :title="error" class="error-alert" />
+      <el-button :loading="loading" @click="load">重试</el-button>
+    </div>
     <el-skeleton v-else-if="loading" :rows="8" animated class="mt-12" />
 
     <template v-else>
@@ -102,7 +76,7 @@
         <BaseChart :option="trendOption" height="340px" />
       </el-card>
 
-      <template v-if="isStatView">
+      <template>
         <el-row :gutter="16" class="mt-16">
           <!-- 分布分桶（耗时 / 响应时间 / 登录类型） -->
           <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
@@ -133,24 +107,6 @@
           </el-table>
         </el-card>
       </template>
-
-      <template v-else>
-        <el-row :gutter="16" class="mt-16">
-          <!-- 类别分布 -->
-          <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
-            <el-card header="类别分布（模块使用频次 Top 10）">
-              <el-empty v-if="!report?.categoryStats?.length" description="该筛选条件下暂无数据" />
-              <BaseChart v-else :option="categoryOption" height="420px" />
-            </el-card>
-          </el-col>
-          <!-- 状态分布 -->
-          <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
-            <el-card header="状态分布（成功 / 失败）">
-              <BaseChart :option="statusOption" height="420px" />
-            </el-card>
-          </el-col>
-        </el-row>
-      </template>
     </template>
   </div>
 </template>
@@ -162,31 +118,25 @@ import BaseChart from '@/components/BaseChart.vue'
 import { reportData, reportExport } from '@/api/report'
 
 /**
- * 通用报表面板：承载单个报表视角的完整交互（筛选 / 汇总 / 趋势 / 分布 / 明细 / 导出）。
+ * 统计视角报表面板：承载单个统计报表的完整交互（筛选 / 汇总 / 趋势 / 分布 / 明细 / 导出）。
  *
- * <p>由原「报表管理」单页多 Tab 拆分而来（V24 起每个报表视角独立为菜单页）：
- * 页面通过 props 固定报表类型 {@code type} 与标题 {@code title}，
- * 其余业务功能、数据展示与交互逻辑与原页签完全一致。</p>
+ * <p>演进：原「报表管理」单页多 Tab（V24 拆分为独立菜单页）→ V30 移除 3 个公共统计页
+ * （使用 / 类别 / 状态统计）后，本组件仅服务 3 个统计视角（JOB_EXEC / LOGIN / API_CALL），
+ * 使用视角的筛选项（类别 / 状态 / 排序）与图表分支已随之删除；如后续恢复公共统计页，
+ * 使用视角逻辑可从 git 历史（V30 提交前）取回，或按需重写。</p>
+ *
+ * <p>扩展方式：新增统计视角只需在 {@link STAT_META} 追加一条元数据（主/次指标、失败口径、
+ * 是否有耗时维度、分布与明细标题），其余渲染与交互自动适配。</p>
  */
 const props = defineProps({
-  // 报表类型（ReportType.code）：USAGE / CATEGORY / STATUS / JOB_EXEC / LOGIN / API_CALL
+  // 报表类型：仅统计视角 JOB_EXEC / LOGIN / API_CALL（V30 起）
   type: { type: String, required: true },
   // 页面标题（与菜单名一致）
   title: { type: String, required: true }
 })
 
-// 报表类型为页面固有属性（原页签切换语义由菜单导航取代），包一层 computed 供下方沿用 type.value 写法
+// 报表类型为页面固有属性（菜单导航取代页签切换），包一层 computed 供下方沿用 type.value 写法
 const type = computed(() => props.type)
-
-// 模块编码 → 中文名（仅展示用，缺失时回退原始编码；非业务映射，可随菜单扩展）
-const MODULE_LABELS = {
-  user: '用户管理', role: '角色管理', menu: '菜单管理', 'api-resource': '接口资源',
-  department: '部门管理', dict: '字典管理', config: '系统变量', announcement: '消息中心',
-  monitor: '系统监控', workflow: '工作流', org: '组织机构', message: '站内信',
-  profile: '个人中心', auth: '认证授权', audit: '审计日志', system: '系统', unknown: '未知'
-}
-const labelOf = (code) => MODULE_LABELS[code] || code || '未知'
-const moduleOptions = Object.keys(MODULE_LABELS).map((k) => ({ value: k, label: MODULE_LABELS[k] }))
 
 // 统计视角元数据：主/次指标、失败口径、是否有耗时维度
 const STAT_META = {
@@ -202,10 +152,6 @@ const KEYWORD_PLACEHOLDERS = {
 
 const rangeType = ref('LAST_7D')
 const dateRange = ref([])
-const module = ref('')
-const status = ref('')
-const sortBy = ref('COUNT')
-const order = ref('DESC')
 const keyword = ref('')
 
 // 初始 loading=true：首渲染发生在 onMounted 之前，若为 false 会直接进入内容分支，
@@ -215,7 +161,6 @@ const exporting = ref(false)
 const error = ref('')
 const report = ref(null)
 
-const isStatView = computed(() => Object.prototype.hasOwnProperty.call(STAT_META, type.value))
 const statMeta = computed(() => STAT_META[type.value] || null)
 const keywordPlaceholder = computed(() => KEYWORD_PLACEHOLDERS[type.value] || '关键字')
 
@@ -223,11 +168,12 @@ const distribution = computed(() => report.value?.distribution || [])
 const detailsColumns = computed(() => report.value?.details?.columns || [])
 const detailsRows = computed(() => report.value?.details?.rows || [])
 
-const trendTitle = computed(() =>
-  isStatView.value
-    ? `${statMeta.value.main}趋势（${statMeta.value.main} / ${statMeta.value.secondary} / ${statMeta.value.fail}）`
-    : '访问趋势（访问量 / 活跃用户数）'
-)
+const trendTitle = computed(() => {
+  const meta = statMeta.value
+  return meta
+    ? `${meta.main}趋势（${meta.main} / ${meta.secondary} / ${meta.fail}）`
+    : '趋势'
+})
 const distributionTitle = computed(() => statMeta.value?.dist || '分布')
 const detailsTitle = computed(() => statMeta.value?.details || '明细')
 
@@ -236,81 +182,50 @@ function disableFuture(date) {
 }
 
 function buildParams() {
-  const params = { type: type.value, rangeType: rangeType.value, sortBy: sortBy.value, order: order.value }
+  const params = { type: type.value, rangeType: rangeType.value }
   if (rangeType.value === 'CUSTOM') {
     if (dateRange.value && dateRange.value.length === 2) {
       params.start = dateRange.value[0]
       params.end = dateRange.value[1]
     }
   }
-  if (!isStatView.value) {
-    if (module.value) params.module = module.value
-    if (status.value !== '' && status.value !== null) params.success = status.value
-  } else if (keyword.value && keyword.value.trim()) {
+  if (keyword.value && keyword.value.trim()) {
     params.keyword = keyword.value.trim()
   }
   return params
 }
 
 function fmtDuration(ms) {
+  if (ms == null) return '--'
   if (!ms) return '0'
   return ms >= 1000 ? (ms / 1000).toFixed(2) + ' s' : ms + ' ms'
 }
 
 const summaries = computed(() => {
   const s = report.value?.summary
-  if (!s) return []
-  if (isStatView.value) {
-    const meta = statMeta.value
-    const list = [
-      { key: 'visits', label: meta.main, value: s.totalVisits, unit: '次' },
-      { key: 'active', label: meta.secondary, value: s.activeUsers, unit: '人' },
-      { key: 'success', label: '成功率', value: s.successRate, unit: '%' },
-      { key: 'failed', label: meta.fail, value: s.failedVisits, unit: '次' }
-    ]
-    if (meta.duration) {
-      list.push(
-        { key: 'avg', label: '平均耗时', value: fmtDuration(s.avgDurationMs), unit: '' },
-        { key: 'max', label: '最大耗时', value: fmtDuration(s.maxDurationMs), unit: '' },
-        { key: 'p95', label: 'P95 耗时', value: fmtDuration(s.p95DurationMs), unit: '' }
-      )
-    }
-    return list
-  }
-  return [
-    { key: 'visits', label: '访问量', value: s.totalVisits, unit: '次' },
-    { key: 'active', label: '活跃用户数', value: s.activeUsers, unit: '人' },
-    { key: 'success', label: '成功率', value: s.successRate, unit: '%' },
-    { key: 'module', label: '涉及模块数', value: s.moduleCount, unit: '个' },
-    { key: 'avg', label: '平均耗时', value: fmtDuration(s.avgDurationMs), unit: '' }
+  const meta = statMeta.value
+  if (!s || !meta) return []
+  const list = [
+    { key: 'visits', label: meta.main, value: s.totalVisits ?? '--', unit: '次' },
+    { key: 'active', label: meta.secondary, value: s.activeUsers ?? '--', unit: '人' },
+    { key: 'success', label: '成功率', value: s.successRate ?? '--', unit: '%' },
+    { key: 'failed', label: meta.fail, value: s.failedVisits ?? '--', unit: '次' }
   ]
+  if (meta.duration) {
+    list.push(
+      { key: 'avg', label: '平均耗时', value: fmtDuration(s.avgDurationMs), unit: '' },
+      { key: 'max', label: '最大耗时', value: fmtDuration(s.maxDurationMs), unit: '' },
+      { key: 'p95', label: 'P95 耗时', value: fmtDuration(s.p95DurationMs), unit: '' }
+    )
+  }
+  return list
 })
 
 const trendOption = computed(() => {
   const trend = report.value?.trend || []
-  const grid = { left: 48, right: 24, top: 40, bottom: 32 }
-  if (!isStatView.value) {
-    return {
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['访问量', '活跃用户数'] },
-      grid,
-      xAxis: { type: 'category', boundaryGap: false, data: trend.map((p) => p.bucket) },
-      yAxis: { type: 'value' },
-      series: [
-        {
-          name: '访问量', type: 'line', smooth: true, showSymbol: false,
-          areaStyle: { opacity: 0.12 }, itemStyle: { color: '#409eff' },
-          data: trend.map((p) => p.visits)
-        },
-        {
-          name: '活跃用户数', type: 'line', smooth: true, showSymbol: false,
-          areaStyle: { opacity: 0.12 }, itemStyle: { color: '#67c23a' },
-          data: trend.map((p) => p.activeUsers)
-        }
-      ]
-    }
-  }
   const meta = statMeta.value
+  const grid = { left: 48, right: 24, top: 40, bottom: 32 }
+  if (!meta) return { grid, series: [] }
   return {
     tooltip: { trigger: 'axis' },
     legend: { data: [meta.main, meta.secondary, meta.fail] },
@@ -362,33 +277,6 @@ const distributionOption = computed(() => {
   }
 })
 
-const categoryOption = computed(() => {
-  const stats = report.value?.categoryStats || []
-  const labels = stats.map((f) => labelOf(f.moduleCode)).reverse()
-  const counts = stats.map((f) => f.count).reverse()
-  const meta = stats.slice().reverse()
-  return {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
-      formatter: (params) => {
-        const f = meta[params[0].dataIndex]
-        return `${labelOf(f.moduleCode)}<br/>次数：${f.count}<br/>占比：${f.ratio}%`
-      }
-    },
-    grid: { left: 96, right: 48, top: 16, bottom: 24 },
-    xAxis: { type: 'value' },
-    yAxis: { type: 'category', data: labels },
-    series: [
-      {
-        type: 'bar', data: counts, barWidth: '55%',
-        itemStyle: { color: '#909399', borderRadius: [0, 4, 4, 0] },
-        label: { show: true, position: 'right' }
-      }
-    ]
-  }
-})
-
 const statusOption = computed(() => {
   const stats = report.value?.statusStats || []
   return {
@@ -404,14 +292,26 @@ const statusOption = computed(() => {
 })
 
 async function load() {
+  // 类型白名单：防止路由/菜单误配传入不支持的报表类型时静默展示空页
+  if (!statMeta.value) {
+    loading.value = false
+    error.value = `不支持的报表类型：${type.value}（仅支持 JOB_EXEC / LOGIN / API_CALL）`
+    return
+  }
   loading.value = true
   error.value = ''
   try {
     const params = buildParams()
-    if (rangeType.value === 'CUSTOM' && (!params.start || !params.end)) {
-      error.value = '请选择自定义时间范围的开始与结束日期'
-      loading.value = false
-      return
+    if (rangeType.value === 'CUSTOM') {
+      if (!params.start || !params.end) {
+        error.value = '请选择自定义时间范围的开始与结束日期'
+        return
+      }
+      // 前端预校验起止关系：后端 ReportQuery 会 fail-fast，此处提前给出可读提示，少一次无效请求
+      if (params.start > params.end) {
+        error.value = '自定义时间范围的开始日期不能晚于结束日期'
+        return
+      }
     }
     report.value = await reportData(params)
   } catch (e) {
@@ -444,7 +344,7 @@ async function download() {
       let msg = '导出失败'
       try {
         msg = JSON.parse(text).message || msg
-      } catch (je) { /* 非 JSON 错误体，保留通用文案 */ }
+      } catch (e) { /* 非 JSON 错误体，保留通用文案 */ }
       error.value = msg
       return
     }
@@ -468,14 +368,9 @@ async function download() {
   }
 }
 
-function onFilterChange() { load() }
 function reset() {
   rangeType.value = 'LAST_7D'
   dateRange.value = []
-  module.value = ''
-  status.value = ''
-  sortBy.value = 'COUNT'
-  order.value = 'DESC'
   keyword.value = ''
   load()
 }
@@ -488,9 +383,10 @@ onMounted(load)
 /* 工具栏分区类（toolbar-filters / filter-group / filter-label / toolbar-actions / action-buttons）
    已沉淀至全局 styles.css，此处仅保留页面特有规则 */
 .toolbar :deep(.el-card__body) { padding: 14px 18px; }
-.filter-select { width: 140px; }
 .keyword-input { width: 220px; }
 .window-hint { color: #8a919f; font-size: 13px; }
+.error-row { display: flex; align-items: center; gap: 12px; }
+.error-alert { flex: 1; }
 .ml-8 { margin-left: 8px; }
 .ml-12 { margin-left: 12px; }
 .mt-12 { margin-top: 12px; }

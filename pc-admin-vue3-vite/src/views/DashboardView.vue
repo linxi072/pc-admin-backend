@@ -20,8 +20,12 @@
       type="error"
       show-icon
       :closable="false"
-      :title="error"
-    />
+    >
+      <template #title>
+        <span>{{ error }}</span>
+        <el-button size="small" text type="primary" class="retry-btn" @click="loadStats">重试</el-button>
+      </template>
+    </el-alert>
 
     <el-empty v-else-if="!cards.length" description="暂无统计数据" />
 
@@ -30,7 +34,7 @@
         <el-icon class="stat-icon" :class="trendClass(c.trend)"><component :is="iconFor(c.key)" /></el-icon>
         <div class="label">{{ c.label }}</div>
         <div class="value">
-          {{ c.value }}<span class="unit">{{ c.unit }}</span>
+          {{ fmtCount(c.value) }}<span class="unit">{{ c.unit }}</span>
         </div>
         <div class="trend" :class="trendClass(c.trend)">
           <span>{{ trendText(c) }}</span>
@@ -46,7 +50,12 @@
       <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
         <el-card class="page-card" header="最近动态">
           <el-skeleton v-if="recentLoading" :rows="4" animated />
-          <el-alert v-else-if="recentError" type="error" show-icon :closable="false" :title="recentError" />
+          <el-alert v-else-if="recentError" type="error" show-icon :closable="false">
+            <template #title>
+              <span>{{ recentError }}</span>
+              <el-button size="small" text type="primary" class="retry-btn" @click="loadRecent">重试</el-button>
+            </template>
+          </el-alert>
           <el-empty v-else-if="!recent.length" description="暂无操作记录" :image-size="60" />
           <ul v-else class="recent-list">
             <li v-for="(r, i) in recent" :key="i" class="recent-item">
@@ -55,7 +64,7 @@
               </el-icon>
               <span class="recent-name">{{ r.operationName || '操作' }}</span>
               <el-tag size="small" type="info" effect="plain">{{ r.moduleCode || '—' }}</el-tag>
-              <span class="recent-time">{{ fmtTime(r.occurredAt) }}</span>
+              <span class="recent-time" :title="fmtTime(r.occurredAt)">{{ relativeTime(r.occurredAt) }}</span>
             </li>
           </ul>
         </el-card>
@@ -156,6 +165,31 @@ function fmtTime(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
   if (!m) return iso
   return `${m[2]}-${m[3]} ${m[4]}:${m[5]}`
+}
+
+/**
+ * 相对时间（最近动态列）：1 分钟内 / x 分钟前 / x 小时前 / x 天前，超过 7 天回退绝对时间。
+ * 解析失败或空值返回 '—'，与绝对时间 title 属性互补（悬浮可见精确时间）。
+ */
+function relativeTime(iso) {
+  if (!iso) return '—'
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return '—'
+  const diff = Date.now() - then
+  if (diff < 0) return '刚刚'
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min} 分钟前`
+  const hour = Math.floor(min / 60)
+  if (hour < 24) return `${hour} 小时前`
+  const day = Math.floor(hour / 24)
+  if (day <= 7) return `${day} 天前`
+  return fmtTime(iso)
+}
+
+/** 千分位格式化：大数值（访问量/用户数）可读性；非数值原样返回。 */
+function fmtCount(v) {
+  return typeof v === 'number' ? v.toLocaleString('zh-CN') : v
 }
 
 function go(name) {
@@ -259,8 +293,14 @@ onMounted(() => {
 .recent-time {
   margin-left: auto;
   color: #a8abb2;
+  white-space: nowrap;
 }
 .stat-alert {
   margin-bottom: 16px;
+}
+/* 错误态重试按钮：嵌入 alert 标题行，紧凑不抢焦点 */
+.retry-btn {
+  margin-left: 10px;
+  padding: 0;
 }
 </style>
