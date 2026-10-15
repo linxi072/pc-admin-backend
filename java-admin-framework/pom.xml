@@ -206,6 +206,67 @@
       全量替换手写 DSL 属高风险改造，需真实库验证 + 风险评审，当前暂缓。
     -->
     <profiles>
+        <!--
+          JaCoCo 覆盖率门禁（N+1 告警 + 覆盖率质检的一部分）。
+          默认不激活：jacoco-maven-plugin 未在本地离线仓库缓存，且常规离线构建（mvn -o）不应
+          因解析不到插件而失败。在 CI 或已联网解析过插件的环境中用 -Pcoverage 激活：
+            mvn -Pcoverage test        # 挂载探针 + 生成报告
+            mvn -Pcoverage verify      # 额外执行 check 门禁（行/分支覆盖率低于下限则构建失败）
+          阈值（0.10 行 / 0.05 分支）为保守起步线，应随测试完善逐步收紧（如 0.70 行 / 0.60 分支）。
+        -->
+        <profile>
+            <id>coverage</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.12</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>check</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <rule>
+                                            <element>BUNDLE</element>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.10</minimum>
+                                                </limit>
+                                                <limit>
+                                                    <counter>BRANCH</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.05</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>otel</id>
             <activation>
