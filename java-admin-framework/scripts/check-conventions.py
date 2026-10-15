@@ -12,6 +12,9 @@ check-conventions.py — 编码风格与目录结构约定校验器（零依赖�
   H3. 依赖方向不变量 —— 低层包不得依赖高层包（见 TIERS/ FORBIDDEN），违反则失败。
   W1. 类名后缀与层不一致（特性分包下允许，仅报告）。
   W2. 平铺特性模块提示（类数较多却无层子包，建议拆分）。
+  W3. 数据类放置（*DTO/*VO/*Request/*Command/*Query/*Response 应位于 dto/vo 等
+      子包；*DO/*Entity/*Model 应位于 domain/entity/model 子包）。平铺特性模块内
+      的历史放置暂按警告处理，不阻断；清理完成后可升级为硬规则。
 
 退出码：发现任何 H* 硬违规 -> 1；仅 W* 警告或无问题 -> 0。
 
@@ -58,6 +61,22 @@ LAYER_BEARING = {
     "Listener": "listener",
     "Scheduler": "job", "Runner": "job", "Job": "job",
     "Properties": "properties",
+}
+
+# 数据类后缀 -> 允许出现的包段（包路径任意一段命中即合规，如 workflow.dto.design）。
+# 目的：传输对象收敛到 dto/vo 子包、持久化对象收敛到 domain/entity/model 子包，
+# 避免数据类散落在特性包根部。W3 目前为警告级（平铺模块历史放置不阻断合并）。
+DATA_CLASS_RULES = {
+    "DO": {"domain", "entity", "model", "po"},
+    "PO": {"domain", "entity", "model", "po"},
+    "Entity": {"domain", "entity", "model", "po"},
+    "Model": {"domain", "entity", "model"},
+    "DTO": {"dto", "vo", "domain", "entity", "model"},
+    "VO": {"dto", "vo", "domain", "entity", "model"},
+    "Request": {"dto", "vo", "domain", "entity", "model"},
+    "Response": {"dto", "vo", "domain", "entity", "model"},
+    "Command": {"dto", "vo", "domain", "entity", "model"},
+    "Query": {"dto", "vo", "domain", "entity", "model"},
 }
 
 PKG_RE = re.compile(r"^package\s+([\w\.]+);", re.M)
@@ -225,6 +244,27 @@ def main():
         (layered if (layer_subs & subs) else flat).append(f"{mod}({feat_count[mod]})")
     overview = f"已分层子包模块: {', '.join(layered) or '无'}\n    平铺特性模块: {', '.join(flat) or '无'}"
     warnings.append("模块分层概览:\n    " + overview)
+
+    # W3: 数据类放置校验 —— *DTO/*VO/*Request 等应在 dto/vo 子包，*DO/*Entity/*Model
+    #     应在 domain/entity/model 子包（包路径任意一段命中即合规）。平铺特性模块内
+    #     的历史放置暂按警告处理，不阻断合并；归位完成后可升级为硬规则。
+    misplaced_data = []
+    for name, pkg, fp in class_names:
+        allowed = None
+        for suf in sorted(DATA_CLASS_RULES, key=len, reverse=True):
+            if name.endswith(suf) and len(name) > len(suf):
+                allowed = DATA_CLASS_RULES[suf]
+                break
+        if allowed is None:
+            continue
+        if not (set(pkg.split(".")) & allowed):
+            misplaced_data.append(f"{pkg}.{name}")
+    if misplaced_data:
+        warnings.append(
+            f"数据类放置待归位（{len(misplaced_data)}，建议后续迭代移入 dto/domain 等子包）:\n    "
+            + "\n    ".join(misplaced_data[:40])
+            + ("\n    ..." if len(misplaced_data) > 40 else "")
+        )
 
     # ---- 输出 ----
     print("=" * 64)
