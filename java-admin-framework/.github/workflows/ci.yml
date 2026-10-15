@@ -1,6 +1,6 @@
 name: CI
 
-# G4 质量门禁：push / PR 触发；编码约定（convention-check，H* 硬违规即失败）、
+# G4 质量门禁：push / PR 触发；编码约定（convention-check，H1-H4 硬违规即失败并输出失败原因）、
 # 单元（surefire *Test）与集成（failsafe *IT，MySQL 服务容器）全绿方可通过；
 # 任一测试失败即流水线失败并阻断合并。静态扫描（SCA）作为非阻塞 advisory 作业。
 on:
@@ -13,16 +13,25 @@ jobs:
   convention-check:
     name: Coding Conventions
     runs-on: ubuntu-latest
-    # 零依赖（仅 Python 标准库）：H1 包级循环依赖 / H2 重复 FQN / H3 依赖方向，
-    # 任一 H* 硬违规即 job 失败、阻断合并；W* 警告不阻断
+    # 零依赖（仅 Python 标准库）：H1 包级循环依赖 / H2 重复 FQN / H3 依赖方向 /
+    # H4 数据类放置，任一硬违规即 job 失败、阻断合并；W* 警告不阻断
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: 校验器行为测试
+        # 门禁自身须可信：12 个用例覆盖 H1-H4 正/负例与 W* 不阻断
+        run: python3 -m unittest discover -s scripts -p "test_*.py"
       - name: 编码约定校验
-        run: python3 scripts/check-conventions.py
+        # 失败时输出 ::error:: 注解，明确失败原因与修复指引
+        run: |
+          if ! python3 scripts/check-conventions.py; then
+            echo "::error::编码约定校验未通过（硬违规即阻断合并）。H1=包级循环依赖（特性包间依赖须成 DAG）；H2=重复的全限定类名；H3=依赖方向不变量（低层包不得依赖高层包：domain->service->controller）；H4=数据类放置（*DTO/*VO/*Request/*Command/*Query/*Response 应在 dto/vo 子包，*DO/*Entity/*Model 应在 domain/entity/model 子包，包路径任意一段命中即合规）。请按上方输出逐项修复。"
+            exit 1
+          fi
+          echo "::notice::编码约定校验通过（H1-H4 零硬违规，W* 警告不阻断）"
 
   build-and-unit-test:
     name: Build & Unit Tests
