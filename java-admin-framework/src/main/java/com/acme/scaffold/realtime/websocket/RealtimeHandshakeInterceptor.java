@@ -1,5 +1,6 @@
 package com.acme.scaffold.realtime.websocket;
 
+import com.acme.scaffold.realtime.session.RealtimeSessionManager;
 import com.acme.scaffold.security.jwt.JwtProvider;
 import io.jsonwebtoken.Claims;
 import org.springframework.stereotype.Component;
@@ -33,7 +34,7 @@ public class RealtimeHandshakeInterceptor implements HandshakeInterceptor {
         try {
             Claims claims = jwtProvider.parse(token);
             Long userId = Long.valueOf(claims.getSubject());
-            attributes.put(RealtimeWebSocketHandler.ATTR_USER_ID, userId);
+            attributes.put(RealtimeSessionManager.ATTR_USER_ID, userId);
             return true;
         } catch (Exception e) {
             return false;

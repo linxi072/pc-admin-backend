@@ -14,8 +14,6 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 @Component
 public class RealtimeWebSocketHandler extends TextWebSocketHandler {
 
-    public static final String ATTR_USER_ID = "uid";
-
     private final RealtimeSessionManager sessionManager;
 
     public RealtimeWebSocketHandler(RealtimeSessionManager sessionManager) {
@@ -24,7 +22,7 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        Long userId = (Long) session.getAttributes().get(ATTR_USER_ID);
+        Long userId = (Long) session.getAttributes().get(RealtimeSessionManager.ATTR_USER_ID);
         if (userId != null) {
             sessionManager.register(userId, session);
         }

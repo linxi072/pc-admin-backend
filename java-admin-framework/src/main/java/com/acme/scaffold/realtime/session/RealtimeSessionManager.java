@@ -1,6 +1,5 @@
 package com.acme.scaffold.realtime.session;
 
-import com.acme.scaffold.realtime.websocket.RealtimeWebSocketHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -12,10 +11,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 实时会话注册表：维护 userId -> 活跃 WebSocket 会话，支持同一用户多端登录。
- * <p>单例 Bean，全局唯一；连接建立时由 {@link RealtimeWebSocketHandler} 注册，关闭时注销。
+ * <p>单例 Bean，全局唯一；连接建立时由
+ * {@link com.acme.scaffold.realtime.websocket.RealtimeWebSocketHandler} 注册，关闭时注销。
  */
 @Component
 public class RealtimeSessionManager {
+
+    /** 会话属性中 userId 的键：握手鉴权通过后由 {@code RealtimeHandshakeInterceptor} 写入。 */
+    public static final String ATTR_USER_ID = "uid";
 
     private final Map<Long, Set<WebSocketSession>> userSessions = new ConcurrentHashMap<>();
 
@@ -24,7 +27,7 @@ public class RealtimeSessionManager {
     }
 
     public void unregister(WebSocketSession session) {
-        Long userId = (Long) session.getAttributes().get(RealtimeWebSocketHandler.ATTR_USER_ID);
+        Long userId = (Long) session.getAttributes().get(ATTR_USER_ID);
         if (userId == null) {
             return;
         }
