@@ -1106,6 +1106,54 @@ V30 将 3 个运维向统计页挂到「运维管理」后，报表域缺少一�
 
 ---
 
+## 34. 多数据源：配置与运行时切换
+
+> 完整配置项、新增数据源五步、故障排查见《多数据源使用指南》`docs/manual/datasource-guide.md`；架构设计见《架构手册》§9.6。
+
+框架支持连接并切换多个数据库。默认所有查询落**主库（primary）**，未切换时既有服务（注入 `DSLContext` / `DataSource`）行为完全不变；多数据源是增量能力，非破坏性改造。
+
+### 34.1 配置位置
+
+| 文件 | 内容 |
+| --- | --- |
+| `application.yml` | 声明 `app.datasources.primary`（主库名）；关闭 `DataSourceAutoConfiguration` |
+| `application-local.yml` / `application-prod.yml` | 填充 `app.datasources.entries.<name>.{url,username,password}`，凭据走 `${DB_<NAME>_*}` 环境变量（local 可 `:默认值` 回退，prod 无默认值） |
+
+### 34.2 切换方式一：声明式 `@WithDataSource`
+
+标注在**外层编排方法**上，切面（`@Order(HIGHEST_PRECEDENCE)`）先于事务切面生效，方法体内所有 DB 访问落指定库，结束后自动还原：
+
+```java
+@WithDataSource("report")
+public ReportSnapshot build() {
+    var rows = reportRepository.queryFromReportDb();   // → report 库
+    var recent = orderService.recentOrders();          // → 主库（orderService 内部未切换）
+    return merge(rows, recent);
+}
+```
+
+### 34.3 切换方式二：编程式 `DataSourceRouter`
+
+注入 `DataSourceRouter`，用 `with(name, task)` 在指定库上下文执行并自动还原，或用 `dsl(name)` 取具名 `DSLContext` 做长链路多库混访：
+
+```java
+// 在 report 库上下文执行，自动还原调用前路由
+List<Row> rows = router.with("report", () -> reportDsl.selectFrom(REPORT_TABLE).fetch());
+
+// 或显式取具名 DSLContext（不受路由上下文影响）
+DSLContext report = router.dsl("report");
+DSLContext primary = router.primaryDsl();
+```
+
+### 34.4 注意
+
+- 单 `@Transactional` 只能绑定一个物理连接，**跨库业务须拆成多个方法分别切换**，或用 `router.dsl(name)` 显式多库混访；
+- 切换必须在 `@Transactional` 开启连接**之前**生效；切勿在被 `@Transactional` 的方法内部才 `set` 路由（会回落主库）；
+- Flyway / JobRunr / Flowable 一律走主库，不要在从库/报表库跑迁移或调度；
+- prod 环境变量已更名：`DB_URL/DB_USERNAME/DB_PASSWORD` → `DB_PRIMARY_URL/DB_PRIMARY_USERNAME/DB_PRIMARY_PASSWORD`，部署侧同步。
+
+---
+
 ## 1. 概述
 
 菜单功能采用 **RBAC（基于角色的访问控制）动态加载** 模式：
