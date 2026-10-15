@@ -1,4 +1,4 @@
-package com.acme.scaffold.jooq;
+package com.acme.scaffold.jooq.dsl;
 
 import org.jooq.Field;
 import org.jooq.Record;

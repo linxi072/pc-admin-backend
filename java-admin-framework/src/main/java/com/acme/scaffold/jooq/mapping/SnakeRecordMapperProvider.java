@@ -1,4 +1,4 @@
-package com.acme.scaffold.jooq;
+package com.acme.scaffold.jooq.mapping;
 
 import org.jooq.Record;
 import org.jooq.RecordMapper;

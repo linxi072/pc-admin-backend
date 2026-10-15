@@ -1,4 +1,4 @@
-package com.acme.scaffold.jooq;
+package com.acme.scaffold.jooq.mapping;
 
 import org.jooq.Field;
 import org.jooq.JSON;
@@ -126,7 +126,7 @@ public class SnakeRecordMapper<E> implements RecordMapper<Record, E> {
         return value;
     }
 
-    static String toSnake(String camel) {
+    public static String toSnake(String camel) {
         StringBuilder sb = new StringBuilder();
         for (char c : camel.toCharArray()) {
             if (Character.isUpperCase(c)) {

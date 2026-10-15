@@ -1,10 +1,12 @@
-package com.acme.scaffold.jooq;
+package com.acme.scaffold.jooq.paging;
 
 import com.acme.scaffold.common.api.CursorCodec;
-import com.acme.scaffold.common.api.KeysetPageQuery;
-import com.acme.scaffold.common.api.KeysetPageResult;
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;

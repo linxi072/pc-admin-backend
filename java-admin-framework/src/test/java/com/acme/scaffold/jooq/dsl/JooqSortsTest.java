@@ -1,7 +1,7 @@
-package com.acme.scaffold.jooq;
+package com.acme.scaffold.jooq.dsl;
 
-import com.acme.scaffold.common.api.PageQuery;
-import com.acme.scaffold.common.api.SortItem;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.SortItem;
 import org.jooq.DSLContext;
 import org.jooq.OrderField;
 import org.jooq.SQLDialect;

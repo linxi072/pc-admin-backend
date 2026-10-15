@@ -412,7 +412,7 @@ WHERE username = 'admin'
 -- =====================================================================================
 
 -- V5 系统管理扩展模块：部门(机构)已由 V1 提供，此处新增「字典管理」与「系统变量」表及种子数据。
--- 表名 / 列名与 com.acme.scaffold.jooq.JooqTables 中的注册严格一致。
+-- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的注册严格一致。
 
 CREATE TABLE IF NOT EXISTS sys_dict_type (
     id BIGINT UNSIGNED NOT NULL,
@@ -505,7 +505,7 @@ VALUES
 --       造成权限判定与数据范围计算需要做集合聚合，业务含义模糊、易出现并集越权。
 -- 变更：把 role_id / org_id 直接落到 sys_user 实体列，关联表退化为过渡数据并清理。
 --
--- 表名 / 列名与 com.acme.scaffold.jooq.JooqTables 中的注册严格一致。
+-- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的注册严格一致。
 --
 -- 幂等性说明（重要）：
 --   本脚本全部 DDL/DML 均以 information_schema 判定做守卫，重复执行结果一致且不报错。
@@ -627,7 +627,7 @@ DROP TABLE IF EXISTS sys_user_org;
 -- =====================================================================================
 
 -- V7 新增功能模块：系统公告。
--- 表名 / 列名与 com.acme.scaffold.jooq.JooqTables 中的 SYS_ANNOUNCEMENT 注册严格一致。
+-- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的 SYS_ANNOUNCEMENT 注册严格一致。
 --
 -- 状态机：DRAFT(草稿) --publish--> PUBLISHED(已发布) --offline--> OFFLINE(已下线)
 -- PUBLISHED 到期(publish_at/expire_at 越界)由定时任务自动下线。
@@ -669,7 +669,7 @@ CREATE TABLE IF NOT EXISTS sys_announcement (
 -- =====================================================================================
 
 -- V8 新增功能模块：站内信（发件主表 + 收件明细）。
--- 表名 / 列名与 com.acme.scaffold.jooq.JooqTables 中的 SYS_MESSAGE / SYS_MESSAGE_RECEIPT 注册严格一致。
+-- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的 SYS_MESSAGE / SYS_MESSAGE_RECEIPT 注册严格一致。
 --
 -- sys_message 为发件主表(一条消息一次发送动作)，sys_message_receipt 为收件明细。
 -- 「批量发送」= 按角色/部门筛选接收人后在 receipt 表批量插入(同一 message_id 多行)。
@@ -721,7 +721,7 @@ CREATE TABLE IF NOT EXISTS sys_message_receipt (
 -- =====================================================================================
 
 -- V9 新增功能模块：系统监控采样。
--- 表名 / 列名与 com.acme.scaffold.jooq.JooqTables 中的 SYS_MONITOR_SAMPLE 注册严格一致。
+-- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的 SYS_MONITOR_SAMPLE 注册严格一致。
 --
 -- 定时任务(JobRunr)周期采样 CPU/内存/磁盘/JVM 与在线用户数，写入本表，
 -- 供「按时间范围查询」与趋势图使用，避免实时计算带来的采集开销。
@@ -1052,7 +1052,7 @@ ON DUPLICATE KEY UPDATE resource_name = VALUES(resource_name), permission_code =
 -- 背景：V6 把 sys_user_role / sys_user_org 收敛为 sys_user.role_id / org_id 单列，
 --       现按业务需要恢复 N:N：一个用户可拥有多个角色、归属多个部门（含主角色/主部门标记）。
 -- 幂等：所有 DDL/DML 均以 information_schema 守卫，重复执行结果一致。
--- 表名 / 列名与 com.acme.scaffold.jooq.JooqTables 注册一致。
+-- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 注册一致。
 
 -- 1) 新建用户-角色关联表
 SET @ddl = (

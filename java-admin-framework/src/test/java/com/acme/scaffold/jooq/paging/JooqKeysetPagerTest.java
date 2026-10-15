@@ -1,7 +1,8 @@
-package com.acme.scaffold.jooq;
+package com.acme.scaffold.jooq.paging;
 
 import com.acme.scaffold.common.api.CursorCodec;
-import com.acme.scaffold.common.api.KeysetPageQuery;
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
+import com.acme.scaffold.jooq.dsl.JooqTables;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.conf.ParamType;

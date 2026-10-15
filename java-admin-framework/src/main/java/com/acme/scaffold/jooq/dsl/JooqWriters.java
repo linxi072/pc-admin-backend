@@ -1,8 +1,9 @@
-package com.acme.scaffold.jooq;
+package com.acme.scaffold.jooq.dsl;
 
 import com.acme.scaffold.common.IdGenerator;
-import com.acme.scaffold.common.api.PageQuery;
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
