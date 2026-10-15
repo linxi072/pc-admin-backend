@@ -1,16 +1,17 @@
 package com.acme.scaffold.system.file;
 
-import com.acme.scaffold.common.api.KeysetPageQuery;
-import com.acme.scaffold.common.api.KeysetPageResult;
-import com.acme.scaffold.common.api.PageQuery;
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqKeysetPager;
-import com.acme.scaffold.jooq.JooqSorts;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.paging.JooqKeysetPager;
+import com.acme.scaffold.jooq.dsl.JooqSorts;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
+import com.acme.scaffold.system.entity.SysFileDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;

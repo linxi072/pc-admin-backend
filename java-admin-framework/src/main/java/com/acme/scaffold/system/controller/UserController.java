@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.controller;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.system.dto.CreateUserRequest;

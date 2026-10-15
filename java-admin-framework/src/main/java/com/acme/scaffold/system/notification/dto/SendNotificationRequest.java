@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.dto;
 
 import com.acme.scaffold.common.notification.Channel;
 import jakarta.validation.constraints.NotBlank;

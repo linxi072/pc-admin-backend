@@ -1,7 +1,7 @@
 package com.acme.scaffold.security.token;
 
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;

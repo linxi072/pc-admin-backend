@@ -1,6 +1,6 @@
 package com.acme.scaffold.security.permission;
 
-import com.acme.scaffold.jooq.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqTables;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;

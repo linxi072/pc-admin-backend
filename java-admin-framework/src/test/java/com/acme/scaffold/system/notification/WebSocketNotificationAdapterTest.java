@@ -2,8 +2,8 @@ package com.acme.scaffold.system.notification;
 
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.realtime.RealtimeNotificationPayload;
-import com.acme.scaffold.realtime.RealtimePushService;
+import com.acme.scaffold.realtime.payload.RealtimeNotificationPayload;
+import com.acme.scaffold.realtime.service.RealtimePushService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

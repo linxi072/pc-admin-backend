@@ -1,12 +1,13 @@
 package com.acme.scaffold.system.service;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
-import com.acme.scaffold.realtime.RealtimePushService;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageView;
 import com.acme.scaffold.system.dto.SendMessageRequest;
@@ -199,7 +200,7 @@ public class MessageService {
 
         // 以收件表为主表做分页查询（仅返回属于自己的消息）
         long total = JooqWriters.count(dsl, JooqTables.SYS_MESSAGE_RECEIPT, DSL.and(conds));
-        var q = com.acme.scaffold.common.api.PageQuery.of(page, size);
+        var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
         List<Record2<Long, Integer>> receipts = dsl.select(
                         JooqTables.SYS_MESSAGE_RECEIPT.field("message_id", Long.class),
                         JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class))
@@ -314,7 +315,7 @@ public class MessageService {
     /** 我发出的消息分页（含已读/未读统计）。 */
     public PageResult<SysMessageDO> pageSent(int page, int size) {
         Long userId = requireCurrentUserId();
-        var q = com.acme.scaffold.common.api.PageQuery.of(page, size);
+        var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
         return JooqWriters.page(dsl, JooqTables.SYS_MESSAGE, SysMessageDO.class,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_MESSAGE),
                         JooqTables.SYS_MESSAGE.field("sender_id", Long.class).eq(userId)),

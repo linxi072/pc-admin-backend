@@ -2,15 +2,15 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.token.RefreshTokenService;
-import com.acme.scaffold.security.token.SysRefreshTokenDO;
+import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.system.dto.BindContactRequest;
 import com.acme.scaffold.system.dto.ChangePasswordRequest;
 import com.acme.scaffold.system.dto.DeviceView;

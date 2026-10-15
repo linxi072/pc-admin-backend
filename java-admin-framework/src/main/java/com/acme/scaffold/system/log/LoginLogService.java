@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.log;
 
-import com.acme.scaffold.common.api.PageQuery;
-import com.acme.scaffold.common.api.PageResult;
-import com.acme.scaffold.jooq.JooqSorts;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
-import com.acme.scaffold.security.log.SysLoginLogDO;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.jooq.dsl.JooqSorts;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.security.entity.SysLoginLogDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;

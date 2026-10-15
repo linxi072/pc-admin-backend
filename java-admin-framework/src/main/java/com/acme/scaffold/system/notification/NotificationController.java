@@ -5,6 +5,7 @@ import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.system.notification.NotificationService;
+import com.acme.scaffold.system.notification.dto.SendNotificationRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

@@ -1,10 +1,11 @@
 package com.acme.scaffold.system.service;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.config.JwtProperties;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.online.OnlineSessionRules;
@@ -265,7 +266,7 @@ public class OnlineUserService {
             conds.add(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class)
                     .eq(status.trim().toUpperCase()));
         }
-        var pageQuery = com.acme.scaffold.common.api.PageQuery.of(page, size);
+        var pageQuery = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
         PageResult<SysLoginRestrictionDO> result = JooqWriters.page(dsl, JooqTables.SYS_LOGIN_RESTRICTION,
                 SysLoginRestrictionDO.class, DSL.and(conds), pageQuery,
                 // 默认：限制时间倒序（最新限制在前）

@@ -2,8 +2,8 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.ConfigVO;
 import com.acme.scaffold.system.dto.CreateConfigRequest;
 import com.acme.scaffold.system.dto.UpdateConfigRequest;

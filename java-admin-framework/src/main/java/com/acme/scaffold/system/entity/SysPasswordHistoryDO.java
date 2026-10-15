@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.entity;
 
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -9,7 +10,7 @@ import java.time.LocalDateTime;
  * 对应 {@code sys_password_history} 表（见 V2__security.sql）。
  *
  * <p>该表无 {@code deleted} / {@code version} 列，删除为物理删除；
- * 写入由 {@link com.acme.scaffold.jooq.JooqWriters} 自动回填 id / tenant_id / created_at。
+ * 写入由 {@link com.acme.scaffold.jooq.dsl.JooqWriters} 自动回填 id / tenant_id / created_at。
  */
 @Data
 public class SysPasswordHistoryDO {

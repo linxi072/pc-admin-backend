@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.service;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqSorts;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqSorts;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.security.password.PasswordHistoryService;

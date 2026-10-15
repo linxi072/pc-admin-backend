@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.config;
 
+import com.acme.scaffold.realtime.websocket.RealtimeHandshakeInterceptor;
 import com.acme.scaffold.security.jwt.JwtAuthConverter;
 import com.acme.scaffold.security.captcha.CaptchaProperties;
 import com.acme.scaffold.security.antireplay.AntiReplayProperties;

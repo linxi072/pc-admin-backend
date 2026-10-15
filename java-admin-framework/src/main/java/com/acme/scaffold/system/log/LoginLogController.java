@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.log;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

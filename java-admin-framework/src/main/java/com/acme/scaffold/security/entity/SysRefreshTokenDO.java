@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.entity;
 
 import lombok.Data;
 
