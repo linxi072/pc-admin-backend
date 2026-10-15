@@ -133,9 +133,9 @@ controller  ──▶  service  ──▶  domain / port
 | H1 | 硬（失败） | 包级循环依赖（强连通分量检测） |
 | H2 | 硬（失败） | 重复的全限定类名 |
 | H3 | 硬（失败） | 依赖方向不变量（见 §2.3 禁止项） |
+| H4 | 硬（失败） | 数据类放置（`*DTO`/`*VO`/`*Request`/`*Command`/`*Query`/`*Response` 应在 `dto`/`vo` 子包；`*DO`/`*Entity`/`*Model` 应在 `domain`/`entity`/`model` 子包；包路径任意一段命中即合规，如 `workflow.dto.design` 不误报） |
 | W1 | 警告 | 疑似错层放置（`*Controller` 落在 `*service` 包等，仅当类名与包末段均为显式层 token 且冲突时） |
 | W2 | 警告 | 模块分层概览（已分层 vs 平铺，供人工参考，不强制） |
-| W3 | 警告 | 数据类放置（`*DTO`/`*VO`/`*Request`/`*Command`/`*Query`/`*Response` 应在 `dto`/`vo` 子包；`*DO`/`*Entity`/`*Model` 应在 `domain`/`entity`/`model` 子包；包路径任意一段命中即合规） |
 
 退出码：`0` 仅含 W* 或无问题；`1` 存在任何 H* 硬违规。
 
@@ -145,6 +145,7 @@ controller  ──▶  service  ──▶  domain / port
 # 项目根目录
 python3 scripts/check-conventions.py                 # 默认扫描 src/main/java
 python3 scripts/check-conventions.py --src src/main/java
+python3 -m unittest discover -s scripts -p "test_*.py"  # 校验器行为测试（12 例）
 ```
 
 ### 5.3 CI 集成
@@ -156,11 +157,17 @@ convention-check:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
+    - name: 校验器行为测试
+      run: python3 -m unittest discover -s scripts -p "test_*.py"
     - name: 编码约定校验
-      run: python3 scripts/check-conventions.py
+      run: |
+        if ! python3 scripts/check-conventions.py; then
+          echo "::error::编码约定校验未通过（硬违规即阻断合并）。H1=包级循环依赖；H2=重复 FQN；H3=依赖方向；H4=数据类放置。请按上方输出逐项修复。"
+          exit 1
+        fi
 ```
 
-任一 H* 硬违规即 job 失败，阻断合并。本地 `pre-commit` 亦可挂接，提交前自动拦截硬违规。
+任一 H* 硬违规即 job 失败并输出 `::error::` 失败原因注解，阻断合并；W* 警告不阻断。本地 `pre-commit` 亦可挂接，提交前自动拦截硬违规。
 
 ---
 
@@ -177,5 +184,5 @@ convention-check:
 
 - 个别历史类命名未套标准后缀（如 `Alert`、`Vault`、`Captcha`、`ClaimRules` 等语义化名称），属有意保留，不强制改名；新增代码须遵循 §3。
 - 平铺模块（`realtime` / `observability` 及 `common` / `config` / `jooq` 通用包）当前允许；当某模块类数超 ~15 且出现多职责混杂时，应依 §2.2 拆层子包（`monitor` / `job` / `workbench` 已于 V1.0.2 完成拆分）。
-- 数据类放置（W3）在 `common.api` / `common.audit` / `common.idempotency` / `security.token` / `security.log` / `system.file` / `system.notification` 等平铺模块中存在历史放置（如 `PageQuery`、`SysOperationLogDO`），暂按警告处理；后续迭代归位至 `dto` / `domain` 子包后，可将 W3 升级为硬规则。
+- 数据类放置已升级为硬规则 **H4**（原 W3 警告级）：`common.api` / `common.audit` / `common.idempotency` / `security.token` / `security.log` / `system.file` / `system.notification` 等处的 9 个历史放置类已于 V1.0.2 第二轮拆分全部归位至 `dto` / `domain` 子包，具备硬规则条件；新增数据类未按 §2.2 放置时将直接阻断合并。
 - 本约定随评审演进；任何修改须同步更新本文档与 `check-conventions.py` 的 `TIER` / `FORBIDDEN` / `LAYER_BEARING` 三张表。
