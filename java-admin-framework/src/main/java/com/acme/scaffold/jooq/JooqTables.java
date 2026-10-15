@@ -139,6 +139,14 @@ public final class JooqTables {
             "operator_name", "request_method", "request_path", "request_summary", "result_summary",
             "result_code", "duration_ms", "ip_address", "trace_id", "success", "occurred_at");
 
+    // ---------------- 文件管理（V33） ----------------
+
+    /** 文件表（列名与 V33__file_management.sql 严格一致）。逻辑删除（deleted），删除时仅清理物理文件。 */
+    public static final TableRef SYS_FILE = new TableRef("sys_file",
+            "id", "tenant_id", "original_name", "stored_name", "storage_path", "file_size",
+            "content_type", "source_module", "biz_id", "uploader_id", "uploader_name",
+            "download_count", "version", "deleted", "created_at", "updated_at");
+
     // ---------------- 在线用户管理（V27） ----------------
 
     /**
