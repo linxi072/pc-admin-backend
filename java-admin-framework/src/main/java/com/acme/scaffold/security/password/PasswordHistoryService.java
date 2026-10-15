@@ -2,7 +2,7 @@ package com.acme.scaffold.security.password;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.security.config.JwtProperties;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.system.entity.SysPasswordHistoryDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;

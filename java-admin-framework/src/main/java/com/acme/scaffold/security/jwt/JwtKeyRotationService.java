@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.jwt;
 
-import com.acme.scaffold.security.config.JwtProperties;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;

@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.jwt;
 
-import com.acme.scaffold.security.config.JwtProperties;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.jwt.JwtKeyRotationService;
 import io.jsonwebtoken.Claims;

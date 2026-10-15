@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.config;
+package com.acme.scaffold.security.jwt;
 
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;

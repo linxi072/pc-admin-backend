@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.jwt;
 
-import com.acme.scaffold.security.config.JwtProperties;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;

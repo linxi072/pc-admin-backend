@@ -3,7 +3,7 @@ package com.acme.scaffold.security.token;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.security.config.JwtProperties;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import lombok.RequiredArgsConstructor;

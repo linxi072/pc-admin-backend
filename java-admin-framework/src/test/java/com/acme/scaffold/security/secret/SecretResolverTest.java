@@ -1,6 +1,6 @@
 package com.acme.scaffold.security.secret;
 
-import com.acme.scaffold.security.config.JwtProperties;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

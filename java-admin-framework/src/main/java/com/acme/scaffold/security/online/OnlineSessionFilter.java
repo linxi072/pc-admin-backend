@@ -1,7 +1,7 @@
 package com.acme.scaffold.security.online;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.security.config.JwtProperties;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.system.service.OnlineUserService;

@@ -1,8 +1,7 @@
 package com.acme.scaffold.security.token;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.security.config.JwtProperties;
-import com.acme.scaffold.system.service.OnlineUserService;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.Field;
@@ -27,7 +26,7 @@ import static org.jooq.impl.DSL.or;
  *
  * <p><b>与在线会话的联动</b>（V27）：刷新令牌被回收后，对应的
  * {@code sys_online_session} 行若不同步置离线，将长期以「空闲」身份残留在在线列表中。
- * 故回收完成后按同一截止时间联动 {@link OnlineUserService#releaseInactiveSessions}。
+ * 故回收完成后按同一截止时间联动 {@link OnlineSessionReleasePort#releaseInactiveSessions}。
  */
 @Slf4j
 @Service
@@ -35,13 +34,13 @@ public class SessionCleanupService {
 
     private final DSLContext dsl;
     private final JwtProperties jwtProps;
-    private final OnlineUserService onlineUserService;
+    private final OnlineSessionReleasePort onlineSessionRelease;
 
     public SessionCleanupService(DSLContext dsl, JwtProperties jwtProps,
-                                 OnlineUserService onlineUserService) {
+                                 OnlineSessionReleasePort onlineSessionRelease) {
         this.dsl = dsl;
         this.jwtProps = jwtProps;
-        this.onlineUserService = onlineUserService;
+        this.onlineSessionRelease = onlineSessionRelease;
     }
 
     /** 周期 / 启动统一入口：按配置执行回收；禁用时直接返回。 */
@@ -53,7 +52,7 @@ public class SessionCleanupService {
         int idle = revokeIdleSessions();
         int expired = purgeExpired();
         // 在线会话联动置离线：截止时间与刷新令牌空闲回收一致（now - session-max-inactive）
-        int sessions = onlineUserService.releaseInactiveSessions(
+        int sessions = onlineSessionRelease.releaseInactiveSessions(
                 LocalDateTime.now().minus(jwtProps.getSessionMaxInactive()));
         if (idle > 0 || expired > 0 || sessions > 0) {
             log.info("会话回收完成：空闲吊销={} 过期清理={} 在线会话置离线={}", idle, expired, sessions);

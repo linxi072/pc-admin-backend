@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.online;
+package com.acme.scaffold.security.online.rules;
 
 import com.acme.scaffold.system.entity.SysLoginRestrictionDO;
 

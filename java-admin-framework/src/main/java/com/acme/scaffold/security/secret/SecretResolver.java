@@ -1,6 +1,6 @@
 package com.acme.scaffold.security.secret;
 
-import com.acme.scaffold.security.config.JwtProperties;
+import com.acme.scaffold.security.jwt.JwtProperties;
 
 /**
  * 密钥解析辅助（纯逻辑，可单测）：将外部密钥源中的 JWT 密钥写入 {@link JwtProperties}。

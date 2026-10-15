@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.jwt;
 
-import com.acme.scaffold.security.config.JwtProperties;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
