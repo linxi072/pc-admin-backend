@@ -10,11 +10,11 @@ check-conventions.py — 编码风格与目录结构约定校验器（零依赖�
   H1. 包级循环依赖（强连通分量检测）—— 违反则失败。
   H2. 重复的全限定类名 —— 违反则失败。
   H3. 依赖方向不变量 —— 低层包不得依赖高层包（见 TIERS/ FORBIDDEN），违反则失败。
+  H4. 数据类放置 —— *DTO/*VO/*Request/*Command/*Query/*Response 应位于 dto/vo 等
+      子包；*DO/*Entity/*Model/PO 应位于 domain/entity/model 子包（包路径任意一段
+      命中即合规）。违反即失败，输出中附带应归位的子包指引。
   W1. 类名后缀与层不一致（特性分包下允许，仅报告）。
-  W2. 平铺特性模块提示（类数较多却无层子包，建议拆分）。
-  W3. 数据类放置（*DTO/*VO/*Request/*Command/*Query/*Response 应位于 dto/vo 等
-      子包；*DO/*Entity/*Model 应位于 domain/entity/model 子包）。平铺特性模块内
-      的历史放置暂按警告处理，不阻断；清理完成后可升级为硬规则。
+  W2. 模块分层概览（已分层 vs 平铺，供人工参考，不强制）。
 
 退出码：发现任何 H* 硬违规 -> 1；仅 W* 警告或无问题 -> 0。
 
@@ -65,7 +65,8 @@ LAYER_BEARING = {
 
 # 数据类后缀 -> 允许出现的包段（包路径任意一段命中即合规，如 workflow.dto.design）。
 # 目的：传输对象收敛到 dto/vo 子包、持久化对象收敛到 domain/entity/model 子包，
-# 避免数据类散落在特性包根部。W3 目前为警告级（平铺模块历史放置不阻断合并）。
+# 避免数据类散落在特性包根部。H4 为硬规则：违反即阻断（V1.0.2 起由 W3 警告升级，
+# 历史放置已于拆分迭代中全部归位，见 docs/manual/coding-standard.md §7）。
 DATA_CLASS_RULES = {
     "DO": {"domain", "entity", "model", "po"},
     "PO": {"domain", "entity", "model", "po"},
@@ -102,10 +103,10 @@ def last_segment(pkg):
     return pkg.split(".")[-1]
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default="src/main/java")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     if not os.path.isdir(args.src):
         print(f"[ERROR] 源码目录不存在: {args.src}", file=sys.stderr)
@@ -153,6 +154,7 @@ def main():
 
     # H1: package-level cycles via Tarjan SCC
     nodes = set(imports_by_pkg) | {d for ds in imports_by_pkg.values() for d in ds}
+    index = {}
     low = {}
     onstack = {}
     idx = 0
@@ -161,17 +163,18 @@ def main():
 
     def strongconnect(v):
         nonlocal idx
+        index[v] = idx
         low[v] = idx
         onstack[v] = True
         stack.append(v)
         idx += 1
         for w in imports_by_pkg.get(v, ()):
-            if w not in low:
+            if w not in index:
                 strongconnect(w)
                 low[v] = min(low[v], low[w])
             elif onstack.get(w):
-                low[v] = min(low[v], low[w])
-        if low[v] == low.get(v) and stack and stack[-1] == v:
+                low[v] = min(low[v], index[w])
+        if low[v] == index[v]:
             comp = []
             while True:
                 w = stack.pop()
@@ -250,9 +253,9 @@ def main():
     overview = f"已分层子包模块: {', '.join(layered) or '无'}\n    平铺特性模块: {', '.join(flat) or '无'}"
     warnings.append("模块分层概览:\n    " + overview)
 
-    # W3: 数据类放置校验 —— *DTO/*VO/*Request 等应在 dto/vo 子包，*DO/*Entity/*Model
-    #     应在 domain/entity/model 子包（包路径任意一段命中即合规）。平铺特性模块内
-    #     的历史放置暂按警告处理，不阻断合并；归位完成后可升级为硬规则。
+    # H4: 数据类放置校验（硬规则）—— *DTO/*VO/*Request 等应在 dto/vo 子包，
+    #     *DO/*Entity/*Model/PO 应在 domain/entity/model 子包（包路径任意一段命中
+    #     即合规）。违反即阻断合并；输出附带应归位的子包指引（V1.0.2 起由 W3 升级）。
     misplaced_data = []
     for name, pkg, fp in class_names:
         allowed = None
@@ -263,10 +266,10 @@ def main():
         if allowed is None:
             continue
         if not (set(pkg.split(".")) & allowed):
-            misplaced_data.append(f"{pkg}.{name}")
+            misplaced_data.append(f"{pkg}.{name} -> 应移入 {'/'.join(sorted(allowed))} 子包")
     if misplaced_data:
-        warnings.append(
-            f"数据类放置待归位（{len(misplaced_data)}，建议后续迭代移入 dto/domain 等子包）:\n    "
+        hard_errors.append(
+            f"数据类放置违规（H4），共 {len(misplaced_data)} 项：\n    "
             + "\n    ".join(misplaced_data[:40])
             + ("\n    ..." if len(misplaced_data) > 40 else "")
         )
