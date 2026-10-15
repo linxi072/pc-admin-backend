@@ -1,6 +1,7 @@
 name: CI
 
-# G4 质量门禁：push / PR 触发；单元（surefire *Test）与集成（failsafe *IT，MySQL 服务容器）全绿方可通过；
+# G4 质量门禁：push / PR 触发；编码约定（convention-check，H* 硬违规即失败）、
+# 单元（surefire *Test）与集成（failsafe *IT，MySQL 服务容器）全绿方可通过；
 # 任一测试失败即流水线失败并阻断合并。静态扫描（SCA）作为非阻塞 advisory 作业。
 on:
   push:
@@ -9,6 +10,20 @@ on:
     branches: ["main", "V1.0.4"]
 
 jobs:
+  convention-check:
+    name: Coding Conventions
+    runs-on: ubuntu-latest
+    # 零依赖（仅 Python 标准库）：H1 包级循环依赖 / H2 重复 FQN / H3 依赖方向，
+    # 任一 H* 硬违规即 job 失败、阻断合并；W* 警告不阻断
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 编码约定校验
+        run: python3 scripts/check-conventions.py
+
   build-and-unit-test:
     name: Build & Unit Tests
     runs-on: ubuntu-latest
