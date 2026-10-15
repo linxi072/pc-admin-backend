@@ -215,13 +215,17 @@ def main():
                 break
         if not expected:
             continue
-        last = pkg.split(".")[-1]
+        last = pkg.split(".")
+        # config 模块按关注点拆分（config.web/config.jooq/config.redis 等），
+        # *Config 类落在这些子包属正常放置，不按错层告警。
+        if expected == "config" and "config" in last:
+            continue
         # 仅当“类名期望层”与“包末段层”均为显式 tier 且冲突时才报（如 *Controller 落在 *service 包）。
         # filter/properties/aspect 等无 tier 的后缀允许出现在任意包（含 config），不误报。
         exp_tier = TIER.get(expected)
-        last_tier = TIER.get(last)
+        last_tier = TIER.get(last[-1])
         if exp_tier is not None and last_tier is not None and exp_tier != last_tier:
-            mis_tier.append(f"{pkg}.{name}（类名含『{expected}』但包末段为『{last}』）")
+            mis_tier.append(f"{pkg}.{name}（类名含『{expected}』但包末段为『{last[-1]}』）")
     if mis_tier:
         warnings.append(
             f"疑似错层放置（{len(mis_tier)}，建议复核）:\n    "
@@ -229,13 +233,14 @@ def main():
             + ("\n    ..." if len(mis_tier) > 40 else "")
         )
 
-    # W2: 模块分层概览（中性信息，不强制拆分）—— 统计各特性模块是否已分层子包
+    # W2: 模块分层概览（中性信息，不强制拆分）—— 统计各特性模块是否已分层子包。
+    #     层 token 出现在任意子包深度即视为已分层（如 common.api.dto 的二层 dto）。
     feat = defaultdict(set)
     feat_count = defaultdict(int)
     for name, pkg, fp in class_names:
         parts = pkg.split(".")
         if len(parts) >= 4 and parts[0:3] == ROOT_PKG.split("."):
-            feat[parts[3]].add(parts[4] if len(parts) >= 5 else "(root)")
+            feat[parts[3]].update(parts[4:] if len(parts) >= 5 else {"(root)"})
             feat_count[parts[3]] += 1
     layer_subs = {"controller", "service", "config", "domain", "entity", "dto", "model"}
     layered, flat = [], []
