@@ -80,7 +80,7 @@
 |---|---|---|---|---|
 | **数据导入/导出中心（Excel）** | 高 | POI/EasyExcel **不在**离线仓库，需联网 `mvn` 引入 | P2（递延，待联网） | 引入 POI + 通用 `ExportService`（CSV 已具备 `report/export`）；前端导出中心页；先以 CSV 兜底，Excel 待依赖就绪 |
 | **缓存管理（命中率查看 + 清除）** | 中 | 当前**无 Spring Cache 抽象**（仅 `MonitorService` 内存统计，无 `CacheManager`） | P2 | 先引入 `Caffeine`/`Redis` `CacheManager` 并接 `CacheStatView`；再补 `CacheMonitorView` 清除按钮 + 后端清除端点 |
-| **通知渠道抽象（邮件/短信/Webhook）** | 中 | `MessageService` 现仅站内信 | P3 | 抽 `NotificationPort`，站内信/Webhook 实现，消息渠道配置化 |
+| **通知渠道抽象（邮件/短信/Webhook）** | 中 | `MessageService` 现仅站内信 | P3（站内信/Webhook 已完成，本次） | 抽 `NotificationPort`（站内信/Webhook 实现 + `NotificationService` 编排路由 + `app.notifications.webhook.*` 配置化）；EMAIL/SMS 仍待网关依赖，列入后续 |
 | **i18n 国际化** | 低 | 无 | P3 | `MessageSource` + 前端 i18n，工作量大 |
 | **限流/防重放注解化** | 中 | `RateLimitFilter` 已 opt-in，但无注解驱动 | P3 | 抽 `@RateLimit` 注解 + AOP 拦截，配置化阈值 |
 
@@ -105,7 +105,7 @@
 | **P0** | 严格需求缺口 | **无** |
 | **P1** | 工作区卫生 | 先把上一轮未提交的文档/脚本（多数据源指南、编码规范、`check-conventions.py`、`.editorconfig`、四手册编辑）本地提交，保持 `feat/V1.0.2` 工作区干净 |
 | **P2** | 增强型基础功能 | 数据导出中心（需联网引入 POI）；缓存管理（需先建 `CacheManager`） |
-| **P3** | 可选增强 | 通知渠道抽象、i18n、限流注解化 |
+| **P3** | 可选增强 | 通知渠道抽象（站内信/Webhook，**本次已落地**）、限流注解化（上一轮已落地）、i18n（待办） |
 
 ---
 

@@ -111,6 +111,19 @@ app:
     max-bytes: 10485760
     # 扩展名白名单（逗号分隔）；同时叠加图片/PDF 魔数校验，拒绝可执行文件伪装
     allowed-extensions: jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z
+  # ===== 通知渠道（站内信 / Webhook） =====
+  # 站内信（IN_APP）始终可用；Webhook 默认关闭，启用并配置地址后才外发。
+  notifications:
+    webhook:
+      # 是否允许 Webhook 外发（默认 false，缺省关闭避免误发）
+      enabled: false
+      # 消息未显式带 webhookUrl 时的兜底地址（启用后建议配置）
+      default-url:
+      # 可选共享密钥，透传为报文 secret 字段
+      secret:
+      # 读超时 / 连接超时（毫秒）
+      timeout-ms: 5000
+      connect-timeout-ms: 2000
   security:
     issuer: java-admin-framework
     audience: admin-api

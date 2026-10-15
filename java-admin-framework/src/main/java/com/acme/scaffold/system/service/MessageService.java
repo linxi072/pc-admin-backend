@@ -74,8 +74,10 @@ public class MessageService {
         return doSend(request);
     }
 
-    /** 落库实现：对外入口与内部抄送共用，事务由调用方（{@code send} / {@code sendCcNotification}）开启。 */
-    protected int doSend(SendMessageRequest request) {
+    /** 落库实现：对外入口与内部抄送共用，事务由调用方（{@code send} / {@code sendCcNotification}）开启。
+     *  <p>包级可见方法升为 public，供通知渠道适配器（{@code InAppNotificationAdapter}）复用同一落库实现，
+     *  避免站内信逻辑被复制；仅为可访问性放宽，行为不变。 */
+    public int doSend(SendMessageRequest request) {
         boolean hasExplicit = request.receiverIds() != null && !request.receiverIds().isEmpty();
         boolean hasFilter = (request.roleIds() != null && !request.roleIds().isEmpty())
                 || (request.orgIds() != null && !request.orgIds().isEmpty());
