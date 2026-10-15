@@ -1,9 +1,9 @@
 package com.acme.scaffold.config;
 
-import com.acme.scaffold.job.AnnouncementExpiryJob;
-import com.acme.scaffold.job.DemoJob;
-import com.acme.scaffold.job.IdempotencyCleanupJob;
-import com.acme.scaffold.job.MonitorSampleJob;
+import com.acme.scaffold.job.handler.AnnouncementExpiryJob;
+import com.acme.scaffold.job.handler.DemoJob;
+import com.acme.scaffold.job.handler.IdempotencyCleanupJob;
+import com.acme.scaffold.job.handler.MonitorSampleJob;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jobrunr.scheduling.JobScheduler;

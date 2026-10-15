@@ -1,9 +1,9 @@
 package com.acme.scaffold.config;
 
 import com.acme.scaffold.jooq.SnakeRecordMapperProvider;
-import com.acme.scaffold.monitor.NPlusOneListener;
-import com.acme.scaffold.monitor.NPlusOneProbe;
-import com.acme.scaffold.monitor.SlowQueryListener;
+import com.acme.scaffold.monitor.detection.NPlusOneListener;
+import com.acme.scaffold.monitor.detection.NPlusOneProbe;
+import com.acme.scaffold.monitor.detection.SlowQueryListener;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.conf.RenderQuotedNames;

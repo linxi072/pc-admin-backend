@@ -5,7 +5,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
-import com.acme.scaffold.monitor.BusinessMetrics;
+import com.acme.scaffold.monitor.domain.BusinessMetrics;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.system.entity.SysUserDO;
