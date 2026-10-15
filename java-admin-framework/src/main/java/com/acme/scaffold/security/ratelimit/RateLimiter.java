@@ -1,5 +1,7 @@
 package com.acme.scaffold.security.ratelimit;
 
+import org.springframework.stereotype.Component;
+
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -12,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>单实例有效；多实例部署可替换为 Redis 令牌桶（按相同 key 维度共享计数）。</li>
  * </ul>
  */
+@Component
 public class RateLimiter {
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();

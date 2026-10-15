@@ -3,6 +3,7 @@ package com.acme.scaffold.system.file;
 import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.security.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,7 @@ public class FileController {
     @Operation(summary = "上传文件（可复用公共接口，业务模块可传 sourceModule 归集来源）")
     @PostMapping("/upload")
     @PreAuthorize("hasAuthority('system:file:upload')")
+    @RateLimit(max = 20, windowSeconds = 60, scope = RateLimit.Scope.IP)
     @AuditOperation(module = "file", type = "CREATE", name = "上传文件")
     public Result<FileView> upload(@RequestParam("file") MultipartFile file,
                                    @RequestParam("sourceModule") String sourceModule,
