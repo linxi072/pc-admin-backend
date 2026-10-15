@@ -1,5 +1,7 @@
-package com.acme.scaffold.realtime;
+package com.acme.scaffold.realtime.service;
 
+import com.acme.scaffold.realtime.payload.RealtimeMessage;
+import com.acme.scaffold.realtime.session.RealtimeSessionManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;

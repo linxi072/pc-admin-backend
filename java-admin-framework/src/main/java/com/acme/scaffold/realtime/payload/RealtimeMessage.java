@@ -1,4 +1,4 @@
-package com.acme.scaffold.realtime;
+package com.acme.scaffold.realtime.payload;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

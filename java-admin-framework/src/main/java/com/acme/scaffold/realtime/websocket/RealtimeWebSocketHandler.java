@@ -1,5 +1,6 @@
-package com.acme.scaffold.realtime;
+package com.acme.scaffold.realtime.websocket;
 
+import com.acme.scaffold.realtime.session.RealtimeSessionManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
