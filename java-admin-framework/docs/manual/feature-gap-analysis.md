@@ -80,7 +80,7 @@
 |---|---|---|---|---|
 | **数据导入/导出中心（Excel）** | 高 | POI/EasyExcel **不在**离线仓库，需联网 `mvn` 引入 | P2（递延，待联网） | 引入 POI + 通用 `ExportService`（CSV 已具备 `report/export`）；前端导出中心页；先以 CSV 兜底，Excel 待依赖就绪 |
 | **缓存管理（命中率查看 + 清除）** | 中 | 当前**无 Spring Cache 抽象**（仅 `MonitorService` 内存统计，无 `CacheManager`） | P2 | 先引入 `Caffeine`/`Redis` `CacheManager` 并接 `CacheStatView`；再补 `CacheMonitorView` 清除按钮 + 后端清除端点 |
-| **通知渠道抽象（邮件/短信/Webhook）** | 中 | `MessageService` 现仅站内信 | P3（站内信/Webhook 已完成，本次） | 抽 `NotificationPort`（站内信/Webhook 实现 + `NotificationService` 编排路由 + `app.notifications.webhook.*` 配置化）；EMAIL/SMS 仍待网关依赖，列入后续 |
+| **通知渠道抽象（邮件/短信/Webhook）** | 中 | `MessageService` 现仅站内信 | P3（站内信/Webhook/**WebSocket 实时推送** 已完成） | 抽 `NotificationPort`（站内信/Webhook/WebSocket 实现 + `NotificationService` 编排路由 + `app.notifications.webhook.*` 配置化）；WebSocket 复用既有 `RealtimePushService`（定向/广播），EMAIL/SMS 仍待网关依赖，列入后续 |
 | **i18n 国际化** | 低 | 无 | P3 | `MessageSource` + 前端 i18n，工作量大 |
 | **限流/防重放注解化** | 中 | `RateLimitFilter` 已 opt-in，但无注解驱动 | P3 | 抽 `@RateLimit` 注解 + AOP 拦截，配置化阈值 |
 

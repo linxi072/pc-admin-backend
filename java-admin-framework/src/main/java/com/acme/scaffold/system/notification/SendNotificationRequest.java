@@ -11,7 +11,7 @@ import java.util.List;
  * 站内信模式沿用 receiverIds / roleIds / orgIds；Webhook 模式用 webhookUrl 指定目标。
  */
 public record SendNotificationRequest(
-        /** 目标渠道：IN_APP / WEBHOOK */
+        /** 目标渠道：IN_APP（站内信）/ WEBHOOK（Webhook 外发）/ WEBSOCKET（实时推送） */
         Channel channel,
         @NotBlank @Size(max = 200, message = "标题长度不能超过200") String title,
         @NotBlank(message = "消息内容不能为空") String content,

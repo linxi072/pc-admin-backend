@@ -19,6 +19,7 @@ public class RealtimePushService {
 
     public static final String TYPE_UNREAD_MESSAGE = "UNREAD_MESSAGE";
     public static final String TYPE_TODO_REMINDER = "TODO_REMINDER";
+    public static final String TYPE_NOTIFICATION = "NOTIFICATION";
     public static final String TYPE_PONG = "PONG";
 
     private final RealtimeSessionManager sessionManager;
