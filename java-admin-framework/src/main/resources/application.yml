@@ -168,6 +168,22 @@ monitoring:
       token: ${ALERT_WEBHOOK_TOKEN:}
     inbox-capacity: 200
 
+# 海量数据有序消费（Kafka）：默认关闭——无集群环境（本地/CI）不建连。
+# 保序四要素见 docs/manual/kafka-ordered-consumer.md：
+#   ①生产端同 key 经 murmur2 稳定落同一分区 + enable.idempotence=true（max.in.flight<=5）
+#   ②容器单线程按分区 offset 升序串行处理（禁同分区并发）
+#   ③消息头 x-version 携带业务版本号，消费端「严格大于才处理」丢弃乱序旧版本
+#   ④enable.auto.commit=false + 整批处理完成后手动 commitSync（at-least-once）
+# 启用：enabled=true 并指向集群；业务方实现 OrderedRecordHandler 并标注 @Primary 接管处理。
+kafka:
+  ordered-consumer:
+    enabled: ${KAFKA_ORDERED_CONSUMER_ENABLED:false}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    group-id: ${KAFKA_GROUP_ID:scaffold-ordered-consumer}
+    topic: ${KAFKA_TOPIC:business.data.updated}
+    poll-timeout: 200ms
+    max-poll-records: 500
+
 # 外部密钥源（A4）：默认 local（沿用环境变量 / 随机临时密钥，离线可用）；
 # 接入 HashiCorp Vault 时置 provider=vault 并配置 address / token / paths。
 secret:

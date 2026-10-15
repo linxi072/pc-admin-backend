@@ -67,6 +67,22 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
+        <!--
+          消息通信：Kafka 客户端（海量数据有序消费）。
+          版本钉定 3.9.2，与本机 Kafka broker 发行版（devRepository/kafka，3.9.2）的
+          libs/kafka-clients-3.9.2.jar 对齐；该 jar 已手动安装至本地 Maven 仓库
+          （org/apache/kafka/kafka-clients/3.9.2），离线 mvn -o 可直接解析。
+          其他环境首次构建需联网从中央仓库解析（slf4j-api 由 spring-boot 提供，
+          zstd/lz4/snappy 压缩编解码器为 optional，缺失时自动降级为不压缩）。
+          采用原生 KafkaConsumer + SmartLifecycle 薄封装（不引入 spring-kafka），
+          核心保序逻辑见 com.acme.scaffold.kafka.rules.OrderingRules（纯函数 + 单测）。
+        -->
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>3.9.2</version>
+        </dependency>
+
         <!-- ORM: jOOQ（替代 MyBatis-Plus）。版本钉定为 3.19.11，与代码生成器保持一致 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
