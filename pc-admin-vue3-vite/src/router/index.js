@@ -189,6 +189,14 @@ const routes = [
         name: 'codegen',
         component: () => import('@/views/CodegenView.vue'),
         meta: { title: '代码生成', permission: 'codegen:read' }
+      },
+      {
+        // 文件管理（V33）：上传 / 下载 / 列表 / 删除，记录来源功能模块与上传人，
+        // 菜单与权限由后端驱动（menu_code=file-management, permission=system:file:read）
+        path: 'system/file',
+        name: 'file',
+        component: () => import('@/views/system/FileManagementView.vue'),
+        meta: { title: '文件管理', permission: 'system:file:read' }
       }
     ]
   },
