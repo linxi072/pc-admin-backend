@@ -1,6 +1,8 @@
 package com.acme.scaffold.config;
 
 import com.acme.scaffold.jooq.SnakeRecordMapperProvider;
+import com.acme.scaffold.monitor.NPlusOneListener;
+import com.acme.scaffold.monitor.NPlusOneProbe;
 import com.acme.scaffold.monitor.SlowQueryListener;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -29,8 +31,14 @@ import javax.sql.DataSource;
 public class JooqConfig {
 
     @Bean
+    public NPlusOneProbe nPlusOneProbe(@Value("${app.jooq.nplus1-threshold:10}") int threshold) {
+        return new NPlusOneProbe(threshold);
+    }
+
+    @Bean
     public DSLContext dslContext(DataSource dataSource,
-                                 @Value("${app.jooq.slow-query-threshold-ms:500}") long slowQueryThresholdMs) {
+                                 @Value("${app.jooq.slow-query-threshold-ms:500}") long slowQueryThresholdMs,
+                                 NPlusOneProbe nPlusOneProbe) {
         // TransactionAwareDataSourceProxy 使 jOOQ 获取的连接自动加入 Spring 声明式事务
         // （@Transactional 对 jOOQ 语句生效），无需额外的 jOOQ-Spring 依赖。
         DataSourceConnectionProvider connectionProvider =
@@ -42,7 +50,9 @@ public class JooqConfig {
                 // Record → POJO 映射由 SnakeRecordMapperProvider 统一完成
                 .set(new SnakeRecordMapperProvider())
                 // 慢 SQL 观测（替代原 MyBatis-Plus 的 InnerInterceptor）
-                .set(new DefaultExecuteListenerProvider(new SlowQueryListener(slowQueryThresholdMs)))
+                .set(new DefaultExecuteListenerProvider(new SlowQueryListener(slowQueryThresholdMs)),
+                // N+1 查询告警：同构 SQL 在单请求内重复执行超阈值即告警
+                     new DefaultExecuteListenerProvider(new NPlusOneListener(nPlusOneProbe)))
                 .set(new Settings().withRenderQuotedNames(RenderQuotedNames.NEVER));
         return org.jooq.impl.DSL.using(configuration);
     }
