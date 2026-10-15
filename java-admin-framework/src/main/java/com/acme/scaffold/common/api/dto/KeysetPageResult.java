@@ -1,4 +1,4 @@
-package com.acme.scaffold.common.api;
+package com.acme.scaffold.common.api.dto;
 
 import java.util.List;
 

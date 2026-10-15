@@ -1,8 +1,9 @@
 package com.acme.scaffold.common.audit;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 
 import java.util.List;
+import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 
 /**
  * 操作审计服务。实现可基于数据库、消息队列或独立审计存储。

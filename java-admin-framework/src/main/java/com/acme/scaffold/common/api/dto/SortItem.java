@@ -1,4 +1,4 @@
-package com.acme.scaffold.common.api;
+package com.acme.scaffold.common.api.dto;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;

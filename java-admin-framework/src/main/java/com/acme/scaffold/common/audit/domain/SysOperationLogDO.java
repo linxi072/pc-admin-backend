@@ -1,4 +1,4 @@
-package com.acme.scaffold.common.audit;
+package com.acme.scaffold.common.audit.domain;
 
 import lombok.Data;
 

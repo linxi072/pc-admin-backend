@@ -1,6 +1,6 @@
-package com.acme.scaffold.common.audit;
+package com.acme.scaffold.common.audit.dto;
 
-import com.acme.scaffold.common.api.PageQuery;
+import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import org.springframework.util.StringUtils;

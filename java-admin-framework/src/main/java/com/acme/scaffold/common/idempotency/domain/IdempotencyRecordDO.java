@@ -1,4 +1,4 @@
-package com.acme.scaffold.common.idempotency;
+package com.acme.scaffold.common.idempotency.domain;
 
 import lombok.Data;
 

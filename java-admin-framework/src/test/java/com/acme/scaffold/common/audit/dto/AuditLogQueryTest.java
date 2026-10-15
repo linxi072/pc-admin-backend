@@ -1,5 +1,6 @@
-package com.acme.scaffold.common.audit;
+package com.acme.scaffold.common.audit.dto;
 
+import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
