@@ -1,4 +1,4 @@
-package com.acme.scaffold.observability;
+package com.acme.scaffold.observability.metrics;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package com.acme.scaffold.observability;
+package com.acme.scaffold.observability.trace;
 
 import java.security.SecureRandom;
 import java.util.HexFormat;

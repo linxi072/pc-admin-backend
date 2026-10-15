@@ -1,5 +1,6 @@
-package com.acme.scaffold.observability;
+package com.acme.scaffold.observability.metrics;
 
+import com.acme.scaffold.config.observability.ObservabilityConfig;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
