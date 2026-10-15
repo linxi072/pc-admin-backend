@@ -1,0 +1,238 @@
+package com.acme.scaffold.kafka.service;
+
+import com.acme.scaffold.kafka.domain.KafkaOrderedConsumerProperties;
+import com.acme.scaffold.kafka.domain.OrderedRecord;
+import com.acme.scaffold.kafka.port.RecordSource;
+import com.acme.scaffold.kafka.rules.OrderingRules;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.context.SmartLifecycle;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
+
+/**
+ * 海量数据有序消费容器（SmartLifecycle）。
+ *
+ * <p>保序机制（自底向上）：
+ * <ol>
+ *   <li><b>分区内串行</b>：单个 worker 线程顺序处理 poll 批内记录——Kafka 单 poll 返回的
+ *       同一分区记录按 offset 升序，顺序处理即保证分区内 FIFO；跨分区记录互不相干，
+ *       无需全局排序（同 key 必落同一分区，天然归同一实例处理）；</li>
+ *   <li><b>版本去重</b>：以 {@code key -> 已处理最大版本} 内存表执行
+ *       {@link OrderingRules#shouldProcess}——乱序迟到的旧版本/重复投递直接丢弃，
+ *       仅严格更新的版本进入业务处理器（针对「数据频繁更新」的乱序兜底）；</li>
+ *   <li><b>手动提交</b>：整批处理完毕才 {@link RecordSource#commitSync()}——
+ *       中途异常放弃提交，下轮重投（at-least-once），重复记录再被版本表挡下；</li>
+ *   <li><b>背压控制</b>：单批记录数与 poll 时长由
+ *       {@code com.acme.scaffold.kafka.config.KafkaOrderedConsumerProperties} 约束，
+ *       防止 max.poll.interval.ms 超时引发 rebalance。</li>
+ * </ol>
+ *
+ * <p>生命周期：随 Spring 容器启动/停止；停止时中断 worker 线程并关闭 {@link RecordSource}。
+ * 内存版本表在重启后清零——依赖「重启后首次全量重投 + 版本严格大于」恢复一致性
+ * （首次见到该 key 一律处理）。
+ *
+ * <p>装配：由 {@code com.acme.scaffold.kafka.config.KafkaOrderedConsumerConfig} 以
+ * {@code @Bean} 创建并受 {@code acme.kafka.ordered-consumer.enabled=true} 门禁
+ * （未启用时不注册，避免无 broker 环境下启动失败）。
+ */
+@Slf4j
+public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
+
+    /** poll 默认阻塞时长（属性未配置时） */
+    private static final Duration DEFAULT_POLL_TIMEOUT = Duration.ofMillis(100);
+
+    private final RecordSource recordSource;
+    private final OrderedRecordHandler recordHandler;
+    private final KafkaOrderedConsumerProperties properties;
+
+    /** key -> 已处理的最大业务版本（仅记录有版本号的消息；无版本 key 不占位） */
+    private final Map<String, Long> processedVersions = new ConcurrentHashMap<>();
+
+    private final LongAdder handledCount = new LongAdder();
+    private final LongAdder staleCount = new LongAdder();
+    private final LongAdder commitFailureCount = new LongAdder();
+    private final AtomicLong lastCommitFailureLogAt = new AtomicLong(0L);
+
+    private volatile boolean running = false;
+    private volatile Thread worker;
+
+    /**
+     * 构造容器。
+     *
+     * @param recordSource  记录拉取源（Kafka 适配器或测试假实现）
+     * @param recordHandler 业务处理器
+     * @param properties    配置属性（不可为 null）
+     */
+    public OrderedKafkaConsumer(RecordSource recordSource,
+                                OrderedRecordHandler recordHandler,
+                                KafkaOrderedConsumerProperties properties) {
+        this.recordSource = Objects.requireNonNull(recordSource, "recordSource");
+        this.recordHandler = Objects.requireNonNull(recordHandler, "recordHandler");
+        this.properties = Objects.requireNonNull(properties, "properties");
+    }
+
+    @Override
+    public void start() {
+        if (running) {
+            return;
+        }
+        running = true;
+        worker = new Thread(this::consumeLoop, "ordered-kafka-consumer");
+        worker.setDaemon(false);
+        worker.start();
+        log.info("有序消费容器已启动: topic={}, handler={}",
+                properties.topic(), recordHandler.getClass().getSimpleName());
+    }
+
+    @Override
+    public void stop() {
+        if (!running) {
+            return;
+        }
+        running = false;
+        Thread t = worker;
+        if (t != null) {
+            t.interrupt();
+        }
+        log.info("有序消费容器已停止: 已处理={}, 丢弃旧版本={}", handledCount.sum(), staleCount.sum());
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    /**
+     * 停止阶段最后执行（数据库/缓存等停止后再停消费，避免停序期读到半关状态）。
+     *
+     * @return 整数最大值
+     */
+    @Override
+    public int getPhase() {
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public void destroy() {
+        stop();
+        recordSource.close();
+    }
+
+    /**
+     * 消费主循环：poll -> 顺序处理 -> 整批提交。
+     *
+     * <p>异常策略：单条处理失败即中断本批并放弃提交（下轮重投同批，版本表挡重）；
+     * 提交失败计数并告警（节流 10s 一条），不影响主循环续跑。
+     */
+    private void consumeLoop() {
+        Duration pollTimeout = properties.pollTimeout() == null ? DEFAULT_POLL_TIMEOUT : properties.pollTimeout();
+        while (running && !Thread.currentThread().isInterrupted()) {
+            List<OrderedRecord> records;
+            try {
+                records = recordSource.poll(pollTimeout);
+            } catch (RuntimeException ex) {
+                log.warn("拉取记录失败，稍后重试: {}", ex.getMessage());
+                sleepBriefly();
+                continue;
+            }
+            if (records == null || records.isEmpty()) {
+                continue;
+            }
+            try {
+                for (OrderedRecord record : records) {
+                    if (!running) {
+                        return;
+                    }
+                    dispatch(record);
+                }
+            } catch (RuntimeException ex) {
+                // 本批放弃提交：Kafka 未提交位移，下轮重投；版本表将挡下已处理的记录
+                log.error("批内处理失败，放弃提交等待重投（已处理部分由版本表兜底去重）: topic={}, 异常={}",
+                        properties.topic(), ex.toString());
+                sleepBriefly();
+                continue;
+            }
+            commitIfDue(records);
+        }
+    }
+
+    /**
+     * 单条分发：版本规则判定 -> 业务处理 -> 版本表推进。
+     *
+     * @param record 待处理记录
+     */
+    private void dispatch(OrderedRecord record) {
+        Long processed = record.key() == null ? null : processedVersions.get(record.key());
+        if (!OrderingRules.shouldProcess(processed, record.version())) {
+            staleCount.increment();
+            log.debug("丢弃旧版本/重复消息: key={}, 已处理版本={}, 来稿版本={}, offset={}",
+                    record.key(), processed, record.version(), record.offset());
+            return;
+        }
+        recordHandler.handle(record);
+        handledCount.increment();
+        if (record.version() != null && record.key() != null) {
+            processedVersions.put(record.key(), record.version());
+        }
+    }
+
+    /**
+     * 整批处理完毕后的同步提交（失败仅计数告警，不抛出——避免与处理失败的语义混淆）。
+     *
+     * @param records 本批记录（仅用于日志上下文）
+     */
+    private void commitIfDue(List<OrderedRecord> records) {
+        try {
+            recordSource.commitSync();
+        } catch (RuntimeException ex) {
+            commitFailureCount.increment();
+            logCommitFailureThrottled(ex, records);
+        }
+    }
+
+    private void logCommitFailureThrottled(RuntimeException ex, List<OrderedRecord> records) {
+        long now = System.currentTimeMillis();
+        long last = lastCommitFailureLogAt.get();
+        if (now - last >= 10_000L && lastCommitFailureLogAt.compareAndSet(last, now)) {
+            log.error("位移提交失败（10s 内仅告警一次，累计 {} 次）: topic={}, 批大小={}, 异常={}",
+                    commitFailureCount.sum(), properties.topic(), records.size(), ex.toString());
+        }
+    }
+
+    private static void sleepBriefly() {
+        try {
+            Thread.sleep(200L);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // ---- 运行指标（可观测） ----
+
+    /** @return 已处理记录总数 */
+    public long handledCount() {
+        return handledCount.sum();
+    }
+
+    /** @return 因旧版本/重复被丢弃的记录总数 */
+    public long staleCount() {
+        return staleCount.sum();
+    }
+
+    /** @return 位移提交失败次数 */
+    public long commitFailureCount() {
+        return commitFailureCount.sum();
+    }
+
+    /** @return 版本表当前条目数（按 key 维度） */
+    public int processedVersionTableSize() {
+        return processedVersions.size();
+    }
+}
