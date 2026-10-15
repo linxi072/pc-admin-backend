@@ -6,10 +6,11 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.security.config.JwtProperties;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.context.SecurityContextFacade;
-import com.acme.scaffold.security.online.OnlineSessionRules;
-import com.acme.scaffold.security.online.RestrictionRules;
+import com.acme.scaffold.security.online.rules.OnlineSessionRules;
+import com.acme.scaffold.security.online.rules.RestrictionRules;
+import com.acme.scaffold.security.token.OnlineSessionReleasePort;
 import com.acme.scaffold.security.token.RefreshTokenService;
 import com.acme.scaffold.system.dto.LoginRestrictionView;
 import com.acme.scaffold.system.dto.OnlineUserQuery;
@@ -54,7 +55,7 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OnlineUserService {
+public class OnlineUserService implements OnlineSessionReleasePort {
 
     /** 下线原因（sys_online_session.offline_reason）。 */
     public static final String REASON_LOGOUT = "LOGOUT";
@@ -171,6 +172,7 @@ public class OnlineUserService {
      * @return 置离线的行数
      */
     @Transactional
+    @Override
     public int releaseInactiveSessions(LocalDateTime cutoff) {
         return dsl.update(JooqTables.SYS_ONLINE_SESSION.table())
                 .set(JooqTables.SYS_ONLINE_SESSION.field("status", String.class), SysOnlineSessionDO.STATUS_OFFLINE)

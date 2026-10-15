@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.dto;
 
-import com.acme.scaffold.security.online.RestrictionRules;
+import com.acme.scaffold.security.online.rules.RestrictionRules;
 import com.acme.scaffold.system.entity.SysLoginRestrictionDO;
 
 import java.time.LocalDateTime;

@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.service;
 
-import com.acme.scaffold.security.config.JwtProperties;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.token.RefreshTokenService;
 import org.jooq.DSLContext;
