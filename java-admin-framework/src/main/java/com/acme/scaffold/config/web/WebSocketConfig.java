@@ -1,7 +1,7 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.web;
 
-import com.acme.scaffold.realtime.RealtimeHandshakeInterceptor;
-import com.acme.scaffold.realtime.RealtimeWebSocketHandler;
+import com.acme.scaffold.realtime.websocket.RealtimeHandshakeInterceptor;
+import com.acme.scaffold.realtime.websocket.RealtimeWebSocketHandler;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;

@@ -1,6 +1,7 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.jooq;
 
-import com.acme.scaffold.jooq.SnakeRecordMapperProvider;
+import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
+import com.acme.scaffold.jooq.mapping.SnakeRecordMapperProvider;
 import com.acme.scaffold.monitor.detection.NPlusOneListener;
 import com.acme.scaffold.monitor.detection.NPlusOneProbe;
 import com.acme.scaffold.monitor.detection.SlowQueryListener;

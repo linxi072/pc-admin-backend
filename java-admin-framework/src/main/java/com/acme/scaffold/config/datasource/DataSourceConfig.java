@@ -1,6 +1,7 @@
 package com.acme.scaffold.config.datasource;
 
-import com.acme.scaffold.jooq.SnakeRecordMapperProvider;
+import com.acme.scaffold.config.jooq.JooqConfig;
+import com.acme.scaffold.jooq.mapping.SnakeRecordMapperProvider;
 import com.acme.scaffold.monitor.detection.SlowQueryListener;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;

@@ -1,4 +1,4 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.resource.ClientResources;

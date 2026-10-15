@@ -1,4 +1,4 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.observability;
 
 import com.acme.scaffold.observability.export.ObservabilityProperties;
 import com.acme.scaffold.observability.export.OtlpSpanExporter;

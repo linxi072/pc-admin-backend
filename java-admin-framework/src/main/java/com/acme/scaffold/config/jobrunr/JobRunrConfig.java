@@ -1,4 +1,4 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.jobrunr;
 
 import com.acme.scaffold.job.handler.AnnouncementExpiryJob;
 import com.acme.scaffold.job.handler.DemoJob;

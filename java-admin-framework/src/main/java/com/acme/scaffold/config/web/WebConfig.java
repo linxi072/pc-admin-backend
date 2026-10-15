@@ -1,4 +1,4 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.web;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

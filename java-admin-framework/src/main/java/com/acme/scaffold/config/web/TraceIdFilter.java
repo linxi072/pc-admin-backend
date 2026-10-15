@@ -1,6 +1,6 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.web;
 
-import com.acme.scaffold.observability.TraceContext;
+import com.acme.scaffold.observability.trace.TraceContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

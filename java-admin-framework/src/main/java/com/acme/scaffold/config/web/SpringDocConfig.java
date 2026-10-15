@@ -1,4 +1,4 @@
-package com.acme.scaffold.config;
+package com.acme.scaffold.config.web;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
