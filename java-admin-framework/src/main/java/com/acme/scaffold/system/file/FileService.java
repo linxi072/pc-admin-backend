@@ -191,6 +191,28 @@ public class FileService {
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
     }
 
+    /** 导出用全量查询（无分页），筛选条件与 {@link #page} 一致。 */
+    @Transactional(readOnly = true)
+    public List<FileView> listAll(String sourceModule, String uploaderName, String originalName) {
+        List<Condition> conds = new ArrayList<>();
+        conds.add(JooqWriters.notDeleted(JooqTables.SYS_FILE));
+        if (sourceModule != null && !sourceModule.isBlank()) {
+            conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
+        }
+        if (uploaderName != null && !uploaderName.isBlank()) {
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class)
+                    .like("%" + uploaderName.trim() + "%"));
+        }
+        if (originalName != null && !originalName.isBlank()) {
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class)
+                    .like("%" + originalName.trim() + "%"));
+        }
+        Condition cond = DSL.and(conds);
+        List<SysFileDO> records = JooqWriters.fetchList(dsl, JooqTables.SYS_FILE, SysFileDO.class, cond,
+                JooqTables.SYS_FILE.field("created_at", LocalDateTime.class).desc());
+        return records.stream().map(this::toView).toList();
+    }
+
     private FileView toView(SysFileDO d) {
         return new FileView(d.getId(), d.getOriginalName(), d.getFileSize(), d.getContentType(),
                 d.getSourceModule(), d.getBizId(), d.getUploaderId(), d.getUploaderName(),

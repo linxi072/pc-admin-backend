@@ -197,6 +197,14 @@ const routes = [
         name: 'file',
         component: () => import('@/views/system/FileManagementView.vue'),
         meta: { title: '文件管理', permission: 'system:file:read' }
+      },
+      {
+        // 导出中心（V34）：可复用 CSV 导出中心，模板由后端 ExportTask 自动发现，
+        // 菜单与权限由后端驱动（menu_code=system:export, permission=system:export:read）
+        path: 'system/export',
+        name: 'exportCenter',
+        component: () => import('@/views/system/ExportCenterView.vue'),
+        meta: { title: '导出中心', permission: 'system:export:read' }
       }
     ]
   },
