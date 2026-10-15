@@ -1,6 +1,5 @@
 package com.acme.scaffold.common.audit;
 
-import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.time.Instant;
 
 /**
  * 操作审计切面：对标注 {@link AuditOperation} 的方法自动记录审计日志。

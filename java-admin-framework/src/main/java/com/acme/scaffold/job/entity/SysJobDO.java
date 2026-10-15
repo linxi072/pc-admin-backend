@@ -1,10 +1,10 @@
 package com.acme.scaffold.job.entity;
 
+import com.acme.scaffold.job.domain.JobHandler;
+import com.acme.scaffold.job.domain.JobStatus;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import com.acme.scaffold.job.domain.JobHandler;
-import com.acme.scaffold.job.domain.JobStatus;
 
 /**
  * 定时任务配置实体（对应 {@code sys_job}）。

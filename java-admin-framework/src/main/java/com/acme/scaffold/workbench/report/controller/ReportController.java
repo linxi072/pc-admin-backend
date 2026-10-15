@@ -1,6 +1,15 @@
 package com.acme.scaffold.workbench.report.controller;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.workbench.report.dto.ReportQuery;
+import com.acme.scaffold.workbench.report.dto.ReportRange;
+import com.acme.scaffold.workbench.report.dto.ReportType;
+import com.acme.scaffold.workbench.report.dto.ReportTypeMeta;
+import com.acme.scaffold.workbench.report.dto.ReportVO;
+import com.acme.scaffold.workbench.report.dto.SortField;
+import com.acme.scaffold.workbench.report.dto.SortOrder;
+import com.acme.scaffold.workbench.report.service.ReportCsvExport;
+import com.acme.scaffold.workbench.report.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,15 +28,6 @@ import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.acme.scaffold.workbench.report.dto.ReportQuery;
-import com.acme.scaffold.workbench.report.dto.ReportRange;
-import com.acme.scaffold.workbench.report.dto.ReportType;
-import com.acme.scaffold.workbench.report.dto.ReportTypeMeta;
-import com.acme.scaffold.workbench.report.dto.ReportVO;
-import com.acme.scaffold.workbench.report.dto.SortField;
-import com.acme.scaffold.workbench.report.dto.SortOrder;
-import com.acme.scaffold.workbench.report.service.ReportCsvExport;
-import com.acme.scaffold.workbench.report.service.ReportService;
 
 /**
  * 报表管理接口。

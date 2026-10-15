@@ -2,7 +2,6 @@ package com.acme.scaffold.system.notification;
 
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.dto.SendMessageRequest;
 import com.acme.scaffold.system.service.MessageService;
 import org.junit.jupiter.api.Test;

@@ -2,6 +2,8 @@ package com.acme.scaffold.workbench.service;
 
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.workbench.dto.StatCardVO;
+import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -10,8 +12,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import com.acme.scaffold.workbench.dto.StatCardVO;
-import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
 
 /**
  * 工作台统计：供首页统计卡片使用的聚合指标。

@@ -5,7 +5,6 @@ import com.acme.scaffold.integration.AbstractHttpIntegrationTest;
 import com.acme.scaffold.system.dto.MenuSortItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 

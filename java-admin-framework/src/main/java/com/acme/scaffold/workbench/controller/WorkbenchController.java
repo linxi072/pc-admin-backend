@@ -6,6 +6,8 @@ import com.acme.scaffold.common.audit.AuditLogQuery;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.security.context.SecurityContextFacade;
+import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
+import com.acme.scaffold.workbench.service.WorkbenchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +17,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
-import com.acme.scaffold.workbench.service.WorkbenchService;
 
 /**
  * 工作台接口。

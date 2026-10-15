@@ -1,5 +1,12 @@
 package com.acme.scaffold.job.service;
 
+import com.acme.scaffold.job.domain.JobExecutionContext;
+import com.acme.scaffold.job.domain.JobHandler;
+import com.acme.scaffold.job.domain.JobNextFire;
+import com.acme.scaffold.job.domain.JobStatus;
+import com.acme.scaffold.job.domain.JobTriggerType;
+import com.acme.scaffold.job.entity.SysJobDO;
+import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
 import lombok.RequiredArgsConstructor;
@@ -14,13 +21,6 @@ import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import com.acme.scaffold.job.domain.JobExecutionContext;
-import com.acme.scaffold.job.domain.JobHandler;
-import com.acme.scaffold.job.domain.JobNextFire;
-import com.acme.scaffold.job.domain.JobStatus;
-import com.acme.scaffold.job.domain.JobTriggerType;
-import com.acme.scaffold.job.entity.SysJobDO;
-import com.acme.scaffold.job.entity.SysJobLogDO;
 
 /**
  * 任务执行器：调度器到点触发后由 JobRunr 回调本类的 {@link #run(Long)}。

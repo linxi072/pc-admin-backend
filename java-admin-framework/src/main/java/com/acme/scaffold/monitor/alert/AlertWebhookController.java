@@ -1,7 +1,6 @@
 package com.acme.scaffold.monitor.alert;
 
 import com.acme.scaffold.common.api.Result;
-import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

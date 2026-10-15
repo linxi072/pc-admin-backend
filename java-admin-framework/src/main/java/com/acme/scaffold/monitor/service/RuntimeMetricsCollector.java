@@ -1,5 +1,6 @@
 package com.acme.scaffold.monitor.service;
 
+import com.acme.scaffold.monitor.domain.ServerMetrics;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.OperatingSystemMXBean;
@@ -10,9 +11,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-
 import org.springframework.stereotype.Component;
-import com.acme.scaffold.monitor.domain.ServerMetrics;
 
 /**
  * 运行时指标采集器（<b>零第三方依赖</b>）。

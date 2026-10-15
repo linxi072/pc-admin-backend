@@ -10,7 +10,6 @@ import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.online.OnlineSessionRules;
 import com.acme.scaffold.security.online.RestrictionRules;
 import com.acme.scaffold.security.token.RefreshTokenService;
-import com.acme.scaffold.system.dto.ForceLogoutRequest;
 import com.acme.scaffold.system.dto.LoginRestrictionView;
 import com.acme.scaffold.system.dto.OnlineUserQuery;
 import com.acme.scaffold.system.dto.OnlineUserView;

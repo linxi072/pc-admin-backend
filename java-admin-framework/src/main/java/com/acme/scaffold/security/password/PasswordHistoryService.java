@@ -6,7 +6,6 @@ import com.acme.scaffold.security.config.JwtProperties;
 import com.acme.scaffold.system.entity.SysPasswordHistoryDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

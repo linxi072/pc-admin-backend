@@ -1,12 +1,12 @@
 package com.acme.scaffold.job.service;
 
+import com.acme.scaffold.job.domain.JobHandler;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import com.acme.scaffold.job.domain.JobHandler;
 
 /**
  * 任务处理器注册中心：收集容器中所有 {@link JobHandler} 实现，按 {@link JobHandler#key()} 建索引。

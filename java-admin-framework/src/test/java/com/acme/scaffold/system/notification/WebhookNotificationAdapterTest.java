@@ -4,10 +4,8 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.common.notification.NotificationPort;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
