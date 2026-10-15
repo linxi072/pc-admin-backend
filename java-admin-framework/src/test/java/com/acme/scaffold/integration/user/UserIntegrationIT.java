@@ -1,8 +1,8 @@
 package com.acme.scaffold.integration.user;
 
 import com.acme.scaffold.BaseIntegrationTest;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.entity.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDO;

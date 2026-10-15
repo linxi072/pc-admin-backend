@@ -1,16 +1,16 @@
 package com.acme.scaffold.monitor.service;
 
-import com.acme.scaffold.common.api.PageResult;
-import com.acme.scaffold.common.api.PageQuery;
-import com.acme.scaffold.common.audit.SysOperationLogDO;
-import com.acme.scaffold.jooq.JooqSorts;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
+import com.acme.scaffold.jooq.dsl.JooqSorts;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.monitor.domain.CacheStatView;
 import com.acme.scaffold.monitor.domain.OnlineSessionView;
 import com.acme.scaffold.monitor.domain.PoolStatView;
 import com.acme.scaffold.monitor.domain.ServerMetrics;
-import com.acme.scaffold.security.token.SysRefreshTokenDO;
+import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.security.token.TokenVersionService;
 import com.acme.scaffold.system.entity.SysMonitorSampleDO;
 import com.acme.scaffold.system.entity.SysUserDO;

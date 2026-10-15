@@ -2,8 +2,8 @@ package com.acme.scaffold.integration.message;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.integration.AbstractHttpIntegrationTest;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.entity.SysMessageDO;
 import com.acme.scaffold.system.entity.SysMessageReceiptDO;
 import com.acme.scaffold.system.entity.SysUserDO;

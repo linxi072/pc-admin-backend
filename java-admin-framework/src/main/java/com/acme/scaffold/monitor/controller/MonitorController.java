@@ -1,9 +1,9 @@
 package com.acme.scaffold.monitor.controller;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.common.audit.SysOperationLogDO;
+import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.monitor.domain.CacheStatView;
 import com.acme.scaffold.monitor.domain.OnlineSessionView;

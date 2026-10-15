@@ -4,6 +4,9 @@ import com.acme.scaffold.codegen.dto.ColumnMetaVO;
 import com.acme.scaffold.codegen.dto.GenOption;
 import com.acme.scaffold.codegen.dto.GeneratedFileVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;
+import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

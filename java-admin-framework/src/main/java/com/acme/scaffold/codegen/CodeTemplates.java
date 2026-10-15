@@ -10,7 +10,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.job.service.JobService;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 
 /**
  * 代码生成模板纯函数：按表结构拼装后端六层（DO / VO / Query / Controller / Service /
@@ -202,7 +206,7 @@ public final class CodeTemplates {
         String permManage = c.perm + ":manage";
         return header(c, "接口")
                 + """
-                import com.acme.scaffold.common.api.PageResult;
+                import com.acme.scaffold.common.api.dto.PageResult;
                 import com.acme.scaffold.common.api.Result;
                 import %1$s.dto.%2$sQuery;
                 import %1$s.dto.%2$sVO;
@@ -283,7 +287,7 @@ public final class CodeTemplates {
     private static String serviceSource(Ctx c) {
         return header(c, "服务接口")
                 + """
-                import com.acme.scaffold.common.api.PageResult;
+                import com.acme.scaffold.common.api.dto.PageResult;
                 import %1$s.dto.%2$sQuery;
                 import %1$s.dto.%2$sVO;
 
@@ -314,12 +318,12 @@ public final class CodeTemplates {
         return header(c, "服务实现（CRUD 骨架；业务校验以 TODO 标注，按需补齐）")
                 + """
                 import com.acme.scaffold.common.IdGenerator;
-                import com.acme.scaffold.common.api.PageQuery;
-                import com.acme.scaffold.common.api.PageResult;
+                import com.acme.scaffold.common.api.dto.PageQuery;
+                import com.acme.scaffold.common.api.dto.PageResult;
                 import com.acme.scaffold.common.error.CommonErrorCode;
                 import com.acme.scaffold.common.exception.BusinessException;
-                import com.acme.scaffold.jooq.JooqTables;
-                import com.acme.scaffold.jooq.JooqWriters;
+                import com.acme.scaffold.jooq.dsl.JooqTables;
+                import com.acme.scaffold.jooq.dsl.JooqWriters;
                 import %1$s.dto.%2$sQuery;
                 import %1$s.dto.%2$sVO;
                 import lombok.RequiredArgsConstructor;

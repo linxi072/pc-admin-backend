@@ -1,5 +1,6 @@
 package com.acme.scaffold.job.port;
 
+import com.acme.scaffold.config.jobrunr.JobRunrConfig;
 import com.acme.scaffold.job.service.JobExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.jobrunr.scheduling.JobScheduler;

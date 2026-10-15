@@ -1,8 +1,8 @@
 package com.acme.scaffold.workbench.controller;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.audit.AuditLogQuery;
+import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.security.context.SecurityContextFacade;

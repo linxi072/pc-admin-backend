@@ -1,7 +1,7 @@
 package com.acme.scaffold.job.service;
 
-import com.acme.scaffold.common.api.PageQuery;
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.job.domain.JobHandler;
@@ -19,8 +19,8 @@ import com.acme.scaffold.job.dto.JobVO;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.job.port.JobSchedulerPort;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;

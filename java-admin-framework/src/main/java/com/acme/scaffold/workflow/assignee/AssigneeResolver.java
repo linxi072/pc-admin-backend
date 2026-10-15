@@ -2,7 +2,7 @@ package com.acme.scaffold.workflow.assignee;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.workflow.dto.design.WorkflowNodeDTO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;

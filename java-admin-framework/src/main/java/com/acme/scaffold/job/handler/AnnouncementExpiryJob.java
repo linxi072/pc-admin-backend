@@ -1,5 +1,6 @@
 package com.acme.scaffold.job.handler;
 
+import com.acme.scaffold.config.jobrunr.JobRunrConfig;
 import com.acme.scaffold.system.service.AnnouncementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 公告周期任务。
- * <p>由 {@link com.acme.scaffold.config.JobRunrConfig} 注册为 JobRunr 周期任务
+ * <p>由 {@link com.acme.scaffold.config.jobrunr.JobRunrConfig} 注册为 JobRunr 周期任务
  * {@code announcement-expiry-job}：每 5 分钟扫描过期公告并自动下线。
  * <p>公告「定时生效」<b>不依赖</b>此任务：到达 publishAt 后由查询侧判定可见
  * （见 {@code AnnouncementView#isEffective}），因此即使任务延迟也不会让公告

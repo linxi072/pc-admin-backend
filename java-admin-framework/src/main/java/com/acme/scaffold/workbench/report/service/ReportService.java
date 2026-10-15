@@ -1,8 +1,8 @@
 package com.acme.scaffold.workbench.report.service;
 
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqTables.TableRef;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
 import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
 import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;

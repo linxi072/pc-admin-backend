@@ -1,6 +1,6 @@
 package com.acme.scaffold.monitor.domain;
 
-import com.acme.scaffold.observability.MetricsRegistry;
+import com.acme.scaffold.observability.metrics.MetricsRegistry;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.stereotype.Component;

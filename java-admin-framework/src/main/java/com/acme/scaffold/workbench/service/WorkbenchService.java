@@ -1,7 +1,7 @@
 package com.acme.scaffold.workbench.service;
 
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.workbench.dto.StatCardVO;
 import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
 import lombok.RequiredArgsConstructor;
