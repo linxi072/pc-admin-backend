@@ -91,7 +91,7 @@
 | 项 | 维度 | 现状 | 建议 |
 |---|---|---|---|
 | **N+1 查询** | 性能 | `UserService` 已用 bulk-fetch + 内存组装（无 N+1）；其余列表沿用 `JooqWriters.page` | 新增 jOOQ `ExecuteListener` 做 N+1 启发式告警（`SlowQueryListener` 已覆盖慢查询，可扩展同监听器） |
-| **深翻页** | 性能 | `PageQuery` 钳制 size，但未做游标/keyset | 深翻页场景引入 keyset pagination |
+| **深翻页** | 性能 | `PageQuery` 钳制 size，但未做游标/keyset | 已落地：common/api 新增 `KeysetPageQuery`/`KeysetPageResult`/`CursorCodec`（纯函数游标编解码），`jooq/JooqKeysetPager` 引擎（seek + size+1 判定 hasMore）；`FileService.keysetPage` + `FileController GET /api/system/files/keyset` 试点（固定 `created_at DESC, id DESC` 排序，含 id tie-breaker） |
 | **前端首屏 / 图表按需** | 体验 | Vue SFC 已按需；ECharts 是否按需 import 待核 | 路由级懒加载 + 大图表组件按需 `import()` |
 | **测试覆盖率门禁** | 质量 | CI 已接单元 + 集成，无覆盖率门禁 | 加 JaCoCo 阈值（先非阻塞，后转阻塞） |
 | **平铺模块分层** | 结构 | `monitor`/`job.management`/`workbench`/`realtime`/`observability`/`codegen` 平铺，已在 `coding-standard.md` 定为"规模增大再拆层子包" | 维持现状，规模增大再分层（文档已约定） |

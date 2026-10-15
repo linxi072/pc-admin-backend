@@ -1,8 +1,11 @@
 package com.acme.scaffold.system.file;
 
+import com.acme.scaffold.common.api.KeysetPageQuery;
+import com.acme.scaffold.common.api.KeysetPageResult;
 import com.acme.scaffold.common.api.PageQuery;
 import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.jooq.JooqKeysetPager;
 import com.acme.scaffold.jooq.JooqSorts;
 import com.acme.scaffold.jooq.JooqTables;
 import com.acme.scaffold.jooq.JooqWriters;
@@ -12,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -211,6 +215,41 @@ public class FileService {
         List<SysFileDO> records = JooqWriters.fetchList(dsl, JooqTables.SYS_FILE, SysFileDO.class, cond,
                 JooqTables.SYS_FILE.field("created_at", LocalDateTime.class).desc());
         return records.stream().map(this::toView).toList();
+    }
+
+    /**
+     * keyset 游标分页（深翻页优化）：固定按 (created_at DESC, id DESC) 排序，
+     * 游标由服务端基于上一页末条记录的排序键生成，避免 offset 分页随偏移量退化。
+     *
+     * <p>筛选条件与 {@link #page} 一致；排序键含 id 作为 tie-breaker 以保证顺序唯一确定。
+     */
+    @Transactional(readOnly = true)
+    public KeysetPageResult<FileView> keysetPage(int size, String cursor,
+                                                String sourceModule, String uploaderName, String originalName) {
+        List<Condition> conds = new ArrayList<>();
+        conds.add(JooqWriters.notDeleted(JooqTables.SYS_FILE));
+        if (sourceModule != null && !sourceModule.isBlank()) {
+            conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
+        }
+        if (uploaderName != null && !uploaderName.isBlank()) {
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class)
+                    .like("%" + uploaderName.trim() + "%"));
+        }
+        if (originalName != null && !originalName.isBlank()) {
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class)
+                    .like("%" + originalName.trim() + "%"));
+        }
+        Condition cond = DSL.and(conds);
+        KeysetPageQuery q = new KeysetPageQuery(size, cursor);
+        Field<?>[] keyFields = new Field<?>[]{
+                JooqTables.SYS_FILE.field("created_at", LocalDateTime.class),
+                JooqTables.SYS_FILE.field("id", Long.class)
+        };
+        boolean[] ascending = {false, false}; // created_at DESC, id DESC
+        KeysetPageResult<SysFileDO> raw = JooqKeysetPager.query(dsl, JooqTables.SYS_FILE, SysFileDO.class,
+                cond, q, f -> new Object[]{f.getCreatedAt(), f.getId()}, keyFields, ascending);
+        List<FileView> views = raw.records().stream().map(this::toView).toList();
+        return KeysetPageResult.of(raw.size(), views, raw.nextCursor());
     }
 
     private FileView toView(SysFileDO d) {

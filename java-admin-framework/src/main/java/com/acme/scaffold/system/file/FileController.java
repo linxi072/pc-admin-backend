@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.file;
 
+import com.acme.scaffold.common.api.KeysetPageResult;
 import com.acme.scaffold.common.api.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
@@ -72,6 +73,18 @@ public class FileController {
             @RequestParam(required = false) String sortDirection) {
         return Result.success(fileService.page(page, size, sourceModule, uploaderName,
                 originalName, sortField, sortDirection));
+    }
+
+    @Operation(summary = "文件列表（keyset 游标分页，适合深翻页）")
+    @GetMapping("/keyset")
+    @PreAuthorize("hasAuthority('system:file:read')")
+    public Result<KeysetPageResult<FileView>> keyset(
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String sourceModule,
+            @RequestParam(required = false) String uploaderName,
+            @RequestParam(required = false) String originalName) {
+        return Result.success(fileService.keysetPage(size, cursor, sourceModule, uploaderName, originalName));
     }
 
     @Operation(summary = "下载文件（返回二进制流，原始文件名作为附件名）")
