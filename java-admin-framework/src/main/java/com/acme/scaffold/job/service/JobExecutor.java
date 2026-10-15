@@ -7,6 +7,7 @@ import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.domain.JobTriggerType;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
+import com.acme.scaffold.job.port.JobInvoker;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ import java.util.Set;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class JobExecutor {
+public class JobExecutor implements JobInvoker {
 
     private static final int MAX_ERROR_LEN = 900;
     private static final int MAX_LOG_ERROR_LEN = 900;

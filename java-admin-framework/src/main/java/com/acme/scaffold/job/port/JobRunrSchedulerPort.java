@@ -1,7 +1,5 @@
 package com.acme.scaffold.job.port;
 
-import com.acme.scaffold.config.jobrunr.JobRunrConfig;
-import com.acme.scaffold.job.service.JobExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.jobrunr.scheduling.JobScheduler;
 import org.springframework.beans.factory.ObjectProvider;
@@ -19,7 +17,7 @@ import java.util.UUID;
  *   <li><b>延迟获取调度器</b>：与 {@code JobRunrConfig} 一致，采用 {@link ObjectProvider} 而非构造器直注，
  *       避免普通 {@code @Configuration}/{@code @Component} 早于自动配置解析导致 Bean 尚不可用；
  *       运行期按需判断 {@link #available()}；</li>
- *   <li><b>任务体</b>：统一调度 {@link JobExecutor#run(Long)}（Spring Bean 方法），
+ *   <li><b>任务体</b>：统一调度 {@link JobInvoker#run(Long)}（Spring Bean 方法），
  *       JobRunr 通过 {@code JobActivator} 反查 Bean 实例执行，无需实现任何框架接口；</li>
  *   <li><b>幂等取消</b>：暂停时对已执行/已删除的 Job 取消会异常，此处统一吞并降级为告警日志。</li>
  * </ul>
@@ -32,11 +30,11 @@ public class JobRunrSchedulerPort implements JobSchedulerPort {
     private static final String RECURRING_PREFIX = "sysjob-";
 
     private final ObjectProvider<JobScheduler> jobSchedulerProvider;
-    private final JobExecutor jobExecutor;
+    private final JobInvoker jobInvoker;
 
-    public JobRunrSchedulerPort(ObjectProvider<JobScheduler> jobSchedulerProvider, JobExecutor jobExecutor) {
+    public JobRunrSchedulerPort(ObjectProvider<JobScheduler> jobSchedulerProvider, JobInvoker jobInvoker) {
         this.jobSchedulerProvider = jobSchedulerProvider;
-        this.jobExecutor = jobExecutor;
+        this.jobInvoker = jobInvoker;
     }
 
     @Override
@@ -48,7 +46,7 @@ public class JobRunrSchedulerPort implements JobSchedulerPort {
     public String scheduleCron(Long jobId, String cron) {
         JobScheduler scheduler = requireScheduler();
         String ref = RECURRING_PREFIX + jobId;
-        scheduler.scheduleRecurrently(ref, cron, () -> jobExecutor.run(jobId));
+        scheduler.scheduleRecurrently(ref, cron, () -> jobInvoker.run(jobId));
         log.info("已注册 CRON 周期任务 ref={} cron={} jobId={}", ref, cron, jobId);
         return ref;
     }
@@ -57,7 +55,7 @@ public class JobRunrSchedulerPort implements JobSchedulerPort {
     public String scheduleInterval(Long jobId, Duration interval) {
         JobScheduler scheduler = requireScheduler();
         String ref = RECURRING_PREFIX + jobId;
-        scheduler.scheduleRecurrently(ref, interval, () -> jobExecutor.run(jobId));
+        scheduler.scheduleRecurrently(ref, interval, () -> jobInvoker.run(jobId));
         log.info("已注册间隔周期任务 ref={} interval={} jobId={}", ref, interval, jobId);
         return ref;
     }
@@ -66,7 +64,7 @@ public class JobRunrSchedulerPort implements JobSchedulerPort {
     public String scheduleOneTime(Long jobId, Instant fireAt) {
         JobScheduler scheduler = requireScheduler();
         UUID uuid = UUID.randomUUID();
-        scheduler.schedule(uuid, fireAt, () -> jobExecutor.run(jobId));
+        scheduler.schedule(uuid, fireAt, () -> jobInvoker.run(jobId));
         log.info("已注册一次性任务 uuid={} fireAt={} jobId={}", uuid, fireAt, jobId);
         return uuid.toString();
     }

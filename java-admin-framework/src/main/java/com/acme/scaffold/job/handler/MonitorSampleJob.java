@@ -1,6 +1,5 @@
 package com.acme.scaffold.job.handler;
 
-import com.acme.scaffold.config.jobrunr.JobRunrConfig;
 import com.acme.scaffold.monitor.service.MonitorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
