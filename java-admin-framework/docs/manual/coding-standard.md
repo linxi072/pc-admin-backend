@@ -44,7 +44,7 @@ com.acme.scaffold
 
 ### 2.2 层子包（二级，按职责）
 
-特性模块内推荐按下表拆子包。已落地的模块：`security`、`system`、`workflow`、`codegen`；`monitor` / `job.management` / `workbench` / `realtime` / `observability` 当前为平铺（允许，规模增大后按本表拆分，校验脚本会给出概览）。
+特性模块内推荐按下表拆子包。已落地的模块：`security`、`system`、`workflow`、`codegen`、`monitor`、`job`、`workbench`；`realtime` / `observability` 及 `common` / `config` / `jooq` 通用包当前为平铺（允许，规模增大后按本表拆分，校验脚本会给出概览）。
 
 | 子包 | 承载内容 | 典型后缀 | 禁止做的事 |
 |---|---|---|---|
@@ -135,6 +135,7 @@ controller  ──▶  service  ──▶  domain / port
 | H3 | 硬（失败） | 依赖方向不变量（见 §2.3 禁止项） |
 | W1 | 警告 | 疑似错层放置（`*Controller` 落在 `*service` 包等，仅当类名与包末段均为显式层 token 且冲突时） |
 | W2 | 警告 | 模块分层概览（已分层 vs 平铺，供人工参考，不强制） |
+| W3 | 警告 | 数据类放置（`*DTO`/`*VO`/`*Request`/`*Command`/`*Query`/`*Response` 应在 `dto`/`vo` 子包；`*DO`/`*Entity`/`*Model` 应在 `domain`/`entity`/`model` 子包；包路径任意一段命中即合规） |
 
 退出码：`0` 仅含 W* 或无问题；`1` 存在任何 H* 硬违规。
 
@@ -146,16 +147,20 @@ python3 scripts/check-conventions.py                 # 默认扫描 src/main/jav
 python3 scripts/check-conventions.py --src src/main/java
 ```
 
-### 5.3 CI 集成（建议）
+### 5.3 CI 集成
 
-在 CI 的「构建前」步骤加入：
+已在 `.github/workflows/ci.yml` 接入 `convention-check` 作业（独立 job，先于构建执行）：
 
 ```yaml
-- name: 编码约定校验
-  run: python3 scripts/check-conventions.py
+convention-check:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - name: 编码约定校验
+      run: python3 scripts/check-conventions.py
 ```
 
-本地 `pre-commit` 亦可挂接，提交前自动拦截硬违规。
+任一 H* 硬违规即 job 失败，阻断合并。本地 `pre-commit` 亦可挂接，提交前自动拦截硬违规。
 
 ---
 
@@ -171,5 +176,6 @@ python3 scripts/check-conventions.py --src src/main/java
 ## 7. 例外与演进
 
 - 个别历史类命名未套标准后缀（如 `Alert`、`Vault`、`Captcha`、`ClaimRules` 等语义化名称），属有意保留，不强制改名；新增代码须遵循 §3。
-- 平铺模块（`monitor` / `job.management` / `workbench` / `realtime` / `observability`）当前允许；当某模块类数超 ~15 且出现多职责混杂时，应依 §2.2 拆层子包。
+- 平铺模块（`realtime` / `observability` 及 `common` / `config` / `jooq` 通用包）当前允许；当某模块类数超 ~15 且出现多职责混杂时，应依 §2.2 拆层子包（`monitor` / `job` / `workbench` 已于 V1.0.2 完成拆分）。
+- 数据类放置（W3）在 `common.api` / `common.audit` / `common.idempotency` / `security.token` / `security.log` / `system.file` / `system.notification` 等平铺模块中存在历史放置（如 `PageQuery`、`SysOperationLogDO`），暂按警告处理；后续迭代归位至 `dto` / `domain` 子包后，可将 W3 升级为硬规则。
 - 本约定随评审演进；任何修改须同步更新本文档与 `check-conventions.py` 的 `TIER` / `FORBIDDEN` / `LAYER_BEARING` 三张表。
