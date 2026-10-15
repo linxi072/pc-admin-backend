@@ -1,8 +1,4 @@
 spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/scaffold?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root}
   data:
     redis:
       host: 127.0.0.1
@@ -13,6 +9,19 @@ spring:
 # 端口可用 JOBRUNR_DASHBOARD_PORT 覆盖（默认 8000）。
 # 注意：Dashboard 为固定端口绑定，若启动报 java.net.BindException: Address already in use，
 # 说明已有实例（旧进程）占用该端口——需先停止旧实例，或换端口启动新实例。
+app:
+  datasources:
+    entries:
+      primary:
+        url: ${DB_PRIMARY_URL:jdbc:mysql://localhost:3306/scaffold?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+        username: ${DB_PRIMARY_USERNAME:root}
+        password: ${DB_PRIMARY_PASSWORD:root}
+      # 第二个数据源示例（按需启用，凭据走环境变量，不硬编码）：
+      # report:
+      #   url: ${DB_REPORT_URL}
+      #   username: ${DB_REPORT_USERNAME}
+      #   password: ${DB_REPORT_PASSWORD}
+
 org:
   jobrunr:
     background-job-server:

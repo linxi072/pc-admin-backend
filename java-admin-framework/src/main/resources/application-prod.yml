@@ -1,8 +1,4 @@
 spring:
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
   data:
     redis:
       host: ${REDIS_HOST}
@@ -11,6 +7,14 @@ spring:
   flyway:
     # 生产环境结构变更必须走已评审迁移文件
     baseline-on-migrate: false
+
+app:
+  datasources:
+    entries:
+      primary:
+        url: ${DB_PRIMARY_URL}
+        username: ${DB_PRIMARY_USERNAME}
+        password: ${DB_PRIMARY_PASSWORD}
 
 management:
   endpoints:
