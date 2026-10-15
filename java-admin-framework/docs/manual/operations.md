@@ -540,6 +540,33 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 
 排障：首跑 4 失败均为测试夹具问题而非产品缺陷——缓存名实为 `token-version`（非方法名 `tokenVersionCache`）、`PageResult` 序列化字段为 `records`（非 `list`）、普通角色查询 `fetchOne` 遇多行抛 `TooManyRowsException`（改 `fetchList` 取首个）。
 
+---
+
+## 31. 多数据源运维要点
+
+多数据源的完整配置与排障见《多数据源使用指南》`docs/manual/datasource-guide.md`；本节聚焦运维侧的观察与处置。
+
+### 31.1 连接池监控（按库区分）
+
+每个具名数据源是独立的 Hikari 连接池，池名固定为 `hikari-<name>`（主库 `hikari-primary`、第二个库 `hikari-report` …）。`/actuator/prometheus` 暴露的 `hikaricp_*` 指标按 `pool` 标签区分，Grafana `hikaricp.json` 看板可按池名筛选；也可用 `GET /api/system/monitor/datasource`（`system:monitor:read`）查看各池活跃/空闲/等待/使用率与 JDBC URL。连接池告警阈值维持使用率 >85%。
+
+### 31.2 启动期 fail-fast
+
+`DataSourceRegistry` 在构造阶段即建池并校验：缺失 `app.datasources.primary` 对应的条目、或任一库缺 `url`，应用**启动即失败**并给出明确异常（如 `多数据源配置缺失主数据源` / `数据源 [x] 缺少 url`）。这是预期行为——配置错误在启动期暴露，不遗留到运行期。
+
+### 31.3 健康探针
+
+`/readyz` 检查主库连接（DB 不可用时 503）；多库场景下仅主库参与就绪判定（Flyway / JobRunr / Flowable 依赖主库）。从库 / 报表库不可用时主库业务仍可用，但依赖该库的接口会报错——可据此在告警中区分「主库故障」与「从库故障」。
+
+### 31.4 新增 / 下线数据源
+
+- **新增**：在 `application-{profile}.yml` 增 `app.datasources.entries.<name>`，部署侧注入 `DB_<NAME>_URL` / `DB_<NAME>_USERNAME` / `DB_<NAME>_PASSWORD`；无需改代码，注册表自动建池、路由与 `Map<String,DSLContext>` 自动包含新库。
+- **下线**：反向移除条目与对应环境变量即可。
+
+### 31.5 部署注意
+
+prod 环境变量已由单库 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 更名为 `DB_PRIMARY_URL` / `DB_PRIMARY_USERNAME` / `DB_PRIMARY_PASSWORD`，上线前务必同步，否则启动 fail-fast。
+
 - **日期**：2026-10-12
 - **项目**：java-admin-framework（Spring Boot 3.3.4 + jOOQ + MySQL + Flowable）
 - **现象**：两个工作流设计在执行「设计 / 发布 / BPMN / 删除」操作时均提示 `工作流设计不存在: 384233927386075140`

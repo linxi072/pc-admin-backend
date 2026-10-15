@@ -413,16 +413,15 @@ java-admin-scaffold/
 
 ## 4. 分层与命名约定
 
-### 4.1 模块内分层
+> 完整的「按特性分包 + 层子包」目录约定、各层职责、命名规范（类/方法/包/常量）、代码格式基线与可校验的依赖方向/无环规则，已独立成文：**《编码规范与目录结构约定》`docs/manual/coding-standard.md`**（配套零依赖校验脚本 `scripts/check-conventions.py`，CI 门禁）。下文仅保留与架构强相关的要点与数据库字段约定，详细分层命名以该手册为准。
 
-```text
-api            对外协议：Controller、Request、Response、Facade
-application    用例编排：事务、Command、Query、应用服务
- domain         业务模型：聚合、值对象、领域服务、Repository/Port 接口
-infrastructure 技术实现：MyBatis、Redis、Flowable、XXL-JOB、外部 HTTP
-```
+### 4.1 模块内分层（要点）
 
-### 4.2 命名规则
+- 按特性分包：一级包 = 业务能力域（`security` / `system` / `workflow` / `job` / `monitor` / `workbench` …）；同特性代码聚于一处。
+- 特性模块内按职责拆子包：`controller`（HTTP 入口）、`service`（业务/事务）、`config`（装配）、`domain`/`entity`（实体）、`dto`/`vo`（传输）、`port`/`adapter`（防腐）、`rules`（纯函数规则）。
+- 依赖方向单向、无环：`controller → service → domain`；`domain` 不反向依赖 `service`/`config`/`controller`；`config` 不得依赖 `controller`/`web`。
+
+### 4.2 命名规则（要点）
 
 | 类型 | 后缀示例 | 规则 |
 |---|---|---|
@@ -430,17 +429,17 @@ infrastructure 技术实现：MyBatis、Redis、Flowable、XXL-JOB、外部 HTTP
 | 出参 | `UserView` / `TokenView` | 不直接返回 Entity |
 | 应用服务 | `UserApplicationService` | 一个服务对应一组业务用例 |
 | 领域服务 | `PermissionDomainService` | 只承载领域规则 |
-| 持久化实体 | `UserDO` | 仅在 infrastructure 层 |
-| Mapper | `UserMapper` | 禁止被 Controller 调用 |
-| 仓储接口 | `UserRepository` | domain 定义，infrastructure 实现 |
+| 持久化实体 | `UserDO` | 统一 `DO` 后缀 |
 | 外部端口 | `WorkflowEnginePort` | 屏蔽具体厂商 API |
-| 转换器 | `UserConverter` | 推荐 MapStruct 或显式转换 |
+| 转换器 | `UserConverter` | 推荐显式转换或 MapStruct |
 | 错误码 | `AUTH_001` | 模块前缀 + 三位编号，HTTP 状态另行映射 |
 | 权限码 | `system:user:read` | `模块:资源:动作`，不与 URL 强耦合 |
 
+> 完整后缀清单见《编码规范与目录结构约定》§3。
+
 ### 4.3 数据字段约定
 
-- 主键：`BIGINT UNSIGNED`，MyBatis-Plus `ASSIGN_ID`；JSON 输出为字符串，避免 JavaScript 精度丢失。
+- 主键：`BIGINT UNSIGNED`，雪花 ID（`ASSIGN_ID` 策略）；JSON 输出为字符串，避免 JavaScript 精度丢失。
 - 时间：数据库使用 `DATETIME(3)`，应用使用 UTC `Instant`；展示层按用户时区转换。
 - 布尔：`TINYINT UNSIGNED`，0/1。
 - 枚举：数据库存稳定字符串，不存 Java ordinal。
@@ -1200,14 +1199,10 @@ spring:
     timeout-per-shutdown-phase: 30s
   jackson:
     default-property-inclusion: non_null
-  datasource:
-    hikari:
-      minimum-idle: 5
-      maximum-pool-size: 20
-      connection-timeout: 3000
-      validation-timeout: 1000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+  # 数据源连接属性已迁移至 app.datasources（见 §9.6），并按环境外部化到环境变量，避免硬编码。
+  # 关闭 Spring Boot 单数据源自动装配，改由 app.datasources 多数据源配置接管。
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
   flyway:
     enabled: true
     baseline-on-migrate: false
@@ -1251,19 +1246,14 @@ management:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
 
-mybatis-plus:
-  configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
-  global-config:
-    db-config:
-      id-type: assign_id
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+# 持久层为 jOOQ（不使用 MyBatis-Plus）；多数据源配置见 §9.6。
+# 慢 SQL 阈值（jOOQ ExecuteListener 采集）：
+app:
+  jooq:
+    slow-query-threshold-ms: 500
 
 flowable:
-  database-schema-update: false
+  database-schema-update: true
   async-executor-activate: true
   history-level: audit
   process-definition-location-prefix: classpath*:/processes/
@@ -1360,28 +1350,73 @@ class SecurityConfig {
 
 上述安全链按浏览器管理端设计：前端先访问 `/api/auth/csrf` 获取 CSRF Token，后续变更请求携带 `X-XSRF-TOKEN`。若提供不使用 Cookie 的移动端/服务端 Token API，应使用独立 `SecurityFilterChain`，仅对纯 Bearer Token 请求关闭 CSRF，不能全局混用两种策略。
 
-### 9.5 MyBatis-Plus 配置
+### 9.5 jOOQ 配置（替代 MyBatis-Plus）
 
 ```java
 @Configuration(proxyBeanMethods = false)
-@MapperScan("com.acme.scaffold.**.infrastructure.persistence.mapper")
-class MybatisConfig {
-
+class JooqConfig {
+    // 产出 @Primary DSLContext：底层指向多数据源路由（见 §9.6），
+    // 未切换时回落主库；MySQL 方言 + Snake 命名映射 + 慢 SQL 监听。
     @Bean
-    MybatisPlusInterceptor mybatisPlusInterceptor() {
-        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
-        return interceptor;
+    @Primary
+    public DSLContext dslContext(DataSource routingDataSource,
+            @Value("${app.jooq.slow-query-threshold-ms:500}") long slowQueryThresholdMs) {
+        DataSourceConnectionProvider provider =
+                new DataSourceConnectionProvider(new TransactionAwareDataSourceProxy(routingDataSource));
+        org.jooq.Configuration cfg = new DefaultConfiguration()
+                .set(provider)
+                .set(new DefaultTransactionProvider(provider))
+                .set(SQLDialect.MYSQL)
+                .set(new SnakeRecordMapperProvider())
+                .set(new DefaultExecuteListenerProvider(new SlowQueryListener(slowQueryThresholdMs)))
+                .set(new Settings().withRenderQuotedNames(RenderQuotedNames.NEVER));
+        return DSL.using(cfg);
     }
 }
 ```
 
-注意：
+> 持久层已从 MyBatis-Plus 迁移到 jOOQ（详见《开发手册》§9 持久层用法）。复杂列表一次性联表/批量查询，禁止循环调用形成 N+1。
 
-- SQL 防全表更新/删除插件只建议在 local/test 使用，生产依靠权限、代码审查与 SQL 审计。
-- 多租户拦截器只有在租户模型确认后再启用，避免误过滤公共表。
-- 复杂列表一次性联表/批量查询，禁止循环调用 Mapper 形成 N+1。
+### 9.6 多数据源配置（app.datasources）
+
+框架支持**连接并切换多个数据库**，连接串与凭据统一外部化到环境变量，避免硬编码。完整使用说明见《多数据源使用指南》`docs/manual/datasource-guide.md`。
+
+**主配置（application.yml）**：声明默认主库名，并关闭 Spring Boot 单库自动装配。
+
+```yaml
+spring:
+  # 关闭单数据源自动装配，改由 app.datasources 多数据源配置接管
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+app:
+  datasources:
+    primary: primary          # 默认（主）数据源；不切换时所有查询落主库
+```
+
+**Profile 配置（application-local.yml / application-prod.yml）**：填充各具名数据源，凭据走 `${ENV}`。
+
+```yaml
+app:
+  datasources:
+    entries:
+      primary:                # 主库：业务表 / Flyway / JobRunr / Flowable
+        url: ${DB_PRIMARY_URL:jdbc:mysql://localhost:3306/scaffold?...}
+        username: ${DB_PRIMARY_USERNAME:root}
+        password: ${DB_PRIMARY_PASSWORD:root}
+      report:                 # 第二个库（按需启用，凭据同样走环境变量）
+        url: ${DB_REPORT_URL}
+        username: ${DB_REPORT_USERNAME}
+        password: ${DB_REPORT_PASSWORD}
+```
+
+**加载与路由**：`MultiDataSourceProperties`（`@ConfigurationProperties("app.datasources")`）聚合配置；`DataSourceRegistry` 启动期逐库建 Hikari 池（缺失主库或缺 `url` 即 fail-fast）；`RoutingDataSource`（`AbstractRoutingDataSource`）按 `DataSourceContextHolder`（ThreadLocal）路由，未切换回落主库。切换方式有两种：
+
+- **声明式** `@WithDataSource("report")`：标注方法，切面置 `HIGHEST_PRECEDENCE` 早于事务切面，结束后自动还原；
+- **编程式** `DataSourceRouter.with("report", task)` / `router.dsl("report")`：显式按名切换或取具名 `DSLContext`。
+
+连接池默认参数（`MultiDataSourceProperties.Pool`）：`minimumIdle=5 / maximumPoolSize=20 / connectionTimeout=3000 / validationTimeout=1000 / idleTimeout=600000 / maxLifetime=1800000 / connectionTestQuery=SELECT 1`。
+
+> **部署注意**：prod 环境变量由旧的单库 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 更名为 `DB_PRIMARY_URL` / `DB_PRIMARY_USERNAME` / `DB_PRIMARY_PASSWORD`，部署侧必须同步。
 
 > 目标：形成一个可直接创建、可本地启动、可作为后续业务系统脚手架的企业级 Java 后端基础框架。设计优先级依次为：安全正确、模块边界清晰、运维可见、低成本起步、可平滑拆分。
 

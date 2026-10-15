@@ -388,6 +388,38 @@ MDC `traceId` 与审计日志、Result 共用同一链路 ID。待具备 OTel Co
 
 ---
 
+## 15. 多数据源部署：环境变量与外部化
+
+> 完整配置项、新增数据源五步、故障排查见《多数据源使用指南》`docs/manual/datasource-guide.md`；配置结构见《架构手册》§9.6。
+
+框架支持连接并切换多个数据库。所有连接串与凭据**统一外部化到环境变量**，yml 中不硬编码任何凭据（`local` 可 `:默认值` 回退，`prod` 无默认值强制注入）。
+
+### 15.1 环境变量清单
+
+| 变量 | 作用 | 必填 | 备注 |
+| --- | --- | --- | --- |
+| `DB_PRIMARY_URL` | 主库 JDBC 连接串 | 是 | Flyway / JobRunr / Flowable 均在主库 |
+| `DB_PRIMARY_USERNAME` | 主库账号 | 是 | |
+| `DB_PRIMARY_PASSWORD` | 主库密码 | 是 | 建议走 Vault / 密钥管理，勿落明文 |
+| `DB_<NAME>_URL` | 第二个及后续库连接串 | 按 entries 而定 | `<NAME>` 大写、连字符转下划线（如 `report` → `DB_REPORT_URL`） |
+| `DB_<NAME>_USERNAME` / `DB_<NAME>_PASSWORD` | 对应库账号 / 密码 | 同上 | |
+
+### 15.2 部署步骤
+
+1. **声明数据源**：在 `application.yml` 设 `app.datasources.primary: primary`；在 `application-prod.yml` 的 `app.datasources.entries` 列出所有库名（仅列名，凭据走变量）。
+2. **注入环境变量**：为每个库注入 `DB_<NAME>_URL/USERNAME/PASSWORD`；`prod` 不为凭据提供默认值（缺失即启动 fail-fast，避免误连）。
+3. **启动验证**：启动日志应出现各池 `hikari-<name> Started`；未切换时主库业务正常；`/actuator/health` 应 `UP`。
+
+### 15.3 变量更名迁移（重要）
+
+原单库变量 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` **已更名为** `DB_PRIMARY_URL` / `DB_PRIMARY_USERNAME` / `DB_PRIMARY_PASSWORD`。既有部署脚本 / CI / `.env` 必须同步更名，否则启动即 fail-fast。
+
+### 15.4 连接池参数
+
+Hikari 连接池参数（`minimumIdle` / `maximumPoolSize` / `connectionTimeout` / `validationTimeout` / `idleTimeout` / `maxLifetime` / `connectionTestQuery`）可在 `app.datasources.entries.<name>.pool.*` 覆盖；缺省沿用 `MultiDataSourceProperties.Pool` 默认值（最小空闲 5 / 最大 20 / 连接超时 3000ms 等）。生产高并发场景按需调大 `maximumPoolSize`。
+
+---
+
 ## 附录 P. 生产加固与质量门禁落地清单（综述）
 
 以下为《需求差距分析》§7–§9 及《设计方案》§15 阶段 5 的落地结论（完整证据见 `docs/archive/requirement-gap-analysis.md`）。
