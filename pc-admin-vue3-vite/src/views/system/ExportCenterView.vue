@@ -70,14 +70,22 @@
             <el-tag size="small" type="info">{{ row.code }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button
               type="primary"
               :icon="Download"
-              :loading="exporting === row.code"
-              @click="onExport(row)"
+              :loading="exporting === row.code + ':CSV'"
+              @click="onExport(row, 'CSV')"
             >导出 CSV</el-button>
+            <!-- 仅单表结构模板支持 XLSX（多段结构如报表由后端返回 formats=["CSV"]） -->
+            <el-button
+              v-if="supportsXlsx(row)"
+              type="success"
+              :icon="Download"
+              :loading="exporting === row.code + ':XLSX'"
+              @click="onExport(row, 'XLSX')"
+            >导出 XLSX</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -146,10 +154,11 @@ async function load() {
   }
 }
 
-function buildParams(row) {
+function buildParams(row, format) {
   if (row.code === 'files') {
     return {
       code: 'files',
+      format,
       sourceModule: query.sourceModule || undefined,
       uploaderName: query.uploaderName || undefined,
       originalName: query.originalName || undefined
@@ -158,19 +167,25 @@ function buildParams(row) {
   if (row.code === 'report') {
     return {
       code: 'report',
+      format,
       type: query.reportType || undefined,
       rangeType: query.reportRange || undefined,
       keyword: query.reportKeyword || undefined
     }
   }
-  return { code: row.code }
+  return { code: row.code, format }
+}
+
+/** 模板是否支持 XLSX（由后端 formats 声明；多段结构模板仅 CSV）。 */
+function supportsXlsx(row) {
+  return Array.isArray(row.formats) ? row.formats.includes('XLSX') : false
 }
 
 /** 导出：沿用 FileManagementView 防御式处理——区分文件 Blob 与业务错误 JSON。 */
-async function onExport(row) {
-  exporting.value = row.code
+async function onExport(row, format = 'CSV') {
+  exporting.value = `${row.code}:${format}`
   try {
-    const resp = await downloadExport(buildParams(row))
+    const resp = await downloadExport(buildParams(row, format))
     const data = resp?.data
     const blob = data instanceof Blob ? data : new Blob([data])
     if (blob.type && blob.type.includes('application/json')) {
@@ -183,7 +198,7 @@ async function onExport(row) {
       ElMessage.error(msg)
       return
     }
-    const fileName = parseFileName(resp, row.fileName)
+    const fileName = parseFileName(resp, row.fileName, format === 'XLSX' ? 'xlsx' : 'csv')
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -200,8 +215,8 @@ async function onExport(row) {
   }
 }
 
-/** 优先解析 Content-Disposition 中的文件名，失败回退到模板文件名。 */
-function parseFileName(resp, fallback) {
+/** 优先解析 Content-Disposition 中的文件名，失败回退到模板文件名（按格式补后缀）。 */
+function parseFileName(resp, fallback, ext = 'csv') {
   const cd = resp?.headers?.['content-disposition'] || ''
   const m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)"?/i)
   if (m && m[1]) {
@@ -211,7 +226,7 @@ function parseFileName(resp, fallback) {
       return m[1]
     }
   }
-  return (fallback || 'export') + '.csv'
+  return (fallback || 'export') + '.' + ext
 }
 
 onMounted(load)
