@@ -56,6 +56,13 @@ const routes = [
         meta: { title: '部门管理' }
       },
       {
+        // 岗位管理（V35）：岗位 CRUD + 用户岗位分配，菜单与权限由后端驱动
+        path: 'system/post',
+        name: 'post',
+        component: () => import('@/views/system/PostView.vue'),
+        meta: { title: '岗位管理', permission: 'system:post:read' }
+      },
+      {
         path: 'system/dict',
         name: 'dict',
         component: () => import('@/views/system/DictView.vue'),

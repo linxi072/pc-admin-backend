@@ -66,6 +66,12 @@
             <span v-if="!(row.roleNames || []).length" class="text-muted">未分配</span>
           </template>
         </el-table-column>
+        <el-table-column label="岗位" min-width="150">
+          <template #default="{ row }">
+            <el-tag v-for="(n, i) in (row.postNames || [])" :key="'p' + i" class="role-tag" size="small" type="warning">{{ n }}</el-tag>
+            <span v-if="!(row.postNames || []).length" class="text-muted">未分配</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" sortable="custom" />
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
@@ -138,6 +144,11 @@
             <el-option v-for="r in selectedRoleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="岗位">
+          <el-select v-model="form.postIds" multiple filterable clearable style="width: 100%" placeholder="选择岗位（可多选）">
+            <el-option v-for="p in postOptions" :key="p.id" :label="p.postName" :value="p.id" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -171,6 +182,7 @@ import { Search, RefreshLeft, Plus, Edit, Key, Delete } from '@element-plus/icon
 import { pageUsers, createUser, updateUser, deleteUser, resetPassword } from '@/api/user'
 import { listRoles } from '@/api/role'
 import { orgTree } from '@/api/org'
+import { listPostOptions } from '@/api/post'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -178,6 +190,7 @@ const rows = ref([])
 const total = ref(0)
 const roleOptions = ref([])
 const orgOptions = ref([])
+const postOptions = ref([])
 const query = reactive({ page: 1, size: 10, username: '', status: '', sortField: '', sortDirection: '' })
 
 const dialogVisible = ref(false)
@@ -187,7 +200,8 @@ const form = reactive({
   id: null, username: '', password: '', displayName: '', mobile: '', email: '',
   status: 'ACTIVE',
   roleIds: [], primaryRoleId: null,
-  deptIds: [], primaryDeptId: null
+  deptIds: [], primaryDeptId: null,
+  postIds: []
 })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -247,13 +261,14 @@ function flattenOrgs(nodes, depth = 0, acc = []) {
 async function ensureRoles() {
   if (roleOptions.value.length === 0) roleOptions.value = await listRoles()
   if (orgOptions.value.length === 0) orgOptions.value = flattenOrgs(await orgTree())
+  if (postOptions.value.length === 0) postOptions.value = await listPostOptions()
 }
 
 function openCreate() {
   isEdit.value = false
   Object.assign(form, {
     id: null, username: '', password: '', displayName: '', mobile: '', email: '',
-    status: 'ACTIVE', roleIds: [], primaryRoleId: null, deptIds: [], primaryDeptId: null
+    status: 'ACTIVE', roleIds: [], primaryRoleId: null, deptIds: [], primaryDeptId: null, postIds: []
   })
   ensureRoles()
   dialogVisible.value = true
@@ -267,7 +282,8 @@ async function openEdit(row) {
     roleIds: [...(row.roleIds || [])],
     primaryRoleId: row.primaryRoleId ?? (row.roleIds && row.roleIds[0] != null ? row.roleIds[0] : null),
     deptIds: [...(row.deptIds || [])],
-    primaryDeptId: row.primaryDeptId ?? (row.deptIds && row.deptIds[0] != null ? row.deptIds[0] : null)
+    primaryDeptId: row.primaryDeptId ?? (row.deptIds && row.deptIds[0] != null ? row.deptIds[0] : null),
+    postIds: [...(row.postIds || [])]
   })
   ensureRoles()
   dialogVisible.value = true
@@ -283,7 +299,8 @@ async function onSubmit() {
         displayName: form.displayName, mobile: form.mobile, email: form.email,
         status: form.status,
         roleIds: form.roleIds, primaryRoleId: form.primaryRoleId || undefined,
-        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined
+        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined,
+        postIds: form.postIds
       })
       ElMessage.success('更新成功')
     } else {
@@ -291,7 +308,8 @@ async function onSubmit() {
         username: form.username, password: form.password, displayName: form.displayName,
         mobile: form.mobile, email: form.email,
         roleIds: form.roleIds, primaryRoleId: form.primaryRoleId || undefined,
-        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined
+        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined,
+        postIds: form.postIds
       })
       ElMessage.success('创建成功')
     }
