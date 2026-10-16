@@ -1,7 +1,8 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.service;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.security.jwt.JwtProperties;
+import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.Field;

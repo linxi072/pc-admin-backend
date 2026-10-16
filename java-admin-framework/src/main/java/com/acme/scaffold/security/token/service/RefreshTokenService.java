@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.service;
 
 /**
  * 刷新令牌服务：使用不透明令牌 + 哈希存储 + 家族轮换（refresh token rotation），

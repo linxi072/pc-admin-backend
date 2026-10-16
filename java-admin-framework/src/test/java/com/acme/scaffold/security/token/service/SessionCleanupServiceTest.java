@@ -1,6 +1,7 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.service;
 
 import com.acme.scaffold.security.jwt.JwtProperties;
+import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import org.jooq.DSLContext;
 import org.jooq.Table;
 import org.junit.jupiter.api.Test;

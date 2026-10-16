@@ -9,7 +9,7 @@ import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
-import com.acme.scaffold.security.token.RefreshTokenService;
+import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.system.dto.BindContactRequest;
 import com.acme.scaffold.system.dto.ChangePasswordRequest;

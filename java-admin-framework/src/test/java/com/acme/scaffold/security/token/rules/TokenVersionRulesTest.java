@@ -1,5 +1,6 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.rules;
 
+import com.acme.scaffold.security.token.service.TokenVersionCache;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

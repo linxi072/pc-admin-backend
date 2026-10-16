@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.rules;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

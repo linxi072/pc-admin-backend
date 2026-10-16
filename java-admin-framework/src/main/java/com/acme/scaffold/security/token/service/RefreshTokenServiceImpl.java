@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.service;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
@@ -6,6 +6,7 @@ import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import com.acme.scaffold.security.token.rules.SessionLimitRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;

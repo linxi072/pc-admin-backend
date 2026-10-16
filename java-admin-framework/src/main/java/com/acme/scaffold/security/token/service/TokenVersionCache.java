@@ -1,5 +1,6 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.service;
 
+import com.acme.scaffold.security.token.rules.TokenVersionRules;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;

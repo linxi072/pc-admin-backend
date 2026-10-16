@@ -2,7 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.context.SecurityContextFacade;
-import com.acme.scaffold.security.token.RefreshTokenService;
+import com.acme.scaffold.security.token.service.RefreshTokenService;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

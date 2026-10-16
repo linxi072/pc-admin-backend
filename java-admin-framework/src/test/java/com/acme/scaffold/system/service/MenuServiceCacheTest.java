@@ -2,7 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.password.PasswordHistoryService;
-import com.acme.scaffold.security.token.TokenVersionService;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.MenuSortItem;

@@ -3,6 +3,7 @@ package com.acme.scaffold.security.token;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

@@ -13,7 +13,7 @@ import com.acme.scaffold.monitor.dto.OnlineSessionView;
 import com.acme.scaffold.monitor.dto.PoolStatView;
 import com.acme.scaffold.monitor.domain.ServerMetrics;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
-import com.acme.scaffold.security.token.TokenVersionService;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.entity.SysMonitorSampleDO;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.zaxxer.hikari.HikariDataSource;

@@ -11,7 +11,7 @@ import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.error.SecurityErrorCode;
-import com.acme.scaffold.security.token.TokenVersionService;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.dto.UpdateUserRequest;
 import com.acme.scaffold.system.dto.UserQuery;

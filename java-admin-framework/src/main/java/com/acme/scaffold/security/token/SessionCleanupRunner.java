@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.token;
 
+import com.acme.scaffold.security.token.service.SessionCleanupService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;

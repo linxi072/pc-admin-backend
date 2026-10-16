@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.token;
+package com.acme.scaffold.security.token.rules;
 
 /**
  * Token 版本纯规则（无 Spring / 无 DB 依赖，便于单测）。

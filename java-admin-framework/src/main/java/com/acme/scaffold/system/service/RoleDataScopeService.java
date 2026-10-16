@@ -5,7 +5,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.permission.DataScopeType;
-import com.acme.scaffold.security.token.TokenVersionService;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.DataScopeRuleView;
 import com.acme.scaffold.system.dto.SaveDataScopeRequest;
 import com.acme.scaffold.system.entity.SysOrgDO;
