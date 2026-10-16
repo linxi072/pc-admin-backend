@@ -1,7 +1,7 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口；岗位管理模块后端+前端全链路交付；机构树分键缓存（M5 续）落地；i18n 国际化落地）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
-> 方法：**直接核查真实代码**（401 个后端 `.java` 的 `@RestController`/`@RequestMapping`、33 个前端 `.vue`、25 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口；岗位管理模块后端+前端全链路交付；机构树分键缓存（M5 续）落地；i18n 国际化落地；导出中心增量支持 XLSX（零依赖 OOXML））｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 方法：**直接核查真实代码**（431 个后端 `.java` 的 `@RestController`/`@RequestMapping`、33 个前端 `.vue`、25 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
 ---
@@ -79,7 +79,7 @@
 
 | 项 | 业务价值 | 可行性（离线沙箱） | 优先级 | 建议实现方式 |
 |---|---|---|---|---|
-| **数据导入/导出中心（Excel）** | 高 | POI/EasyExcel **不在**离线仓库，需联网 `mvn` 引入 | P2（递延，待联网） | 引入 POI + 通用 `ExportService`（CSV 已具备 `report/export`）；前端导出中心页；先以 CSV 兜底，Excel 待依赖就绪 |
+| **数据导入/导出中心（Excel）** | 高 | ✅ **XLSX 已落地（2026-10-16，无需 POI）**：在既有 CSV 导出中心（`system/controller/ExportController` + `ExportTask` 模板注册 + `ExportCenterView.vue`）**增量**补 XLSX——`/download` 增加 `format=CSV\|XLSX`（缺省 CSV 向后兼容）、`/templates` 返回各模板 `formats`；新增 `common/export/ExportFormat`（枚举）+ `XlsxDataExporter`（仅用 JDK `java.util.zip` 手写最小合规 OOXML，inlineStr + XML 转义，**零新依赖、离线可编**）+ `ExportProperties`（`app.export.max-rows` 默认 10 万行）；多段结构模板（报表）仍仅 CSV；前端新增「导出 XLSX」按钮 | P2 → XLSX 已完成 | ✅ 未引入 POI/EasyExcel；POI 富格式（单元格样式/多 sheet/公式）与数据**导入**按需再做（导入亦可零依赖复用 OOXML 解析） |
 | **缓存管理（命中率查看 + 清除）** | 中 | ✅ **已落地（M5，2026-10-16）**：`config/cache` 提供 `@EnableCaching` + RedisCacheManager（TTL/前缀可配），`StatisticsCache`/`StatisticsCacheManager` 装饰器做进程内命中/未命中/淘汰记账；`MonitorService.cacheStats()/clearCache()` 扩展至 Spring Cache，前端缓存监控页零改动；试点 `DictDataService.listByType` `@Cacheable`（create 精确驱逐、update/delete 全量驱逐）。**菜单缓存（M5 续，同日）**：`MenuService.tree()`（`menu-tree` 单一 `ALL` 键）与 `menusForCurrentUser()`（`user-menus` 按用户 id 键）纳入缓存；菜单增删改排序整缓存驱逐，`RoleService` 角色菜单绑定 / `UserService` 用户角色变更按语义跨服务驱逐 | P2 → 已完成 | ✅ **机构树分键缓存已纳入（M5 续，2026-10-16）**：`OrgService.tree()` 带 `@DataScope`，按「数据权限范围签名」分键（`orgScopeKey()`：`ALL` / `SELF:<userId>` / `ORG:<id 升序>`），规避受限用户命中管理员缓存造成的越权可见；create/update/delete 整缓存驱逐；`DataScopeAspect` 加 `@Order(HIGHEST_PRECEDENCE)` 保证缓存键计算时 `DataScopeContext` 已就绪；`OrgServiceCacheTest` 6 例覆盖跨权限隔离与写路径驱逐（同一 CacheManager） |
 | **通知渠道抽象（邮件/短信/Webhook）** | 中 | ✅ **已落地（M6，2026-10-16）**：`Channel.EMAIL` + `EmailNotificationAdapter`（`app.notifications.email.*` 默认关闭）+ `EmailRules` 纯函数（地址校验/CRLF 净化防头注入/收件人归一与上限）+ `JavaMailSenderClient`（spring-context-support 6.1.15 + jakarta.mail 2.1.3 + angus-mail 2.0.3，均离线可用） | P3 → 已完成（仅 SMS 仍待网关） | SMS 仍待短信网关依赖；站内信/Webhook/WebSocket/邮件四渠道已齐备 |
 | **i18n 国际化** | 低 | ✅ **已落地（2026-10-16）**：`common/i18n` 提供 `MessageSource`（`ReloadableResourceBundleMessageSource`，UTF-8，基名 `i18n/messages`）+ `SessionLocaleResolver`（默认 zh_CN）+ `LocaleChangeInterceptor`（`?lang=xx` 切换，注册于 `I18nConfig implements WebMvcConfigurer`）；`I18nService` 封装按当前请求语言解析（缺失键返回键本身兜底），`GlobalExceptionHandler` 框架级错误已本地化（zh_CN / en_US 双语资源束）；`I18nServiceTest`(6) + `I18nLocaleInterceptorTest`(2) 覆盖多语言解析/回退/插值/切换 | P3 → 已完成 | 前端 i18n 仍待前端配合；Bean Validation 约束 `message` 键化（如 `{error.field.required}`）与 `BusinessException` 消息键化为后续增强 |
@@ -105,7 +105,7 @@
 |---|---|---|
 | **P0** | 严格需求缺口 | **无** |
 | **P1** | 工作区卫生 | 已保持 `feat/V1.0.2` 工作区干净（每轮按关注点分批本地提交） |
-| **P2** | 增强型基础功能 | 数据导出中心（需联网引入 POI，**待联网**）；~~缓存管理~~（**已落地 M5，含菜单树缓存、机构树分键缓存与跨服务驱逐**） |
+| **P2** | 增强型基础功能 | ~~数据导出中心（Excel）~~（**已落地 2026-10-16：既有 CSV 导出中心增量支持零依赖 XLSX（JDK `java.util.zip` 手写 OOXML），无需 POI**；数据导入仍待）；~~缓存管理~~（**已落地 M5，含菜单树缓存、机构树分键缓存与跨服务驱逐**） |
 | **P3** | 可选增强 | ~~通知渠道抽象~~（**已落地 M6，EMAIL 齐备，仅 SMS 待网关**）、~~限流注解化~~（已落地）、~~N+1 告警 / 前端图表按需~~（已落地）、~~i18n 国际化~~（**已落地 2026-10-16**：后端双语资源束 + `GlobalExceptionHandler` 本地化；前端 i18n 待前端配合） |
 
 ---
@@ -114,4 +114,4 @@
 
 1. 严格需求已闭环，后续以"增强型基础功能 + 持续优化"为主，按业务优先级排期，不必为"补需求"而补。
 2. 每轮完成的代码/文档按关注点分批本地提交，避免工作区长期 dirty 带来集成风险。
-3. 需要联网引入依赖的项（POI 等）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
+3. 原「需联网引入 POI」的 Excel 导出已通过**零依赖 XLSX（JDK `java.util.zip` 手写 OOXML）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。

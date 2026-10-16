@@ -1117,6 +1117,20 @@ String en  = i18nService.getMessage("error.not_found", Locale.US); // 指定语�
 
 > 后续增强（非阻断）：前端配合做前端 i18n；Bean Validation 约束 `message` 键化（如 `@NotBlank(message = "{error.field.required}")`）使字段级错误也走资源束；`BusinessException` 消息亦可改为传递消息键。
 
+### 8.5 导出中心（模板注册 + CSV / 零依赖 XLSX 双格式）
+
+导出中心基于模板注册模式：业务模块声明一个实现 `common/export/ExportTask` 的 Spring Bean（`code()`/`displayName()`/`fileName()`/`headers()`/`rows(Map)`，可选覆写 `csv(Map)`），`system/controller/ExportController` 注入 `List<ExportTask>` 自动收集并调度，新增导出只需新增一个 Bean，无需改接口。
+
+- **接口**：`GET /api/system/export/templates` 列举模板及其支持格式（`formats`）；`GET /api/system/export/download?code=<模板编码>&format=CSV|XLSX` 流式下载（其余查询参数原样透传给 `rows(Map)` 作筛选；**缺省 `format` 视为 CSV**，保持既有前端零改动向后兼容）。下载响应不包装 `Result`（§约定），异常走统一 JSON 错误体。
+- **两种格式，共享同一份表头/行模型**：
+  - **CSV**：复用 `common/export/CsvExporter`（UTF-8 BOM + RFC4180 转义），零依赖；
+  - **XLSX**：`common/export/XlsxDataExporter` 仅用 JDK `java.util.zip` 手写最小合规 OOXML（XLSX 本质是 ZIP+XML），采用 inlineStr 内联字符串省去 `sharedStrings.xml`，文本经 XML 转义防注入。**不引入 POI**，离线构建友好。
+- **单表 vs 多段**：单表结构模板（`headers()` 非空）一键双格式；多段结构（如报表导出覆写 `csv(Map)` 自产字节、`headers()` 为空）仅支持 CSV——请求 XLSX 会被拒绝并提示改用 CSV；`/templates` 的 `formats` 会据此只返回 `["CSV"]`。
+- **配置**：`system/export/config/ExportProperties`（`app.export.max-rows`，默认 10 万行，XLSX 导出超限按 400 拒绝并提示缩小筛选范围；下限钳制为 1）。放置方式与 `system/notification/config` 一致（`@EnableConfigurationProperties`）。
+- **权限与审计**：`@PreAuthorize("hasAuthority('system:export:read')")`（由 `ApiResourceAutoSyncRunner` 启动时按注解自动登记并授予 SUPER_ADMIN）+ `@AuditOperation`。注意端点权限 ≠ 被导出数据自身权限（报表导出另需 `report:read`，由 `ReportExportTask` 内兜底校验）。
+- **前端**：`pc-admin-vue3-vite/src/views/system/ExportCenterView.vue` 按模板返回的 `formats` 渲染「导出 CSV / 导出 XLSX」按钮；`api/export.js` 走 `requestRaw` 取 Blob，并防御式区分业务错误 JSON。
+- **测试**：`ExportFormatTest`（枚举大小写/非法值解析）、`XlsxDataExporterTest`（ZIP 结构/转义/UTF-8）、`ExportControllerTest`（MockMvc standalone + 最小 advice 复刻异常映射：CSV 向后兼容、XLSX 分支、未知格式/未知模板/多段结构/超行数四类校验）共 14 例。
+
 ## 9. 关键配置示例
 
 ### 9.1 根 Maven 配置
