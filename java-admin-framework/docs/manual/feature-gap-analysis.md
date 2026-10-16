@@ -1,7 +1,7 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口；岗位管理模块后端+前端全链路交付；机构树分键缓存（M5 续）落地；i18n 国际化落地；导出中心增量支持 XLSX（零依赖 OOXML）；导入中心落地（CSV/XLSX 零依赖解析 + 模板注册 + 预检）；敏感数据脱敏通用化（common/sensitive）+ 登录日志脱敏与日志导出；导入中心失败行报告（CSV，防公式注入）；导出中心 XLSX 多 Sheet 富格式（styles 表头样式 + 列宽自适应，报表多段结构解除「仅 CSV」限制））｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
-> 方法：**直接核查真实代码**（443 个后端主源 `.java` / 112 个测试源、33 个 `@RestController`、45 个前端 `.vue`、28 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-17（复核并确认 §5/§6/§7 所列增强项**全部已交付**：机构树分键缓存（M5 续）、邮件通知渠道（M6）、i18n 国际化、导出中心 CSV+XLSX（含多 Sheet 富格式）、导入中心（含预检与失败行报告）、敏感数据脱敏通用化、限流注解化、N+1 告警、前端图表按需；源码规模与测试基线刷新为 447 主源 / 114 测试源 / 559 用例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 方法：**直接核查真实代码**（447 个后端主源 `.java` / 114 个测试源、559 个测试用例（surefire 汇总 0 失败 0 错误）、33 个 `@RestController`、45 个前端 `.vue`、28 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
 ---
@@ -11,7 +11,7 @@
 - **严格需求层面已闭环**：设计方案 §12/§20、历史 gap-analysis（G1–G8、A1/A2/A4）、模块计划（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim）**全部已实现或明确记录为 N/A / 范围外**。
 - **直接核查确认的"已具备但未在需求文档明示"的能力**：OpenAPI/Swagger 文档、慢 SQL 监听、多数据源、文件管理、编码规范 + 零依赖校验脚本（本轮交付）。
 - **真实缺口极小**：仅 §12 中少量「独立端点」被合并进 DTO（前端已适配，非阻断），以及 `instances/{id}/history` 由 `/records` 等价承载。
-- **后续重点不是"补需求"，而是"增强型基础功能 + 优化"**（见 §5/§6），且其中多项受离线仓库依赖约束需联网引入或需先建基础设施。
+- **后续重点不是"补需求"，而是"增强型基础功能 + 优化"**（见 §5/§6），且其中多项受离线仓库依赖约束需联网引入或需先建基础设施。截至 2026-10-17 复核，**§5 与 §6 所列增强项与优化项已全部交付**（导出中心 CSV+XLSX 含多 Sheet 富格式 / 导入中心含预检与失败行报告 / 缓存管理含机构树分键缓存 / i18n 国际化 / 敏感数据脱敏通用化 / 邮件通知渠道 M6 / 限流注解化 / N+1 告警 / keyset 深翻页 / 前端图表按需）；残留方向仅为可选增强：SMS 短信渠道（待网关依赖）、前端 i18n（待前端配合）、Bean Validation 与 `BusinessException` 消息键化、测试覆盖率门禁（JaCoCo，需联网验证）。
 
 ---
 
@@ -73,9 +73,9 @@
 
 ---
 
-## 5. 缺失的必要基础功能（贴合框架定位）
+## 5. 增强型基础功能（贴合框架定位）
 
-> 下列为"框架作为可复用基座"通常应具备、但本项目尚未提供的能力。均**超出原设计方案范围**，属增强型，按业务需要排期。可行性受离线仓库约束标注。
+> 下列为"框架作为可复用基座"通常应具备、且曾一度缺失的能力。均**超出原设计方案范围**，属增强型。**截至 2026-10-17，本表全部条目状态均为「已完成」**，此处保留以记录落地形态与残留增强方向。可行性受离线仓库约束标注。
 
 | 项 | 业务价值 | 可行性（离线沙箱） | 优先级 | 建议实现方式 |
 |---|---|---|---|---|
@@ -90,13 +90,15 @@
 
 ## 6. 待优化（性能 / 体验 / 代码结构）
 
+> 除「测试覆盖率门禁」外，下表条目均已完成；保留现状与做法说明以便追溯。
+
 | 项 | 维度 | 现状 | 建议 |
 |---|---|---|---|
 | **N+1 查询** | 性能 | ✅ **已落地**：`monitor/detection/NPlusOneListener` + `NPlusOneProbe`（线程级累计同构 SQL 执行次数）+ `NPlusOneResetFilter`（请求级重置），`JooqConfig`/`DataSourceConfig` 双注册；同构 SQL 单请求内重复超阈值即告警（含指纹），与 `SlowQueryListener` 同为只读观测 | — → 已完成 | 阈值可配置化；多实例场景可对接指标导出 |
 | **深翻页** | 性能 | `PageQuery` 钳制 size，但未做游标/keyset | 已落地：common/api 新增 `KeysetPageQuery`/`KeysetPageResult`/`CursorCodec`（纯函数游标编解码），`jooq/JooqKeysetPager` 引擎（seek + size+1 判定 hasMore）；`FileService.keysetPage` + `FileController GET /api/system/files/keyset` 试点（固定 `created_at DESC, id DESC` 排序，含 id tie-breaker） |
 | **前端首屏 / 图表按需** | 体验 | ✅ **已落地**：`BaseChart.vue` 由全量 `import * as echarts` 改为 `echarts/core` 按需注册（bar/line/pie + grid/tooltip/legend/title + CanvasRenderer，注册项经 node_modules 安装链核实无遗漏），产物 **1.0M → 522KB（gzip 176KB）**；路由级懒加载既有，echarts 仅随报表/任务路由 chunk 加载，不进首屏 | — → 已完成 | 新增图表类型时在 `BaseChart.vue` 顶部同步补充 import |
 | **测试覆盖率门禁** | 质量 | CI 已接单元 + 集成，无覆盖率门禁 | 加 JaCoCo 阈值（先非阻塞，后转阻塞） |
-| **平铺模块分层** | 结构 | `monitor`/`job.management`/`workbench`/`realtime`/`observability`/`codegen` 平铺，已在 `coding-standard.md` 定为"规模增大再拆层子包" | 维持现状，规模增大再分层（文档已约定） |
+| **平铺模块分层** | 结构 | 经 `scripts/check-conventions.py` 复核（447 主源，H1–H4 与 W1 均无告警）：`codegen`/`common`/`job`/`kafka`/`monitor`/`realtime`/`security`/`system`/`workbench`/`workflow` 已按层子包（`controller`/`service`/`entity`/`dto` …）组织；仅 `config`（23）/ `jooq`（7）/ `observability`（12）仍为平铺，属《编码规范》允许的「通用包按关注点拆子包、不带层名」（如 `config.web`/`config.jooq`/`config.redis`/`config.cache`/`config.datasource`/`config.jobrunr`/`config.observability`） | 维持现状；`config`/`jooq`/`observability` 按关注点拆子包即可，无需补层名，规模进一步增大再评估 |
 
 ---
 
@@ -118,3 +120,8 @@
 3. 原「需联网引入 POI」的 Excel 导出/导入已通过**零依赖 OOXML（写出 `XlsxDataExporter` / 解析 `XlsxDataReader`，仅用 JDK `java.util.zip`）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
 4. 导入中心为**模板注册**模式（同导出中心）：新增一种数据的导入只需新增一个 `ImportTask` Bean 并实现 `headers()`/`validate()`/`importRow()`，无需新增接口、迁移或前端页面（前端按 `/templates` 自动渲染）。
 5. 导出中心同理由 `ExportTask` Bean 自动扩充：如本轮新增 `LoginLogExportTask`（登录日志导出）**零迁移、零前端**，仅在 `system/export` 下加一个 `@Component` 即被 `/templates` 自动列举。脱敏遵循「类型驱动 + 安全默认」：对外视图/导出默认掩码，明文可见需显式授予 `system:*:sensitive` 权限。
+6. 测试基线：当前 114 个测试源共 **559 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过）。新增功能请同步补测，避免基线回退。
+
+---
+
+> 更新日期：2026-10-17（本轮核对：源码规模 443→447 主源、112→114 测试源，补齐 559 用例全绿基线；确认 §5/§6 增强项与优化项全部已交付并改写章节口径；按 `scripts/check-conventions.py` 复核结果修正「平铺模块」现状——仅 `config`/`jooq`/`observability` 平铺且为规范所允许）

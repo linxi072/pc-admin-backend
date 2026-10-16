@@ -69,6 +69,55 @@
 > 本脚手架已完成**技术栈迁移**：持久层由 **MyBatis-Plus → jOOQ**，任务调度由 **XXL-JOB → JobRunr**。  
 > 迁移后功能与原实现保持一致（表结构、接口契约、权限码、流程语义均未变更），且**全流程不使用 Docker**（构建与部署均以原生进程方式运行）。
 
+## 0. 本地开发环境基线（2026-10-17 核对）
+
+| 项 | 取值 | 说明 |
+|---|---|---|
+| JDK | **21**（编译基线 `pom.xml` `<java.version>` 为 17，运行时用 21） | `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` |
+| Maven | `/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn` | 仓库内**无 `mvnw`**；离线环境统一加 `-o` |
+| Spring Boot | 3.3.4（父 POM `spring-boot-starter-parent`） | 单 Maven 模块，包名 `com.acme.scaffold` |
+| 数据库 | MySQL 8.x，库名 **`scaffold`** | `jdbc:mysql://localhost:3306/scaffold`；Flyway 自动建表 |
+| 迁移链 | `db/migration/` `V32`~`V36`，schema 版本 **36** | `validate-on-migrate: true` |
+| Redis | `127.0.0.1:6379`（local） | 缓存 / Token 黑名单 / 在线会话 |
+| 应用端口 | **9090** | 见下方端口说明 |
+| Actuator | `management.server.port` = **9090** | `/actuator/health`、`/actuator/prometheus` |
+| JobRunr Dashboard | **8000**（仅 local，`JOBRUNR_DASHBOARD_PORT` 可覆盖） | `http://localhost:8000/dashboard`，**不在应用端口上** |
+| 前端 | `pc-admin-vue3-vite`，`npm run dev`（5173）/ `npm run build` / `npm run preview`（4173） | `vite.config.js` 代理 `/api`、`/ws` |
+
+### 0.1 常用命令
+
+```bash
+# 后端（JDK 21 + 本机 Maven，离线）
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+export PATH="$JAVA_HOME/bin:$PATH"
+export SPRING_PROFILES_ACTIVE=local
+MVN=/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn
+
+$MVN -o clean test                 # 全量单元测试（当前 559 例全绿）
+$MVN -o test -Dtest="*IT"          # 集成测试（需本地 MySQL，触发 Flyway）
+$MVN -o spring-boot:run            # 启动（见下端口说明）
+
+# 编码约定校验（零依赖，CI 同款）
+python3 scripts/check-conventions.py
+python3 -m unittest discover -s scripts -p "test_*.py"
+
+# 前端
+cd ../pc-admin-vue3-vite && npm install && npm run dev     # 联调
+npm run build                                              # 产物校验
+```
+
+### 0.2 端口说明（⚠️ 待确认）
+
+`src/main/resources/application.yml` 的字面配置为 `server.port: 8080` + `management.server.port: 9090`；本手册按部署约定以 **9090** 为应用对外端口记述。若启动时未覆盖 `server.port`，则应用端口为 **8080**、Actuator 为 **9090**。联调前请确认实际端口：
+
+```bash
+# 查看启动日志中两行端口
+grep "Tomcat started on port" logs/java-admin-framework.log | tail -2
+# 或修改 vite.config.js 的 /api、/ws 代理目标与后端一致
+```
+
+> 完整部署侧端口规划与冲突处置见《部署手册》§3「端口说明」。
+
 ## 5. 工作流审批
 
 内置流程（均改造为**可编辑设计**，不再依赖 classpath 静态 BPMN）：
@@ -89,7 +138,7 @@
 
 ```bash
 # 发起（受让人/驳回策略来自已发布设计；业务字段经 formFields 透传，键名需与设计 schema 的 field 一致）
-curl -X POST http://localhost:8080/api/workflow/instances/start \
+curl -X POST http://localhost:9090/api/workflow/instances/start \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"leaveApproval","businessType":"LEAVE","businessId":"L001",
        "title":"张三请假",
@@ -547,12 +596,12 @@ workflow/
 
 ```bash
 # 1) 新建草稿
-curl -X POST http://localhost:8080/api/workflow/definitions \
+curl -X POST http://localhost:9090/api/workflow/definitions \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"purchase","processName":"采购审批","description":"示例"}'
 
 # 2) 保存设计（节点 + 连线；参考 WorkflowDesignView 结构）
-curl -X PUT http://localhost:8080/api/workflow/definitions/1 \
+curl -X PUT http://localhost:9090/api/workflow/definitions/1 \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processName":"采购审批","description":"示例",
        "nodes":[{"id":"start","type":"START","name":"发起"},
@@ -562,10 +611,10 @@ curl -X PUT http://localhost:8080/api/workflow/definitions/1 \
                 {"id":"e2","sourceNodeId":"a1","targetNodeId":"end"}]}'
 
 # 3) 发布
-curl -X POST http://localhost:8080/api/workflow/definitions/1/publish -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:9090/api/workflow/definitions/1/publish -H "Authorization: Bearer $TOKEN"
 
 # 4) 用自定义流程发起（受让人由设计解析，无需传 assigneeUserIds）
-curl -X POST http://localhost:8080/api/workflow/instances/start \
+curl -X POST http://localhost:9090/api/workflow/instances/start \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"purchase","businessType":"PURCHASE","businessId":"P001","title":"采购申请","assigneeUserIds":[1],"managerUserId":1}'
 ```

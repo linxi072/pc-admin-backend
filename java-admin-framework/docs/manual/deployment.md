@@ -48,17 +48,48 @@ mysql -u root -e "CREATE DATABASE IF NOT EXISTS scaffold
 
 # 2) 超级管理员账号由 Flyway 的 V32__consolidated_schema.sql 内置（admin / SUPER_ADMIN）
 
-# 3) 编译运行
+# 3) 编译运行（JDK 21 + 指定本地 Maven，离线仓库）
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+export PATH="$JAVA_HOME/bin:$PATH"
 export SPRING_PROFILES_ACTIVE=local
-mvn spring-boot:run
+export SERVER_PORT=9090                       # 应用对外端口（见下方「端口说明」）
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o spring-boot:run
 
 # 4) 访问
-#    API:            http://localhost:8080/api/...
-#    Actuator:       http://localhost:9090/actuator/health
+#    API:            http://localhost:9090/api/...
+#    Actuator:       http://localhost:9090/actuator/health      （管理端口，见下方「端口说明」）
 #    Prometheus:     http://localhost:9090/actuator/prometheus
-#    Swagger:        http://localhost:8080/swagger-ui.html   （仅 local）
-#    JobRunr 面板:   http://localhost:8080/dashboard         （仅 local，见第 16 节说明）
+#    Swagger:        http://localhost:9090/swagger-ui.html      （仅 local）
+#    JobRunr 面板:   http://localhost:8000/dashboard            （仅 local，独立端口，见第 16 节说明）
 ```
+
+### 端口说明（务必先核对）
+
+| 端口 | 用途 | 来源 |
+|---|---|---|
+| **9090** | 应用对外服务端口（API / Swagger / WebSocket） | 部署约定；`application.yml` 中 `server.port` 字面默认 **8080**，需由 `SERVER_PORT` / `--server.port` 覆盖 |
+| **9090** | Actuator 管理端口（`/actuator/health`、`/actuator/prometheus`） | `application.yml` `management.server.port: 9090` |
+| 8000 | JobRunr Dashboard（仅 local，`JOBRUNR_DASHBOARD_PORT` 可覆盖） | `application-local.yml` |
+| 9091 / 3000 / 9093 | Prometheus / Grafana / Alertmanager（运营侧） | 见「端口规划」 |
+
+> ⚠️ **待确认（端口冲突）**：`application.yml` 的字面配置为 `server.port: 8080` + `management.server.port: 9090`，而部署侧按「应用 9090」口径使用。二者在同一份配置下会指向不同结果：
+> - 若**未覆盖** `server.port`：应用 = 8080、Actuator = 9090；
+> - 若覆盖 `server.port=9090`：应用与管理端口同为 9090，Spring Boot 会**启动失败**（端口占用），须同时把 `management.server.port` 改到其它端口。
+>
+> 本手册按「应用 9090」记述（与部署约定一致），但**上线前必须与部署负责人核对实际取值**：查启动日志中两行 `Tomcat started on port ...`，并把其中之一调整到空闲端口（推荐管理端口改用 9095，运营侧 Prometheus 已占用 9091）。JobRunr Dashboard 为独立端口 8000，**不在应用端口上**，与上述两个端口无关。
+
+### 构建与测试命令（本机基线）
+
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+MVN=/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn
+
+$MVN -o clean test          # 全量单元测试（当前 559 例全绿）
+$MVN -o test -Dtest="*IT"   # 集成测试（需本地 MySQL）
+$MVN -o clean package -DskipTests
+```
+
+> 本机 Maven 位于 `/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn`（非 `mvnw`）；离线环境统一带 `-o`。
 
 > **默认账号**：`V32__consolidated_schema.sql` 会内置超级管理员 `admin`（角色 `SUPER_ADMIN`），  
 > 其原始 `password_hash` 为占位死值（无对应明文）。已通过 `V32__consolidated_schema.sql`（原 V4 段）  
@@ -178,7 +209,8 @@ VALUES (32, '32', 'consolidated schema', 'SQL', 'V32__consolidated_schema.sql', 
 - **手工重建路径变化**：原 `db/scaffold_full_init.sql`（幂等手工全量初始化）已并入 V32，手工重建改为「全新库 + 执行 V32」；V32 非幂等，仅在空库或已按 §34.4 处理历史的库上执行。
 - **代码生成层不受影响**：`db/codegen/` 保留，`jooq-codegen.xml` 引用路径不变。
 - **生产环境（prod）** 若为既有库，升级时同样需按 §34.4 替换历史记录；全新库直接执行 V32。
-- **后续新增迁移** 从 `V33` 起编号，继续走 `db/migration/`。
+- **后续新增迁移** 从 `V33` 起编号，继续走 `db/migration/`；当前已至 `V36`（`V33` 文件管理 / `V34` 导出中心 / `V35` 岗位管理 / `V36` 导入中心）。
+- **已应用脚本不得再改**（包括注释）：checksum 按整个文件字节计算，改动会导致启动校验失败；处理办法见附录 O.1。
 
 ### 34.7 复现方式
 
@@ -191,7 +223,9 @@ python3 scripts/build_reference.py  # 重建分类参考件（原件已删时自
 
 ## 13. 本地启动方案
 
-### 13.1 Docker Compose 最小依赖
+### 13.1 Docker Compose 最小依赖（设计方案原文，实现已不采用）
+
+> ⚠️ **本节为《设计方案》§13 原文口径，与实现不符，仅供对照，不要照此部署**：实际实现**全流程不使用 Docker**，且调度已由 XXL-JOB 迁移为 **JobRunr**（嵌入式 `BackgroundJobServer`，随应用进程启动，无需独立 Admin 服务与 `xxl_job` 库）。实际依赖只有 MySQL 8.x 与 Redis，启动方式见 §3。
 
 ```yaml
 services:
@@ -246,39 +280,46 @@ volumes:
 
 注意：`deploy/mysql/init/01-xxl-job.sql` 必须使用 XXL-JOB 3.4.2 官方发行包中的初始化 SQL，不复制旧版本脚本。
 
-### 13.2 启动步骤
+### 13.2 启动步骤（按实现修正）
 
 ```bash
-cp .env.example .env
-docker compose up -d mysql redis xxl-job-admin
-./mvnw -pl scaffold-bootstrap -am clean verify
-./mvnw -pl scaffold-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=local
+# 1) 原生启动依赖（无 Docker）
+brew services start mysql
+brew services start redis
+
+# 2) 构建并运行（JDK 21 + 本地 Maven，离线）
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+export SPRING_PROFILES_ACTIVE=local
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o clean verify
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o spring-boot:run
 ```
+
+> 工程为**单 Maven 模块**（非 `scaffold-bootstrap` 多模块），包名为 `com.acme.scaffold`；仓库内**无 `mvnw`**，请使用上文绝对路径的 Maven。
 
 ### 13.3 冒烟检查
 
 ```bash
-curl -fsS http://localhost:8080/livez
-curl -fsS http://localhost:8080/readyz
+curl -fsS http://localhost:9090/livez
+curl -fsS http://localhost:9090/readyz
 curl -fsS http://localhost:9090/actuator/health
 curl -fsS http://localhost:9090/actuator/prometheus
-CSRF_TOKEN=$(curl -fsS -c /tmp/scaffold-cookies http://localhost:8080/api/auth/csrf)
-curl -i -b /tmp/scaffold-cookies -X POST http://localhost:8080/api/auth/login \
+curl -i -X POST http://localhost:9090/api/auth/login \
   -H "Content-Type: application/json" \
-  -H "X-XSRF-TOKEN: ${CSRF_TOKEN}" \
-  -d '{"username":"admin","password":"ChangeMe123!"}'
+  -d '{"username":"admin","password":"admin123"}'
 ```
 
-其中 `/api/auth/csrf` 返回纯文本 token，并由 Spring 同步写入 `XSRF-TOKEN` Cookie；生产前端读取该非 HttpOnly 的 CSRF Cookie，但 Refresh Token Cookie 必须保持 HttpOnly。
+> 端口按上文「端口说明」执行（应用默认 8080，部署约定 9090）；`/actuator/*` 走 `management.server.port`。
+>
+> **与设计方案的差异（实现为准）**：实际实现为 JWT 无状态认证，**不存在 `/api/auth/csrf` 端点**（设计方案 §12 该条为 N/A，见《功能差距分析与优化建议》§3），登录直接 POST `/api/auth/login` 即可，无需 CSRF token。演示库默认管理员口令见 §3「默认账号」。
 
 首次启动流程：
 
-1. Docker 初始化 `scaffold` 与 `xxl_job` 数据库。
-2. Flyway 创建框架表和种子数据。
-3. 本地 profile 检测不存在管理员时，通过环境变量生成一次性管理员账号。
-4. 控制台只输出一次性密码或要求从环境变量读取；首次登录强制修改。
-5. Flowable 通过 Flyway 导入匹配版本的官方结构，`database-schema-update=false`。
-6. Spring Boot 启动后 `/livez`、`/readyz` 可访问。
+1. 手工创建 `scaffold` 数据库（`CREATE DATABASE IF NOT EXISTS scaffold CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;`）；无 `xxl_job` 库（调度已为 JobRunr，随应用建 `jobrunr_*` 表）。
+2. Flyway 依次执行 `db/migration/` 迁移链（当前 `V32`~`V36`，schema 版本 **36**）创建框架表与种子数据。
+3. 超级管理员由 `V32__consolidated_schema.sql` 内置：`admin` / `SUPER_ADMIN`，口令见 §3「默认账号」（bcrypt，`{bcrypt}` 前缀）；非环境变量生成的一次性账号。
+4. 首次登录建议立即改密（登录验证码默认开启，见 `auth.captcha.enabled`）。
+5. Flowable 由应用自动建表：`flowable.database-schema-update: true`（非 Flyway 导入、非 `false`），`async-executor-activate: true`，`history-level: audit`。
+6. Spring Boot 启动后 `/livez`、`/readyz` 可访问（免鉴权 `PUBLIC_API`）；local profile 下 JobRunr Dashboard 监听 **8000**。
 
 > 目标：形成一个可直接创建、可本地启动、可作为后续业务系统脚手架的企业级 Java 后端基础框架。设计优先级依次为：安全正确、模块边界清晰、运维可见、低成本起步、可平滑拆分。
 
@@ -312,8 +353,10 @@ curl -i -b /tmp/scaffold-cookies -X POST http://localhost:8080/api/auth/login \
 
 | 组件 | 端口 | 说明 |
 |---|---|---|
-| 应用管理端点 | **9090** | `application.yml` `management.server.port=9090`，暴露 `/actuator/prometheus` |
-| Prometheus | **9091** | 启动加 `--web.listen-address=:9091`，避免与应用 9090 冲突 |
+| 应用（对外服务） | **9090** | 部署约定端口（API / Swagger / WebSocket）；`application.yml` 字面默认 `server.port: 8080`，需覆盖，见 §3「端口说明」 |
+| 应用管理端点 | **9090** | `application.yml` `management.server.port=9090`，暴露 `/actuator/prometheus`；与应用端口冲突时须改其一（**待确认**） |
+| JobRunr Dashboard | **8000** | 仅 local，`JOBRUNR_DASHBOARD_PORT` 可覆盖；独立于应用端口 |
+| Prometheus | **9091** | 启动加 `--web.listen-address=:9091`，避免与 9090 冲突 |
 | Grafana | **3000** | 默认 |
 | Alertmanager | **9093** | 默认 |
 
@@ -431,6 +474,45 @@ Hikari 连接池参数（`minimumIdle` / `maximumPoolSize` / `connectionTimeout`
 
 ---
 
+## 附录 O. 启动失败排查：两条高频踩坑（2026-10-17）
+
+### O.1 修改了已应用的 Flyway 迁移脚本 → 启动校验失败
+
+**现象**：启动时报 `Migration checksum mismatch for migration version xx`（`validate-on-migrate: true` 时应用直接起不来）。
+
+**根因**：Flyway 的 checksum 是对**迁移脚本整个文件的字节**计算的，不是语句级、也不是去掉注释后的语义级。因此：
+
+- **已应用过的迁移脚本一律不得再修改**——哪怕只加一行注释、改一处缩进或补一个空行，checksum 都会变，校验即失败；
+- 常见的「改注释说明」「补一句说明性 SQL 注释」都会踩中。
+
+**处理**：
+
+1. **首选**：把文件改回原样（git 还原），保持与 `flyway_schema_history` 记录一致。
+2. **确需保留修改**时：执行等价 `repair`——更新 `flyway_schema_history` 中该版本的 `checksum` 为当前文件的真实值。**真实值不能手算**（Java CRC32 与文件裸字节 CRC32 不一致），取法见 §34.4「checksum 取真实值」：在临时库上让 Flyway 真跑一次该脚本，再从 `flyway_schema_history` 读出。
+3. **任何 schema 变更一律新增版本号**（当前最新为 `V36`，下一个用 `V37`），不回头改旧脚本。
+
+### O.2 配置类自引用循环依赖 → 启动失败
+
+**现象**：启动时报 `BeanCurrentlyInCreationException` / `Requested bean is currently in creation: ...`，指向某个 `*Config`。
+
+**根因**：配置类在**构造器**中注入了**它自己声明的** `@Bean`，形成配置类实例 → 依赖该 Bean → 又需要配置类实例的自引用环。Spring Boot 3 默认 `spring.main.allow-circular-references: false`，**默认禁止**，直接启动失败。
+
+**修复**：把该 `@Bean` 方法声明为 **`static`**。静态 `@Bean` 工厂方法不依赖配置类实例，可在配置类实例化之前被调用，环即解开。
+
+```java
+@Configuration
+public class XxxConfig implements WebMvcConfigurer {
+    // ❌ 非 static：本类构造注入该 Bean → 自引用环
+    // ✅ static：不依赖配置类实例
+    @Bean
+    public static SomeBean someBean(XxxProperties properties) { ... }
+}
+```
+
+> 实例：`common/i18n/I18nConfig#localeChangeInterceptor`（构造注入 `LocaleChangeInterceptor`，故该 `@Bean` 必须为 `static`，见源码 Javadoc）；该约束由 `I18nConfigAssemblerTest` 锁定。新增配置类时若需构造注入自身声明的 Bean，照此处理。
+
+---
+
 ## 附录 P. 生产加固与质量门禁落地清单（综述）
 
 以下为《需求差距分析》§7–§9 及《设计方案》§15 阶段 5 的落地结论（完整证据见 `docs/archive/requirement-gap-analysis.md`）。
@@ -449,4 +531,10 @@ Hikari 连接池参数（`minimumIdle` / `maximumPoolSize` / `connectionTimeout`
 
 **健康探针**：`/livez`（仅 JVM/主循环，恒 200）、`/readyz`（检查必需依赖 DB，不可用时 503），`monitor/health` 包，已加入免鉴权 `PUBLIC_API`。
 
-**范围外 / N/A**：多租户、上传安全（无上传接口）、压测/容量基线/故障注入/回滚演练（需原生环境）、Docker Compose（采用原生进程启动）。
+**范围外 / N/A**：多租户、压测/容量基线/故障注入/回滚演练（需原生环境）、Docker Compose（采用原生进程启动）。
+
+> 说明：**文件上传已实现**（`system/file` + `V33__file_management.sql`，见《开发手册》文件管理章节），原「无上传接口」的表述已失效；上传安全（类型/大小校验、存储目录隔离）随该模块落地，不在「范围外」。
+
+---
+
+> 更新日期：2026-10-17（本轮按代码现状核对并修订：§3 启动命令改为 JDK 21 + 本机绝对路径 Maven（`-o`），新增「端口说明」与「构建与测试命令」小节并标注 9090/8080 端口冲突待确认；JobRunr Dashboard 端口修正为 8000；§13 标记 Docker/XXL-JOB 为设计方案原文并给出按实现的启动步骤与冒烟命令（无 `/api/auth/csrf`）；端口规划表补齐应用端口与 JobRunr 面板；新增附录 O「两条高频踩坑」（Flyway checksum 不可改已应用脚本 / 配置类自引用须 `static @Bean`）；迁移链更新至 V32~V36、schema 版本 36；修正「无上传接口」的失效表述）

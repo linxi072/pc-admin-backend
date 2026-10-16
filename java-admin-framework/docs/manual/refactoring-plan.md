@@ -1,7 +1,8 @@
 # 职责拆分与分步重构方案（refactoring-plan）
 
-> 生成日期：2026-10-16 ｜ 分支：`feat/V1.0.2` ｜ 基线：M5 缓存 / M6 邮件 / 菜单缓存 / ECharts 按需 之后
+> 生成日期：2026-10-16 ｜ 更新日期：2026-10-17 ｜ 分支：`feat/V1.0.2` ｜ 基线：M5 缓存 / M6 邮件 / 菜单缓存 / ECharts 按需 之后
 > 目标：**明确各模块边界与职责、解耦重复逻辑**，并按可验证的小步推进；所有改动保持业务功能、外部接口与表结构不变。
+> **2026-10-17 复核**：R1 / R2 / B1a / R3 / F1 五项已在磁盘确认落地；B1 / B2 / B5 / C1 余量 / C2 仍**未完成**（见 §4 各批次「当前状态」）。当前基线：447 主源 / 114 测试源 / 559 例全绿，`check-conventions.py` EXIT=0。
 
 ---
 
@@ -43,6 +44,8 @@
 | D2 | 私有 `escapeCsv` 与 `CsvExporter.escape` 转义逻辑重复 | `ReportService` vs `common/export/CsvExporter` | med |
 | D3 | 报表自建 CSV 拼接与导出中心 `CsvExporter` 双轨 | `ReportService#exportCsv` | med |
 
+> 状态（2026-10-17）：D1 已由 R2 消除、D2/D3 已由 R3 消除。
+
 ### 2.2 模块边界
 | # | 问题 | 位置 | 严重度 |
 |---|---|---|---|
@@ -52,18 +55,22 @@
 | B4 | `OnlineSessionRules` / `RestrictionRules` 操作 `system.entity` 却错放 `security.online.rules`，迫使 `system.service.OnlineUserService` 反向 import security | 2 个类 | med |
 | B5 | `system ↔ security` 双向耦合（B1/B4 的合称）：`UserService`/`RoleDataScopeService`/`ProfileService` 等 import `security.password/token/permission` | 5+ 处 | high |
 
+> 状态（2026-10-17）：B3 已由 R1 消除、B4 已由 B1a 消除；**B1 / B2 / B5 仍存在**（B1：`PermissionService` 仍直 import 6 个 `system.entity` DO；B2：`GenericStepDelegate` 仍 `import system.service.MessageService`，仓库内尚无 `StepNotifyPort`；B5：`system` 侧仍有约 38 处 `com.acme.scaffold.security.*` import，集中在 context / permission / token.service / password / ratelimit）。
+
 ### 2.3 职责过重
 | # | 问题 | 位置 | 严重度 |
 |---|---|---|---|
-| C1 | `ReportService` 880 行：编排 + 统计原语 + CSV 导出三职责混杂 | `workbench/report/service/ReportService` | med |
+| C1 | `ReportService` 761 行（原 880 行，R3 抽出 CSV 写出后下降）：编排 + 统计原语两职责混杂 | `workbench/report/service/ReportService` | med |
 | C2 | `ProfileService` 552 行 / `OnlineUserService` 489 行 | `system/service` | low |
 
+> 状态（2026-10-17）：C1 部分缓解（880 → 761 行，CSV 写出已抽离，统计原语仍在类内）；C2 未启动，两个文件行数与基线一致。
+
 ### 2.4 文档失同步（视同缺陷修复）
-- 「限流注解化」（§7 标已落地）与「N+1 查询告警」（§6 仍列为建议）实为已推送提交（52ac3f2 / 4eb4f5b），文档未更新。
+- ~~「限流注解化」（§7 标已落地）与「N+1 查询告警」（§6 仍列为建议）实为已推送提交（52ac3f2 / 4eb4f5b），文档未更新。~~ **已于 2026-10-17 修复**：《功能差距分析与优化建议》§5/§6/§7 已统一标注为「已交付/已完成」。
 
 ---
 
-## 3. 已实施步骤（2026-10-16，全部经 `mvn -o clean test` + `check-conventions.py` EXIT=0 验证）
+## 3. 已实施步骤（2026-10-16 实施，2026-10-17 复核确认；全部经 `mvn -o clean test` + `check-conventions.py` EXIT=0 验证）
 
 | 步骤 | 内容 | 验证 |
 |---|---|---|
@@ -75,28 +82,34 @@
 
 > F1 接口/数据结构说明：无新端点、无请求响应结构变更；`GET /api/system/export/download` 的查询参数集合由固定三键扩展为全量透传（旧调用方完全兼容），新增模板编码 `report`。前端 `/api/report/export` 报表页导出入口保留不动（两入口共用 ReportCsvWriter）。
 
+> **2026-10-17 磁盘复核**：`common/tree/TreeBuilder.java` 存在且被菜单/机构复用（R2）；`system/online/rules/{OnlineSessionRules,RestrictionRules}.java` 已归位，security 侧无同名 rules 类（B1a）；`workbench/report/csv/ReportCsvWriter.java` 与 `workbench/report/export/{ReportExportTask,ReportSheets}.java` 存在（R3/F1）；`codegen/CodeTemplates.java` 已无 `job.service.JobService` import（R1）。`ReportService.java` 现为 761 行。
+
 ---
 
 ## 4. 后续批次计划（按风险从低到高，每步独立提交、独立验证）
 
 ### 批次 2：Port 解耦 workflow → system（B2）
+- **当前状态（2026-10-17）**：**未开始**。`GenericStepDelegate` 仍直连 `system.service.MessageService`，仓库内无 `StepNotifyPort`。
 - **范围**：`common/notification` 或 `workflow` 定义 `StepNotifyPort`（`sendCc(List<Long> userIds, String title, String content)`）；`system` 提供适配器委托 `MessageService#sendCcNotification`；两个 StepDelegate 改注 Port。
 - **风险**：低-中。工作流步骤通知行为不变（仍发站内消息），仅依赖方向由「workflow→system 实现」改为「workflow→Port，system→适配器」。
 - **回滚**：单提交 revert。
 - **验证**：`mvn -o clean test` + check-conventions；新增 `StepNotifyPort` 适配器单测（复用既有 MessageService mock 范式）。
 
 ### 批次 3：security → system entity 直连改 Port（B1/B5，最重）
+- **当前状态（2026-10-17）**：**未开始**。`security.permission.PermissionService` 仍直 import 6 个 `system.entity` DO；`system → security` 反向边仍约 38 处。
 - **范围**：`security.permission` 定义 `PermissionDataPort`（按角色查菜单/API 资源、按用户查角色等），返回 security 自有的快照 record（如 `RolePermissionSnapshot`）；`system` 提供实现（内部查 `sys_role_menu` 等表）。同步评估 `system → security.token.TokenVersionService` 等反向依赖是否随 `system.online.rules` 归位后自然消解。
 - **风险**：高。触碰鉴权主链路；须先补 PermissionService 现有行为的黄金测试（对照 MySQL IT 行为），再切换。
 - **前置**：MySQL 集成测试环境可跑（本地/CI）。
 - **验证**：PermissionService 相关单测 + `*IT` 全量 + 手工登录/菜单/接口授权回归。
 
 ### 批次 4：ReportService 继续拆分（C1 余量）
+- **当前状态（2026-10-17）**：**未开始**（R3 已先行抽走 CSV 写出，`ReportService` 现 761 行，统计原语仍待抽离）。
 - **范围**：统计原语（`fillHourly/fillDaily/toDistribution/p95Of/durationCounts` 等纯函数）抽 `workbench/report/stats/ReportStats`；`ReportService` 仅保留编排与条件构造。
 - **风险**：低（纯函数移动 + static import 调整）。
 - **验证**：既有 ReportService 单测随迁 + `mvn -o clean test`。
 
 ### 批次 5：ProfileService / OnlineUserService 拆分（C2）
+- **当前状态（2026-10-17）**：**未开始**（`ProfileService` 552 行 / `OnlineUserService` 489 行）。
 - **范围**：`ProfileService`（552 行）按「资料维护 / 密码修改 / 令牌管理」拆辅助类；`OnlineUserService`（489 行）抽出会话查询与登录限制两个协作者。
 - **风险**：中。构造注入面扩大，须保持公开方法签名不变。
 - **验证**：全量单测 + check-conventions。
@@ -110,3 +123,7 @@
 3. **不改外部契约**：接口路径、请求/响应结构、表结构不变；确需变更时先获显式确认。
 4. **双验证门槛**：`mvn -o clean test` 全量绿（禁增量假阳性）+ `scripts/check-conventions.py` EXIT=0（H* 硬规则）。
 5. **不推送**：本地提交由用户本机推送 `origin/feat/V1.0.2`。
+
+---
+
+> 更新日期：2026-10-17（本轮按磁盘现状复核：确认 R1/R2/B1a/R3/F1 已落地并补记复核证据；C1 行数 880→761；§2.4 文档失同步标记已修复；为批次 2–5 各补「当前状态」，明确 B1/B2/B5/C1 余量/C2 仍待实施）

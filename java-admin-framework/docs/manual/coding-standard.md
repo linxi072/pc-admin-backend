@@ -35,7 +35,8 @@ com.acme.scaffold
 ├── codegen         # 代码生成器
 ├── observability   # 指标/链路追踪（通用，非业务）
 ├── realtime        # WebSocket 实时推送
-├── common          # 跨域公共件：统一响应/异常/分页/幂等/审计/AOP
+├── kafka           # Kafka 顺序消费与分区键约定
+├── common          # 跨域公共件：统一响应/异常/分页/幂等/审计/导出/导入/i18n/脱敏/树构建
 ├── config          # 全局 Spring 配置装配（数据源/安全/Web/Redis/JobRunr…）
 └── jooq            # jOOQ 动态 DSL 与 Record 映射
 ```
@@ -44,7 +45,12 @@ com.acme.scaffold
 
 ### 2.2 层子包（二级，按职责）
 
-特性模块内推荐按下表拆子包。已落地的模块：`security`、`system`、`workflow`、`codegen`、`monitor`、`job`、`workbench`；`realtime` / `observability` 及 `common` / `config` / `jooq` 通用包当前为平铺（允许，规模增大后按本表拆分，校验脚本会给出概览）。
+特性模块内推荐按下表拆子包。**已按层子包组织**的模块（2026-10-17 由 `check-conventions.py` W2 概览核实）：`codegen`、`common`、`job`、`kafka`、`monitor`、`realtime`、`security`、`system`、`workbench`、`workflow`；仍为**平铺**的是三个通用包 `config`（23 类）/ `jooq`（7 类）/ `observability`（12 类）。
+
+> 平铺的通用包允许**按关注点**拆子包而不带层名——如 `config.web` / `config.jooq` / `config.redis` / `config.cache` / `config.datasource` / `config.jobrunr` / `config.observability`、`jooq.dsl` / `jooq.mapping` / `jooq.paging`。这类子包**不是层**，因此：
+> - H3 依赖方向判定只认包路径**最后一段**是否落在 `TIER` 表内（domain/entity/model 为 0 层，config 为 1，service 为 2，controller/web 为 3），最后一段非层 token 的按 neutral 跳过；
+> - W1 错层检测对 `*Config` 类做了豁免：只要包路径任意一段含 `config` 即不告警，故 `config.web.SecurityConfig` 属正常放置；
+> - W2 概览中这类模块仍计为「平铺」，属预期，不需强行补 `controller`/`service` 等层名。
 
 | 子包 | 承载内容 | 典型后缀 | 禁止做的事 |
 |---|---|---|---|
@@ -133,11 +139,11 @@ controller  ──▶  service  ──▶  domain / port
 | H1 | 硬（失败） | 包级循环依赖（强连通分量检测） |
 | H2 | 硬（失败） | 重复的全限定类名 |
 | H3 | 硬（失败） | 依赖方向不变量（见 §2.3 禁止项） |
-| H4 | 硬（失败） | 数据类放置（`*DTO`/`*VO`/`*Request`/`*Command`/`*Query`/`*Response` 应在 `dto`/`vo` 子包；`*DO`/`*Entity`/`*Model` 应在 `domain`/`entity`/`model` 子包；包路径任意一段命中即合规，如 `workflow.dto.design` 不误报） |
-| W1 | 警告 | 疑似错层放置（`*Controller` 落在 `*service` 包等，仅当类名与包末段均为显式层 token 且冲突时） |
-| W2 | 警告 | 模块分层概览（已分层 vs 平铺，供人工参考，不强制） |
+| H4 | 硬（失败） | 数据类放置（对应脚本 `DATA_CLASS_RULES`）：`*DO` / `*PO` / `*Entity` 应在 `domain`/`entity`/`model`/`po` 子包，`*Model` 应在 `domain`/`entity`/`model` 子包；`*DTO` / `*VO` / `*Request` / `*Response` / `*Command` / `*Query` 应在 `dto`/`vo`/`domain`/`entity`/`model` 子包；**包路径任意一段命中即合规**（如 `workflow.dto.design` 不误报）。后缀匹配取最长优先，且类名须长于后缀本身（避免 `DO`、`Entity` 这类同名误伤） |
+| W1 | 警告 | 疑似错层放置（类名层承载后缀 `LAYER_BEARING` 与包末段层 `TIER` **均为显式层且冲突**时才报，如 `*Controller` 落在 `*service` 包；`*Config` 类在包路径含 `config` 段时豁免；`*Filter`/`*Aspect`/`*Properties` 等无 tier 后缀不误报） |
+| W2 | 警告 | 模块分层概览（已分层 vs 平铺，供人工参考，不强制）。当前实际输出：已分层 `codegen(13) / common(58) / job(28) / kafka(13) / monitor(30) / realtime(6) / security(85) / system(154) / workbench(26) / workflow(37)`；平铺 `config(23) / jooq(7) / observability(12)` |
 
-退出码：`0` 仅含 W* 或无问题；`1` 存在任何 H* 硬违规。
+退出码：`0` 仅含 W* 或无问题；`1` 存在任何 H* 硬违规。当前基线：扫描 447 个 Java 文件，H1–H4 全部通过，仅 W2 概览输出。
 
 ### 5.2 使用
 
@@ -183,6 +189,10 @@ convention-check:
 ## 7. 例外与演进
 
 - 个别历史类命名未套标准后缀（如 `Alert`、`Vault`、`Captcha`、`ClaimRules` 等语义化名称），属有意保留，不强制改名；新增代码须遵循 §3。
-- 平铺模块（`realtime` / `observability` 及 `common` / `config` / `jooq` 通用包）当前允许；当某模块类数超 ~15 且出现多职责混杂时，应依 §2.2 拆层子包（`monitor` / `job` / `workbench` 已于 V1.0.2 完成拆分）。
+- 平铺模块当前仅剩通用包 `config` / `jooq` / `observability`，属允许状态：它们按**关注点**而非按层拆子包（见 §2.2）。特性模块（`monitor` / `job` / `workbench` / `codegen` / `security` / `system` / `workflow` / `common` / `kafka` / `realtime`）均已完成层子包拆分；当某平铺模块类数超 ~15 且出现多职责混杂时，应依 §2.2 拆层子包。
 - 数据类放置已升级为硬规则 **H4**（原 W3 警告级）：`common.api` / `common.audit` / `common.idempotency` / `security.token` / `security.log` / `system.file` / `system.notification` 等处的 9 个历史放置类已于 V1.0.2 第二轮拆分全部归位至 `dto` / `domain` 子包，具备硬规则条件；新增数据类未按 §2.2 放置时将直接阻断合并。
-- 本约定随评审演进；任何修改须同步更新本文档与 `check-conventions.py` 的 `TIER` / `FORBIDDEN` / `LAYER_BEARING` 三张表。
+- 本约定随评审演进；任何修改须同步更新本文档与 `check-conventions.py` 的 `TIER` / `FORBIDDEN` / `LAYER_BEARING` / `DATA_CLASS_RULES` 四张表。
+
+---
+
+> 更新日期：2026-10-17（本轮按 `scripts/check-conventions.py` 实际规则与运行输出核对：修正「平铺模块」清单为 `config`/`jooq`/`observability` 三通用包，并补充「通用包可按关注点拆子包、不带层名」及其在 H3/W1/W2 下的判定口径；H4 描述补齐 `*PO` 与后缀最长匹配/长度门槛；补入顶层包 `kafka` 及 `common` 的新增子职责；标注当前基线 447 文件、H* 全通过、校验器自测 12 例）
