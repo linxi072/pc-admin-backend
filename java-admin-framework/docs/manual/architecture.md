@@ -1149,11 +1149,12 @@ String en  = i18nService.getMessage("error.not_found", Locale.US); // 指定语�
 - **导入语义（逐行独立）**：单行失败不影响其余行（每行由业务服务自身事务保证），失败明细随结果返回供修正后重传；全空行（Excel 编辑残留）自动跳过且不计入统计，但**行号仍按文件物理位置编号**，便于用户对照定位。
 - **前置校验**：表头必须与模板逐列一致（顺序敏感，列数或名称不符即 400 并提示下载模板）；行数超 `app.import.max-rows` 拒绝并提示拆分文件；解析失败（非 OOXML / 非法 ZIP）统一转 400，避免以 500 暴露内部堆栈。
 - **结果模型**：`ImportResult(dryRun, totalRows, successCount, failureCount, errors)`。`failureCount` 与 `errors` **刻意分离**——失败行数始终是真实值，而 `errors` 明细受 `app.import.max-errors` 上限约束（防大文件产生超大响应体），因此 `errors.size()` 可能小于 `failureCount`。
+- **失败行报告（CSV）**：上传接口支持 `errorReport=true`——同一请求内若存在失败行，响应改为 CSV 附件（UTF-8 BOM，列：数据行号 / 失败原因 / 模板各列**原始值**），用户可离线修复后重传；无失败行仍返回 JSON 统计。**与本次导入同请求完成，不产生二次执行**。报告单元格对 `= + - @`、Tab、CR 开头的值加单引号前缀（OWASP 防 CSV 公式注入）；明细范围与 `errors` 一致（同受 `max-errors` 约束）。前端在导入对话框以「失败时下载错误报告」开关启用，走 `requestRaw` blob 通道按 content-type 区分 JSON/CSV。
 - **配置**（`system/importer/config/ImportProperties`，`app.import.*`，缺省即生效）：`max-rows` 默认 5000（下限钳 1）、`max-errors` 默认 200（下限钳 1）。
 - **权限与审计**：`system:import:read`（模板列表 / 下载模板）、`system:import:write`（上传导入），由 `ApiResourceAutoSyncRunner` 自动登记并授予 SUPER_ADMIN；上传接口另加 `@RateLimit(max = 10, windowSeconds = 60, scope = IP)`。`@AuditOperation(recordParams = false)`——**刻意不记录入参**，因 `MultipartFile` 无法安全序列化进审计摘要。
 - **试点实现**：`system/importer/DictDataImportTask`（字典数据），列宽上限与 `sys_dict_data` 表结构对齐（类型码 64 / 标签 100 / 值 100 / 备注 255），落库复用 `DictDataService.create` 从而自动继承「同类型下字典值唯一」规则与 `dict-data` 缓存整驱。
 - **前端**：`pc-admin-vue3-vite/src/views/system/ImportCenterView.vue` + `api/import.js`，页内提供「下载模板（XLSX/CSV）→ 选择文件 → 预检 → 确认导入 → 失败明细表」闭环；路由 `/system/import`（菜单与权限由后端驱动，见 `V36__import_center.sql`）。
-- **测试**：`CsvDataReaderTest`（BOM/引号语义/三种行分隔/列宽补齐/空行保真）、`XlsxDataReaderTest`（与写出器往返一致、按 `r` 属性对齐稀疏列、共享字符串含富文本、非 OOXML 拒绝）、`ImportValidatorsTest`、`ImportCenterServiceTest`（格式识别/表头校验/行号定位/空行跳过/业务冲突转行错误/预检不落库/行数上限/明细上限分离/CSV 与 XLSX 等价）、`ImportControllerTest`（模板列表与下载、上传预检、四类错误分支）、`DictDataImportTaskTest`（纯校验不触库、trim 与空值归一、冲突透传）共 48 例。
+- **测试**：`CsvDataReaderTest`（BOM/引号语义/三种行分隔/列宽补齐/空行保真）、`XlsxDataReaderTest`（与写出器往返一致、按 `r` 属性对齐稀疏列、共享字符串含富文本、非 OOXML 拒绝）、`ImportValidatorsTest`、`ImportCenterServiceTest`（格式识别/表头校验/行号定位/空行跳过/业务冲突转行错误/预检不落库/行数上限/明细上限分离/CSV 与 XLSX 等价/失败行原始值捕获）、`ImportControllerTest`（模板列表与下载、上传预检、四类错误分支、失败报告 CSV 附件与防公式注入、全成功回落 JSON）、`DictDataImportTaskTest`（纯校验不触库、trim 与空值归一、冲突透传）共 52 例。
 
 ### 8.7 敏感数据脱敏（common/sensitive）
 
