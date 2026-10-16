@@ -3,6 +3,7 @@ package com.acme.scaffold.workbench.report.service;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
 import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
 import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
@@ -27,7 +28,6 @@ import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -715,135 +715,15 @@ public class ReportService {
     }
 
     // ==================================================================
-    // 导出 CSV
+    // 导出 CSV（行模型与序列化已抽至 report/export/ReportCsvWriter，
+    // 转义/BOM/行尾统一走 common/export/CsvExporter；本类只做编排）
     // ==================================================================
 
     /** 导出 CSV：使用视角输出汇总+类别+状态+趋势四段；统计视角输出汇总+分布+明细+趋势四段。UTF-8 含 BOM。 */
     public ReportCsvExport exportCsv(ReportQuery query) {
         ReportVO vo = report(query);
-        StringBuilder sb = new StringBuilder();
-        sb.append('\uFEFF');
-        sb.append("报表管理导出,,\n");
-        sb.append("统计窗口,").append(vo.start()).append(" ~ ").append(vo.end()).append('\n');
-        sb.append("报表类型,").append(vo.title()).append('\n');
-        if (query.keyword() != null && !query.keyword().isBlank()) {
-            sb.append("关键字,").append(query.keyword().trim()).append('\n');
-        }
-        if (isStatView(vo.type())) {
-            appendStatCsv(sb, vo);
-        } else {
-            appendUsageCsv(sb, vo);
-        }
-        String filename = String.format("报表管理_%s_%s_%s.csv",
-                query.rangeType().name(), vo.start().substring(0, 10), vo.end().substring(0, 10));
-        return new ReportCsvExport(filename, sb.toString().getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static boolean isStatView(String type) {
-        return ReportType.JOB_EXEC.name().equals(type)
-                || ReportType.LOGIN.name().equals(type)
-                || ReportType.API_CALL.name().equals(type);
-    }
-
-    private static void appendUsageCsv(StringBuilder sb, ReportVO vo) {
-        sb.append('\n');
-        sb.append("汇总指标,数值,\n");
-        sb.append("访问量,").append(vo.summary().totalVisits()).append(",\n");
-        sb.append("活跃用户数,").append(vo.summary().activeUsers()).append(",\n");
-        sb.append("成功率(%),").append(vo.summary().successRate()).append(",\n");
-        sb.append("失败次数,").append(vo.summary().failedVisits()).append(",\n");
-        sb.append("涉及模块数,").append(vo.summary().moduleCount()).append(",\n");
-        sb.append("平均耗时(ms),").append(vo.summary().avgDurationMs()).append(",\n");
-        sb.append("最大耗时(ms),").append(vo.summary().maxDurationMs()).append(",\n");
-        sb.append("P95耗时(ms),").append(vo.summary().p95DurationMs()).append(",\n");
-        sb.append('\n');
-        sb.append("类别分布,操作次数,占比(%)\n");
-        for (ReportCategoryStatVO c : vo.categoryStats()) {
-            sb.append(escapeCsv(c.moduleCode())).append(',')
-                    .append(c.count()).append(',')
-                    .append(c.ratio()).append('\n');
-        }
-        sb.append('\n');
-        sb.append("状态分布,操作次数,占比(%)\n");
-        for (ReportStatusStatVO s : vo.statusStats()) {
-            sb.append(escapeCsv(s.statusLabel())).append(',')
-                    .append(s.count()).append(',')
-                    .append(s.ratio()).append('\n');
-        }
-        sb.append('\n');
-        sb.append("时间,访问量,活跃用户数,失败数\n");
-        for (ReportSeriesPointVO p : vo.trend()) {
-            sb.append(escapeCsv(p.bucket())).append(',')
-                    .append(p.visits()).append(',')
-                    .append(p.activeUsers()).append(',')
-                    .append(p.failed()).append('\n');
-        }
-    }
-
-    private static void appendStatCsv(StringBuilder sb, ReportVO vo) {
-        String secondary = secondaryLabel(vo.type());
-        sb.append('\n');
-        sb.append("汇总指标,数值,\n");
-        sb.append(mainLabel(vo.type())).append(',').append(vo.summary().totalVisits()).append(",\n");
-        sb.append(secondary).append(',').append(vo.summary().activeUsers()).append(",\n");
-        sb.append("成功率(%),").append(vo.summary().successRate()).append(",\n");
-        sb.append("失败次数,").append(vo.summary().failedVisits()).append(",\n");
-        sb.append("平均耗时(ms),").append(vo.summary().avgDurationMs()).append(",\n");
-        sb.append("最大耗时(ms),").append(vo.summary().maxDurationMs()).append(",\n");
-        sb.append("P95耗时(ms),").append(vo.summary().p95DurationMs()).append(",\n");
-        sb.append('\n');
-        sb.append("分布,数量,占比(%)\n");
-        for (ReportDistributionVO d : vo.distribution()) {
-            sb.append(escapeCsv(d.label())).append(',')
-                    .append(d.count()).append(',')
-                    .append(d.ratio()).append('\n');
-        }
-        sb.append('\n');
-        ReportDetailTableVO details = vo.details();
-        sb.append("明细\n");
-        if (details != null && details.columns() != null && !details.columns().isEmpty()) {
-            for (ReportDetailTableVO.Column c : details.columns()) {
-                sb.append(escapeCsv(c.label())).append(',');
-            }
-            sb.append('\n');
-            for (Map<String, String> row : details.rows()) {
-                for (ReportDetailTableVO.Column c : details.columns()) {
-                    sb.append(escapeCsv(row.get(c.key()))).append(',');
-                }
-                sb.append('\n');
-            }
-        }
-        sb.append('\n');
-        sb.append("时间,").append(mainLabel(vo.type())).append(',')
-                .append(secondary).append(",失败数\n");
-        for (ReportSeriesPointVO p : vo.trend()) {
-            sb.append(escapeCsv(p.bucket())).append(',')
-                    .append(p.visits()).append(',')
-                    .append(p.activeUsers()).append(',')
-                    .append(p.failed()).append('\n');
-        }
-    }
-
-    /** 汇总/趋势段主指标中文名（按统计类型）。 */
-    private static String mainLabel(String type) {
-        if (ReportType.JOB_EXEC.name().equals(type)) return "执行次数";
-        if (ReportType.LOGIN.name().equals(type)) return "登录次数";
-        return "调用量";
-    }
-
-    /** 汇总/趋势段次指标中文名（按统计类型）。 */
-    private static String secondaryLabel(String type) {
-        if (ReportType.JOB_EXEC.name().equals(type)) return "涉及任务数";
-        if (ReportType.LOGIN.name().equals(type)) return "活跃登录用户";
-        return "涉及端点数";
-    }
-
-    private static String escapeCsv(String s) {
-        if (s == null) return "";
-        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
-            return "\"" + s.replace("\"", "\"\"") + "\"";
-        }
-        return s;
+        return new ReportCsvExport(ReportCsvWriter.fileName(query, vo),
+                ReportCsvWriter.toCsvBytes(ReportCsvWriter.lines(query, vo)));
     }
 
     // ==================================================================
