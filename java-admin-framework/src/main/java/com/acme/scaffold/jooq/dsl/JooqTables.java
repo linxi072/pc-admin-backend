@@ -77,6 +77,15 @@ public final class JooqTables {
     public static final TableRef SYS_USER_ORG = new TableRef("sys_user_org",
             "tenant_id", "user_id", "org_id", "is_primary", "created_at");
 
+    /** 岗位：编码租户内唯一，软删除 + 乐观锁，范式对齐 sys_role。 */
+    public static final TableRef SYS_POST = new TableRef("sys_post",
+            "id", "tenant_id", "post_code", "post_name", "post_sort", "status", "remark",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    /** 用户-岗位关联（多对多）。无 deleted 列，分配整体替换为物理删除。 */
+    public static final TableRef SYS_USER_POST = new TableRef("sys_user_post",
+            "id", "tenant_id", "user_id", "post_id", "created_at");
+
     // ---------------- 系统配置类 ----------------
 
     public static final TableRef SYS_DICT_TYPE = new TableRef("sys_dict_type",
