@@ -555,6 +555,8 @@ public PageResult<UserView> pageUsers(UserQuery query) {
 - 多角色默认取并集；高安全场景可针对特定资源配置交集策略。
 - 所有可应用数据权限的查询必须有 `resource` 和可过滤字段定义。
 
+> **缓存与数据权限的耦合（易踩坑）**：带 `@DataScope` 的热点读（如 `OrgService.tree()` 机构树）缓存时，**绝不能**用单一全局键（`menu-tree` 那种全局菜单树可以，因为菜单树对所有人都相同）。否则首调（多为 ALL 权限管理员）会把全量树写入缓存，受限用户随后命中缓存读到越权子树。正确做法是以「数据权限范围签名」为缓存键隔离：`ALL` / `SELF:<userId>` / `ORG:<id 升序>`（见 `OrgService.orgScopeKey()`）。同时须保证缓存键在 `DataScopeContext` 写入之后计算——本项目将 `DataScopeAspect` 置为 `@Order(HIGHEST_PRECEDENCE)`（最外层），使缓存拦截器计算键时上下文已就绪；若切面晚于缓存拦截器执行，键会恒为 `ALL` 而把受限范围误并入管理员缓存。机构写路径（create/update/delete）统一 `allEntries` 整缓存驱逐。
+
 > 目标：形成一个可直接创建、可本地启动、可作为后续业务系统脚手架的企业级 Java 后端基础框架。设计优先级依次为：安全正确、模块边界清晰、运维可见、低成本起步、可平滑拆分。
 
 ## 6. 核心表结构
