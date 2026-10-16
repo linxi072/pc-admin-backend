@@ -66,17 +66,19 @@ public final class CsvExporter {
         if (value == null) {
             return "";
         }
-        boolean needQuote = value.indexOf(COMMA) >= 0
-                || value.indexOf(QUOTE) >= 0
-                || value.indexOf('\n') >= 0
-                || value.indexOf('\r') >= 0;
+        // 先做公式注入中和，再按 RFC4180 加引号——顺序不可颠倒，否则前置的单引号会被包进引号内失效
+        String safe = neutralizeFormula(value);
+        boolean needQuote = safe.indexOf(COMMA) >= 0
+                || safe.indexOf(QUOTE) >= 0
+                || safe.indexOf('\n') >= 0
+                || safe.indexOf('\r') >= 0;
         if (!needQuote) {
-            return value;
+            return safe;
         }
-        StringBuilder sb = new StringBuilder(value.length() + 2);
+        StringBuilder sb = new StringBuilder(safe.length() + 2);
         sb.append(QUOTE);
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
+        for (int i = 0; i < safe.length(); i++) {
+            char c = safe.charAt(i);
             if (c == QUOTE) {
                 sb.append(QUOTE);
             }
@@ -84,5 +86,46 @@ public final class CsvExporter {
         }
         sb.append(QUOTE);
         return sb.toString();
+    }
+
+    /**
+     * CSV 公式注入防护（CWE-1236）：以 {@code = + - @}、Tab、CR 开头的单元格在 Excel / WPS 打开时
+     * 会被当作公式执行，导出内容含用户可控字段（用户名、备注等）即构成注入面。前置单引号强制按文本处理。
+     *
+     * <p>例外：{@code -5}、{@code +3.14} 这类合法数值不中和，避免数值列被整体转成文本。</p>
+     */
+    private static String neutralizeFormula(String value) {
+        if (value.isEmpty()) {
+            return value;
+        }
+        char c = value.charAt(0);
+        boolean risky = c == '=' || c == '+' || c == '-' || c == '@' || c == '\t' || c == '\r';
+        if (!risky) {
+            return value;
+        }
+        if ((c == '-' || c == '+') && isPlainNumber(value.substring(1))) {
+            return value;
+        }
+        return "'" + value;
+    }
+
+    /** 是否为「纯数字」（可含一个小数点），用于区分负数值与以 - 开头的公式。 */
+    private static boolean isPlainNumber(String s) {
+        if (s.isEmpty()) {
+            return false;
+        }
+        boolean dotSeen = false;
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (ch >= '0' && ch <= '9') {
+                continue;
+            }
+            if (ch == '.' && !dotSeen) {
+                dotSeen = true;
+                continue;
+            }
+            return false;
+        }
+        return true;
     }
 }
