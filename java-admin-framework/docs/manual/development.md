@@ -79,8 +79,8 @@
 | 数据库 | MySQL 8.x，库名 **`scaffold`** | `jdbc:mysql://localhost:3306/scaffold`；Flyway 自动建表 |
 | 迁移链 | `db/migration/` `V32`~`V36`，schema 版本 **36** | `validate-on-migrate: true` |
 | Redis | `127.0.0.1:6379`（local） | 缓存 / Token 黑名单 / 在线会话 |
-| 应用端口 | **9090** | 见下方端口说明 |
-| Actuator | `management.server.port` = **9090** | `/actuator/health`、`/actuator/prometheus` |
+| 应用端口 | **8080** | `server.port`（API / Swagger / WebSocket），见下方端口说明 |
+| Actuator | `management.server.port` = **9090** | 独立管理端口，`/actuator/health`、`/actuator/prometheus` |
 | JobRunr Dashboard | **8000**（仅 local，`JOBRUNR_DASHBOARD_PORT` 可覆盖） | `http://localhost:8000/dashboard`，**不在应用端口上** |
 | 前端 | `pc-admin-vue3-vite`，`npm run dev`（5173）/ `npm run build` / `npm run preview`（4173） | `vite.config.js` 代理 `/api`、`/ws` |
 
@@ -106,17 +106,17 @@ cd ../pc-admin-vue3-vite && npm install && npm run dev     # 联调
 npm run build                                              # 产物校验
 ```
 
-### 0.2 端口说明（⚠️ 待确认）
+### 0.2 端口说明
 
-`src/main/resources/application.yml` 的字面配置为 `server.port: 8080` + `management.server.port: 9090`；本手册按部署约定以 **9090** 为应用对外端口记述。若启动时未覆盖 `server.port`，则应用端口为 **8080**、Actuator 为 **9090**。联调前请确认实际端口：
+应用对外端口为 **8080**（`server.port`），Actuator 管理端点为独立端口 **9090**（`management.server.port`），二者互不冲突。联调前如需确认实际端口：
 
 ```bash
 # 查看启动日志中两行端口
 grep "Tomcat started on port" logs/java-admin-framework.log | tail -2
-# 或修改 vite.config.js 的 /api、/ws 代理目标与后端一致
+# 或修改 vite.config.js 的 /api、/ws 代理目标与后端一致（默认指向 8080）
 ```
 
-> 完整部署侧端口规划与冲突处置见《部署手册》§3「端口说明」。
+> 完整部署侧端口规划见《部署手册》§3「端口说明」。
 
 ## 5. 工作流审批
 
@@ -138,7 +138,7 @@ grep "Tomcat started on port" logs/java-admin-framework.log | tail -2
 
 ```bash
 # 发起（受让人/驳回策略来自已发布设计；业务字段经 formFields 透传，键名需与设计 schema 的 field 一致）
-curl -X POST http://localhost:9090/api/workflow/instances/start \
+curl -X POST http://localhost:8080/api/workflow/instances/start \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"leaveApproval","businessType":"LEAVE","businessId":"L001",
        "title":"张三请假",
@@ -596,12 +596,12 @@ workflow/
 
 ```bash
 # 1) 新建草稿
-curl -X POST http://localhost:9090/api/workflow/definitions \
+curl -X POST http://localhost:8080/api/workflow/definitions \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"purchase","processName":"采购审批","description":"示例"}'
 
 # 2) 保存设计（节点 + 连线；参考 WorkflowDesignView 结构）
-curl -X PUT http://localhost:9090/api/workflow/definitions/1 \
+curl -X PUT http://localhost:8080/api/workflow/definitions/1 \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processName":"采购审批","description":"示例",
        "nodes":[{"id":"start","type":"START","name":"发起"},
@@ -611,10 +611,10 @@ curl -X PUT http://localhost:9090/api/workflow/definitions/1 \
                 {"id":"e2","sourceNodeId":"a1","targetNodeId":"end"}]}'
 
 # 3) 发布
-curl -X POST http://localhost:9090/api/workflow/definitions/1/publish -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:8080/api/workflow/definitions/1/publish -H "Authorization: Bearer $TOKEN"
 
 # 4) 用自定义流程发起（受让人由设计解析，无需传 assigneeUserIds）
-curl -X POST http://localhost:9090/api/workflow/instances/start \
+curl -X POST http://localhost:8080/api/workflow/instances/start \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"processKey":"purchase","businessType":"PURCHASE","businessId":"P001","title":"采购申请","assigneeUserIds":[1],"managerUserId":1}'
 ```

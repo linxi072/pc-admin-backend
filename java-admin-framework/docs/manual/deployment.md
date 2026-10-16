@@ -52,14 +52,14 @@ mysql -u root -e "CREATE DATABASE IF NOT EXISTS scaffold
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 export PATH="$JAVA_HOME/bin:$PATH"
 export SPRING_PROFILES_ACTIVE=local
-export SERVER_PORT=9090                       # 应用对外端口（见下方「端口说明」）
+export SERVER_PORT=8080                       # 应用对外端口（见下方「端口说明」）
 /Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o spring-boot:run
 
 # 4) 访问
-#    API:            http://localhost:9090/api/...
-#    Actuator:       http://localhost:9090/actuator/health      （管理端口，见下方「端口说明」）
+#    API:            http://localhost:8080/api/...
+#    Swagger:        http://localhost:8080/swagger-ui.html      （仅 local）
+#    Actuator:       http://localhost:9090/actuator/health      （独立管理端口，见下方「端口说明」）
 #    Prometheus:     http://localhost:9090/actuator/prometheus
-#    Swagger:        http://localhost:9090/swagger-ui.html      （仅 local）
 #    JobRunr 面板:   http://localhost:8000/dashboard            （仅 local，独立端口，见第 16 节说明）
 ```
 
@@ -67,16 +67,12 @@ export SERVER_PORT=9090                       # 应用对外端口（见下方�
 
 | 端口 | 用途 | 来源 |
 |---|---|---|
-| **9090** | 应用对外服务端口（API / Swagger / WebSocket） | 部署约定；`application.yml` 中 `server.port` 字面默认 **8080**，需由 `SERVER_PORT` / `--server.port` 覆盖 |
-| **9090** | Actuator 管理端口（`/actuator/health`、`/actuator/prometheus`） | `application.yml` `management.server.port: 9090` |
+| **8080** | 应用对外服务端口（API / Swagger / WebSocket） | `application.yml` `server.port: 8080` |
+| **9090** | Actuator 管理端口（`/actuator/health`、`/actuator/prometheus`） | `application.yml` `management.server.port: 9090`（独立管理端口，与应用端口分离） |
 | 8000 | JobRunr Dashboard（仅 local，`JOBRUNR_DASHBOARD_PORT` 可覆盖） | `application-local.yml` |
 | 9091 / 3000 / 9093 | Prometheus / Grafana / Alertmanager（运营侧） | 见「端口规划」 |
 
-> ⚠️ **待确认（端口冲突）**：`application.yml` 的字面配置为 `server.port: 8080` + `management.server.port: 9090`，而部署侧按「应用 9090」口径使用。二者在同一份配置下会指向不同结果：
-> - 若**未覆盖** `server.port`：应用 = 8080、Actuator = 9090；
-> - 若覆盖 `server.port=9090`：应用与管理端口同为 9090，Spring Boot 会**启动失败**（端口占用），须同时把 `management.server.port` 改到其它端口。
->
-> 本手册按「应用 9090」记述（与部署约定一致），但**上线前必须与部署负责人核对实际取值**：查启动日志中两行 `Tomcat started on port ...`，并把其中之一调整到空闲端口（推荐管理端口改用 9095，运营侧 Prometheus 已占用 9091）。JobRunr Dashboard 为独立端口 8000，**不在应用端口上**，与上述两个端口无关。
+> 应用对外端口（**8080**）与管理端口（**9090**）为**两个独立端口**，不存在冲突：业务流量走 8080，运维指标与探针走 9090。启动日志会分别打印两行 `Tomcat started on port 8080` 与 `Tomcat started on port 9090`。JobRunr Dashboard 为独立端口 8000，**不在上述两个端口上**。
 
 ### 构建与测试命令（本机基线）
 
@@ -299,16 +295,16 @@ export SPRING_PROFILES_ACTIVE=local
 ### 13.3 冒烟检查
 
 ```bash
-curl -fsS http://localhost:9090/livez
-curl -fsS http://localhost:9090/readyz
+curl -fsS http://localhost:8080/livez
+curl -fsS http://localhost:8080/readyz
 curl -fsS http://localhost:9090/actuator/health
 curl -fsS http://localhost:9090/actuator/prometheus
-curl -i -X POST http://localhost:9090/api/auth/login \
+curl -i -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
 ```
 
-> 端口按上文「端口说明」执行（应用默认 8080，部署约定 9090）；`/actuator/*` 走 `management.server.port`。
+> 应用对外端口为 **8080**（`server.port`），`/actuator/*` 走独立管理端口 **9090**（`management.server.port`）。
 >
 > **与设计方案的差异（实现为准）**：实际实现为 JWT 无状态认证，**不存在 `/api/auth/csrf` 端点**（设计方案 §12 该条为 N/A，见《功能差距分析与优化建议》§3），登录直接 POST `/api/auth/login` 即可，无需 CSRF token。演示库默认管理员口令见 §3「默认账号」。
 
@@ -353,8 +349,8 @@ curl -i -X POST http://localhost:9090/api/auth/login \
 
 | 组件 | 端口 | 说明 |
 |---|---|---|
-| 应用（对外服务） | **9090** | 部署约定端口（API / Swagger / WebSocket）；`application.yml` 字面默认 `server.port: 8080`，需覆盖，见 §3「端口说明」 |
-| 应用管理端点 | **9090** | `application.yml` `management.server.port=9090`，暴露 `/actuator/prometheus`；与应用端口冲突时须改其一（**待确认**） |
+| 应用（对外服务） | **8080** | `application.yml` `server.port: 8080`（API / Swagger / WebSocket） |
+| 应用管理端点 | **9090** | `application.yml` `management.server.port: 9090`，暴露 `/actuator/prometheus`；与应用端口 8080 为独立端口，不冲突 |
 | JobRunr Dashboard | **8000** | 仅 local，`JOBRUNR_DASHBOARD_PORT` 可覆盖；独立于应用端口 |
 | Prometheus | **9091** | 启动加 `--web.listen-address=:9091`，避免与 9090 冲突 |
 | Grafana | **3000** | 默认 |
@@ -537,4 +533,4 @@ public class XxxConfig implements WebMvcConfigurer {
 
 ---
 
-> 更新日期：2026-10-17（本轮按代码现状核对并修订：§3 启动命令改为 JDK 21 + 本机绝对路径 Maven（`-o`），新增「端口说明」与「构建与测试命令」小节并标注 9090/8080 端口冲突待确认；JobRunr Dashboard 端口修正为 8000；§13 标记 Docker/XXL-JOB 为设计方案原文并给出按实现的启动步骤与冒烟命令（无 `/api/auth/csrf`）；端口规划表补齐应用端口与 JobRunr 面板；新增附录 O「两条高频踩坑」（Flyway checksum 不可改已应用脚本 / 配置类自引用须 `static @Bean`）；迁移链更新至 V32~V36、schema 版本 36；修正「无上传接口」的失效表述）
+> 更新日期：2026-10-17（本轮按代码现状核对并修订：§3 启动命令改为 JDK 21 + 本机绝对路径 Maven（`-o`），修正端口取值——应用对外 **8080**（`server.port`）、Actuator **9090**（`management.server.port`，独立管理端口、无冲突），删除此前「9090/8080 端口冲突待确认」的误记；JobRunr Dashboard 端口修正为 8000；§13 标记 Docker/XXL-JOB 为设计方案原文并给出按实现的启动步骤与冒烟命令（无 `/api/auth/csrf`）；端口规划表补齐应用端口与 JobRunr 面板；新增附录 O「两条高频踩坑」（Flyway checksum 不可改已应用脚本 / 配置类自引用须 `static @Bean`）；迁移链更新至 V32~V36、schema 版本 36；修正「无上传接口」的失效表述）
