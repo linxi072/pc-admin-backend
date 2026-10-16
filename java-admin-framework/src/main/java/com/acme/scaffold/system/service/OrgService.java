@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.tree.TreeBuilder;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.permission.DataScope;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -58,18 +58,26 @@ public class OrgService {
                 .filter(Objects::nonNull)
                 .filter(id -> id > 0L)
                 .collect(Collectors.toSet()));
-        Map<Long, List<SysOrgDO>> byParent = all.stream()
-                .collect(Collectors.groupingBy(o -> o.getParentId() == null ? 0L : o.getParentId()));
         Set<Long> visible = all.stream().map(SysOrgDO::getId).collect(Collectors.toSet());
-        List<OrgTreeVO> result = new ArrayList<>();
-        for (SysOrgDO o : all) {
-            Long parentId = o.getParentId() == null ? 0L : o.getParentId();
-            // 顶层节点：无父，或其父被数据权限过滤掉（此时它应升为根，避免整棵子树丢失）
-            if (parentId == 0L || !visible.contains(parentId)) {
-                result.add(toTree(o, byParent, leaderNames));
-            }
-        }
-        return result;
+        // 层级组装复用 common/tree/TreeBuilder（与 MenuService 同一实现，含环防护）。
+        // 顶层判定：无父，或其父被数据权限过滤掉（此时它应升为根，避免整棵子树丢失）
+        return TreeBuilder.build(all, SysOrgDO::getId, OrgService::parentIdOf,
+                o -> {
+                    Long parentId = parentIdOf(o);
+                    return parentId == 0L || !visible.contains(parentId);
+                },
+                (node, children) -> {
+                    String leaderName = node.getLeaderUserId() == null
+                            ? null : leaderNames.get(node.getLeaderUserId());
+                    return new OrgTreeVO(node.getId(), node.getParentId(), node.getOrgCode(), node.getOrgName(),
+                            node.getOrgType(), node.getSortNo(), node.getStatus(), node.getLeaderUserId(),
+                            leaderName, children);
+                });
+    }
+
+    /** parentId 归一：null 视作顶级（0）。TreeBuilder 分组 / 顶层判定共用。 */
+    private static Long parentIdOf(SysOrgDO o) {
+        return o.getParentId() == null ? 0L : o.getParentId();
     }
 
     /** 按用户 id 集合批量取姓名（displayName 为空时回落 username），空集合不发查询。 */
@@ -115,18 +123,6 @@ public class OrgService {
         return JooqWriters.count(dsl, JooqTables.SYS_ORG,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
                         JooqTables.SYS_ORG.field("org_code", String.class).eq(code))) > 0;
-    }
-
-    private OrgTreeVO toTree(SysOrgDO node, Map<Long, List<SysOrgDO>> byParent, Map<Long, String> leaderNames) {
-        List<OrgTreeVO> children = new ArrayList<>();
-        for (SysOrgDO child : byParent.getOrDefault(node.getId(), List.of())) {
-            children.add(toTree(child, byParent, leaderNames));
-        }
-        String leaderName = node.getLeaderUserId() == null
-                ? null : leaderNames.get(node.getLeaderUserId());
-        return new OrgTreeVO(node.getId(), node.getParentId(), node.getOrgCode(), node.getOrgName(),
-                node.getOrgType(), node.getSortNo(), node.getStatus(), node.getLeaderUserId(),
-                leaderName, children);
     }
 
     @Transactional

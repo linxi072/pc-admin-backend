@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.tree.TreeBuilder;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
@@ -68,9 +69,20 @@ public class MenuService {
                 JooqWriters.notDeleted(JooqTables.SYS_MENU),
                 JooqTables.SYS_MENU.field("sort_no", Integer.class).asc(),
                 JooqTables.SYS_MENU.field("id", Long.class).asc());
-        Map<Long, List<SysMenuDO>> byParent = all.stream()
-                .collect(Collectors.groupingBy(m -> m.getParentId() == null ? 0L : m.getParentId()));
-        return buildChildren(0L, byParent);
+        // 层级组装复用 common/tree/TreeBuilder（与 OrgService 同一实现，含环防护）
+        return TreeBuilder.build(all, SysMenuDO::getId, MenuService::parentIdOf,
+                m -> parentIdOf(m) == 0L, MenuService::toMenuTreeVO);
+    }
+
+    /** parentId 归一：null 视作顶级（0）。TreeBuilder 分组 / 顶层判定与 VO 映射共用。 */
+    private static Long parentIdOf(SysMenuDO m) {
+        return m.getParentId() == null ? 0L : m.getParentId();
+    }
+
+    private static MenuTreeVO toMenuTreeVO(SysMenuDO m, List<MenuTreeVO> children) {
+        return new MenuTreeVO(m.getId(), m.getParentId(), m.getMenuCode(), m.getMenuName(),
+                m.getMenuType(), m.getRoutePath(), m.getComponentPath(), m.getPermissionCode(), m.getIcon(),
+                m.getVisible(), m.getSortNo(), m.getStatus(), children);
     }
 
     /**
@@ -126,9 +138,9 @@ public class MenuService {
         // 侧边栏顺序与 sort_no 脱节；改从已排序的 all 过滤，输出与 tree() 同序
         // （sort_no ASC，二级键 id ASC），仅修正展示顺序，菜单集合不变。
         List<SysMenuDO> included = all.stream().filter(m -> expanded.contains(m.getId())).toList();
-        Map<Long, List<SysMenuDO>> byParent = included.stream()
-                .collect(Collectors.groupingBy(m -> m.getParentId() == null ? 0L : m.getParentId()));
-        return buildChildren(0L, byParent);
+        // 层级组装复用 common/tree/TreeBuilder（与 tree() / OrgService 同一实现）
+        return TreeBuilder.build(included, SysMenuDO::getId, MenuService::parentIdOf,
+                m -> parentIdOf(m) == 0L, MenuService::toMenuTreeVO);
     }
 
     /** 创建菜单。写入后两个菜单缓存均整缓存驱逐（新菜单可能进入任意用户的可见集合）。 */
@@ -270,18 +282,6 @@ public class MenuService {
                     stack.push(child.getId());
                 }
             }
-        }
-        return result;
-    }
-
-    private List<MenuTreeVO> buildChildren(Long parentId, Map<Long, List<SysMenuDO>> byParent) {
-        List<SysMenuDO> children = byParent.getOrDefault(parentId, List.of());
-        List<MenuTreeVO> result = new ArrayList<>();
-        for (SysMenuDO m : children) {
-            result.add(new MenuTreeVO(m.getId(), m.getParentId(), m.getMenuCode(), m.getMenuName(),
-                    m.getMenuType(), m.getRoutePath(), m.getComponentPath(), m.getPermissionCode(), m.getIcon(),
-                    m.getVisible(), m.getSortNo(), m.getStatus(),
-                    buildChildren(m.getId(), byParent)));
         }
         return result;
     }
