@@ -1131,6 +1131,30 @@ String en  = i18nService.getMessage("error.not_found", Locale.US); // 指定语�
 - **前端**：`pc-admin-vue3-vite/src/views/system/ExportCenterView.vue` 按模板返回的 `formats` 渲染「导出 CSV / 导出 XLSX」按钮；`api/export.js` 走 `requestRaw` 取 Blob，并防御式区分业务错误 JSON。
 - **测试**：`ExportFormatTest`（枚举大小写/非法值解析）、`XlsxDataExporterTest`（ZIP 结构/转义/UTF-8）、`ExportControllerTest`（MockMvc standalone + 最小 advice 复刻异常映射：CSV 向后兼容、XLSX 分支、未知格式/未知模板/多段结构/超行数四类校验）共 14 例。
 
+### 8.6 导入中心（模板注册 + CSV / 零依赖 XLSX 双格式解析）
+
+导入中心与导出中心**严格对称**：业务模块声明一个实现 `common/importer/ImportTask` 的 Spring Bean（`code()`/`displayName()`/`headers()`/`validate(ImportRow)`/`importRow(ImportRow)`），`system/service/ImportCenterService` 注入 `List<ImportTask>` 自动收集并统一调度，新增导入只需新增一个 Bean，无需新增上传接口。
+
+- **接口**（`system/controller/ImportController`，`/api/system/import`）：
+  - `GET /templates` 列举模板及其表头（供前端渲染与「下载模板」）；
+  - `GET /template?code=<模板编码>&format=CSV|XLSX` 下载**仅表头**的空白模板（默认 XLSX，便于直接在 Excel 填写）；
+  - `POST /{code}?dryRun=true|false`（multipart `file`）上传导入，返回统计与失败明细。
+- **格式无关的统一中间模型**：CSV / XLSX 均解析为 `common/importer/TabularData`（表头 + 行，所有行补齐至统一列宽），因此同一模板天然接受两种格式，业务实现完全不必感知文件格式。
+  - **CSV**：`common/importer/CsvDataReader` 状态机实现 RFC4180（引号内逗号/换行/双引号转义），自动剥离 UTF-8 BOM（与 `CsvExporter` 往返一致），兼容 `CRLF`/`LF`/单独 `CR`；
+  - **XLSX**：`common/importer/XlsxDataReader` 仅用 JDK `ZipInputStream` + StAX 解析 OOXML，**不引入 POI**，与 `XlsxDataExporter` 构成「导出→编辑→导入」闭环。支持共享字符串表（`t="s"`，含富文本多 `<t>` 拼接）与内联字符串（`t="inlineStr"`）；**按单元格 `r` 属性定位列**（Excel 会跳过空单元格不写 `<c>`，按出现顺序排列会导致列错位）；禁用 DTD 与外部实体防 XXE。
+- **校验与落库分离**（`ImportTask` 契约刻意如此设计）：
+  - `validate(ImportRow)` 为**纯函数**校验，不产生副作用，用于组合 `common/importer/ImportValidators` 的校验构件（`required` / `maxLength` / `integerRange` / `oneOf` / `matches` / `collect`）——`collect` 一次收拢**全部**字段错误，使对话框一屏展示所有问题，用户一轮即可改完；
+  - `importRow(ImportRow)` 仅在 `validate` 无错误时被调用，实现应委托既有业务服务（而非直接写库），从而复用其事务、业务规则与缓存驱逐；抛异常即视为该行失败；
+  - **预检模式（`dryRun=true`）** 只调 `validate` 不落库，让用户先确认数据再正式导入。注意预检**不**校验数据库层面的唯一性冲突（如字典值重复），此类冲突在正式导入时由业务服务返回并计入该行失败明细。
+- **导入语义（逐行独立）**：单行失败不影响其余行（每行由业务服务自身事务保证），失败明细随结果返回供修正后重传；全空行（Excel 编辑残留）自动跳过且不计入统计，但**行号仍按文件物理位置编号**，便于用户对照定位。
+- **前置校验**：表头必须与模板逐列一致（顺序敏感，列数或名称不符即 400 并提示下载模板）；行数超 `app.import.max-rows` 拒绝并提示拆分文件；解析失败（非 OOXML / 非法 ZIP）统一转 400，避免以 500 暴露内部堆栈。
+- **结果模型**：`ImportResult(dryRun, totalRows, successCount, failureCount, errors)`。`failureCount` 与 `errors` **刻意分离**——失败行数始终是真实值，而 `errors` 明细受 `app.import.max-errors` 上限约束（防大文件产生超大响应体），因此 `errors.size()` 可能小于 `failureCount`。
+- **配置**（`system/importer/config/ImportProperties`，`app.import.*`，缺省即生效）：`max-rows` 默认 5000（下限钳 1）、`max-errors` 默认 200（下限钳 1）。
+- **权限与审计**：`system:import:read`（模板列表 / 下载模板）、`system:import:write`（上传导入），由 `ApiResourceAutoSyncRunner` 自动登记并授予 SUPER_ADMIN；上传接口另加 `@RateLimit(max = 10, windowSeconds = 60, scope = IP)`。`@AuditOperation(recordParams = false)`——**刻意不记录入参**，因 `MultipartFile` 无法安全序列化进审计摘要。
+- **试点实现**：`system/importer/DictDataImportTask`（字典数据），列宽上限与 `sys_dict_data` 表结构对齐（类型码 64 / 标签 100 / 值 100 / 备注 255），落库复用 `DictDataService.create` 从而自动继承「同类型下字典值唯一」规则与 `dict-data` 缓存整驱。
+- **前端**：`pc-admin-vue3-vite/src/views/system/ImportCenterView.vue` + `api/import.js`，页内提供「下载模板（XLSX/CSV）→ 选择文件 → 预检 → 确认导入 → 失败明细表」闭环；路由 `/system/import`（菜单与权限由后端驱动，见 `V36__import_center.sql`）。
+- **测试**：`CsvDataReaderTest`（BOM/引号语义/三种行分隔/列宽补齐/空行保真）、`XlsxDataReaderTest`（与写出器往返一致、按 `r` 属性对齐稀疏列、共享字符串含富文本、非 OOXML 拒绝）、`ImportValidatorsTest`、`ImportCenterServiceTest`（格式识别/表头校验/行号定位/空行跳过/业务冲突转行错误/预检不落库/行数上限/明细上限分离/CSV 与 XLSX 等价）、`ImportControllerTest`（模板列表与下载、上传预检、四类错误分支）、`DictDataImportTaskTest`（纯校验不触库、trim 与空值归一、冲突透传）共 48 例。
+
 ## 9. 关键配置示例
 
 ### 9.1 根 Maven 配置
