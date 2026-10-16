@@ -27,6 +27,11 @@
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.6.0</springdoc.version>
         <jobrunr.version>6.3.4</jobrunr.version>
+        <!-- 邮件通知渠道：Spring Framework 6.1.15 与 Boot 3.3.4 管理的版本对齐；
+             jakarta.mail-api 2.1.3 + angus-mail 2.0.3 为官方 API/实现组合（均在离线仓库） -->
+        <spring-framework.version>6.1.15</spring-framework.version>
+        <jakarta-mail.version>2.1.3</jakarta-mail.version>
+        <angus-mail.version>2.0.3</angus-mail.version>
         <!-- 集成测试默认跳过：本地 mvn test/verify 不触发 *IT；CI 通过 -DskipITs=false + MySQL 服务容器开启 -->
         <skipITs>true</skipITs>
         <!-- OTel SDK 版本（仅 -Potel 激活时使用；默认离线构建不涉及，故不影响 mvn -o） -->
@@ -109,6 +114,28 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!--
+          通知渠道：邮件（EMAIL）。spring-context-support 提供 JavaMailSender/MimeMessageHelper；
+          jakarta.mail-api 为规范接口，angus-mail 为参考实现（Boot 3.3.4 不再随 starter-mail 传递，
+          此处显式引入并钉定版本；三者均已在本地 Maven 仓库，离线 mvn -o 可解析）。
+          默认关闭（app.notifications.email.enabled=false），未配置 SMTP 时不发送也不启动失败。
+        -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context-support</artifactId>
+            <version>${spring-framework.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.mail</groupId>
+            <artifactId>jakarta.mail-api</artifactId>
+            <version>${jakarta-mail.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+            <version>${angus-mail.version}</version>
         </dependency>
 
         <!-- JWT（自签发令牌） -->
