@@ -3,6 +3,8 @@ package com.acme.scaffold.monitor.service;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
+import com.acme.scaffold.config.cache.CacheStats;
+import com.acme.scaffold.config.cache.StatisticsCacheManager;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
@@ -22,6 +24,8 @@ import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Record3;
 import org.jooq.impl.DSL;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -60,6 +64,8 @@ public class MonitorService {
     private final RuntimeMetricsCollector collector;
     private final TokenVersionService tokenVersionService;
     private final DataSource dataSource;
+    /** Spring Cache 管理器（带统计装饰）；ObjectProvider 容忍无缓存bean的裁剪上下文（如单测）。 */
+    private final ObjectProvider<CacheManager> cacheManagerProvider;
 
     /** 实时运行指标（CPU/内存/磁盘/JVM）。 */
     public ServerMetrics currentMetrics() {
@@ -69,17 +75,19 @@ public class MonitorService {
     // ---------------- 缓存监控（V29） ----------------
 
     /**
-     * 进程内缓存统计列表（V29 缓存监控页）。
+     * 缓存统计列表（缓存监控页）：进程内 Token 版本缓存 + Spring Cache 各缓存。
      *
-     * <p>当前仅有「Token 版本缓存」一项；{@link CacheStatView} 按可扩展形态设计，
-     * 后续接入 Caffeine/Redis 等实现时向列表追加即可，前端契约不变。
+     * <p>Spring Cache 部分来自 {@link StatisticsCacheManager} 的进程内记账，
+     * 仅包含本实例实际使用过的缓存（未使用的不占进程内存也无统计意义）；
+     * 无 CacheManager bean 时（裁剪上下文）仅返回 Token 版本一项。
      */
     public List<CacheStatView> cacheStats() {
         long[] stats = tokenVersionService.cacheStats();
         long hit = stats[0];
         long miss = stats[1];
         long evict = stats[2];
-        CacheStatView tokenVersion = new CacheStatView(
+        List<CacheStatView> views = new ArrayList<>();
+        views.add(new CacheStatView(
                 "token-version",
                 "CONCURRENT_HASH_MAP",
                 tokenVersionService.cacheSize(),
@@ -88,12 +96,30 @@ public class MonitorService {
                 evict,
                 CacheStatView.hitRateOf(hit, miss),
                 tokenVersionService.cacheTtlMillis(),
-                "Token 版本进程内缓存（权限变更后旧凭证失效判定，TTL 30s）");
-        return List.of(tokenVersion);
+                "Token 版本进程内缓存（权限变更后旧凭证失效判定，TTL 30s）"));
+        CacheManager cacheManager = cacheManagerProvider.getIfAvailable();
+        if (cacheManager instanceof StatisticsCacheManager statistics) {
+            for (CacheStats s : statistics.stats()) {
+                views.add(new CacheStatView(
+                        s.name(),
+                        s.type(),
+                        s.entries(),
+                        s.hitCount(),
+                        s.missCount(),
+                        s.evictCount(),
+                        CacheStatView.hitRateOf(s.hitCount(), s.missCount()),
+                        null,
+                        "Spring Cache（@Cacheable，TTL 见 app.cache.ttl）"));
+            }
+        }
+        return views;
     }
 
     /**
      * 清理指定名称的缓存。
+     *
+     * <p>Spring Cache 仅可清理本实例已使用过的缓存（{@link StatisticsCacheManager#clearCache}）；
+     * 未使用过的名称返回 false，由调用方输出 404 语义，避免把「不存在」误报为已清理。
      *
      * @return true=已清理；false=缓存名不存在（调用方据此返回 404 语义）
      */
@@ -101,6 +127,10 @@ public class MonitorService {
         if ("token-version".equals(name)) {
             tokenVersionService.clearCache();
             return true;
+        }
+        CacheManager cacheManager = cacheManagerProvider.getIfAvailable();
+        if (cacheManager instanceof StatisticsCacheManager statistics) {
+            return statistics.clearCache(name);
         }
         return false;
     }

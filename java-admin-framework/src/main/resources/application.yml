@@ -124,6 +124,14 @@ app:
       # 读超时 / 连接超时（毫秒）
       timeout-ms: 5000
       connect-timeout-ms: 2000
+  # ===== 缓存管理（Spring Cache 抽象，Redis 实现） =====
+  # 缓存为惰性能力：未使用 @Cacheable 时不产生 Redis 流量。
+  # 命中率/条目数统计与清理入口见 GET /api/system/monitor/caches（进程内口径，按实例）。
+  cache:
+    # @Cacheable 未显式指定时的默认 TTL
+    ttl: 30m
+    # Redis key 前缀（与业务 key 隔离，便于运维排查与批量清理）
+    key-prefix: acme:cache:
   security:
     issuer: java-admin-framework
     audience: admin-api
