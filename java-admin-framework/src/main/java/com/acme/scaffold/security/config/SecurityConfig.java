@@ -36,10 +36,17 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, CaptchaProperties.class, AntiReplayProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, CaptchaProperties.class, AntiReplayProperties.class, SwaggerProperties.class})
 public class SecurityConfig {
 
-    private static final RequestMatcher PUBLIC_API = new OrRequestMatcher(
+    private final SwaggerProperties swaggerProperties;
+
+    public SecurityConfig(SwaggerProperties swaggerProperties) {
+        this.swaggerProperties = swaggerProperties;
+    }
+
+    /** 始终公开的基础接口（鉴权、健康探针、错误页）。 */
+    private static final RequestMatcher BASE_PUBLIC_API = new OrRequestMatcher(
             new AntPathRequestMatcher("/api/auth/login", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/api/auth/refresh", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/api/auth/change-password", HttpMethod.POST.name()),
@@ -48,10 +55,13 @@ public class SecurityConfig {
             // 健康探针（k8s 风格）：liveness/readiness 不应要求鉴权
             new AntPathRequestMatcher("/livez", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/readyz", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/error"));
+
+    /** Swagger / OpenAPI 文档端点（是否公开由 {@code app.swagger.public-access} 决定）。 */
+    private static final RequestMatcher SWAGGER_API = new OrRequestMatcher(
             new AntPathRequestMatcher("/v3/api-docs/**"),
             new AntPathRequestMatcher("/swagger-ui/**"),
-            new AntPathRequestMatcher("/swagger-ui.html"),
-            new AntPathRequestMatcher("/error"));
+            new AntPathRequestMatcher("/swagger-ui.html"));
 
     @Bean
     @Order(1)
@@ -73,11 +83,15 @@ public class SecurityConfig {
                                           org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder,
                                           TokenVersionVerifier tokenVersionVerifier,
                                           OnlineSessionFilter onlineSessionFilter) throws Exception {
+        // 文档端点是否公开由 app.swagger.public-access 决定（默认需鉴权）
+        RequestMatcher publicApi = swaggerProperties.isPublicAccess()
+                ? new OrRequestMatcher(BASE_PUBLIC_API, SWAGGER_API)
+                : BASE_PUBLIC_API;
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(org.springframework.security.config.Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_API).permitAll()
+                        .requestMatchers(publicApi).permitAll()
                         // WebSocket 握手走 HTTP 升级，token 在 query 参数（浏览器 WS 不支持自定义 header），
                         // 此处放行后由 RealtimeHandshakeInterceptor 手动校验 JWT，失败则拒绝握手
                         .requestMatchers(new AntPathRequestMatcher("/ws/**")).permitAll()

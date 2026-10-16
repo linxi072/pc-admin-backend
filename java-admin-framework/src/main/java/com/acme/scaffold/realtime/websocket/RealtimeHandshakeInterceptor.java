@@ -19,9 +19,11 @@ import java.util.Map;
 public class RealtimeHandshakeInterceptor implements HandshakeInterceptor {
 
     private final JwtProvider jwtProvider;
+    private final WebSocketOriginPolicy originPolicy;
 
-    public RealtimeHandshakeInterceptor(JwtProvider jwtProvider) {
+    public RealtimeHandshakeInterceptor(JwtProvider jwtProvider, WebSocketOriginPolicy originPolicy) {
         this.jwtProvider = jwtProvider;
+        this.originPolicy = originPolicy;
     }
 
     @Override
@@ -29,6 +31,10 @@ public class RealtimeHandshakeInterceptor implements HandshakeInterceptor {
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
         String token = extractToken(request.getURI().getQuery());
         if (token == null) {
+            return false;
+        }
+        // 纵深防御：Origin 头白名单校验（CSWSH 防护），失败直接拒绝握手
+        if (!originPolicy.allows(request.getHeaders().getOrigin())) {
             return false;
         }
         try {

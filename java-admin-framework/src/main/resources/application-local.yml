@@ -16,6 +16,9 @@ app:
         url: ${DB_PRIMARY_URL:jdbc:mysql://localhost:3306/scaffold?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
         username: ${DB_PRIMARY_USERNAME:root}
         password: ${DB_PRIMARY_PASSWORD:root}
+  # 本地联调放开 Swagger 文档匿名访问（生产默认需鉴权）
+  swagger:
+    public-access: true
       # 第二个数据源示例（按需启用，凭据走环境变量，不硬编码）：
       # report:
       #   url: ${DB_REPORT_URL}

@@ -15,6 +15,12 @@ app:
         url: ${DB_PRIMARY_URL}
         username: ${DB_PRIMARY_USERNAME}
         password: ${DB_PRIMARY_PASSWORD}
+  # WebSocket 跨域允许来源：生产收紧为具体前端域名（经环境变量覆盖，避免硬编码）
+  cors:
+    allowed-origins: ${WS_ALLOWED_ORIGINS:https://admin.example.com}
+  # Swagger 文档：生产需鉴权（文档本身已被 springdoc.api-docs.enabled=false 关闭，此处仅为策略显式开关）
+  swagger:
+    public-access: false
 
 management:
   endpoints:

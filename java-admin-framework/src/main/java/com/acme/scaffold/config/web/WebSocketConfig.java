@@ -18,17 +18,20 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final RealtimeWebSocketHandler handler;
     private final RealtimeHandshakeInterceptor handshakeInterceptor;
+    private final CorsProperties corsProperties;
 
     public WebSocketConfig(RealtimeWebSocketHandler handler,
-                           RealtimeHandshakeInterceptor handshakeInterceptor) {
+                           RealtimeHandshakeInterceptor handshakeInterceptor,
+                           CorsProperties corsProperties) {
         this.handler = handler;
         this.handshakeInterceptor = handshakeInterceptor;
+        this.corsProperties = corsProperties;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(handler, "/ws")
                 .addInterceptors(handshakeInterceptor)
-                .setAllowedOrigins("*");
+                .setAllowedOriginPatterns(corsProperties.getAllowedOrigins().toArray(new String[0]));
     }
 }

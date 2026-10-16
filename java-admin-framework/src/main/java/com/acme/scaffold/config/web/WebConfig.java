@@ -1,6 +1,7 @@
 package com.acme.scaffold.config.web;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -18,6 +19,7 @@ import java.util.List;
  * <p>同时把头像上传目录映射为静态资源，使前端可直接以 URL 预览头像。
  */
 @Configuration
+@EnableConfigurationProperties(CorsProperties.class)
 public class WebConfig implements WebMvcConfigurer {
 
     /** 头像访问前缀，与 ProfileService 中保存的 avatarUrl 前缀保持一致。 */

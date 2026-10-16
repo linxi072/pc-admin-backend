@@ -100,6 +100,10 @@ app:
   # 具体连接串与凭据在各 profile yml 中通过环境变量注入，不在此硬编码。
   datasources:
     primary: primary
+  # ===== WebSocket 跨域允许来源 =====
+  # 默认放开全部来源便于本地前后端分离联调；生产经环境变量 WS_ALLOWED_ORIGINS 收紧为具体前端域名。
+  cors:
+    allowed-origins: ["*"]
   # ===== 客户端真实 IP 解析 =====
   # 可信反向代理跳数：决定解析 X-Forwarded-For 时自右向左跳过几跳。
   # 客户端可任意伪造 X-Forwarded-For，若直接采信其首段（左段），
