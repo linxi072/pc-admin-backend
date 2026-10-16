@@ -2025,6 +2025,21 @@ npm run preview  # 预览构建产物
 
 **代码审查（review-java-admin-framework）**：P0（运行期阻断/数据安全）无；P1（重要正确性/安全缺陷，建议本迭代修复）若干；P2（功能缺失/明确 bug，建议近期处理）若干；P3（可优化/文档与健壮性）若干。
 
-**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
+**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）、M4 工作流任务认领（P2，已落地）、**M5 缓存管理**（P2，已落地：`config/cache` + 监控联动 + 字典缓存试点）、**M6 邮件通知渠道**（P3，已落地：`Channel.EMAIL` + `EmailRules` + SMTP 适配，默认关闭）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
+
+### M5 缓存管理使用指南（开发者）
+
+- **开启与配置**：`config/cache/CacheConfig` 已全局开启 `@EnableCaching` 并提供 Redis 实现的 `StatisticsCacheManager`；默认 TTL 30m、key 前缀 `acme:cache:`，经 `app.cache.ttl` / `app.cache.key-prefix` 调整。缓存为惰性能力，未使用 `@Cacheable` 不产生 Redis 流量。
+- **接入一个热点读**：方法加 `@Cacheable(cacheNames = "xxx", key = "...")`；key 表达式可用 `T(类全名).静态方法(#参数)` 复用归一逻辑（参考 `DictDataService.cacheKey`：空值归一、trim，保证「同口径同键」）。
+- **写路径同步失效**：`@CacheEvict`——键可精确推导时按 key 驱逐（如 `DictDataService.create`）；键可能变化（如类型码可改）或删除前不回查时用 `allEntries = true`（数据量小的缓存全清成本可忽略）。**注意 `@CacheEvict` 默认 `beforeInvocation = true`**，方法体抛异常时缓存同样已被驱逐（对只读缓存是安全方向）。
+- **可观测**：`GET /api/system/monitor/caches` 自动出现新缓存统计（进程内口径：命中/未命中/淘汰/命中率）；`POST /api/system/monitor/caches/{name}/clear` 清理（仅本实例已使用过的缓存可清理，未使用返回 404）。
+- **约束**：Spring Cache 代理对同类内自调用（self-invocation）不生效——缓存方法必须经 Spring 代理调用（控制器/其它 Bean 调用）；返回值应为不可变或调用方不得改写（`DictDataService` 用 `Stream.toList()` 返回不可变列表兜底）。
+- **测试模式**：轻量 Spring 上下文（`@EnableCaching` + `ConcurrentMapCacheManager`）+ `mockStatic(JooqWriters.class)` 打库替身，通过 `CacheManager` 可观测状态断言缓存行为；**同一上下文多个用例共享 CacheManager，必须 `@BeforeEach` 清缓存**（参考 `DictDataServiceCacheTest`）。
+
+### M6 邮件通知渠道使用指南（开发者）
+
+- **发送**：`POST /api/system/notifications/send`，`channel=EMAIL`，`emails` 传收件人地址列表（单封上限 50），`title`/`content` 作主题/正文。
+- **启用**：`app.notifications.email.enabled=true` 并配置 `from`/`host`/`port`（`username`/`password`/`starttls` 依 SMTP 服务商）；未启用返回 400 不外发。凭据经 `NOTIFICATION_EMAIL_USERNAME`/`NOTIFICATION_EMAIL_PASSWORD` 环境变量注入。
+- **新增渠道**：实现 `NotificationPort`（`supports` + `dispatch`）并声明为 Spring Bean，`NotificationService` 自动收集路由，编排层与控制器零改动；渠道特有的纯函数规则放 `rules` 语义的静态类（参考 `kafka.rules.OrderingRules` / `EmailRules`）便于离线单测。
 
 **QA 业务测试（V28，QA报告）**：6 项缺陷全部闭环——D-5（P0）七个权限码未授 SUPER_ADMIN；D-2（P1）手机/邮箱唯一性无预校验；D-4（P1）删除角色残留孤儿 user_role 行；D-6（P1）void 方法幂等重放必 409；D-1（P2）用户状态无白名单；D-3（P2）公告重发布不清 offline_at；并固化多轮回归测试。

@@ -8,8 +8,8 @@
 | 手册 | 路径 | 面向读者 | 核心内容 |
 |---|---|---|---|
 | 架构手册 | [`docs/manual/architecture.md`](manual/architecture.md) | 架构师 / 技术负责人 | 总体架构与依赖规则、分层与命名、RBAC 权限模型、核心表结构（DDL）、工作流状态机、统一响应/异常/分页契约、关键配置示例、可观测性指标、操作审计设计、API 最小集合、关键架构决策（ADR）、微服务拆分触发条件、风险与验收清单、实现状态速览 |
-| 开发手册 | [`docs/manual/development.md`](manual/development.md) | 后端 / 前端开发者 | 本地开发环境、持久层 jOOQ 用法、系统管理模块开发、工作流审批与自定义设计器、调度任务、接口资源扫描登记、角色数据权限、服务端排序、菜单模块与拖拽排序、代码生成器与验证码、前端接口规范与工程说明、集成测试与缺陷修复记录 |
-| 运维手册 | [`docs/manual/operations.md`](manual/operations.md) | 运维 / 一线支撑 | 可观测性（Actuator/Prometheus 与指标解读）、监控/日志/在线用户/定时任务等运营菜单、报表与工作台、审计日志查询与脱敏、健康探针、Token 缓存失效、常见故障排查（含工作流设计「不存在」案例） |
+| 开发手册 | [`docs/manual/development.md`](manual/development.md) | 后端 / 前端开发者 | 本地开发环境、持久层 jOOQ 用法、系统管理模块开发、工作流审批与自定义设计器、调度任务、接口资源扫描登记、角色数据权限、服务端排序、菜单模块与拖拽排序、代码生成器与验证码、前端接口规范与工程说明、缓存管理（M5）与邮件通知渠道（M6）使用指南、集成测试与缺陷修复记录 |
+| 运维手册 | [`docs/manual/operations.md`](manual/operations.md) | 运维 / 一线支撑 | 可观测性（Actuator/Prometheus 与指标解读）、监控/日志/在线用户/定时任务等运营菜单、报表与工作台、审计日志查询与脱敏、健康探针、Token 缓存失效、缓存管理增强（M5）与邮件通知渠道（M6）运维要点、常见故障排查（含工作流设计「不存在」案例） |
 | 部署手册 | [`docs/manual/deployment.md`](manual/deployment.md) | 部署 / 上线负责人 | 部署架构与依赖（MySQL/Redis/Flyway/JobRunr/Flowable）、本地原生部署（无 Docker）、数据库迁移与 V32 既有环境升级、profile 配置、可观测性运营侧部署、生产加固清单、CI/CD、冒烟验收与回滚 |
 
 ## 五、专项指南（专题文档）
@@ -20,7 +20,7 @@
 | --- | --- | --- | --- |
 | 多数据源使用指南 | [`docs/manual/datasource-guide.md`](manual/datasource-guide.md) | 后端开发者 / 部署负责人 | 多数据源配置组织结构、环境变量外部化、加载方式（fail-fast）、路由切换逻辑（@WithDataSource / DataSourceRouter）、新增数据源五步、故障排查与 prod 变量更名注意事项 |
 | 编码规范与目录结构约定 | [`docs/manual/coding-standard.md`](manual/coding-standard.md) | 全体开发者 /  reviewer | 按特性分包 + 层子包的目录约定、各层职责与单一职责、命名规范（类/方法/包/常量）、代码格式基线（.editorconfig）、依赖方向与无环规则；配套零依赖校验脚本 `scripts/check-conventions.py` 的 CI 集成方式 |
-| 功能差距分析与优化建议 | [`docs/manual/feature-gap-analysis.md`](manual/feature-gap-analysis.md) | 技术负责人 / 架构师 | 对照设计方案 §12/§20、gap-analysis、模块计划逐项核对（直接核查真实代码）；严格需求已闭环的结论、真实未实现项（形态偏差）、已具备但未明示的能力（OpenAPI/慢 SQL 监听）、缺失必要基础功能（导出中心/缓存管理/通知渠道）与待优化项（N+1/深翻页/覆盖率门禁）的优先级与建议实现方式 |
+| 功能差距分析与优化建议 | [`docs/manual/feature-gap-analysis.md`](manual/feature-gap-analysis.md) | 技术负责人 / 架构师 | 对照设计方案 §12/§20、gap-analysis、模块计划逐项核对（直接核查真实代码）；严格需求已闭环的结论、真实未实现项（形态偏差）、已具备但未明示的能力（OpenAPI/慢 SQL 监听）、剩余增强方向（Excel 导出中心待联网/i18n）与待优化项（N+1/深翻页/覆盖率门禁）的优先级与建议实现方式 |
 
 > 四本手册中仅保留要点与交叉索引：架构手册 §9.6 / 开发手册 §34 / 运维手册 §31 / 部署手册 §15 / **编码规范见《编码规范与目录结构约定》**。
 

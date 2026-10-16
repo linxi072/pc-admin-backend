@@ -418,6 +418,17 @@ MDC `traceId` 与审计日志、Result 共用同一链路 ID。待具备 OTel Co
 
 Hikari 连接池参数（`minimumIdle` / `maximumPoolSize` / `connectionTimeout` / `validationTimeout` / `idleTimeout` / `maxLifetime` / `connectionTestQuery`）可在 `app.datasources.entries.<name>.pool.*` 覆盖；缺省沿用 `MultiDataSourceProperties.Pool` 默认值（最小空闲 5 / 最大 20 / 连接超时 3000ms 等）。生产高并发场景按需调大 `maximumPoolSize`。
 
+### 15.5 其它凭据类环境变量
+
+| 变量 | 作用 | 必填 | 备注 |
+| --- | --- | --- | --- |
+| `JWT_SECRET` | JWT 签名密钥（Base64，≥256 位） | 是（prod） | 未配置时生成仅当前进程有效的随机临时密钥（重启失效，仅开发/测试） |
+| `ALERT_WEBHOOK_TOKEN` | Alertmanager webhook 接收端校验令牌 | 否 | 非空时要求请求携带匹配的 `X-Alert-Token` 头 |
+| `OTLP_ENDPOINT` | OTLP/HTTP span 导出端点 | 否 | `observability.otlp.enabled=true` 时生效 |
+| `NOTIFICATION_EMAIL_USERNAME` | 邮件渠道 SMTP 账号 | 否 | `app.notifications.email.enabled=true` 时生效；不落仓库 |
+| `NOTIFICATION_EMAIL_PASSWORD` | 邮件渠道 SMTP 密码 | 否 | 同上；建议走 Vault / 密钥管理 |
+| `AVATAR_DIR` / `FILE_STORAGE_DIR` | 头像 / 文件存储目录 | 否 | 缺省 `./uploads/avatar` / `./uploads/file`，生产建议指定绝对路径 |
+
 ---
 
 ## 附录 P. 生产加固与质量门禁落地清单（综述）

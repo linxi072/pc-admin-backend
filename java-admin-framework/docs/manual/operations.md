@@ -1,6 +1,6 @@
 # 运维手册
 
-面向运维与一线支撑。覆盖可观测性（Actuator/Prometheus/指标解读）、监控/日志/在线用户/定时任务等运营菜单、报表与工作台、审计日志查询与脱敏、健康探针、Token 缓存失效、以及常见故障排查（含工作流设计「不存在」案例）。
+面向运维与一线支撑。覆盖可观测性（Actuator/Prometheus/指标解读）、监控/日志/在线用户/定时任务等运营菜单、报表与工作台、审计日志查询与脱敏、健康探针、Token 缓存失效、缓存管理与邮件通知渠道运维、以及常见故障排查（含工作流设计「不存在」案例）。
 
 ---
 
@@ -516,13 +516,23 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 
 | 端点 | 权限 | 说明 |
 | --- | --- | --- |
-| `GET /api/system/monitor/caches` | `system:monitor:read` | 进程内缓存统计（条目数/命中/未命中/淘汰/命中率/TTL/用途），当前含 `token-version`（TokenVersionCache，30s TTL） |
-| `POST /api/system/monitor/caches/{name}/clear` | `system:monitor:read` | 清理指定缓存（审计留痕）；不存在返回 NOT_FOUND 业务失败 |
+| `GET /api/system/monitor/caches` | `system:monitor:read` | 缓存统计（条目数/命中/未命中/淘汰/命中率/TTL/用途）：`token-version`（进程内 TokenVersionCache，30s TTL）+ Spring Cache 各缓存（Redis 实现，进程内口径；条目数对 Redis 显示 -1，避免 O(N) SCAN） |
+| `POST /api/system/monitor/caches/{name}/clear` | `system:monitor:read` | 清理指定缓存（审计留痕）；不存在返回 NOT_FOUND 业务失败。Spring Cache 仅可清理本实例已使用过的缓存（未使用的不占进程内存也无统计） |
 | `GET /api/system/monitor/datasource` | `system:monitor:read` | HikariCP 连接池统计（活跃/空闲/总数/等待线程/使用率 + 池配置 + JDBC URL）；非 Hikari 数据源回退 `configOnly` 哨兵形态 |
 | `GET /api/system/login-logs/page` | `system:login-log:read` | 登录日志分页（用户名/结果/类型/失败码/IP/关键字/时间区间，默认收敛最近 7 天防全表扫描） |
 | `GET /api/system/login-logs/summary` | `system:login-log:read` | 登录统计摘要（总数/成功/失败/失败率/独立用户/最近登录） |
 
 操作日志页直接对接既有 `AuditLogController`（`/api/system/audit-logs/page` + `/trace/{traceId}` 链路查询 + `/summary`），未新增端点。为支撑缓存监控，`TokenVersionCache` 增加命中/未命中/淘汰计数（`get` 命中与过期各计一次，`put`/`invalidate` 计淘汰），`TokenVersionService` 暴露 `stats()`/`clear()` 委托。
+
+### 30.5 缓存管理增强（M5，2026-10-16）
+
+Spring Cache 抽象落地后，缓存监控页数据源从「仅 Token 版本缓存」扩展为「进程内缓存 + Spring Cache 全量」：
+
+- **实现选型**：`config/cache/CacheConfig` 开启 `@EnableCaching` 并提供 `RedisCacheManager`（TTL/前缀经 `app.cache.ttl`/`app.cache.key-prefix` 配置化）；不引入 Caffeine 二级缓存，避免多级一致性与离线依赖复杂度。
+- **统计口径**：`StatisticsCache`/`StatisticsCacheManager` 装饰器在应用侧记账（命中/未命中/淘汰），**按实例**统计——Redis 服务端无 per-cache 命中计数，多实例聚合需外部系统（Prometheus）另行实现；监控页 `type=REDIS` 的条目数为 `-1`（不可用哨兵，避免 SCAN）。
+- **清理语义**：仅可清理本实例已使用过的缓存；未使用过的名称返回 404 语义，不误报已清理。
+- **读写一致**：试点 `DictDataService.listByType` `@Cacheable`（空类型码归一 `ALL` 键）；`create` 按类型码精确驱逐，`update`/`delete` 全量驱逐（类型可能被改写，全清成本可忽略）。
+- **缓存异常影响面**：Redis 不可用时仅缓存读写失败，不影响主流程（与健康探针降级策略一致）。
 
 ### 30.3 V29 迁移（已并入 `V32__consolidated_schema.sql`，见 §34）
 
@@ -566,6 +576,24 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 ### 31.5 部署注意
 
 prod 环境变量已由单库 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 更名为 `DB_PRIMARY_URL` / `DB_PRIMARY_USERNAME` / `DB_PRIMARY_PASSWORD`，上线前务必同步，否则启动 fail-fast。
+
+---
+
+## 32. 邮件通知渠道运维要点（M6）
+
+跨渠道通知（站内信 / Webhook / WebSocket / 邮件）统一经 `POST /api/system/notifications/send`（权限 `system:message:send`，带 `@Idempotent` 幂等）投递，由 `NotificationService` 按 `channel` 路由到对应适配器；新增渠道只需新增一个 `NotificationPort` 实现，编排层零改动。
+
+邮件渠道（`Channel.EMAIL`）运维要点：
+
+- **默认关闭**：`app.notifications.email.enabled=false`。未启用时发送请求返回 `COMMON_001 邮件通知渠道未启用`（400），与 Webhook 门禁策略一致——不静默丢弃，调用方显式感知。
+- **启用配置**（`application-{profile}.yml` 或环境变量）：`from`（发件人，必配）、`host`/`port`（SMTP）、`username`/`password`（生产经 `NOTIFICATION_EMAIL_USERNAME` / `NOTIFICATION_EMAIL_PASSWORD` 注入，不落仓库）、`starttls`（587 端口通常 true）、`timeout-ms`。
+- **安全防护**：发送前经 `EmailRules` 纯函数校验——收件人地址形态、主题 CRLF/TAB 净化（防邮件头注入，注入内容退化为 inert 文本）、单封收件人上限 50、主题 200 / 正文 20000 字符上限；任一条不满足返回 400，非法报文不外发。
+- **收件人口径**：邮件按地址维度投递，忽略 `receiverIds`/`roleIds`/`orgIds`（与站内信「按用户/角色/部门落库」语义不同）；调用方需自行把用户解析为邮箱地址。
+- **失败处理**：SMTP 发送失败（`MailException`）向上抛，由全局异常处理记录；不静默重试，避免重复投递。
+
+---
+
+## 33. 工作流设计「不存在」问题排查报告（归档）
 
 - **日期**：2026-10-12
 - **项目**：java-admin-framework（Spring Boot 3.3.4 + jOOQ + MySQL + Flowable）

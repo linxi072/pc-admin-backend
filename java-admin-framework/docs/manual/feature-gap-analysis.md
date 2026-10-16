@@ -1,7 +1,7 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
-> 方法：**直接核查真实代码**（357 个后端 `.java` 的 `@RestController`/`@RequestMapping`、33 个前端 `.vue`、25 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理 / M6 邮件渠道落地）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 方法：**直接核查真实代码**（401 个后端 `.java` 的 `@RestController`/`@RequestMapping`、33 个前端 `.vue`、25 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
 ---
@@ -79,8 +79,8 @@
 | 项 | 业务价值 | 可行性（离线沙箱） | 优先级 | 建议实现方式 |
 |---|---|---|---|---|
 | **数据导入/导出中心（Excel）** | 高 | POI/EasyExcel **不在**离线仓库，需联网 `mvn` 引入 | P2（递延，待联网） | 引入 POI + 通用 `ExportService`（CSV 已具备 `report/export`）；前端导出中心页；先以 CSV 兜底，Excel 待依赖就绪 |
-| **缓存管理（命中率查看 + 清除）** | 中 | 当前**无 Spring Cache 抽象**（仅 `MonitorService` 内存统计，无 `CacheManager`） | P2 | 先引入 `Caffeine`/`Redis` `CacheManager` 并接 `CacheStatView`；再补 `CacheMonitorView` 清除按钮 + 后端清除端点 |
-| **通知渠道抽象（邮件/短信/Webhook）** | 中 | `MessageService` 现仅站内信 | P3（站内信/Webhook/**WebSocket 实时推送** 已完成） | 抽 `NotificationPort`（站内信/Webhook/WebSocket 实现 + `NotificationService` 编排路由 + `app.notifications.webhook.*` 配置化）；WebSocket 复用既有 `RealtimePushService`（定向/广播），EMAIL/SMS 仍待网关依赖，列入后续 |
+| **缓存管理（命中率查看 + 清除）** | 中 | ✅ **已落地（M5，2026-10-16）**：`config/cache` 提供 `@EnableCaching` + RedisCacheManager（TTL/前缀可配），`StatisticsCache`/`StatisticsCacheManager` 装饰器做进程内命中/未命中/淘汰记账；`MonitorService.cacheStats()/clearCache()` 扩展至 Spring Cache，前端缓存监控页零改动；试点 `DictDataService.listByType` `@Cacheable`（create 精确驱逐、update/delete 全量驱逐） | P2 → 已完成 | 后续可按需把菜单树等更多热点读纳入缓存（同一 CacheManager 即可） |
+| **通知渠道抽象（邮件/短信/Webhook）** | 中 | ✅ **已落地（M6，2026-10-16）**：`Channel.EMAIL` + `EmailNotificationAdapter`（`app.notifications.email.*` 默认关闭）+ `EmailRules` 纯函数（地址校验/CRLF 净化防头注入/收件人归一与上限）+ `JavaMailSenderClient`（spring-context-support 6.1.15 + jakarta.mail 2.1.3 + angus-mail 2.0.3，均离线可用） | P3 → 已完成（仅 SMS 仍待网关） | SMS 仍待短信网关依赖；站内信/Webhook/WebSocket/邮件四渠道已齐备 |
 | **i18n 国际化** | 低 | 无 | P3 | `MessageSource` + 前端 i18n，工作量大 |
 | **限流/防重放注解化** | 中 | `RateLimitFilter` 已 opt-in，但无注解驱动 | P3 | 抽 `@RateLimit` 注解 + AOP 拦截，配置化阈值 |
 
@@ -103,14 +103,14 @@
 | 层级 | 内容 | 动作 |
 |---|---|---|
 | **P0** | 严格需求缺口 | **无** |
-| **P1** | 工作区卫生 | 先把上一轮未提交的文档/脚本（多数据源指南、编码规范、`check-conventions.py`、`.editorconfig`、四手册编辑）本地提交，保持 `feat/V1.0.2` 工作区干净 |
-| **P2** | 增强型基础功能 | 数据导出中心（需联网引入 POI）；缓存管理（需先建 `CacheManager`） |
-| **P3** | 可选增强 | 通知渠道抽象（站内信/Webhook，**本次已落地**）、限流注解化（上一轮已落地）、i18n（待办） |
+| **P1** | 工作区卫生 | 已保持 `feat/V1.0.2` 工作区干净（每轮按关注点分批本地提交） |
+| **P2** | 增强型基础功能 | 数据导出中心（需联网引入 POI，**待联网**）；~~缓存管理~~（**已落地 M5**） |
+| **P3** | 可选增强 | ~~通知渠道抽象~~（**已落地 M6，EMAIL 齐备，仅 SMS 待网关**）、~~限流注解化~~（已落地）、i18n（待办） |
 
 ---
 
 ## 8. 建议
 
 1. 严格需求已闭环，后续以"增强型基础功能 + 持续优化"为主，按业务优先级排期，不必为"补需求"而补。
-2. 先把上一轮已完成的文档/脚本提交，避免工作区长期 dirty 带来集成风险。
+2. 每轮完成的代码/文档按关注点分批本地提交，避免工作区长期 dirty 带来集成风险。
 3. 需要联网引入依赖的项（POI 等）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
