@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.application;
+package com.acme.scaffold.security.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -45,7 +45,7 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AuthApplicationService {
+public class AuthService {
 
     /** 限制解除时间展示格式（yyyy-MM-dd HH:mm）。 */
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");

@@ -1,7 +1,7 @@
 package com.acme.scaffold.security.controller;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.security.application.AuthApplicationService;
+import com.acme.scaffold.security.service.AuthService;
 import com.acme.scaffold.security.dto.AuthChangePasswordRequest;
 import com.acme.scaffold.security.dto.ForgotPasswordRequest;
 import com.acme.scaffold.security.dto.LoginCommand;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthApplicationService authApplicationService;
+    private final AuthService authApplicationService;
 
     @Operation(summary = "账号密码登录")
     @PostMapping("/login")

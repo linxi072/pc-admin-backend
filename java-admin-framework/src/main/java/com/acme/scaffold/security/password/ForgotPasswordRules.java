@@ -6,7 +6,7 @@ package com.acme.scaffold.security.password;
  * <p>设计约束：
  * <ul>
  *   <li><b>防账号枚举</b>：调用方对「用户不存在」「验证信息不匹配」必须返回同一错误
- *   （见 {@code AuthApplicationService#forgotPassword}），本类只回答「核验是否通过」，
+ *   （见 {@code AuthService#forgotPassword}），本类只回答「核验是否通过」，
  *   不区分失败原因，从结构上杜绝把「用户不存在」泄漏给调用方；</li>
  *   <li><b>验证凭据二选一</b>：手机号或邮箱任一与库中记录匹配即通过（内网运营后台场景，
  *   无短信/邮件下发通道，采用「知道即验证」的轻量核验）；</li>

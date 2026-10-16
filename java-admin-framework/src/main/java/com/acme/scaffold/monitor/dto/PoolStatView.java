@@ -1,4 +1,4 @@
-package com.acme.scaffold.monitor.domain;
+package com.acme.scaffold.monitor.dto;
 
 /**
  * 数据库连接池统计（V29 连接池监控页数据源）。

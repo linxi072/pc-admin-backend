@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.LongAdder;
  *   <li><b>手动提交</b>：整批处理完毕才 {@link RecordSource#commitSync()}——
  *       中途异常放弃提交，下轮重投（at-least-once），重复记录再被版本表挡下；</li>
  *   <li><b>背压控制</b>：单批记录数与 poll 时长由
- *       {@code com.acme.scaffold.kafka.config.KafkaOrderedConsumerProperties} 约束，
+ *       {@code com.acme.scaffold.kafka.domain.KafkaOrderedConsumerProperties} 约束，
  *       防止 max.poll.interval.ms 超时引发 rebalance。</li>
  * </ol>
  *

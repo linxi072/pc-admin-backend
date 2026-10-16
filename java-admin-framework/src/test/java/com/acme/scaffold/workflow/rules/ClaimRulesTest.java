@@ -1,4 +1,4 @@
-package com.acme.scaffold.workflow;
+package com.acme.scaffold.workflow.rules;
 
 import org.junit.jupiter.api.Test;
 

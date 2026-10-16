@@ -1,4 +1,4 @@
-package com.acme.scaffold.monitor.domain;
+package com.acme.scaffold.monitor.dto;
 
 /**
  * 单项缓存统计（V29 缓存监控页数据源）。

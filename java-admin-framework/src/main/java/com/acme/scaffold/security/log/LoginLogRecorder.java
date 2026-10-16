@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  * 登录日志记录器：将登录成功 / 失败事件落入 {@code sys_login_log}，
  * 为「报表管理 - 登录统计」（登录次数、活跃用户趋势、异常登录记录）提供数据源。
  *
- * <p><b>独立事务（REQUIRES_NEW）</b>：登录主方法 {@code AuthApplicationService#login} 为事务方法，
+ * <p><b>独立事务（REQUIRES_NEW）</b>：登录主方法 {@code AuthService#login} 为事务方法，
  * 失败路径抛出业务异常会整体回滚——若失败日志与主事务同生共死，异常登录记录将永远丢失，
  * 统计口径出现「有失败计数、无失败明细」的割裂。故写入一律挂起主事务、以新事务提交。</p>
  *

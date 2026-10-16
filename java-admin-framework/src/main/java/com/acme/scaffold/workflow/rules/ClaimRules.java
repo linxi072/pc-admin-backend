@@ -1,4 +1,4 @@
-package com.acme.scaffold.workflow;
+package com.acme.scaffold.workflow.rules;
 
 /**
  * 任务认领纯规则（无 Spring / 无 DB 依赖，便于单测）。

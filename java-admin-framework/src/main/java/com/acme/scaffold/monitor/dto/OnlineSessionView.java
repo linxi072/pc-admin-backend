@@ -1,4 +1,4 @@
-package com.acme.scaffold.monitor.domain;
+package com.acme.scaffold.monitor.dto;
 
 import java.time.LocalDateTime;
 

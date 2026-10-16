@@ -23,7 +23,7 @@ import com.acme.scaffold.workflow.model.ApprovalAction;
 import com.acme.scaffold.workflow.dto.design.WorkflowDesignView;
 import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
-import com.acme.scaffold.workflow.ClaimRules;
+import com.acme.scaffold.workflow.rules.ClaimRules;
 import com.acme.scaffold.workflow.service.WorkflowDesignService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

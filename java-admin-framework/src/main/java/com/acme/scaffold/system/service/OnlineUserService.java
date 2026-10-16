@@ -49,7 +49,7 @@ import java.util.Set;
  * 无需等待其自然过期，实现「操作后实时生效」。
  *
  * <p><b>限制登录语义</b>：写入 {@code sys_login_restriction}（限时+原因），
- * 登录链路 {@code AuthApplicationService} 强制校验；限制生效时同步强制下线其全部在线会话，
+ * 登录链路 {@code AuthService} 强制校验；限制生效时同步强制下线其全部在线会话，
  * 避免「禁止新登录但在线会话继续操作」的漏洞。到期由 {@code LoginRestrictionJob} 自动解除。
  */
 @Slf4j

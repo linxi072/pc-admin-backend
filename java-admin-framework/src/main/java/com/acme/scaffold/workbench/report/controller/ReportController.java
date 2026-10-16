@@ -8,7 +8,7 @@ import com.acme.scaffold.workbench.report.dto.ReportTypeMeta;
 import com.acme.scaffold.workbench.report.dto.ReportVO;
 import com.acme.scaffold.workbench.report.dto.SortField;
 import com.acme.scaffold.workbench.report.dto.SortOrder;
-import com.acme.scaffold.workbench.report.service.ReportCsvExport;
+import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
 import com.acme.scaffold.workbench.report.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -90,7 +90,7 @@ public class ReportController {
             @RequestParam(required = false, defaultValue = "COUNT") SortField sortBy,
             @RequestParam(required = false, defaultValue = "DESC") SortOrder order) {
         ReportQuery query = new ReportQuery(type, rangeType, start, end, module, success, keyword, sortBy, order);
-        ReportCsvExport export = reportService.exportCsv(query);
+        ReportCsvVO export = reportService.exportCsv(query);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + export.filename() + "\"")

@@ -5,6 +5,7 @@ import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
+import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
 import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
 import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
 import com.acme.scaffold.workbench.report.dto.ReportQuery;
@@ -720,9 +721,9 @@ public class ReportService {
     // ==================================================================
 
     /** 导出 CSV：使用视角输出汇总+类别+状态+趋势四段；统计视角输出汇总+分布+明细+趋势四段。UTF-8 含 BOM。 */
-    public ReportCsvExport exportCsv(ReportQuery query) {
+    public ReportCsvVO exportCsv(ReportQuery query) {
         ReportVO vo = report(query);
-        return new ReportCsvExport(ReportCsvWriter.fileName(query, vo),
+        return new ReportCsvVO(ReportCsvWriter.fileName(query, vo),
                 ReportCsvWriter.toCsvBytes(ReportCsvWriter.lines(query, vo)));
     }
 
