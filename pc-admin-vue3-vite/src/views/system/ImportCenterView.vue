@@ -92,6 +92,10 @@
         <el-table-column prop="message" label="失败原因" />
       </el-table>
 
+      <div class="submit-row">
+        <el-checkbox v-model="withReport">失败时下载错误报告（CSV，含失败行原始值）</el-checkbox>
+      </div>
+
       <template #footer>
         <el-button @click="dialogVisible = false">关闭</el-button>
         <el-button :icon="View" :loading="submitting === 'dry'" @click="onSubmit(true)">预检</el-button>
@@ -110,7 +114,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Download, Upload, UploadFilled, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { listImportTemplates, downloadImportTemplate, uploadImportFile } from '../../api/import'
+import { listImportTemplates, downloadImportTemplate, uploadImportFile, uploadImportFileRaw } from '../../api/import'
 
 const loading = ref(false)
 const rows = ref([])
@@ -122,6 +126,7 @@ const fileList = ref([])
 const selectedFile = ref(null)
 const submitting = ref(null)
 const result = ref(null)
+const withReport = ref(true)
 
 const dialogTitle = computed(() =>
   current.value ? `导入数据 - ${current.value.displayName}` : '导入数据')
@@ -155,20 +160,25 @@ async function onDownloadTemplate(row, format) {
       return
     }
     const fileName = parseFileName(resp, `导入模板-${row.displayName}`, format === 'XLSX' ? 'xlsx' : 'csv')
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    saveBlob(blob, fileName)
     ElMessage.success('模板下载成功')
   } catch (e) {
     // 响应拦截器已弹错误提示
   } finally {
     downloading.value = null
   }
+}
+
+/** 通用 Blob 保存：创建临时对象 URL 并触发浏览器下载。 */
+function saveBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 /** 优先解析 Content-Disposition 中的文件名，失败回退到模板名（按格式补后缀）。 */
@@ -226,18 +236,65 @@ async function onSubmit(dryRun) {
   }
   submitting.value = dryRun ? 'dry' : 'real'
   try {
-    const res = await uploadImportFile(current.value.code, selectedFile.value, dryRun)
-    result.value = res
-    if (res.failureCount > 0) {
-      ElMessage.warning(`${dryRun ? '预检' : '导入'}完成：成功 ${res.successCount} 行，失败 ${res.failureCount} 行`)
-    } else {
-      ElMessage.success(dryRun ? `预检通过：${res.successCount} 行均可导入` : `导入成功：${res.successCount} 行`)
+    if (withReport.value) {
+      const handled = await submitWithReport(dryRun)
+      if (handled) return
     }
+    const res = await uploadImportFile(current.value.code, selectedFile.value, dryRun)
+    handleResult(res, dryRun)
   } catch (e) {
     // 响应拦截器已弹错误提示（如表头不匹配、格式不支持）
   } finally {
     submitting.value = null
   }
+}
+
+/** 展示导入/预检结果（统计 + 内联错误明细表）。 */
+function handleResult(res, dryRun) {
+  result.value = res
+  if (res.failureCount > 0) {
+    ElMessage.warning(`${dryRun ? '预检' : '导入'}完成：成功 ${res.successCount} 行，失败 ${res.failureCount} 行`)
+  } else {
+    ElMessage.success(dryRun ? `预检通过：${res.successCount} 行均可导入` : `导入成功：${res.successCount} 行`)
+  }
+}
+
+/**
+ * 勾选「失败时下载错误报告」时走 raw 通道：
+ * 存在失败行 → 后端返回 CSV 附件（含失败行原始值），直接下载；
+ * 无失败行 → 后端仍返回 JSON 统计（Blob 内为 Result 包装，需自行拆 data）。
+ * 返回 true 表示本通道已处理完毕（含下载或错误提示），调用方无需再走常规通道。
+ */
+async function submitWithReport(dryRun) {
+  const resp = await uploadImportFileRaw(current.value.code, selectedFile.value, dryRun, true)
+  const data = resp?.data
+  const blob = data instanceof Blob ? data : new Blob([data])
+  if (blob.type && blob.type.includes('application/json')) {
+    const text = await blob.text()
+    let payload = null
+    let errMsg = ''
+    try {
+      const obj = JSON.parse(text)
+      payload = obj?.data
+      errMsg = obj?.message || ''
+    } catch (_) { /* ignore */ }
+    if (payload) {
+      handleResult(payload, dryRun)
+      return true
+    }
+    if (errMsg) {
+      ElMessage.error(errMsg)
+      return true
+    }
+    // 无法识别的响应体：交由外层提示
+    ElMessage.error('导入响应格式异常')
+    return true
+  }
+  // CSV 失败报告附件：触发下载
+  const fileName = parseFileName(resp, `导入失败报告-${current.value.displayName}`, 'csv')
+  saveBlob(blob, fileName)
+  ElMessage.warning('存在失败行，错误报告已下载；请按报告修复后重新导入')
+  return true
 }
 
 onMounted(load)
@@ -249,4 +306,5 @@ onMounted(load)
 .dialog-tip { margin-bottom: 14px; }
 .result-tip { margin-top: 14px; }
 .error-table { margin-top: 10px; }
+.submit-row { margin-top: 12px; }
 </style>

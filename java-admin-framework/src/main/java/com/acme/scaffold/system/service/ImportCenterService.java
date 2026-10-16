@@ -3,7 +3,9 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.importer.CsvDataReader;
+import com.acme.scaffold.common.importer.FailedRow;
 import com.acme.scaffold.common.importer.ImportFormat;
+import com.acme.scaffold.common.importer.ImportOutcome;
 import com.acme.scaffold.common.importer.ImportResult;
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
@@ -67,6 +69,15 @@ public class ImportCenterService {
      * @return 导入结果（统计 + 失败明细）
      */
     public ImportResult importData(String code, String fileName, byte[] content, boolean dryRun) {
+        return importDetailed(code, fileName, content, dryRun).result();
+    }
+
+    /**
+     * 同 {@link #importData(String, String, byte[], boolean)}，额外返回失败行的
+     * <b>原始单元格值</b>（{@link ImportOutcome#failedRows()}），供控制器生成
+     * 「导入失败报告 CSV」——用户可离线修复后重传。常规导入请用 {@code importData}。
+     */
+    public ImportOutcome importDetailed(String code, String fileName, byte[] content, boolean dryRun) {
         ImportTask task = task(code);
         ImportFormat format = ImportFormat.detect(fileName);
         if (format == null) {
@@ -90,6 +101,7 @@ public class ImportCenterService {
 
         List<String> taskHeaders = task.headers();
         List<RowError> errors = new ArrayList<>();
+        List<FailedRow> failedRows = new ArrayList<>();
         int processed = 0;
         int success = 0;
         int failed = 0;
@@ -117,14 +129,16 @@ public class ImportCenterService {
             // 失败行数按真实值累加；错误明细受上限约束，超出仅记录日志
             failed++;
             if (errors.size() < importProperties.getMaxErrors()) {
-                errors.add(new RowError(rowNo, String.join("；", rowErrors)));
+                String message = String.join("；", rowErrors);
+                errors.add(new RowError(rowNo, message));
+                failedRows.add(new FailedRow(rowNo, message, values));
             } else {
                 log.warn("导入 {} 第 {} 行失败（错误明细已达上限，仅计数）: {}", code, rowNo, rowErrors);
             }
         }
         log.info("导入完成：模板={}，格式={}，预检={}，处理 {} 行，成功 {} 行，失败 {} 行",
                 code, format, dryRun, processed, success, failed);
-        return new ImportResult(dryRun, processed, success, failed, errors);
+        return new ImportOutcome(new ImportResult(dryRun, processed, success, failed, errors), failedRows);
     }
 
     /** 落库单行；异常转为该行错误信息（不中断其余行）。 */

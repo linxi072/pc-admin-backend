@@ -5,7 +5,9 @@ import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.CsvExporter;
 import com.acme.scaffold.common.export.XlsxDataExporter;
+import com.acme.scaffold.common.importer.FailedRow;
 import com.acme.scaffold.common.importer.ImportFormat;
+import com.acme.scaffold.common.importer.ImportOutcome;
 import com.acme.scaffold.common.importer.ImportResult;
 import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.security.ratelimit.RateLimit;
@@ -30,6 +32,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,7 +45,9 @@ import java.util.List;
  *       后者用 JDK {@code java.util.zip} + StAX 解析 OOXML），<b>不引入 POI</b>，离线构建友好；</li>
  *   <li>{@code /template} 下载「仅表头」的空白模板（默认 XLSX，便于用户直接在 Excel 中填写），
  *       与 {@code /} 上传接口共用同一表头定义，避免模板与校验规则漂移；</li>
- *   <li>{@code dryRun=true} 为预检：完成表头校验与逐行业务校验但不落库，便于用户先确认再导入。</li>
+ *   <li>{@code dryRun=true} 为预检：完成表头校验与逐行业务校验但不落库，便于用户先确认再导入；</li>
+ *   <li>{@code errorReport=true} 时失败行随响应生成 CSV 报告（含原始行值，防公式注入），
+ *       与本次导入同请求完成，不产生二次执行。</li>
  * </ul>
  *
  * <p>权限码：{@code system:import:read}（模板列表 / 下载模板）、{@code system:import:write}（上传导入）。
@@ -88,16 +93,25 @@ public class ImportController {
         return fileResponse(body, "导入模板-" + task.displayName(), format);
     }
 
-    @Operation(summary = "上传并导入数据（dryRun=true 仅预检不落库）")
+    /**
+     * 上传并导入数据（dryRun=true 仅预检不落库）。
+     *
+     * <p>{@code errorReport=true} 时：若存在失败行，响应改为 <b>CSV 失败报告附件</b>
+     * （列：数据行号 / 失败原因 / 模板各列原始值；UTF-8 BOM，Excel 可直接打开），
+     * 用户可离线修复后重传；无失败行时仍返回 JSON 统计。同一请求内完成，<b>不会二次执行导入</b>。</p>
+     */
+    @Operation(summary = "上传并导入数据（dryRun=true 仅预检不落库；errorReport=true 失败时返回 CSV 报告附件）")
     @PostMapping("/{code}")
     @PreAuthorize("hasAuthority('system:import:write')")
     @RateLimit(max = 10, windowSeconds = 60, scope = RateLimit.Scope.IP)
     // 不记录入参：MultipartFile 无法安全序列化进审计摘要（其余导入上下文由业务模块自身审计覆盖）
     @AuditOperation(module = "import", type = "CREATE", name = "导入数据", recordParams = false)
-    public Result<ImportResult> upload(@PathVariable("code") String code,
-                                       @RequestParam("file") MultipartFile file,
-                                       @RequestParam(value = "dryRun", required = false, defaultValue = "false")
-                                       boolean dryRun) {
+    public ResponseEntity<?> upload(@PathVariable("code") String code,
+                                    @RequestParam("file") MultipartFile file,
+                                    @RequestParam(value = "dryRun", required = false, defaultValue = "false")
+                                    boolean dryRun,
+                                    @RequestParam(value = "errorReport", required = false, defaultValue = "false")
+                                    boolean errorReport) {
         if (file == null || file.isEmpty()) {
             throw BusinessException.badRequest("上传文件为空");
         }
@@ -107,17 +121,69 @@ public class ImportController {
         } catch (IOException e) {
             throw BusinessException.badRequest("读取上传文件失败");
         }
-        return Result.success(importCenterService.importData(code, file.getOriginalFilename(), content, dryRun));
+        if (errorReport) {
+            ImportOutcome outcome = importCenterService.importDetailed(code, file.getOriginalFilename(), content, dryRun);
+            if (outcome.result().failureCount() > 0) {
+                return errorReportResponse(importCenterService.task(code), outcome);
+            }
+            return jsonResult(outcome.result());
+        }
+        return jsonResult(importCenterService.importData(code, file.getOriginalFilename(), content, dryRun));
+    }
+
+    /** 生成「导入失败报告」CSV（行号 + 原因 + 模板各列原始值；防公式注入）。 */
+    private static ResponseEntity<byte[]> errorReportResponse(ImportTask task, ImportOutcome outcome) {
+        List<String> headers = new ArrayList<>();
+        headers.add("数据行号");
+        headers.add("失败原因");
+        headers.addAll(task.headers());
+        List<List<String>> rows = outcome.failedRows().stream()
+                .map(f -> reportRow(task, f))
+                .toList();
+        return fileResponse(csvBytes(headers, rows), "导入失败报告-" + task.displayName(), ImportFormat.CSV);
+    }
+
+    private static List<String> reportRow(ImportTask task, FailedRow failed) {
+        List<String> cells = new ArrayList<>();
+        cells.add(String.valueOf(failed.rowNo()));
+        cells.add(sanitizeFormula(failed.message()));
+        for (String header : task.headers()) {
+            cells.add(sanitizeFormula(failed.values().getOrDefault(header, "")));
+        }
+        return cells;
+    }
+
+    /**
+     * 防 CSV 公式注入（OWASP 建议）：以 {@code = + - @}、Tab 或 CR 开头的单元格
+     * 前缀单引号使其按文本展示。报告仅供人工核对修复，前缀不影响数据语义。
+     */
+    private static String sanitizeFormula(String cell) {
+        if (cell == null || cell.isEmpty()) {
+            return cell;
+        }
+        char first = cell.charAt(0);
+        if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
+            return "'" + cell;
+        }
+        return cell;
+    }
+
+    private static ResponseEntity<Object> jsonResult(ImportResult result) {
+        return ResponseEntity.ok(Result.success(result));
     }
 
     /** 生成「仅表头」的 CSV 模板（UTF-8 BOM，Excel 可直接打开）。 */
     private static byte[] csvBytes(List<String> headers) {
+        return csvBytes(headers, List.of());
+    }
+
+    private static byte[] csvBytes(List<String> headers, List<List<String>> rows) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try {
-            CsvExporter.write(bos, headers, List.of());
+            CsvExporter.write(bos, headers, rows);
         } catch (IOException e) {
             // ByteArrayOutputStream 不抛 IOException，防御性保留
-            throw new IllegalStateException("模板生成失败", e);
+            throw new IllegalStateException("CSV 生成失败", e);
         }
         return bos.toByteArray();
     }

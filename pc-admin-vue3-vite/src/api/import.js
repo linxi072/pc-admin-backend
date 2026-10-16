@@ -31,3 +31,18 @@ export const uploadImportFile = (code, file, dryRun = false) => {
     data: form
   })
 }
+
+// POST /api/system/import/{code}?errorReport=true（multipart）-> 原始 blob 响应（走 requestRaw 通道）
+// 存在失败行时后端返回 CSV 失败报告附件（text/csv，含原始行值）；
+// 无失败行时仍返回 JSON 统计（content-type 为 application/json，Blob 内为 Result 包装，需自行拆 data）。
+export const uploadImportFileRaw = (code, file, dryRun = false, errorReport = true) => {
+  const form = new FormData()
+  form.append('file', file)
+  return requestRaw({
+    method: 'POST',
+    url: `/api/system/import/${code}`,
+    params: { dryRun, errorReport },
+    data: form,
+    responseType: 'blob'
+  })
+}
