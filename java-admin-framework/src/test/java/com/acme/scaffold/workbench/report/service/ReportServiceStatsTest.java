@@ -31,24 +31,27 @@ class ReportServiceStatsTest {
 
     @Test
     void toDistribution_labelsAndRatios() {
-        // 10 条样本：<100ms×4、100-500ms×3、500ms-1s×2、>5s×1，其余桶 0
-        long[] counts = {4, 3, 2, 0, 1, 0};
+        // 桶顺序与 durationCounts 的 SQL 聚合顺序严格一致：
+        // [无耗时记录(NULL), <100ms, 100-500ms, 500ms-1s, 1s-5s, >5s]
+        // 10 条样本：<100ms×4、100-500ms×3、500ms-1s×2、>5s×1，无耗时记录与 1s-5s 桶为 0
+        long[] counts = {0, 4, 3, 2, 0, 1};
         List<ReportDistributionVO> dist = ReportService.toDistribution(counts);
 
         assertEquals(6, dist.size());
-        assertEquals("<100ms", dist.get(0).label());
-        assertEquals(4L, dist.get(0).count());
-        assertEquals(40.0, dist.get(0).ratio());
-        assertEquals("100-500ms", dist.get(1).label());
-        assertEquals(30.0, dist.get(1).ratio());
-        assertEquals("500ms-1s", dist.get(2).label());
-        assertEquals(20.0, dist.get(2).ratio());
-        assertEquals("1s-5s", dist.get(3).label());
-        assertEquals(0L, dist.get(3).count());
-        assertEquals(">5s", dist.get(4).label());
-        assertEquals(1L, dist.get(4).count());
-        assertEquals(10.0, dist.get(4).ratio());
-        assertEquals("无耗时记录", dist.get(5).label());
+        assertEquals("无耗时记录", dist.get(0).label());
+        assertEquals(0L, dist.get(0).count());
+        assertEquals("<100ms", dist.get(1).label());
+        assertEquals(4L, dist.get(1).count());
+        assertEquals(40.0, dist.get(1).ratio());
+        assertEquals("100-500ms", dist.get(2).label());
+        assertEquals(30.0, dist.get(2).ratio());
+        assertEquals("500ms-1s", dist.get(3).label());
+        assertEquals(20.0, dist.get(3).ratio());
+        assertEquals("1s-5s", dist.get(4).label());
+        assertEquals(0L, dist.get(4).count());
+        assertEquals(">5s", dist.get(5).label());
+        assertEquals(1L, dist.get(5).count());
+        assertEquals(10.0, dist.get(5).ratio());
 
         // 汇总守恒：计数之和 = 样本总量
         long sum = dist.stream().mapToLong(ReportDistributionVO::count).sum();

@@ -181,6 +181,25 @@ class DictDataServiceCacheTest {
         }
     }
 
+    /**
+     * 新增必须一并驱逐「查询全部」键：新增会改变全量结果集，只驱逐本类型键时
+     * {@code listByType(null)} 将长期读到不含新数据的旧缓存（历史缺陷，本用例锁定修复）。
+     */
+    @Test
+    void createAlsoEvictsAllTypesKey() {
+        try (MockedStatic<JooqWriters> writers = mockStatic(JooqWriters.class)) {
+            stubFetchFixed(writers);
+            stubWrites(writers);
+
+            service.listByType(null); // 填充 ALL 键
+            assertEquals("男", cachedLabel(DictDataService.ALL_TYPES));
+
+            service.create(new CreateDictDataRequest("status", "启用", "1", 1, "ACTIVE", null));
+            assertNull(cachedLabel(DictDataService.ALL_TYPES),
+                    "新增后「查询全部」缓存必须失效，否则会长期读到不含新数据的旧结果");
+        }
+    }
+
     @Test
     void updateEvictsAllEntriesAndRereadHitsDb() {
         try (MockedStatic<JooqWriters> writers = mockStatic(JooqWriters.class)) {

@@ -117,6 +117,40 @@ class OrderedKafkaConsumerTest {
         }
     }
 
+    /**
+     * 毒消息（poison pill）防护：确定性失败的记录若无限重投，消费者将永久卡死、后续消息全部积压。
+     *
+     * <p>触发条件是 {@code version == null}——版本表不占位，重投时
+     * {@code OrderingRules.shouldProcess} 恒为 true，同一条必然被反复处理。</p>
+     */
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("毒消息：连续失败达上限后跳过，后续记录继续处理")
+    void poisonMessageIsSkippedAfterMaxAttempts() throws Exception {
+        RecordingHandler failing = new RecordingHandler("bad");
+        OrderedKafkaConsumer c = new OrderedKafkaConsumer(source, failing, PROPS);
+        OrderedRecord r1 = record("good1", null, 1L);
+        OrderedRecord r2 = record("bad", null, 2L);
+        OrderedRecord r3 = record("good2", null, 3L);
+        // 同一批投 4 轮：前三轮 bad 各失败一次（累计达上限），第四轮应被跳过
+        for (int i = 0; i < 4; i++) {
+            source.offerBatch(r1, r2, r3);
+        }
+        c.start();
+        try {
+            long deadline = System.currentTimeMillis() + 3000;
+            while (System.currentTimeMillis() < deadline
+                    && failing.handled.stream().noneMatch(s -> s.startsWith("good2"))) {
+                Thread.sleep(10);
+            }
+            assertTrue(failing.handled.stream().anyMatch(s -> s.startsWith("good2")),
+                    "毒消息被跳过后，同批后续记录必须能继续处理（否则消费者永久卡死）");
+            long badAttempts = failing.handled.stream().filter(s -> s.startsWith("bad")).count();
+            assertEquals(3, badAttempts, "达到最大投递次数(3)后应停止重试并标记为毒消息");
+        } finally {
+            c.stop();
+        }
+    }
+
     private void awaitHandled(int count) {
         long deadline = System.currentTimeMillis() + 3000;
         while (System.currentTimeMillis() < deadline && handler.handled.size() < count) {

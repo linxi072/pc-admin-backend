@@ -43,6 +43,22 @@ class CsvExporterTest {
         assertTrue(csv.contains("plain,ok\r\n"));
     }
 
+    /**
+     * 公式注入防护（CWE-1236）：导出内容常含用户可控字段，以 = + - @ / Tab / CR 开头的值
+     * 在 Excel / WPS 打开时会被当作公式执行。同时负数值不得被误伤（否则数值列整体变文本）。
+     */
+    @Test
+    void neutralizesFormulaInjectionButKeepsNumbers() throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        CsvExporter.write(bos, List.of("name", "amount"),
+                List.of(List.of("=cmd|'/c calc'", "-5"), List.of("@SUM(1+1)", "+3.14")));
+        String csv = bos.toString(StandardCharsets.UTF_8.name());
+        assertTrue(csv.contains("'=cmd"), "以 = 开头的值须前置单引号中和");
+        assertTrue(csv.contains("'@SUM"), "以 @ 开头的值须前置单引号中和");
+        assertTrue(csv.contains(",-5"), "负数是合法数值，不应被中和成文本");
+        assertTrue(csv.contains(",+3.14"), "带正号的数值不应被中和");
+    }
+
     @Test
     void handlesNullAndEmptyCells() throws Exception {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
