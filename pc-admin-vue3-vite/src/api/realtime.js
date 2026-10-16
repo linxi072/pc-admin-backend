@@ -50,12 +50,15 @@ function connectReal() {
     return
   }
   ws.onmessage = (ev) => {
+    const raw = ev.data
+    // 后端以原始字符串 'pong' 回应心跳（非 JSON），先按字符串短路，避免 JSON.parse 抛错被静默吞掉
+    if (raw === 'pong' || raw === '"pong"') return
     try {
-      const msg = JSON.parse(ev.data)
+      const msg = JSON.parse(raw)
       if (msg && msg.type === 'PONG') return
       dispatch(msg)
     } catch (e) {
-      // 忽略非 JSON 帧
+      // 忽略其他非 JSON 帧
     }
   }
   ws.onclose = () => {

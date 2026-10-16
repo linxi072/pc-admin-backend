@@ -6,7 +6,7 @@ import { request } from './http'
 export const getCaptcha = () =>
   request({ method: 'GET', url: '/api/auth/captcha' })
 
-// POST /api/auth/login -> TokenView { accessToken, tokenType, expiresIn }
+// POST /api/auth/login -> TokenView { accessToken, refreshToken, expiresIn }
 // captchaToken / captchaAnswer 为验证码凭据；未启用验证码时后端忽略这两个字段。
 export const login = (username, password, captchaToken, captchaAnswer) =>
   request({
