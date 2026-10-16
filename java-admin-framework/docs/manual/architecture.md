@@ -1155,6 +1155,25 @@ String en  = i18nService.getMessage("error.not_found", Locale.US); // 指定语�
 - **前端**：`pc-admin-vue3-vite/src/views/system/ImportCenterView.vue` + `api/import.js`，页内提供「下载模板（XLSX/CSV）→ 选择文件 → 预检 → 确认导入 → 失败明细表」闭环；路由 `/system/import`（菜单与权限由后端驱动，见 `V36__import_center.sql`）。
 - **测试**：`CsvDataReaderTest`（BOM/引号语义/三种行分隔/列宽补齐/空行保真）、`XlsxDataReaderTest`（与写出器往返一致、按 `r` 属性对齐稀疏列、共享字符串含富文本、非 OOXML 拒绝）、`ImportValidatorsTest`、`ImportCenterServiceTest`（格式识别/表头校验/行号定位/空行跳过/业务冲突转行错误/预检不落库/行数上限/明细上限分离/CSV 与 XLSX 等价）、`ImportControllerTest`（模板列表与下载、上传预检、四类错误分支）、`DictDataImportTaskTest`（纯校验不触库、trim 与空值归一、冲突透传）共 48 例。
 
+### 8.7 敏感数据脱敏（common/sensitive）
+
+审计摘要、登录日志、导出文件等**对外可见**的数据中可能夹带登录密码、Token、手机号、邮箱、身份证、银行卡号等。存储层允许保留原文（排障需要），但对外返回或落盘导出时必须脱敏——设计方案 §20 明确要求「审计日志可按 traceId 查询且无敏感字段」。
+
+- **模块位置**：`common/sensitive`（框架级通用能力）。该类原位于 `common/audit` 仅服务审计日志，随登录日志、导出中心等复用需求出现而提升为通用模块；**既有静态方法签名与行为保持不变**（迁移零破坏），仅新增更细粒度策略与统一分派入口。
+- **类型驱动**：`SensitiveType` 枚举（`MOBILE` / `ID_CARD` / `BANK_CARD` / `EMAIL` / `NAME` / `ADDRESS` / `IP` / `CREDENTIAL_TEXT` / `NONE`）把「字段属于哪类敏感数据」与「脱敏算法」解耦；调用方只声明类型，规则集中在 `SensitiveMasker`，避免各处硬编码正则导致口径漂移。统一入口 `SensitiveMasker.mask(value, type)`（null 类型或 `NONE` 原样返回，且对已脱敏文本幂等）。
+- **策略**（`SensitiveMasker`，纯函数、零依赖、便于单测）：
+  - `maskPhone` 保留前 3 后 4（`138****1234`）；`maskEmail` 保留首字符与域名（`z***@example.com`）；`maskIdCard` 保留后 4 位；`maskBankCard` 保留后 4 位并**等长掩码**（便于核对位数）；`maskName` 保留首字符；`maskAddress` 保留前 6 字符；
+  - `maskIp` 对 IPv4 保留前两段（`192.168.*.*`，保留网段以便判断来源区域），IPv6 与代理链等非 IPv4 文本整体掩码；
+  - `maskSummary` 处理**不定结构的自由文本**（审计摘要）：先按「键名」抹除整段凭证值（`password`/`token`/`secret`/`captcha` 等，兼容 snake_case/kebab-case/camelCase，长短键名排序避免漏匹配），再按「值形态」抹 PII（手机号/邮箱/身份证）。用正则而非 Jackson 反序列化，因为摘要可能是参数拼接串而非严格 JSON。
+- **安全默认 + 权限逃生**：对外视图默认脱敏；仅当主体显式持有对应「明文可见」权限时才回传原文——审计用 `system:audit:sensitive`，登录日志用 `system:login-log:sensitive`（判定统一走 `SecurityContextFacade`）。这些权限**不在种子数据中预置**，需按需授予，因此默认行为即安全。
+- **落地应用**：
+  - **审计日志**（`common/audit/AuditLogView`）：摘要与 IP 一律脱敏，高权限仅放行摘要原文（IP 恒掩码，避免个人轨迹外泄）；
+  - **登录日志**（`system/log/LoginLogView`）：经 `LoginLogView.of(DO, sensitiveVisible)` 统一构造，默认 IP 掩码，补齐该类既有的「展示层掩码」待办；
+  - **导出**（`system/export/LoginLogExportTask`）：导出文件会离开系统边界，故**一律掩码**——即便导出者持有敏感权限也不放行原文。
+- **测试**：`SensitiveMaskerTest`（18 例：既有 12 例断言原样保留以证明迁移零行为变更，另加银行卡/姓名/地址/统一分派/幂等/边界）、`LoginLogViewTest`（4 例：默认掩码/敏感可见/非 IPv4 整体掩码/null 视图）、`LoginLogExportTaskTest`（4 例：元数据/行宽一致/参数透传/ISO 时间解析与非法值容错）。
+
+> **扩展方式**：新增一类敏感数据的脱敏，只需在 `SensitiveType` 加常量并在 `SensitiveMasker.mask` 的 switch 补一个分支（switch 穷尽性会强制补全）；新增一处应用，只需在视图工厂或导出任务里按类型调用 `SensitiveMasker.mask(...)`，无需改动机器。
+
 ## 9. 关键配置示例
 
 ### 9.1 根 Maven 配置

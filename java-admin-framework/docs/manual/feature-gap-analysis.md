@@ -1,7 +1,7 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口；岗位管理模块后端+前端全链路交付；机构树分键缓存（M5 续）落地；i18n 国际化落地；导出中心增量支持 XLSX（零依赖 OOXML）；导入中心落地（CSV/XLSX 零依赖解析 + 模板注册 + 预检））｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
-> 方法：**直接核查真实代码**（441 个后端主源 `.java` / 110 个测试源、34 个 `@RestController`、45 个前端 `.vue`、28 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口；岗位管理模块后端+前端全链路交付；机构树分键缓存（M5 续）落地；i18n 国际化落地；导出中心增量支持 XLSX（零依赖 OOXML）；导入中心落地（CSV/XLSX 零依赖解析 + 模板注册 + 预检）；敏感数据脱敏通用化（common/sensitive）+ 登录日志脱敏与日志导出）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 方法：**直接核查真实代码**（443 个后端主源 `.java` / 112 个测试源、33 个 `@RestController`、45 个前端 `.vue`、28 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
 ---
@@ -84,6 +84,7 @@
 | **通知渠道抽象（邮件/短信/Webhook）** | 中 | ✅ **已落地（M6，2026-10-16）**：`Channel.EMAIL` + `EmailNotificationAdapter`（`app.notifications.email.*` 默认关闭）+ `EmailRules` 纯函数（地址校验/CRLF 净化防头注入/收件人归一与上限）+ `JavaMailSenderClient`（spring-context-support 6.1.15 + jakarta.mail 2.1.3 + angus-mail 2.0.3，均离线可用） | P3 → 已完成（仅 SMS 仍待网关） | SMS 仍待短信网关依赖；站内信/Webhook/WebSocket/邮件四渠道已齐备 |
 | **i18n 国际化** | 低 | ✅ **已落地（2026-10-16）**：`common/i18n` 提供 `MessageSource`（`ReloadableResourceBundleMessageSource`，UTF-8，基名 `i18n/messages`）+ `SessionLocaleResolver`（默认 zh_CN）+ `LocaleChangeInterceptor`（`?lang=xx` 切换，注册于 `I18nConfig implements WebMvcConfigurer`）；`I18nService` 封装按当前请求语言解析（缺失键返回键本身兜底），`GlobalExceptionHandler` 框架级错误已本地化（zh_CN / en_US 双语资源束）；`I18nServiceTest`(6) + `I18nLocaleInterceptorTest`(2) 覆盖多语言解析/回退/插值/切换 | P3 → 已完成 | 前端 i18n 仍待前端配合；Bean Validation 约束 `message` 键化（如 `{error.field.required}`）与 `BusinessException` 消息键化为后续增强 |
 | **限流/防重放注解化** | 中 | ✅ **已落地**：`security/ratelimit` 新增 `@RateLimit` 注解 + `RateLimitAspect`（IP / 用户 / 全局三维度，复用固定窗口 `RateLimiter`，超限 429），试点上传 / 配置更新接口；与 URL 级 `RateLimitFilter` 互补 | P3 → 已完成 | 多实例部署时可把计数替换为 Redis 共享（保持 key 维度一致） |
+| **敏感数据脱敏（通用化）** | 中 | ✅ **已落地（2026-10-16）**：`common/sensitive` 提供 `SensitiveType`（MOBILE/ID_CARD/BANK_CARD/EMAIL/NAME/ADDRESS/IP/CREDENTIAL_TEXT/NONE）+ `SensitiveMasker`（纯函数、零依赖）——该类由 `common/audit` 私有实现**提升为框架级通用能力**，既有方法签名与行为**零变更**（原 12 例断言原样保留）；新增 `mask(value,type)` 统一分派与 `maskBankCard`/`maskName`/`maskAddress`。落地三处应用：审计日志（原有）、**登录日志**（`LoginLogView.of(DO, sensitiveVisible)` 默认掩码 IP，补齐该类既有的「展示层掩码」待办）、**登录日志导出**（`LoginLogExportTask` 接入导出中心，导出文件一律掩码，零迁移零前端） | P2 → 已完成 | 安全默认：`system:audit:sensitive` / `system:login-log:sensitive` 均不预置种子，需按需授予角色；扩展仅需加 `SensitiveType` 常量 + `SensitiveMasker.mask` 的 switch 分支 |
 
 ---
 
@@ -105,7 +106,7 @@
 |---|---|---|
 | **P0** | 严格需求缺口 | **无** |
 | **P1** | 工作区卫生 | 已保持 `feat/V1.0.2` 工作区干净（每轮按关注点分批本地提交） |
-| **P2** | 增强型基础功能 | ~~数据导出中心~~ + ~~数据导入中心~~（**均已落地 2026-10-16：导出侧既有 CSV 中心增量支持零依赖 XLSX；导入侧新增模板注册运行时 + CSV/XLSX 零依赖解析 + 预检，全程无需 POI**）；~~缓存管理~~（**已落地 M5，含菜单树缓存、机构树分键缓存与跨服务驱逐**） |
+| **P2** | 增强型基础功能 | ~~数据导出中心~~ + ~~数据导入中心~~（**均已落地 2026-10-16：导出侧既有 CSV 中心增量支持零依赖 XLSX；导入侧新增模板注册运行时 + CSV/XLSX 零依赖解析 + 预检，全程无需 POI**）；~~缓存管理~~（**已落地 M5，含菜单树缓存、机构树分键缓存与跨服务驱逐**）；~~敏感数据脱敏~~（**已落地 2026-10-16：common/sensitive 通用化（SensitiveType + SensitiveMasker）+ 登录日志脱敏（默认掩码 IP）+ 登录日志导出模板（一律掩码）**） |
 | **P3** | 可选增强 | ~~通知渠道抽象~~（**已落地 M6，EMAIL 齐备，仅 SMS 待网关**）、~~限流注解化~~（已落地）、~~N+1 告警 / 前端图表按需~~（已落地）、~~i18n 国际化~~（**已落地 2026-10-16**：后端双语资源束 + `GlobalExceptionHandler` 本地化；前端 i18n 待前端配合） |
 
 ---
@@ -116,3 +117,4 @@
 2. 每轮完成的代码/文档按关注点分批本地提交，避免工作区长期 dirty 带来集成风险。
 3. 原「需联网引入 POI」的 Excel 导出/导入已通过**零依赖 OOXML（写出 `XlsxDataExporter` / 解析 `XlsxDataReader`，仅用 JDK `java.util.zip`）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
 4. 导入中心为**模板注册**模式（同导出中心）：新增一种数据的导入只需新增一个 `ImportTask` Bean 并实现 `headers()`/`validate()`/`importRow()`，无需新增接口、迁移或前端页面（前端按 `/templates` 自动渲染）。
+5. 导出中心同理由 `ExportTask` Bean 自动扩充：如本轮新增 `LoginLogExportTask`（登录日志导出）**零迁移、零前端**，仅在 `system/export` 下加一个 `@Component` 即被 `/templates` 自动列举。脱敏遵循「类型驱动 + 安全默认」：对外视图/导出默认掩码，明文可见需显式授予 `system:*:sensitive` 权限。
