@@ -4,7 +4,19 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import * as echarts from 'echarts'
+// ECharts 按需引入：仅注册本项目实际用到的图表与组件（bar / line / pie +
+// grid / tooltip / legend / title + Canvas 渲染器），避免全量包（~1MB）进首屏。
+// 新增图表类型时在此处同步补充对应 import（如 RadarChart、GaugeChart）。
+import { use, init } from 'echarts/core'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+
+use([
+  BarChart, LineChart, PieChart,
+  GridComponent, TooltipComponent, LegendComponent, TitleComponent,
+  CanvasRenderer
+])
 
 const props = defineProps({
   // ECharts option 对象（完整配置）；变化时按 merge=false 重绘，保证数据切换干净
@@ -26,7 +38,7 @@ function handleResize() {
 
 onMounted(async () => {
   await nextTick()
-  chart = echarts.init(el.value)
+  chart = init(el.value)
   render()
   ro = new ResizeObserver(handleResize)
   ro.observe(el.value)
