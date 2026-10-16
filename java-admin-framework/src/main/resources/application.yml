@@ -100,6 +100,14 @@ app:
   # 具体连接串与凭据在各 profile yml 中通过环境变量注入，不在此硬编码。
   datasources:
     primary: primary
+  # ===== 客户端真实 IP 解析 =====
+  # 可信反向代理跳数：决定解析 X-Forwarded-For 时自右向左跳过几跳。
+  # 客户端可任意伪造 X-Forwarded-For，若直接采信其首段（左段），
+  # 限流（IP 为计数键）可被无限换键绕过，审计/登录日志的 IP 也会被污染。
+  #   0 = 应用直连公网，完全忽略 X-Forwarded-For，取 TCP 直连地址；
+  #   1 = 单级 Nginx（默认）；2+ = 多级代理 / CDN，按实际可信跳数设置。
+  web:
+    trusted-proxy-count: 1
   # 头像上传目录（相对项目根或绝对路径）。仅存图片文件，文件名由服务端生成。
   upload:
     avatar-dir: ${AVATAR_DIR:./uploads/avatar}

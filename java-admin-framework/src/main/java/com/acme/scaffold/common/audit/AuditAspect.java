@@ -1,6 +1,7 @@
 package com.acme.scaffold.common.audit;
 
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
+import com.acme.scaffold.config.web.ClientIpResolver;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +31,7 @@ public class AuditAspect {
     private final SecurityContextFacade securityContextFacade;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
+    private final ClientIpResolver clientIpResolver;
 
     @Around("@annotation(com.acme.scaffold.common.audit.AuditOperation)")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -89,14 +91,8 @@ public class AuditAspect {
 
     private String resolveClientIp() {
         HttpServletRequest request = currentRequest();
-        if (request == null) {
-            return null;
-        }
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        // 非 HTTP 上下文（定时任务等）返回 null，由审计记录按缺失处理
+        return request == null ? null : clientIpResolver.resolve(request);
     }
 
     private String resolveMethod() {

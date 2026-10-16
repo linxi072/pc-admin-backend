@@ -2,9 +2,9 @@ package com.acme.scaffold.security.ratelimit;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.config.web.ClientIpResolver;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -32,6 +32,7 @@ public class RateLimitAspect {
 
     private final RateLimiter rateLimiter;
     private final SecurityContextFacade securityContextFacade;
+    private final ClientIpResolver clientIpResolver;
 
     @Around("@annotation(rateLimit)")
     public Object around(ProceedingJoinPoint pjp, RateLimit rateLimit) throws Throwable {
@@ -56,14 +57,9 @@ public class RateLimitAspect {
     private String clientIp() {
         var attrs = RequestContextHolder.getRequestAttributes();
         if (attrs instanceof ServletRequestAttributes sra) {
-            HttpServletRequest req = sra.getRequest();
-            String xff = req.getHeader("X-Forwarded-For");
-            if (xff != null && !xff.isBlank()) {
-                return xff.split(",")[0].trim();
-            }
-            return req.getRemoteAddr();
+            return clientIpResolver.resolve(sra.getRequest());
         }
-        return "unknown";
+        return ClientIpResolver.UNKNOWN;
     }
 
     private String userId() {

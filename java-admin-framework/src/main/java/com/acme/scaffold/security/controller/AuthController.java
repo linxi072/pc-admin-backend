@@ -1,6 +1,7 @@
 package com.acme.scaffold.security.controller;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.config.web.ClientIpResolver;
 import com.acme.scaffold.security.service.AuthService;
 import com.acme.scaffold.security.dto.AuthChangePasswordRequest;
 import com.acme.scaffold.security.dto.ForgotPasswordRequest;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authApplicationService;
+    private final ClientIpResolver clientIpResolver;
 
     @Operation(summary = "账号密码登录")
     @PostMapping("/login")
@@ -62,11 +64,8 @@ public class AuthController {
         return Result.success();
     }
 
+    /** 客户端 IP：经 {@link ClientIpResolver} 按可信代理跳数解析，避免伪造 X-Forwarded-For。 */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return clientIpResolver.resolve(request);
     }
 }

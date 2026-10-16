@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.ratelimit;
 
+import com.acme.scaffold.config.web.ClientIpResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,6 +29,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final RateLimiter limiter = new RateLimiter();
 
+    private final ClientIpResolver clientIpResolver;
+
+    /**
+     * @param clientIpResolver 全局 IP 解析器（与审计/方法级限流同一可信代理口径）
+     */
+    public RateLimitFilter(ClientIpResolver clientIpResolver) {
+        this.clientIpResolver = clientIpResolver;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -49,12 +59,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    /** 取客户端真实 IP：优先 X-Forwarded-For 首段，回退到远端地址。 */
+    /**
+     * 取客户端真实 IP：经 {@link ClientIpResolver} 自右向左跳过可信代理跳数后取值，
+     * 不采信客户端伪造的 {@code X-Forwarded-For} 首段（否则限流可被无限换键绕过）。
+     */
     private String clientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isBlank()) {
-            return xff.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return clientIpResolver.resolve(request);
     }
 }
