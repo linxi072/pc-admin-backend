@@ -30,7 +30,8 @@ import java.util.Map;
  * 审计日志实现：优先在事务提交后异步落库；无事务时直接异步写入。
  * 持久层由 MyBatis-Plus 迁移为 jOOQ。
  *
- * <p>查询侧对齐设计方案 §20：支持按 traceId 追溯链路，且对外视图经 {@link SensitiveMasker} 脱敏。
+ * <p>查询侧对齐设计方案 §20：支持按 traceId 追溯链路，且对外视图经
+ * {@link com.acme.scaffold.common.sensitive.SensitiveMasker} 脱敏。
  * 注意 {@code sys_operation_log} <b>没有 deleted 列</b>（审计数据不允许逻辑删除），
  * 故查询不使用 {@link JooqWriters#notDeleted}，归档由独立运维流程负责。
  */

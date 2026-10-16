@@ -5,6 +5,7 @@ import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
 import com.acme.scaffold.security.entity.SysLoginLogDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,9 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class LoginLogService {
+
+    /** 导出单次最大取数（防止导出大表时耗尽内存；超出部分截断并记录告警）。 */
+    private static final int EXPORT_MAX_ROWS = 10_000;
 
     /** 登录日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
     private static final Map<String, String> LOGIN_LOG_SORT_FIELDS = JooqSorts.whitelist(
@@ -56,11 +60,13 @@ public class LoginLogService {
      * @param endTime       结束时间（含），为空默认当前
      * @param sortField     排序字段（服务端白名单映射，白名单外忽略）
      * @param sortDirection 排序方向：ASC / DESC，为空按 occurred_at DESC
+     * @param sensitiveVisible 是否回传未脱敏 IP（由 Controller 依据 {@code system:login-log:sensitive} 权限决定）
      */
     public PageResult<LoginLogView> page(
             int page, int size, String username, String result, String loginType,
             String failureCode, String ipAddress, String keyword,
-            LocalDateTime startTime, LocalDateTime endTime, String sortField, String sortDirection) {
+            LocalDateTime startTime, LocalDateTime endTime, String sortField, String sortDirection,
+            boolean sensitiveVisible) {
         Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
                 keyword, startTime, endTime);
         var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
@@ -68,7 +74,8 @@ public class LoginLogService {
                 SysLoginLogDO.class, cond, pageQuery,
                 JooqSorts.resolve(JooqTables.SYS_LOGIN_LOG, pageQuery, LOGIN_LOG_SORT_FIELDS,
                         JooqTables.SYS_LOGIN_LOG.field("occurred_at", LocalDateTime.class).desc()));
-        List<LoginLogView> views = raw.records().stream().map(this::toView).toList();
+        List<LoginLogView> views = raw.records().stream()
+                .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
     }
 
@@ -151,9 +158,32 @@ public class LoginLogService {
         return DSL.and(conds);
     }
 
-    private LoginLogView toView(SysLoginLogDO d) {
-        return new LoginLogView(d.getId(), d.getUserId(), d.getUsername(), d.getLoginType(),
-                d.getResult(), d.getFailureCode(), d.getIpAddress(), d.getUserAgent(),
-                d.getTraceId(), d.getOccurredAt());
+    /**
+     * 导出用批量查询（只读）：与 {@link #page} 采用同一筛选口径与排序（{@code occurred_at DESC}），
+     * 但不受分页大小上限（100）约束，供「导出中心」一次性取数。
+     *
+     * <p><b>安全</b>：导出文件会离开系统边界，故 IP <b>一律掩码</b>——即便导出者持有
+     * {@code system:login-log:sensitive} 权限也不放行原文，避免审计数据随文件外流泄漏。</p>
+     *
+     * @param limit 最大返回行数（内部钳制在 1..{@value #EXPORT_MAX_ROWS}），超出则截断并记录告警
+     * @return 登录日志视图列表（IP 已掩码）
+     */
+    public List<LoginLogView> listForExport(String username, String result, String loginType,
+                                            String failureCode, String ipAddress, String keyword,
+                                            LocalDateTime startTime, LocalDateTime endTime, int limit) {
+        Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
+                keyword, startTime, endTime);
+        int bounded = Math.min(Math.max(limit, 1), EXPORT_MAX_ROWS);
+        // 多取一行用于判定是否被截断，便于提示用户缩小范围
+        List<SysLoginLogDO> records = dsl.selectFrom(JooqTables.SYS_LOGIN_LOG.table())
+                .where(cond)
+                .orderBy(JooqTables.SYS_LOGIN_LOG.field("occurred_at", LocalDateTime.class).desc())
+                .limit(bounded + 1)
+                .fetch(new SnakeRecordMapper<>(SysLoginLogDO.class));
+        if (records.size() > bounded) {
+            log.warn("登录日志导出达到行数上限 {}，已截断；请缩小时间范围或筛选条件后分批导出", bounded);
+            records = records.subList(0, bounded);
+        }
+        return records.stream().map(d -> LoginLogView.of(d, false)).toList();
     }
 }

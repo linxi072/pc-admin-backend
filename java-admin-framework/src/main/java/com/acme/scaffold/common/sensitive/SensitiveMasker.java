@@ -1,24 +1,34 @@
-package com.acme.scaffold.common.audit;
+package com.acme.scaffold.common.sensitive;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 审计日志脱敏：对外暴露操作日志时，抹除凭证与个人敏感信息。
+ * 敏感数据脱敏：对外暴露数据时抹除凭证与个人敏感信息（框架级通用能力）。
  *
- * <p><b>存在意义</b>：审计摘要（request_summary / result_summary）由 {@link AuditAspect} 在切面里
- * 原样落库，其中可能包含登录密码、Token、手机号、邮箱、身份证等。日志本身允许保留原文（排障需要），
- * 但<b>查询接口对外返回时必须脱敏</b>——设计方案 §20 明确要求「审计日志可按 traceId 查询且无敏感字段」。
+ * <p><b>存在意义</b>：审计摘要、登录日志、导出文件等对外数据中可能包含登录密码、Token、手机号、
+ * 邮箱、身份证、银行卡号等。存储层允许保留原文（排障需要），但<b>对外返回或落盘导出时必须脱敏</b>——
+ * 设计方案 §20 明确要求「审计日志可按 traceId 查询且无敏感字段」。</p>
  *
  * <p><b>实现取舍</b>：这里用正则而非 Jackson 反序列化，原因是摘要是不定结构的自由文本（可能是
  * 参数拼接串而非严格 JSON），正则对「半结构化文本」更容错，且无任何额外依赖、便于纯函数单测。
  * 顺序很重要：先按「键名」抹掉整段凭证值（避免其中的数字被后续的手机号/身份证规则二次处理），
- * 再按「值形态」抹 PII。
+ * 再按「值形态」抹 PII。</p>
+ *
+ * <p><b>包位置演进</b>：本类原位于 {@code common/audit}（仅服务审计日志），随着登录日志、导出中心
+ * 等场景复用需求出现，提升为 {@code common/sensitive} 框架级通用能力；所有既有静态方法
+ * 签名与行为保持不变（向后兼容），仅新增更细粒度的策略与统一分派入口。</p>
  */
 public final class SensitiveMasker {
 
     /** 统一掩码。 */
     private static final String MASK = "******";
+
+    /** 地址保留的前缀长度（通常足以覆盖省市区，掩去门牌等精确定位信息）。 */
+    private static final int ADDRESS_KEEP = 6;
+
+    /** 姓名保留首字符后最多追加的星号个数（避免超长掩码影响可读性）。 */
+    private static final int NAME_MAX_STARS = 2;
 
     /**
      * 凭证类键名（不区分大小写）。命中后整段值替换为 {@link #MASK}。
@@ -44,6 +54,8 @@ public final class SensitiveMasker {
     private static final Pattern EMAIL = Pattern.compile("([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})");
     /** 身份证（18 位，末位可能为 X）。 */
     private static final Pattern ID_CARD = Pattern.compile("(?<!\\d)(\\d{14})([\\dXx]{4})(?!\\d)");
+    /** 银行卡号（12~19 位连续数字；前后不得紧邻其它数字，避免把长订单号误判为卡号）。 */
+    private static final Pattern BANK_CARD = Pattern.compile("(?<!\\d)(\\d{12,19})(?!\\d)");
     /** IPv4。 */
     private static final Pattern IPV4 = Pattern.compile("(?<!\\d)(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})(?!\\d)");
 
@@ -55,7 +67,34 @@ public final class SensitiveMasker {
     // ------------------------------------------------------------------
 
     /**
-     * 脱敏审计摘要（请求/响应）。null 与空白原样返回。
+     * 统一分派：按 {@link SensitiveType} 选择脱敏策略。
+     *
+     * <p>null 值或 {@link SensitiveType#NONE} 原样返回；各策略对「不匹配形态」的输入亦原样返回，
+     * 因此对已脱敏/占位文本重复调用是幂等的、无害的。</p>
+     *
+     * @param value 原始值
+     * @param type  敏感类型（null 视为不脱敏）
+     * @return 脱敏后的值
+     */
+    public static String mask(String value, SensitiveType type) {
+        if (value == null || type == null) {
+            return value;
+        }
+        return switch (type) {
+            case MOBILE -> maskPhone(value);
+            case ID_CARD -> maskIdCard(value);
+            case BANK_CARD -> maskBankCard(value);
+            case EMAIL -> maskEmail(value);
+            case NAME -> maskName(value);
+            case ADDRESS -> maskAddress(value);
+            case IP -> maskIp(value);
+            case CREDENTIAL_TEXT -> maskSummary(value);
+            case NONE -> value;
+        };
+    }
+
+    /**
+     * 脱敏审计摘要（请求/响应等自由文本）。null 与空白原样返回。
      *
      * @param text 原始摘要文本
      * @return 抹除凭证与 PII 后的文本
@@ -103,6 +142,53 @@ public final class SensitiveMasker {
             return idCard;
         }
         return "**************" + m.group(2);
+    }
+
+    /**
+     * 银行卡号脱敏：保留后 4 位，其余数字以 {@code *} 等长替换（保持位数便于对账核对）。
+     * 非「12~19 位连续数字」原样返回。
+     */
+    public static String maskBankCard(String bankCard) {
+        if (bankCard == null) {
+            return null;
+        }
+        Matcher m = BANK_CARD.matcher(bankCard);
+        if (!m.matches()) {
+            return bankCard;
+        }
+        String digits = m.group(1);
+        int keep = 4;
+        return "*".repeat(digits.length() - keep) + digits.substring(digits.length() - keep);
+    }
+
+    /**
+     * 姓名脱敏：保留首字符，其余以 {@code *} 替换（最多 {@value #NAME_MAX_STARS} 个）。
+     * 空白/单字符原样返回（无从掩码）。
+     */
+    public static String maskName(String name) {
+        if (name == null || name.isBlank()) {
+            return name;
+        }
+        String trimmed = name.trim();
+        if (trimmed.length() <= 1) {
+            return trimmed;
+        }
+        return trimmed.charAt(0) + "*".repeat(Math.min(trimmed.length() - 1, NAME_MAX_STARS));
+    }
+
+    /**
+     * 地址脱敏：保留前 {@value #ADDRESS_KEEP} 个字符（通常到区/县一级），其余以 {@code ****} 替代。
+     * 短于保留长度时原样返回。
+     */
+    public static String maskAddress(String address) {
+        if (address == null || address.isBlank()) {
+            return address;
+        }
+        String trimmed = address.trim();
+        if (trimmed.length() <= ADDRESS_KEEP) {
+            return trimmed;
+        }
+        return trimmed.substring(0, ADDRESS_KEEP) + "****";
     }
 
     /**

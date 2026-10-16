@@ -2,6 +2,7 @@ package com.acme.scaffold.common.audit;
 
 import java.time.LocalDateTime;
 import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
+import com.acme.scaffold.common.sensitive.SensitiveMasker;
 
 /**
  * 审计日志对外视图。
