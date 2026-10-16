@@ -1,6 +1,6 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口；岗位管理模块后端+前端全链路交付）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
 > 方法：**直接核查真实代码**（401 个后端 `.java` 的 `@RestController`/`@RequestMapping`、33 个前端 `.vue`、25 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
@@ -48,6 +48,7 @@
 | 编码规范 + 零依赖校验（本轮） | `coding-standard.md` + `scripts/check-conventions.py` + `.editorconfig` | ✅（待提交） |
 | API 文档（框架基线） | `springdoc-openapi 2.6.0` + `@Tag/@Operation` + `SecurityConfig` 放行 + yml 配路径 | ✅（已启用，未在需求文档明示） |
 | 慢 SQL 监听（性能基线） | `monitor/SlowQueryListener` 注册于 `JooqConfig` | ✅（已启用，未在需求文档明示） |
+| 岗位管理（系统模块增强，2026-10-16） | `PostController` `@RequestMapping("/api/system/posts")`（page/options/create/update/delete/assign）+ `PostService`（编码校验+唯一性+逻辑删除+用户岗位分配+防 N+1 装载）+ `SysPostDO`/`SysUserPostDO` + V35 迁移（菜单 `system:post` 绑定 SUPER_ADMIN）+ `PostRules` 纯函数；前端 `PostView.vue` + 用户表单岗位多选集成（`postIds`/`postNames` 贯穿创建/编辑/列表） | ✅ |
 
 ---
 
