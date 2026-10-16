@@ -532,6 +532,7 @@ Spring Cache 抽象落地后，缓存监控页数据源从「仅 Token 版本缓
 - **统计口径**：`StatisticsCache`/`StatisticsCacheManager` 装饰器在应用侧记账（命中/未命中/淘汰），**按实例**统计——Redis 服务端无 per-cache 命中计数，多实例聚合需外部系统（Prometheus）另行实现；监控页 `type=REDIS` 的条目数为 `-1`（不可用哨兵，避免 SCAN）。
 - **清理语义**：仅可清理本实例已使用过的缓存；未使用过的名称返回 404 语义，不误报已清理。
 - **读写一致**：试点 `DictDataService.listByType` `@Cacheable`（空类型码归一 `ALL` 键）；`create` 按类型码精确驱逐，`update`/`delete` 全量驱逐（类型可能被改写，全清成本可忽略）。
+- **缓存谱系（M5 续，菜单树）**：现有三个 Spring Cache——`dict-data`（字典，按类型码键）、`menu-tree`（管理端菜单树，单一 `ALL` 键）、`user-menus`（用户菜单树，按用户 id 键）。菜单增/删/改/排序（`MenuService`）整缓存驱逐前两个；角色菜单绑定（`RoleService` 创建/更新/删除）与用户角色变更（`UserService.update/delete` 按用户精确驱逐）驱逐 `user-menus`。菜单树仅驱动侧边栏展示，权限判定始终实时查库，缓存陈旧不影响授权安全（最坏多展示一个 TTL 周期，默认 30m）。
 - **缓存异常影响面**：Redis 不可用时仅缓存读写失败，不影响主流程（与健康探针降级策略一致）。
 
 ### 30.3 V29 迁移（已并入 `V32__consolidated_schema.sql`，见 §34）

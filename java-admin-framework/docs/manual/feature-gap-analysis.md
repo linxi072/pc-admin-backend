@@ -1,6 +1,6 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理 / M6 邮件渠道落地）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-16（M5 缓存管理含菜单树 / M6 邮件渠道落地；N+1 告警与图表按需收口）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
 > 方法：**直接核查真实代码**（401 个后端 `.java` 的 `@RestController`/`@RequestMapping`、33 个前端 `.vue`、25 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
@@ -79,10 +79,10 @@
 | 项 | 业务价值 | 可行性（离线沙箱） | 优先级 | 建议实现方式 |
 |---|---|---|---|---|
 | **数据导入/导出中心（Excel）** | 高 | POI/EasyExcel **不在**离线仓库，需联网 `mvn` 引入 | P2（递延，待联网） | 引入 POI + 通用 `ExportService`（CSV 已具备 `report/export`）；前端导出中心页；先以 CSV 兜底，Excel 待依赖就绪 |
-| **缓存管理（命中率查看 + 清除）** | 中 | ✅ **已落地（M5，2026-10-16）**：`config/cache` 提供 `@EnableCaching` + RedisCacheManager（TTL/前缀可配），`StatisticsCache`/`StatisticsCacheManager` 装饰器做进程内命中/未命中/淘汰记账；`MonitorService.cacheStats()/clearCache()` 扩展至 Spring Cache，前端缓存监控页零改动；试点 `DictDataService.listByType` `@Cacheable`（create 精确驱逐、update/delete 全量驱逐） | P2 → 已完成 | 后续可按需把菜单树等更多热点读纳入缓存（同一 CacheManager 即可） |
+| **缓存管理（命中率查看 + 清除）** | 中 | ✅ **已落地（M5，2026-10-16）**：`config/cache` 提供 `@EnableCaching` + RedisCacheManager（TTL/前缀可配），`StatisticsCache`/`StatisticsCacheManager` 装饰器做进程内命中/未命中/淘汰记账；`MonitorService.cacheStats()/clearCache()` 扩展至 Spring Cache，前端缓存监控页零改动；试点 `DictDataService.listByType` `@Cacheable`（create 精确驱逐、update/delete 全量驱逐）。**菜单缓存（M5 续，同日）**：`MenuService.tree()`（`menu-tree` 单一 `ALL` 键）与 `menusForCurrentUser()`（`user-menus` 按用户 id 键）纳入缓存；菜单增删改排序整缓存驱逐，`RoleService` 角色菜单绑定 / `UserService` 用户角色变更按语义跨服务驱逐 | P2 → 已完成 | 后续可按需将机构树等其余热点读纳入（同一 CacheManager 即可） |
 | **通知渠道抽象（邮件/短信/Webhook）** | 中 | ✅ **已落地（M6，2026-10-16）**：`Channel.EMAIL` + `EmailNotificationAdapter`（`app.notifications.email.*` 默认关闭）+ `EmailRules` 纯函数（地址校验/CRLF 净化防头注入/收件人归一与上限）+ `JavaMailSenderClient`（spring-context-support 6.1.15 + jakarta.mail 2.1.3 + angus-mail 2.0.3，均离线可用） | P3 → 已完成（仅 SMS 仍待网关） | SMS 仍待短信网关依赖；站内信/Webhook/WebSocket/邮件四渠道已齐备 |
 | **i18n 国际化** | 低 | 无 | P3 | `MessageSource` + 前端 i18n，工作量大 |
-| **限流/防重放注解化** | 中 | `RateLimitFilter` 已 opt-in，但无注解驱动 | P3 | 抽 `@RateLimit` 注解 + AOP 拦截，配置化阈值 |
+| **限流/防重放注解化** | 中 | ✅ **已落地**：`security/ratelimit` 新增 `@RateLimit` 注解 + `RateLimitAspect`（IP / 用户 / 全局三维度，复用固定窗口 `RateLimiter`，超限 429），试点上传 / 配置更新接口；与 URL 级 `RateLimitFilter` 互补 | P3 → 已完成 | 多实例部署时可把计数替换为 Redis 共享（保持 key 维度一致） |
 
 ---
 
@@ -90,9 +90,9 @@
 
 | 项 | 维度 | 现状 | 建议 |
 |---|---|---|---|
-| **N+1 查询** | 性能 | `UserService` 已用 bulk-fetch + 内存组装（无 N+1）；其余列表沿用 `JooqWriters.page` | 新增 jOOQ `ExecuteListener` 做 N+1 启发式告警（`SlowQueryListener` 已覆盖慢查询，可扩展同监听器） |
+| **N+1 查询** | 性能 | ✅ **已落地**：`monitor/detection/NPlusOneListener` + `NPlusOneProbe`（线程级累计同构 SQL 执行次数）+ `NPlusOneResetFilter`（请求级重置），`JooqConfig`/`DataSourceConfig` 双注册；同构 SQL 单请求内重复超阈值即告警（含指纹），与 `SlowQueryListener` 同为只读观测 | — → 已完成 | 阈值可配置化；多实例场景可对接指标导出 |
 | **深翻页** | 性能 | `PageQuery` 钳制 size，但未做游标/keyset | 已落地：common/api 新增 `KeysetPageQuery`/`KeysetPageResult`/`CursorCodec`（纯函数游标编解码），`jooq/JooqKeysetPager` 引擎（seek + size+1 判定 hasMore）；`FileService.keysetPage` + `FileController GET /api/system/files/keyset` 试点（固定 `created_at DESC, id DESC` 排序，含 id tie-breaker） |
-| **前端首屏 / 图表按需** | 体验 | Vue SFC 已按需；ECharts 是否按需 import 待核 | 路由级懒加载 + 大图表组件按需 `import()` |
+| **前端首屏 / 图表按需** | 体验 | ✅ **已落地**：`BaseChart.vue` 由全量 `import * as echarts` 改为 `echarts/core` 按需注册（bar/line/pie + grid/tooltip/legend/title + CanvasRenderer，注册项经 node_modules 安装链核实无遗漏），产物 **1.0M → 522KB（gzip 176KB）**；路由级懒加载既有，echarts 仅随报表/任务路由 chunk 加载，不进首屏 | — → 已完成 | 新增图表类型时在 `BaseChart.vue` 顶部同步补充 import |
 | **测试覆盖率门禁** | 质量 | CI 已接单元 + 集成，无覆盖率门禁 | 加 JaCoCo 阈值（先非阻塞，后转阻塞） |
 | **平铺模块分层** | 结构 | `monitor`/`job.management`/`workbench`/`realtime`/`observability`/`codegen` 平铺，已在 `coding-standard.md` 定为"规模增大再拆层子包" | 维持现状，规模增大再分层（文档已约定） |
 
@@ -104,8 +104,8 @@
 |---|---|---|
 | **P0** | 严格需求缺口 | **无** |
 | **P1** | 工作区卫生 | 已保持 `feat/V1.0.2` 工作区干净（每轮按关注点分批本地提交） |
-| **P2** | 增强型基础功能 | 数据导出中心（需联网引入 POI，**待联网**）；~~缓存管理~~（**已落地 M5**） |
-| **P3** | 可选增强 | ~~通知渠道抽象~~（**已落地 M6，EMAIL 齐备，仅 SMS 待网关**）、~~限流注解化~~（已落地）、i18n（待办） |
+| **P2** | 增强型基础功能 | 数据导出中心（需联网引入 POI，**待联网**）；~~缓存管理~~（**已落地 M5，含菜单树缓存与跨服务驱逐**） |
+| **P3** | 可选增强 | ~~通知渠道抽象~~（**已落地 M6，EMAIL 齐备，仅 SMS 待网关**）、~~限流注解化~~（已落地）、~~N+1 告警 / 前端图表按需~~（已落地）、i18n（待办） |
 
 ---
 

@@ -2025,13 +2025,14 @@ npm run preview  # 预览构建产物
 
 **代码审查（review-java-admin-framework）**：P0（运行期阻断/数据安全）无；P1（重要正确性/安全缺陷，建议本迭代修复）若干；P2（功能缺失/明确 bug，建议近期处理）若干；P3（可优化/文档与健壮性）若干。
 
-**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）、M4 工作流任务认领（P2，已落地）、**M5 缓存管理**（P2，已落地：`config/cache` + 监控联动 + 字典缓存试点）、**M6 邮件通知渠道**（P3，已落地：`Channel.EMAIL` + `EmailRules` + SMTP 适配，默认关闭）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
+**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）、M4 工作流任务认领（P2，已落地）、**M5 缓存管理**（P2，已落地：`config/cache` + 监控联动 + 字典/菜单缓存，菜单树含 `user-menus` 按用户键与跨服务驱逐）、**M6 邮件通知渠道**（P3，已落地：`Channel.EMAIL` + `EmailRules` + SMTP 适配，默认关闭）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
 
 ### M5 缓存管理使用指南（开发者）
 
 - **开启与配置**：`config/cache/CacheConfig` 已全局开启 `@EnableCaching` 并提供 Redis 实现的 `StatisticsCacheManager`；默认 TTL 30m、key 前缀 `acme:cache:`，经 `app.cache.ttl` / `app.cache.key-prefix` 调整。缓存为惰性能力，未使用 `@Cacheable` 不产生 Redis 流量。
 - **接入一个热点读**：方法加 `@Cacheable(cacheNames = "xxx", key = "...")`；key 表达式可用 `T(类全名).静态方法(#参数)` 复用归一逻辑（参考 `DictDataService.cacheKey`：空值归一、trim，保证「同口径同键」）。
 - **写路径同步失效**：`@CacheEvict`——键可精确推导时按 key 驱逐（如 `DictDataService.create`）；键可能变化（如类型码可改）或删除前不回查时用 `allEntries = true`（数据量小的缓存全清成本可忽略）。**注意 `@CacheEvict` 默认 `beforeInvocation = true`**，方法体抛异常时缓存同样已被驱逐（对只读缓存是安全方向）。
+- **跨服务驱逐与按用户键**：参考 `MenuService`——`menu-tree`（管理端菜单树，单一 `ALL` 键）/ `user-menus`（用户菜单树，`#userId` 键）；菜单写操作（`MenuService` 增/删/改/排序）整缓存驱逐两个缓存，角色菜单绑定（`RoleService` 创建/更新/删除）与用户角色变更（`UserService.update/delete`，按 `#id` 精确驱逐）分别按语义驱逐 `user-menus`。跨服务驱逐时引用缓存名常量（`MenuService.USER_MENUS_CACHE`），避免字符串字面量分叉；菜单树仅驱动侧边栏展示，授权判定始终实时查库，缓存陈旧不影响安全（最坏多展示一个 TTL 周期）。
 - **可观测**：`GET /api/system/monitor/caches` 自动出现新缓存统计（进程内口径：命中/未命中/淘汰/命中率）；`POST /api/system/monitor/caches/{name}/clear` 清理（仅本实例已使用过的缓存可清理，未使用返回 404）。
 - **约束**：Spring Cache 代理对同类内自调用（self-invocation）不生效——缓存方法必须经 Spring 代理调用（控制器/其它 Bean 调用）；返回值应为不可变或调用方不得改写（`DictDataService` 用 `Stream.toList()` 返回不可变列表兜底）。
 - **测试模式**：轻量 Spring 上下文（`@EnableCaching` + `ConcurrentMapCacheManager`）+ `mockStatic(JooqWriters.class)` 打库替身，通过 `CacheManager` 可观测状态断言缓存行为；**同一上下文多个用例共享 CacheManager，必须 `@BeforeEach` 清缓存**（参考 `DictDataServiceCacheTest`）。
