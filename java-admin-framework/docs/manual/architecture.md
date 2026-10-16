@@ -1122,14 +1122,15 @@ String en  = i18nService.getMessage("error.not_found", Locale.US); // 指定语�
 导出中心基于模板注册模式：业务模块声明一个实现 `common/export/ExportTask` 的 Spring Bean（`code()`/`displayName()`/`fileName()`/`headers()`/`rows(Map)`，可选覆写 `csv(Map)`），`system/controller/ExportController` 注入 `List<ExportTask>` 自动收集并调度，新增导出只需新增一个 Bean，无需改接口。
 
 - **接口**：`GET /api/system/export/templates` 列举模板及其支持格式（`formats`）；`GET /api/system/export/download?code=<模板编码>&format=CSV|XLSX` 流式下载（其余查询参数原样透传给 `rows(Map)` 作筛选；**缺省 `format` 视为 CSV**，保持既有前端零改动向后兼容）。下载响应不包装 `Result`（§约定），异常走统一 JSON 错误体。
-- **两种格式，共享同一份表头/行模型**：
+- **两种格式，共享同一份数据模型**：
   - **CSV**：复用 `common/export/CsvExporter`（UTF-8 BOM + RFC4180 转义），零依赖；
-  - **XLSX**：`common/export/XlsxDataExporter` 仅用 JDK `java.util.zip` 手写最小合规 OOXML（XLSX 本质是 ZIP+XML），采用 inlineStr 内联字符串省去 `sharedStrings.xml`，文本经 XML 转义防注入。**不引入 POI**，离线构建友好。
-- **单表 vs 多段**：单表结构模板（`headers()` 非空）一键双格式；多段结构（如报表导出覆写 `csv(Map)` 自产字节、`headers()` 为空）仅支持 CSV——请求 XLSX 会被拒绝并提示改用 CSV；`/templates` 的 `formats` 会据此只返回 `["CSV"]`。
+  - **XLSX**：`common/export/XlsxDataExporter` 仅用 JDK `java.util.zip` 手写最小合规 OOXML（XLSX 本质是 ZIP+XML），采用 inlineStr 内联字符串省去 `sharedStrings.xml`，文本经 XML 转义防注入。**不引入 POI**，离线构建友好。多 Sheet 能力经 `exportWorkbook(List<XlsxSheet>)` 提供：`xl/styles.xml` 定义表头样式（加粗 + 灰底，cellXfs 下标 1），首行单元格套 `s="1"`，并按内容自适应列宽（CJK 按 2 计、钳制 [6,50]）；工作表名统一规范化（非法字符 `: \ / ? * [ ]` 清洗、按代码点截断 31 字符、重名追加序号），产物首表仍为 `sheet1.xml`，导入端 `XlsxDataReader` 可直接读回（导出→导入闭环不因多 Sheet 而中断）。
+- **单表 vs 多段**：单表结构模板（`headers()` 非空）默认走「headers + rows 单 Sheet」路径；多段结构（如报表导出覆写 `csv(Map)` 自产 CSV 字节、`headers()` 为空）可通过覆写 `xlsxSheets(Map)`（返回 `common/export/XlsxSheet(name, headers, rows)` 列表）解锁 XLSX 多 Sheet 工作簿——各段落各占一页（如报表的汇总/分布/明细/趋势），未提供该能力时请求 XLSX 仍被拒绝并提示改用 CSV。`/templates` 的 `formats` 由 `supportsXlsx()`（默认「单表结构即支持」）声明，前端按其渲染双格式按钮。
+- **报表接入（口径同源）**：`workbench/report/export/ReportSheets` 为纯函数类，将 `ReportVO` 映射为汇总/分布（或类别分布+状态分布）/明细/趋势多 Sheet，指标中文名直接复用 `ReportCsvWriter` 的 `mainLabel`/`secondaryLabel`（提升为 public），保证报表 CSV 与 XLSX 两种导出格式的字段口径**永不漂移**；明细页缺 key 单元格归一空串，与 CSV 明细段行为一致。`ReportExportTask.supportsXlsx()` 返回 true，`requireReportRead()` 权限兜底对两种格式同样生效。
 - **配置**：`system/export/config/ExportProperties`（`app.export.max-rows`，默认 10 万行，XLSX 导出超限按 400 拒绝并提示缩小筛选范围；下限钳制为 1）。放置方式与 `system/notification/config` 一致（`@EnableConfigurationProperties`）。
 - **权限与审计**：`@PreAuthorize("hasAuthority('system:export:read')")`（由 `ApiResourceAutoSyncRunner` 启动时按注解自动登记并授予 SUPER_ADMIN）+ `@AuditOperation`。注意端点权限 ≠ 被导出数据自身权限（报表导出另需 `report:read`，由 `ReportExportTask` 内兜底校验）。
 - **前端**：`pc-admin-vue3-vite/src/views/system/ExportCenterView.vue` 按模板返回的 `formats` 渲染「导出 CSV / 导出 XLSX」按钮；`api/export.js` 走 `requestRaw` 取 Blob，并防御式区分业务错误 JSON。
-- **测试**：`ExportFormatTest`（枚举大小写/非法值解析）、`XlsxDataExporterTest`（ZIP 结构/转义/UTF-8）、`ExportControllerTest`（MockMvc standalone + 最小 advice 复刻异常映射：CSV 向后兼容、XLSX 分支、未知格式/未知模板/多段结构/超行数四类校验）共 14 例。
+- **测试**：`ExportFormatTest`（枚举大小写/非法值解析）、`XlsxDataExporterTest`（ZIP 结构/转义/UTF-8/多 Sheet 产物与表名规范化/经 `XlsxDataReader` 读回首表）、`ReportSheetsTest`（使用/统计视角 Sheet 结构与口径、缺明细省页、写出闭环、防御性拷贝）、`ExportControllerTest`（MockMvc standalone + 最小 advice 复刻异常映射：CSV 向后兼容、单表 XLSX 分支、多 Sheet 模板双格式与工作簿产物、未知格式/未知模板/未提供 xlsxSheets/超行数上限等校验）、`ReportExportTaskTest`（权限兜底/参数解析/多段 CSV/XLSX Sheet 产出与权限兜底）。
 
 ### 8.6 导入中心（模板注册 + CSV / 零依赖 XLSX 双格式解析）
 
