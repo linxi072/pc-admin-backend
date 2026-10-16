@@ -1103,6 +1103,7 @@ public record PageResult<T>(
   - `MessageSource`：`ReloadableResourceBundleMessageSource`（基名 `classpath:i18n/messages`，编码 UTF-8）——不使用 `ResourceBundleMessageSource`，因其走 JDK `ResourceBundle` 默认 ISO-8859-1 会导致中文乱码；
   - `LocaleResolver`：`SessionLocaleResolver`，默认 `zh_CN`，按会话记忆语言；
   - `LocaleChangeInterceptor`：参数名 `lang`（如 `?lang=en_US`），注册到拦截器链（`order(0)`）。
+- **装配约束（防自引用循环依赖）**：配置类构造注入的 Bean，其 `@Bean` 工厂方法**必须声明为 `static`**——`I18nConfig` 构造注入 `LocaleChangeInterceptor`，而该 Bean 声明在配置类自身，实例级工厂需先完成配置类实例化，会形成「i18nConfig → 自身」循环（Spring Boot 3 默认禁止，启动即 `UnsatisfiedDependencyException`）；static 工厂不依赖配置类实例，环即解开。该装配由 `I18nConfigAssemblerTest`（`ApplicationContextRunner` 轻量上下文）锁定。**教训：已在库中应用过的迁移脚本不可再改（哪怕纯注释）——Flyway checksum 按整文件字节计算，注释变更同样导致 `validate-on-migrate` 校验失败、启动被拒；如确需改动，须对库执行等价 `flyway repair`（更新 `flyway_schema_history.checksum`）。**
 - **解析服务**（`common/i18n/I18nService`）：按 `LocaleContextHolder` 当前语言解析消息键；键缺失时返回键本身（便于定位未翻译项）；支持 `{0}`/`{1}` 占位符。
 - **接入点**：`GlobalExceptionHandler` 框架级错误已改用消息键（`error.*`），默认 zh_CN 行为与旧中文文案一致，携带 `?lang=en_US` 即返回英文。
 - **配置项**（`app.i18n.*`，缺省即生效，无需在 `application*.yml` 声明）：
