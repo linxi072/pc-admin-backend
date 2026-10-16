@@ -115,6 +115,23 @@ controller  ──▶  service  ──▶  domain / port
 - 一个 `.java` 文件一个顶级公共类型，文件名 = 类名。
 - 接口与实现同包；`Impl` 后缀实现接口。
 
+### 3.4 读模型 / 传输对象语义约定（D4）
+
+同属「读侧投影」的 `*View` 与 `*VO` 长期混用，易让维护者误判其来源（查询投影 vs 值对象快照）。
+统一语义如下，**存量不强制改名**，新代码按语义选用：
+
+| 后缀 | 语义 | 典型场景 | 示例 |
+|---|---|---|---|
+| `View` | 只读**查询投影**：面向前端展示，可含跨表派生字段、聚合值、格式化的展示串 | 详情页 / 列表行 / 报表单元格 | `UserView`、`LoginLogView` |
+| `VO` | 值对象**瞬时快照**：一次计算产出的结构化聚合（树、选项、统计桶），无持久身份 | 机构树 `OrgTreeVO`、下拉选项 `PostOptionVO`、统计 `ReportVO` | `OrgTreeVO`、`PostOptionVO` |
+| `DTO` / `Request` / `Command` / `Query` | **入参 / 写操作载荷**：由调用方提供、经校验后进入业务 | 创建/更新表单、查询条件 | `JobCreateDTO`、`UserQuery` |
+| `Response` | 跨进程返回载体（常与 `Result` 包裹区分：本框架用 `Result<T>` 统一包裹，`*Response` 仅用于外部系统对接） | 第三方回调、适配层出站 | `PaymentCallbackResponse` |
+
+约定要点：
+- **读侧（View / VO）与写侧（Request / Command）严格分离**：写入口不接受读模型作为入参，避免「以展示结构承载写入」引发的字段越权/缺字段问题。
+- **View 不反向依赖 service / config**：读模型是纯数据载体，禁止在其中拼装业务或发起查询。
+- **导出中心模板视图** `ExportTemplateView` 即读模型，置于 `system.dto`（符合 H4）。
+
 ---
 
 ## 4. 代码格式基线
