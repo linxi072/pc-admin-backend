@@ -1,4 +1,4 @@
-package com.acme.scaffold.codegen;
+package com.acme.scaffold.codegen.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;

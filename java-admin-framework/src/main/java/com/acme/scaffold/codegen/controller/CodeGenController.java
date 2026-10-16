@@ -1,8 +1,10 @@
-package com.acme.scaffold.codegen;
+package com.acme.scaffold.codegen.controller;
 
 import com.acme.scaffold.codegen.dto.GenOption;
 import com.acme.scaffold.codegen.dto.GeneratedFileVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;
+import com.acme.scaffold.codegen.service.CodeGenService;
+import com.acme.scaffold.codegen.service.TableSchemaService;
 import com.acme.scaffold.common.api.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

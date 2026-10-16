@@ -1,5 +1,6 @@
-package com.acme.scaffold.codegen;
+package com.acme.scaffold.codegen.service;
 
+import com.acme.scaffold.codegen.config.CodeGenProperties;
 import com.acme.scaffold.codegen.dto.GenOption;
 import com.acme.scaffold.codegen.dto.GeneratedFileVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;

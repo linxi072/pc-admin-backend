@@ -1,4 +1,4 @@
-package com.acme.scaffold.codegen;
+package com.acme.scaffold.codegen.service;
 
 import com.acme.scaffold.codegen.dto.ColumnMetaVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;

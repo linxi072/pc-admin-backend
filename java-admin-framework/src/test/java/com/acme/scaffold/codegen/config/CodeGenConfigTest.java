@@ -1,5 +1,8 @@
-package com.acme.scaffold.codegen;
+package com.acme.scaffold.codegen.config;
 
+import com.acme.scaffold.codegen.controller.CodeGenController;
+import com.acme.scaffold.codegen.service.CodeGenService;
+import com.acme.scaffold.codegen.service.TableSchemaService;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.Test;

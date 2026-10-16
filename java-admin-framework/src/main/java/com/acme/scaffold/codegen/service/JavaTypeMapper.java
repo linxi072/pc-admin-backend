@@ -1,4 +1,4 @@
-package com.acme.scaffold.codegen;
+package com.acme.scaffold.codegen.service;
 
 import java.util.Locale;
 import java.util.Set;
