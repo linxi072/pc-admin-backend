@@ -61,9 +61,14 @@ public class I18nConfig implements WebMvcConfigurer {
         return resolver;
     }
 
+    /**
+     * {@link LocaleChangeInterceptor} 声明。<b>必须为 {@code static}</b>：本类构造注入该 Bean，
+     * 实例级 {@code @Bean} 工厂需先完成配置类实例化，会形成「i18nConfig → 自身」循环依赖
+     * （Spring Boot 3 默认禁止，启动即失败）；static 工厂不依赖配置类实例，环即解开。
+     */
     @Bean
     @ConditionalOnMissingBean(LocaleChangeInterceptor.class)
-    public LocaleChangeInterceptor localeChangeInterceptor(I18nProperties properties) {
+    public static LocaleChangeInterceptor localeChangeInterceptor(I18nProperties properties) {
         LocaleChangeInterceptor interceptor = new LocaleChangeInterceptor();
         interceptor.setParamName(properties.getParamName());
         return interceptor;
