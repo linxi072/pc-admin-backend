@@ -208,10 +208,39 @@ public class UserService {
         tokenVersionService.bumpUser(id);
     }
 
+    /**
+     * 查询单个用户详情（含角色 / 机构 / 岗位聚合）。
+     *
+     * <p><b>数据权限</b>：与 {@link #list(UserQuery)} 同口径施加 {@link DataScope}。
+     * 此前本方法直接按主键取数、不经过数据权限，范围受限（SELF / DEPT 等）的账号
+     * 只要猜到 ID 就能读到任意用户详情——列表接口受限而详情接口不设防等于没设防。</p>
+     *
+     * <p>越权与「不存在」统一抛出 {@code NOT_FOUND}：不区分两种失败，
+     * 避免攻击者据响应差异枚举出真实存在的用户 ID。</p>
+     */
+    @DataScope(resourceCode = UserQuery.RESOURCE_CODE)
     public UserView getView(Long id) {
-        SysUserDO user = get(id);
+        SysUserDO user = getScoped(id);
         return toView(user, loadUserRoles(List.of(user)), loadUserOrgs(List.of(user)),
                 postService.loadPostNamesByUserIds(List.of(user.getId())));
+    }
+
+    /**
+     * 按数据权限取单条用户：未删除 + 主键匹配 + 数据范围条件三者同时成立才返回。
+     *
+     * <p>与 {@link #get(Long)}（写路径用的纯主键取数）刻意分开——写路径的越权应由
+     * 各自的业务校验负责，避免改动面扩散到更新 / 删除 / 重置密码等既有行为。</p>
+     */
+    private SysUserDO getScoped(Long id) {
+        SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
+                DSL.and(
+                        JooqWriters.notDeleted(JooqTables.SYS_USER),
+                        JooqTables.SYS_USER.field("id", Long.class).eq(id),
+                        DataScopeConditions.of(JooqTables.SYS_USER, "org_id", "id")));
+        if (user == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
+        }
+        return user;
     }
 
     @DataScope(resourceCode = UserQuery.RESOURCE_CODE)
