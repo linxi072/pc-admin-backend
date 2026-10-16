@@ -1,4 +1,4 @@
-package com.acme.scaffold.security.online.rules;
+package com.acme.scaffold.system.online.rules;
 
 import com.acme.scaffold.system.entity.SysOnlineSessionDO;
 

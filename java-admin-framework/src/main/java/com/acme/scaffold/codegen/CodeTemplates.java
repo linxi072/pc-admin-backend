@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.job.service.JobService;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 
