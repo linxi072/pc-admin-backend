@@ -78,7 +78,7 @@
               :loading="exporting === row.code + ':CSV'"
               @click="onExport(row, 'CSV')"
             >导出 CSV</el-button>
-            <!-- 仅单表结构模板支持 XLSX（多段结构如报表由后端返回 formats=["CSV"]） -->
+            <!-- 按模板声明渲染双格式按钮（formats 由后端 /templates 返回，单表与多段模板均可声明 XLSX） -->
             <el-button
               v-if="supportsXlsx(row)"
               type="success"
@@ -176,7 +176,7 @@ function buildParams(row, format) {
   return { code: row.code, format }
 }
 
-/** 模板是否支持 XLSX（由后端 formats 声明；多段结构模板仅 CSV）。 */
+/** 模板是否支持 XLSX（由后端 formats 声明：单表结构默认支持，多段结构提供 xlsxSheets 后支持）。 */
 function supportsXlsx(row) {
   return Array.isArray(row.formats) ? row.formats.includes('XLSX') : false
 }

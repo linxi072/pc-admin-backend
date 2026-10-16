@@ -7,6 +7,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.ExportFormat;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.XlsxDataExporter;
+import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.system.export.config.ExportProperties;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,8 +37,9 @@ import java.util.Map;
  *   <li>支持两种格式：CSV 与 XLSX。CSV 走零依赖 {@code CsvExporter}（UTF-8 BOM + RFC4180 转义）；
  *       XLSX 由同样零依赖的 {@link XlsxDataExporter}（JDK {@code java.util.zip} 手写最小合规 OOXML）生成，
  *       二者均<b>不引入 POI</b>，离线构建友好；</li>
- *   <li>单表结构（{@link ExportTask#headers()} 非空）可一键双格式；多段结构（如报表，覆写
- *       {@link ExportTask#csv(Map)} 自产字节且 headers 为空）仅支持 CSV；</li>
+ *   <li>单表结构（{@link ExportTask#headers()} 非空）走「headers + rows」单 Sheet 路径；
+ *       多段结构（报表）覆写 {@link ExportTask#xlsxSheets(Map)} 后走多 Sheet 工作簿路径
+ *       （汇总 / 分布 / 明细 / 趋势各占一页），两种结构均可一键双格式；</li>
  *   <li>{@code /templates} 列出全部可用模板及其<b>支持的格式</b>，{@code /download} 流式返回，
  *       查询参数全量透传（{@code code} / {@code format} 除外），各模板按需取值。</li>
  * </ul>
@@ -98,27 +100,38 @@ public class ExportController {
     }
 
     /**
-     * 生成 XLSX 字节。仅单表结构（{@code headers()} 非空）适用；多段结构（报表）提示改用 CSV。
-     * 行数超 {@code app.export.max-rows} 上限则拒绝，避免单次导出耗尽内存。
+     * 生成 XLSX 字节。单表结构（{@code headers()} 非空）走单 Sheet 路径；
+     * 多段结构走 {@link ExportTask#xlsxSheets(Map)} 多 Sheet 工作簿路径（未提供该能力则拒绝）。
+     * 各 Sheet 数据行总数超 {@code app.export.max-rows} 上限则拒绝，避免单次导出耗尽内存。
      */
     private byte[] toXlsx(ExportTask task, Map<String, String> params) {
         List<String> headers = task.headers();
-        if (headers.isEmpty()) {
-            throw BusinessException.badRequest(
-                    "模板「" + task.code() + "」为多段结构，暂不支持 XLSX，请改用 CSV 导出");
+        if (!headers.isEmpty()) {
+            List<List<String>> rows = task.rows(params);
+            int maxRows = exportProperties.getMaxRows();
+            if (rows.size() > maxRows) {
+                throw BusinessException.badRequest(
+                        "导出行数(" + rows.size() + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
+            }
+            return XlsxDataExporter.export(headers, rows);
         }
-        List<List<String>> rows = task.rows(params);
+        List<XlsxSheet> sheets = task.xlsxSheets(params);
+        if (sheets.isEmpty()) {
+            throw BusinessException.badRequest(
+                    "模板「" + task.code() + "」未提供 XLSX 导出能力，请改用 CSV 导出");
+        }
+        int totalRows = sheets.stream().mapToInt(s -> s.rows().size()).sum();
         int maxRows = exportProperties.getMaxRows();
-        if (rows.size() > maxRows) {
+        if (totalRows > maxRows) {
             throw BusinessException.badRequest(
-                    "导出行数(" + rows.size() + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
+                    "导出行数(" + totalRows + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
         }
-        return XlsxDataExporter.export(headers, rows);
+        return XlsxDataExporter.exportWorkbook(sheets);
     }
 
-    /** 单表结构（headers 非空）支持 CSV + XLSX；多段结构仅 CSV。 */
+    /** 支持 XLSX 与否由模板声明（单表结构默认支持；多段结构提供 xlsxSheets 后支持）。 */
     private static List<String> supportedFormats(ExportTask task) {
-        return task.headers().isEmpty() ? List.of("CSV") : List.of("CSV", "XLSX");
+        return task.supportsXlsx() ? List.of("CSV", "XLSX") : List.of("CSV");
     }
 
     private static ResponseEntity<byte[]> fileResponse(byte[] body, String fileName, ExportFormat format) {

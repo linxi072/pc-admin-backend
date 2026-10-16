@@ -83,7 +83,8 @@ public final class ReportCsvWriter {
         return bos.toByteArray();
     }
 
-    private static boolean isStatView(String type) {
+    /** 是否统计视角（JOB_EXEC / LOGIN / API_CALL）；public 供 {@code ReportSheets} 复用同一口径。 */
+    public static boolean isStatView(String type) {
         return ReportType.JOB_EXEC.name().equals(type)
                 || ReportType.LOGIN.name().equals(type)
                 || ReportType.API_CALL.name().equals(type);
@@ -162,15 +163,15 @@ public final class ReportCsvWriter {
         }
     }
 
-    /** 汇总/趋势段主指标中文名（按统计类型）。 */
-    private static String mainLabel(String type) {
+    /** 汇总/趋势段主指标中文名（按统计类型）；public 供 {@code ReportSheets} 复用同一口径。 */
+    public static String mainLabel(String type) {
         if (ReportType.JOB_EXEC.name().equals(type)) return "执行次数";
         if (ReportType.LOGIN.name().equals(type)) return "登录次数";
         return "调用量";
     }
 
-    /** 汇总/趋势段次指标中文名（按统计类型）。 */
-    private static String secondaryLabel(String type) {
+    /** 汇总/趋势段次指标中文名（按统计类型）；public 供 {@code ReportSheets} 复用同一口径。 */
+    public static String secondaryLabel(String type) {
         if (ReportType.JOB_EXEC.name().equals(type)) return "涉及任务数";
         if (ReportType.LOGIN.name().equals(type)) return "活跃登录用户";
         return "涉及端点数";

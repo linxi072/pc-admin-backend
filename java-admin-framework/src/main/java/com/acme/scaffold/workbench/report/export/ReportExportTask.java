@@ -3,6 +3,7 @@ package com.acme.scaffold.workbench.report.export;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.ExportTask;
+import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
@@ -29,7 +30,9 @@ import java.util.Map;
  * 拉取报表数据（权限放大）。故 {@link #csv(Map)} 内显式校验当前主体权限。</p>
  *
  * <p>多段结构（标题段 + 汇总/分布/明细/趋势四段）无法用「单表头 + 行」表达，
- * 故覆写 {@link #csv(Map)} 自产字节；{@link #headers()} / {@link #rows(Map)} 不再被调用。</p>
+ * 故覆写 {@link #csv(Map)} 自产 CSV 字节；XLSX 则由 {@link #xlsxSheets(Map)} 将各段
+ * 映射为多 Sheet 工作簿（经 {@link ReportSheets} 纯函数组装，口径与 CSV 完全一致），
+ * 权限兜底对两种格式同样生效。</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -77,6 +80,20 @@ public class ReportExportTask implements ExportTask {
         ReportQuery query = toQuery(params);
         ReportVO vo = reportService.report(query);
         return ReportCsvWriter.toCsvBytes(ReportCsvWriter.lines(query, vo));
+    }
+
+    /** 多段结构模板经 {@link ReportSheets} 提供 XLSX 多 Sheet 能力（权限兜底同 CSV）。 */
+    @Override
+    public boolean supportsXlsx() {
+        return true;
+    }
+
+    @Override
+    public List<XlsxSheet> xlsxSheets(Map<String, String> params) {
+        requireReportRead();
+        ReportQuery query = toQuery(params);
+        ReportVO vo = reportService.report(query);
+        return ReportSheets.sheets(query, vo);
     }
 
     /** 权限兜底：当前主体须持有 report:read（与 ReportController 类级 @PreAuthorize 同码）。 */

@@ -53,4 +53,29 @@ public interface ExportTask {
         }
         return bos.toByteArray();
     }
+
+    /**
+     * XLSX 多 Sheet 导出（多段结构模板的可选能力）。
+     *
+     * <p>默认返回空列表（模板不支持多 Sheet）。多段结构模板（{@link #headers()} 为空）覆写本方法后
+     * 即解锁 XLSX 格式：各段落映射为一个工作表（如报表的汇总 / 分布 / 明细 / 趋势各占一页），
+     * 经 {@link XlsxDataExporter#exportWorkbook} 写出（表头加粗灰底 + 列宽自适应）；
+     * 单表结构模板无需覆写，走「headers + rows 单 Sheet」路径。</p>
+     *
+     * @param params 前端透传的筛选参数（与 {@link #rows(Map)} 同源）
+     * @return 工作表列表；空列表表示不支持多 Sheet 导出
+     */
+    default List<XlsxSheet> xlsxSheets(Map<String, String> params) {
+        return List.of();
+    }
+
+    /**
+     * 是否支持 XLSX 格式（决定 {@code /templates} 返回的 {@code formats} 与前端按钮显隐）。
+     *
+     * <p>默认「单表结构（headers 非空）即支持」；多段结构模板在提供
+     * {@link #xlsxSheets(Map)} 后覆写为 {@code true}。</p>
+     */
+    default boolean supportsXlsx() {
+        return !headers().isEmpty();
+    }
 }
