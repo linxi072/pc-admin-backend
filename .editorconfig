@@ -1,6 +1,6 @@
 # 编码风格统一基线（零依赖，IDE 与多数格式化工具原生支持）
-# 说明：本文件是“统一代码格式”的单一事实来源。团队成员在 IDE 中开启
-# “EditorConfig”插件即可自动套用；CI 亦可借助它做格式门禁。
+# 单一事实来源：覆盖后端(java-admin-framework)与前端(pc-admin-vue3-vite)全量代码。
+# 团队成员在 IDE 中开启 EditorConfig 插件即可自动套用；CI 亦可借助其做格式门禁。
 root = true
 
 [*]
@@ -12,7 +12,7 @@ indent_style = space
 indent_size = 4
 max_line_length = 120
 
-# 前端（Vue/JS/TS/JSON/HTML/CSS）统一 2 空格，避免与后端混用导致 diff 噪声
+# 前端（Vue/JS/TS/JSON/HTML/CSS/SCSS/YAML）统一 2 空格，避免与后端混用导致 diff 噪声
 [*.{vue,js,ts,jsx,tsx,json,html,css,scss,yml,yaml}]
 indent_size = 2
 
@@ -21,11 +21,14 @@ trim_trailing_whitespace = false
 max_line_length = off
 
 [*.java]
-# Java 缩进 4 空格；import 顺序由 checkstyle/IDE 模板保证
+# Java 缩进 4 空格；import 顺序由 IDE/Checkstyle 模板保证
 indent_size = 4
 
 [*.{xml,sql}]
 indent_size = 2
+
+[*.properties]
+indent_size = 4
 
 [Makefile]
 indent_style = tab
