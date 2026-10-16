@@ -148,12 +148,11 @@
 
         <div class="pager">
           <el-pagination
-            background
-            layout="total, sizes, prev, pager, next"
+            v-model:current-page="query.page"
+            v-model:page-size="query.size"
             :total="total"
-            :current-page="query.page"
-            :page-size="query.size"
-            :page-sizes="[10, 20, 50, 100]"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
             @current-change="onPageChange"
             @size-change="onSizeChange"
           />
@@ -205,7 +204,7 @@
           <el-date-picker
             v-model="form.oneTimeAt"
             type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DDTHH:mm:ss"
             placeholder="选择执行时间（须晚于当前时间）"
             style="width: 100%"
           />
@@ -434,10 +433,10 @@ function openCreate() {
   dialog.visible = true
 }
 
-/** ISO("2026-10-11T10:00:00") → "2026-10-11 10:00:00"（对齐选择器 value-format）。 */
+/** ISO("2026-10-11T10:00:00") → 截断到秒（对齐选择器 value-format，保留 T 分隔符）。 */
 function toPickerValue(iso) {
   if (!iso) return ''
-  return iso.replace('T', ' ').slice(0, 19)
+  return String(iso).slice(0, 19)
 }
 
 function openEdit(row) {
@@ -595,7 +594,7 @@ onBeforeUnmount(stopTimer)
 </script>
 
 <style scoped>
-.page-title { margin: 0 0 12px; font-size: 20px; font-weight: 600; }
+/* .page-title 已统一到全局 styles.css */
 .ml-4 { margin-left: 4px; }
 .ml-8 { margin-left: 8px; }
 .mt-12 { margin-top: 12px; }
@@ -606,7 +605,7 @@ onBeforeUnmount(stopTimer)
 .rule-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .err-text { color: #f56c6c; }
-.text-strong { color: #409eff; font-weight: 500; }
+.text-strong { color: var(--brand); font-weight: 500; }
 .hint { color: #a8abb2; font-size: 12px; line-height: 1.6; margin-top: 4px; }
 .interval-row { display: flex; gap: 10px; align-items: center; width: 100%; }
 .unit-select { width: 120px; }

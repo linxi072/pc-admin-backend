@@ -192,6 +192,8 @@ import { ElMessage } from 'element-plus'
 import { Plus, Delete, Search, Edit, Top, Bottom, More, QuestionFilled, WarningFilled, Menu as MenuIcon } from '@element-plus/icons-vue'
 import IconPicker from '@/components/IconPicker.vue'
 import { menuTree, createMenu, updateMenu, deleteMenu, sortMenus } from '@/api/menu'
+// 树拍平 / 子树 id 收集统一到 utils/tree
+import { flattenTree, collectSubtreeIds } from '@/utils/tree'
 
 const loading = ref(false)
 /** 加载失败标记：驱动空态展示重试入口（与「无数据」「搜索无匹配」区分）。 */
@@ -279,48 +281,14 @@ function suggestSortNo(parentId) {
 }
 
 // 将嵌套菜单树拍平为「上级菜单」下拉选项，带层级缩进
-const flatMenus = computed(() => {
-  const out = []
-  const walk = (nodes, depth) => {
-    for (const n of nodes) {
-      out.push({ id: n.id, label: (depth > 0 ? '　'.repeat(depth) : '') + n.menuName })
-      if (n.children?.length) walk(n.children, depth + 1)
-    }
-  }
-  walk(rawTree.value, 0)
-  return out
-})
+const flatMenus = computed(() => flattenTree(rawTree.value, { nameKey: 'menuName' }))
 
 // 编辑态时，从「上级菜单」下拉中排除当前节点及其全部子孙，避免选到会造成环路的父级
 const parentOptions = computed(() => {
   if (editingId.value == null) return flatMenus.value
-  const banned = subtreeIds(rawTree.value, editingId.value)
+  const banned = collectSubtreeIds(rawTree.value, editingId.value)
   return flatMenus.value.filter((m) => !banned.has(m.id))
 })
-
-// 收集节点及其全部子孙的 id 集合（在父级下拉中排除，防止层级环路）
-function subtreeIds(nodes, id) {
-  const set = new Set()
-  const walk = (list) => {
-    for (const n of list) {
-      if (n.id === id) {
-        set.add(n.id)
-        const collect = (node) => {
-          for (const c of node.children || []) {
-            set.add(c.id)
-            collect(c)
-          }
-        }
-        collect(n)
-        return true
-      }
-      if (n.children?.length && walk(n.children)) return true
-    }
-    return false
-  }
-  walk(nodes)
-  return set
-}
 
 // 关键词过滤（保留命中或命中子孙的祖先），与后端 MenuTreeVO 结构对齐
 const treeData = computed(() => {

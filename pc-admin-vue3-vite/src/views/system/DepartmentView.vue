@@ -135,6 +135,8 @@ import { ElMessage } from 'element-plus'
 import { Plus, Delete, Search, Edit } from '@element-plus/icons-vue'
 import { orgTree, createOrg, updateOrg, deleteOrg } from '@/api/org'
 import { pageUsers } from '@/api/user'
+// 树拍平 / 子树 id 收集统一到 utils/tree
+import { flattenTree, collectSubtreeIds } from '@/utils/tree'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -223,47 +225,14 @@ function typeLabel(t) {
   return t === 'COMPANY' ? '公司' : t === 'TEAM' ? '小组' : '部门'
 }
 
-const flatOrgs = computed(() => {
-  const out = []
-  const walk = (nodes, depth) => {
-    for (const n of nodes) {
-      out.push({ id: n.id, label: (depth > 0 ? '　'.repeat(depth) : '') + n.orgName })
-      if (n.children?.length) walk(n.children, depth + 1)
-    }
-  }
-  walk(rawTree.value, 0)
-  return out
-})
+const flatOrgs = computed(() => flattenTree(rawTree.value, { nameKey: 'orgName' }))
 
 // 编辑态时排除当前节点及其全部子孙，避免选中造成层级环路
 const parentOptions = computed(() => {
   if (editingId.value == null) return flatOrgs.value
-  const banned = subtreeIds(rawTree.value, editingId.value)
+  const banned = collectSubtreeIds(rawTree.value, editingId.value)
   return flatOrgs.value.filter((m) => !banned.has(m.id))
 })
-
-function subtreeIds(nodes, id) {
-  const set = new Set()
-  const walk = (list) => {
-    for (const n of list) {
-      if (n.id === id) {
-        set.add(n.id)
-        const collect = (node) => {
-          for (const c of node.children || []) {
-            set.add(c.id)
-            collect(c)
-          }
-        }
-        collect(n)
-        return true
-      }
-      if (n.children?.length && walk(n.children)) return true
-    }
-    return false
-  }
-  walk(nodes)
-  return set
-}
 
 const treeData = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
@@ -372,10 +341,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.text-muted {
-  color: #909399;
-}
-
+/* .text-muted 已统一到全局 styles.css */
 .leader-empty {
   padding: 12px 0;
   text-align: center;

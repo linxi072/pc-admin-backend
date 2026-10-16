@@ -89,10 +89,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Delete } from '@element-plus/icons-vue'
-import { getCacheStats, clearCache } from '../../api/monitor'
+import { getCacheStats, clearCache } from '@/api/monitor'
 
 const caches = ref([])
 const loading = ref(false)
@@ -121,6 +121,8 @@ async function load() {
   loading.value = true
   try {
     caches.value = (await getCacheStats()) || []
+  } catch (e) {
+    caches.value = []
   } finally {
     loading.value = false
   }
@@ -136,11 +138,16 @@ async function onClear(row) {
   } catch {
     return // 用户取消
   }
-  await clearCache(row.name)
-  ElMessage.success(`已清理缓存「${row.name}」`)
-  load()
+  try {
+    await clearCache(row.name)
+    ElMessage.success(`已清理缓存「${row.name}」`)
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
+/** 按勾选状态重建 10s 轮询定时器（先停后排，避免叠加）。 */
 function setupAutoRefresh() {
   if (timer) {
     clearInterval(timer)
@@ -151,8 +158,16 @@ function setupAutoRefresh() {
   }
 }
 
+// 勾选「自动刷新」后接线生效（此前 setupAutoRefresh 定义了却从未调用）
+watch(autoRefresh, setupAutoRefresh)
+
 onMounted(load)
-onUnmounted(() => timer && clearInterval(timer))
+onBeforeUnmount(() => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+})
 </script>
 
 <style scoped>

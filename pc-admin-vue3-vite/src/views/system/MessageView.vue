@@ -60,15 +60,18 @@
             </el-table-column>
           </el-table>
 
-          <el-pagination
-            class="pager"
-            layout="total, sizes, prev, pager, next"
-            :total="total"
-            v-model:current-page="query.page"
-            v-model:page-size="query.size"
-            :page-sizes="[10, 20, 50]"
-            @change="load"
-          />
+          <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+          <div class="pager">
+            <el-pagination
+              v-model:current-page="query.page"
+              v-model:page-size="query.size"
+              :total="total"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @current-change="load"
+              @size-change="onSizeChange"
+            />
+          </div>
         </el-card>
       </el-tab-pane>
 
@@ -93,13 +96,17 @@
             <el-table-column prop="sentAt" label="发送时间" width="160" />
           </el-table>
 
-          <el-pagination
-            class="pager"
-            layout="total, prev, pager, next"
-            :total="sentTotal"
-            v-model:current-page="sentQuery.page"
-            @change="loadSent"
-          />
+          <div class="pager">
+            <el-pagination
+              v-model:current-page="sentQuery.page"
+              v-model:page-size="sentQuery.size"
+              :total="sentTotal"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @current-change="loadSent"
+              @size-change="onSentSizeChange"
+            />
+          </div>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -176,13 +183,15 @@ import {
   getUnreadCount,
   markMessageRead,
   markAllMessagesRead
-} from '../../api/message'
+} from '@/api/message'
 
 // 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
 defineProps({ embedded: { type: Boolean, default: false } })
-import { listRoles } from '../../api/role'
-import { orgTree } from '../../api/org'
-import { pageUsers } from '../../api/user'
+import { listRoles } from '@/api/role'
+import { orgTree } from '@/api/org'
+import { pageUsers } from '@/api/user'
+// 部门树拍平统一到 utils/tree
+import { flattenTree } from '@/utils/tree'
 
 const activeTab = ref('mine')
 const loading = ref(false)
@@ -190,12 +199,13 @@ const list = ref([])
 const total = ref(0)
 const unread = ref(0)
 const onlyUnread = ref(false)
-const query = reactive({ page: 1, size: 20 })
+// 默认每页条数统一为 10（与其他列表页一致）
+const query = reactive({ page: 1, size: 10 })
 
 const sentLoading = ref(false)
 const sentList = ref([])
 const sentTotal = ref(0)
-const sentQuery = reactive({ page: 1, size: 20 })
+const sentQuery = reactive({ page: 1, size: 10 })
 
 const sendVisible = ref(false)
 const sendFormRef = ref()
@@ -220,30 +230,30 @@ const typeText = (t) => ({ NOTICE: '通知', ALERT: '告警', SYSTEM: '系统' }
 const readPercent = (row) =>
   row.totalCount ? Math.round((row.readCount / row.totalCount) * 100) : 0
 
-/** 拍平部门树为下拉选项（带缩进前缀）。 */
-function flattenOrgs(nodes, depth = 0, acc = []) {
-  ;(nodes || []).forEach((n) => {
-    acc.push({ id: n.id, orgName: `${'　'.repeat(depth)}${n.orgName}` })
-    if (n.children) flattenOrgs(n.children, depth + 1, acc)
-  })
-  return acc
-}
-
 async function load() {
   loading.value = true
   try {
     const data = await pageMyMessages({ page: query.page, size: query.size, onlyUnread: onlyUnread.value })
     list.value = data.records || []
     total.value = data.total || 0
+  } catch (e) {
+    // 失败静默：http 拦截器已统一提示，此处只避免 Uncaught (in promise)
+    list.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
   loadUnread()
 }
 
+/** 未读数为展示增强：失败静默降级，保留上一次计数，不打扰消息列表。 */
 async function loadUnread() {
-  const data = await getUnreadCount()
-  unread.value = data?.unread || 0
+  try {
+    const data = await getUnreadCount()
+    unread.value = data?.unread || 0
+  } catch (e) {
+    // 静默降级：不改动 unread
+  }
 }
 
 async function loadSent() {
@@ -252,9 +262,25 @@ async function loadSent() {
     const data = await pageSentMessages({ page: sentQuery.page, size: sentQuery.size })
     sentList.value = data.records || []
     sentTotal.value = data.total || 0
+  } catch (e) {
+    sentList.value = []
+    sentTotal.value = 0
   } finally {
     sentLoading.value = false
   }
+}
+
+/** 每页条数变化后回到第一页。 */
+function onSizeChange(size) {
+  query.size = size
+  query.page = 1
+  load()
+}
+
+function onSentSizeChange(size) {
+  sentQuery.size = size
+  sentQuery.page = 1
+  loadSent()
 }
 
 function onTabChange(name) {
@@ -268,15 +294,23 @@ function onSearch() {
 }
 
 async function onRead(row) {
-  await markMessageRead(row.messageId)
-  ElMessage.success('已标记为已读')
-  load()
+  try {
+    await markMessageRead(row.messageId)
+    ElMessage.success('已标记为已读')
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function onReadAll() {
-  const res = await markAllMessagesRead()
-  ElMessage.success(`已标记 ${res?.updated ?? 0} 条为已读`)
-  load()
+  try {
+    const res = await markAllMessagesRead()
+    ElMessage.success(`已标记 ${res?.updated ?? 0} 条为已读`)
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function openDetail(row) {
@@ -284,8 +318,12 @@ async function openDetail(row) {
   detailVisible.value = true
   // 打开详情即视为已读，回执时间在此落库
   if (!row.isRead) {
-    await markMessageRead(row.messageId)
-    load()
+    try {
+      await markMessageRead(row.messageId)
+      load()
+    } catch (e) {
+      // 回执失败不影响详情阅读，拦截器已提示
+    }
   }
 }
 
@@ -297,7 +335,7 @@ async function loadOptions() {
       pageUsers({ page: 1, size: 200 })
     ])
     roleOptions.value = roles || []
-    orgFlatOptions.value = flattenOrgs(tree)
+    orgFlatOptions.value = flattenTree(tree, { nameKey: 'orgName', labelKey: 'orgName' })
     userOptions.value = users?.records || []
   } catch (e) {
     console.warn('加载收件人选项失败', e)
@@ -315,7 +353,9 @@ function openSend() {
 }
 
 async function onSend() {
-  await sendFormRef.value.validate()
+  // 校验失败时 validate() 会 reject，须捕获避免 Uncaught (in promise)
+  const valid = await sendFormRef.value.validate().catch(() => false)
+  if (!valid) return
   // 校验：批量模式至少选一个角色或部门；单条模式至少选一个接收人
   if (sendMode.value === 'batch' && sendForm.roleIds.length === 0 && sendForm.orgIds.length === 0) {
     ElMessage.warning('请至少选择一个角色或一个部门')
@@ -333,11 +373,15 @@ async function onSend() {
       : { title: sendForm.title, content: sendForm.content, msgType: sendForm.msgType,
           receiverIds: sendForm.receiverIds }
 
-  const res = await sendMessage(body)
-  ElMessage.success(`已发送给 ${res?.receiverCount ?? 0} 人`)
-  sendVisible.value = false
-  activeTab.value = 'sent'
-  loadSent()
+  try {
+    const res = await sendMessage(body)
+    ElMessage.success(`已发送给 ${res?.receiverCount ?? 0} 人`)
+    sendVisible.value = false
+    activeTab.value = 'sent'
+    loadSent()
+  } catch (e) {
+    // 拦截器已提示；保持弹窗开启便于修正后重发
+  }
 }
 
 onMounted(load)
@@ -361,9 +405,7 @@ onMounted(load)
   color: #909399;
   margin-top: 2px;
 }
-.text-muted {
-  color: #c0c4cc;
-}
+/* .text-muted 已统一到全局 styles.css */
 .detail-title {
   margin: 0 0 8px;
   font-size: 18px;

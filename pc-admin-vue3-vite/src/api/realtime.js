@@ -14,6 +14,7 @@ const listeners = new Set()
 let started = false
 let ws = null
 let heartbeatTimer = null
+let reconnectTimer = null
 
 function dispatch(msg) {
   listeners.forEach((cb) => {
@@ -33,6 +34,15 @@ function wsBase() {
 function connectReal() {
   const token = authState.token
   if (!token) return
+  // 重连前先清掉上一轮遗留的定时器，否则每次重连都会叠加一个心跳定时器
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
   const url = `${wsBase()}?token=${encodeURIComponent(token)}`
   try {
     ws = new WebSocket(url)
@@ -51,7 +61,7 @@ function connectReal() {
   ws.onclose = () => {
     ws = null
     if (started) {
-      setTimeout(connectReal, 5000) // 断线 5s 后重连
+      reconnectTimer = setTimeout(connectReal, 5000) // 断线 5s 后重连
     }
   }
   ws.onerror = () => {
@@ -89,6 +99,13 @@ export function closeRealtime() {
     }
     ws = null
   }
-  if (heartbeatTimer) clearInterval(heartbeatTimer)
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
   listeners.clear()
 }

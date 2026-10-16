@@ -262,7 +262,7 @@ onMounted(loadTables)
 </script>
 
 <style scoped>
-.page-title { margin: 0 0 12px; font-size: 20px; font-weight: 600; }
+/* .page-title 已统一到全局 styles.css */
 .mb-12 { margin-bottom: 12px; }
 .window-hint { color: #8a919f; font-size: 13px; }
 .preview-header { display: flex; align-items: center; justify-content: space-between; }

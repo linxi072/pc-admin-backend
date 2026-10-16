@@ -6,6 +6,9 @@
   --app-footer-h: 40px;
   --brand: #409eff;
   --brand-dark: #337ecc;
+  /* 语义色变量：次要文本（常规）/ 弱化文本（占位、辅助说明） */
+  --text-secondary: #909399;
+  --text-muted: #a8abb2;
 }
 
 * {
@@ -163,6 +166,17 @@ body {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 16px;
+}
+
+/* 弱化文本：未分配 / 无值占位（统一到全局类，避免各页 #c0c4cc / #909399 混用） */
+.text-muted {
+  color: var(--el-text-color-secondary, var(--text-secondary));
+}
+
+/* 卡片内小标题（toolbar / card header 中的区块名），统一到全局类 */
+.card-title {
+  font-weight: 600;
+  font-size: 15px;
 }
 
 .pager {

@@ -224,7 +224,7 @@ onMounted(() => {
 }
 .stat-icon.is-up { color: #67c23a; }
 .stat-icon.is-down { color: #f56c6c; }
-.stat-icon.is-flat { color: #409eff; }
+.stat-icon.is-flat { color: var(--brand); }
 .label {
   color: #8a919f;
   font-size: 13px;

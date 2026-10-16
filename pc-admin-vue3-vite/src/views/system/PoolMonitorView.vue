@@ -97,9 +97,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
-import { getPoolStats } from '../../api/monitor'
+import { getPoolStats } from '@/api/monitor'
 
 const pool = ref({})
 const loading = ref(false)
@@ -124,7 +124,8 @@ const healthClass = computed(() => {
 })
 
 const usageColor = computed(() => {
-  if (usagePct.value == null) return '#409eff'
+  // 统一走全局品牌色变量
+  if (usagePct.value == null) return 'var(--brand)'
   if (usagePct.value >= 80) return '#f56c6c'
   if (usagePct.value >= 60) return '#e6a23c'
   return '#67c23a'
@@ -139,11 +140,14 @@ async function load() {
   loading.value = true
   try {
     pool.value = (await getPoolStats()) || {}
+  } catch (e) {
+    pool.value = {}
   } finally {
     loading.value = false
   }
 }
 
+/** 按勾选状态重建 10s 轮询定时器（先停后排，避免叠加）。 */
 function setupAutoRefresh() {
   if (timer) {
     clearInterval(timer)
@@ -154,8 +158,16 @@ function setupAutoRefresh() {
   }
 }
 
+// 勾选「自动刷新」后接线生效（此前 setupAutoRefresh 定义了却从未调用）
+watch(autoRefresh, setupAutoRefresh)
+
 onMounted(load)
-onUnmounted(() => timer && clearInterval(timer))
+onBeforeUnmount(() => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+})
 </script>
 
 <style scoped>

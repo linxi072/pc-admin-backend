@@ -114,7 +114,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { Download, Upload, UploadFilled, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { listImportTemplates, downloadImportTemplate, uploadImportFile, uploadImportFileRaw } from '../../api/import'
+import { listImportTemplates, downloadImportTemplate, uploadImportFile, uploadImportFileRaw } from '@/api/import'
+// Blob 下载统一到 utils/download
+import { saveBlobFromResponse, saveBlob, parseFileName } from '@/utils/download'
 
 const loading = ref(false)
 const rows = ref([])
@@ -142,57 +144,23 @@ async function load() {
   }
 }
 
-/** 下载模板：沿用 FileManagementView / ExportCenterView 的防御式 Blob 处理。 */
+/** 下载模板：Blob 处理统一走 utils/download（业务错误 JSON 已在其中提示）。 */
 async function onDownloadTemplate(row, format) {
   downloading.value = `${row.code}:${format}`
   try {
     const resp = await downloadImportTemplate(row.code, format)
-    const data = resp?.data
-    const blob = data instanceof Blob ? data : new Blob([data])
-    if (blob.type && blob.type.includes('application/json')) {
-      const text = await blob.text()
-      let msg = '模板下载失败'
-      try {
-        const obj = JSON.parse(text)
-        msg = obj?.message || msg
-      } catch (_) { /* ignore */ }
-      ElMessage.error(msg)
-      return
-    }
-    const fileName = parseFileName(resp, `导入模板-${row.displayName}`, format === 'XLSX' ? 'xlsx' : 'csv')
-    saveBlob(blob, fileName)
-    ElMessage.success('模板下载成功')
+    const ok = await saveBlobFromResponse(
+      resp,
+      `导入模板-${row.displayName}`,
+      format === 'XLSX' ? 'xlsx' : 'csv',
+      '模板下载失败'
+    )
+    if (ok) ElMessage.success('模板下载成功')
   } catch (e) {
     // 响应拦截器已弹错误提示
   } finally {
     downloading.value = null
   }
-}
-
-/** 通用 Blob 保存：创建临时对象 URL 并触发浏览器下载。 */
-function saveBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-/** 优先解析 Content-Disposition 中的文件名，失败回退到模板名（按格式补后缀）。 */
-function parseFileName(resp, fallback, ext) {
-  const cd = resp?.headers?.['content-disposition'] || ''
-  const m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)"?/i)
-  if (m && m[1]) {
-    try {
-      return decodeURIComponent(m[1])
-    } catch (_) {
-      return m[1]
-    }
-  }
-  return `${fallback || 'template'}.${ext}`
 }
 
 function openImport(row) {
@@ -301,7 +269,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.card-title { font-weight: 600; }
+/* .card-title 已统一到全局 styles.css */
 .header-tag { margin: 2px 6px 2px 0; }
 .dialog-tip { margin-bottom: 14px; }
 .result-tip { margin-top: 14px; }

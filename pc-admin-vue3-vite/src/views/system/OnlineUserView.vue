@@ -76,7 +76,6 @@
             v-loading="loading"
             border
             stripe
-            height="480"
             @selection-change="onSelectionChange"
           >
             <el-table-column type="selection" width="42" />
@@ -95,8 +94,9 @@
             </el-table-column>
             <el-table-column label="会话状态" width="95">
               <template #default="{ row }">
-                <el-tag :type="statusTagType(row.status)" size="small" effect="dark">
-                  {{ statusLabel(row.status) }}
+                <!-- 状态标签统一走 utils/status 映射 -->
+                <el-tag :type="statusTag(row.status).type" size="small" effect="dark">
+                  {{ statusTag(row.status).label }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -161,7 +161,7 @@
             </div>
           </div>
 
-          <el-table :data="rRows" v-loading="rLoading" border stripe height="480">
+          <el-table :data="rRows" v-loading="rLoading" border stripe>
             <el-table-column prop="username" label="账号" width="140" />
             <el-table-column label="姓名" width="100">
               <template #default="{ row }">{{ row.displayName || '-' }}</template>
@@ -190,6 +190,7 @@
             </el-table-column>
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
+                <!-- 限制记录的 ACTIVE 意为「生效中」，与全局 STATUS_TAGS 的「启用」语义不同，保留本页判断 -->
                 <el-tag :type="row.status === 'ACTIVE' ? 'danger' : 'info'" size="small">
                   {{ row.status === 'ACTIVE' ? '生效中' : '已解除' }}
                 </el-tag>
@@ -277,6 +278,8 @@ import {
   restrictLogin,
   releaseRestriction
 } from '@/api/onlineUser'
+// 状态标签映射统一到 utils
+import { statusTag } from '@/utils/status'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -321,14 +324,6 @@ const restrictRules = {
 function formatTime(t) {
   if (!t) return '-'
   return String(t).replace('T', ' ').slice(0, 19)
-}
-
-function statusLabel(s) {
-  return s === 'IDLE' ? '空闲' : s === 'RESTRICTED' ? '已限制' : '在线'
-}
-
-function statusTagType(s) {
-  return s === 'IDLE' ? 'info' : s === 'RESTRICTED' ? 'danger' : 'success'
 }
 
 /** 时长（分钟）→ 展示文案；0 为长期。 */

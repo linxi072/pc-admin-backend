@@ -135,7 +135,7 @@ function clear() {
 <style scoped>
 .icon-picker { width: 100%; }
 .icon-trigger :deep(.el-input__inner) { cursor: pointer; }
-.icon-preview { color: #409eff; }
+.icon-preview { color: var(--brand); }
 .icon-clear { color: #f56c6c; }
 .icon-search { margin-bottom: 12px; }
 .icon-tip { margin-bottom: 12px; }
@@ -160,10 +160,10 @@ function clear() {
   cursor: pointer;
   transition: border-color 0.15s, background-color 0.15s;
 }
-.icon-cell:hover { border-color: #409eff; background: #ecf5ff; }
-.icon-cell.is-active { border-color: #409eff; background: #ecf5ff; }
+.icon-cell:hover { border-color: var(--brand); background: #ecf5ff; }
+.icon-cell.is-active { border-color: var(--brand); background: #ecf5ff; }
 .icon-cell-icon { font-size: 20px; color: #606266; }
-.icon-cell.is-active .icon-cell-icon { color: #409eff; }
+.icon-cell.is-active .icon-cell-icon { color: var(--brand); }
 .icon-cell-name {
   font-size: 11px;
   color: #909399;

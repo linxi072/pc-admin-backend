@@ -40,7 +40,8 @@
           <div class="metric-card">
             <div class="metric-label">JVM 内存</div>
             <div class="metric-value">{{ fmtPct(metrics?.memoryUsage) }}</div>
-            <el-progress :percentage="pctNum(metrics?.memoryUsage)" :stroke-width="8" :show-text="false" color="#409eff" />
+            <!-- 品牌色统一到全局 --brand 变量 -->
+            <el-progress :percentage="pctNum(metrics?.memoryUsage)" :stroke-width="8" :show-text="false" color="var(--brand)" />
             <div class="metric-sub">{{ fmtBytes(metrics?.usedHeapBytes) }} / {{ fmtBytes(metrics?.maxHeapBytes) }}</div>
           </div>
         </el-col>
@@ -175,22 +176,25 @@
         <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
       </el-table>
 
-      <el-pagination
-        class="pager"
-        layout="total, sizes, prev, pager, next"
-        :total="errTotal"
-        v-model:current-page="errQuery.page"
-        v-model:page-size="errQuery.size"
-        :page-sizes="[10, 20, 50]"
-        @change="loadErrors"
-      />
+      <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="errQuery.page"
+          v-model:page-size="errQuery.size"
+          :total="errTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadErrors"
+          @size-change="onErrorSizeChange"
+        />
+      </div>
       <div class="hint">默认查询最近 24 小时的失败记录（success=0）。</div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import {
@@ -199,7 +203,7 @@ import {
   listOnlineSessions,
   pageErrorLogs,
   triggerMonitorSample
-} from '../../api/monitor'
+} from '@/api/monitor'
 
 const metrics = ref(null)
 const online = ref(null)
@@ -209,7 +213,8 @@ const sessionKeyword = ref('')
 const errors = ref([])
 const errLoading = ref(false)
 const errTotal = ref(0)
-const errQuery = reactive({ page: 1, size: 20, keyword: '', sortField: '', sortDirection: '' })
+// 默认每页条数统一为 10（与其他列表页一致）
+const errQuery = reactive({ page: 1, size: 10, keyword: '', sortField: '', sortDirection: '' })
 const range = ref('24')
 const autoRefresh = ref(false)
 const refreshing = ref(false)
@@ -242,18 +247,29 @@ function fmtUptime(ms) {
   return `${m} 分 ${s % 60} 秒`
 }
 
+// 失败统一静默：http 拦截器已弹出提示，此处只保证不产生 Uncaught (in promise)
 async function loadMetrics() {
-  metrics.value = await getServerMetrics()
+  try {
+    metrics.value = await getServerMetrics()
+  } catch (e) {
+    /* 拦截器已提示 */
+  }
 }
 
 async function loadOnline() {
-  online.value = await getOnlineSummary()
+  try {
+    online.value = await getOnlineSummary()
+  } catch (e) {
+    /* 拦截器已提示 */
+  }
 }
 
 async function loadSessions() {
   sessionLoading.value = true
   try {
     sessions.value = (await listOnlineSessions({ keyword: sessionKeyword.value || undefined, limit: 100 })) || []
+  } catch (e) {
+    sessions.value = []
   } finally {
     sessionLoading.value = false
   }
@@ -271,9 +287,19 @@ async function loadErrors() {
     })
     errors.value = data.records || []
     errTotal.value = data.total || 0
+  } catch (e) {
+    errors.value = []
+    errTotal.value = 0
   } finally {
     errLoading.value = false
   }
+}
+
+/** 异常日志分页：每页条数变化后回到第一页。 */
+function onErrorSizeChange(size) {
+  errQuery.size = size
+  errQuery.page = 1
+  loadErrors()
 }
 
 /** 异常日志表头排序：走服务端白名单（occurredAt / durationMs 等）。 */
@@ -295,11 +321,14 @@ async function refreshAll() {
     await triggerMonitorSample()
     await Promise.all([loadMetrics(), loadOnline(), loadSessions(), loadErrors()])
     ElMessage.success('已刷新')
+  } catch (e) {
+    // 拦截器已提示；采样失败不阻断后续刷新
   } finally {
     refreshing.value = false
   }
 }
 
+/** 按勾选状态重建 30s 轮询定时器（先停后排，避免叠加）。 */
 function setupAutoRefresh() {
   if (timer) {
     clearInterval(timer)
@@ -313,13 +342,21 @@ function setupAutoRefresh() {
   }
 }
 
+// 勾选「自动刷新」后接线生效（此前 setupAutoRefresh 定义了却从未调用）
+watch(autoRefresh, setupAutoRefresh)
+
 onMounted(() => {
   loadMetrics()
   loadOnline()
   loadSessions()
   loadErrors()
 })
-onUnmounted(() => timer && clearInterval(timer))
+onBeforeUnmount(() => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+})
 </script>
 
 <style scoped>
@@ -363,7 +400,7 @@ onUnmounted(() => timer && clearInterval(timer))
 .online-num {
   font-size: 26px;
   font-weight: 600;
-  color: #409eff;
+  color: var(--brand);
 }
 .online-label {
   font-size: 13px;

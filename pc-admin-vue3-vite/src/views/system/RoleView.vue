@@ -17,9 +17,8 @@
         </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">
-              {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
-            </el-tag>
+            <!-- 状态标签统一走 utils/status 映射 -->
+            <el-tag :type="statusTag(row.status).type">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="sortNo" label="排序" width="80" />
@@ -162,6 +161,8 @@ import { listRoles, getRole, createRole, updateRole, deleteRole, listRoleDataSco
 import { menuTree as fetchMenuTree } from '@/api/menu'
 import { listApiResources } from '@/api/apiResource'
 import { orgTree } from '@/api/org'
+// 状态标签映射统一到 utils
+import { statusTag } from '@/utils/status'
 
 // 数据范围选项，与后端 DataScopeType 一一对应；label 供页面展示，value 直接作为接口入参
 const SCOPE_OPTIONS = [

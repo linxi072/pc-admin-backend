@@ -35,7 +35,8 @@
       </div>
 
       <!-- 列表 -->
-      <el-table :data="rows" v-loading="loading" border stripe height="480" @sort-change="onSortChange">
+      <!-- 不设 height：随内容自适应，与其他列表页一致 -->
+      <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <el-table-column prop="id" label="ID" width="70" sortable="custom" />
         <el-table-column prop="username" label="用户名" width="130" sortable="custom" />
         <el-table-column prop="displayName" label="昵称" width="120" />
@@ -43,9 +44,8 @@
         <el-table-column prop="email" label="邮箱" min-width="180" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">
-              {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
-            </el-tag>
+            <!-- 状态标签统一走 utils/status 映射 -->
+            <el-tag :type="statusTag(row.status).type">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="部门" min-width="150">
@@ -183,6 +183,9 @@ import { pageUsers, createUser, updateUser, deleteUser, resetPassword } from '@/
 import { listRoles } from '@/api/role'
 import { orgTree } from '@/api/org'
 import { listPostOptions } from '@/api/post'
+// 状态标签映射 / 部门树拍平均统一到 utils
+import { statusTag } from '@/utils/status'
+import { flattenTree } from '@/utils/tree'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -249,18 +252,11 @@ function resetQuery() {
   load()
 }
 
-/** 拍平部门树为下拉选项（带缩进前缀）。 */
-function flattenOrgs(nodes, depth = 0, acc = []) {
-  ;(nodes || []).forEach((n) => {
-    acc.push({ id: n.id, orgName: `${'　'.repeat(depth)}${n.orgName}` })
-    if (n.children) flattenOrgs(n.children, depth + 1, acc)
-  })
-  return acc
-}
-
 async function ensureRoles() {
   if (roleOptions.value.length === 0) roleOptions.value = await listRoles()
-  if (orgOptions.value.length === 0) orgOptions.value = flattenOrgs(await orgTree())
+  if (orgOptions.value.length === 0) {
+    orgOptions.value = flattenTree(await orgTree(), { nameKey: 'orgName', labelKey: 'orgName' })
+  }
   if (postOptions.value.length === 0) postOptions.value = await listPostOptions()
 }
 

@@ -131,15 +131,18 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
-        class="pager"
-        layout="total, sizes, prev, pager, next"
-        :total="total"
-        v-model:current-page="query.page"
-        v-model:page-size="query.size"
-        :page-sizes="[10, 20, 50]"
-        @change="load"
-      />
+      <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="query.page"
+          v-model:page-size="query.size"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="load"
+          @size-change="onSizeChange"
+        />
+      </div>
       <div class="hint">
         摘要字段按权限脱敏（持有 system:audit:sensitive 可见原文）；IP 一律掩码。点击 TraceId 查看一次请求的完整操作链路。
       </div>
@@ -165,7 +168,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
-import { pageAuditLogs, auditLogSummary, auditLogTrace } from '../../api/audit'
+import { pageAuditLogs, auditLogSummary, auditLogTrace } from '@/api/audit'
 
 const loading = ref(false)
 const rows = ref([])
@@ -174,7 +177,7 @@ const summary = ref({})
 const dateRange = ref([])
 const query = reactive({
   page: 1,
-  size: 20,
+  size: 10, // 默认每页条数统一为 10
   moduleCode: '',
   operationType: '',
   operatorName: '',
@@ -227,6 +230,13 @@ async function load() {
 }
 
 function onSearch() {
+  query.page = 1
+  load()
+}
+
+/** 每页条数变化后回到第一页。 */
+function onSizeChange(size) {
+  query.size = size
   query.page = 1
   load()
 }
@@ -295,7 +305,7 @@ onMounted(load)
 }
 .method {
   font-weight: 600;
-  color: #409eff;
+  color: var(--brand);
 }
 .muted { color: #c0c4cc; }
 .hint {

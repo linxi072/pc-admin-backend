@@ -121,15 +121,18 @@
         <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
       </el-table>
 
-      <el-pagination
-        class="pager"
-        layout="total, sizes, prev, pager, next"
-        :total="total"
-        v-model:current-page="query.page"
-        v-model:page-size="query.size"
-        :page-sizes="[10, 20, 50]"
-        @change="load"
-      />
+      <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="query.page"
+          v-model:page-size="query.size"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="load"
+          @size-change="onSizeChange"
+        />
+      </div>
       <div class="hint">默认查询最近 7 天记录；登录失败时用户可能不存在，「用户 ID」为空属正常。</div>
     </el-card>
   </div>
@@ -138,7 +141,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
-import { pageLoginLogs, loginLogSummary } from '../../api/loginLog'
+import { pageLoginLogs, loginLogSummary } from '@/api/loginLog'
 
 const loading = ref(false)
 const rows = ref([])
@@ -147,7 +150,7 @@ const summary = ref({})
 const dateRange = ref([])
 const query = reactive({
   page: 1,
-  size: 20,
+  size: 10, // 默认每页条数统一为 10
   username: '',
   result: '',
   loginType: '',
@@ -197,6 +200,13 @@ async function load() {
 }
 
 function onSearch() {
+  query.page = 1
+  load()
+}
+
+/** 每页条数变化后回到第一页。 */
+function onSizeChange(size) {
+  query.size = size
   query.page = 1
   load()
 }

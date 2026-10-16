@@ -52,7 +52,8 @@
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+            <!-- 状态标签统一走 utils/status 映射 -->
+            <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
             <el-tag v-if="row.status === 'PUBLISHED' && !row.effective" type="warning" size="small">
               未生效/已过期
             </el-tag>
@@ -92,15 +93,18 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
-        class="pager"
-        layout="total, sizes, prev, pager, next"
-        :total="total"
-        v-model:current-page="query.page"
-        v-model:page-size="query.size"
-        :page-sizes="[10, 20, 50]"
-        @change="load"
-      />
+      <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="query.page"
+          v-model:page-size="query.size"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="load"
+          @size-change="onSizeChange"
+        />
+      </div>
     </el-card>
 
     <!-- 新建 / 编辑 -->
@@ -172,7 +176,7 @@
     <el-dialog v-model="detailVisible" title="公告详情" width="680px">
       <h3 class="detail-title">{{ current?.title }}</h3>
       <div class="detail-meta">
-        <el-tag :type="statusType(current?.status)" size="small">{{ statusText(current?.status) }}</el-tag>
+        <el-tag :type="statusTag(current?.status).type" size="small">{{ statusTag(current?.status).label }}</el-tag>
         <span class="meta-item">生效：{{ current?.publishAt || '立即' }}</span>
         <span class="meta-item">有效期至：{{ current?.expireAt || '长期有效' }}</span>
         <span class="meta-item">浏览：{{ current?.viewCount ?? 0 }}</span>
@@ -196,7 +200,9 @@ import {
   toggleAnnouncementTop,
   deleteAnnouncement,
   getAnnouncement
-} from '../../api/announcement'
+} from '@/api/announcement'
+// 状态标签映射统一到全局（替换此前页面内的三元判断）
+import { statusTag } from '@/utils/status'
 
 // 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
 defineProps({ embedded: { type: Boolean, default: false } })
@@ -204,7 +210,8 @@ defineProps({ embedded: { type: Boolean, default: false } })
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
-const query = reactive({ page: 1, size: 20, keyword: '', status: '', sortField: '', sortDirection: '' })
+// 默认每页条数统一为 10（与其他列表页一致）
+const query = reactive({ page: 1, size: 10, keyword: '', status: '', sortField: '', sortDirection: '' })
 
 const dialogVisible = ref(false)
 const editingId = ref(null)
@@ -223,20 +230,26 @@ const rules = {
   content: [{ required: true, message: '请输入公告内容', trigger: 'blur' }]
 }
 
-const statusText = (s) =>
-  ({ DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下线' }[s] || s)
-const statusType = (s) =>
-  ({ DRAFT: 'info', PUBLISHED: 'success', OFFLINE: 'warning' }[s] || 'info')
-
 async function load() {
   loading.value = true
   try {
     const data = await pageAnnouncements({ ...query })
     list.value = data.records || []
     total.value = data.total || 0
+  } catch (e) {
+    // 失败静默：http 拦截器已统一提示，此处只避免 Uncaught (in promise)
+    list.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
+}
+
+/** 每页条数变化后回到第一页。 */
+function onSizeChange(size) {
+  query.size = size
+  query.page = 1
+  load()
 }
 
 /**
@@ -276,7 +289,9 @@ function openEdit(row) {
 }
 
 async function onSubmit() {
-  await formRef.value.validate()
+  // 校验失败时 validate() 会 reject，须捕获避免 Uncaught (in promise)
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
   const body = {
     title: form.title,
     content: form.content,
@@ -284,15 +299,19 @@ async function onSubmit() {
     publishAt: form.publishAt,
     expireAt: form.expireAt
   }
-  if (editingId.value !== null) {
-    await updateAnnouncement(editingId.value, body)
-    ElMessage.success('已保存')
-  } else {
-    await createAnnouncement(body)
-    ElMessage.success('已创建为草稿')
+  try {
+    if (editingId.value !== null) {
+      await updateAnnouncement(editingId.value, body)
+      ElMessage.success('已保存')
+    } else {
+      await createAnnouncement(body)
+      ElMessage.success('已创建为草稿')
+    }
+    dialogVisible.value = false
+    load()
+  } catch (e) {
+    // 拦截器已提示；保持对话框开启便于就地修正
   }
-  dialogVisible.value = false
-  load()
 }
 
 function openPublish(row) {
@@ -303,35 +322,55 @@ function openPublish(row) {
 }
 
 async function onPublish() {
-  await publishAnnouncement(publishTarget.value.id, {
-    publishAt: publishForm.publishAt || undefined,
-    expireAt: publishForm.expireAt || undefined
-  })
-  ElMessage.success('已发布')
-  publishVisible.value = false
-  load()
+  try {
+    await publishAnnouncement(publishTarget.value.id, {
+      publishAt: publishForm.publishAt || undefined,
+      expireAt: publishForm.expireAt || undefined
+    })
+    ElMessage.success('已发布')
+    publishVisible.value = false
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function onOffline(row) {
-  await offlineAnnouncement(row.id)
-  ElMessage.success('已下线')
-  load()
+  try {
+    await offlineAnnouncement(row.id)
+    ElMessage.success('已下线')
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function onToggleTop(row) {
-  await toggleAnnouncementTop(row.id)
-  load()
+  try {
+    await toggleAnnouncementTop(row.id)
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function onDelete(row) {
-  await deleteAnnouncement(row.id)
-  ElMessage.success('已删除')
-  load()
+  try {
+    await deleteAnnouncement(row.id)
+    ElMessage.success('已删除')
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function openDetail(row) {
-  current.value = await getAnnouncement(row.id)
-  detailVisible.value = true
+  try {
+    current.value = await getAnnouncement(row.id)
+    detailVisible.value = true
+  } catch (e) {
+    // 详情拉取失败不打开弹窗，避免展示上一条公告内容
+  }
 }
 
 onMounted(load)

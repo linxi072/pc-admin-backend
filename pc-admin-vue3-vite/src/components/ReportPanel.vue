@@ -150,6 +150,9 @@ const KEYWORD_PLACEHOLDERS = {
   API_CALL: '请求路径关键字'
 }
 
+// 图表走 Canvas 渲染，无法解析 CSS 变量：运行时读取 :root 的品牌色（失败回落到原值）
+const BRAND = (getComputedStyle(document.documentElement).getPropertyValue('--brand') || '').trim() || '#409eff'
+
 const rangeType = ref('LAST_7D')
 const dateRange = ref([])
 const keyword = ref('')
@@ -235,7 +238,7 @@ const trendOption = computed(() => {
     series: [
       {
         name: meta.main, type: 'line', smooth: true, showSymbol: false,
-        areaStyle: { opacity: 0.12 }, itemStyle: { color: '#409eff' },
+        areaStyle: { opacity: 0.12 }, itemStyle: { color: BRAND },
         data: trend.map((p) => p.visits)
       },
       {
@@ -379,7 +382,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.page-title { margin: 0 0 12px; font-size: 20px; font-weight: 600; }
+/* .page-title 已统一到全局 styles.css */
 /* 工具栏分区类（toolbar-filters / filter-group / filter-label / toolbar-actions / action-buttons）
    已沉淀至全局 styles.css，此处仅保留页面特有规则 */
 .toolbar :deep(.el-card__body) { padding: 14px 18px; }

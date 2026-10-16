@@ -97,7 +97,9 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { Download } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { listExportTemplates, downloadExport } from '../../api/export'
+import { listExportTemplates, downloadExport } from '@/api/export'
+// Blob 下载统一到 utils/download
+import { saveBlobFromResponse } from '@/utils/download'
 
 const loading = ref(false)
 const rows = ref([])
@@ -181,33 +183,18 @@ function supportsXlsx(row) {
   return Array.isArray(row.formats) ? row.formats.includes('XLSX') : false
 }
 
-/** 导出：沿用 FileManagementView 防御式处理——区分文件 Blob 与业务错误 JSON。 */
+/** 导出：Blob 处理统一走 utils/download（业务错误 JSON 已在其中提示）。 */
 async function onExport(row, format = 'CSV') {
   exporting.value = `${row.code}:${format}`
   try {
     const resp = await downloadExport(buildParams(row, format))
-    const data = resp?.data
-    const blob = data instanceof Blob ? data : new Blob([data])
-    if (blob.type && blob.type.includes('application/json')) {
-      const text = await blob.text()
-      let msg = '导出失败'
-      try {
-        const obj = JSON.parse(text)
-        msg = obj?.message || msg
-      } catch (_) { /* ignore */ }
-      ElMessage.error(msg)
-      return
-    }
-    const fileName = parseFileName(resp, row.fileName, format === 'XLSX' ? 'xlsx' : 'csv')
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    ElMessage.success('导出成功')
+    const ok = await saveBlobFromResponse(
+      resp,
+      row.fileName || 'export',
+      format === 'XLSX' ? 'xlsx' : 'csv',
+      '导出失败'
+    )
+    if (ok) ElMessage.success('导出成功')
   } catch (e) {
     // 响应拦截器已弹错误提示
   } finally {
@@ -215,25 +202,11 @@ async function onExport(row, format = 'CSV') {
   }
 }
 
-/** 优先解析 Content-Disposition 中的文件名，失败回退到模板文件名（按格式补后缀）。 */
-function parseFileName(resp, fallback, ext = 'csv') {
-  const cd = resp?.headers?.['content-disposition'] || ''
-  const m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)"?/i)
-  if (m && m[1]) {
-    try {
-      return decodeURIComponent(m[1])
-    } catch (_) {
-      return m[1]
-    }
-  }
-  return (fallback || 'export') + '.' + ext
-}
-
 onMounted(load)
 </script>
 
 <style scoped>
-.card-title { font-weight: 600; }
+/* .card-title 已统一到全局 styles.css */
 .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
 .filter-label { font-size: 13px; color: #606266; white-space: nowrap; }
 </style>

@@ -30,16 +30,16 @@
         </div>
       </div>
 
-      <el-table :data="rows" v-loading="loading" border stripe height="480" @sort-change="onSortChange">
+      <!-- 不设 height：随内容自适应，与其他列表页一致 -->
+      <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <el-table-column prop="id" label="ID" width="90" sortable="custom" />
         <el-table-column prop="postCode" label="岗位编码" width="160" sortable="custom" />
         <el-table-column prop="postName" label="岗位名称" min-width="160" />
         <el-table-column prop="postSort" label="排序" width="90" align="center" sortable="custom" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">
-              {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
-            </el-tag>
+            <!-- 状态标签统一走 utils/status 映射 -->
+            <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" min-width="200" show-overflow-tooltip />
@@ -103,6 +103,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { pagePosts, createPost, updatePost, deletePost } from '@/api/post'
+// 状态标签映射统一到 utils
+import { statusTag } from '@/utils/status'
 
 const loading = ref(false)
 const saving = ref(false)

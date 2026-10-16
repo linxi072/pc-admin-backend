@@ -2,7 +2,8 @@
   <div class="login-wrap">
     <el-card class="login-card">
       <div class="brand">
-        <el-icon size="28" color="#409eff"><Setting /></el-icon>
+        <!-- 品牌色统一走全局 --brand 变量 -->
+        <el-icon size="28" color="var(--brand)"><Setting /></el-icon>
         <h2>运营管理后台</h2>
       </div>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent>
@@ -325,7 +326,7 @@ onMounted(fetchCaptcha)
 }
 .captcha-question {
   font-weight: 600;
-  color: #409eff;
+  color: var(--brand);
   letter-spacing: 1px;
 }
 .captcha-refresh {

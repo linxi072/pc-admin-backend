@@ -118,15 +118,18 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
-        class="pager"
-        layout="total, sizes, prev, pager, next"
-        :total="total"
-        v-model:current-page="query.page"
-        v-model:page-size="query.size"
-        :page-sizes="[10, 20, 50]"
-        @change="load"
-      />
+      <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="query.page"
+          v-model:page-size="query.size"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="load"
+          @size-change="onSizeChange"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -135,7 +138,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft, Upload, UploadFilled, Download, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { pageFiles, uploadFile, downloadFile, deleteFile } from '../../api/file'
+import { pageFiles, uploadFile, downloadFile, deleteFile } from '@/api/file'
+// Blob 下载统一到 utils/download
+import { saveBlobFromResponse } from '@/utils/download'
 
 // 来源功能模块候选（业务模块调用时也可自由输入，allow-create 兜底）
 const sourceModuleOptions = [
@@ -162,7 +167,7 @@ const uploadRef = ref()
 const uploadForm = reactive({ sourceModule: '', bizId: '' })
 const query = reactive({
   page: 1,
-  size: 20,
+  size: 10, // 默认每页条数统一为 10
   sourceModule: '',
   uploaderName: '',
   originalName: '',
@@ -207,6 +212,13 @@ function resetQuery() {
   query.originalName = ''
   query.sortField = ''
   query.sortDirection = ''
+  query.page = 1
+  load()
+}
+
+/** 每页条数变化后回到第一页。 */
+function onSizeChange(size) {
+  query.size = size
   query.page = 1
   load()
 }
@@ -259,30 +271,12 @@ async function onSubmit() {
   }
 }
 
-/** 下载：沿用 CodegenView 防御式处理——区分文件 Blob 与业务错误 JSON。 */
+/** 下载：Blob 处理统一走 utils/download（业务错误 JSON 已在其中提示）。 */
 async function onDownload(row) {
   try {
     const resp = await downloadFile(row.id)
-    const data = resp?.data
-    const blob = data instanceof Blob ? data : new Blob([data])
-    if (blob.type && blob.type.includes('application/json')) {
-      const text = await blob.text()
-      let msg = '下载失败'
-      try {
-        const obj = JSON.parse(text)
-        msg = obj?.message || msg
-      } catch (_) { /* ignore */ }
-      ElMessage.error(msg)
-      return
-    }
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = row.originalName || `file-${row.id}`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    const ok = await saveBlobFromResponse(resp, row.originalName || `file-${row.id}`, '', '下载失败')
+    if (!ok) return
     // 下载计数由后端自增，刷新列表以展示最新下载次数
     load()
   } catch (e) {
@@ -293,7 +287,8 @@ async function onDownload(row) {
 async function onDelete(row) {
   try {
     await deleteFile(row.id)
-    ElMessage.success('删除成功')
+    // 文案统一为「已删除」，与其余列表页一致
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     // 响应拦截器已弹错误提示
@@ -313,22 +308,10 @@ onMounted(load)
 </script>
 
 <style scoped>
-.card-title { font-weight: 600; }
+/* .card-title / toolbar 系列（.toolbar / .toolbar-filters / .filter-group /
+   .filter-label / .toolbar-actions / .action-buttons / .pager）已统一到全局 styles.css，
+   此处仅保留页面特有规则 */
 .upload-form :deep(.el-form-item) { margin-bottom: 0; }
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.toolbar-filters { display: flex; flex-wrap: wrap; gap: 12px; }
-.filter-group { display: flex; align-items: center; gap: 6px; }
-.filter-label { font-size: 13px; color: #606266; white-space: nowrap; }
-.toolbar-actions { display: flex; align-items: center; }
-.action-buttons { display: flex; gap: 8px; }
-.pager { margin-top: 12px; justify-content: flex-end; }
 .muted { color: #c0c4cc; }
 .el-upload__tip { line-height: 1.4; color: #a8abb2; font-size: 12px; }
 </style>
