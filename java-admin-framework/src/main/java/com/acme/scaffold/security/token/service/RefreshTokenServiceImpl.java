@@ -36,8 +36,21 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     @Override
     public String issue(Long userId, String clientId, String deviceId, String userAgent, String ip) {
+        // 全新登录：独立新家族
+        return issueWithFamily(userId, clientId, deviceId, userAgent, ip, randomHex(16));
+    }
+
+    /**
+     * 签发刷新令牌（可指定家族 ID）。
+     *
+     * <p>轮换时必须沿用旧令牌的 {@code familyId}：{@link #revokeFamily(String)} 只吊销
+     * {@code family_id 相同且未吊销} 的行，若轮换产生新家族，则该家族恒只有 1 个成员（旧成员已被本次
+     * 轮换标记吊销），重放检测将命中 0 行——「吊销整个家族」形同虚设。继承家族后，旧令牌被重放时能
+     * 连带吊销同族的新令牌，检测才真正生效。</p>
+     */
+    private String issueWithFamily(Long userId, String clientId, String deviceId, String userAgent,
+                                   String ip, String familyId) {
         String raw = randomHex(32);
-        String familyId = randomHex(16);
         String sessionId = randomHex(16);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiresAt = now.plus(jwtProps.getRefreshTokenTtl());
@@ -86,8 +99,11 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         if (old.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new BusinessException(SecurityErrorCode.REFRESH_INVALID, "刷新令牌已过期");
         }
-        String newRaw = issue(old.getUserId(), old.getClientId(), old.getDeviceId(),
-                old.getUserAgent(), old.getIpAddress());
+        // 继承旧令牌家族，保证同族令牌可被重放检测连带吊销（历史数据 familyId 为空时回落新家族）
+        String inheritedFamily = (old.getFamilyId() == null || old.getFamilyId().isBlank())
+                ? randomHex(16) : old.getFamilyId();
+        String newRaw = issueWithFamily(old.getUserId(), old.getClientId(), old.getDeviceId(),
+                old.getUserAgent(), old.getIpAddress(), inheritedFamily);
         // 标记旧令牌已被本次轮换取代
         dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))

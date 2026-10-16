@@ -10,6 +10,7 @@ import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.system.dto.BindContactRequest;
 import com.acme.scaffold.system.dto.ChangePasswordRequest;
@@ -62,6 +63,7 @@ public class ProfileService {
     private final SecurityContextFacade securityContextFacade;
     private final RefreshTokenService refreshTokenService;
     private final PasswordHistoryService passwordHistoryService;
+    private final TokenVersionService tokenVersionService;
 
     private static final DateTimeFormatter UA_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -211,8 +213,11 @@ public class ProfileService {
         patch.setPasswordExpired(0);
         patch.setFailedLoginCount(0);
         patch.setLockedUntil(null);
-        patch.setTokenVersion((current.getTokenVersion() == null ? 1 : current.getTokenVersion()) + 1);
         JooqWriters.updateById(dsl, JooqTables.SYS_USER, current.getId(), patch);
+
+        // 统一走 TokenVersionService 自增：它会同时推进库内版本并失效进程内 30s 缓存。
+        // 若在此手写 +1，缓存中仍是旧版本号——改密后旧 access token 最长 30s 内仍被判为有效。
+        tokenVersionService.bumpUser(current.getId());
 
         // 记录本次改密后的口令到密码历史，纳入「禁止复用最近 5 次」基线
         passwordHistoryService.record(current.getId(), encoded);

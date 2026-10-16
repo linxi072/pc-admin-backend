@@ -63,7 +63,16 @@ public class AuthService {
     private final LoginLogRecorder loginLogRecorder;
     private final OnlineUserService onlineUserService;
 
-    @Transactional
+    /**
+     * 账号密码登录。
+     *
+     * <p><b>{@code noRollbackFor = BusinessException} 是刻意为之</b>：登录失败路径唯一的写操作是
+     * {@link #handleLoginFailure(SysUserDO)}（累计失败次数 / 置 LOCKED），而它执行后必然抛出
+     * BusinessException 告知调用方失败。默认回滚规则会让这笔写入随异常一并撤销，导致
+     * 「失败 N 次锁定账号」与渐进式锁定（设计文档 §5.3）<b>完全失效</b>。成功路径不抛
+     * BusinessException，提交语义不受影响。</p>
+     */
+    @Transactional(noRollbackFor = BusinessException.class)
     public TokenView login(LoginCommand command, String ip, String userAgent, String deviceId) {
         // 验证码校验优先于密码校验：避免在验证码缺失/错误时消耗登录失败计数导致误锁账号
         if (captchaProperties.isEnabled()) {
@@ -175,6 +184,9 @@ public class AuthService {
         if (user == null || "DISABLED".equals(user.getStatus())) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_DISABLED, "账号已禁用");
         }
+        // 刷新令牌最长可达 30 天，若不复用登录期的账号状态校验，被锁定 / 标记需改密 / 临时受限的账号
+        // 仍能凭手中旧令牌持续换取新 access token，登录侧的全部拦截被绕过（历史缺陷）。
+        assertUsableForTokenIssue(user);
         CurrentPrincipal principal = buildPrincipal(user);
         String accessToken = jwtProvider.generateAccessToken(principal);
         String newRefresh = refreshTokenService.rotate(command.refreshToken());
@@ -307,6 +319,28 @@ public class AuthService {
         Set<String> roles = permissionService.getRoleCodes(user.getId());
         return new CurrentPrincipal(user.getId(), user.getUsername(), user.getDisplayName(),
                 user.getTenantId(), "web", user.getTokenVersion(), roles, permissions);
+    }
+
+    /**
+     * 账号状态守卫：签发或续期令牌前必须通过的校验（登录与刷新共用同一口径）。
+     *
+     * <p>刷新令牌有效期远长于 access token，若不在续期时复核账号状态，被锁定 / 标记需改密 /
+     * 临时受限的账号可凭手中旧令牌持续换取新凭证，使登录侧拦截形同虚设。</p>
+     *
+     * @param user 目标账号
+     * @throws BusinessException 账号已锁定 / 需改密 / 处于临时登录限制中
+     */
+    private void assertUsableForTokenIssue(SysUserDO user) {
+        if (isLocked(user)) {
+            throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
+        }
+        if (user.getPasswordExpired() != null && user.getPasswordExpired() == 1) {
+            throw new BusinessException(SecurityErrorCode.MUST_CHANGE_PASSWORD, "请修改初始/重置密码后再登录");
+        }
+        SysLoginRestrictionDO restriction = onlineUserService.findActiveRestriction(user.getId());
+        if (restriction != null) {
+            throw new BusinessException(SecurityErrorCode.ACCOUNT_RESTRICTED, restrictionMessage(restriction));
+        }
     }
 
     private boolean isLocked(SysUserDO user) {
