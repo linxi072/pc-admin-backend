@@ -13,6 +13,7 @@ import com.acme.scaffold.system.entity.SysRoleMenuDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,11 @@ public class RoleService {
 
     private final DSLContext dsl;
 
+    /**
+     * 创建角色。菜单授权影响用户菜单树（{@link MenuService#USER_MENUS_CACHE}），
+     * 整缓存驱逐（新建角色尚无用户绑定，此处为防御性语义）。
+     */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, allEntries = true)
     @Transactional
     public Long create(CreateRoleRequest request) {
         if (existsByCode(request.roleCode())) {
@@ -46,6 +52,11 @@ public class RoleService {
         return role.getId();
     }
 
+    /**
+     * 更新角色。menuIds / apiIds 非 null 时整体替换绑定：菜单授权变化影响所有
+     * 持有该角色的用户的菜单树，故整缓存驱逐 {@value MenuService#USER_MENUS_CACHE}。
+     */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, allEntries = true)
     @Transactional
     public void update(Long id, CreateRoleRequest request) {
         SysRoleDO role = get(id);
@@ -91,6 +102,11 @@ public class RoleService {
                 .stream().map(RoleView::from).collect(Collectors.toList());
     }
 
+    /**
+     * 删除角色（级联清理用户-角色、角色-菜单、角色-接口关联）。
+     * 受影响用户的菜单树随缓存整缓存驱逐。
+     */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, allEntries = true)
     @Transactional
     public void delete(Long id) {
         // 用户-角色关联先清：该表无外键约束，漏删会残留孤儿行（角色已不存在但用户仍"挂"着它，

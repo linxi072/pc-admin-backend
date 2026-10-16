@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,6 +106,11 @@ public class UserService {
         return user.getId();
     }
 
+    /**
+     * 更新用户。角色整体替换（roleIds 非 null）时该用户的菜单树随之变化，
+     * 按用户精确驱逐 {@value MenuService#USER_MENUS_CACHE} 中该用户的缓存项。
+     */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, key = "#id")
     @Transactional
     public void update(Long id, UpdateUserRequest request) {
         SysUserDO user = get(id);
@@ -179,9 +185,11 @@ public class UserService {
     }
 
     /**
-     * 物理删除用户（硬删除）。
-     * <p>多对多：删除用户前先清理 sys_user_role / sys_user_org 关联行，避免孤儿数据。
+     * 物理删除用户（硬删除）。删除前先清理 sys_user_role / sys_user_org 关联行，避免孤儿数据。
+     *
+     * <p>缓存：该用户的菜单树缓存项随用户一并失效（按用户精确驱逐）。
      */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, key = "#id")
     @Transactional
     public void delete(Long id) {
         get(id); // 校验存在性，不存在抛 NOT_FOUND
