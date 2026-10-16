@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.port;
 
 import java.util.List;
 

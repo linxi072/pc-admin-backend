@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;

@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.service;
 
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;

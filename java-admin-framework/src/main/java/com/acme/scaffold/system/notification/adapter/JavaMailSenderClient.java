@@ -1,5 +1,7 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.adapter;
 
+import com.acme.scaffold.system.notification.config.EmailProperties;
+import com.acme.scaffold.system.notification.port.MailClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;

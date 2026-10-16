@@ -1,10 +1,12 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
+import com.acme.scaffold.system.notification.config.WebhookProperties;
+import com.acme.scaffold.system.notification.port.WebhookClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

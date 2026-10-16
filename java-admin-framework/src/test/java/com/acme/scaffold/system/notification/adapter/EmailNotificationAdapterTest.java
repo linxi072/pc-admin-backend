@@ -1,9 +1,11 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
+import com.acme.scaffold.system.notification.config.EmailProperties;
+import com.acme.scaffold.system.notification.port.MailClient;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

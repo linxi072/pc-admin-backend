@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notification;
+package com.acme.scaffold.system.notification.rules;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
