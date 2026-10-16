@@ -1094,6 +1094,29 @@ public record PageResult<T>(
 
 > 目标：形成一个可直接创建、可本地启动、可作为后续业务系统脚手架的企业级 Java 后端基础框架。设计优先级依次为：安全正确、模块边界清晰、运维可见、低成本起步、可平滑拆分。
 
+### 8.4 国际化（i18n）
+
+后端消息国际化基于 Spring `MessageSource` + `LocaleResolver` + `LocaleChangeInterceptor`，零额外依赖（均在 `spring-context` / `spring-webmvc`）。
+
+- **资源束**：`src/main/resources/i18n/messages.properties`（默认/中文兜底）、`messages_zh_CN.properties`、`messages_en_US.properties`，按 `Locale` 三级回退；新增语言只需补 `messages_<locale>.properties`。
+- **装配**（`common/i18n/I18nConfig`，实现 `WebMvcConfigurer`）：
+  - `MessageSource`：`ReloadableResourceBundleMessageSource`（基名 `classpath:i18n/messages`，编码 UTF-8）——不使用 `ResourceBundleMessageSource`，因其走 JDK `ResourceBundle` 默认 ISO-8859-1 会导致中文乱码；
+  - `LocaleResolver`：`SessionLocaleResolver`，默认 `zh_CN`，按会话记忆语言；
+  - `LocaleChangeInterceptor`：参数名 `lang`（如 `?lang=en_US`），注册到拦截器链（`order(0)`）。
+- **解析服务**（`common/i18n/I18nService`）：按 `LocaleContextHolder` 当前语言解析消息键；键缺失时返回键本身（便于定位未翻译项）；支持 `{0}`/`{1}` 占位符。
+- **接入点**：`GlobalExceptionHandler` 框架级错误已改用消息键（`error.*`），默认 zh_CN 行为与旧中文文案一致，携带 `?lang=en_US` 即返回英文。
+- **配置项**（`app.i18n.*`，缺省即生效，无需在 `application*.yml` 声明）：
+  - `app.i18n.default-locale`：默认语言，默认 `zh_CN`；
+  - `app.i18n.param-name`：语言切换参数名，默认 `lang`。
+
+```java
+// 控制器 / 异常处理器中按当前语言取文案
+String msg = i18nService.getMessage("error.not_found");            // 当前请求语言
+String en  = i18nService.getMessage("error.not_found", Locale.US); // 指定语言
+```
+
+> 后续增强（非阻断）：前端配合做前端 i18n；Bean Validation 约束 `message` 键化（如 `@NotBlank(message = "{error.field.required}")`）使字段级错误也走资源束；`BusinessException` 消息亦可改为传递消息键。
+
 ## 9. 关键配置示例
 
 ### 9.1 根 Maven 配置
