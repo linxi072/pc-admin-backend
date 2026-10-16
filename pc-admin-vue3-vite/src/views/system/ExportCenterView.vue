@@ -7,7 +7,7 @@
         <span class="card-title">导出模板</span>
       </template>
 
-      <!-- 文件管理列表导出：附筛选条件（其他模板按需扩展） -->
+      <!-- 文件管理列表导出：附筛选条件 -->
       <div v-if="filesTemplate" class="filter-bar">
         <span class="filter-label">来源功能模块</span>
         <el-select v-model="query.sourceModule" placeholder="全部" clearable filterable style="width: 180px">
@@ -33,6 +33,32 @@
           clearable
           style="width: 180px"
           @keyup.enter="onExport(filesTemplate)"
+        />
+      </div>
+
+      <!-- 报表管理导出：附报表类型 / 统计窗口 / 关键字（与报表管理页同一数据与口径） -->
+      <div v-else-if="reportTemplate" class="filter-bar">
+        <span class="filter-label">报表类型</span>
+        <el-select v-model="query.reportType" style="width: 180px" @keyup.enter="onExport(reportTemplate)">
+          <el-option
+            v-for="opt in reportTypeOptions"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+        <span class="filter-label">统计窗口</span>
+        <el-select v-model="query.reportRange" style="width: 140px" @keyup.enter="onExport(reportTemplate)">
+          <el-option label="近 7 天" value="LAST_7D" />
+          <el-option label="近 30 天" value="LAST_30D" />
+        </el-select>
+        <span class="filter-label">关键字</span>
+        <el-input
+          v-model="query.reportKeyword"
+          :placeholder="reportKeywordPlaceholder"
+          clearable
+          style="width: 180px"
+          @keyup.enter="onExport(reportTemplate)"
         />
       </div>
 
@@ -69,7 +95,14 @@ const loading = ref(false)
 const rows = ref([])
 const exporting = ref(null)
 
-const query = reactive({ sourceModule: '', uploaderName: '', originalName: '' })
+const query = reactive({
+  sourceModule: '',
+  uploaderName: '',
+  originalName: '',
+  reportType: 'USAGE',
+  reportRange: 'LAST_7D',
+  reportKeyword: ''
+})
 
 // 与后端 app.file.* 一致的来源模块候选（业务模块也可在上传时自由输入）
 const sourceModuleOptions = [
@@ -81,7 +114,26 @@ const sourceModuleOptions = [
   { value: 'system', label: '系统配置' }
 ]
 
+// 报表类型候选（与后端 ReportType 枚举 label 对齐）
+const reportTypeOptions = [
+  { value: 'USAGE', label: '使用统计' },
+  { value: 'CATEGORY', label: '类别统计' },
+  { value: 'STATUS', label: '状态统计' },
+  { value: 'JOB_EXEC', label: '定时任务执行统计' },
+  { value: 'LOGIN', label: '登录统计' },
+  { value: 'API_CALL', label: '接口调用统计' }
+]
+
+// 关键字占位提示（与后端按类型作用字段一致：任务名 / 用户名 / 请求路径；使用视角忽略）
+const reportKeywordPlaceholder = computed(() => {
+  if (query.reportType === 'JOB_EXEC') return '任务名称关键字'
+  if (query.reportType === 'LOGIN') return '用户名关键字'
+  if (query.reportType === 'API_CALL') return '请求路径关键字'
+  return '关键字（该类型不筛选）'
+})
+
 const filesTemplate = computed(() => rows.value.find((r) => r.code === 'files'))
+const reportTemplate = computed(() => rows.value.find((r) => r.code === 'report'))
 
 async function load() {
   loading.value = true
@@ -101,6 +153,14 @@ function buildParams(row) {
       sourceModule: query.sourceModule || undefined,
       uploaderName: query.uploaderName || undefined,
       originalName: query.originalName || undefined
+    }
+  }
+  if (row.code === 'report') {
+    return {
+      code: 'report',
+      type: query.reportType || undefined,
+      rangeType: query.reportRange || undefined,
+      keyword: query.reportKeyword || undefined
     }
   }
   return { code: row.code }
