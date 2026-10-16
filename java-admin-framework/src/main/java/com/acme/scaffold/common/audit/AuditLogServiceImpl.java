@@ -8,13 +8,12 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Record2;
 import org.jooq.impl.DSL;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -25,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
  * 审计日志实现：优先在事务提交后异步落库；无事务时直接异步写入。
@@ -37,7 +37,6 @@ import java.util.Map;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuditLogServiceImpl implements AuditLogService {
 
     /** 审计日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
@@ -52,17 +51,57 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     private final DSLContext dsl;
 
-    @Async("auditExecutor")
+    /** 审计专用线程池（{@code config.observability.ObservabilityConfig#auditExecutor}）。 */
+    private final Executor auditExecutor;
+
+    /**
+     * 显式构造器：{@code Executor} 在容器中存在多个实现，需按 Bean 名精确注入审计线程池。
+     */
+    public AuditLogServiceImpl(DSLContext dsl, @Qualifier("auditExecutor") Executor auditExecutor) {
+        this.dsl = dsl;
+        this.auditExecutor = auditExecutor;
+    }
+
+    /**
+     * 保存审计记录：业务事务提交后才落库，未提交（回滚）则不写。
+     *
+     * <p><b>为什么本方法不再标注 {@code @Async}</b>：{@code @Async} 会把方法体切到线程池线程执行，
+     * 而 {@link TransactionSynchronizationManager} 是<b>线程绑定</b>的——切换线程后
+     * {@code isSynchronizationActive()} 恒为 false，「事务提交后再写」的分支永远走不到，
+     * 结果是业务尚未提交（甚至随后回滚）审计就已落库，审计里留下「假成功」记录。
+     * 因此改为在<b>调用方线程</b>判定事务状态，确认提交后再把插入任务投递给线程池。</p>
+     */
     @Override
     public void saveAsync(AuditRecord record) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    doInsert(record);
+                    submit(record);
+                }
+
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != STATUS_COMMITTED) {
+                        log.debug("业务事务未提交(status={})，跳过审计落库: module={} type={}",
+                                status, record.getModuleCode(), record.getOperationType());
+                    }
                 }
             });
         } else {
+            submit(record);
+        }
+    }
+
+    /**
+     * 投递插入任务到审计线程池；线程池拒绝时退化为同步写入——审计属于合规留痕，
+     * 宁可占用一次调用方线程，也不能因为队列满而整条丢失。
+     */
+    private void submit(AuditRecord record) {
+        try {
+            auditExecutor.execute(() -> doInsert(record));
+        } catch (Exception e) {
+            log.warn("审计线程池提交失败，退化为同步写入: module={}", record.getModuleCode(), e);
             doInsert(record);
         }
     }
