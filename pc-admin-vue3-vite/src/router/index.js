@@ -212,6 +212,14 @@ const routes = [
         name: 'exportCenter',
         component: () => import('@/views/system/ExportCenterView.vue'),
         meta: { title: '导出中心', permission: 'system:export:read' }
+      },
+      {
+        // 导入中心（V36）：模板由后端 ImportTask 自动发现，支持 CSV / XLSX 上传与预检，
+        // 菜单与权限由后端驱动（menu_code=system:import, permission=system:import:read）
+        path: 'system/import',
+        name: 'importCenter',
+        component: () => import('@/views/system/ImportCenterView.vue'),
+        meta: { title: '导入中心', permission: 'system:import:read' }
       }
     ]
   },
