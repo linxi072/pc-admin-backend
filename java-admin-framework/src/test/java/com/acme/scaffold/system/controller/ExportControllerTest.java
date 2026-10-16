@@ -5,6 +5,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.system.export.config.ExportProperties;
+import com.acme.scaffold.system.export.service.ExportCenterService;
 
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -156,7 +157,7 @@ class ExportControllerTest {
     }
 
     private MockMvc mvc(ExportProperties props, ExportTask... tasks) {
-        ExportController controller = new ExportController(List.of(tasks), props);
+        ExportController controller = new ExportController(new ExportCenterService(List.of(tasks), props));
         return MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new TestAdvice())
                 .build();
