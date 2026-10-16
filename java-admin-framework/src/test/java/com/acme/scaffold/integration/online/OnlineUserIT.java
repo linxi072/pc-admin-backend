@@ -110,7 +110,7 @@ class OnlineUserIT extends AbstractHttpIntegrationTest {
         String uniq = "it-online-" + tag + "-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uniq, "Password123!", "在线测试 " + tag, null, null,
-                List.of(roles.get(0).getId()), null, List.of(orgs.get(0).getId()), null));
+                List.of(roles.get(0).getId()), null, List.of(orgs.get(0).getId()), null, null));
         createdUserIds.add(uid);
         // UserService.create 默认置 password_expired=1（首登强制改密），会先于限制校验返回
         // 423 MUST_CHANGE_PASSWORD，干扰本类「限制登录」断言；直接清除该标记。

@@ -78,7 +78,7 @@ class UserIntegrationIT extends BaseIntegrationTest {
 
         Long uid = userService.create(new CreateUserRequest(
                 "it-u-" + System.nanoTime(), "Password123!", "IT User A", null, null,
-                List.of(r1, r2), null, List.of(org), null));
+                List.of(r1, r2), null, List.of(org), null, null));
 
         assertEquals(2, userRoles(uid).size());
         assertEquals(r1, primaryRoleOf(uid), "未指定主角色时应取角色集合首位");
@@ -94,7 +94,7 @@ class UserIntegrationIT extends BaseIntegrationTest {
 
         Long uid = userService.create(new CreateUserRequest(
                 "it-u-" + System.nanoTime(), "Password123!", "IT User B", null, null,
-                List.of(r1, r2), r2, List.of(org), null));
+                List.of(r1, r2), r2, List.of(org), null, null));
 
         assertEquals(r2, primaryRoleOf(uid), "显式主角色 r2 应被标记为主");
     }
@@ -109,7 +109,7 @@ class UserIntegrationIT extends BaseIntegrationTest {
         List<SysRoleDO> r = roles();
         long uid = userService.create(new CreateUserRequest(
                 "it-u-" + System.nanoTime(), "Password123!", "IT User C", null, null,
-                List.of(r.get(0).getId()), null, List.of(firstOrgId()), null));
+                List.of(r.get(0).getId()), null, List.of(firstOrgId()), null, null));
         assertEquals(1, userRoles(uid).size(), "前置：应已绑定 1 个角色");
 
         // 经 AopTestUtils 解包取得目标实例：UserService 带 @Transactional 由 CGLIB 代理，

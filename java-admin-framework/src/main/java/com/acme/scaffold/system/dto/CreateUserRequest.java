@@ -11,6 +11,7 @@ import java.util.List;
  * <p>约束（多对多）：用户可绑定多个角色、归属多个部门。
  * roleIds / deptIds 为必填集合（至少 1 个）；primaryRoleId / primaryDeptId 可选，
  * 用于标记主角色 / 主部门（为空时取对应集合的首位），决定权限聚合与数据范围的「主」维度。
+ * <p>postIds 为可选集合（岗位是兼任属性，不构成必填约束）；传入时逐个校验存在性。
  */
 public record CreateUserRequest(
         @NotBlank String username,
@@ -21,5 +22,6 @@ public record CreateUserRequest(
         @NotEmpty(message = "至少绑定一个角色") List<Long> roleIds,
         Long primaryRoleId,
         @NotEmpty(message = "至少归属一个部门") List<Long> deptIds,
-        Long primaryDeptId) {
+        Long primaryDeptId,
+        List<Long> postIds) {
 }

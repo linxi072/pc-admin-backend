@@ -94,7 +94,7 @@ class WorkflowTaskIT extends AbstractHttpIntegrationTest {
         String uname = "it-wf-" + tag + "-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uname, "Initial123!", "IT工作流-" + tag, null, null,
-                List.of(superAdmin.getId()), null, List.of(orgs.get(0).getId()), null));
+                List.of(superAdmin.getId()), null, List.of(orgs.get(0).getId()), null, null));
         createdUserIds.add(uid);
         userService.resetPassword(uid, "Reset123!");
         return uname;

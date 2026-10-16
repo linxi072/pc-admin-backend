@@ -190,7 +190,7 @@ class ForgotPasswordIT extends AbstractHttpIntegrationTest {
         String uniq = "it-forgot-" + tag + "-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uniq, "Password123!", "忘记密码测试 " + tag, mobile, email,
-                List.of(roles.get(0).getId()), null, List.of(orgs.get(0).getId()), null));
+                List.of(roles.get(0).getId()), null, List.of(orgs.get(0).getId()), null, null));
         createdUserIds.add(uid);
         return new TestUser(uid, uniq);
     }

@@ -91,7 +91,7 @@ class MonitorLogIT extends AbstractHttpIntegrationTest {
         String uname = "it-mon-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uname, "Initial123!", "IT监控用户", null, null,
-                List.of(superAdmin.getId()), null, List.of(orgs.get(0).getId()), null));
+                List.of(superAdmin.getId()), null, List.of(orgs.get(0).getId()), null, null));
         createdUserIds.add(uid);
         userService.resetPassword(uid, "Reset123!");
         return loginAs(uname, "Reset123!");
@@ -231,7 +231,7 @@ class MonitorLogIT extends AbstractHttpIntegrationTest {
         String uname = "it-mon-plain-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uname, "Initial123!", "IT监控普通用户", null, null,
-                List.of(plainRole.getId()), null, List.of(orgs.get(0).getId()), null));
+                List.of(plainRole.getId()), null, List.of(orgs.get(0).getId()), null, null));
         createdUserIds.add(uid);
         userService.resetPassword(uid, "Reset123!");
         String token = loginAs(uname, "Reset123!");

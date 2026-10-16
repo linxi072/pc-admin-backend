@@ -62,6 +62,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final TokenVersionService tokenVersionService;
     private final PasswordHistoryService passwordHistoryService;
+    private final PostService postService;
 
     @Transactional
     public Long create(CreateUserRequest request) {
@@ -103,6 +104,8 @@ public class UserService {
 
         assignRoles(user.getId(), request.roleIds(), request.primaryRoleId());
         assignOrgs(user.getId(), request.deptIds(), request.primaryDeptId());
+        // 岗位为可选兼任：postIds 为空/缺省即不绑定（replaceUserPosts 内部归一）
+        postService.replaceUserPosts(user.getId(), request.postIds());
         return user.getId();
     }
 
@@ -156,6 +159,10 @@ public class UserService {
             request.deptIds().forEach(this::requireOrg);
             assignOrgs(id, request.deptIds(), request.primaryDeptId());
         }
+        // 岗位传入时整体替换；空列表表示清空（岗位允许为空，与角色/部门的「至少一个」语义区分）
+        if (request.postIds() != null) {
+            postService.replaceUserPosts(id, request.postIds());
+        }
         if (permissionChanged) {
             tokenVersionService.bumpUser(id);
         }
@@ -185,7 +192,7 @@ public class UserService {
     }
 
     /**
-     * 物理删除用户（硬删除）。删除前先清理 sys_user_role / sys_user_org 关联行，避免孤儿数据。
+     * 物理删除用户（硬删除）。删除前先清理 sys_user_role / sys_user_org / sys_user_post 关联行，避免孤儿数据。
      *
      * <p>缓存：该用户的菜单树缓存项随用户一并失效（按用户精确驱逐）。
      */
@@ -195,6 +202,7 @@ public class UserService {
         get(id); // 校验存在性，不存在抛 NOT_FOUND
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "user_id", id);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ORG, "user_id", id);
+        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_POST, "user_id", id);
         JooqWriters.delete(dsl, JooqTables.SYS_USER, id, false);
         // 用户已不存在：递增影响 0 行，但会失效缓存，使该用户残留的凭证在下一次请求即被判失效
         tokenVersionService.bumpUser(id);
@@ -202,7 +210,8 @@ public class UserService {
 
     public UserView getView(Long id) {
         SysUserDO user = get(id);
-        return toView(user, loadUserRoles(List.of(user)), loadUserOrgs(List.of(user)));
+        return toView(user, loadUserRoles(List.of(user)), loadUserOrgs(List.of(user)),
+                postService.loadPostNamesByUserIds(List.of(user.getId())));
     }
 
     @DataScope(resourceCode = UserQuery.RESOURCE_CODE)
@@ -242,8 +251,10 @@ public class UserService {
 
         Map<Long, List<RoleInfo>> roleMap = loadUserRoles(page.records());
         Map<Long, List<OrgInfo>> orgMap = loadUserOrgs(page.records());
+        Map<Long, Map<Long, String>> postMap = postService.loadPostNamesByUserIds(
+                page.records().stream().map(SysUserDO::getId).toList());
         List<UserView> records = page.records().stream()
-                .map(u -> toView(u, roleMap, orgMap))
+                .map(u -> toView(u, roleMap, orgMap, postMap))
                 .collect(Collectors.toList());
         return new PageResult<>(page.page(), page.size(), page.total(), records);
     }
@@ -300,9 +311,11 @@ public class UserService {
         }
     }
 
-    private UserView toView(SysUserDO user, Map<Long, List<RoleInfo>> roleMap, Map<Long, List<OrgInfo>> orgMap) {
+    private UserView toView(SysUserDO user, Map<Long, List<RoleInfo>> roleMap, Map<Long, List<OrgInfo>> orgMap,
+                            Map<Long, Map<Long, String>> postMap) {
         List<RoleInfo> roles = roleMap.getOrDefault(user.getId(), List.of());
         List<OrgInfo> orgs = orgMap.getOrDefault(user.getId(), List.of());
+        Map<Long, String> posts = postMap.getOrDefault(user.getId(), Map.of());
         return UserView.from(
                 user.getId(), user.getUsername(), user.getDisplayName(), user.getMobile(), user.getEmail(),
                 roles.stream().map(RoleInfo::id).toList(),
@@ -310,6 +323,8 @@ public class UserService {
                 roles.stream().map(RoleInfo::code).toList(),
                 orgs.stream().map(OrgInfo::id).toList(),
                 orgs.stream().map(OrgInfo::name).toList(),
+                List.copyOf(posts.keySet()),
+                List.copyOf(posts.values()),
                 user.getStatus(), user.getCreatedAt());
     }
 

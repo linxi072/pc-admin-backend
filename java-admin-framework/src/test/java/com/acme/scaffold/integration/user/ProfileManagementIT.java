@@ -91,7 +91,7 @@ class ProfileManagementIT extends AbstractHttpIntegrationTest {
             cachedUsername = "it-pf-" + System.nanoTime();
             Long id = userService.create(new CreateUserRequest(
                     cachedUsername, P0, "IT资料用户A", null, null,
-                    List.of(seedRoleId()), null, List.of(seedOrgId()), null));
+                    List.of(seedRoleId()), null, List.of(seedOrgId()), null, null));
             createdUserIds.add(id);
             clearPasswordExpired(id);
             cachedToken = login(cachedUsername, P0);
@@ -207,7 +207,7 @@ class ProfileManagementIT extends AbstractHttpIntegrationTest {
         String uname = "it-pf-reuse-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uname, P0, "IT改密复用", null, null,
-                List.of(seedRoleId()), null, List.of(seedOrgId()), null));
+                List.of(seedRoleId()), null, List.of(seedOrgId()), null, null));
         createdUserIds.add(uid);
         clearPasswordExpired(uid);
 

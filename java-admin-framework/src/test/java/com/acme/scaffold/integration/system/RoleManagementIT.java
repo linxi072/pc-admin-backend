@@ -242,7 +242,7 @@ class RoleManagementIT extends AbstractHttpIntegrationTest {
         String uniq = "it-role-user-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uniq, "Password123!", "IT 角色孤儿测试", null, null,
-                List.of(roleId), null, List.of(seedOrgId()), null));
+                List.of(roleId), null, List.of(seedOrgId()), null, null));
         createdUserIds.add(uid);
 
         ResponseEntity<Result> resp = rest.exchange(baseUrl() + "/api/system/roles/" + roleId,

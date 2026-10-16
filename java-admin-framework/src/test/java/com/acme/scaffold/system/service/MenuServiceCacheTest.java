@@ -88,7 +88,8 @@ class MenuServiceCacheTest {
         @Bean
         UserService userService() {
             return new UserService(mock(DSLContext.class), mock(PasswordEncoder.class),
-                    mock(TokenVersionService.class), mock(PasswordHistoryService.class));
+                    mock(TokenVersionService.class), mock(PasswordHistoryService.class),
+                    mock(PostService.class));
         }
     }
 
@@ -412,7 +413,7 @@ class MenuServiceCacheTest {
 
             // 角色整体替换（roleIds 非 null → assignRoles + tokenVersion.bumpUser）
             userService.update(1L, new UpdateUserRequest(null, null, null, null,
-                    List.of(100L), null, null, null));
+                    List.of(100L), null, null, null, null));
 
             assertNull(cachedTree(userMenusCache(), 1L));    // 该用户被精确驱逐
             assertNotNull(cachedTree(userMenusCache(), 2L)); // 其它用户不受影响

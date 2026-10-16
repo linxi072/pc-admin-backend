@@ -62,7 +62,7 @@ class OrgLeaderUpdateIT extends BaseIntegrationTest {
         assertTrue(!roles.isEmpty(), "库中应存在角色种子");
         return userService.create(new CreateUserRequest(
                 "it-upd-" + System.nanoTime(), "Password123!", name, null, null,
-                List.of(roles.get(0).getId()), null, List.of(firstOrgId()), null));
+                List.of(roles.get(0).getId()), null, List.of(firstOrgId()), null, null));
     }
 
     private Long createOrg(String code) {

@@ -17,6 +17,8 @@ import java.util.List;
  * @param roleCodes   角色编码列表（鉴权用，与 roleIds 顺序对应）
  * @param deptIds     部门ID列表
  * @param deptNames   部门名称列表（展示用，与 deptIds 顺序对应）
+ * @param postIds     岗位ID列表（可空集合：岗位为可选兼任，不构成必填约束）
+ * @param postNames   岗位名称列表（展示用，与 postIds 顺序对应）
  */
 public record UserView(@JsonSerialize(using = ToStringSerializer.class) Long id,
                        String username, String displayName, String mobile, String email,
@@ -24,13 +26,16 @@ public record UserView(@JsonSerialize(using = ToStringSerializer.class) Long id,
                        List<String> roleNames, List<String> roleCodes,
                        @JsonSerialize(contentUsing = ToStringSerializer.class) List<Long> deptIds,
                        List<String> deptNames,
+                       @JsonSerialize(contentUsing = ToStringSerializer.class) List<Long> postIds,
+                       List<String> postNames,
                        String status, LocalDateTime createdAt) {
 
     public static UserView from(Long id, String username, String displayName, String mobile, String email,
                                 List<Long> roleIds, List<String> roleNames, List<String> roleCodes,
                                 List<Long> deptIds, List<String> deptNames,
+                                List<Long> postIds, List<String> postNames,
                                 String status, LocalDateTime createdAt) {
         return new UserView(id, username, displayName, mobile, email,
-                roleIds, roleNames, roleCodes, deptIds, deptNames, status, createdAt);
+                roleIds, roleNames, roleCodes, deptIds, deptNames, postIds, postNames, status, createdAt);
     }
 }

@@ -121,7 +121,7 @@ class AuthSessionIT extends BaseIntegrationTest {
         String uname = "it-auth-" + tag + "-" + System.nanoTime();
         Long uid = userService.create(new CreateUserRequest(
                 uname, "Initial123!", "IT认证-" + tag, null, null,
-                List.of(roles.get(0).getId()), null, List.of(orgs.get(0).getId()), null));
+                List.of(roles.get(0).getId()), null, List.of(orgs.get(0).getId()), null, null));
         createdUserIds.add(uid);
         // 重置为已知口令（V28 修复后 resetPassword 清除 password_expired，重置后可直接登录）
         userService.resetPassword(uid, password);

@@ -68,7 +68,7 @@ class OrgLeaderNameIT extends BaseIntegrationTest {
         // 造一个用户作为负责人候选
         Long userId = userService.create(new CreateUserRequest(
                 uniq, "Password123!", "张三丰", null, null,
-                List.of(roleId), null, List.of(deptId), null));
+                List.of(roleId), null, List.of(deptId), null, null));
 
         // 造两个部门：一个设置负责人、一个不设置
         String codeA = "it-org-a-" + System.nanoTime();
