@@ -63,8 +63,10 @@ class ImportControllerTest {
 
             @Override
             public List<String> validate(ImportRow row) {
+                // 名称必填 + 数量须为 1~999 整数：数量非法使注入载荷所在行进入失败报告
                 return ImportValidators.collect(
-                        ImportValidators.required(row.trimmed("名称"), "名称"));
+                        ImportValidators.required(row.trimmed("名称"), "名称"),
+                        ImportValidators.integerRange(row.trimmed("数量"), "数量", 1, 999, false));
             }
 
             @Override
@@ -183,6 +185,40 @@ class ImportControllerTest {
         mvc().perform(multipart("/api/system/import/demo").file(txt))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_001"));
+    }
+
+    @Test
+    void upload_errorReportReturnsCsvAttachmentOnFailures() throws Exception {
+        // "=cmd" 模拟 CSV 公式注入载荷；数量 x 非法使该行失败；dryRun 预检即可触发报告（不落库）
+        MockMultipartFile file = new MockMultipartFile("file", "demo.csv", "text/csv",
+                "名称,数量\n=cmd,x\n".getBytes(StandardCharsets.UTF_8));
+        byte[] body = mvc().perform(multipart("/api/system/import/demo").file(file)
+                        .param("dryRun", "true").param("errorReport", "true"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", Matchers.containsString(".csv")))
+                .andExpect(content().contentTypeCompatibleWith("text/csv"))
+                .andReturn().getResponse().getContentAsByteArray();
+
+        assertEquals((byte) 0xEF, body[0]);
+        assertEquals((byte) 0xBB, body[1]);
+        assertEquals((byte) 0xBF, body[2]);
+        String text = new String(body, StandardCharsets.UTF_8);
+        assertTrue(text.contains("数据行号,失败原因,名称,数量"), "报告表头: " + text);
+        // 公式注入载荷加单引号前缀按文本展示；失败行原始值应还原（x 为行尾列）
+        assertTrue(text.contains("'=cmd,x"), "应防公式注入且还原原始值: " + text);
+    }
+
+    @Test
+    void upload_errorReportFallsBackToJsonWhenAllSucceed() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "demo.csv", "text/csv",
+                "名称,数量\nA,1\nB,2\n".getBytes(StandardCharsets.UTF_8));
+
+        mvc().perform(multipart("/api/system/import/demo").file(file)
+                        .param("dryRun", "true").param("errorReport", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("0"))
+                .andExpect(jsonPath("$.data.successCount").value(2))
+                .andExpect(jsonPath("$.data.failureCount").value(0));
     }
 
     /** 复刻生产全局异常处理器对 BusinessException → HTTP 状态码的映射。 */

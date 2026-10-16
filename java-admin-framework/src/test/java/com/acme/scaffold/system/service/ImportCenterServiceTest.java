@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.XlsxDataExporter;
+import com.acme.scaffold.common.importer.ImportOutcome;
 import com.acme.scaffold.common.importer.ImportResult;
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
@@ -204,5 +205,31 @@ class ImportCenterServiceTest {
         props.setMaxErrors(-1);
         assertEquals(1, props.getMaxRows());
         assertEquals(1, props.getMaxErrors());
+    }
+
+    @Test
+    void detailedOutcomeCarriesOriginalRowValuesForFailedRows() {
+        ImportOutcome outcome = service(new ImportProperties(), new FakeTask())
+                .importDetailed("demo", "demo.csv", csv("名称,数量\n,1\nB,x\nC,3\n"), false);
+
+        // 失败行保留原始单元格值，供「失败报告 CSV」还原行内容
+        assertEquals(2, outcome.failedRows().size());
+        assertEquals("", outcome.failedRows().get(0).values().get(HEADER_NAME));
+        assertEquals("1", outcome.failedRows().get(0).values().get(HEADER_COUNT));
+        assertEquals("B", outcome.failedRows().get(1).values().get(HEADER_NAME));
+        assertEquals("x", outcome.failedRows().get(1).values().get(HEADER_COUNT));
+        // 与 result 同口径：同序、同范围
+        assertEquals(outcome.result().errors().size(), outcome.failedRows().size());
+        assertEquals(1, outcome.result().successCount());
+    }
+
+    @Test
+    void detailedOutcomeHasNoFailedRowsWhenAllSucceed() {
+        ImportOutcome outcome = service(new ImportProperties(), new FakeTask())
+                .importDetailed("demo", "demo.csv", csv("名称,数量\nA,1\n"), true);
+
+        assertTrue(outcome.failedRows().isEmpty());
+        assertEquals(1, outcome.result().successCount());
+        assertTrue(outcome.result().allSucceeded());
     }
 }
