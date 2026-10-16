@@ -25,7 +25,8 @@ public class AlertReceiverService {
     private final ConcurrentLinkedDeque<AlertInboxEntry> inbox = new ConcurrentLinkedDeque<>();
 
     public AlertReceiverService(AlertProperties props, ApplicationEventPublisher eventPublisher) {
-        this.capacity = props.getInboxCapacity();
+        // 下限钳 1：容量 <= 0 时裁剪循环会因队列恒空而永不退出（CPU 空转），配置误填不应拖垮接收线程
+        this.capacity = Math.max(1, props.getInboxCapacity());
         this.eventPublisher = eventPublisher;
     }
 
@@ -39,14 +40,18 @@ public class AlertReceiverService {
         }
         List<AlertInboxEntry> entries = new ArrayList<>(payload.alerts.size());
         for (AlertPayload.Alert a : payload.alerts) {
+            // 防御：Alertmanager 或伪造请求可能下发 null 元素，直接入库会在 toEntry 内 NPE 导致 500
+            if (a == null) {
+                continue;
+            }
             AlertInboxEntry e = toEntry(a);
             inbox.addFirst(e);
             entries.add(e);
             log.info("ALERT received status={} name={} severity={} summary={}",
                     e.getStatus(), e.getName(), e.getSeverity(), e.getSummary());
         }
-        while (inbox.size() > capacity) {
-            inbox.pollLast();
+        while (inbox.size() > capacity && inbox.pollLast() != null) {
+            // 环形裁剪：队尾出队直至不超过容量；pollLast 返回 null 表示队列已空，立即退出防死循环
         }
         if (!entries.isEmpty()) {
             eventPublisher.publishEvent(new AlertReceivedEvent(this, entries));

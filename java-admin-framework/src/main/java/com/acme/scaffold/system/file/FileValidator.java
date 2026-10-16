@@ -52,7 +52,7 @@ public final class FileValidator {
             case "jpg", "jpeg" -> (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8;
             case "png" -> (header[0] & 0xFF) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G';
             case "gif" -> "GIF8".equalsIgnoreCase(new String(header, 0, 4));
-            case "webp" -> header[0] == 'R' && header[1] == 'I' && header[2] == 'I' && header[3] == 'F';
+            case "webp" -> header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F';
             case "pdf" -> "%PDF".equalsIgnoreCase(new String(header, 0, 4));
             default -> true;
         };

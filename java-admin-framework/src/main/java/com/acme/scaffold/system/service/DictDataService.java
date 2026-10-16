@@ -14,6 +14,7 @@ import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,8 +60,20 @@ public class DictDataService {
                 d.getDictValue(), d.getDictSort(), d.getStatus(), d.getRemark())).toList();
     }
 
-    @CacheEvict(cacheNames = CACHE_NAME,
-            key = "T(com.acme.scaffold.system.service.DictDataService).cacheKey(#req.dictTypeCode())")
+    /**
+     * 新增字典数据。
+     *
+     * <p><b>驱逐两个键</b>：新增既改变本类型结果集，也改变「查询全部」（键 {@value #ALL_TYPES}）
+     * 的结果集——只驱逐本类型键时，{@code listByType(null)} 会长期读到不含新数据的旧缓存
+     * （历史缺陷）。但其它类型的结果集不受影响，故<b>不做整缓存驱逐</b>，避免无谓的缓存击穿；
+     * 这与 {@link #update} / {@link #delete} 的 {@code allEntries = true} 不同，属刻意的最小驱逐。</p>
+     */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_NAME,
+                    key = "T(com.acme.scaffold.system.service.DictDataService).cacheKey(#req.dictTypeCode())"),
+            @CacheEvict(cacheNames = CACHE_NAME,
+                    key = "T(com.acme.scaffold.system.service.DictDataService).ALL_TYPES")
+    })
     @Transactional
     public Long create(CreateDictDataRequest req) {
         if (existsByTypeAndValue(req.dictTypeCode(), req.dictValue(), null)) {

@@ -82,9 +82,14 @@ public class ReportService {
     private static final int DETAIL_LIMIT = 10;
     /** P95 内存精确计算的最大样本量（超过则退化为 max，避免大窗口全量排序）。 */
     private static final int P95_MEMORY_LIMIT = 5000;
-    /** 耗时分布分桶标签（与 {@link #durationCounts} 聚合顺序严格一致）。 */
+    /**
+     * 耗时分布分桶标签（与 {@link #durationCounts} 聚合顺序严格一致）。
+     *
+     * <p>SQL 侧按「NULL 桶优先」聚合（见 {@code durationCounts}），故此处首元素必须是「无耗时记录」，
+     * 否则整体标签错位一位（历史缺陷：标签曾按「<100ms 打头」排列，导致 NULL 桶被标成 <100ms）。</p>
+     */
     private static final String[] DURATION_LABELS =
-            {"<100ms", "100-500ms", "500ms-1s", "1s-5s", ">5s", "无耗时记录"};
+            {"无耗时记录", "<100ms", "100-500ms", "500ms-1s", "1s-5s", ">5s"};
     /** 定时任务日志状态：成功。 */
     private static final String JOB_STATUS_SUCCESS = "SUCCESS";
     /** 定时任务日志状态：失败。 */

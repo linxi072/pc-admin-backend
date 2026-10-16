@@ -55,6 +55,21 @@ public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
     /** key -> 已处理的最大业务版本（仅记录有版本号的消息；无版本 key 不占位） */
     private final Map<String, Long> processedVersions = new ConcurrentHashMap<>();
 
+    /**
+     * 单条记录的最大投递次数。
+     *
+     * <p>达到上限即判定为「毒消息」（poison pill）：本进程内跳过并落 ERROR 日志。历史行为是
+     * 「批内失败即放弃提交、下轮原样重投」，若失败是确定性的（如 payload 非法），同一条记录会
+     * 无限重投——消费者永久卡死且后续消息全部积压。跳过是「保可用」的取舍：毒消息已完整记录在
+     * 日志中，需人工或死信队列补偿。</p>
+     */
+    private static final int MAX_DELIVERY_ATTEMPTS = 3;
+
+    /** 位点（topic-partition-offset）-> 已投递失败次数 */
+    private final Map<String, Integer> deliveryAttempts = new ConcurrentHashMap<>();
+    /** 被判定为毒消息而跳过的记录数（观测用）。 */
+    private final LongAdder poisonCount = new LongAdder();
+
     private final LongAdder handledCount = new LongAdder();
     private final LongAdder staleCount = new LongAdder();
     private final LongAdder commitFailureCount = new LongAdder();
@@ -176,11 +191,36 @@ public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
                     record.key(), processed, record.version(), record.offset());
             return;
         }
-        recordHandler.handle(record);
+        String site = siteOf(record);
+        if (deliveryAttempts.getOrDefault(site, 0) >= MAX_DELIVERY_ATTEMPTS) {
+            log.warn("毒消息跳过（已失败 {} 次，避免整批反复重投）: topic={} partition={} offset={} key={}",
+                    MAX_DELIVERY_ATTEMPTS, record.topic(), record.partition(), record.offset(), record.key());
+            return;
+        }
+        try {
+            recordHandler.handle(record);
+        } catch (RuntimeException ex) {
+            int attempts = deliveryAttempts.merge(site, 1, Integer::sum);
+            if (attempts >= MAX_DELIVERY_ATTEMPTS) {
+                poisonCount.increment();
+                log.error("记录处理连续失败 {} 次，判定为毒消息（下轮起跳过，需人工/死信补偿）: "
+                                + "topic={} partition={} offset={} key={} 异常={}",
+                        attempts, record.topic(), record.partition(), record.offset(), record.key(), ex.toString());
+            }
+            // 仍抛出：保留「本批放弃提交、交回上游重投」的既有语义
+            throw ex;
+        }
+        // 处理成功：清理该位点的历史失败计数（位点相同但内容不会重放，计数不应跨批次累积）
+        deliveryAttempts.remove(site);
         handledCount.increment();
         if (record.version() != null && record.key() != null) {
             processedVersions.put(record.key(), record.version());
         }
+    }
+
+    /** 位点标识：同一条消息重投时 topic/partition/offset 不变，故可作为毒消息计数的键。 */
+    private static String siteOf(OrderedRecord record) {
+        return record.topic() + "-" + record.partition() + "-" + record.offset();
     }
 
     /**

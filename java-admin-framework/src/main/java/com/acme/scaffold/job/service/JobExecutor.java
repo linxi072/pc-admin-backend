@@ -56,6 +56,11 @@ public class JobExecutor implements JobInvoker {
             log.warn("定时任务触发但任务不存在或已删除：jobId={}", jobId);
             return;
         }
+        // 复核调度状态：「暂停」前已入队的下一次触发仍会到达，若不校验就会出现「暂停后仍跑一次」
+        if (!JobStatus.RUNNING.name().equals(job.getStatus())) {
+            log.info("定时任务已非运行中，跳过本次触发：jobId={}, status={}", jobId, job.getStatus());
+            return;
+        }
 
         LocalDateTime fireTime = LocalDateTime.now();
         Instant fireInstant = Instant.now();

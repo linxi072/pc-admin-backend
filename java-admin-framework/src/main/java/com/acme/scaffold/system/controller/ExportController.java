@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.export.CsvExporter;
 import com.acme.scaffold.common.export.ExportFormat;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.XlsxDataExporter;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -95,8 +98,37 @@ public class ExportController {
             }
         });
 
-        byte[] body = (format == ExportFormat.CSV) ? task.csv(params) : toXlsx(task, params);
+        byte[] body = (format == ExportFormat.CSV) ? toCsv(task, params) : toXlsx(task, params);
         return fileResponse(body, task.fileName(), format);
+    }
+
+    /**
+     * 生成 CSV 字节。
+     *
+     * <p>单表结构（{@code headers()} 非空）在此取一次数据行并完成行数上限校验，再自行序列化——
+     * 不直接委托 {@link ExportTask#csv(Map)}，否则校验与序列化会各触发一次 {@code rows(params)}
+     * 查询（多数模板是查库），平白翻倍。多段结构（报表）由模板自产字节、行数受其自身约束，
+     * 仍走 {@link ExportTask#csv(Map)}。历史缺陷：CSV 分支曾完全不做上限校验。</p>
+     */
+    private byte[] toCsv(ExportTask task, Map<String, String> params) {
+        List<String> headers = task.headers();
+        if (headers.isEmpty()) {
+            return task.csv(params);
+        }
+        List<List<String>> rows = task.rows(params);
+        int maxRows = exportProperties.getMaxRows();
+        if (rows.size() > maxRows) {
+            throw BusinessException.badRequest(
+                    "导出行数(" + rows.size() + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
+        }
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try {
+            CsvExporter.write(bos, headers, rows);
+        } catch (IOException e) {
+            // ByteArrayOutputStream 不抛 IOException，防御性保留
+            throw new IllegalStateException("CSV 生成失败", e);
+        }
+        return bos.toByteArray();
     }
 
     /**
