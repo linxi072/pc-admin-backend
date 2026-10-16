@@ -111,8 +111,8 @@ app:
     max-bytes: 10485760
     # 扩展名白名单（逗号分隔）；同时叠加图片/PDF 魔数校验，拒绝可执行文件伪装
     allowed-extensions: jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z
-  # ===== 通知渠道（站内信 / Webhook） =====
-  # 站内信（IN_APP）始终可用；Webhook 默认关闭，启用并配置地址后才外发。
+  # ===== 通知渠道（站内信 / Webhook / 邮件） =====
+  # 站内信（IN_APP）始终可用；Webhook 与邮件默认关闭，启用并配置后才外发。
   notifications:
     webhook:
       # 是否允许 Webhook 外发（默认 false，缺省关闭避免误发）
@@ -124,6 +124,21 @@ app:
       # 读超时 / 连接超时（毫秒）
       timeout-ms: 5000
       connect-timeout-ms: 2000
+    email:
+      # 是否允许邮件发送（默认 false，缺省关闭避免误发与启动依赖 SMTP）
+      enabled: false
+      # 发件人地址（启用后必配）
+      from:
+      # SMTP 服务器与端口（25 / 465 / 587 依服务商）
+      host: localhost
+      port: 25
+      # 凭据：生产经环境变量 NOTIFICATION_EMAIL_USERNAME / NOTIFICATION_EMAIL_PASSWORD 注入
+      username: ${NOTIFICATION_EMAIL_USERNAME:}
+      password: ${NOTIFICATION_EMAIL_PASSWORD:}
+      # 587 端口通常需开启 STARTTLS 升级
+      starttls: false
+      # 读写超时（毫秒）
+      timeout-ms: 5000
   # ===== 缓存管理（Spring Cache 抽象，Redis 实现） =====
   # 缓存为惰性能力：未使用 @Cacheable 时不产生 Redis 流量。
   # 命中率/条目数统计与清理入口见 GET /api/system/monitor/caches（进程内口径，按实例）。

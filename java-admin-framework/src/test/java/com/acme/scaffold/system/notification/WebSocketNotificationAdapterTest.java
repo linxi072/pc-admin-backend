@@ -26,13 +26,14 @@ class WebSocketNotificationAdapterTest {
         assertThat(adapter.supports(Channel.WEBSOCKET)).isTrue();
         assertThat(adapter.supports(Channel.IN_APP)).isFalse();
         assertThat(adapter.supports(Channel.WEBHOOK)).isFalse();
+        assertThat(adapter.supports(Channel.EMAIL)).isFalse();
     }
 
     @Test
     void dispatch_withReceiverIds_sendsToUsers() {
         NotificationMessage msg = new NotificationMessage(
                 Channel.WEBSOCKET, "标题", "内容", "NOTICE",
-                List.of(10L, 20L), null, null, null, Map.of("orderId", 42));
+                List.of(10L, 20L), null, null, null, Map.of("orderId", 42), null);
         when(pushService.sendToUsers(eq(List.of(10L, 20L)), eq(RealtimePushService.TYPE_NOTIFICATION),
                 org.mockito.ArgumentMatchers.any(RealtimeNotificationPayload.class))).thenReturn(2);
 
@@ -48,7 +49,7 @@ class WebSocketNotificationAdapterTest {
     void dispatch_withoutReceiverIds_broadcasts() {
         NotificationMessage msg = new NotificationMessage(
                 Channel.WEBSOCKET, "广播标题", "广播内容", "ALERT",
-                null, null, null, null, null);
+                null, null, null, null, null, null);
         when(pushService.broadcast(eq(RealtimePushService.TYPE_NOTIFICATION),
                 org.mockito.ArgumentMatchers.any(RealtimeNotificationPayload.class))).thenReturn(7);
 
@@ -63,7 +64,7 @@ class WebSocketNotificationAdapterTest {
     @Test
     void dispatch_payloadCarriesTitleContentAndType() {
         NotificationMessage msg = new NotificationMessage(
-                Channel.WEBSOCKET, "T", "C", "SYSTEM", List.of(1L), null, null, null, null);
+                Channel.WEBSOCKET, "T", "C", "SYSTEM", List.of(1L), null, null, null, null, null);
         when(pushService.sendToUsers(org.mockito.ArgumentMatchers.anyList(), eq(RealtimePushService.TYPE_NOTIFICATION),
                 org.mockito.ArgumentMatchers.any())).thenReturn(1);
 

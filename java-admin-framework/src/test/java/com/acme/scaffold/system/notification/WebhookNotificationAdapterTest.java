@@ -47,7 +47,7 @@ class WebhookNotificationAdapterTest {
     void dispatchPostsToMessageUrlWhenProvided() {
         WebhookNotificationAdapter a = adapter();
         NotificationMessage msg = new NotificationMessage(Channel.WEBHOOK, "t", "c", "ALERT",
-                null, null, null, "https://hook.example.com/custom", Map.of("orderId", 42));
+                null, null, null, "https://hook.example.com/custom", Map.of("orderId", 42), null);
 
         assertEquals(1, a.dispatch(msg));
         verify(client).post(eq("https://hook.example.com/custom"), any(Map.class));
@@ -57,7 +57,7 @@ class WebhookNotificationAdapterTest {
     void dispatchFallsBackToDefaultUrl() {
         WebhookNotificationAdapter a = adapter();
         NotificationMessage msg = new NotificationMessage(Channel.WEBHOOK, "t", "c", null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
 
         a.dispatch(msg);
         verify(client).post(eq("https://hook.example.com/default"), any(Map.class));
@@ -67,7 +67,7 @@ class WebhookNotificationAdapterTest {
     void throwsWhenDisabled() {
         WebhookNotificationAdapter a = new WebhookNotificationAdapter(client, props(false, "https://x"));
         NotificationMessage msg = new NotificationMessage(Channel.WEBHOOK, "t", "c", null,
-                null, null, null, "https://x", null);
+                null, null, null, "https://x", null, null);
 
         BusinessException ex = assertThrows(BusinessException.class, () -> a.dispatch(msg));
         assertEquals(CommonErrorCode.VALIDATION_ERROR, ex.getErrorCode());
@@ -78,7 +78,7 @@ class WebhookNotificationAdapterTest {
     void throwsWhenUrlMissing() {
         WebhookNotificationAdapter a = new WebhookNotificationAdapter(client, props(true, null));
         NotificationMessage msg = new NotificationMessage(Channel.WEBHOOK, "t", "c", null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
 
         assertThrows(BusinessException.class, () -> a.dispatch(msg));
         verify(client, never()).post(any(), any());
