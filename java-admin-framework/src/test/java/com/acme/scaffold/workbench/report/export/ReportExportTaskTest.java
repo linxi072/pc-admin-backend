@@ -1,6 +1,7 @@
 package com.acme.scaffold.workbench.report.export;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.security.context.CurrentPrincipal;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
@@ -144,5 +145,30 @@ class ReportExportTaskTest {
     void headersAndRowsAreEmpty() {
         assertTrue(task.headers().isEmpty());
         assertTrue(task.rows(Map.of()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("声明 XLSX 能力：xlsxSheets 产出多 Sheet 模型，查询参数与 CSV 路径同源")
+    void xlsxSheetsWithPermissionProducesSheets() {
+        when(securityContextFacade.getCurrentPrincipal()).thenReturn(Optional.of(principal(true)));
+        when(reportService.report(any(ReportQuery.class))).thenReturn(usageVo());
+
+        assertTrue(task.supportsXlsx(), "多段结构模板提供 xlsxSheets 后应声明支持 XLSX");
+        List<XlsxSheet> sheets = task.xlsxSheets(Map.of("type", "USAGE", "rangeType", "LAST_7D"));
+
+        assertEquals(List.of("汇总", "类别分布", "状态分布", "趋势"), sheets.stream().map(XlsxSheet::name).toList());
+        assertEquals(List.of("指标", "数值"), sheets.get(0).headers());
+        verify(reportService).report(any(ReportQuery.class));
+    }
+
+    @Test
+    @DisplayName("XLSX 路径权限兜底：缺 report:read 时同样拒绝（防权限放大）")
+    void xlsxSheetsWithoutReportReadIsForbidden() {
+        when(securityContextFacade.getCurrentPrincipal()).thenReturn(Optional.of(principal(false)));
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> task.xlsxSheets(Map.of()));
+
+        assertTrue(ex.getMessage().contains("report:read"), "错误信息指明所需权限");
+        verify(reportService, never()).report(any());
     }
 }
