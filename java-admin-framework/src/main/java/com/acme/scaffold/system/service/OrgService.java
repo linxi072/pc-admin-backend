@@ -7,6 +7,8 @@ import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
+import com.acme.scaffold.security.permission.DataScopeContext;
+import com.acme.scaffold.security.permission.DataScopeResult;
 import com.acme.scaffold.system.dto.CreateOrgRequest;
 import com.acme.scaffold.system.dto.OrgTreeVO;
 import com.acme.scaffold.system.dto.UpdateOrgRequest;
@@ -15,6 +17,8 @@ import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -39,13 +43,24 @@ public class OrgService {
     /** 部门资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。 */
     public static final String RESOURCE_CODE = "system:org";
 
+    /** 机构树缓存名；键为数据权限范围签名（见 {@link #orgScopeKey()}），确保不同权限用户互不串缓存。 */
+    public static final String ORG_TREE_CACHE = "org-tree";
+
+    /** 数据权限范围签名的「不限制」键。 */
+    public static final String SCOPE_ALL_KEY = "ALL";
+
     private final DSLContext dsl;
 
     /**
-     * 机构树。数据权限由 {@link DataScope} 切面解析：ALL 时返回完整树；
-     * 受限时按可见机构集合过滤，并以「父节点不在可见集合内」的节点作为根（森林）。
+     * 机构树（数据权限敏感热点读）。
+     *
+     * <p>缓存按「数据权限范围签名」分键（{@link #orgScopeKey()}），而非单一 {@value #SCOPE_ALL_KEY} 键：
+     * 若不隔离，首调（多为 ALL 权限管理员）会把全量树写入缓存，受限用户随后命中缓存读到越权子树。
+     * 写入路径（create/update/delete）统一整缓存驱逐；{@link DataScopeAspect} 已置为最外层，
+     * 保证缓存键计算时 {@link DataScopeContext} 已就绪。命中缓存时跳过打库与 {@link DataScopeConditions} 取条件。
      */
     @DataScope(resourceCode = RESOURCE_CODE)
+    @Cacheable(cacheNames = ORG_TREE_CACHE, key = "#root.target.orgScopeKey()")
     public List<OrgTreeVO> tree() {
         List<SysOrgDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
@@ -75,6 +90,28 @@ public class OrgService {
                 });
     }
 
+    /**
+     * 机构树缓存键：以数据权限范围签名隔离，避免跨权限缓存串味。
+     * 与 {@link DataScopeConditions#of} 的 org 维度语义保持一致：
+     * 不限制 / 空集合降级 → {@value #SCOPE_ALL_KEY}；仅本人 → {@code SELF:<userId>}；
+     * 机构集合 → {@code ORG:<升序逗号分隔的 id>}。
+     */
+    public String orgScopeKey() {
+        DataScopeContext.Scope scope = DataScopeContext.current();
+        if (scope == null || scope.result() == null || scope.result().unrestricted()) {
+            return SCOPE_ALL_KEY;
+        }
+        DataScopeResult result = scope.result();
+        if (result.selfOnly()) {
+            return "SELF:" + scope.userId();
+        }
+        Set<Long> orgIds = result.orgIds();
+        if (orgIds == null || orgIds.isEmpty()) {
+            return SCOPE_ALL_KEY;
+        }
+        return "ORG:" + orgIds.stream().sorted().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
     /** parentId 归一：null 视作顶级（0）。TreeBuilder 分组 / 顶层判定共用。 */
     private static Long parentIdOf(SysOrgDO o) {
         return o.getParentId() == null ? 0L : o.getParentId();
@@ -96,6 +133,7 @@ public class OrgService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = ORG_TREE_CACHE, allEntries = true)
     public Long create(CreateOrgRequest request) {
         if (existsByCode(request.orgCode())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "机构编码已存在");
@@ -126,6 +164,7 @@ public class OrgService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = ORG_TREE_CACHE, allEntries = true)
     public void update(Long id, UpdateOrgRequest request) {
         SysOrgDO existing = JooqWriters.fetchById(dsl, JooqTables.SYS_ORG, SysOrgDO.class, id);
         if (existing == null) {
@@ -172,6 +211,7 @@ public class OrgService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = ORG_TREE_CACHE, allEntries = true)
     public void delete(Long id) {
         long childCount = JooqWriters.count(dsl, JooqTables.SYS_ORG,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),

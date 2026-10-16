@@ -7,7 +7,9 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,10 +21,16 @@ import org.springframework.stereotype.Component;
  *
  * <p>无登录主体（定时任务、内部调用）按「不限制」处理并记 DEBUG 日志：
  * 这类调用没有"谁在看"的语义，强行套用用户范围反而会让定时任务查不到数据。
+ *
+ * <p>{@link Order#HIGHEST_PRECEDENCE}：本切面须为最外层通知。机构树等热点读在
+ * {@code @Cacheable} 上以「数据权限范围签名」为键，缓存键在缓存拦截器内计算，
+ * 必须保证此时 {@link DataScopeContext} 已由本切面写入；若切面晚于缓存拦截器执行，
+ * 键会恒为 {@code ALL} 而把受限用户的树误并入管理员缓存，造成越权可见。
  */
 @Slf4j
 @Aspect
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
 public class DataScopeAspect {
 
