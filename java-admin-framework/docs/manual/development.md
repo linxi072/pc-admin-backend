@@ -2132,3 +2132,56 @@ npm run preview  # 预览构建产物
 - **本地化切换**：同 `i18n` 体系——运行时由 `SessionLocaleResolver` + `LocaleChangeInterceptor`（`?lang=xx`）写入 `LocaleContextHolder`，业务异常提示自动跟随。
 
 **QA 业务测试（V28，QA报告）**：6 项缺陷全部闭环——D-5（P0）七个权限码未授 SUPER_ADMIN；D-2（P1）手机/邮箱唯一性无预校验；D-4（P1）删除角色残留孤儿 user_role 行；D-6（P1）void 方法幂等重放必 409；D-1（P2）用户状态无白名单；D-3（P2）公告重发布不清 offline_at；并固化多轮回归测试。
+
+---
+
+## 前后端联通测试（连通探针 / 错误码映射 / 超时 / 契约对称）
+
+> 目标：验证前端与后端之间的接口通信稳定可靠，覆盖四类场景——① 正常请求/响应流程；② 数据格式与字段一致性校验；③ 常见错误码与异常场景处理；④ 网络超时。
+> 分层策略：后端用 standalone MockMvc 装配**真实** `GlobalExceptionHandler` + **真实** `I18nService` 验证「HTTP→全局异常映射→统一包络」链路；前端用 `node:test` + 本地 stub 验证 axios 拆包契约；Python 提供静态契约对称扫描与运行时探针（本机后端就绪后执行真实跨进程联调）。
+
+### 1. 后端探针端点与契约
+
+- 端点：`GET /api/connectivity/ping`（`common/controller/ConnectivityController`），零数据库依赖，返回统一包络 `Result<ConnectivityProbe>`。
+- `ConnectivityProbe`（`common/api/dto/ConnectivityProbe`）：`serverTime`（后端 UTC 时钟，用于时钟漂移粗校验）、`receivedLocale`（后端经 `LocaleContextHolder` 回显的实际语言标签，验证多语言协商）、`nonce`（每次随机串，防缓存误判联通）、`framework`（固定 `java-admin-framework`）。
+- 前端模块：`src/api/connectivity.js` 的 `ping()` 经 `src/api/http.js` 拆包后直接拿到 `data`。
+
+### 2. 后端联通测试（`ConnectivityControllerTest`，15 例）
+
+- 用 `MockMvcBuilders.standaloneSetup(connectivityController, diagnosticController).setControllerAdvice(realHandler)` 装配**真实** `GlobalExceptionHandler`（构造**真实** `I18nService`，读取 `i18n/messages*` 资源束）。
+- `DiagnosticController` 为测试内 `@RestController`，刻意抛出各类异常，逐一对齐状态码/错误码/本地化文案：
+  - 400 `COMMON_001`（参数校验，`data` 为字段错误 Map）｜ 401 `COMMON_401` ｜ 403 `COMMON_403` ｜ 404 `COMMON_404` ｜ 405 `COMMON_405` ｜ 409 `COMMON_409` ｜ 422 `COMMON_422` ｜ 429 / 500 `COMMON_500` ｜ **504 `COMMON_504`（新增超时映射）**。
+- 正常流：断言包络 `code=="0"` / `message=="OK"` / `data.*` 字段齐备 / `traceId` / `timestamp` 存在；`nonce` 每次不同（防缓存）。
+- 多语言：经 `Accept-Language` 头驱动，断言中文 `请求超时，请稍后重试` 与英文 `Request timed out, please retry later`；另以直接调用 `handler.handleTimeout(...)` 的确定性单测锁住 Locale 解析。
+
+### 3. 新增超时错误码与全局映射
+
+- `CommonErrorCode.GATEWAY_TIMEOUT("COMMON_504", "请求超时，请稍后重试", 504)`。
+- `GlobalExceptionHandler` 新增 `@ExceptionHandler(TimeoutException.class)` → 504 + `Result.error(COMMON_504, i18n.getMessage("error.gateway_timeout"))`；资源束三件套补 `error.gateway_timeout` 与 `error.COMMON_504`（中/英对称）。
+- 此前全局异常处理器**缺失超时映射**，本次补全，使网络超时有稳定错误码可识别。
+
+### 4. 前端联通测试（`scripts/fe-connectivity.mjs`，5 例，离线可跑）
+
+- 用 `node:http` 起本地 stub 服务端模拟后端统一包络（沙箱无后端、无出网）；`node:test` + `axios` 验证四类场景：
+  1. ping 正常流程：拆包后得到 `data` 且 `framework`/`serverTime`/`nonce`/`receivedLocale` 与契约一致；
+  2. 数据格式一致性：成功包络含 `code/message/data/traceId/timestamp`；
+  3. 常见错误码：2xx 但 `code!=0` 提取 `code` 并 `reject`（如 `AUTH_001`）；5xx 回传后端错误码 `COMMON_500`；
+  4. 网络超时：后端慢响应触发 axios `ECONNABORTED`。
+- 客户端 `request()` **镜像** `src/api/http.js` 的响应拦截拆包逻辑（`code==='0'` 返回 `data`，否则 `reject(Error)` 且 `Error.code = body.code`），确保验证的就是前端真实依赖的契约。
+- 运行：`cd pc-admin-vue3-vite && node --test scripts/fe-connectivity.mjs`（需已 `npm install`）。
+
+### 5. Python 契约对称与运行时探针（后端仓 `scripts/`）
+
+- `check-api-contract.py`：**静态**扫描后端 Controller 注解与前端 `api/*.js` 调用，归一化（小写/去查询串/参数无关 `*`）后比对，输出 `matched / backend_only / frontend_only`；`frontend_only` 即「前端调用但后端无路由」的契约漂移风险。`--strict` 时 drift 非空退出码 1。
+- `connectivity-probe.py` + `connectivity-spec.json`：**运行时**探针，对真实后端发请求断言包络字段与超时（urllib，零依赖）；后端不可达时打印清晰 SKIP 而非崩溃。
+- `connectivity-stub.py`：后端联通接口本地 stub（模拟 `Result` 包络 + 各错误码 + 慢响应端点），可在无后端环境离线验证探针。
+- 本机联调命令：
+  ```bash
+  python3 scripts/connectivity-stub.py &                      # 默认 8080
+  python3 scripts/connectivity-probe.py --base-url http://127.0.0.1:8080
+  ```
+
+### 6. 沙箱边界与本机收口
+
+- 沙箱无 MySQL 8.1.0、后端未启动、Bash 无出网，**无法跑真实跨进程 HTTP 联调**；故后端用 standalone MockMvc（真实 handler/i18n）、前端用本地 stub 达成等价的契约验证。
+- **真实运行时联调（真实网络超时/真实 504 链路）需在本机执行**：① 启动后端 + 前端，浏览器/接口工具走真实 `ping`；② `python3 scripts/connectivity-probe.py` 指向真实后端；③ 前端 `node --test scripts/fe-connectivity.mjs` 指向真实 `API_BASE`。以上三类在沙箱外即构成完整联通证据链。

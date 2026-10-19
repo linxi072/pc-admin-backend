@@ -1,6 +1,6 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-19（**Bean Validation 校验消息键化已交付**：DTO 约束 `message` 全量改为 `{validation.<键>}` 资源束键，经 `ValidationMessageConfig` 委托 `MessageSource` 按 Locale 插值，中英双语束齐备（键一致性守护测试保证键齐套）；短信通知渠道 M6 续已交付：`Channel.SMS` + `SmsRules` + LOG/HTTP 双网关条件装配 + 前端消息中心多渠道发送；**短信发送记录中心已交付**：`system/smslog`（V37 建表 + 脱敏落库 + 分页筛选 + 汇总 + 菜单种子），发送记录从「不持久化」转为「掩码存储可查询对账」；单测基线刷新为 682 例全绿；**业务异常消息键化已交付（Phase D）**：`ErrorCode.messageKey()` 派生 `error.<CODE>` 资源束键，`GlobalExceptionHandler` 按请求语言本地化 33 个错误码，`BusinessExceptionMessageKeyingTest` 守护键齐套）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-19（**Bean Validation 校验消息键化已交付**：DTO 约束 `message` 全量改为 `{validation.<键>}` 资源束键，经 `ValidationMessageConfig` 委托 `MessageSource` 按 Locale 插值，中英双语束齐备（键一致性守护测试保证键齐套）；短信通知渠道 M6 续已交付：`Channel.SMS` + `SmsRules` + LOG/HTTP 双网关条件装配 + 前端消息中心多渠道发送；**短信发送记录中心已交付**：`system/smslog`（V37 建表 + 脱敏落库 + 分页筛选 + 汇总 + 菜单种子），发送记录从「不持久化」转为「掩码存储可查询对账」；单测基线刷新为 682 例全绿；**业务异常消息键化已交付（Phase D）**：`ErrorCode.messageKey()` 派生 `error.<CODE>` 资源束键，`GlobalExceptionHandler` 按请求语言本地化 33 个错误码，`BusinessExceptionMessageKeyingTest` 守护键齐套）；**前后端联通测试已交付**（后端 `ConnectivityControllerTest` 15 例覆盖正常流/全错误码/i18n/504 超时 + 前端 `fe-connectivity.mjs` 5 例 + Python 契约对称 `check-api-contract.py` 与运行时探针 `connectivity-probe.py`/`connectivity-stub.py`）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
 > 方法：**直接核查真实代码**（469 个后端主源 `.java` / 132 个测试源、682 个测试用例（surefire 汇总 0 失败 0 错误）、33 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
@@ -120,7 +120,7 @@
 3. 原「需联网引入 POI」的 Excel 导出/导入已通过**零依赖 OOXML（写出 `XlsxDataExporter` / 解析 `XlsxDataReader`，仅用 JDK `java.util.zip`）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
 4. 导入中心为**模板注册**模式（同导出中心）：新增一种数据的导入只需新增一个 `ImportTask` Bean 并实现 `headers()`/`validate()`/`importRow()`，无需新增接口、迁移或前端页面（前端按 `/templates` 自动渲染）。
 5. 导出中心同理由 `ExportTask` Bean 自动扩充：如本轮新增 `LoginLogExportTask`（登录日志导出）**零迁移、零前端**，仅在 `system/export` 下加一个 `@Component` 即被 `/templates` 自动列举。脱敏遵循「类型驱动 + 安全默认」：对外视图/导出默认掩码，明文可见需显式授予 `system:*:sensitive` 权限。
-6. 测试基线：当前测试源共 **675 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-19 全模块测试轮 38 例、短信渠道 18 例与短信记录中心 27 例）。新增功能请同步补测，避免基线回退。
+6. 测试基线：当前测试源共 **702 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-19 全模块测试轮、短信渠道 18 例、短信记录中心 27 例、**前后端联通测试 20 例**（后端 `ConnectivityControllerTest` 15 例 + 既有键化守护 5 例））。前端 `pc-admin-vue3-vite/scripts/fe-connectivity.mjs` 另含 5 例 `node:test` 联通测试（离线、本地 stub）。**前后端联通测试（连通探针 + 错误码映射 + 504 超时新增映射 + 契约对称脚本）已交付**，详见 `development.md` 同名章节。新增功能请同步补测，避免基线回退。
 
 ---
 
