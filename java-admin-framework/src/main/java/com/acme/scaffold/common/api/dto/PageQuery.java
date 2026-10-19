@@ -9,8 +9,11 @@ public record PageQuery(int page, int size, List<SortItem> sorts) {
 
     public static final int MAX_SIZE = 100;
 
+    /** 页码上限：超出无业务意义（对应千万级行数的 offset），同时规避调用方误传超大值。 */
+    public static final int MAX_PAGE = 100_000;
+
     public PageQuery {
-        page = Math.max(page, 1);
+        page = Math.min(Math.max(page, 1), MAX_PAGE);
         size = Math.min(Math.max(size, 1), MAX_SIZE);
         if (sorts == null) {
             sorts = List.of();

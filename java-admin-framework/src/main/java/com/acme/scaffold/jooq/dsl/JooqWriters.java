@@ -209,6 +209,23 @@ public final class JooqWriters {
                 .fetch(new SnakeRecordMapper<>(type));
     }
 
+    /**
+     * 按条件查询列表并排序，限制条数。
+     *
+     * <p>limit 下推至 SQL：避免「先全量拉取再在内存里截断」在大表上把数万行拖进堆内
+     * （监控历史采样等场景）。limit 非法时按 1 处理，上限钳 1000。</p>
+     */
+    public static <E> List<E> fetchTop(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
+                                       Condition cond, int limit, OrderField<?>... orderBy) {
+        int n = Math.min(Math.max(limit, 1), 1000);
+        if (orderBy == null || orderBy.length == 0) {
+            return dsl.selectFrom(table.table()).where(cond).limit(n)
+                    .fetch(new SnakeRecordMapper<>(type));
+        }
+        return dsl.selectFrom(table.table()).where(cond).orderBy(orderBy).limit(n)
+                .fetch(new SnakeRecordMapper<>(type));
+    }
+
     /** 按条件统计数量。 */
     public static long count(DSLContext dsl, JooqTables.TableRef table, Condition cond) {
         Integer total = dsl.selectCount().from(table.table()).where(cond).fetchOne(0, int.class);
@@ -223,10 +240,10 @@ public final class JooqWriters {
         List<E> records;
         if (orderBy != null && orderBy.length > 0) {
             records = step.orderBy(orderBy)
-                    .limit(q.size()).offset((q.page() - 1) * q.size())
+                    .limit(q.size()).offset(q.offset())
                     .fetch(new SnakeRecordMapper<>(type));
         } else {
-            records = step.limit(q.size()).offset((q.page() - 1) * q.size())
+            records = step.limit(q.size()).offset(q.offset())
                     .fetch(new SnakeRecordMapper<>(type));
         }
         return new PageResult<>(q.page(), q.size(), total, records);

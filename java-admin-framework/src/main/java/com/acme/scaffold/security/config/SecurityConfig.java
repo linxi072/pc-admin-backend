@@ -55,6 +55,9 @@ public class SecurityConfig {
             // 健康探针（k8s 风格）：liveness/readiness 不应要求鉴权
             new AntPathRequestMatcher("/livez", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/readyz", HttpMethod.GET.name()),
+            // Alertmanager webhook 接收端：外部告警系统无法出示 JWT，
+            // 鉴权由控制器内 enabled 开关 + X-Alert-Token 承担（收件箱查询仍须登录）
+            new AntPathRequestMatcher("/api/monitoring/alerts/webhook", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/error"));
 
     /** Swagger / OpenAPI 文档端点（是否公开由 {@code app.swagger.public-access} 决定）。 */
