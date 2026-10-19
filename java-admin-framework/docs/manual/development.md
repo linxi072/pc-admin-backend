@@ -2121,4 +2121,14 @@ npm run preview  # 预览构建产物
 - **本地化切换**：同 `i18n` 体系——运行时由 `SessionLocaleResolver` + `LocaleChangeInterceptor`（`?lang=xx`）写入 `LocaleContextHolder`，校验插值自动跟随；语言未命中专属束时回退 `validation.properties` 兜底（不抛 `MissingResourceException`）。
 - **缺失键行为**：键在资源束中不存在时，Hibernate 返回带花括号的原始模板 `{validation.xxx}`（不抛异常），前端可据此识别漏配键；不要依赖该行为做正常文案。
 
+### 业务异常消息键化（开发者）
+
+- **目的**：将 `BusinessException` 由错误码默认消息派生的提示统一走资源束键化，交由 `I18nService`（底层 `MessageSource`）按当前线程 `Locale` 解析，使业务异常提示与框架错误、DTO 校验提示一样支持中/英多语言，且无需改动约 180 处 `new BusinessException(...)` 调用点。
+- **机制**：`ErrorCode` 接口新增默认方法 `messageKey()`，返回 `error.<CODE>`（如 `AUTH_001` → `error.AUTH_001`），四个错误码枚举（`CommonErrorCode` / `SecurityErrorCode` / `IdempotencyErrorCode` / `FileErrorCode`，共 33 个）自动继承，零枚举改动。`BusinessException` 由错误码默认消息构造时记录该键（`getMessageKey()` 非空），`GlobalExceptionHandler.handleBusiness` 据此经 `i18n.getMessage(ex.getMessageKey())` 解析出本地化文案；`getMessage()` 始终为中文兜底（利于日志，不受语言影响）。
+- **向后兼容（自定义消息透传）**：由显式消息构造（`BusinessException.of(ec, "...")` / `conflict(...)` / `badRequest(...)`）时 `getMessageKey()` 为 `null`，响应原样回传该中文文案，行为与键化前完全一致——因此内联硬编码提示的调用点无需改动即可工作，后续可按需逐步将其迁移为错误码默认消息。
+- **键存放位置**：`src/main/resources/i18n/messages.properties`（兜底，中文）/ `messages_zh_CN.properties` / `messages_en_US.properties`，键名形如 `error.COMMON_401` / `error.AUTH_001` / `error.IDEMPOTENCY_001` / `error.FILE_001`，三件套键集对称、值非空。`BusinessExceptionMessageKeyingTest` 守护「所有错误码键在 zh/en 束齐备且对称」与「zh_CN 值 == 枚举中文」，漏配任一语言束测试即失败。
+- **新增一个键化错误提示两步**：① 若尚无对应 `ErrorCode` 常量，在相应枚举加一项（code / 中文 message / httpStatus），键自动为 `error.<CODE>`；② 在 `messages.properties` / `_zh_CN` / `_en_US` 三文件各加同一键（中文默认 + 英文翻译），运行 `mvn -o test -Dtest=BusinessExceptionMessageKeyingTest` 自检。
+- **缺失键行为**：键在资源束不存在时 `I18nService` 返回键本身（如 `error.XXX`），不抛异常，前端可据此识别漏配；不要依赖该行为做正常文案。
+- **本地化切换**：同 `i18n` 体系——运行时由 `SessionLocaleResolver` + `LocaleChangeInterceptor`（`?lang=xx`）写入 `LocaleContextHolder`，业务异常提示自动跟随。
+
 **QA 业务测试（V28，QA报告）**：6 项缺陷全部闭环——D-5（P0）七个权限码未授 SUPER_ADMIN；D-2（P1）手机/邮箱唯一性无预校验；D-4（P1）删除角色残留孤儿 user_role 行；D-6（P1）void 方法幂等重放必 409；D-1（P2）用户状态无白名单；D-3（P2）公告重发布不清 offline_at；并固化多轮回归测试。
