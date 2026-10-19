@@ -19,8 +19,8 @@ import java.util.List;
  * 角色与部门之间为「或」关系，命中任一即投递。
  */
 public record SendMessageRequest(
-        @NotBlank @Size(max = 200, message = "标题长度不能超过200") String title,
-        @NotBlank(message = "消息内容不能为空") String content,
+        @NotBlank @Size(max = 200, message = "{validation.title.size}") String title,
+        @NotBlank(message = "{validation.messageContent.notBlank}") String content,
         /** NOTICE(通知) / ALERT(告警) / SYSTEM(系统)，为空默认 NOTICE */
         String msgType,
         /** 单条发送：显式接收人ID列表 */

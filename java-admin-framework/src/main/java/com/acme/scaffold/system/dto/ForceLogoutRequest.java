@@ -12,7 +12,7 @@ import java.util.List;
  * 被下线设备的下一个请求即被会话校验过滤器拒绝（401），实现「操作后实时生效」。
  */
 public record ForceLogoutRequest(
-        @NotEmpty(message = "请至少选择一个在线会话")
-        @Size(max = 100, message = "单次最多强制下线 100 个会话")
+        @NotEmpty(message = "{validation.forceLogout.sessionIds.notEmpty}")
+        @Size(max = 100, message = "{validation.forceLogout.sessionIds.size}")
         List<Long> sessionIds) {
 }

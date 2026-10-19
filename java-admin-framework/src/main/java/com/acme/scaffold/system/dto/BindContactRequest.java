@@ -12,8 +12,8 @@ import jakarta.validation.constraints.Pattern;
  * @param contact 联系方式；解绑时传空字符串
  */
 public record BindContactRequest(
-        @NotBlank(message = "渠道不能为空")
-        @Pattern(regexp = "^(MOBILE|EMAIL)$", message = "渠道仅支持 MOBILE 或 EMAIL")
+        @NotBlank(message = "{validation.contact.channel.notBlank}")
+        @Pattern(regexp = "^(MOBILE|EMAIL)$", message = "{validation.contact.channel.pattern}")
         String channel,
 
         String contact) {

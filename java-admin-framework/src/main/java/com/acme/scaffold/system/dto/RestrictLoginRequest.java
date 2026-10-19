@@ -11,9 +11,9 @@ import jakarta.validation.constraints.Size;
  * 白名单（30 分钟 ~ 7 天，0 为长期）；reason 必填，用于审计与限制记录展示。
  */
 public record RestrictLoginRequest(
-        @NotNull(message = "请选择限制时长")
+        @NotNull(message = "{validation.restrictLogin.duration.notNull}")
         Integer durationMinutes,
-        @NotBlank(message = "请填写限制原因")
-        @Size(max = 255, message = "限制原因不能超过 255 字")
+        @NotBlank(message = "{validation.restrictLogin.reason.notBlank}")
+        @Size(max = 255, message = "{validation.restrictLogin.reason.size}")
         String reason) {
 }

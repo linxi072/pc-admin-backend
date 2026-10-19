@@ -15,8 +15,8 @@ import java.util.List;
 public record SendNotificationRequest(
         /** 目标渠道：IN_APP（站内信）/ WEBHOOK（Webhook 外发）/ WEBSOCKET（实时推送）/ EMAIL（邮件）/ SMS（短信） */
         Channel channel,
-        @NotBlank @Size(max = 200, message = "标题长度不能超过200") String title,
-        @NotBlank(message = "消息内容不能为空") String content,
+        @NotBlank @Size(max = 200, message = "{validation.title.size}") String title,
+        @NotBlank(message = "{validation.messageContent.notBlank}") String content,
         /** NOTICE(通知) / ALERT(告警) / SYSTEM(系统)，为空默认 NOTICE */
         String msgType,
         /** 单条发送：显式接收人ID列表 */

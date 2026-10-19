@@ -10,6 +10,6 @@ import java.util.List;
  * @param postIds 岗位 ID 集合；空列表表示清空该用户全部岗位
  */
 public record AssignUserPostsRequest(
-        @Size(max = 10, message = "单个用户最多可兼任10个岗位")
+        @Size(max = 10, message = "{validation.userPosts.size}")
         List<Long> postIds) {
 }

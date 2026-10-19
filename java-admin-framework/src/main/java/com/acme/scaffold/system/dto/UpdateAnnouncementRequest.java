@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * 仅 DRAFT / OFFLINE 状态允许编辑；已发布公告需先下线再编辑，避免线上内容被静默篡改。
  */
 public record UpdateAnnouncementRequest(
-        @Size(max = 200, message = "标题长度不能超过200") String title,
+        @Size(max = 200, message = "{validation.title.size}") String title,
         String content,
         Integer isTop,
         LocalDateTime publishAt,

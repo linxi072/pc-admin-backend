@@ -21,8 +21,9 @@ import java.util.Locale;
  *
  * <p>设计要点：
  * <ul>
- *   <li>资源束统一放在 {@code src/main/resources/i18n/}，按 {@code messages}、{@code messages_zh_CN}、
- *       {@code messages_en_US} 三级回退，新增语言只需补一个 {@code messages_&lt;locale&gt;.properties}；</li>
+ *   <li>资源束统一放在 {@code src/main/resources/i18n/}，框架级错误走 {@code messages}、
+ *       Bean Validation 约束消息走 {@code validation}，均按 {@code _zh_CN} / {@code _en_US}
+ *       两级回退，新增语言只需补一个对应 {@code .properties}；</li>
  *   <li>编码固定 UTF-8，资源束可安全存中文（{@link ReloadableResourceBundleMessageSource} 经 Spring
  *       PropertiesPersister 读取，规避 JDK {@code ResourceBundle} 默认 ISO-8859-1 的乱码坑）；</li>
  *   <li>默认语言与切换参数经 {@link I18nProperties} 配置化，缺省 zh_CN / lang；</li>
@@ -33,8 +34,9 @@ import java.util.Locale;
 @EnableConfigurationProperties(I18nProperties.class)
 public class I18nConfig implements WebMvcConfigurer {
 
-    /** 资源束基名（classpath:i18n/messages）。 */
+    /** 资源束基名：框架级错误消息（{@code i18n/messages}）与 Bean Validation 约束消息（{@code i18n/validation}）。 */
     private static final String MESSAGE_BASENAME = "classpath:i18n/messages";
+    private static final String VALIDATION_BASENAME = "classpath:i18n/validation";
 
     private final LocaleChangeInterceptor localeChangeInterceptor;
 
@@ -46,7 +48,7 @@ public class I18nConfig implements WebMvcConfigurer {
     @ConditionalOnMissingBean(MessageSource.class)
     public MessageSource messageSource() {
         ReloadableResourceBundleMessageSource source = new ReloadableResourceBundleMessageSource();
-        source.setBasename(MESSAGE_BASENAME);
+        source.setBasenames(MESSAGE_BASENAME, VALIDATION_BASENAME);
         source.setDefaultEncoding("UTF-8");
         source.setFallbackToSystemLocale(false);
         source.setCacheSeconds(3600);
