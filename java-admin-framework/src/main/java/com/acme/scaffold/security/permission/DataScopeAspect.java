@@ -37,12 +37,15 @@ public class DataScopeAspect {
     private final DataScopeProvider dataScopeProvider;
     private final SecurityContextFacade securityContextFacade;
 
-    @Around("@annotation(dataScope) || @within(dataScope)")
-    public Object around(ProceedingJoinPoint joinPoint, DataScope dataScope) throws Throwable {
-        if (dataScope == null) {
-            dataScope = AnnotationUtils.findAnnotation(
-                    ((MethodSignature) joinPoint.getSignature()).getMethod(), DataScope.class);
-        }
+    // 单点 @annotation 绑定 + 手动解析注解（含类级别），避免 "@annotation(x) || @within(x)" 这种
+    // OR 组合绑定切点带来的参数绑定失败：当连接点仅经 @within 命中（类级别标注）时，AspectJ 无法
+    // 注入内部 JoinPointMatch，会抛 "Required to bind 2 arguments, but only bound 1
+    // (JoinPointMatch was NOT bound in invocation)"，导致用户/部门/待办/流程等所有模块同时异常。
+    // AnnotationUtils.findAnnotation 会沿方法→声明类向上查找，方法级与类级 @DataScope 均可命中。
+    @Around("@annotation(com.acme.scaffold.security.permission.DataScope)")
+    public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
+        DataScope dataScope = AnnotationUtils.findAnnotation(
+                ((MethodSignature) joinPoint.getSignature()).getMethod(), DataScope.class);
         if (dataScope == null) {
             return joinPoint.proceed();
         }
