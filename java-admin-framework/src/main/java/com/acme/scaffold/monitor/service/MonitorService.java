@@ -175,13 +175,20 @@ public class MonitorService {
      * @param limit   返回条数上限，防止会话过多拖慢响应
      */
     public List<OnlineSessionView> onlineSessions(String keyword, int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
         LocalDateTime now = LocalDateTime.now();
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", LocalDateTime.class).isNull());
         conds.add(JooqTables.SYS_REFRESH_TOKEN.field("expires_at", LocalDateTime.class).gt(now));
 
-        List<SysRefreshTokenDO> tokens = JooqWriters.fetchList(dsl, JooqTables.SYS_REFRESH_TOKEN,
-                SysRefreshTokenDO.class, DSL.and(conds),
+        // limit 下推至 SQL（取宽松上限后仍在内存按会话去重 + 关键字过滤 + limit 截断）：
+        // 避免活跃会话量大时把全部刷新令牌拉进堆内。按 last_used_at 倒序取最近窗口，
+        // 语义上等价于「最近活跃的会话」。
+        int sqlCap = Math.min(Math.max(limit * 10, 500), 5000);
+        List<SysRefreshTokenDO> tokens = JooqWriters.fetchTop(dsl, JooqTables.SYS_REFRESH_TOKEN,
+                SysRefreshTokenDO.class, DSL.and(conds), sqlCap,
                 JooqTables.SYS_REFRESH_TOKEN.field("last_used_at", LocalDateTime.class).desc().nullsLast());
 
         // 按 sessionId 去重，保留最近活跃的一条
@@ -290,7 +297,7 @@ public class MonitorService {
                         JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc()));
     }
 
-    /** 按时间范围查询历史采样（用于趋势图）。 */
+    /** 按时间范围查询历史采样（用于趋势图）。limit 下推至 SQL，防止超大时间窗口全量拉取。 */
     public List<SysMonitorSampleDO> samples(LocalDateTime from, LocalDateTime to, int limit) {
         LocalDateTime end = to == null ? LocalDateTime.now() : to;
         LocalDateTime begin = from == null ? end.minusHours(24) : from;
@@ -299,11 +306,9 @@ public class MonitorService {
                 JooqTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).ge(begin),
                 JooqTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).le(end)));
 
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_MONITOR_SAMPLE, SysMonitorSampleDO.class,
-                DSL.and(conds),
-                JooqTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).desc())
-                .stream().limit(limit <= 0 ? 200 : Math.min(limit, 1000))
-                .collect(Collectors.toList());
+        return JooqWriters.fetchTop(dsl, JooqTables.SYS_MONITOR_SAMPLE, SysMonitorSampleDO.class,
+                DSL.and(conds), limit <= 0 ? 200 : limit,
+                JooqTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).desc());
     }
 
     /**

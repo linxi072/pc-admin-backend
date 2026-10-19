@@ -115,6 +115,18 @@ public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
         Thread t = worker;
         if (t != null) {
             t.interrupt();
+            try {
+                // 等待 worker 退出当前 poll/批次后再由 destroy() 关闭消费者：
+                // KafkaConsumer 非线程安全，poll 与 close 并发属未定义行为。
+                // poll 不响应中断，但受 pollTimeout 约束会自行返回，故给足超时后即可退出。
+                Duration pollTimeout = properties.pollTimeout() == null ? DEFAULT_POLL_TIMEOUT : properties.pollTimeout();
+                t.join(pollTimeout.toMillis() + 30_000);
+                if (t.isAlive()) {
+                    log.warn("有序消费 worker 未在超时内退出，销毁阶段关闭消费者可能存在竞态");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         log.info("有序消费容器已停止: 已处理={}, 丢弃旧版本={}", handledCount.sum(), staleCount.sum());
     }

@@ -29,6 +29,9 @@ public enum ReportRange {
         return this == TODAY ? BucketMode.HOUR : BucketMode.DAY;
     }
 
+    /** CUSTOM 范围最大跨度（天）：按天补零的序列点数随跨度线性增长，设上限防止响应体爆炸。 */
+    public static final int MAX_CUSTOM_SPAN_DAYS = 366;
+
     /**
      * 解析为具体时间窗。纯函数：传入 {@code now} 即可确定窗口，无副作用。
      *
@@ -51,6 +54,11 @@ public enum ReportRange {
                 }
                 if (start.isAfter(end)) {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "开始日期不能晚于结束日期");
+                }
+                long spanDays = end.toEpochDay() - start.toEpochDay() + 1;
+                if (spanDays > MAX_CUSTOM_SPAN_DAYS) {
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "自定义时间范围跨度不能超过 " + MAX_CUSTOM_SPAN_DAYS + " 天");
                 }
                 yield new ResolvedWindow(
                         start.atStartOfDay(),

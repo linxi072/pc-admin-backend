@@ -14,7 +14,8 @@ import java.time.ZoneId;
  * <ul>
  *   <li><b>CRON</b>：复用 JobRunr 的 {@link CronExpression#next(Instant, Instant, ZoneId)}，
  *       与调度器使用同一解析器，展示值与真实触发值一致；</li>
- *   <li><b>SIMPLE</b>：以上次触发时间为基准叠加间隔（从未触发则以当前时间为基准）；</li>
+ *   <li><b>SIMPLE</b>：以「上次触发时间与当前时间的较晚者」为基准叠加间隔
+ *       （从未触发、或上次触发已过去较久——如暂停后重启——则以当前时间为基准）；</li>
  *   <li><b>ONE_TIME</b>：返回尚未到达的执行时间；已到达（或已执行）返回 {@code null}；</li>
  *   <li>任何无法计算的情形（如 cron 非法、参数缺失）统一返回 {@code null}，由前端展示为「—」，
  *       不抛出异常影响列表渲染。</li>
@@ -69,7 +70,9 @@ public final class JobNextFire {
             return null;
         }
         Duration interval = unit.toDuration(intervalValue);
-        Instant base = lastFireTime != null ? lastFireTime : now;
+        // 基准取 lastFireTime 与 now 的较晚者：任务暂停较久后重启时，lastFireTime + interval
+        // 可能早已过去，直接展示会得到一个「已过去的下次执行时间」
+        Instant base = (lastFireTime != null && lastFireTime.isAfter(now)) ? lastFireTime : now;
         return base.plus(interval);
     }
 

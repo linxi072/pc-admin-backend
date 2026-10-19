@@ -17,6 +17,10 @@ public record GenOption(String tableName, String moduleName, String functionName
 
     private static final java.util.regex.Pattern MODULE = java.util.regex.Pattern.compile("[a-z][a-z0-9-]*");
 
+    /** 实体类名：仅允许字母/数字/下划线且以字母开头——该值将拼入 zip 条目路径，必须防目录穿越（Zip Slip）。 */
+    private static final java.util.regex.Pattern CLASS_NAME =
+            java.util.regex.Pattern.compile("[A-Za-z][A-Za-z0-9_]*");
+
     public GenOption {
         if (tableName == null || tableName.isBlank()) {
             throw new IllegalArgumentException("tableName 不能为空");
@@ -26,6 +30,9 @@ public record GenOption(String tableName, String moduleName, String functionName
         }
         if (!MODULE.matcher(moduleName.trim()).matches()) {
             throw new IllegalArgumentException("moduleName 仅允许小写字母/数字/连字符且以字母开头: " + moduleName);
+        }
+        if (className != null && !className.isBlank() && !CLASS_NAME.matcher(className.trim()).matches()) {
+            throw new IllegalArgumentException("className 仅允许字母/数字/下划线且以字母开头: " + className);
         }
     }
 }

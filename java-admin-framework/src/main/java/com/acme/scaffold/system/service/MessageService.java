@@ -281,31 +281,47 @@ public class MessageService {
                 .execute();
     }
 
-    /** 一键全部已读。 */
+    /**
+     * 一键全部已读。
+     *
+     * <p>聚合更新：回执表单条语句批量置已读；各消息的 read_count 用单条 CASE 语句按本次
+     * 回执数累加。早期实现为逐回执 2N 条 UPDATE（N=未读数），千条未读即两千次写往返，
+     * 已在本次测试中定位并修复。</p>
+     */
     @Transactional
     public int markAllRead() {
         Long userId = requireCurrentUserId();
-        List<SysMessageReceiptDO> unread = JooqWriters.fetchList(dsl, JooqTables.SYS_MESSAGE_RECEIPT,
-                SysMessageReceiptDO.class,
-                DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(0)));
-        if (unread.isEmpty()) {
+        Map<Long, Long> perMessage = JooqWriters.fetchList(dsl, JooqTables.SYS_MESSAGE_RECEIPT,
+                        SysMessageReceiptDO.class,
+                        DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId),
+                                JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(0)))
+                .stream()
+                .filter(r -> r.getMessageId() != null)
+                .collect(Collectors.groupingBy(SysMessageReceiptDO::getMessageId, Collectors.counting()));
+        if (perMessage.isEmpty()) {
             return 0;
         }
         LocalDateTime now = LocalDateTime.now();
-        for (SysMessageReceiptDO r : unread) {
-            dsl.update(JooqTables.SYS_MESSAGE_RECEIPT.table())
-                    .set(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class), 1)
-                    .set(JooqTables.SYS_MESSAGE_RECEIPT.field("read_at", LocalDateTime.class), now)
-                    .where(JooqTables.SYS_MESSAGE_RECEIPT.field("id", Long.class).eq(r.getId()))
-                    .execute();
-            dsl.update(JooqTables.SYS_MESSAGE.table())
-                    .set(JooqTables.SYS_MESSAGE.field("read_count", Integer.class),
-                            JooqTables.SYS_MESSAGE.field("read_count", Integer.class).plus(1))
-                    .where(JooqTables.SYS_MESSAGE.field("id", Long.class).eq(r.getMessageId()))
-                    .execute();
+        // 1) 回执批量置已读（单条语句）
+        dsl.update(JooqTables.SYS_MESSAGE_RECEIPT.table())
+                .set(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class), 1)
+                .set(JooqTables.SYS_MESSAGE_RECEIPT.field("read_at", LocalDateTime.class), now)
+                .where(JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId))
+                .and(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(0))
+                .execute();
+        // 2) 各消息已读数按本次回执数累加（单条 CASE 语句，替代逐消息 UPDATE）
+        var msgId = JooqTables.SYS_MESSAGE.field("id", Long.class);
+        var readCount = JooqTables.SYS_MESSAGE.field("read_count", Integer.class);
+        org.jooq.CaseConditionStep<Integer> step = null;
+        for (Map.Entry<Long, Long> e : perMessage.entrySet()) {
+            step = (step == null ? DSL.when(msgId.eq(e.getKey()), e.getValue().intValue())
+                    : step.when(msgId.eq(e.getKey()), e.getValue().intValue()));
         }
-        return unread.size();
+        dsl.update(JooqTables.SYS_MESSAGE.table())
+                .set(readCount, step.otherwise(readCount))
+                .where(msgId.in(perMessage.keySet()))
+                .execute();
+        return perMessage.values().stream().mapToInt(Long::intValue).sum();
     }
 
     // ------------------------------------------------------------------
