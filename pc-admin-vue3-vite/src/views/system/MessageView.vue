@@ -111,46 +111,90 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 发送弹窗：单条 / 批量 -->
-    <el-dialog v-model="sendVisible" title="发送站内信" width="640px">
+    <!-- 发送弹窗：渠道（站内信 / 邮件 / 短信）× 单条 / 批量 -->
+    <el-dialog v-model="sendVisible" :title="sendDialogTitle" width="640px">
       <el-form :model="sendForm" :rules="sendRules" ref="sendFormRef" label-width="90px">
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
-        </el-form-item>
-        <el-form-item label="内容" prop="content">
-          <el-input v-model="sendForm.content" type="textarea" :rows="5" />
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-radio-group v-model="sendForm.msgType">
-            <el-radio label="NOTICE">通知</el-radio>
-            <el-radio label="ALERT">告警</el-radio>
-            <el-radio label="SYSTEM">系统</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="发送方式">
-          <el-radio-group v-model="sendMode">
-            <el-radio label="batch">按角色/部门批量</el-radio>
-            <el-radio label="single">指定接收人</el-radio>
+        <el-form-item label="通知渠道">
+          <el-radio-group v-model="sendChannel">
+            <el-radio label="IN_APP">站内信</el-radio>
+            <el-radio label="EMAIL">邮件</el-radio>
+            <el-radio label="SMS">短信</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <template v-if="sendMode === 'batch'">
-          <el-form-item label="按角色">
-            <el-select v-model="sendForm.roleIds" multiple placeholder="选择角色（与部门为或关系）" style="width: 100%">
-              <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
-            </el-select>
+        <!-- 站内信：既有完整形态不变 -->
+        <template v-if="sendChannel === 'IN_APP'">
+          <el-form-item label="标题" prop="title">
+            <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
           </el-form-item>
-          <el-form-item label="按部门">
-            <el-select v-model="sendForm.orgIds" multiple placeholder="选择部门（与角色为或关系）" style="width: 100%">
-              <el-option v-for="o in orgFlatOptions" :key="o.id" :label="o.orgName" :value="o.id" />
+          <el-form-item label="内容" prop="content">
+            <el-input v-model="sendForm.content" type="textarea" :rows="5" />
+          </el-form-item>
+          <el-form-item label="类型">
+            <el-radio-group v-model="sendForm.msgType">
+              <el-radio label="NOTICE">通知</el-radio>
+              <el-radio label="ALERT">告警</el-radio>
+              <el-radio label="SYSTEM">系统</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="发送方式">
+            <el-radio-group v-model="sendMode">
+              <el-radio label="batch">按角色/部门批量</el-radio>
+              <el-radio label="single">指定接收人</el-radio>
+            </el-radio-group>
+          </el-form-item>
+
+          <template v-if="sendMode === 'batch'">
+            <el-form-item label="按角色">
+              <el-select v-model="sendForm.roleIds" multiple placeholder="选择角色（与部门为或关系）" style="width: 100%">
+                <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="按部门">
+              <el-select v-model="sendForm.orgIds" multiple placeholder="选择部门（与角色为或关系）" style="width: 100%">
+                <el-option v-for="o in orgFlatOptions" :key="o.id" :label="o.orgName" :value="o.id" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <el-form-item v-else label="接收人">
+            <el-select v-model="sendForm.receiverIds" multiple filterable placeholder="选择接收人" style="width: 100%">
+              <el-option v-for="u in userOptions" :key="u.id" :label="`${u.displayName}(${u.username})`" :value="u.id" />
             </el-select>
           </el-form-item>
         </template>
-        <el-form-item v-else label="接收人">
-          <el-select v-model="sendForm.receiverIds" multiple filterable placeholder="选择接收人" style="width: 100%">
-            <el-option v-for="u in userOptions" :key="u.id" :label="`${u.displayName}(${u.username})`" :value="u.id" />
-          </el-select>
-        </el-form-item>
+
+        <!-- 邮件：主题 + 正文 + 收件人地址列表 -->
+        <template v-if="sendChannel === 'EMAIL'">
+          <el-form-item label="邮件主题" prop="title">
+            <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item label="邮件正文" prop="content">
+            <el-input v-model="sendForm.content" type="textarea" :rows="5" />
+          </el-form-item>
+          <el-form-item label="收件人" prop="emails">
+            <el-input
+              v-model="sendForm.emails"
+              type="textarea"
+              :rows="3"
+              placeholder="每行一个邮箱，或用逗号 / 分号分隔（单封上限 50）"
+            />
+          </el-form-item>
+        </template>
+
+        <!-- 短信：正文 + 接收手机号列表（无主题；渠道未启用时后端返回校验错误） -->
+        <template v-if="sendChannel === 'SMS'">
+          <el-form-item label="短信内容" prop="content">
+            <el-input v-model="sendForm.content" type="textarea" :rows="4" maxlength="500" show-word-limit />
+          </el-form-item>
+          <el-form-item label="接收手机" prop="mobiles">
+            <el-input
+              v-model="sendForm.mobiles"
+              type="textarea"
+              :rows="3"
+              placeholder="每行一个手机号，或用逗号 / 分号分隔（单次上限 100）"
+            />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="sendVisible = false">取消</el-button>
@@ -173,7 +217,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Promotion, Select } from '@element-plus/icons-vue'
 import {
@@ -184,6 +228,7 @@ import {
   markMessageRead,
   markAllMessagesRead
 } from '@/api/message'
+import { sendNotification } from '@/api/notification'
 
 // 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
 defineProps({ embedded: { type: Boolean, default: false } })
@@ -212,13 +257,27 @@ const sendVisible = ref(false)
 const sending = ref(false)
 const sendFormRef = ref()
 const sendMode = ref('batch')
+// 通知渠道：IN_APP 站内信 / EMAIL 邮件 / SMS 短信（后两者走跨渠道统一端点）
+const sendChannel = ref('IN_APP')
 const sendForm = reactive({
-  title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: []
+  title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: [],
+  emails: '', mobiles: ''
 })
-const sendRules = {
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
-}
+// 短信无主题，标题不作为必填项；其余渠道标题必填
+const sendRules = computed(() =>
+  sendChannel.value === 'SMS'
+    ? { content: [{ required: true, message: '请输入短信内容', trigger: 'blur' }] }
+    : {
+        title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+        content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
+      }
+)
+const sendDialogTitle = computed(
+  () => ({ IN_APP: '发送站内信', EMAIL: '发送邮件', SMS: '发送短信' }[sendChannel.value])
+)
+// 列表型文本域拆分：逗号 / 分号 / 换行分隔，trim 去空项
+const splitList = (text) =>
+  (text || '').split(/[,;，；\n]/).map((s) => s.trim()).filter((s) => s.length > 0)
 
 const detailVisible = ref(false)
 const current = ref(null)
@@ -346,18 +405,63 @@ async function loadOptions() {
 
 function openSend() {
   Object.assign(sendForm, {
-    title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: []
+    title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: [],
+    emails: '', mobiles: ''
   })
   sendMode.value = 'batch'
+  sendChannel.value = 'IN_APP'
   sendVisible.value = true
   sendFormRef.value?.clearValidate()
   loadOptions()
+}
+
+/** 邮件 / 短信渠道：走跨渠道统一端点，目标列表由文本域拆分。 */
+async function sendViaNotification() {
+  if (sendChannel.value === 'EMAIL') {
+    const emails = splitList(sendForm.emails)
+    if (emails.length === 0) {
+      ElMessage.warning('请至少填写一个收件人邮箱')
+      return
+    }
+    const res = await sendNotification({
+      channel: 'EMAIL', title: sendForm.title, content: sendForm.content,
+      msgType: sendForm.msgType, emails
+    })
+    ElMessage.success(`已发送给 ${res?.delivered ?? 0} 个邮箱地址`)
+    return
+  }
+  const mobiles = splitList(sendForm.mobiles)
+  if (mobiles.length === 0) {
+    ElMessage.warning('请至少填写一个接收手机号')
+    return
+  }
+  const res = await sendNotification({
+    // 短信无主题：title 仅作审计标识（后端不随短信发送），取内容前缀便于审计识别
+    channel: 'SMS', title: sendForm.content.slice(0, 50) || '短信通知',
+    content: sendForm.content, mobiles
+  })
+  ElMessage.success(`已发送给 ${res?.delivered ?? 0} 个手机号`)
 }
 
 async function onSend() {
   // 校验失败时 validate() 会 reject，须捕获避免 Uncaught (in promise)
   const valid = await sendFormRef.value.validate().catch(() => false)
   if (!valid) return
+
+  // 邮件 / 短信渠道分支：目标校验与调用均不同于站内信
+  if (sendChannel.value !== 'IN_APP') {
+    sending.value = true
+    try {
+      await sendViaNotification()
+      sendVisible.value = false
+    } catch (e) {
+      // 拦截器已提示；保持弹窗开启便于修正后重发
+    } finally {
+      sending.value = false
+    }
+    return
+  }
+
   // 校验：批量模式至少选一个角色或部门；单条模式至少选一个接收人
   if (sendMode.value === 'batch' && sendForm.roleIds.length === 0 && sendForm.orgIds.length === 0) {
     ElMessage.warning('请至少选择一个角色或一个部门')
