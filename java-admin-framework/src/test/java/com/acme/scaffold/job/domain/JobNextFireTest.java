@@ -55,11 +55,22 @@ class JobNextFireTest {
     // ---------------- SIMPLE ----------------
 
     @Test
-    void simpleFromLastFireAddsInterval() {
+    void simpleWithFutureLastFireAddsInterval() {
+        // 上次触发时间晚于当前时刻（理论上的时钟/录入场景）：保留原 cadence
+        Instant lastFire = Instant.parse("2026-10-11T10:40:00Z");
+        Instant next = JobNextFire.compute(JobTriggerType.SIMPLE, null, 5, JobIntervalUnit.MINUTES,
+                null, lastFire, NOW, ZoneOffset.UTC);
+        assertEquals(Instant.parse("2026-10-11T10:45:00Z"), next);
+    }
+
+    @Test
+    void simpleWithPastLastFireUsesNow() {
+        // 暂停较久后重启：lastFireTime + interval 已过去，基准改为当前时刻，
+        // 展示的「下次执行时间」与 JobRunr 实际（自 now 起每 interval 触发）一致
         Instant lastFire = Instant.parse("2026-10-11T10:00:00Z");
         Instant next = JobNextFire.compute(JobTriggerType.SIMPLE, null, 5, JobIntervalUnit.MINUTES,
                 null, lastFire, NOW, ZoneOffset.UTC);
-        assertEquals(Instant.parse("2026-10-11T10:05:00Z"), next);
+        assertEquals(Instant.parse("2026-10-11T10:35:00Z"), next);
     }
 
     @Test

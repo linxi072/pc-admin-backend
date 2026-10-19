@@ -64,6 +64,25 @@ class ReportRangeTest {
     }
 
     @Test
+    void custom_spanAtMaxIsAccepted() {
+        // 恰好 366 天（2025-10-15 ~ 2026-10-15）为合法上限
+        LocalDate start = LocalDate.of(2025, 10, 15);
+        LocalDate end = LocalDate.of(2026, 10, 15);
+        ReportRange.ResolvedWindow w = ReportRange.CUSTOM.resolve(FIXED_NOW, start, end);
+        assertEquals(start.atStartOfDay(), w.from());
+    }
+
+    @Test
+    void custom_spanOverMax_throws() {
+        // 367 天：按天补零会生成 367 个序列点，超出上限直接拒绝，防止响应体爆炸
+        LocalDate start = LocalDate.of(2025, 10, 14);
+        LocalDate end = LocalDate.of(2026, 10, 15);
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> ReportRange.CUSTOM.resolve(FIXED_NOW, start, end));
+        assertTrue(ex.getMessage().contains("跨度"));
+    }
+
+    @Test
     void nonCustom_ignoresStartEndArguments() {
         // LAST_7D 不依赖传入的 start/end，不应抛错
         ReportRange.ResolvedWindow w = ReportRange.LAST_7D.resolve(FIXED_NOW,
