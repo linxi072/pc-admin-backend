@@ -11,10 +11,10 @@
 
 | 维度 | 说明 |
 | --- | --- |
-| 被测对象 | 4 大核心用户路径：认证授权、系统参数、用户管理、工作流任务 |
+| 被测对象 | 5 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理 |
 | 测试形态 | Standalone `MockMvc` 装配**真实** `Controller` + **真实** `GlobalExceptionHandler` + **真实** `I18nService`；服务层以 Mockito 桩接，**无需 MySQL** |
 | 覆盖目标 | 正常流程 + 异常/边界（参数校验失败、业务异常、HTTP 状态与 `Result` 包络映射） |
-| 用例总量 | 30 例，分 4 个 `@Nested` 类，全部离线可跑、全绿 |
+| 用例总量 | 36 例，分 5 个测试类（4 个 `@Nested` + `RealtimeE2eTest`），全部离线可跑、全绿 |
 | 不覆盖 | 需本机 MySQL 的真实事务/多表联动，由 `*IT` 集成测试在 CI/本机执行（见报告 §4） |
 
 ### 优先级约定
@@ -93,7 +93,20 @@
 
 ---
 
-## 6. 全局异常与错误码映射（统一断言基线）
+## 6. 实时推送管理模块（RealtimeE2e，6 例）
+
+| 编号 | 标题 | 优先级 | 类型 | 前置条件 | 测试步骤 | 预期结果 |
+| --- | --- | --- | --- | --- | --- | --- |
+| RT-01 | 在线会话列表 | P1 | 正常 | `adminService.listSessions()` 桩返回 2 条会话视图 | 1. `GET /api/realtime/sessions` | HTTP 200；`code="0"`；`data[0].userId=1`、`data[0].sessionCount=2` |
+| RT-02 | 在线会话总数 | P1 | 正常 | `adminService.onlineCount()` 桩返回 3 | 1. `GET /api/realtime/online-count` | HTTP 200；`code="0"`；`data=3` |
+| RT-03 | 广播推送成功 | P0 | 正常 | `adminService.broadcast(...)` 桩返回 `RealtimePushResultView(4)` | 1. `POST /api/realtime/push/broadcast` 带 `{type,payload}` | HTTP 200；`code="0"`；`data.delivered=4` |
+| RT-04 | 广播缺 type | P0 | 边界 | 无 | 1. `POST /api/realtime/push/broadcast` 带空 `type` | HTTP 400；`code="COMMON_001"` |
+| RT-05 | 定向推送成功 | P0 | 正常 | `adminService.pushToUsers(...)` 桩返回 `RealtimePushResultView(2)` | 1. `POST /api/realtime/push/user` 带 `userIds`/`type` | HTTP 200；`code="0"`；`data.delivered=2` |
+| RT-06 | 定向推送 userIds 为空 | P0 | 边界 | 无 | 1. `POST /api/realtime/push/user` 带空 `userIds` | HTTP 400；`code="COMMON_001"` |
+
+**关键交互时序**：见 [sequence-diagrams.html#sd5](./sequence-diagrams.html)（SD-05 实时推送管理）。
+
+## 7. 全局异常与错误码映射（统一断言基线）
 
 所有模块共享 `GlobalExceptionHandler` 的错误码映射（测试中以 `Result.code` 断言）：
 
@@ -111,7 +124,7 @@
 
 ---
 
-## 7. 用例与测试代码映射
+## 8. 用例与测试代码映射
 
 | 测试类（@Nested） | 方法数 | 覆盖用例 |
 | --- | --- | --- |
@@ -119,5 +132,6 @@
 | `CoreApiE2eTest.ConfigE2e` | 7 | CFG-01 ~ CFG-07 |
 | `CoreApiE2eTest.UserE2e` | 9 | USR-01 ~ USR-09 |
 | `CoreApiE2eTest.WorkflowE2e` | 5 | WF-01 ~ WF-05 |
+| `RealtimeE2eTest` | 6 | RT-01 ~ RT-06 |
 
 > 每个 `@Test` 方法断言三要素：**HTTP 状态**、**`Result.code` 业务错误码**、**`Result.data` 形态/空值**，并覆盖 i18n 消息键解析。
