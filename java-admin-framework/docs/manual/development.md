@@ -2111,4 +2111,14 @@ npm run preview  # 预览构建产物
 - **查询能力**：分页（`page`/`size`，钳制同 `PageQuery`）+ 筛选（`mobile` LIKE / `status` / `provider` / 时间范围闭区间）+ 排序方向白名单（`ASC/DESC`，非法值回退 `DESC`，防注入）；`GET /summary` 返回总数/成功/失败/失败率/最近发送时间，失败率按百分数保留两位（0~100，总数 0 时 0.00）。
 - **统计口径**：失败率 = failure/total（非 success 口径），分母为 0 时返回 0.00 而非 NaN——`SmsRecordRules.failureRate` 为纯函数，离线可测。
 
+### Bean Validation 校验消息键化（开发者）
+
+- **目的**：将 DTO 约束注解的 `message` 从硬编码中文改为资源束键，交由 Spring `MessageSource` 按当前线程 `Locale` 插值，统一支撑中/英等多语言校验提示，杜绝散落各 DTO 的硬编码文案（原 17 个 DTO、56 处硬编码提示已全量键化）。
+- **机制**：`common/i18n/ValidationMessageConfig` 声明 `LocalValidatorFactoryBean`，经 `setValidationMessageSource(messageSource)` 将 Hibernate Validator 的插值器委托给应用级 `MessageSource`（基名含 `i18n/validation`，与 `I18nConfig` 同一套）；插值发生在 `ConstraintViolation#getMessage()`，故 `GlobalExceptionHandler` 透出的即本地化文本，**异常处理零改动**。
+- **键引用方式（必须花括号）**：`message = "{validation.<键>}"`——Hibernate 仅在 `{}` 包裹时才按资源束键查找，遗漏花括号会被当作字面量原样返回（常见坑）。通用约束（用户名/密码/标题/内容）不带域前缀以便跨 DTO 复用；域特有约束用 `validation.<域>.<字段>[.<约束>]`（如 `validation.dataScope.code.size`）。
+- **键存放位置**：`src/main/resources/i18n/validation.properties`（兜底，内容与 `_zh_CN` 一致）/ `validation_zh_CN.properties` / `validation_en_US.properties`，三件套键集必须一致、值不得为空。`ValidationMessageBundleConsistencyTest` 守护「代码引用键 ⊆ 三束键集」与「zh/en 键集对称」，漏配任一语言束测试即失败。
+- **新增一个键化消息四步**：① DTO 字段加 `@NotBlank(message = "{validation.xxx}")` 等；② 在 `validation.properties` / `_zh_CN` / `_en_US` 三文件各加同一键（中文默认 + 英文翻译）；③ 运行 `mvn -o test -Dtest=ValidationMessageBundleConsistencyTest` 自检键齐套；④ 如需断言，参考 `ValidationMessageInterpolatorTest` 经最小 Spring 上下文验证插值与嵌套传播。
+- **本地化切换**：同 `i18n` 体系——运行时由 `SessionLocaleResolver` + `LocaleChangeInterceptor`（`?lang=xx`）写入 `LocaleContextHolder`，校验插值自动跟随；语言未命中专属束时回退 `validation.properties` 兜底（不抛 `MissingResourceException`）。
+- **缺失键行为**：键在资源束中不存在时，Hibernate 返回带花括号的原始模板 `{validation.xxx}`（不抛异常），前端可据此识别漏配键；不要依赖该行为做正常文案。
+
 **QA 业务测试（V28，QA报告）**：6 项缺陷全部闭环——D-5（P0）七个权限码未授 SUPER_ADMIN；D-2（P1）手机/邮箱唯一性无预校验；D-4（P1）删除角色残留孤儿 user_role 行；D-6（P1）void 方法幂等重放必 409；D-1（P2）用户状态无白名单；D-3（P2）公告重发布不清 offline_at；并固化多轮回归测试。
