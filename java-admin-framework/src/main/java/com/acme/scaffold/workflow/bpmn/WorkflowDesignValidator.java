@@ -37,10 +37,7 @@ public final class WorkflowDesignValidator {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "连线不能为 null");
         }
 
-        Map<String, WorkflowNodeDTO> byId = nodes.stream()
-                .collect(Collectors.toMap(WorkflowNodeDTO::id, Function.identity(), (a, b) -> a));
-
-        // 节点 id 唯一且合法
+        // 节点 id 唯一且合法（必须先于 toMap：null id 会先抛 NPE 而非友好 400）
         Set<String> seen = new HashSet<>();
         for (WorkflowNodeDTO n : nodes) {
             if (n.id() == null || !n.id().matches("[A-Za-z][A-Za-z0-9_]*")) {
@@ -51,6 +48,9 @@ public final class WorkflowDesignValidator {
                 throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "节点 id 重复: " + n.id());
             }
         }
+
+        Map<String, WorkflowNodeDTO> byId = nodes.stream()
+                .collect(Collectors.toMap(WorkflowNodeDTO::id, Function.identity(), (a, b) -> a));
 
         long startCount = nodes.stream().filter(n -> n.type() == WorkflowNodeType.START).count();
         long endCount = nodes.stream().filter(n -> n.type() == WorkflowNodeType.END).count();
@@ -84,6 +84,24 @@ public final class WorkflowDesignValidator {
         // 每个 GATEWAY 的多出边：除至多一条默认边外，其余必须有条件表达式
         Map<String, Long> outDegree = edges.stream()
                 .collect(Collectors.groupingBy(WorkflowEdgeDTO::sourceNodeId, Collectors.counting()));
+        // 非条件分支节点（非 GATEWAY 非 END）默认只能有一条出边：多出口在运行时无选择依据，
+        // 生成无条件分叉，审批完成即同时激活多个下游，实例行为不可预期。
+        // 例外：带驳回策略（rejectPolicy != NONE）的审批节点——构建器会自动插入驳回网关
+        // （<id>_rejectgw）并把出边改接到该网关，多出口由其条件驱动。
+        for (WorkflowEdgeDTO e : edges) {
+            WorkflowNodeDTO src = byId.get(e.sourceNodeId());
+            if (src.type() == WorkflowNodeType.GATEWAY || src.type() == WorkflowNodeType.END) {
+                continue;
+            }
+            if (src.type() == WorkflowNodeType.APPROVAL
+                    && !"NONE".equalsIgnoreCase(src.rejectPolicy() == null ? "NONE" : src.rejectPolicy())) {
+                continue;
+            }
+            if (outDegree.getOrDefault(e.sourceNodeId(), 0L) > 1) {
+                throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                        "非条件分支节点只能有一条出边（多出口无法确定流转路径）: " + e.sourceNodeId());
+            }
+        }
         for (WorkflowEdgeDTO e : edges) {
             WorkflowNodeDTO src = byId.get(e.sourceNodeId());
             if (src.type() == WorkflowNodeType.GATEWAY && outDegree.getOrDefault(e.sourceNodeId(), 0L) > 1) {

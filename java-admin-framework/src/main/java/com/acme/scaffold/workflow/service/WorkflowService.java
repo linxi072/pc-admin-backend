@@ -31,6 +31,8 @@ import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -104,9 +106,21 @@ public class WorkflowService {
                 .distinct()
                 .toList();
         if (!todoAssignees.isEmpty()) {
-            realtimePushService.sendToUsers(todoAssignees, RealtimePushService.TYPE_TODO_REMINDER,
-                    Map.of("businessId", request.businessId(), "title", request.title(),
-                            "processKey", request.processKey(), "instanceId", instance.processInstanceId()));
+            Map<String, Object> todoPayload = Map.of("businessId", request.businessId(), "title", request.title(),
+                    "processKey", request.processKey(), "instanceId", instance.processInstanceId());
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                // 事务提交后再推送：① 回滚时审批人不会收到「假待办」；② 不在持连接期间做网络 IO 拉长事务
+                // （与 AuditLogServiceImpl 的 afterCommit 模式一致）
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        realtimePushService.sendToUsers(todoAssignees, RealtimePushService.TYPE_TODO_REMINDER,
+                                todoPayload);
+                    }
+                });
+            } else {
+                realtimePushService.sendToUsers(todoAssignees, RealtimePushService.TYPE_TODO_REMINDER, todoPayload);
+            }
         }
         return instance.processInstanceId();
     }

@@ -31,13 +31,13 @@ public class RealtimeSessionManager {
         if (userId == null) {
             return;
         }
-        Set<WebSocketSession> sessions = userSessions.get(userId);
-        if (sessions != null) {
+        // 与 register 的 computeIfAbsent 互斥成交替原子：杜绝「删旧会话」的 get→remove→remove(key)
+        // 与「加新会话」的 computeIfAbsent→add 交错时，把刚注册的新会话连同空 Set 一并删掉
+        // （该新会话将永不收到推送且永远无法被清理）
+        userSessions.computeIfPresent(userId, (k, sessions) -> {
             sessions.remove(session);
-            if (sessions.isEmpty()) {
-                userSessions.remove(userId);
-            }
-        }
+            return sessions.isEmpty() ? null : sessions;
+        });
     }
 
     /** 向指定用户的所有在线会话推送文本，返回成功发送数。 */

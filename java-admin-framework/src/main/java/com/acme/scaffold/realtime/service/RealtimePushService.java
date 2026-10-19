@@ -32,14 +32,18 @@ public class RealtimePushService {
         this.objectMapper = objectMapper;
     }
 
-    /** 向单个用户推送，返回成功触达的会话数（0 表示用户离线）。 */
+    /** 向单个用户推送，返回成功触达的会话数（0 表示用户离线或序列化失败）。 */
     public int sendToUser(Long userId, String type, Object payload) {
-        return sessionManager.sendToUser(userId, toJson(type, payload));
+        String json = toJson(type, payload);
+        return json == null ? 0 : sessionManager.sendToUser(userId, json);
     }
 
     /** 向多个用户批量推送。 */
     public int sendToUsers(Collection<Long> userIds, String type, Object payload) {
         String json = toJson(type, payload);
+        if (json == null) {
+            return 0;
+        }
         int total = 0;
         for (Long userId : userIds) {
             total += sessionManager.sendToUser(userId, json);
@@ -49,15 +53,17 @@ public class RealtimePushService {
 
     /** 向所有在线会话广播。 */
     public int broadcast(String type, Object payload) {
-        return sessionManager.sendToAll(toJson(type, payload));
+        String json = toJson(type, payload);
+        return json == null ? 0 : sessionManager.sendToAll(json);
     }
 
+    /** 序列化失败返回 {@code null}（而非空串）：由调用方放弃发送，避免客户端收到空负载而计数虚高。 */
     private String toJson(String type, Object payload) {
         try {
             return objectMapper.writeValueAsString(RealtimeMessage.of(type, payload));
         } catch (JsonProcessingException e) {
-            log.error("实时消息序列化失败 type={}", type, e);
-            return "";
+            log.error("实时消息序列化失败 type={}，本次推送放弃", type, e);
+            return null;
         }
     }
 }
