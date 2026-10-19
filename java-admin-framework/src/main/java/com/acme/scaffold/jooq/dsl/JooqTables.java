@@ -190,6 +190,17 @@ public final class JooqTables {
             "id", "tenant_id", "job_id", "job_name", "task_key", "trigger_type", "fire_time",
             "finished_time", "duration_ms", "status", "error_message", "trace_id", "created_at");
 
+    // ---------------- 短信发送记录（V37） ----------------
+
+    /**
+     * 短信发送记录表（列名与 V37__sms_record.sql 严格一致）。无 deleted 列：记录即审计，永久留存。
+     * 手机号列存掩码值（{@code 138****8000}），正文列存摘要，避免 PII 明文落库。
+     */
+    public static final TableRef SYS_SMS_RECORD = new TableRef("sys_sms_record",
+            "id", "tenant_id", "batch_no", "mobiles_masked", "mobile_count", "content_summary",
+            "provider", "status", "error_message", "operator_id", "operator_name",
+            "trace_id", "sent_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",
