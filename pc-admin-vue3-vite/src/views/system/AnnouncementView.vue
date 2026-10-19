@@ -140,7 +140,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="onSubmit">保存为草稿</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">保存为草稿</el-button>
       </template>
     </el-dialog>
 
@@ -168,7 +168,7 @@
       </el-form>
       <template #footer>
         <el-button @click="publishVisible = false">取消</el-button>
-        <el-button type="primary" @click="onPublish">确认发布</el-button>
+        <el-button type="primary" :loading="publishing" @click="onPublish">确认发布</el-button>
       </template>
     </el-dialog>
 
@@ -208,6 +208,9 @@ import { statusTag } from '@/utils/status'
 defineProps({ embedded: { type: Boolean, default: false } })
 
 const loading = ref(false)
+// 提交防重：与 UserView/JobListView 同款写法，避免慢网络下重复创建/重复发布
+const saving = ref(false)
+const publishing = ref(false)
 const list = ref([])
 const total = ref(0)
 // 默认每页条数统一为 10（与其他列表页一致）
@@ -299,6 +302,8 @@ async function onSubmit() {
     publishAt: form.publishAt,
     expireAt: form.expireAt
   }
+  // 按钮 loading 防重：慢网络下重复点击曾创建出多条相同草稿/重复发布请求
+  saving.value = true
   try {
     if (editingId.value !== null) {
       await updateAnnouncement(editingId.value, body)
@@ -311,6 +316,8 @@ async function onSubmit() {
     load()
   } catch (e) {
     // 拦截器已提示；保持对话框开启便于就地修正
+  } finally {
+    saving.value = false
   }
 }
 
@@ -322,6 +329,7 @@ function openPublish(row) {
 }
 
 async function onPublish() {
+  publishing.value = true
   try {
     await publishAnnouncement(publishTarget.value.id, {
       publishAt: publishForm.publishAt || undefined,
@@ -332,6 +340,8 @@ async function onPublish() {
     load()
   } catch (e) {
     // 拦截器已提示
+  } finally {
+    publishing.value = false
   }
 }
 

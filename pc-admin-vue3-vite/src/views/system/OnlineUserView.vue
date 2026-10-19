@@ -300,8 +300,10 @@ const rQuery = reactive({ page: 1, size: 10, username: '', status: '' })
 const refreshInterval = ref(0)
 let refreshTimer = null
 
-// 当前设备标识（与 http.js 的 X-Device-Id 同源）：用于标记「本机」会话并在批量下线时警示
-const currentDeviceId = localStorage.getItem('pc_admin_device_id') || ''
+// 当前设备标识（与 http.js 的 X-Device-Id 同源）：用于标记「本机」会话并在批量下线时警示。
+// 用 getter 惰性读取——该 key 由 http.js 在首个请求发出时才生成，setup 阶段同步读取
+// 在首访（无历史 ID）时会取到空串，导致「本机」标记与自查警示失效
+const currentDeviceId = () => localStorage.getItem('pc_admin_device_id') || ''
 
 // 限制登录弹窗
 const restrictVisible = ref(false)
@@ -333,7 +335,7 @@ function durationLabel(minutes) {
 }
 
 function isCurrentDevice(row) {
-  return !!currentDeviceId && row.deviceId === currentDeviceId
+  return !!currentDeviceId() && row.deviceId === currentDeviceId()
 }
 
 // ------------------------------------------------------------------

@@ -137,7 +137,7 @@ const route = useRoute()
 const router = useRouter()
 const formRef = ref()
 const loading = ref(false)
-const form = reactive({ username: 'admin', password: 'admin123', captchaAnswer: '' })
+const form = reactive({ username: '', password: '', captchaAnswer: '' })
 const captcha = reactive({ token: '', question: '' })
 
 const rules = {
@@ -290,8 +290,10 @@ async function onSubmit() {
     // 登录失败（含验证码错误/过期）后刷新验证码，原 token 已单次失效需重置
     await fetchCaptcha()
     // AUTH_014「请修改初始/重置密码后再登录」：被拦用户无自助入口会卡死，
-    // 自动弹出修改密码弹窗并预填用户名，闭合「重置→被拦→改密→登录」环路
-    if (e?.response?.data?.code === 'AUTH_014') {
+    // 自动弹出修改密码弹窗并预填用户名，闭合「重置→被拦→改密→登录」环路。
+    // 双兼容错误形状：http.js 对业务错误（HTTP 200 + code≠0）reject 的是带 code 属性的
+    // Error（无 response 形状），只有 HTTP 层错误才带 response——少判一种形状弹窗就永远不出现
+    if (e?.code === 'AUTH_014' || e?.response?.data?.code === 'AUTH_014') {
       changeDlg.form.username = form.username
       changeDlg.visible = true
     }

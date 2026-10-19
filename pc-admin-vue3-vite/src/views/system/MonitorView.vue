@@ -63,6 +63,12 @@
         </el-col>
       </el-row>
 
+      <!-- 历史趋势：时间范围下拉驱动（修复前 loadSamples 为占位空实现，下拉无任何效果） -->
+      <div class="chart-block" v-loading="sampleLoading">
+        <BaseChart v-if="samples.length" :option="sampleChartOption" height="280px" />
+        <el-empty v-else description="暂无历史采样数据（点击「刷新」可立即采样一次）" :image-size="60" />
+      </div>
+
       <el-descriptions class="runtime-desc" :column="4" border size="small">
         <el-descriptions-item label="JVM">{{ metrics?.jvmName || '--' }}</el-descriptions-item>
         <el-descriptions-item label="Java 版本">{{ metrics?.javaVersion || '--' }}</el-descriptions-item>
@@ -194,13 +200,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
+import BaseChart from '@/components/BaseChart.vue'
 import {
   getServerMetrics,
   getOnlineSummary,
   listOnlineSessions,
+  listMonitorSamples,
   pageErrorLogs,
   triggerMonitorSample
 } from '@/api/monitor'
@@ -218,6 +226,8 @@ const errQuery = reactive({ page: 1, size: 10, keyword: '', sortField: '', sortD
 const range = ref('24')
 const autoRefresh = ref(false)
 const refreshing = ref(false)
+const samples = ref([])
+const sampleLoading = ref(false)
 let timer = null
 
 const pctNum = (v) => (v === null || v === undefined ? 0 : Math.min(100, Number(v)))
@@ -310,9 +320,45 @@ function onErrorSortChange({ prop, order }) {
   loadErrors()
 }
 
-function loadSamples() {
-  // 预留：历史趋势接口（/monitor/samples），如需图表可在此接入
+/**
+ * 历史趋势采样：按「时间范围」下拉的小时数取 [now-hours, now] 窗口。
+ * 后端按 sampled_at 倒序返回，图表按时间正序展示。
+ */
+async function loadSamples() {
+  const hours = Number(range.value) || 24
+  const to = new Date()
+  const from = new Date(to.getTime() - hours * 3600 * 1000)
+  sampleLoading.value = true
+  try {
+    samples.value = (await listMonitorSamples({
+      from: from.toISOString(),
+      to: to.toISOString(),
+      limit: 500
+    })) || []
+  } catch (e) {
+    samples.value = []
+  } finally {
+    sampleLoading.value = false
+  }
 }
+
+/** 趋势图配置：CPU / JVM 内存 / 物理内存三条使用率曲线（0-100%）。 */
+const sampleChartOption = computed(() => {
+  const rows = [...samples.value].reverse()
+  const label = (t) => (t || '').replace('T', ' ').slice(5, 16)
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['CPU %', 'JVM 内存 %', '物理内存 %'], right: 0 },
+    grid: { left: 48, right: 16, top: 36, bottom: 28 },
+    xAxis: { type: 'category', boundaryGap: false, data: rows.map((r) => label(r.sampledAt)) },
+    yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
+    series: [
+      { name: 'CPU %', type: 'line', showSymbol: false, smooth: true, data: rows.map((r) => r.cpuUsage ?? null) },
+      { name: 'JVM 内存 %', type: 'line', showSymbol: false, smooth: true, data: rows.map((r) => r.memoryUsage ?? null) },
+      { name: '物理内存 %', type: 'line', showSymbol: false, smooth: true, data: rows.map((r) => r.systemMemoryUsage ?? null) }
+    ]
+  }
+})
 
 async function refreshAll() {
   refreshing.value = true
@@ -350,6 +396,7 @@ onMounted(() => {
   loadOnline()
   loadSessions()
   loadErrors()
+  loadSamples()
 })
 onBeforeUnmount(() => {
   if (timer) {
@@ -365,6 +412,10 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   padding: 14px 16px;
   margin-bottom: 8px;
+}
+.chart-block {
+  margin: 12px 0 4px;
+  min-height: 60px;
 }
 .metric-label {
   font-size: 13px;

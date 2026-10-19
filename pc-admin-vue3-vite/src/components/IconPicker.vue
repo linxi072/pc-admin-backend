@@ -3,7 +3,7 @@
   <div class="icon-picker">
     <el-input :model-value="displayValue" readonly placeholder="点击选择图标（留空则不显示）" class="icon-trigger">
       <template #prepend>
-        <el-icon v-if="modelValue" class="icon-preview"><component :is="modelValue" /></el-icon>
+        <el-icon v-if="safePreview" class="icon-preview"><component :is="safePreview" /></el-icon>
         <el-icon v-else><Picture /></el-icon>
       </template>
       <template #append>
@@ -45,6 +45,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { Close, Picture, Search } from '@element-plus/icons-vue'
 
 /**
@@ -70,6 +71,16 @@ const query = ref('')
 
 // 展示值：仅回显图标名（输入框只读，真实选择走弹窗）
 const displayValue = computed(() => props.modelValue || '')
+
+/**
+ * 预览图标白名单：与 MenuTree.safeIcon 同一策略——icon 是数据库自由文本
+ * （历史脏数据可能是错名/空串残留），直接 <component :is> 未注册名会触发
+ * Vue 运行时告警且图标静默丢失。仅渲染 Element Plus 图标库真实导出的组件名。
+ */
+const safePreview = computed(() => {
+  const name = props.modelValue
+  return name && Object.prototype.hasOwnProperty.call(ElementPlusIconsVue, name) ? name : null
+})
 
 const GROUPS = [
   {

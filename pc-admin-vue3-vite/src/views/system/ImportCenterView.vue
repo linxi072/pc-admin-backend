@@ -71,9 +71,12 @@
         :type="result.failureCount > 0 ? 'warning' : 'success'"
       >
         <template #title>
-          {{ result.dryRun ? '预检完成' : '导入完成' }}：共 {{ result.totalRows }} 行，
-          成功 {{ result.successCount }} 行，失败 {{ result.failureCount }} 行
-          <span v-if="result.errors.length < result.failureCount">
+          {{ result.dryRun ? '预检完成' : '导入完成' }}：
+          <span v-if="result.totalRows != null">共 {{ result.totalRows }} 行，</span>
+          <span v-if="result.successCount != null">成功 {{ result.successCount }} 行，</span>
+          失败 {{ result.failureCount }} 行
+          <span v-if="result.reportDownloaded">（明细如下，完整报告已下载为 CSV）</span>
+          <span v-else-if="result.errors.length < result.failureCount">
             （下方仅展示前 {{ result.errors.length }} 条失败明细）
           </span>
         </template>
@@ -258,11 +261,71 @@ async function submitWithReport(dryRun) {
     ElMessage.error('导入响应格式异常')
     return true
   }
-  // CSV 失败报告附件：触发下载
+  // CSV 失败报告附件：触发下载，并解析报告内容回填结果区——
+  // 早期该路径直接 return，对话框内的统计与失败明细表完全不展示，用户仅得一条 toast
   const fileName = parseFileName(resp, `导入失败报告-${current.value.displayName}`, 'csv')
   saveBlob(blob, fileName)
-  ElMessage.warning('存在失败行，错误报告已下载；请按报告修复后重新导入')
+  const { errors } = parseImportErrorReport(await blob.text())
+  result.value = {
+    dryRun,
+    totalRows: null,
+    successCount: null,
+    failureCount: errors.length,
+    errors,
+    reportDownloaded: true
+  }
+  ElMessage.warning(`存在失败行（明细 ${errors.length} 条），错误报告已下载；请按报告修复后重新导入`)
   return true
+}
+
+/**
+ * 解析导入失败报告 CSV（表头：数据行号 / 失败原因 / 各模板列）。
+ * 最小 RFC4180 解析：支持引号内逗号/换行/双引号转义；跳过 UTF-8 BOM；
+ * 失败原因去掉后端防公式注入的 ' 前缀。
+ */
+function parseImportErrorReport(text) {
+  const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  const rows = []
+  let row = []
+  let field = ''
+  let inQuotes = false
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') {
+          field += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
+      } else {
+        field += c
+      }
+    } else if (c === '"') {
+      inQuotes = true
+    } else if (c === ',') {
+      row.push(field)
+      field = ''
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && src[i + 1] === '\n') i++
+      row.push(field)
+      field = ''
+      if (row.some((x) => x !== '')) rows.push(row)
+      row = []
+    } else {
+      field += c
+    }
+  }
+  if (field !== '' || row.length) {
+    row.push(field)
+    if (row.some((x) => x !== '')) rows.push(row)
+  }
+  const errors = rows.slice(1).map((r) => ({
+    rowNo: Number(r[0]),
+    message: (r[1] || '').replace(/^'/, '')
+  })).filter((e) => !Number.isNaN(e.rowNo))
+  return { errors }
 }
 
 onMounted(load)

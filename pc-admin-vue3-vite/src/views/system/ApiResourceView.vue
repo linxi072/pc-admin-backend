@@ -287,8 +287,9 @@ const filtered = computed(() => {
   const hm = filters.httpMethod
   return all.value.filter(
     (a) =>
-      (!rn || a.resourceName.toLowerCase().includes(rn)) &&
-      (!pc || a.permissionCode.toLowerCase().includes(pc)) &&
+      // 历史脏数据可能缺 resourceName/permissionCode，空值兜底避免整表 computed 抛错白板
+      (!rn || (a.resourceName || '').toLowerCase().includes(rn)) &&
+      (!pc || (a.permissionCode || '').toLowerCase().includes(pc)) &&
       (!hm || a.httpMethod === hm)
   )
 })

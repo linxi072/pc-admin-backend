@@ -479,11 +479,32 @@ async function onSaveScope() {
     })
     ElMessage.success('数据权限已保存')
     scopeVisible.value = false
-    scopeMap.value = { ...scopeMap.value, [scopeForm.roleId]: scopeForm.scopeType }
+    // 保存后按加载同口径刷新该角色概览标签：早期直接回写 scopeForm.scopeType（枚举值），
+    // 列表会把 "CUSTOM"/"ALL" 原文当文案渲染，且单资源保存会覆盖掉多资源 joined 标签
+    await refreshScopeSummary(scopeForm.roleId)
   } catch (e) {
     /* 拦截器已统一提示 */
   } finally {
     scopeSaving.value = false
+  }
+}
+
+/** 按与 {@link loadScopeSummaries} 完全相同的口径刷新单个角色的数据权限概览标签。 */
+async function refreshScopeSummary(roleId) {
+  try {
+    const rules = await listRoleDataScopes(roleId)
+    const labels = rules
+      .map((x) => SUPPORTED_RESOURCES.find((s) => s.code === x.resourceCode)?.label)
+      .filter(Boolean)
+    if (labels.length) {
+      scopeMap.value = { ...scopeMap.value, [roleId]: labels.join('、') }
+    } else {
+      const next = { ...scopeMap.value }
+      delete next[roleId]
+      scopeMap.value = next
+    }
+  } catch (e) {
+    /* 刷新失败时列表保留旧标签，不阻塞保存成功提示 */
   }
 }
 

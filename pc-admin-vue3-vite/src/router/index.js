@@ -245,12 +245,16 @@ function collectAuthorizedPaths(menus) {
 }
 
 router.beforeEach((to) => {
-  if (to.meta.public) return true
+  // 登录页对已登录用户不可达（直接重定向工作台）：public 分支需先处理该特例，
+  // 否则下方 login 判断因 public 提前放行而成为死代码
+  if (to.meta.public) {
+    if (to.name === 'login' && isAuthenticated()) {
+      return { name: 'dashboard' }
+    }
+    return true
+  }
   if (!isAuthenticated()) {
     return { name: 'login', query: { redirect: to.fullPath } }
-  }
-  if (to.name === 'login' && isAuthenticated()) {
-    return { name: 'dashboard' }
   }
   // 动态菜单范围鉴权：菜单尚未加载（首屏/刷新瞬间）时放行，避免误拦截；
   // 菜单加载完成后，凡不在用户菜单树中的受保护路由，视为未授权，重定向到工作台。

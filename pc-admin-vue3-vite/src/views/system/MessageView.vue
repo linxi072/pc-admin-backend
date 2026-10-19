@@ -154,7 +154,7 @@
       </el-form>
       <template #footer>
         <el-button @click="sendVisible = false">取消</el-button>
-        <el-button type="primary" @click="onSend">发送</el-button>
+        <el-button type="primary" :loading="sending" @click="onSend">发送</el-button>
       </template>
     </el-dialog>
 
@@ -208,6 +208,8 @@ const sentTotal = ref(0)
 const sentQuery = reactive({ page: 1, size: 10 })
 
 const sendVisible = ref(false)
+// 发送防重：与公告页同款 loading 绑定
+const sending = ref(false)
 const sendFormRef = ref()
 const sendMode = ref('batch')
 const sendForm = reactive({
@@ -373,6 +375,8 @@ async function onSend() {
       : { title: sendForm.title, content: sendForm.content, msgType: sendForm.msgType,
           receiverIds: sendForm.receiverIds }
 
+  // 按钮 loading 防重：慢网络下重复点击曾重复发送同一条站内信
+  sending.value = true
   try {
     const res = await sendMessage(body)
     ElMessage.success(`已发送给 ${res?.receiverCount ?? 0} 人`)
@@ -381,6 +385,8 @@ async function onSend() {
     loadSent()
   } catch (e) {
     // 拦截器已提示；保持弹窗开启便于修正后重发
+  } finally {
+    sending.value = false
   }
 }
 

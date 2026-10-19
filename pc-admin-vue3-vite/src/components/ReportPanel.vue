@@ -115,6 +115,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import BaseChart from '@/components/BaseChart.vue'
+import { parseFileName } from '@/utils/download'
 import { reportData, reportExport } from '@/api/report'
 
 /**
@@ -351,10 +352,8 @@ async function download() {
       error.value = msg
       return
     }
-    const cd = resp.headers?.['content-disposition'] || resp.headers?.contentDisposition || ''
-    let filename = '报表管理.csv'
-    const m = /filename="?([^"]+)"?/.exec(cd)
-    if (m) filename = decodeURIComponent(m[1])
+    // 复用 utils/download 的 parseFileName（支持 RFC 5987 filename*，中文报表名不回退硬编码名）
+    const filename = parseFileName(resp, '报表管理', 'csv')
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
