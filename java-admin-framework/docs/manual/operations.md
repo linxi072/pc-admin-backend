@@ -600,7 +600,12 @@ prod 环境变量已由单库 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 更名为
   - `HTTP`：生产使用，POST JSON 到 `gateway-url`；`app-id`/`app-key` 为网关凭据（`app-key` 经 `NOTIFICATION_SMS_APP_KEY` 注入不落仓库），`timeout-ms`/`connect-timeout-ms` 控制超时。
 - **安全防护**：发送前经 `SmsRules` 纯函数校验——号码归一（容忍 `+86`/`86` 前缀与分隔符，归一为 11 位后校验）、单次上限 100、正文 500 字符上限、签名 CR/LF 净化；任一条不满足返回 400，非法报文不外发（错误群发直接产生费用，故从严）。
 - **口径**：短信按号码维度投递，忽略 `receiverIds`/`roleIds`/`orgIds`/`title`；调用方（含前端消息中心）需自行把用户解析为手机号。
-- **计费对账**：LOG 通道日志即开发期发送底账；生产以网关侧账单为准，应用不持久化发送记录（与邮件一致，避免 PII 落库）。
+- **计费对账**：LOG 通道日志即开发期发送底账；生产以网关侧账单为准。应用侧记录中心（`sys_sms_record`，V37）持久化**掩码后**的手机号（`138****8000`，明文 PII 不落库），供运维排查与对账参考。
+- **发送记录中心**（`system:sms-log:read`，菜单「短信记录」）：
+  - **落库时机**：网关返回后由 `SmsNotificationAdapter` 逐条写入，成功与失败均记录（失败带 `error_message` 截断）；写入失败仅记 WARN 日志，不反噬发送结论（网关已计费/已触达）；
+  - **查询**：`GET /api/system/sms-records` 支持 `mobile`（掩码值 LIKE，传明文时服务端先掩码）/ `status` / `provider` / 时间范围（闭区间）筛选与 `ASC/DESC` 排序白名单；`GET /api/system/sms-records/summary` 返回总数/成功/失败/失败率/最近发送时间（失败率分母为 0 时返回 0.00）；
+  - **容量预估**：按 1 万条/天、单行约 0.5KB 计，年增约 1.8GB——建议对 `created_at` 建索引并配置定时清理（如保留 180 天），清理任务可参考 JobRunr 定时任务模式；
+  - **越权面**：掩码存储使记录中心不含可用 PII，普通运维只读即可定位「发没发、成功没、失败原因」；需要明文手机号的场景仍应回网关侧账单。
 
 ---
 

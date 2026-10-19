@@ -2074,7 +2074,7 @@ npm run preview  # 预览构建产物
 
 **代码审查（review-java-admin-framework）**：P0（运行期阻断/数据安全）无；P1（重要正确性/安全缺陷，建议本迭代修复）若干；P2（功能缺失/明确 bug，建议近期处理）若干；P3（可优化/文档与健壮性）若干。
 
-**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）、M4 工作流任务认领（P2，已落地）、**M5 缓存管理**（P2，已落地：`config/cache` + 监控联动 + 字典/菜单缓存，菜单树含 `user-menus` 按用户键与跨服务驱逐）、**M6 通知渠道**（P3，已落地：`Channel.EMAIL` 邮件 + `Channel.SMS` 短信双渠道，均默认关闭；短信网关经 `provider=LOG/HTTP` 切换）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
+**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）、M4 工作流任务认领（P2，已落地）、**M5 缓存管理**（P2，已落地：`config/cache` + 监控联动 + 字典/菜单缓存，菜单树含 `user-menus` 按用户键与跨服务驱逐）、**M6 通知渠道**（P3，已落地：`Channel.EMAIL` 邮件 + `Channel.SMS` 短信双渠道，均默认关闭；短信网关经 `provider=LOG/HTTP` 切换，发送记录中心 `system/smslog` 脱敏落库可查询对账）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
 
 ### M5 缓存管理使用指南（开发者）
 
@@ -2102,5 +2102,13 @@ npm run preview  # 预览构建产物
 - **号码归一**：`SmsRules` 容忍 `+86`/`86` 国家码前缀与空格/连字符分隔（通讯录复制常见形态），归一为 11 位后校验 `1[3-9]\d{9}`；非法号码整批拒绝不外发。
 - **签名拼接**：`app.notifications.sms.signature`（如【Acme】）由 `SmsRules.appendSignature` 净化 CR/LF 后拼到正文头部；半开括号自动补齐，超长截 32 字符。
 - **对接具体厂商**（阿里云/腾讯云等）：以 `HttpSmsGateway` 为模板新增一个 `SmsGateway` 实现并扩展 `SmsProperties.Provider`，规则层与编排层零改动；前端「消息中心 → 发送短信」入口已就绪（渠道未启用时后端返回 400，前端保持弹窗可修正）。
+
+### M6 续：短信发送记录中心（开发者）
+
+- **定位**：`system/smslog` 镜像登录日志（`system/log`）全链——V37 迁移建表 + `SYS_SMS_RECORD` TableRef + `SysSmsRecordDO` + `SmsRecordRules`（脱敏纯函数）+ `SmsRecordRecorder`（写入）+ `SmsRecordService`（查询）+ `SmsRecordController`（`/api/system/sms-records`，权限 `system:sms-log:read`）+ 前端 `SmsLogView` + V37 菜单种子（id=1092，parent 1002，icon Message，sort 102）。
+- **写入时机**：`SmsNotificationAdapter` 在网关返回后落库，**成功与失败均记录**（`status=SUCCESS/FAILED`，失败带 `error_message` 截断）；批次按接收号码拆分逐条记录，`batch_size` 记单批号码数。写入失败仅记 WARN 日志**不反噬发送结果**（网关已计费/已触达，发送结论以网关为准）。
+- **脱敏存储**：`mobile` 列存掩码值（`138****8000`，复用 `SensitiveMasker.maskPhone`）——记录中心用于运维排查与对账，**不存明文 PII**；查询按掩码值 LIKE 匹配（前端传明文时服务端先掩码再查）。`content` 截 500 字符（与短信正文上限一致）。
+- **查询能力**：分页（`page`/`size`，钳制同 `PageQuery`）+ 筛选（`mobile` LIKE / `status` / `provider` / 时间范围闭区间）+ 排序方向白名单（`ASC/DESC`，非法值回退 `DESC`，防注入）；`GET /summary` 返回总数/成功/失败/失败率/最近发送时间，失败率按百分数保留两位（0~100，总数 0 时 0.00）。
+- **统计口径**：失败率 = failure/total（非 success 口径），分母为 0 时返回 0.00 而非 NaN——`SmsRecordRules.failureRate` 为纯函数，离线可测。
 
 **QA 业务测试（V28，QA报告）**：6 项缺陷全部闭环——D-5（P0）七个权限码未授 SUPER_ADMIN；D-2（P1）手机/邮箱唯一性无预校验；D-4（P1）删除角色残留孤儿 user_role 行；D-6（P1）void 方法幂等重放必 409；D-1（P2）用户状态无白名单；D-3（P2）公告重发布不清 offline_at；并固化多轮回归测试。
