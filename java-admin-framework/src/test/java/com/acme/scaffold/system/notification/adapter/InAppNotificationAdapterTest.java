@@ -32,7 +32,7 @@ class InAppNotificationAdapterTest {
     @Test
     void dispatchDelegatesToMessageService() {
         NotificationMessage msg = new NotificationMessage(Channel.IN_APP, "t", "c", "NOTICE",
-                List.of(1L, 2L), null, null, null, null, null);
+                List.of(1L, 2L), null, null, null, null, null, null);
         when(messageService.doSend(any(SendMessageRequest.class))).thenReturn(2);
 
         int n = adapter.dispatch(msg);
@@ -44,7 +44,7 @@ class InAppNotificationAdapterTest {
     @Test
     void dispatchPassesNullMsgTypeThrough() {
         NotificationMessage msg = new NotificationMessage(Channel.IN_APP, "t", "c", null,
-                null, List.of(10L), null, null, null, null);
+                null, List.of(10L), null, null, null, null, null);
         when(messageService.doSend(any(SendMessageRequest.class))).thenReturn(1);
 
         assertEquals(1, adapter.dispatch(msg));

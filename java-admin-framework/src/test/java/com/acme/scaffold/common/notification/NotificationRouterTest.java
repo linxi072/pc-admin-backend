@@ -37,6 +37,18 @@ class NotificationRouterTest {
         }
     };
 
+    private static final NotificationPort SMS = new NotificationPort() {
+        @Override
+        public boolean supports(Channel c) {
+            return c == Channel.SMS;
+        }
+
+        @Override
+        public int dispatch(NotificationMessage m) {
+            return 1;
+        }
+    };
+
     @Test
     void resolvesInApp() {
         assertSame(IN_APP, NotificationRouter.resolve(Channel.IN_APP, List.of(IN_APP, WEBHOOK)));
@@ -48,8 +60,13 @@ class NotificationRouterTest {
     }
 
     @Test
+    void resolvesSms() {
+        assertSame(SMS, NotificationRouter.resolve(Channel.SMS, List.of(IN_APP, WEBHOOK, SMS)));
+    }
+
+    @Test
     void throwsWhenNoAdapterSupportsChannel() {
         assertThrows(BusinessException.class,
-                () -> NotificationRouter.resolve(Channel.WEBHOOK, List.of(IN_APP)));
+                () -> NotificationRouter.resolve(Channel.SMS, List.of(IN_APP, WEBHOOK)));
     }
 }

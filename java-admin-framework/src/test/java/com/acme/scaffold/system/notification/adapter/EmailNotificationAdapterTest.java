@@ -41,7 +41,7 @@ class EmailNotificationAdapterTest {
 
     private NotificationMessage email(List<String> emails) {
         return new NotificationMessage(Channel.EMAIL, "系统告警", "CPU 超阈值", "ALERT",
-                null, null, null, null, null, emails);
+                null, null, null, null, null, emails, null);
     }
 
     @Test
@@ -58,7 +58,7 @@ class EmailNotificationAdapterTest {
         EmailNotificationAdapter a = adapter(true);
         NotificationMessage msg = new NotificationMessage(Channel.EMAIL,
                 "告警\r\nBcc: evil@x.com", "内容", "ALERT",
-                null, null, null, null, null, List.of(" ops@example.com ", "dev@example.com"));
+                null, null, null, null, null, List.of(" ops@example.com ", "dev@example.com"), null);
 
         assertEquals(2, a.dispatch(msg));
         verify(client).send(eq("noreply@example.com"),
