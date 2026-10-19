@@ -8,5 +8,6 @@ import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
  */
 public record ConfigVO(@JsonSerialize(using = ToStringSerializer.class) Long id,
                        String configKey, String configName, String configValue,
-                       String configType, String remark, String status) {
+                       String defaultValue, String configType, String remark,
+                       Integer editable, String status) {
 }

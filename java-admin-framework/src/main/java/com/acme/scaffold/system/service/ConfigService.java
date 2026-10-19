@@ -68,8 +68,10 @@ public class ConfigService {
         c.setConfigKey(req.configKey());
         c.setConfigName(req.configName());
         c.setConfigValue(req.configValue());
+        c.setDefaultValue(req.defaultValue());
         c.setConfigType(req.configType() == null ? "STRING" : req.configType());
         c.setRemark(req.remark());
+        c.setEditable(req.editable() == null ? 1 : req.editable());
         c.setStatus(req.status() == null ? "ACTIVE" : req.status());
         JooqWriters.insert(dsl, JooqTables.SYS_CONFIG, c);
         cache.put(req.configKey(), toVO(c));
@@ -90,8 +92,10 @@ public class ConfigService {
         c.setConfigKey(req.configKey());
         c.setConfigName(req.configName());
         c.setConfigValue(req.configValue());
+        c.setDefaultValue(req.defaultValue());
         c.setConfigType(req.configType() == null ? existing.getConfigType() : req.configType());
         c.setRemark(req.remark());
+        c.setEditable(req.editable() == null ? existing.getEditable() : req.editable());
         c.setStatus(req.status() == null ? existing.getStatus() : req.status());
         JooqWriters.updateById(dsl, JooqTables.SYS_CONFIG, id, c);
         cache.remove(oldKey);
@@ -110,7 +114,7 @@ public class ConfigService {
 
     private ConfigVO toVO(SysConfigDO c) {
         return new ConfigVO(c.getId(), c.getConfigKey(), c.getConfigName(), c.getConfigValue(),
-                c.getConfigType(), c.getRemark(), c.getStatus());
+                c.getDefaultValue(), c.getConfigType(), c.getRemark(), c.getEditable(), c.getStatus());
     }
 
     private boolean existsByKey(String key) {

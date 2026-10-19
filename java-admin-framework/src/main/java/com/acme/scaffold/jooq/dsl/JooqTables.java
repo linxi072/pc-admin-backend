@@ -97,8 +97,9 @@ public final class JooqTables {
             "remark", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
     public static final TableRef SYS_CONFIG = new TableRef("sys_config",
-            "id", "tenant_id", "config_key", "config_name", "config_value", "config_type", "remark",
-            "status", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+            "id", "tenant_id", "config_key", "config_name", "config_value", "default_value", "config_type",
+            "remark", "editable", "status", "version", "deleted", "created_by", "created_at",
+            "updated_by", "updated_at");
 
     // ---------------- 公告 / 站内信 / 监控 ----------------
 
