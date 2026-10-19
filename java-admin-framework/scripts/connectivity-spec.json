@@ -1,0 +1,20 @@
+{
+  "baseUrl": "http://127.0.0.1:8080",
+  "timeoutMs": 2000,
+  "endpoints": [
+    {
+      "name": "connectivity.ping",
+      "method": "GET",
+      "path": "/api/connectivity/ping",
+      "expectCode": "0",
+      "expectFields": ["serverTime", "receivedLocale", "nonce", "framework"],
+      "expectFramework": "java-admin-framework"
+    }
+  ],
+  "timeoutEndpoint": {
+    "name": "connectivity.slow (timeout)",
+    "method": "GET",
+    "path": "/api/connectivity/slow",
+    "expectTimeout": true
+  }
+}
