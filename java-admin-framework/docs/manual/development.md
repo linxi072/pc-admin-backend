@@ -2172,7 +2172,7 @@ npm run preview  # 预览构建产物
 
 ### 5. Python 契约对称与运行时探针（后端仓 `scripts/`）
 
-- `check-api-contract.py`：**静态**扫描后端 Controller 注解与前端 `api/*.js` 调用，归一化（小写/去查询串/参数无关 `*`）后比对，输出 `matched / backend_only / frontend_only`；`frontend_only` 即「前端调用但后端无路由」的契约漂移风险。`--strict` 时 drift 非空退出码 1。
+- `check-api-contract.py`：**静态**扫描后端 Controller 注解与前端 `api/*.js` 调用，归一化（小写/去查询串/参数无关 `*`）后比对，输出 `matched / backend_only / frontend_only`；`frontend_only` 即「前端调用但后端无路由」的契约漂移风险。`--strict` 时 drift 非空退出码 1。已兼容后端**无参** `@GetMapping`/`@PostMapping`（路径继承类级 `@RequestMapping`）与前端**拼接 URL**（`url: '/api/x/y/' + id` 视作 `/api/x/y/{id}`），当前全量扫描 `frontend_only=0`。
 - `connectivity-probe.py` + `connectivity-spec.json`：**运行时**探针，对真实后端发请求断言包络字段与超时（urllib，零依赖）；后端不可达时打印清晰 SKIP 而非崩溃。
 - `connectivity-stub.py`：后端联通接口本地 stub（模拟 `Result` 包络 + 各错误码 + 慢响应端点），可在无后端环境离线验证探针。
 - 本机联调命令：

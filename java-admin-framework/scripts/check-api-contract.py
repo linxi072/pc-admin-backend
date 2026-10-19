@@ -82,26 +82,32 @@ def scan_backend() -> set:
             text = java.read_text(encoding="utf-8")
         except Exception:
             continue
-        # 类级基路径：取文件内首个 @RequestMapping(...) 作为前缀（典型布局）
+        # 类级基路径：取文件内首个 @RequestMapping（可无参，代表根路径）作为前缀
         base = ""
-        class_base = re.search(r"@RequestMapping\s*\(([^)]*)\)", text)
+        class_base = re.search(r"@RequestMapping\s*(?:\(([^)]*)\))?", text)
         if class_base:
-            base = first_quoted(class_base.group(1))
+            cb_attrs = class_base.group(1) if class_base.group(1) is not None else ""
+            base = first_quoted(cb_attrs)
             class_base_start = class_base.start()
         else:
             class_base_start = -1
-        # 方法级映射（显式动词注解）
-        for m in re.finditer(
-            r"@(Get|Post|Put|Delete|Patch)Mapping\s*\(([^)]*)\)", text
-        ):
+        # 方法级映射（显式动词注解）。括号可省略：@GetMapping 即「继承类基路径」
+        verb_re = re.compile(r"@(Get|Post|Put|Delete|Patch)Mapping\s*(?:\(([^)]*)\))?")
+        for m in verb_re.finditer(text):
             verb = m.group(1).upper()
-            path = first_quoted(m.group(2))
+            inner = m.group(2) if m.group(2) is not None else ""
+            path = first_quoted(inner)
             keys.add(param_key(verb, base + path))
         # 方法级 @RequestMapping：跳过类级基路径那一条，避免 base+base 重复
-        for m in re.finditer(r"@RequestMapping\s*\(([^)]*)\)", text):
+        req_re = re.compile(r"@RequestMapping\s*(?:\(([^)]*)\))?")
+        for m in req_re.finditer(text):
             if m.start() == class_base_start:
                 continue
-            attrs = m.group(1)
+            attrs = m.group(1) if m.group(1) is not None else ""
+            if not attrs.strip():
+                # 无参 @RequestMapping：等价于 GET 映射在类基路径
+                keys.add(param_key("GET", base))
+                continue
             methods = re.findall(r"RequestMethod\.(\w+)", attrs)
             verbs = [v.upper() for v in methods] or ["GET"]
             path = first_quoted(attrs)
@@ -127,7 +133,12 @@ def scan_frontend() -> set:
                 continue
             mm = re.search(r"method\s*:\s*['\"`]([^'\"`]+)['\"`]", body)
             verb = (mm.group(1).upper() if mm else "GET")
-            keys.add(param_key(verb, um.group(1)))
+            url_literal = um.group(1)
+            # 兼容前端路径变量拼接：url: '/api/x/y/' + expr
+            # 动态段附加在尾部斜杠之后，等价 /api/x/y/{id}，末段记作 *
+            if re.search(r"url\s*:\s*['\"`][^'\"`]*['\"`]\s*\+", body) and url_literal.endswith("/"):
+                url_literal = url_literal + "*"
+            keys.add(param_key(verb, url_literal))
         # 模式 B：axios.get/post/...('/path')
         for m in re.finditer(
             r"\.(get|post|put|delete|patch)\s*\(\s*['\"`]([^'\"`]+)['\"`]", text
