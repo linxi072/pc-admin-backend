@@ -5,6 +5,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -81,5 +82,12 @@ public class RealtimeSessionManager {
     /** 当前在线会话总数（多端累加）。 */
     public int onlineCount() {
         return userSessions.values().stream().mapToInt(Set::size).sum();
+    }
+
+    /** 在线用户 -> 活跃会话数的只读映射（多端累加），供管理端展示在线会话分布。 */
+    public Map<Long, Integer> onlineUserCounts() {
+        Map<Long, Integer> result = new HashMap<>(userSessions.size());
+        userSessions.forEach((userId, sessions) -> result.put(userId, sessions.size()));
+        return result;
     }
 }
