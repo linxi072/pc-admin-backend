@@ -151,6 +151,22 @@ app:
       starttls: false
       # 读写超时（毫秒）
       timeout-ms: 5000
+    sms:
+      # 是否允许短信发送（默认 false：短信按条计费，缺省关闭避免误发与费用）
+      enabled: false
+      # 网关实现：LOG（默认，仅打脱敏日志不真发，开发/联调）/ HTTP（通用 HTTP 网关 POST JSON）
+      provider: LOG
+      # HTTP 模式必配：短信网关接收地址（厂商无关最小契约 appId/appKey/mobiles/content）
+      # 示例（含冒号须加引号）："https://sms-gateway.example.com/api/v1/send"
+      gateway-url:
+      # 网关凭据：生产经环境变量 NOTIFICATION_SMS_APP_KEY 注入
+      app-id:
+      app-key: ${NOTIFICATION_SMS_APP_KEY:}
+      # 短信签名，拼接到正文头部（如【Acme】；留空则不拼）
+      signature:
+      # HTTP 读超时 / 连接超时（毫秒）
+      timeout-ms: 5000
+      connect-timeout-ms: 2000
   # ===== 缓存管理（Spring Cache 抽象，Redis 实现） =====
   # 缓存为惰性能力：未使用 @Cacheable 时不产生 Redis 流量。
   # 命中率/条目数统计与清理入口见 GET /api/system/monitor/caches（进程内口径，按实例）。

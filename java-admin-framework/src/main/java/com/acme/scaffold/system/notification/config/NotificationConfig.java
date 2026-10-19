@@ -5,9 +5,10 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * 通知渠道配置：启用 {@link WebhookProperties} 绑定 {@code app.notifications.webhook.*}，
- * {@link EmailProperties} 绑定 {@code app.notifications.email.*}。
+ * {@link EmailProperties} 绑定 {@code app.notifications.email.*}，
+ * {@link SmsProperties} 绑定 {@code app.notifications.sms.*}。
  */
 @Configuration
-@EnableConfigurationProperties({WebhookProperties.class, EmailProperties.class})
+@EnableConfigurationProperties({WebhookProperties.class, EmailProperties.class, SmsProperties.class})
 public class NotificationConfig {
 }

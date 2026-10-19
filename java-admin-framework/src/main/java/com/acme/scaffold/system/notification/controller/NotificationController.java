@@ -27,7 +27,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    @Operation(summary = "跨渠道发送通知（channel 指定 IN_APP / WEBHOOK / WEBSOCKET / EMAIL）")
+    @Operation(summary = "跨渠道发送通知（channel 指定 IN_APP / WEBHOOK / WEBSOCKET / EMAIL / SMS）")
     @PostMapping("/send")
     @PreAuthorize("hasAuthority('system:message:send')")
     @AuditOperation(module = "system", type = "CREATE", name = "跨渠道发送通知")
@@ -43,7 +43,8 @@ public class NotificationController {
                 request.orgIds(),
                 request.webhookUrl(),
                 null,
-                request.emails());
+                request.emails(),
+                request.mobiles());
         int delivered = notificationService.dispatch(msg);
         return Result.success(Map.of("delivered", delivered));
     }
