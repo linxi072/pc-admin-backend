@@ -21,6 +21,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 /**
  * 全局异常映射：将异常转换为统一响应体，敏感细节只进日志不回传客户端。
@@ -108,5 +109,12 @@ public class GlobalExceptionHandler {
         log.error("未预期异常 traceId={} path={}", traceId, request.getRequestURI(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Result.error(CommonErrorCode.INTERNAL_ERROR.code(), i18n.getMessage("error.internal")));
+    }
+
+    @ExceptionHandler(TimeoutException.class)
+    public ResponseEntity<Result<Void>> handleTimeout(TimeoutException ex) {
+        log.warn("请求超时: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT)
+                .body(Result.error(CommonErrorCode.GATEWAY_TIMEOUT.code(), i18n.getMessage("error.gateway_timeout")));
     }
 }
