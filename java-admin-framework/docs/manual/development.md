@@ -2074,7 +2074,7 @@ npm run preview  # 预览构建产物
 
 **代码审查（review-java-admin-framework）**：P0（运行期阻断/数据安全）无；P1（重要正确性/安全缺陷，建议本迭代修复）若干；P2（功能缺失/明确 bug，建议近期处理）若干；P3（可优化/文档与健壮性）若干。
 
-**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）、M4 工作流任务认领（P2，已落地）、**M5 缓存管理**（P2，已落地：`config/cache` + 监控联动 + 字典/菜单缓存，菜单树含 `user-menus` 按用户键与跨服务驱逐）、**M6 邮件通知渠道**（P3，已落地：`Channel.EMAIL` + `EmailRules` + SMTP 适配，默认关闭）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
+**后续模块规划（module-plan）**：M1 审计日志查询与脱敏（P1，已落地）、M2 幂等 Idempotency-Key（P1，已落地）、M3 Token 版本与权限缓存失效（P2，已落地）、M4 工作流任务认领（P2，已落地）、**M5 缓存管理**（P2，已落地：`config/cache` + 监控联动 + 字典/菜单缓存，菜单树含 `user-menus` 按用户键与跨服务驱逐）、**M6 通知渠道**（P3，已落地：`Channel.EMAIL` 邮件 + `Channel.SMS` 短信双渠道，均默认关闭；短信网关经 `provider=LOG/HTTP` 切换）；后续候选含更多运营与分析能力，统一约定与现有实现保持一致。
 
 ### M5 缓存管理使用指南（开发者）
 
@@ -2091,5 +2091,16 @@ npm run preview  # 预览构建产物
 - **发送**：`POST /api/system/notifications/send`，`channel=EMAIL`，`emails` 传收件人地址列表（单封上限 50），`title`/`content` 作主题/正文。
 - **启用**：`app.notifications.email.enabled=true` 并配置 `from`/`host`/`port`（`username`/`password`/`starttls` 依 SMTP 服务商）；未启用返回 400 不外发。凭据经 `NOTIFICATION_EMAIL_USERNAME`/`NOTIFICATION_EMAIL_PASSWORD` 环境变量注入。
 - **新增渠道**：实现 `NotificationPort`（`supports` + `dispatch`）并声明为 Spring Bean，`NotificationService` 自动收集路由，编排层与控制器零改动；渠道特有的纯函数规则放 `rules` 语义的静态类（参考 `kafka.rules.OrderingRules` / `EmailRules`）便于离线单测。
+
+### M6 续：短信通知渠道使用指南（开发者）
+
+- **发送**：`POST /api/system/notifications/send`，`channel=SMS`，`mobiles` 传接收手机号列表（单次上限 100），`content` 作短信正文；短信无主题，`title` 仅作审计标识不随短信发送（DTO 层仍要求非空，前端传内容前缀或「短信通知」）。
+- **启用**：`app.notifications.sms.enabled=true`；未启用返回 400 不外发（短信按条计费，与邮件门禁策略一致——不静默丢弃）。
+- **网关二选一**（`app.notifications.sms.provider`，条件装配互斥）：
+  - `LOG`（默认）：`LoggingSmsGateway` 仅输出脱敏日志（手机号掩码中间四位，复用 `SensitiveMasker.maskPhone`），开发/联调/CI 无需网关凭据与费用；
+  - `HTTP`：`HttpSmsGateway` POST JSON 到 `gateway-url`（厂商无关最小契约 `appId`/`appKey`/`mobiles`/`content`），凭据经 `NOTIFICATION_SMS_APP_KEY` 环境变量注入。
+- **号码归一**：`SmsRules` 容忍 `+86`/`86` 国家码前缀与空格/连字符分隔（通讯录复制常见形态），归一为 11 位后校验 `1[3-9]\d{9}`；非法号码整批拒绝不外发。
+- **签名拼接**：`app.notifications.sms.signature`（如【Acme】）由 `SmsRules.appendSignature` 净化 CR/LF 后拼到正文头部；半开括号自动补齐，超长截 32 字符。
+- **对接具体厂商**（阿里云/腾讯云等）：以 `HttpSmsGateway` 为模板新增一个 `SmsGateway` 实现并扩展 `SmsProperties.Provider`，规则层与编排层零改动；前端「消息中心 → 发送短信」入口已就绪（渠道未启用时后端返回 400，前端保持弹窗可修正）。
 
 **QA 业务测试（V28，QA报告）**：6 项缺陷全部闭环——D-5（P0）七个权限码未授 SUPER_ADMIN；D-2（P1）手机/邮箱唯一性无预校验；D-4（P1）删除角色残留孤儿 user_role 行；D-6（P1）void 方法幂等重放必 409；D-1（P2）用户状态无白名单；D-3（P2）公告重发布不清 offline_at；并固化多轮回归测试。

@@ -580,9 +580,9 @@ prod 环境变量已由单库 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 更名为
 
 ---
 
-## 32. 邮件通知渠道运维要点（M6）
+## 32. 通知渠道运维要点（M6 邮件 / M6 续短信）
 
-跨渠道通知（站内信 / Webhook / WebSocket / 邮件）统一经 `POST /api/system/notifications/send`（权限 `system:message:send`，带 `@Idempotent` 幂等）投递，由 `NotificationService` 按 `channel` 路由到对应适配器；新增渠道只需新增一个 `NotificationPort` 实现，编排层零改动。
+跨渠道通知（站内信 / Webhook / WebSocket / 邮件 / 短信）统一经 `POST /api/system/notifications/send`（权限 `system:message:send`，带 `@Idempotent` 幂等）投递，由 `NotificationService` 按 `channel` 路由到对应适配器；新增渠道只需新增一个 `NotificationPort` 实现，编排层零改动。
 
 邮件渠道（`Channel.EMAIL`）运维要点：
 
@@ -591,6 +591,16 @@ prod 环境变量已由单库 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 更名为
 - **安全防护**：发送前经 `EmailRules` 纯函数校验——收件人地址形态、主题 CRLF/TAB 净化（防邮件头注入，注入内容退化为 inert 文本）、单封收件人上限 50、主题 200 / 正文 20000 字符上限；任一条不满足返回 400，非法报文不外发。
 - **收件人口径**：邮件按地址维度投递，忽略 `receiverIds`/`roleIds`/`orgIds`（与站内信「按用户/角色/部门落库」语义不同）；调用方需自行把用户解析为邮箱地址。
 - **失败处理**：SMTP 发送失败（`MailException`）向上抛，由全局异常处理记录；不静默重试，避免重复投递。
+
+短信渠道（`Channel.SMS`）运维要点：
+
+- **默认关闭**：`app.notifications.sms.enabled=false`。未启用时发送请求返回 `COMMON_001 短信通知渠道未启用`（400）——短信按条计费，绝不静默丢弃或降级为「假发送」。
+- **provider 选择**（`app.notifications.sms.provider`，两个网关 Bean 条件装配互斥）：
+  - `LOG`（默认）：开发/联调/CI 使用，仅打脱敏日志不触达外部系统，零凭据零费用；日志中手机号掩码中间四位（`SensitiveMasker.maskPhone`），明文不落日志；
+  - `HTTP`：生产使用，POST JSON 到 `gateway-url`；`app-id`/`app-key` 为网关凭据（`app-key` 经 `NOTIFICATION_SMS_APP_KEY` 注入不落仓库），`timeout-ms`/`connect-timeout-ms` 控制超时。
+- **安全防护**：发送前经 `SmsRules` 纯函数校验——号码归一（容忍 `+86`/`86` 前缀与分隔符，归一为 11 位后校验）、单次上限 100、正文 500 字符上限、签名 CR/LF 净化；任一条不满足返回 400，非法报文不外发（错误群发直接产生费用，故从严）。
+- **口径**：短信按号码维度投递，忽略 `receiverIds`/`roleIds`/`orgIds`/`title`；调用方（含前端消息中心）需自行把用户解析为手机号。
+- **计费对账**：LOG 通道日志即开发期发送底账；生产以网关侧账单为准，应用不持久化发送记录（与邮件一致，避免 PII 落库）。
 
 ---
 

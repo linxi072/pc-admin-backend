@@ -1,6 +1,6 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-17（复核并确认 §5/§6/§7 所列增强项**全部已交付**：机构树分键缓存（M5 续）、邮件通知渠道（M6）、i18n 国际化、导出中心 CSV+XLSX（含多 Sheet 富格式）、导入中心（含预检与失败行报告）、敏感数据脱敏通用化、限流注解化、N+1 告警、前端图表按需；源码规模与测试基线刷新为 447 主源 / 114 测试源 / 559 用例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-19（短信通知渠道 M6 续已交付：`Channel.SMS` + `SmsRules` + LOG/HTTP 双网关条件装配 + 前端消息中心多渠道发送；单测基线刷新为 648 例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
 > 方法：**直接核查真实代码**（447 个后端主源 `.java` / 114 个测试源、559 个测试用例（surefire 汇总 0 失败 0 错误）、33 个 `@RestController`、45 个前端 `.vue`、28 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
@@ -11,7 +11,7 @@
 - **严格需求层面已闭环**：设计方案 §12/§20、历史 gap-analysis（G1–G8、A1/A2/A4）、模块计划（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim）**全部已实现或明确记录为 N/A / 范围外**。
 - **直接核查确认的"已具备但未在需求文档明示"的能力**：OpenAPI/Swagger 文档、慢 SQL 监听、多数据源、文件管理、编码规范 + 零依赖校验脚本（本轮交付）。
 - **真实缺口极小**：仅 §12 中少量「独立端点」被合并进 DTO（前端已适配，非阻断），以及 `instances/{id}/history` 由 `/records` 等价承载。
-- **后续重点不是"补需求"，而是"增强型基础功能 + 优化"**（见 §5/§6），且其中多项受离线仓库依赖约束需联网引入或需先建基础设施。截至 2026-10-17 复核，**§5 与 §6 所列增强项与优化项已全部交付**（导出中心 CSV+XLSX 含多 Sheet 富格式 / 导入中心含预检与失败行报告 / 缓存管理含机构树分键缓存 / i18n 国际化 / 敏感数据脱敏通用化 / 邮件通知渠道 M6 / 限流注解化 / N+1 告警 / keyset 深翻页 / 前端图表按需）；残留方向仅为可选增强：SMS 短信渠道（待网关依赖）、前端 i18n（待前端配合）、Bean Validation 与 `BusinessException` 消息键化、测试覆盖率门禁（JaCoCo，需联网验证）。
+- **后续重点不是"补需求"，而是"增强型基础功能 + 优化"**（见 §5/§6），且其中多项受离线仓库依赖约束需联网引入或需先建基础设施。截至 2026-10-19 复核，**§5 与 §6 所列增强项与优化项已全部交付**（导出中心 CSV+XLSX 含多 Sheet 富格式 / 导入中心含预检与失败行报告 / 缓存管理含机构树分键缓存 / i18n 国际化 / 敏感数据脱敏通用化 / 通知渠道 M6 邮件 + M6 续短信（LOG/HTTP 双网关）/ 限流注解化 / N+1 告警 / keyset 深翻页 / 前端图表按需）；残留方向仅为可选增强：前端 i18n（待前端配合）、Bean Validation 与 `BusinessException` 消息键化、测试覆盖率门禁（JaCoCo，需联网验证）、短信发送记录持久化（与邮件一致的有意取舍，按需再引入）。
 
 ---
 
@@ -81,7 +81,7 @@
 |---|---|---|---|---|
 | **数据导入/导出中心（Excel）** | 高 | ✅ **导出与导入均已落地（2026-10-16，全程无需 POI）**。**导出**：在既有 CSV 导出中心（`system/controller/ExportController` + `ExportTask` 模板注册 + `ExportCenterView.vue`）**增量**补 XLSX——`/download` 增加 `format=CSV\|XLSX`（缺省 CSV 向后兼容）、`/templates` 返回各模板 `formats`；新增 `common/export/ExportFormat`（枚举）+ `XlsxDataExporter`（仅用 JDK `java.util.zip` 手写最小合规 OOXML，inlineStr + XML 转义，**零新依赖、离线可编**）+ `ExportProperties`（`app.export.max-rows` 默认 10 万行）；多段结构模板（报表）仍仅 CSV。**导入**：新增与导出严格对称的 `common/importer`（`ImportTask` 模板注册 + `TabularData` 统一中间模型 + `ImportValidators` 纯函数校验构件）+ `CsvDataReader`（RFC4180 状态机、剥离 BOM、三种行分隔）+ `XlsxDataReader`（仅 JDK `ZipInputStream` + StAX 解析 OOXML，支持共享字符串/内联字符串，**按 `r` 属性定位列**避免空单元格错位，禁用 DTD 防 XXE）+ `system/service/ImportCenterService`（格式识别→解析→表头校验→逐行校验/落库）+ `ImportController`（`/templates`、`/template` 下载空白模板、`POST /{code}?dryRun=` 上传）+ `ImportProperties`（`app.import.max-rows` 5000 / `max-errors` 200）+ 试点 `DictDataImportTask`；前端 `ImportCenterView.vue` + `api/import.js` + 路由 `/system/import` + `V36` 菜单种子 | P2 → 已完成 | ✅ 双格式闭环（导出→编辑→导入）；`failureCount` 与 `errors` 明细分离（明细受上限约束）；POI 富格式（单元格样式/多 sheet/公式）与多段结构导入按需再引入 |
 | **缓存管理（命中率查看 + 清除）** | 中 | ✅ **已落地（M5，2026-10-16）**：`config/cache` 提供 `@EnableCaching` + RedisCacheManager（TTL/前缀可配），`StatisticsCache`/`StatisticsCacheManager` 装饰器做进程内命中/未命中/淘汰记账；`MonitorService.cacheStats()/clearCache()` 扩展至 Spring Cache，前端缓存监控页零改动；试点 `DictDataService.listByType` `@Cacheable`（create 精确驱逐、update/delete 全量驱逐）。**菜单缓存（M5 续，同日）**：`MenuService.tree()`（`menu-tree` 单一 `ALL` 键）与 `menusForCurrentUser()`（`user-menus` 按用户 id 键）纳入缓存；菜单增删改排序整缓存驱逐，`RoleService` 角色菜单绑定 / `UserService` 用户角色变更按语义跨服务驱逐 | P2 → 已完成 | ✅ **机构树分键缓存已纳入（M5 续，2026-10-16）**：`OrgService.tree()` 带 `@DataScope`，按「数据权限范围签名」分键（`orgScopeKey()`：`ALL` / `SELF:<userId>` / `ORG:<id 升序>`），规避受限用户命中管理员缓存造成的越权可见；create/update/delete 整缓存驱逐；`DataScopeAspect` 加 `@Order(HIGHEST_PRECEDENCE)` 保证缓存键计算时 `DataScopeContext` 已就绪；`OrgServiceCacheTest` 6 例覆盖跨权限隔离与写路径驱逐（同一 CacheManager） |
-| **通知渠道抽象（邮件/短信/Webhook）** | 中 | ✅ **已落地（M6，2026-10-16）**：`Channel.EMAIL` + `EmailNotificationAdapter`（`app.notifications.email.*` 默认关闭）+ `EmailRules` 纯函数（地址校验/CRLF 净化防头注入/收件人归一与上限）+ `JavaMailSenderClient`（spring-context-support 6.1.15 + jakarta.mail 2.1.3 + angus-mail 2.0.3，均离线可用） | P3 → 已完成（仅 SMS 仍待网关） | SMS 仍待短信网关依赖；站内信/Webhook/WebSocket/邮件四渠道已齐备 |
+| **通知渠道抽象（邮件/短信/Webhook）** | 中 | ✅ **已落地（M6 + M6 续，2026-10-16/19）**：`Channel.EMAIL` + `EmailNotificationAdapter`（`app.notifications.email.*` 默认关闭）+ `EmailRules` 纯函数（地址校验/CRLF 净化防头注入/收件人归一与上限）+ `JavaMailSenderClient`（spring-context-support 6.1.15 + jakarta.mail 2.1.3 + angus-mail 2.0.3，均离线可用）；**短信 `Channel.SMS`**（2026-10-19，零新依赖、厂商无关）：`SmsRules` 纯函数（号码归一容忍 +86/86 前缀与分隔符、单次上限 100、正文 500、签名 CR/LF 净化与【】补齐）+ `SmsProperties`（`app.notifications.sms.*`，默认关闭）+ `SmsGateway` 端口二实现条件装配互斥（`LoggingSmsGateway` 默认打脱敏日志复用 `SensitiveMasker.maskPhone`；`HttpSmsGateway` POST JSON 到可配 `gateway-url`，最小契约 appId/appKey/mobiles/content）+ `SmsNotificationAdapter`；前端消息中心发送弹窗增渠道选择（站内信/邮件/短信）与 `api/notification.js` | P3 → 已完成 | 站内信/Webhook/WebSocket/邮件/短信五渠道齐备；短信发送记录持久化为有意取舍（与邮件一致，避免 PII 落库），按需再引入；前端 i18n 仍待前端配合 |
 | **i18n 国际化** | 低 | ✅ **已落地（2026-10-16）**：`common/i18n` 提供 `MessageSource`（`ReloadableResourceBundleMessageSource`，UTF-8，基名 `i18n/messages`）+ `SessionLocaleResolver`（默认 zh_CN）+ `LocaleChangeInterceptor`（`?lang=xx` 切换，注册于 `I18nConfig implements WebMvcConfigurer`）；`I18nService` 封装按当前请求语言解析（缺失键返回键本身兜底），`GlobalExceptionHandler` 框架级错误已本地化（zh_CN / en_US 双语资源束）；`I18nServiceTest`(6) + `I18nLocaleInterceptorTest`(2) 覆盖多语言解析/回退/插值/切换 | P3 → 已完成 | 前端 i18n 仍待前端配合；Bean Validation 约束 `message` 键化（如 `{error.field.required}`）与 `BusinessException` 消息键化为后续增强 |
 | **限流/防重放注解化** | 中 | ✅ **已落地**：`security/ratelimit` 新增 `@RateLimit` 注解 + `RateLimitAspect`（IP / 用户 / 全局三维度，复用固定窗口 `RateLimiter`，超限 429），试点上传 / 配置更新接口；与 URL 级 `RateLimitFilter` 互补 | P3 → 已完成 | 多实例部署时可把计数替换为 Redis 共享（保持 key 维度一致） |
 | **敏感数据脱敏（通用化）** | 中 | ✅ **已落地（2026-10-16）**：`common/sensitive` 提供 `SensitiveType`（MOBILE/ID_CARD/BANK_CARD/EMAIL/NAME/ADDRESS/IP/CREDENTIAL_TEXT/NONE）+ `SensitiveMasker`（纯函数、零依赖）——该类由 `common/audit` 私有实现**提升为框架级通用能力**，既有方法签名与行为**零变更**（原 12 例断言原样保留）；新增 `mask(value,type)` 统一分派与 `maskBankCard`/`maskName`/`maskAddress`。落地三处应用：审计日志（原有）、**登录日志**（`LoginLogView.of(DO, sensitiveVisible)` 默认掩码 IP，补齐该类既有的「展示层掩码」待办）、**登录日志导出**（`LoginLogExportTask` 接入导出中心，导出文件一律掩码，零迁移零前端） | P2 → 已完成 | 安全默认：`system:audit:sensitive` / `system:login-log:sensitive` 均不预置种子，需按需授予角色；扩展仅需加 `SensitiveType` 常量 + `SensitiveMasker.mask` 的 switch 分支 |
@@ -109,7 +109,7 @@
 | **P0** | 严格需求缺口 | **无** |
 | **P1** | 工作区卫生 | 已保持 `feat/V1.0.2` 工作区干净（每轮按关注点分批本地提交） |
 | **P2** | 增强型基础功能 | ~~数据导出中心~~ + ~~数据导入中心~~（**均已落地 2026-10-16：导出侧既有 CSV 中心增量支持零依赖 XLSX；导入侧新增模板注册运行时 + CSV/XLSX 零依赖解析 + 预检，全程无需 POI**）；~~缓存管理~~（**已落地 M5，含菜单树缓存、机构树分键缓存与跨服务驱逐**）；~~敏感数据脱敏~~（**已落地 2026-10-16：common/sensitive 通用化（SensitiveType + SensitiveMasker）+ 登录日志脱敏（默认掩码 IP）+ 登录日志导出模板（一律掩码）**） |
-| **P3** | 可选增强 | ~~通知渠道抽象~~（**已落地 M6，EMAIL 齐备，仅 SMS 待网关**）、~~限流注解化~~（已落地）、~~N+1 告警 / 前端图表按需~~（已落地）、~~i18n 国际化~~（**已落地 2026-10-16**：后端双语资源束 + `GlobalExceptionHandler` 本地化；前端 i18n 待前端配合）、~~XLSX 富格式~~（**已落地 2026-10-16**：零依赖多 Sheet 工作簿——styles 表头加粗灰底 + 列宽自适应 + 表名规范化，`ExportTask.xlsxSheets` 契约使报表等多段结构解除「仅 CSV」限制，口径与 CSV 同源） |
+| **P3** | 可选增强 | ~~通知渠道抽象~~（**已落地 M6 + M6 续：EMAIL 邮件 + SMS 短信（LOG/HTTP 双网关条件装配，默认关闭）五渠道齐备**）、~~限流注解化~~（已落地）、~~N+1 告警 / 前端图表按需~~（已落地）、~~i18n 国际化~~（**已落地 2026-10-16**：后端双语资源束 + `GlobalExceptionHandler` 本地化；前端 i18n 待前端配合）、~~XLSX 富格式~~（**已落地 2026-10-16**：零依赖多 Sheet 工作簿——styles 表头加粗灰底 + 列宽自适应 + 表名规范化，`ExportTask.xlsxSheets` 契约使报表等多段结构解除「仅 CSV」限制，口径与 CSV 同源） |
 
 ---
 
@@ -120,8 +120,8 @@
 3. 原「需联网引入 POI」的 Excel 导出/导入已通过**零依赖 OOXML（写出 `XlsxDataExporter` / 解析 `XlsxDataReader`，仅用 JDK `java.util.zip`）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
 4. 导入中心为**模板注册**模式（同导出中心）：新增一种数据的导入只需新增一个 `ImportTask` Bean 并实现 `headers()`/`validate()`/`importRow()`，无需新增接口、迁移或前端页面（前端按 `/templates` 自动渲染）。
 5. 导出中心同理由 `ExportTask` Bean 自动扩充：如本轮新增 `LoginLogExportTask`（登录日志导出）**零迁移、零前端**，仅在 `system/export` 下加一个 `@Component` 即被 `/templates` 自动列举。脱敏遵循「类型驱动 + 安全默认」：对外视图/导出默认掩码，明文可见需显式授予 `system:*:sensitive` 权限。
-6. 测试基线：当前 114 个测试源共 **559 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过）。新增功能请同步补测，避免基线回退。
+6. 测试基线：当前测试源共 **648 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-19 全模块测试轮 38 例与短信渠道 18 例）。新增功能请同步补测，避免基线回退。
 
 ---
 
-> 更新日期：2026-10-17（本轮核对：源码规模 443→447 主源、112→114 测试源，补齐 559 用例全绿基线；确认 §5/§6 增强项与优化项全部已交付并改写章节口径；按 `scripts/check-conventions.py` 复核结果修正「平铺模块」现状——仅 `config`/`jooq`/`observability` 平铺且为规范所允许）
+> 更新日期：2026-10-19（本轮交付短信通知渠道 M6 续：主源 447→462、测试基线 630→648 例全绿；§5/§6/§7 口径同步改写，通知渠道增强项补 SMS 五渠道齐备状态）

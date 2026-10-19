@@ -466,6 +466,7 @@ Hikari 连接池参数（`minimumIdle` / `maximumPoolSize` / `connectionTimeout`
 | `OTLP_ENDPOINT` | OTLP/HTTP span 导出端点 | 否 | `observability.otlp.enabled=true` 时生效 |
 | `NOTIFICATION_EMAIL_USERNAME` | 邮件渠道 SMTP 账号 | 否 | `app.notifications.email.enabled=true` 时生效；不落仓库 |
 | `NOTIFICATION_EMAIL_PASSWORD` | 邮件渠道 SMTP 密码 | 否 | 同上；建议走 Vault / 密钥管理 |
+| `NOTIFICATION_SMS_APP_KEY` | 短信渠道网关凭据 | 否 | `app.notifications.sms.enabled=true` 且 `provider=HTTP` 时生效；不落仓库 |
 | `AVATAR_DIR` / `FILE_STORAGE_DIR` | 头像 / 文件存储目录 | 否 | 缺省 `./uploads/avatar` / `./uploads/file`，生产建议指定绝对路径 |
 
 ---

@@ -1782,7 +1782,7 @@ GET    /api/workflow/instances/{id}/history
 
 **核心功能已落地**：RBAC 权限、认证/刷新/登出、数据权限（五类范围 + AOP 注入）、操作审计（脱敏 + traceId 查询）、幂等（Idempotency-Key，审批强制）、Token 版本失效、工作流（内置 + 自定义设计器 / 发布 / 会签或签 / 驳回 / 转办 / 认领）、监控、公告/站内信、实时 WebSocket、服务端排序白名单、工作台聚合统计。
 
-**增强型基座能力**：Kafka 海量数据有序消费（同 key 分区 + 单线程串行 + 版本表 + 手动提交，保序四层机制）、Spring Cache 缓存管理（Redis 实现 + 进程内统计 + 监控联动，`app.cache.*` 配置化）、通知渠道抽象（站内信 / Webhook / WebSocket / 邮件四渠道，`NotificationPort` 路由，邮件默认关闭）、CSV 导出中心、keyset 游标深翻页、N+1 查询告警（jOOQ ExecuteListener）、`@RateLimit` 注解化限流、JaCoCo 覆盖率 profile。
+**增强型基座能力**：Kafka 海量数据有序消费（同 key 分区 + 单线程串行 + 版本表 + 手动提交，保序四层机制）、Spring Cache 缓存管理（Redis 实现 + 进程内统计 + 监控联动，`app.cache.*` 配置化）、通知渠道抽象（站内信 / Webhook / WebSocket / 邮件 / 短信五渠道，`NotificationPort` 路由，邮件与短信默认关闭、短信网关 LOG/HTTP 可配）、CSV 导出中心、keyset 游标深翻页、N+1 查询告警（jOOQ ExecuteListener）、`@RateLimit` 注解化限流、JaCoCo 覆盖率 profile。
 
 **可观测与运维**：Actuator `/prometheus` + Micrometer 基座；OTel W3C `traceparent` 传播 + 零依赖 OTLP/HTTP 导出器（opt-in）；Grafana 五块看板 + Alertmanager 五条规则 + 应用内接收端（`monitoring/` 交付）。
 
