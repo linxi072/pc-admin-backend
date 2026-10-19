@@ -50,13 +50,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Result<Void>> handleBusiness(BusinessException ex) {
         ErrorCode ec = ex.getErrorCode();
+        // 默认构造的业务异常经资源束键化（messageKey 非空）按请求语言解析；自定义消息原样透传。
+        String message = ex.getMessageKey() != null
+                ? i18n.getMessage(ex.getMessageKey())
+                : ex.getMessage();
         if (ec.httpStatus() >= 500) {
             log.error("业务异常(服务端): code={} msg={}", ec.code(), ex.getMessage(), ex);
         } else {
             log.warn("业务异常: code={} msg={}", ec.code(), ex.getMessage());
         }
         return ResponseEntity.status(ec.httpStatus())
-                .body(Result.error(ec.code(), ex.getMessage()));
+                .body(Result.error(ec.code(), message));
     }
 
     @ExceptionHandler(AuthenticationException.class)
