@@ -132,6 +132,13 @@ const routes = [
         meta: { title: '操作日志', permission: 'system:audit:read' }
       },
       {
+        // 短信记录（V37）：短信渠道发送明细（对账排查），入库前已脱敏，菜单与权限由后端驱动
+        path: 'system/sms-record',
+        name: 'smsRecord',
+        component: () => import('@/views/system/SmsLogView.vue'),
+        meta: { title: '短信记录', permission: 'system:sms-record:read' }
+      },
+      {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),
