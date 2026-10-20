@@ -1,7 +1,7 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
 > 生成日期：2026-10-15 ｜ 更新日期：2026-10-20（**幂等记录管理已交付**：M2 幂等模块补齐运维侧面——`/api/system/idempotency-records` 三分点（分页查询/统计摘要/手动清理过期），`response_snapshot` 不暴露不检索、不提供单条删除（安全论证见手册），容错查询 posture 与登录日志/短信记录一致；单测基线刷新为 824 例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
-> 方法：**直接核查真实代码**（499 个后端主源 `.java` / 152 个测试源、824 个测试用例（surefire 汇总 0 失败 0 错误）、38 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
+> 方法：**直接核查真实代码**（509 个后端主源 `.java` / 158 个测试源、848 个测试用例（surefire 汇总 0 失败 0 错误）、40 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
 ---
@@ -34,7 +34,7 @@
 | 服务端排序白名单（模块计划） | `JooqSorts` 接入 users/announcements/error-logs | ✅ |
 | 工作台聚合统计（模块计划） | `WorkbenchController` `/stats` + `/recent-activities` | ✅ |
 | OTel 链路 G1 / A1 导出器 | `observability/TraceContext` + `export/OtlpSpanExporter`（默认关闭，配置点亮） | ✅（代码） |
-| Grafana/Alertmanager G2 / A2 | `monitoring/` 配置 + `AlertWebhookController` 应用内接收端 | ✅（代码） |
+| Grafana/Alertmanager G2 / A2 | `monitoring/` 配置 + `AlertWebhookController` 应用内接收端 + `AlertInboxController` 管理面（筛选/汇总/清空） | ✅（代码） |
 | 登录验证码 G3 | `CaptchaService` + `CaptchaController` + 前端对接 | ✅ |
 | 密钥轮换 G5a / 外部密钥 A4 | `JwtKeyRotationService` + `security/secret/*` | ✅ |
 | 限流/防重放 G5b | `RateLimitFilter` + `AntiReplayFilter`（opt-in） | ✅ |
@@ -121,8 +121,8 @@
 3. 原「需联网引入 POI」的 Excel 导出/导入已通过**零依赖 OOXML（写出 `XlsxDataExporter` / 解析 `XlsxDataReader`，仅用 JDK `java.util.zip`）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
 4. 导入中心为**模板注册**模式（同导出中心）：新增一种数据的导入只需新增一个 `ImportTask` Bean 并实现 `headers()`/`validate()`/`importRow()`，无需新增接口、迁移或前端页面（前端按 `/templates` 自动渲染）。
 5. 导出中心同理由 `ExportTask` Bean 自动扩充：如本轮新增 `LoginLogExportTask`（登录日志导出）**零迁移、零前端**，仅在 `system/export` 下加一个 `@Component` 即被 `/templates` 自动列举。脱敏遵循「类型驱动 + 安全默认」：对外视图/导出默认掩码，明文可见需显式授予 `system:*:sensitive` 权限。
-6. 测试基线：当前测试源共 **824 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-20 幂等记录管理轮新增 24 例：E2E 6 + 规则单测 12 + 服务单测 6）。前端 `pc-admin-vue3-vite/scripts/fe-connectivity.mjs` 另含 5 例 `node:test` 联通测试（离线、本地 stub）。**前后端联通测试（连通探针 + 错误码映射 + 504 超时新增映射 + 契约对称脚本）已交付**，详见 `development.md` 同名章节。新增功能请同步补测，避免基线回退。
+6. 测试基线：当前测试源共 **848 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-20 幂等记录管理轮新增 24 例：E2E 6 + 规则单测 12 + 服务单测 6；同日下午告警收件箱管理轮新增 24 例：E2E 7 + 规则单测 11 + 服务单测 6）。前端 `pc-admin-vue3-vite/scripts/fe-connectivity.mjs` 另含 5 例 `node:test` 联通测试（离线、本地 stub）。**前后端联通测试（连通探针 + 错误码映射 + 504 超时新增映射 + 契约对称脚本）已交付**，详见 `development.md` 同名章节。新增功能请同步补测，避免基线回退。
 
 ---
 
-> 更新日期：2026-10-20（本轮交付幂等记录管理：主源 494→499、测试源 152、测试基线 800→824 例全绿；§6 新增「幂等记录只写不查」行并标记已完成，头部口径同步刷新）
+> 更新日期：2026-10-20（本轮交付幂等记录管理：主源 494→499、测试源 152、测试基线 800→824 例全绿；§6 新增「幂等记录只写不查」行并标记已完成，头部口径同步刷新；**告警收件箱管理已交付**：`monitor/alert` 新增 `AlertInboxController`（/api/monitoring/alerts/inbox 筛选/汇总/清空）+ `AlertInboxService` + `AlertInboxRules` + 2 个视图 DTO，存量 `/webhook/inbox` 读取端点补 `system:monitor:read` 权限（修复匿名可读越权面），主源 499→509、测试源 152→158、测试基线 824→848 例全绿）

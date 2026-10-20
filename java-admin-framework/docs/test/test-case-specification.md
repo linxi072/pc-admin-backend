@@ -2,7 +2,7 @@
 
 > 项目：`java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端）
 > 测试类型：离线端到端切片测试（Offline E2E Slice）
-> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`、`NPlusOneE2eTest.java`、`IdempotencyRecordE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneSuspectRegistryTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneListenerTest.java`、`src/test/java/com/acme/scaffold/monitor/service/NPlusOneServiceTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/rules/IdempotencyRecordRulesTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/service/IdempotencyRecordServiceTest.java`
+> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`、`NPlusOneE2eTest.java`、`IdempotencyRecordE2eTest.java`、`AlertInboxE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneSuspectRegistryTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneListenerTest.java`、`src/test/java/com/acme/scaffold/monitor/service/NPlusOneServiceTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/rules/IdempotencyRecordRulesTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/service/IdempotencyRecordServiceTest.java`、`src/test/java/com/acme/scaffold/monitor/alert/rules/AlertInboxRulesTest.java`、`src/test/java/com/acme/scaffold/monitor/alert/service/AlertInboxServiceTest.java`
 > 配套文档：[end-to-end-test-report.md](./end-to-end-test-report.md) · [sequence-diagrams.html](./sequence-diagrams.html)
 
 ---
@@ -160,6 +160,27 @@
 
 **关键交互时序**：见 [sequence-diagrams.html#sd9](./sequence-diagrams.html)（SD-09 幂等记录管理）。
 
+## 11. 告警收件箱管理模块（AlertInboxE2e，7 例）
+
+**被测对象**：`GET /api/monitoring/alerts/inbox`（severity/status/limit 筛选读取）、`GET /api/monitoring/alerts/inbox/stats`（汇总）、`DELETE /api/monitoring/alerts/inbox`（清空）；存量兼容端点 `GET /api/monitoring/alerts/webhook/inbox`。
+
+**关键交互时序**：见 [sequence-diagrams.html#sd10](./sequence-diagrams.html)（SD-10 告警收件箱管理与快照读取）。
+
+| 用例 | 场景 | 预期 |
+|---|---|---|
+| AI-01 | 列表默认参数 | 200 / code=0 / 数组；视图字段（id、receivedAtEpochMillis、status、name、severity、summary）正确 |
+| AI-02 | 筛选参数透传 | 200；severity/status/limit 原样进入服务层（归一与钳制在服务层，与 ID-02 同分层） |
+| AI-03 | 汇总 | 200；capacity/total/firingCount/resolvedCount/severityCounts/时间戳字段正确 |
+| AI-04 | 清空 | 200；返回清理条数；委托 `AlertInboxService.clear()` |
+| AI-05 | limit 缺省 | 200；控制器传 null，由服务层取默认值（分层守护，防未来误在控制器加默认值导致双口径） |
+| AI-06 | 存量端点兼容 | 200 / code=0（本轮为 `/webhook/inbox` 补 `system:monitor:read` 权限后契约不回退） |
+| AI-07 | 服务层异常 | 500 / COMMON_500（经真实 GlobalExceptionHandler 映射，不裸奔） |
+
+**配套单元口径**：
+- `AlertInboxRulesTest`（11 例）：status 白名单归一（大小写不敏感/白名单外 null）、severity 自由 label 归一（trim+小写+截断，空值 null）、limit 钳制（null 默认 100、<1 钳 1、超容量按容量自适应、容量误填 0 保底 1）、纯筛选保持顺序与容错、汇总状态分布/severity 计数降序（同数按键名序）/unknown 桶守恒/时间戳口径/null 安全、截断边界；
+- `AlertInboxServiceTest`（6 例）：列表字段映射（receivedAt→epochMillis、summary 截断 200）、筛选委托规则类、limit 按容量自适应（3/999/0/2）、空箱返回空列表、汇总透传、清空委托；
+- 存量回归：`AlertWebhookControllerTest`（4 例）与 `AlertReceiverServiceTest`（3 例）——本轮对两个类仅增量方法（`capacity()` / `clearInbox()`），无行为变更。
+
 ## 11. 全局异常与错误码映射（统一断言基线）
 
 所有模块共享 `GlobalExceptionHandler` 的错误码映射（测试中以 `Result.code` 断言）：
@@ -178,7 +199,7 @@
 
 ---
 
-## 12. 用例与测试代码映射
+## 13. 用例与测试代码映射
 
 | 测试类（@Nested） | 方法数 | 覆盖用例 |
 | --- | --- | --- |
@@ -191,6 +212,9 @@
 | `ObservabilityE2eTest` | 6 | OB-01 ~ OB-06 |
 | `NPlusOneE2eTest` | 5 | NP-01 ~ NP-05 |
 | `IdempotencyRecordE2eTest` | 6 | ID-01 ~ ID-06 |
+| `AlertInboxE2eTest` | 7 | AI-01 ~ AI-07 |
+| `AlertInboxRulesTest` | 11 | 归一/钳制/筛选/汇总/截断 |
+| `AlertInboxServiceTest` | 6 | 列表映射/筛选委托/limit 自适应/汇总/清空 |
 | `IdempotencyRecordRulesTest`（单元） | 12 | 状态/接口域/用户 ID/关键字归一（容错忽略）/ 时间窗收敛 / 过期判定 / 截断 |
 | `IdempotencyRecordServiceTest`（单元） | 6 | 摘要组装：三态直出 / 占比 4 位小数 / 零记录占比 0.0 / 全处理中 1.0 / 脏计数防御 / 无处理中透传 |
 | `NPlusOneSuspectRegistryTest`（单元） | 10 | 有界留存/淘汰/累计口径/截断/null 安全/并发守恒 |

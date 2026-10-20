@@ -5,9 +5,9 @@
 | 项目 | `java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端） |
 | 测试日期 | 2026-09-28（沙箱离线执行） |
 | 测试形态 | 离线端到端切片（Offline E2E Slice） |
-| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ `IdempotencyRecordE2eTest.java`（6 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例）+ `IdempotencyRecordRulesTest`（12 例）+ `IdempotencyRecordServiceTest`（6 例） |
+| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ `IdempotencyRecordE2eTest.java`（6 例）+ `AlertInboxE2eTest.java`（7 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例）+ `IdempotencyRecordRulesTest`（12 例）+ `IdempotencyRecordServiceTest`（6 例） |
 | 配套文档 | [test-case-specification.md](./test-case-specification.md) · [sequence-diagrams.html](./sequence-diagrams.html) |
-| 总体结论 | ✅ **通过** — 824 例单测全绿（含新增 58 例 E2E 与 64 例单元），0 失败 / 0 错误 / 0 跳过 |
+| 总体结论 | ✅ **通过** — 848 例单测全绿（含新增 65 例 E2E 与 81 例单元），0 失败 / 0 错误 / 0 跳过 |
 
 ---
 
@@ -87,13 +87,13 @@ Client (MockMvc 请求)
 
 ### 4.1 全量单测汇总
 ```
-[INFO] Tests run: 824, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 848, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
-- 本次新增 E2E：**58 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；`KafkaMonitorE2eTest` 5 例：KM-01~05；`ObservabilityE2eTest` 6 例：OB-01~06；`NPlusOneE2eTest` 5 例：NP-01~05；本轮 `IdempotencyRecordE2eTest` 6 例：ID-01~06），全部通过；
-- 本次新增单元：**64 例**（`KafkaMonitorServiceTest` 4 例：消费容器缺失降级与输入校验；`SpanRecorderTest` 10 例：有界缓冲/倒序检索/traceId 聚合/并发安全；`ObservabilityServiceTest` 8 例：limit/status/traceId 校验与指标快照；`ObservabilityPropertiesTest` 3 例：属性类与 `application.yml` recorder 段绑定一致性；`OtlpTracingFilterTest` 由 2 例扩至 3 例：双 sink 开关正交；`NPlusOneSuspectRegistryTest` 10 例：有界留存/淘汰/累计口径/截断/并发守恒；`NPlusOneListenerTest` 4 例：越限登记/未越限不登记/每轮一次/null 安全；`NPlusOneServiceTest` 6 例：limit 校验/视图映射/状态聚合/清空委托；本轮 `IdempotencyRecordRulesTest` 12 例：筛选值归一（容错 posture）/时间窗收敛/过期判定/截断；`IdempotencyRecordServiceTest` 6 例：摘要组装口径/占比舍入/零记录与脏计数防御）；
+- 本次新增 E2E：**65 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；`KafkaMonitorE2eTest` 5 例：KM-01~05；`ObservabilityE2eTest` 6 例：OB-01~06；`NPlusOneE2eTest` 5 例：NP-01~05；前轮 `IdempotencyRecordE2eTest` 6 例：ID-01~06；本轮 `AlertInboxE2eTest` 7 例：AI-01~07），全部通过；
+- 本次新增单元：**81 例**（`KafkaMonitorServiceTest` 4 例：消费容器缺失降级与输入校验；`SpanRecorderTest` 10 例：有界缓冲/倒序检索/traceId 聚合/并发安全；`ObservabilityServiceTest` 8 例：limit/status/traceId 校验与指标快照；`ObservabilityPropertiesTest` 3 例：属性类与 `application.yml` recorder 段绑定一致性；`OtlpTracingFilterTest` 由 2 例扩至 3 例：双 sink 开关正交；`NPlusOneSuspectRegistryTest` 10 例：有界留存/淘汰/累计口径/截断/并发守恒；`NPlusOneListenerTest` 4 例：越限登记/未越限不登记/每轮一次/null 安全；`NPlusOneServiceTest` 6 例：limit 校验/视图映射/状态聚合/清空委托；前轮 `IdempotencyRecordRulesTest` 12 例：筛选值归一（容错 posture）/时间窗收敛/过期判定/截断；`IdempotencyRecordServiceTest` 6 例：摘要组装口径/占比舍入/零记录与脏计数防御；本轮 `AlertInboxRulesTest` 11 例：筛选值归一/limit 钳制（含容量误填保底）/纯筛选顺序与容错/汇总守恒与时间戳/截断；`AlertInboxServiceTest` 6 例：列表字段映射与筛选委托/limit 按容量自适应/空箱与 summary 截断/汇总透传/清空委托）；
 - 既有基线：702 例（含 `ConnectivityControllerTest` 15 例），历次 E2E 增量回归全绿；
-- 合计 **824 例，0 失败 / 0 错误 / 0 跳过**。
+- 合计 **848 例，0 失败 / 0 错误 / 0 跳过**。
 
 ### 4.2 新增 E2E 用例执行明细
 | 嵌套类 | 用例 | 结果 |
@@ -107,6 +107,7 @@ Client (MockMvc 请求)
 | `ObservabilityE2eTest` | OB-01~06 | ✅ 6/6 |
 | `NPlusOneE2eTest` | NP-01~05 | ✅ 5/5 |
 | `IdempotencyRecordE2eTest` | ID-01~06 | ✅ 6/6 |
+| `AlertInboxE2eTest` | AI-01~07 | ✅ 7/7 |
 
 ### 4.3 覆盖矩阵（正常 / 异常 / 边界）
 | 模块 | 正常 | 异常 | 边界 | 典型用例 |
@@ -119,6 +120,7 @@ Client (MockMvc 请求)
 | 可观测性 | ● span 列表/按 traceId/摘要/指标 | ● limit 越界(400) | ● status 非法(400) / 空 traceId(400) | OB-01~06 |
 | N+1 探测 | ● 疑似列表/运行态/清空 | ● limit 越界(400) | ● limit 缺省默认 50 | NP-01~05 |
 | 幂等记录 | ● 分页/摘要/清理 | ● 排序方向非法(400) | ● 非法状态筛选容错(200) / 快照列不暴露 | ID-01~06 |
+| 告警收件箱 | ● 列表/汇总/清空 | ● 服务层异常(500) | ● limit 缺省/越界自适应 / 非法筛选容错 / 存量端点兼容 | AI-01~07 |
 
 ---
 
@@ -149,13 +151,14 @@ Client (MockMvc 请求)
 | R2 | 已修复 | 数据权限切面此前因 OR 组合绑定切点导致"用户/部门/待办/流程"等多模块集体报"参数绑定失败"（提交 `c155a02`） | ✅ 已修复并纳入 SD-02 验证 |
 | R3 | 安全运维 | 历史遗留：`LoginView` 硬编码口令轮换、多实例 `app.id.worker-id` 配置待运维处置 | 记录于项目待办，非测试阻塞 |
 | R4 | 覆盖率 | 离线切片未覆盖真实数据权限 SQL 注入、Flowable 任务推进、导出/导入二进制往返 | 由 `*IT` + 专项测试补充 |
+| R6 | 已修复 | 告警收件箱存量读取端点 `GET /api/monitoring/alerts/webhook/inbox` 此前无任何权限控制，匿名可拉取全部告警数据（越权面） | ✅ 本轮补 `system:monitor:read`（AI-06 守护契约不回退），管理面改走 `/api/monitoring/alerts/inbox` |
 | R5 | 已修复 | Kafka 监控轮曾给路径变量加 `@Validated`+`@NotBlank`，standalone MockMvc 无 `MethodValidationPostProcessor` 且 `GlobalExceptionHandler` 不映射 `ConstraintViolationException`，非法入参穿透成 500 | ✅ 已回退为服务层 `BusinessException.badRequest` 校验（400/COMMON_001）；本轮 ID-06 守护「容错查询」posture 防回归 |
 
 ---
 
 ## 7. 结论与后续建议
 
-**结论**：本次端到端功能测试在离线环境下达成对 8 大核心用户路径的全流程验证，**52 例新增 E2E 全部通过，另有 46 例单元覆盖降级路径、输入校验、并发安全与配置绑定，既有 702 例回归全绿，合计 800 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增 N+1 查询探测管理模块，将此前「只在日志中出现一次」的 N+1 告警升级为可查询、可复盘、可清理的运行态数据，并修正了命名数据源 DSL 缺少 N+1 观测的装配缺口（与主 DSLContext 双路一致）。
+**结论**：本次端到端功能测试在离线环境下达成对 8 大核心用户路径的全流程验证，**65 例新增 E2E 全部通过，另有 81 例单元覆盖降级路径、输入校验、并发安全与配置绑定，既有 702 例回归全绿，合计 848 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增 N+1 查询探测管理模块，将此前「只在日志中出现一次」的 N+1 告警升级为可查询、可复盘、可清理的运行态数据，并修正了命名数据源 DSL 缺少 N+1 观测的装配缺口（与主 DSLContext 双路一致）。
 
 **后续建议**：
 1. 在 CI/本机 MySQL 环境执行 `*IT` 集成测试，补全真实事务与 Flowable 引擎链路验证；
@@ -225,4 +228,13 @@ M2 幂等模块此前「只写不查」：`sys_idempotency_record` 由 `Idempote
 5. **容错查询 posture**：与登录日志/短信记录页一致，非法状态/非数字用户 ID/空关键字一律忽略该筛选条件而非 400；唯一硬校验是排序方向（`PageQuery.of` → `SortItem.single`，静默降级会让前端误以为排序生效）。E2E ID-06 守护该 posture（曾因误用 `@Validated` 导致 `ConstraintViolationException` 穿透 500，见 §6 历史缺陷）。
 6. **DB 路径的验证口径**：沙箱无 MySQL，分页/计数/删除按项目约定交由集成测试（`*IT`）覆盖；离线侧以「E2E 桩接（HTTP 契约 + 异常映射）+ 规则/摘要纯函数单测（18 例）」达成等价验证。前端对接建议：运维「中间件/稳定性」页渲染分页表（`expired` 字段直接标红待清理行）与摘要卡（`processing`/`expiredPending` 水位告警），「立即清理」按钮调 `POST /purge`。
 
-*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（824/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*
+*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（848/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*
+
+## 13. 集成说明（告警收件箱管理如何接入现有系统）
+
+1. **读写分离的接入方式**：机器向接收链路（Alertmanager → `POST /api/monitoring/alerts/webhook`，`X-Alert-Token` 鉴权）无需改动；人向管理面（运维人员/前端 → `/api/monitoring/alerts/inbox`，RBAC `system:monitor:read`）为本轮新增。两侧共用 `AlertReceiverService` 的同一内存收件箱（有界环形，`monitoring.alert.inbox-capacity` 默认 200）。
+2. **权限接入**：`system:monitor:read` 与 `MonitorController` / `NPlusOneController` 同权，由 `ApiResourceAutoSyncRunner` 启动扫描 `@PreAuthorize` 自动登记 `sys_api_resource` 并授予 SUPER_ADMIN，无需手工播种菜单/权限种子。
+3. **存量端点硬化**：`GET /api/monitoring/alerts/webhook/inbox` 补 `system:monitor:read` 权限（此前匿名可读，见 §6 R6），返回形态保持不变（领域对象直出）仅为兼容旧前端/脚本，新代码一律使用管理端点。
+4. **无配置与依赖变更**：不新增外部依赖、不新增配置项、无 DDL；limit 上限按收件箱实际容量自适应（`AlertInboxRules.normalizeLimit`），容量误填 ≤0 时保底 1。
+5. **与事件扩展点的关系**：`AlertReceivedEvent` 在入箱时发布，当前无应用内监听器（有意保留为集成方扩展点：转发外部网关/站内信/WebSocket 推送）；如需实时推送可复用 `realtime` 模块会话管理，勿在接收线程内做阻塞 IO。
+6. **验证口径**：沙箱无 Alertmanager 与真实告警流，接收链路由存量 `AlertWebhookControllerTest`（4 例）+ `AlertReceiverServiceTest`（3 例）覆盖；管理面以「E2E 桩接（HTTP 契约 + 参数透传分层 + 异常映射）+ 规则/服务纯函数单测（17 例）」达成等价验证。前端对接建议：运维「监控告警」页渲染收件箱列表（severity/status 下拉筛选 + limit 输入）与汇总卡（firing/resolved 水位、severity 分布 Top-N 直出免排序），「一键清空」按钮调 `DELETE /inbox` 并展示返回条数。
