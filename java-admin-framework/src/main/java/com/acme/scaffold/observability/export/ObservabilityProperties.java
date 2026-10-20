@@ -14,9 +14,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ObservabilityProperties {
 
     private final Otlp otlp = new Otlp();
+    private final Recorder recorder = new Recorder();
 
     public Otlp getOtlp() {
         return otlp;
+    }
+
+    public Recorder getRecorder() {
+        return recorder;
     }
 
     public static class Otlp {
@@ -59,6 +64,29 @@ public class ObservabilityProperties {
 
         public void setTimeoutMillis(int timeoutMillis) {
             this.timeoutMillis = timeoutMillis;
+        }
+    }
+
+    public static class Recorder {
+        /** 是否启用了本地 span 记录（内存有界缓冲）。与 OTLP 导出开关正交，两者可独立开启。 */
+        private boolean enabled = true;
+        /** 本地留存的最大 span 条数，超出后按入队序淘汰最旧记录。 */
+        private int capacity = 200;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getCapacity() {
+            return capacity;
+        }
+
+        public void setCapacity(int capacity) {
+            this.capacity = capacity;
         }
     }
 }

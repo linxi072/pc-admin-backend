@@ -17,11 +17,13 @@ import java.util.HexFormat;
 import java.util.List;
 
 /**
- * 请求级 span 导出过滤器：在 {@code TraceIdFilter}（HIGHEST_PRECEDENCE）之后运行，
- * 为每个 HTTP 请求生成一个 server span 并经由 {@link OtlpSpanExporter} 导出（默认关闭）。
+ * 请求级 span 采集过滤器：在 {@code TraceIdFilter}（HIGHEST_PRECEDENCE）之后运行，
+ * 为每个 HTTP 请求生成一个 server span，并分发给全部已启用的 {@link SpanExporter} sink
+ * （本地留存记录器 + OTLP Collector 导出器，二者开关正交、可独立开启）。
  *
  * <p>span 的 traceId 复用 MDC {@code traceId}（与 W3C {@code traceparent} / 审计日志 / 全局异常处理器一致），
- * 满足「日志与 span 可双向跳转」。关闭状态下直接透传，零开销。
+ * 满足「日志与 span 可双向跳转」。所有 sink 均关闭时直接透传，零开销；任一开启即构造 span，
+ * 并按各 sink 自身开关分发（本地留存开启时无需 Collector 亦可回溯追踪）。</p>
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
@@ -30,16 +32,18 @@ public class OtlpTracingFilter extends OncePerRequestFilter {
     private static final String MDC_TRACE_ID = "traceId";
     private static final SecureRandom RNG = new SecureRandom();
 
-    private final SpanExporter exporter;
+    /** 全部 span sink（Spring 按 bean 聚合注入：本地留存记录器 + OTLP 导出器）。 */
+    private final List<SpanExporter> exporters;
 
-    public OtlpTracingFilter(SpanExporter exporter) {
-        this.exporter = exporter;
+    public OtlpTracingFilter(List<SpanExporter> exporters) {
+        this.exporters = exporters;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        if (!exporter.isEnabled()) {
+        boolean anyEnabled = exporters.stream().anyMatch(SpanExporter::isEnabled);
+        if (!anyEnabled) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -69,7 +73,12 @@ public class OtlpTracingFilter extends OncePerRequestFilter {
                             new OtlpSpan.Attribute("http.status_code", String.valueOf(status))
                     ),
                     statusCode, status >= 500 ? "server error" : null);
-            exporter.export(List.of(span));
+            List<OtlpSpan> batch = List.of(span);
+            for (SpanExporter exporter : exporters) {
+                if (exporter.isEnabled()) {
+                    exporter.export(batch);
+                }
+            }
         }
     }
 

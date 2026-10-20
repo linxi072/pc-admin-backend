@@ -209,6 +209,12 @@ observability:
     endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
     service-name: ${spring.application.name}
     timeout-ms: 2000
+  # 本地 span 记录（与 OTLP 导出正交）：应用内有界内存留存最近 N 条请求 span，
+  # 供 GET /api/observability/traces 回溯（Collector 未部署时尤其有用）。
+  # 容量超出后按入队序淘汰最旧记录；置 enabled=false 可关闭（过滤器双开关均关时零开销透传）。
+  recorder:
+    enabled: true
+    capacity: 200
 
 # 告警接收（A2）：作为 Alertmanager 的真实 webhook 接收端（应用内）。
 # token 非空时要求请求携带匹配的 X-Alert-Token 头；生产须由网络/网关层加固。
