@@ -5,15 +5,15 @@
 | 项目 | `java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端） |
 | 测试日期 | 2026-09-28（沙箱离线执行） |
 | 测试形态 | 离线端到端切片（Offline E2E Slice） |
-| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`（4 例） |
+| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例） |
 | 配套文档 | [test-case-specification.md](./test-case-specification.md) · [sequence-diagrams.html](./sequence-diagrams.html) |
-| 总体结论 | ✅ **通过** — 747 例单测全绿（含新增 41 例 E2E 与 4 例单元），0 失败 / 0 错误 / 0 跳过 |
+| 总体结论 | ✅ **通过** — 775 例单测全绿（含新增 47 例 E2E 与 26 例单元），0 失败 / 0 错误 / 0 跳过 |
 
 ---
 
 ## 1. 测试概述
 
-依据"覆盖所有核心业务场景与用户操作路径"的要求，本次在沙箱离线环境下构建了一套**离线端到端测试切片**，对系统 6 大核心用户路径（认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控）进行全流程验证。测试以 standalone `MockMvc` 装配**真实**的 `Controller`、`GlobalExceptionHandler` 与 `I18nService`，服务层以 Mockito 桩接，从而在不依赖 MySQL 的前提下，真实校验：
+依据"覆盖所有核心业务场景与用户操作路径"的要求，本次在沙箱离线环境下构建了一套**离线端到端测试切片**，对系统 7 大核心用户路径（认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控、可观测性管理）进行全流程验证。测试以 standalone `MockMvc` 装配**真实**的 `Controller`、`GlobalExceptionHandler` 与 `I18nService`，服务层以 Mockito 桩接，从而在不依赖 MySQL 的前提下，真实校验：
 
 1. 请求路由与 HTTP 动词映射；
 2. Bean Validation 参数校验与 400 响应；
@@ -33,7 +33,8 @@
 | 工作流任务 | `/api/workflow/tasks` | 5 | 待办 / 认领 / 审批 / 转办（WF-01~05） |
 | 实时推送管理 | `/api/realtime` | 6 | 会话列表 / 在线数 / 广播 / 定向推送（RT-01~06） |
 | Kafka 消费监控 | `/api/kafka` | 5 | 状态 / 死信列表 / 重试 / 丢弃（KM-01~05） |
-| **合计** | — | **41** | 正常流程 + 异常/边界 |
+| 可观测性管理 | `/api/observability` | 6 | span 回溯 / 按 traceId 检索 / 摘要 / 指标快照 / 清空（OB-01~06） |
+| **合计** | — | **47** | 正常流程 + 异常/边界 |
 
 未纳入本切片、但已在仓库中存在并执行通过的相邻测试：
 - `ConnectivityControllerTest`（15 例，前后端联通契约，含 504 超时链路）；
@@ -85,12 +86,13 @@ Client (MockMvc 请求)
 
 ### 4.1 全量单测汇总
 ```
-[INFO] Tests run: 747, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 775, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
-- 本次新增 E2E：**41 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；本轮 `KafkaMonitorE2eTest` 5 例：KM-01~05），全部通过；另新增 `KafkaMonitorServiceTest` 单元 4 例覆盖消费容器缺失降级与输入校验；
+- 本次新增 E2E：**47 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；`KafkaMonitorE2eTest` 5 例：KM-01~05；本轮 `ObservabilityE2eTest` 6 例：OB-01~06），全部通过；
+- 本次新增单元：**26 例**（`KafkaMonitorServiceTest` 4 例：消费容器缺失降级与输入校验；本轮 `SpanRecorderTest` 10 例：有界缓冲/倒序检索/traceId 聚合/并发安全；`ObservabilityServiceTest` 8 例：limit/status/traceId 校验与指标快照；`ObservabilityPropertiesTest` 3 例：属性类与 `application.yml` recorder 段绑定一致性；`OtlpTracingFilterTest` 由 2 例扩至 3 例：双 sink 开关正交）；
 - 既有基线：702 例（含 `ConnectivityControllerTest` 15 例），历次 E2E 增量回归全绿；
-- 合计 **747 例，0 失败 / 0 错误 / 0 跳过**。
+- 合计 **775 例，0 失败 / 0 错误 / 0 跳过**。
 
 ### 4.2 新增 E2E 用例执行明细
 | 嵌套类 | 用例 | 结果 |
@@ -101,6 +103,7 @@ Client (MockMvc 请求)
 | `WorkflowE2e` | WF-01~05 | ✅ 5/5 |
 | `RealtimeE2eTest` | RT-01~06 | ✅ 6/6 |
 | `KafkaMonitorE2eTest` | KM-01~05 | ✅ 5/5 |
+| `ObservabilityE2eTest` | OB-01~06 | ✅ 6/6 |
 
 ### 4.3 覆盖矩阵（正常 / 异常 / 边界）
 | 模块 | 正常 | 异常 | 边界 | 典型用例 |
@@ -110,6 +113,7 @@ Client (MockMvc 请求)
 | 用户 | ● | ● id 缺失(404) | ● 缺 roleIds(400) / 短口令(400) | USR-02/03/05/08 |
 | 工作流 | ● 认领/审批/转办 | — | ● 缺 taskId(400) | WF-02/03/05/04 |
 | Kafka 监控 | ● 状态/死信列表/重试/丢弃 | ● 空 ID(400) | ● 未启用返回 false | KM-01~05 |
+| 可观测性 | ● span 列表/按 traceId/摘要/指标 | ● limit 越界(400) | ● status 非法(400) / 空 traceId(400) | OB-01~06 |
 
 ---
 
@@ -125,6 +129,7 @@ Client (MockMvc 请求)
 | SD-04 | 任务认领/审批 | 认领天然幂等；审批/转办强制 `Idempotency-Key`；审批前校验 assignee 归属与任务存在性 |
 | SD-05 | 实时推送管理 | Client→Controller→AdminService；读取会话态或经 PushService 广播/定向推送触达 WebSocket；离线用户由前端 REST 拉取兜底 |
 | SD-06 | Kafka 消费监控与死信补偿 | Client→Controller→MonitorService→Consumer；读取运行指标/死信列表，或经 retry/discard 清除失败计数与版本表占位以补偿毒消息 |
+| SD-07 | 可观测性管理与 span 回溯 | Client→Controller→ObservabilityService；请求级 span 由 OtlpTracingFilter 采集并分发给本地留存记录器（有界环形缓冲）与 OTLP 导出器；管理侧按 traceId 回溯、查摘要与指标快照 |
 
 > 详见 [sequence-diagrams.html](./sequence-diagrams.html)。
 
@@ -143,7 +148,7 @@ Client (MockMvc 请求)
 
 ## 7. 结论与后续建议
 
-**结论**：本次端到端功能测试在离线环境下达成对 6 大核心用户路径的全流程验证，**41 例新增 E2E 全部通过，另有 4 例单元覆盖消费容器缺失降级与输入校验，既有 702 例回归全绿，合计 747 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增 Kafka 有序消费监控与死信补偿模块，补齐了 kafka 包「有消费逻辑无管理入口」的缺口，并落实了原函数注释中「需人工/死信队列补偿」的待办意图。
+**结论**：本次端到端功能测试在离线环境下达成对 7 大核心用户路径的全流程验证，**47 例新增 E2E 全部通过，另有 26 例单元覆盖降级路径、输入校验、并发安全与配置绑定，既有 702 例回归全绿，合计 775 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增可观测性管理模块，补齐了 observability 包「有 span 采集/导出能力但本地零留存、无管理入口」的缺口——span 本地记录器作为 `SpanExporter` 的一种实现（本地留存 sink）与 OTLP 导出器并列装配，二者开关正交。
 
 **后续建议**：
 1. 在 CI/本机 MySQL 环境执行 `*IT` 集成测试，补全真实事务与 Flowable 引擎链路验证；
@@ -176,4 +181,17 @@ Client (MockMvc 请求)
 5. **毒消息补偿语义**：`retry` 清除该消息的位点失败计数与版本表占位，使上游重投后能被重新处理（需上游修正后重发，否则仍被版本表挡下）；`discard` 仅从死信存储移除、视为已人工确认。两者均为内存态操作，幂等（重复调用对不存在的 id 返回 `false`）。
 6. **前端对接建议**：运维「消息队列监控」页调用 `GET /api/kafka/consumer/status` 展示实时指标、`GET /api/kafka/consumer/poison` 分页列出死信，对单条毒消息提供「重试 / 丢弃」按钮分别调用 `POST /api/kafka/consumer/poison/{id}/retry|discard`。菜单种子可按需补 `system:kafka` 一类（非阻塞）。
 
-*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（747/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*
+---
+
+## 10. 集成说明（可观测性管理如何接入现有系统）
+
+`observability` 包此前已有完整的 span 采集与导出能力（`OtlpTracingFilter` 请求级采集、`OtlpSpanExporter` 零依赖 OTLP 推送、`MetricsRegistry` Micrometer 门面），但存在两个缺口：**span 导出后本地零留存**（Collector 未部署时无法回溯追踪），**指标无管理面板视角的按名检索**。本轮新增 `ObservabilityController` + `ObservabilityService` + 3 个视图 DTO + `SpanRecorder` 本地留存组件，集成方式如下：
+
+1. **自动装配 + 一处显式配置**：`SpanRecorder`（`@Component`，实现既有 `SpanExporter` 接口）与 `ObservabilityController` 随组件扫描注册，无需新增 `@Configuration`；`OtlpTracingFilter` 的构造由单 exporter 改为 `List<SpanExporter>`（Spring 自动聚合本地留存 + OTLP 两个 sink），因此**新增配置段** `observability.recorder.enabled`（默认 true）与 `observability.recorder.capacity`（默认 200），已在 `application.yml` 显式声明（含注释）。
+2. **与 OTLP 导出开关正交**：`recorder.enabled` 与 `otlp.enabled` 互相独立——本地留存开启时无需 Collector 即可经 `GET /api/observability/traces` 回溯；两个开关均关闭时过滤器直接透传（保持既有「零开销」语义）。`SpanRecorder` 复用原作者在 `SpanExporter` 接口注释中预留的多 sink 设计（「解耦过滤器与具体导出实现」），本地留存即一种 sink。
+3. **权限接入现有体系**：端点沿用项目统一的 `@PreAuthorize("hasAuthority('system:observability:read|manage')")`；`ApiResourceScanner` 自动登记为 API 资源，`SUPER_ADMIN` 等角色天然可用，无需手工改角色种子。
+4. **无数据库依赖**：span 留存为应用内有界环形缓冲（默认 200 条，超出按入队序淘汰，重启清零），指标快照直接读 Micrometer `MeterRegistry` 内存态；本模块不引入任何表结构迁移（DDL）或外部依赖。
+5. **补偿/清理语义**：`DELETE /api/observability/traces` 仅清空本地留存并返回清除条数，不影响 OTLP 导出链路；span 与日志经同一 MDC `traceId` 关联，支持「日志 → span → Collector」双向跳转。
+6. **前端对接建议**：运维「链路追踪」页调用 `GET /api/observability/traces?limit=50&status=ERROR` 展示最近请求、点击某条后以 `traceId` 调 `GET /api/observability/traces/{traceId}` 查看同追踪全链路；`GET /api/observability/summary` 用于展示双链路开关与留存水位告警。菜单种子可按需补 `system:observability` 一类（非阻塞）。
+
+*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（775/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*

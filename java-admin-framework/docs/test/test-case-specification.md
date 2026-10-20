@@ -2,7 +2,7 @@
 
 > 项目：`java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端）
 > 测试类型：离线端到端切片测试（Offline E2E Slice）
-> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`
+> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`
 > 配套文档：[end-to-end-test-report.md](./end-to-end-test-report.md) · [sequence-diagrams.html](./sequence-diagrams.html)
 
 ---
@@ -11,10 +11,10 @@
 
 | 维度 | 说明 |
 | --- | --- |
-| 被测对象 | 6 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控 |
+| 被测对象 | 7 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控、可观测性管理 |
 | 测试形态 | Standalone `MockMvc` 装配**真实** `Controller` + **真实** `GlobalExceptionHandler` + **真实** `I18nService`；服务层以 Mockito 桩接，**无需 MySQL** |
 | 覆盖目标 | 正常流程 + 异常/边界（参数校验失败、业务异常、HTTP 状态与 `Result` 包络映射） |
-| 用例总量 | 41 例 E2E（分 5 个测试类：4 个 `@Nested` + `RealtimeE2eTest` + `KafkaMonitorE2eTest`）+ 4 例单元（`KafkaMonitorServiceTest`），全部离线可跑、全绿 |
+| 用例总量 | 47 例 E2E（分 6 个测试类：4 个 `@Nested` + `RealtimeE2eTest` + `KafkaMonitorE2eTest` + `ObservabilityE2eTest`）+ 26 例单元（`KafkaMonitorServiceTest` 4 + `SpanRecorderTest` 10 + `ObservabilityServiceTest` 8 + `ObservabilityPropertiesTest` 3 + `OtlpTracingFilterTest` 本轮新增 1 例），全部离线可跑、全绿 |
 | 不覆盖 | 需本机 MySQL 的真实事务/多表联动，由 `*IT` 集成测试在 CI/本机执行（见报告 §4） |
 
 ### 优先级约定
@@ -118,7 +118,20 @@
 
 **关键交互时序**：见 [sequence-diagrams.html#sd6](./sequence-diagrams.html)（SD-06 Kafka 消费监控与死信补偿）。
 
-## 8. 全局异常与错误码映射（统一断言基线）
+## 8. 可观测性管理模块（ObservabilityE2e，6 例）
+
+| 编号 | 标题 | 优先级 | 类型 | 前置条件 | 测试步骤 | 预期结果 |
+| --- | --- | --- | --- | --- | --- | --- |
+| OB-01 | 最近 span 列表 | P1 | 正常 | `observabilityService.recentSpans(...)` 桩返回 1 条 span 视图（含属性与耗时） | 1. `GET /api/observability/traces?limit=50` | HTTP 200；`code="0"`；`data[0].traceId="t-001"`、`data[0].name="GET /api/users"`、`data[0].status="OK"`、`data[0].durationMillis=42`、`data[0].attributes['http.status_code']="200"` |
+| OB-02 | 按 traceId 检索 | P1 | 正常 | `spansByTraceId("t-001")` 桩返回同追踪 2 条 span（OK/ERROR） | 1. `GET /api/observability/traces/t-001` | HTTP 200；`code="0"`；`data.length()=2`、`data[1].statusMessage="boom"` |
+| OB-03 | 运行态摘要 | P1 | 正常 | `summary()` 桩返回记录器启用、留存 12、OK 10/ERROR 2、导出器关闭 | 1. `GET /api/observability/summary` | HTTP 200；`code="0"`；`data.recorderEnabled=true`、`data.exporterEnabled=false`、`data.retained=12`、`data.okCount=10`、`data.errorCount=2` |
+| OB-04 | 指标快照 | P1 | 正常 | `metricSnapshot(prefix)` 桩返回 1 条 counter 指标 | 1. `GET /api/observability/metrics?prefix=app.observability.` | HTTP 200；`code="0"`；`data[0].name="app.observability.test.spans"`、`data[0].type="COUNTER"`、`data[0].value=1.0` |
+| OB-05 | limit 越界 | P0 | 边界 | `recentSpans(0, ...)` 桩抛 `BusinessException(VALIDATION_ERROR)` | 1. `GET /api/observability/traces?limit=0` | HTTP 400；`code="COMMON_001"`（服务层 limit 范围校验经 `GlobalExceptionHandler` 映射） |
+| OB-06 | 清空本地留存 | P1 | 正常 | `clearSpans()` 桩返回 3 | 1. `DELETE /api/observability/traces` | HTTP 200；`code="0"`；`data=3`（清除条数） |
+
+**关键交互时序**：见 [sequence-diagrams.html#sd7](./sequence-diagrams.html)（SD-07 可观测性管理与 span 回溯）。
+
+## 9. 全局异常与错误码映射（统一断言基线）
 
 所有模块共享 `GlobalExceptionHandler` 的错误码映射（测试中以 `Result.code` 断言）：
 
@@ -136,7 +149,7 @@
 
 ---
 
-## 9. 用例与测试代码映射
+## 10. 用例与测试代码映射
 
 | 测试类（@Nested） | 方法数 | 覆盖用例 |
 | --- | --- | --- |
@@ -146,6 +159,11 @@
 | `CoreApiE2eTest.WorkflowE2e` | 5 | WF-01 ~ WF-05 |
 | `RealtimeE2eTest` | 6 | RT-01 ~ RT-06 |
 | `KafkaMonitorE2eTest` | 5 | KM-01 ~ KM-05 |
+| `ObservabilityE2eTest` | 6 | OB-01 ~ OB-06 |
 | `KafkaMonitorServiceTest`（单元） | 4 | 单元：消费容器缺失降级 / 空 ID 校验(VALIDATION_ERROR) / retry 委托 / 死信按 key 过滤映射 |
+| `SpanRecorderTest`（单元） | 10 | 单元：倒序检索 / 容量淘汰 / traceId 聚合 / 状态统计 / 清空 / 禁用语义 / export 批量 / null 安全 / 并发有界守恒 |
+| `ObservabilityServiceTest`（单元） | 8 | 单元：limit 越界校验 / status 非法校验 / traceId 空校验 / 过滤映射 / clear 委托 / 双链路摘要 / 指标前缀过滤与排序 |
+| `ObservabilityPropertiesTest`（单元） | 3 | 单元：yml recorder 段绑定 / otlp 回归 / 默认值与 yml 一致 |
+| `OtlpTracingFilterTest`（单元） | 3 | 单元：exporter+recorder 双消费 / 双关零开销透传 / 仅本地留存时仍记录（本轮新增 1 例） |
 
 > 每个 `@Test` 方法断言三要素：**HTTP 状态**、**`Result.code` 业务错误码**、**`Result.data` 形态/空值**，并覆盖 i18n 消息键解析。

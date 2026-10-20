@@ -39,6 +39,7 @@
   <a href="#sd4">SD-04 工作流认领/审批</a>
   <a href="#sd5">SD-05 实时推送管理</a>
   <a href="#sd6">SD-06 Kafka 消费监控</a>
+  <a href="#sd7">SD-07 可观测性管理</a>
 </nav>
 <main>
   <div class="legend">
@@ -432,6 +433,81 @@
 <text x="134.0" y="799.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">200 Result&lt;Boolean&gt;</text>
 <path d="M380,834 h216 l14,14 v8 h-230 z" fill="#fef9c3" stroke="#f59e0b" stroke-width="1"/>
 <text x="388" y="850" fill="#92400e" font-size="10.5">discard 仅从死信存储移除（视为已人工确认）；retry 额外重置失败计数与版本表占位，使上游重投后可重新处理。内存态、幂等，不存在返回 false。</text>
+</svg>
+</section></section>
+  <section id="sd7"><section class="diag">
+<h2>SD-07 可观测性管理与 span 回溯（最近 span / 按 traceId / 摘要 / 指标快照）</h2>
+<p class="cap">补齐 observability 模块缺失的管理入口。请求级 span 由 OtlpTracingFilter 采集，经 List&lt;SpanExporter&gt; 分发给两个正交 sink：本地留存记录器（SpanRecorder，有界环形缓冲，默认开启）与 OTLP Collector 导出器（默认关闭）；管理侧 Client → ObservabilityController → ObservabilityService 按 traceId 回溯、查看双链路摘要与 Micrometer 指标快照。</p>
+<svg viewBox="0 0 754 1172" width="100%" style="max-width:754px" role="img" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<defs><marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 Z" fill="#2563eb"/></marker><marker id="aho" markerWidth="12" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6" fill="none" stroke="#64748b" stroke-width="1.4"/></marker><marker id="ahs" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 Z" fill="#0f766e"/></marker></defs>
+<rect x="9.0" y="14" width="110.0" height="28" rx="6" fill="#2563eb"/>
+<text x="64.0" y="33" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="600">Client</text>
+<line x1="64.0" y1="42" x2="64.0" y2="1162.0" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+<rect x="96.9" y="14" width="186.2" height="28" rx="6" fill="#2563eb"/>
+<text x="190.0" y="33" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="600">ObservabilityController</text>
+<line x1="190.0" y1="42" x2="190.0" y2="1162.0" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+<rect x="234.0" y="14" width="164.0" height="28" rx="6" fill="#2563eb"/>
+<text x="316.0" y="33" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="600">ObservabilityService</text>
+<line x1="316.0" y1="42" x2="316.0" y2="1162.0" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+<rect x="387.0" y="14" width="110.0" height="28" rx="6" fill="#2563eb"/>
+<text x="442.0" y="33" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="600">SpanRecorder</text>
+<line x1="442.0" y1="42" x2="442.0" y2="1162.0" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+<rect x="497.1" y="14" width="141.8" height="28" rx="6" fill="#2563eb"/>
+<text x="568.0" y="33" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="600">OtlpTracingFilter</text>
+<line x1="568.0" y1="42" x2="568.0" y2="1162.0" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+<rect x="630.5" y="14" width="127.0" height="28" rx="6" fill="#2563eb"/>
+<text x="694.0" y="33" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="600">MetricsRegistry</text>
+<line x1="694.0" y1="42" x2="694.0" y2="1162.0" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+<line x1="568.0" y1="68.0" x2="568.0" y2="68.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="568.0" y="63.0" text-anchor="middle" fill="#2563eb" font-size="10.5">doFilter: 生成 server span（traceId 复用 MDC）</text>
+<path d="M324,98 h216 l14,14 v8 h-230 z" fill="#fef9c3" stroke="#f59e0b" stroke-width="1"/>
+<text x="332" y="114" fill="#92400e" font-size="10.5">全部 sink 关闭 → 直接透传零开销；任一开启 → 构造 span 后按各自开关分发</text>
+<line x1="568.0" y1="154.0" x2="442.0" y2="154.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="505.0" y="149.0" text-anchor="middle" fill="#2563eb" font-size="10.5">recorder.isEnabled() → record(span)（有界淘汰）</text>
+<line x1="568.0" y1="198.0" x2="316.0" y2="198.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="442.0" y="193.0" text-anchor="middle" fill="#2563eb" font-size="10.5">exporter.isEnabled() → export(span)（OTLP/HTTP，默认关）</text>
+<line x1="64.0" y1="242.0" x2="190.0" y2="242.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="127.0" y="237.0" text-anchor="middle" fill="#2563eb" font-size="10.5">GET /api/observability/traces?limit=50&amp;status=ERROR</text>
+<path d="M316,286 L360,286 L360,310 L316,310" fill="none" stroke="#0f766e" stroke-width="1.2" marker-end="url(#ahs)"/>
+<text x="366.0" y="301.0" fill="#0f766e" font-size="10.5">normalizeLimit(1..capacity) / normalizeStatus(UNSET|OK|ERROR) → 非法则 400 COMMON_001</text>
+<line x1="190.0" y1="320.0" x2="316.0" y2="320.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="253.0" y="315.0" text-anchor="middle" fill="#2563eb" font-size="10.5">recentSpans(limit, status, traceId)</text>
+<line x1="316.0" y1="364.0" x2="442.0" y2="364.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="379.0" y="359.0" text-anchor="middle" fill="#2563eb" font-size="10.5">recent(take) → 倒序(最新在前)</text>
+<line x1="442.0" y1="408.0" x2="316.0" y2="408.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="379.0" y="403.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">List&lt;OtlpSpan&gt;</text>
+<line x1="316.0" y1="452.0" x2="190.0" y2="452.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="253.0" y="447.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">List&lt;SpanView&gt;（毫秒折算 + 属性映射）</text>
+<line x1="190.0" y1="496.0" x2="64.0" y2="496.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="127.0" y="491.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">200 Result&lt;List&lt;SpanView&gt;&gt;</text>
+<line x1="64.0" y1="540.0" x2="190.0" y2="540.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="127.0" y="535.0" text-anchor="middle" fill="#2563eb" font-size="10.5">GET /api/observability/traces/{traceId}</text>
+<line x1="190.0" y1="584.0" x2="316.0" y2="584.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="253.0" y="579.0" text-anchor="middle" fill="#2563eb" font-size="10.5">spansByTraceId(traceId)（空则 400）</text>
+<line x1="316.0" y1="628.0" x2="442.0" y2="628.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="379.0" y="623.0" text-anchor="middle" fill="#2563eb" font-size="10.5">byTraceId(traceId) → 入队序</text>
+<line x1="442.0" y1="672.0" x2="316.0" y2="672.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="379.0" y="667.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">List&lt;OtlpSpan&gt;</text>
+<line x1="190.0" y1="716.0" x2="64.0" y2="716.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="127.0" y="711.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">200 Result&lt;List&lt;SpanView&gt;&gt;</text>
+<line x1="64.0" y1="760.0" x2="190.0" y2="760.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="127.0" y="755.0" text-anchor="middle" fill="#2563eb" font-size="10.5">GET /api/observability/summary</text>
+<line x1="190.0" y1="804.0" x2="316.0" y2="804.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="253.0" y="799.0" text-anchor="middle" fill="#2563eb" font-size="10.5">summary() = recorder.stats() + exporter.isEnabled()</text>
+<line x1="190.0" y1="848.0" x2="64.0" y2="848.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="127.0" y="843.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">200 Result&lt;TraceSummaryView&gt;</text>
+<line x1="64.0" y1="892.0" x2="190.0" y2="892.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="127.0" y="887.0" text-anchor="middle" fill="#2563eb" font-size="10.5">GET /api/observability/metrics?prefix=app.</text>
+<line x1="190.0" y1="936.0" x2="316.0" y2="936.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="253.0" y="931.0" text-anchor="middle" fill="#2563eb" font-size="10.5">metricSnapshot(prefix)</text>
+<line x1="316.0" y1="980.0" x2="694.0" y2="980.0" stroke="#2563eb" stroke-width="1.4" marker-end="url(#ah)"/>
+<text x="505.0" y="975.0" text-anchor="middle" fill="#2563eb" font-size="10.5">raw().getMeters() → 前缀过滤 + 名称排序 + measure() 取值</text>
+<line x1="694.0" y1="1024.0" x2="316.0" y2="1024.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="505.0" y="1019.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">List&lt;Meter&gt;</text>
+<line x1="190.0" y1="1068.0" x2="64.0" y2="1068.0" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aho)"/>
+<text x="127.0" y="1063.0" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">200 Result&lt;List&lt;MetricView&gt;&gt;</text>
+<path d="M456,1098 h216 l14,14 v8 h-230 z" fill="#fef9c3" stroke="#f59e0b" stroke-width="1"/>
+<text x="464" y="1114" fill="#92400e" font-size="10.5">span 与日志经同一 MDC traceId 关联，支持「日志 → span → Collector」双向跳转；留存为内存态，重启清零。</text>
 </svg>
 </section></section>
 </main>
