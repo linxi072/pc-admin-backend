@@ -2,7 +2,7 @@
 
 > 项目：`java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端）
 > 测试类型：离线端到端切片测试（Offline E2E Slice）
-> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`、`NPlusOneE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneSuspectRegistryTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneListenerTest.java`、`src/test/java/com/acme/scaffold/monitor/service/NPlusOneServiceTest.java`
+> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`、`NPlusOneE2eTest.java`、`IdempotencyRecordE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneSuspectRegistryTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneListenerTest.java`、`src/test/java/com/acme/scaffold/monitor/service/NPlusOneServiceTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/rules/IdempotencyRecordRulesTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/service/IdempotencyRecordServiceTest.java`
 > 配套文档：[end-to-end-test-report.md](./end-to-end-test-report.md) · [sequence-diagrams.html](./sequence-diagrams.html)
 
 ---
@@ -145,7 +145,22 @@
 
 **关键交互时序**：见 [sequence-diagrams.html#sd8](./sequence-diagrams.html)（SD-08 N+1 查询探测与疑似事件留存）。
 
-## 10. 全局异常与错误码映射（统一断言基线）
+## 10. 幂等记录管理模块（IdempotencyRecordE2e，6 例）
+
+| 编号 | 标题 | 优先级 | 类型 | 前置条件 | 测试步骤 | 预期结果 |
+| --- | --- | --- | --- | --- | --- | --- |
+| ID-01 | 分页查询默认参数 | P1 | 正常 | `service.page(...)` 桩返回 1 条记录视图（key/scope/指纹/状态，expiresAt 早于查询时刻） | 1. `GET /api/system/idempotency-records/page` | HTTP 200；`code="0"`；`data.page=1`、`data.size=10`、`data.total=1`；`data.records[0].idempotencyKey="order-2026-1001"`、`status="SUCCESS"`、`expired=true`；`responseSnapshot` 字段不存在（契约级不暴露响应快照） |
+| ID-02 | 分页筛选透传 | P1 | 正常 | `service.page(...)` 桩返回空分页 | 1. `GET /page?page=2&size=20&status=SUCCESS&apiScope=workflow:complete&userId=42&keyword=order&startTime=2026-10-19T00:00:00&endTime=2026-10-20T00:00:00&sortField=createdAt&sortDirection=DESC` | HTTP 200；`code="0"`；`data.records` 为空数组；`verify` 服务层收到原样透传的十个参数（含 `@DateTimeFormat` 解析后的两个 `LocalDateTime`） |
+| ID-03 | 排序方向非法 | P0 | 边界 | `service.page(..., "SIDEWAYS")` 桩抛 `BusinessException(VALIDATION_ERROR)`（模拟服务层 `PageQuery.of` → `SortItem.single` 校验） | 1. `GET /api/system/idempotency-records/page?sortDirection=SIDEWAYS` | HTTP 400；`code="COMMON_001"`（经 `GlobalExceptionHandler` 映射） |
+| ID-04 | 统计摘要 | P1 | 正常 | `service.summary(...)` 桩返回 total=100 / processing=3 / success=90 / failed=7 / expiredPending=12 / share=0.03 | 1. `GET /api/system/idempotency-records/summary` | HTTP 200；`code="0"`；`data.total=100`、`data.processing=3`、`data.failed=7`、`data.expiredPending=12`、`data.processingShare=0.03` |
+| ID-05 | 手动清理过期记录 | P1 | 正常 | `service.purgeExpired()` 桩返回 7 | 1. `POST /api/system/idempotency-records/purge` | HTTP 200；`code="0"`；`data=7`；`verify` 清理委托发生一次 |
+| ID-06 | 非法状态筛选值容错 | P0 | 边界 | `service.page(...)` 桩返回空分页 | 1. `GET /api/system/idempotency-records/page?status=UNKNOWN` | HTTP 200；`code="0"`；`data.records` 为空数组；`verify` 服务层收到原值 `"UNKNOWN"`（归一/忽略发生在服务层；守护「容错查询」posture，防未来误加严格校验导致 500 回归） |
+
+> 配套单元（非 E2E 口径）：`IdempotencyRecordRulesTest` 12 例守护状态/接口域/用户 ID/关键字归一（非法值忽略的容错 posture）、时间窗收敛（默认 7 天 / 起晚于止钳制）、过期判定与截断；`IdempotencyRecordServiceTest` 6 例守护摘要组装口径（三态直出 / 占比 4 位小数 / 零记录占比 0.0 / 脏计数防御）。DB 交互路径（分页/计数/清理删除）按项目约定由 MySQL 集成测试覆盖（沙箱离线，以 E2E 桩接 + 规则单测达成等价契约验证）。
+
+**关键交互时序**：见 [sequence-diagrams.html#sd9](./sequence-diagrams.html)（SD-09 幂等记录管理）。
+
+## 11. 全局异常与错误码映射（统一断言基线）
 
 所有模块共享 `GlobalExceptionHandler` 的错误码映射（测试中以 `Result.code` 断言）：
 
@@ -163,7 +178,7 @@
 
 ---
 
-## 11. 用例与测试代码映射
+## 12. 用例与测试代码映射
 
 | 测试类（@Nested） | 方法数 | 覆盖用例 |
 | --- | --- | --- |
@@ -175,6 +190,9 @@
 | `KafkaMonitorE2eTest` | 5 | KM-01 ~ KM-05 |
 | `ObservabilityE2eTest` | 6 | OB-01 ~ OB-06 |
 | `NPlusOneE2eTest` | 5 | NP-01 ~ NP-05 |
+| `IdempotencyRecordE2eTest` | 6 | ID-01 ~ ID-06 |
+| `IdempotencyRecordRulesTest`（单元） | 12 | 状态/接口域/用户 ID/关键字归一（容错忽略）/ 时间窗收敛 / 过期判定 / 截断 |
+| `IdempotencyRecordServiceTest`（单元） | 6 | 摘要组装：三态直出 / 占比 4 位小数 / 零记录占比 0.0 / 全处理中 1.0 / 脏计数防御 / 无处理中透传 |
 | `NPlusOneSuspectRegistryTest`（单元） | 10 | 有界留存/淘汰/累计口径/截断/null 安全/并发守恒 |
 | `NPlusOneListenerTest`（单元） | 4 | 越限登记/未越限不登记/每轮一次/null SQL 安全 |
 | `NPlusOneServiceTest`（单元） | 6 | limit 校验(0/越上限/负)/视图映射/状态聚合/清空委托 |

@@ -5,9 +5,9 @@
 | 项目 | `java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端） |
 | 测试日期 | 2026-09-28（沙箱离线执行） |
 | 测试形态 | 离线端到端切片（Offline E2E Slice） |
-| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例） |
+| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ `IdempotencyRecordE2eTest.java`（6 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例）+ `IdempotencyRecordRulesTest`（12 例）+ `IdempotencyRecordServiceTest`（6 例） |
 | 配套文档 | [test-case-specification.md](./test-case-specification.md) · [sequence-diagrams.html](./sequence-diagrams.html) |
-| 总体结论 | ✅ **通过** — 800 例单测全绿（含新增 52 例 E2E 与 46 例单元），0 失败 / 0 错误 / 0 跳过 |
+| 总体结论 | ✅ **通过** — 824 例单测全绿（含新增 58 例 E2E 与 64 例单元），0 失败 / 0 错误 / 0 跳过 |
 
 ---
 
@@ -87,13 +87,13 @@ Client (MockMvc 请求)
 
 ### 4.1 全量单测汇总
 ```
-[INFO] Tests run: 800, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 824, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
-- 本次新增 E2E：**52 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；`KafkaMonitorE2eTest` 5 例：KM-01~05；`ObservabilityE2eTest` 6 例：OB-01~06；本轮 `NPlusOneE2eTest` 5 例：NP-01~05），全部通过；
-- 本次新增单元：**46 例**（`KafkaMonitorServiceTest` 4 例：消费容器缺失降级与输入校验；`SpanRecorderTest` 10 例：有界缓冲/倒序检索/traceId 聚合/并发安全；`ObservabilityServiceTest` 8 例：limit/status/traceId 校验与指标快照；`ObservabilityPropertiesTest` 3 例：属性类与 `application.yml` recorder 段绑定一致性；`OtlpTracingFilterTest` 由 2 例扩至 3 例：双 sink 开关正交；本轮 `NPlusOneSuspectRegistryTest` 10 例：有界留存/淘汰/累计口径/截断/并发守恒；`NPlusOneListenerTest` 4 例：越限登记/未越限不登记/每轮一次/null 安全；`NPlusOneServiceTest` 6 例：limit 校验/视图映射/状态聚合/清空委托）；
+- 本次新增 E2E：**58 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；`KafkaMonitorE2eTest` 5 例：KM-01~05；`ObservabilityE2eTest` 6 例：OB-01~06；`NPlusOneE2eTest` 5 例：NP-01~05；本轮 `IdempotencyRecordE2eTest` 6 例：ID-01~06），全部通过；
+- 本次新增单元：**64 例**（`KafkaMonitorServiceTest` 4 例：消费容器缺失降级与输入校验；`SpanRecorderTest` 10 例：有界缓冲/倒序检索/traceId 聚合/并发安全；`ObservabilityServiceTest` 8 例：limit/status/traceId 校验与指标快照；`ObservabilityPropertiesTest` 3 例：属性类与 `application.yml` recorder 段绑定一致性；`OtlpTracingFilterTest` 由 2 例扩至 3 例：双 sink 开关正交；`NPlusOneSuspectRegistryTest` 10 例：有界留存/淘汰/累计口径/截断/并发守恒；`NPlusOneListenerTest` 4 例：越限登记/未越限不登记/每轮一次/null 安全；`NPlusOneServiceTest` 6 例：limit 校验/视图映射/状态聚合/清空委托；本轮 `IdempotencyRecordRulesTest` 12 例：筛选值归一（容错 posture）/时间窗收敛/过期判定/截断；`IdempotencyRecordServiceTest` 6 例：摘要组装口径/占比舍入/零记录与脏计数防御）；
 - 既有基线：702 例（含 `ConnectivityControllerTest` 15 例），历次 E2E 增量回归全绿；
-- 合计 **800 例，0 失败 / 0 错误 / 0 跳过**。
+- 合计 **824 例，0 失败 / 0 错误 / 0 跳过**。
 
 ### 4.2 新增 E2E 用例执行明细
 | 嵌套类 | 用例 | 结果 |
@@ -106,6 +106,7 @@ Client (MockMvc 请求)
 | `KafkaMonitorE2eTest` | KM-01~05 | ✅ 5/5 |
 | `ObservabilityE2eTest` | OB-01~06 | ✅ 6/6 |
 | `NPlusOneE2eTest` | NP-01~05 | ✅ 5/5 |
+| `IdempotencyRecordE2eTest` | ID-01~06 | ✅ 6/6 |
 
 ### 4.3 覆盖矩阵（正常 / 异常 / 边界）
 | 模块 | 正常 | 异常 | 边界 | 典型用例 |
@@ -117,6 +118,7 @@ Client (MockMvc 请求)
 | Kafka 监控 | ● 状态/死信列表/重试/丢弃 | ● 空 ID(400) | ● 未启用返回 false | KM-01~05 |
 | 可观测性 | ● span 列表/按 traceId/摘要/指标 | ● limit 越界(400) | ● status 非法(400) / 空 traceId(400) | OB-01~06 |
 | N+1 探测 | ● 疑似列表/运行态/清空 | ● limit 越界(400) | ● limit 缺省默认 50 | NP-01~05 |
+| 幂等记录 | ● 分页/摘要/清理 | ● 排序方向非法(400) | ● 非法状态筛选容错(200) / 快照列不暴露 | ID-01~06 |
 
 ---
 
@@ -147,6 +149,7 @@ Client (MockMvc 请求)
 | R2 | 已修复 | 数据权限切面此前因 OR 组合绑定切点导致"用户/部门/待办/流程"等多模块集体报"参数绑定失败"（提交 `c155a02`） | ✅ 已修复并纳入 SD-02 验证 |
 | R3 | 安全运维 | 历史遗留：`LoginView` 硬编码口令轮换、多实例 `app.id.worker-id` 配置待运维处置 | 记录于项目待办，非测试阻塞 |
 | R4 | 覆盖率 | 离线切片未覆盖真实数据权限 SQL 注入、Flowable 任务推进、导出/导入二进制往返 | 由 `*IT` + 专项测试补充 |
+| R5 | 已修复 | Kafka 监控轮曾给路径变量加 `@Validated`+`@NotBlank`，standalone MockMvc 无 `MethodValidationPostProcessor` 且 `GlobalExceptionHandler` 不映射 `ConstraintViolationException`，非法入参穿透成 500 | ✅ 已回退为服务层 `BusinessException.badRequest` 校验（400/COMMON_001）；本轮 ID-06 守护「容错查询」posture 防回归 |
 
 ---
 
@@ -211,4 +214,15 @@ Client (MockMvc 请求)
 5. **无数据库依赖**：疑似事件为进程内有界留存（默认 200 条，重启清零），累计计数 `totalBreaches` 单调递增、清空不清零（便于评估告警频率）；本模块不引入任何 DDL 或外部依赖。
 6. **前端对接建议**：运维「SQL 质量」页调用 `GET /api/system/monitor/n-plus-one/suspects?limit=50` 展示最近疑似事件（指纹可直接定位代码中的查询），`GET /api/system/monitor/n-plus-one/status` 展示阈值/容量/水位，提供「清空」按钮调 `DELETE /api/system/monitor/n-plus-one/suspects`。菜单种子可按需补 `system:monitor` 一类（非阻塞，与监控页共用即可）。
 
-*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（800/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*
+## 12. 集成说明（幂等记录管理如何接入现有系统）
+
+M2 幂等模块此前「只写不查」：`sys_idempotency_record` 由 `IdempotencyService` 在请求链路持续写入（acquire / markSuccess / markFailed / release，均 `REQUIRES_NEW` 独立事务），`IdempotencyCleanupJob` 周期清理过期行，但运维侧零查询入口——无法查看记录分布、无法发现卡在 `PROCESSING` 的僵尸行、无法查看 `FAILED` 的错误码、无法手动触发清理。本轮新增 `IdempotencyRecordController` + `IdempotencyRecordService` + 2 个视图 DTO + 1 个规则类，集成方式如下：
+
+1. **零配置、零迁移、零依赖**：表（V16，后并入 V32 consolidated schema）、DO（`IdempotencyRecordDO`）与写路径均已存在，本轮纯增量查询侧面；无新 `application.yml` 键、无 DDL、无新 Maven 依赖；控制器随组件扫描注册，无需新增 `@Configuration`。
+2. **三条端点**：`GET /api/system/idempotency-records/page`（分页 + 状态/接口域/用户/关键字/时间区间筛选，默认最近 7 天）、`GET /api/system/idempotency-records/summary`（同口径统计：总数/三态分布/已过期待清理/PROCESSING 占比/最近登记）、`POST /api/system/idempotency-records/purge`（手动清理过期记录，返回删除条数）。
+3. **权限接入现有体系**：查询 `system:idempotency:read`、清理 `system:idempotency:manage`（读写分离，最小授权）；`ApiResourceAutoSyncRunner` 启动时扫描 `@PreAuthorize` 自动登记 `sys_api_resource` 并授予 SUPER_ADMIN，无需手工改角色种子；菜单种子可按需补（与监控/可观测性管理一致的处理方式）。
+4. **安全边界（刻意不收窄也不放开）**：`response_snapshot`（首次响应体，最大 4000 字符，可能含 PII）**不在视图暴露、不参与检索**——重放由幂等切面自动完成，运维不需要原文；**不提供单条删除**——删除一条仍处 `PROCESSING` 的记录会使同 key 在途请求失去第二道防线而重复执行业务，唯一清理入口是「删除已过期记录」（与周期任务同口径同实现）。
+5. **容错查询 posture**：与登录日志/短信记录页一致，非法状态/非数字用户 ID/空关键字一律忽略该筛选条件而非 400；唯一硬校验是排序方向（`PageQuery.of` → `SortItem.single`，静默降级会让前端误以为排序生效）。E2E ID-06 守护该 posture（曾因误用 `@Validated` 导致 `ConstraintViolationException` 穿透 500，见 §6 历史缺陷）。
+6. **DB 路径的验证口径**：沙箱无 MySQL，分页/计数/删除按项目约定交由集成测试（`*IT`）覆盖；离线侧以「E2E 桩接（HTTP 契约 + 异常映射）+ 规则/摘要纯函数单测（18 例）」达成等价验证。前端对接建议：运维「中间件/稳定性」页渲染分页表（`expired` 字段直接标红待清理行）与摘要卡（`processing`/`expiredPending` 水位告警），「立即清理」按钮调 `POST /purge`。
+
+*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（824/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*
