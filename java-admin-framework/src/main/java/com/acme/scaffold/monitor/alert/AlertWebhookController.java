@@ -3,6 +3,7 @@ package com.acme.scaffold.monitor.alert;
 import com.acme.scaffold.common.api.Result;
 import org.slf4j.MDC;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -58,7 +59,17 @@ public class AlertWebhookController {
         return ResponseEntity.accepted().body(Result.success(body));
     }
 
+    /**
+     * 存量兼容读取端点（旧版前端/脚本可能仍在调用）。
+     *
+     * <p><b>已硬化</b>：补 {@code system:monitor:read} 权限——告警数据属敏感运维信息，
+     * 匿名可拉取全部收件箱是真实的越权面；管理面请改用
+     * {@link com.acme.scaffold.monitor.alert.controller.AlertInboxController}
+     * （{@code /api/monitoring/alerts/inbox}，支持筛选/汇总/清空与视图 DTO）。
+     * 本端点保留原返回形态（领域对象直出）仅为兼容，新代码不应依赖。</p>
+     */
     @GetMapping("/webhook/inbox")
+    @PreAuthorize("hasAuthority('system:monitor:read')")
     public Result<?> inbox() {
         return Result.success(service.inbox());
     }

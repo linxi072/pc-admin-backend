@@ -67,6 +67,28 @@ public class AlertReceiverService {
         return inbox.size();
     }
 
+    /**
+     * 收件箱实际容量（构造时已按配置钳制，下限 1）——管理端读取条数上限按此自适应，
+     * 避免「limit 高于容量」的无意义请求。
+     */
+    public int capacity() {
+        return capacity;
+    }
+
+    /**
+     * 清空收件箱并返回清理条数（管理端「一键清空」与测试复位共用）。
+     *
+     * <p>只丢弃当前窗口快照，不影响后续接收，也不回放已发布的
+     * {@link AlertReceivedEvent}（事件在入箱时即已离开本类）。</p>
+     */
+    public int clearInbox() {
+        int cleared = 0;
+        while (inbox.pollFirst() != null) {
+            cleared++;
+        }
+        return cleared;
+    }
+
     private AlertInboxEntry toEntry(AlertPayload.Alert a) {
         String name = a.labels != null ? a.labels.get("alertname") : null;
         String severity = a.labels != null ? a.labels.get("severity") : null;
