@@ -5,15 +5,15 @@
 | 项目 | `java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端） |
 | 测试日期 | 2026-09-28（沙箱离线执行） |
 | 测试形态 | 离线端到端切片（Offline E2E Slice） |
-| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例） |
+| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`（4 例） |
 | 配套文档 | [test-case-specification.md](./test-case-specification.md) · [sequence-diagrams.html](./sequence-diagrams.html) |
-| 总体结论 | ✅ **通过** — 738 例单测全绿（含新增 36 例 E2E），0 失败 / 0 错误 / 0 跳过 |
+| 总体结论 | ✅ **通过** — 747 例单测全绿（含新增 41 例 E2E 与 4 例单元），0 失败 / 0 错误 / 0 跳过 |
 
 ---
 
 ## 1. 测试概述
 
-依据"覆盖所有核心业务场景与用户操作路径"的要求，本次在沙箱离线环境下构建了一套**离线端到端测试切片**，对系统 4 大核心用户路径（认证授权、系统参数、用户管理、工作流任务）进行全流程验证。测试以 standalone `MockMvc` 装配**真实**的 `Controller`、`GlobalExceptionHandler` 与 `I18nService`，服务层以 Mockito 桩接，从而在不依赖 MySQL 的前提下，真实校验：
+依据"覆盖所有核心业务场景与用户操作路径"的要求，本次在沙箱离线环境下构建了一套**离线端到端测试切片**，对系统 6 大核心用户路径（认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控）进行全流程验证。测试以 standalone `MockMvc` 装配**真实**的 `Controller`、`GlobalExceptionHandler` 与 `I18nService`，服务层以 Mockito 桩接，从而在不依赖 MySQL 的前提下，真实校验：
 
 1. 请求路由与 HTTP 动词映射；
 2. Bean Validation 参数校验与 400 响应；
@@ -32,7 +32,8 @@
 | 用户管理 | `/api/system/users` | 9 | 分页 / 查询 / 新建 / 更新 / 重置密码 / 删除（USR-01~09） |
 | 工作流任务 | `/api/workflow/tasks` | 5 | 待办 / 认领 / 审批 / 转办（WF-01~05） |
 | 实时推送管理 | `/api/realtime` | 6 | 会话列表 / 在线数 / 广播 / 定向推送（RT-01~06） |
-| **合计** | — | **36** | 正常流程 + 异常/边界 |
+| Kafka 消费监控 | `/api/kafka` | 5 | 状态 / 死信列表 / 重试 / 丢弃（KM-01~05） |
+| **合计** | — | **41** | 正常流程 + 异常/边界 |
 
 未纳入本切片、但已在仓库中存在并执行通过的相邻测试：
 - `ConnectivityControllerTest`（15 例，前后端联通契约，含 504 超时链路）；
@@ -84,12 +85,12 @@ Client (MockMvc 请求)
 
 ### 4.1 全量单测汇总
 ```
-[INFO] Tests run: 738, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 747, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
-- 本次新增 E2E：**36 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；本轮 `RealtimeE2eTest` 6 例：RT-01~06），全部通过；
+- 本次新增 E2E：**41 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；本轮 `KafkaMonitorE2eTest` 5 例：KM-01~05），全部通过；另新增 `KafkaMonitorServiceTest` 单元 4 例覆盖消费容器缺失降级与输入校验；
 - 既有基线：702 例（含 `ConnectivityControllerTest` 15 例），历次 E2E 增量回归全绿；
-- 合计 **738 例，0 失败 / 0 错误 / 0 跳过**。
+- 合计 **747 例，0 失败 / 0 错误 / 0 跳过**。
 
 ### 4.2 新增 E2E 用例执行明细
 | 嵌套类 | 用例 | 结果 |
@@ -99,6 +100,7 @@ Client (MockMvc 请求)
 | `UserE2e` | USR-01~09 | ✅ 9/9 |
 | `WorkflowE2e` | WF-01~05 | ✅ 5/5 |
 | `RealtimeE2eTest` | RT-01~06 | ✅ 6/6 |
+| `KafkaMonitorE2eTest` | KM-01~05 | ✅ 5/5 |
 
 ### 4.3 覆盖矩阵（正常 / 异常 / 边界）
 | 模块 | 正常 | 异常 | 边界 | 典型用例 |
@@ -107,6 +109,7 @@ Client (MockMvc 请求)
 | 参数 | ● | ● key 缺失(404) | ● 缺 configKey(400) | CFG-02/03/05 |
 | 用户 | ● | ● id 缺失(404) | ● 缺 roleIds(400) / 短口令(400) | USR-02/03/05/08 |
 | 工作流 | ● 认领/审批/转办 | — | ● 缺 taskId(400) | WF-02/03/05/04 |
+| Kafka 监控 | ● 状态/死信列表/重试/丢弃 | ● 空 ID(400) | ● 未启用返回 false | KM-01~05 |
 
 ---
 
@@ -121,6 +124,7 @@ Client (MockMvc 请求)
 | SD-03 | 参数读写 | 读命中内存缓存直接返回，未命中回源 `sys_config` 并回填；写路径同步失效/回填缓存 |
 | SD-04 | 任务认领/审批 | 认领天然幂等；审批/转办强制 `Idempotency-Key`；审批前校验 assignee 归属与任务存在性 |
 | SD-05 | 实时推送管理 | Client→Controller→AdminService；读取会话态或经 PushService 广播/定向推送触达 WebSocket；离线用户由前端 REST 拉取兜底 |
+| SD-06 | Kafka 消费监控与死信补偿 | Client→Controller→MonitorService→Consumer；读取运行指标/死信列表，或经 retry/discard 清除失败计数与版本表占位以补偿毒消息 |
 
 > 详见 [sequence-diagrams.html](./sequence-diagrams.html)。
 
@@ -139,7 +143,7 @@ Client (MockMvc 请求)
 
 ## 7. 结论与后续建议
 
-**结论**：本次端到端功能测试在离线环境下达成对 5 大核心用户路径的全流程验证，**36 例新增 E2E 全部通过，既有 702 例回归全绿，合计 738 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增实时推送管理模块补齐了 realtime 包缺失的 REST 入口。
+**结论**：本次端到端功能测试在离线环境下达成对 6 大核心用户路径的全流程验证，**41 例新增 E2E 全部通过，另有 4 例单元覆盖消费容器缺失降级与输入校验，既有 702 例回归全绿，合计 747 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增 Kafka 有序消费监控与死信补偿模块，补齐了 kafka 包「有消费逻辑无管理入口」的缺口，并落实了原函数注释中「需人工/死信队列补偿」的待办意图。
 
 **后续建议**：
 1. 在 CI/本机 MySQL 环境执行 `*IT` 集成测试，补全真实事务与 Flowable 引擎链路验证；
@@ -159,4 +163,17 @@ Client (MockMvc 请求)
 4. **无数据库依赖**：在线会话为内存态（WebSocket 生命周期维护），本模块不引入任何表结构迁移（DDL）或外部依赖。
 5. **前端对接建议**：管理后台「在线会话 / 实时推送」页调用 `GET /api/realtime/sessions` 与 `POST /api/realtime/push/{broadcast,user}` 即可；`type` 复用既有 `UNREAD_MESSAGE` / `TODO_REMINDER` / `NOTIFICATION` / `PONG` 常量。菜单种子可按需补 `system:realtime` 一类（非阻塞）。
 
-*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（738/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*
+---
+
+## 9. 集成说明（Kafka 消费监控与死信补偿如何接入现有系统）
+
+`kafka` 包此前已有 `OrderedKafkaConsumer`（有序消费容器，含版本去重、毒消息跳过与位移提交失败计数），但**没有任何 REST 管理入口**，运维无法观测其运行态、也无法对毒消息做补偿。本轮新增 `KafkaMonitorController` + `KafkaMonitorService` + 2 个视图 DTO + 领域对象 `PoisonMessage`，并以最小侵入方式在 `OrderedKafkaConsumer` 内建内存死信存储，补齐该入口，集成方式如下：
+
+1. **自动装配，无需改配置**：`KafkaMonitorController`（`@RestController`）随组件扫描注册，`@RequestMapping("/api/kafka")` 下暴露四个端点；`KafkaMonitorService` 由构造注入 `ObjectProvider<OrderedKafkaConsumer>`，无新增 Bean 定义、无 `application*.yml` 变更。
+2. **消费容器门禁兼容**：消费容器由 `acme.kafka.ordered-consumer.enabled` 控制，未启用时 `OrderedKafkaConsumer` Bean 不注册；`KafkaMonitorService` 通过 `ObjectProvider#getIfAvailable()` 惰性获取，缺失时状态返回 `enabled=false`、补偿操作返回 `false`，对未装配环境零硬依赖。
+3. **权限接入现有体系**：端点沿用项目统一的 `@PreAuthorize("hasAuthority('system:kafka:read|manage')")` 注解；`ApiResourceScanner` 启动时自动登记这些端点为 API 资源（`system:kafka:read` / `system:kafka:manage`），`SUPER_ADMIN` 等已含全部权限的角色天然可用，无需手工改角色种子。
+4. **无数据库依赖**：运行指标来自 `OrderedKafkaConsumer` 内存计数器（`LongAdder`/`ConcurrentHashMap`），死信存储为内存态、随容器重启清零——与既有版本表「重启即全量重投」语义一致，本模块不引入任何表结构迁移（DDL）或外部依赖。
+5. **毒消息补偿语义**：`retry` 清除该消息的位点失败计数与版本表占位，使上游重投后能被重新处理（需上游修正后重发，否则仍被版本表挡下）；`discard` 仅从死信存储移除、视为已人工确认。两者均为内存态操作，幂等（重复调用对不存在的 id 返回 `false`）。
+6. **前端对接建议**：运维「消息队列监控」页调用 `GET /api/kafka/consumer/status` 展示实时指标、`GET /api/kafka/consumer/poison` 分页列出死信，对单条毒消息提供「重试 / 丢弃」按钮分别调用 `POST /api/kafka/consumer/poison/{id}/retry|discard`。菜单种子可按需补 `system:kafka` 一类（非阻塞）。
+
+*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（747/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*

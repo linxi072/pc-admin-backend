@@ -2,7 +2,7 @@
 
 > 项目：`java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端）
 > 测试类型：离线端到端切片测试（Offline E2E Slice）
-> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`
+> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`
 > 配套文档：[end-to-end-test-report.md](./end-to-end-test-report.md) · [sequence-diagrams.html](./sequence-diagrams.html)
 
 ---
@@ -11,10 +11,10 @@
 
 | 维度 | 说明 |
 | --- | --- |
-| 被测对象 | 5 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理 |
+| 被测对象 | 6 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控 |
 | 测试形态 | Standalone `MockMvc` 装配**真实** `Controller` + **真实** `GlobalExceptionHandler` + **真实** `I18nService`；服务层以 Mockito 桩接，**无需 MySQL** |
 | 覆盖目标 | 正常流程 + 异常/边界（参数校验失败、业务异常、HTTP 状态与 `Result` 包络映射） |
-| 用例总量 | 36 例，分 5 个测试类（4 个 `@Nested` + `RealtimeE2eTest`），全部离线可跑、全绿 |
+| 用例总量 | 41 例 E2E（分 5 个测试类：4 个 `@Nested` + `RealtimeE2eTest` + `KafkaMonitorE2eTest`）+ 4 例单元（`KafkaMonitorServiceTest`），全部离线可跑、全绿 |
 | 不覆盖 | 需本机 MySQL 的真实事务/多表联动，由 `*IT` 集成测试在 CI/本机执行（见报告 §4） |
 
 ### 优先级约定
@@ -106,7 +106,19 @@
 
 **关键交互时序**：见 [sequence-diagrams.html#sd5](./sequence-diagrams.html)（SD-05 实时推送管理）。
 
-## 7. 全局异常与错误码映射（统一断言基线）
+## 7. Kafka 消费监控模块（KafkaMonitorE2e，5 例）
+
+| 编号 | 标题 | 优先级 | 类型 | 前置条件 | 测试步骤 | 预期结果 |
+| --- | --- | --- | --- | --- | --- | --- |
+| KM-01 | 消费容器状态 | P1 | 正常 | `monitorService.status()` 桩返回 `enabled=true` 及各项指标 | 1. `GET /api/kafka/consumer/status` | HTTP 200；`code="0"`；`data.enabled=true`、`data.handledCount=1024`、`data.poisonPending=2` |
+| KM-02 | 死信列表 | P1 | 正常 | `monitorService.listPoison(...)` 桩返回含 1 条毒消息的分页 | 1. `GET /api/kafka/consumer/poison` | HTTP 200；`code="0"`；`data.total=1`、`data.records[0].id="pid-1"`、`data.records[0].topic="order-topic"` |
+| KM-03 | 重试毒消息 | P0 | 正常 | `monitorService.retry("pid-1")` 桩返回 `true` | 1. `POST /api/kafka/consumer/poison/pid-1/retry` | HTTP 200；`code="0"`；`data=true` |
+| KM-04 | 丢弃不存在的毒消息 | P2 | 边界 | `monitorService.discard("ghost")` 桩返回 `false` | 1. `POST /api/kafka/consumer/poison/ghost/discard` | HTTP 200；`code="0"`；`data=false` |
+| KM-05 | 空 ID 重试 | P0 | 边界 | `monitorService.retry(any())` 桩抛 `BusinessException(VALIDATION_ERROR)` | 1. `POST /api/kafka/consumer/poison/x/retry` | HTTP 400；`code="COMMON_001"`（服务层 `requireNonBlankId` 经 `GlobalExceptionHandler` 映射） |
+
+**关键交互时序**：见 [sequence-diagrams.html#sd6](./sequence-diagrams.html)（SD-06 Kafka 消费监控与死信补偿）。
+
+## 8. 全局异常与错误码映射（统一断言基线）
 
 所有模块共享 `GlobalExceptionHandler` 的错误码映射（测试中以 `Result.code` 断言）：
 
@@ -124,7 +136,7 @@
 
 ---
 
-## 8. 用例与测试代码映射
+## 9. 用例与测试代码映射
 
 | 测试类（@Nested） | 方法数 | 覆盖用例 |
 | --- | --- | --- |
@@ -133,5 +145,7 @@
 | `CoreApiE2eTest.UserE2e` | 9 | USR-01 ~ USR-09 |
 | `CoreApiE2eTest.WorkflowE2e` | 5 | WF-01 ~ WF-05 |
 | `RealtimeE2eTest` | 6 | RT-01 ~ RT-06 |
+| `KafkaMonitorE2eTest` | 5 | KM-01 ~ KM-05 |
+| `KafkaMonitorServiceTest`（单元） | 4 | 单元：消费容器缺失降级 / 空 ID 校验(VALIDATION_ERROR) / retry 委托 / 死信按 key 过滤映射 |
 
 > 每个 `@Test` 方法断言三要素：**HTTP 状态**、**`Result.code` 业务错误码**、**`Result.data` 形态/空值**，并覆盖 i18n 消息键解析。
