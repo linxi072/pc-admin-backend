@@ -2,6 +2,7 @@ package com.acme.scaffold.kafka.service;
 
 import com.acme.scaffold.kafka.domain.KafkaOrderedConsumerProperties;
 import com.acme.scaffold.kafka.domain.OrderedRecord;
+import com.acme.scaffold.kafka.domain.PoisonMessage;
 import com.acme.scaffold.kafka.port.RecordSource;
 import com.acme.scaffold.kafka.rules.OrderingRules;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
@@ -74,6 +76,8 @@ public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
     private final LongAdder staleCount = new LongAdder();
     private final LongAdder commitFailureCount = new LongAdder();
     private final AtomicLong lastCommitFailureLogAt = new AtomicLong(0L);
+    /** 毒消息（死信）存储：被判定为毒消息而跳过的记录在此留痕，供运维经 REST 查看/补偿。内存态，重启清零。 */
+    private final Map<String, PoisonMessage> poisonStore = new ConcurrentHashMap<>();
 
     private volatile boolean running = false;
     private volatile Thread worker;
@@ -215,7 +219,11 @@ public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
             int attempts = deliveryAttempts.merge(site, 1, Integer::sum);
             if (attempts >= MAX_DELIVERY_ATTEMPTS) {
                 poisonCount.increment();
-                log.error("记录处理连续失败 {} 次，判定为毒消息（下轮起跳过，需人工/死信补偿）: "
+                String pid = UUID.randomUUID().toString();
+                poisonStore.put(pid, new PoisonMessage(pid, record.topic(), record.partition(),
+                        record.offset(), record.key(), preview(record.payload()), attempts,
+                        ex.toString(), System.currentTimeMillis()));
+                log.error("记录处理连续失败 {} 次，判定为毒消息（已收入死信存储，可经 /api/kafka/consumer/poison 补偿）: "
                                 + "topic={} partition={} offset={} key={} 异常={}",
                         attempts, record.topic(), record.partition(), record.offset(), record.key(), ex.toString());
             }
@@ -232,7 +240,12 @@ public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
 
     /** 位点标识：同一条消息重投时 topic/partition/offset 不变，故可作为毒消息计数的键。 */
     private static String siteOf(OrderedRecord record) {
-        return record.topic() + "-" + record.partition() + "-" + record.offset();
+        return siteOf(record.topic(), record.partition(), record.offset());
+    }
+
+    /** 位点标识（按字段构造，供补偿时按毒消息元数据反向定位失败计数）。 */
+    private static String siteOf(String topic, int partition, long offset) {
+        return topic + "-" + partition + "-" + offset;
     }
 
     /**
@@ -286,5 +299,61 @@ public class OrderedKafkaConsumer implements SmartLifecycle, DisposableBean {
     /** @return 版本表当前条目数（按 key 维度） */
     public int processedVersionTableSize() {
         return processedVersions.size();
+    }
+
+    /** @return 被判定为毒消息而跳过（累计）的记录总数 */
+    public long poisonCount() {
+        return poisonCount.sum();
+    }
+
+    /**
+     * 当前内存死信存储中的毒消息快照（返回副本，遍历安全）。
+     *
+     * @return 毒消息列表；无则空列表
+     */
+    public List<PoisonMessage> poisonEntries() {
+        return List.copyOf(poisonStore.values());
+    }
+
+    /** @return 内存死信存储当前条目数 */
+    public int poisonStoreSize() {
+        return poisonStore.size();
+    }
+
+    /**
+     * 补偿：重试某条毒消息。清除其位点失败计数与版本表占位，使上游重投后能被重新处理
+     * （消费侧「严格大于才处理」；若重投版本不前进，仍会被版本表挡下，需上游修正后重发）。
+     *
+     * @param id 毒消息标识（{@link PoisonMessage#id()}）
+     * @return 是否找到并清除（未找到返回 false）
+     */
+    public boolean retryPoison(String id) {
+        PoisonMessage removed = poisonStore.remove(id);
+        if (removed == null) {
+            return false;
+        }
+        deliveryAttempts.remove(siteOf(removed.topic(), removed.partition(), removed.offset()));
+        if (removed.key() != null) {
+            processedVersions.remove(removed.key());
+        }
+        return true;
+    }
+
+    /**
+     * 补偿：丢弃某条毒消息。从死信存储移除，视为已人工确认、无需再补偿。
+     *
+     * @param id 毒消息标识
+     * @return 是否找到并移除
+     */
+    public boolean discardPoison(String id) {
+        return poisonStore.remove(id) != null;
+    }
+
+    /** 负载预览：超长截断，避免大报文占满内存。 */
+    private static String preview(String payload) {
+        if (payload == null) {
+            return "";
+        }
+        return payload.length() <= 200 ? payload : payload.substring(0, 200) + "...(truncated)";
     }
 }
