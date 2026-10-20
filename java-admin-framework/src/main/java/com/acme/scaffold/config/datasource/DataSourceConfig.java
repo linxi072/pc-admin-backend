@@ -2,6 +2,9 @@ package com.acme.scaffold.config.datasource;
 
 import com.acme.scaffold.config.jooq.JooqConfig;
 import com.acme.scaffold.jooq.mapping.SnakeRecordMapperProvider;
+import com.acme.scaffold.monitor.detection.NPlusOneListener;
+import com.acme.scaffold.monitor.detection.NPlusOneProbe;
+import com.acme.scaffold.monitor.detection.NPlusOneSuspectRegistry;
 import com.acme.scaffold.monitor.detection.SlowQueryListener;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -64,14 +67,21 @@ public class DataSourceConfig {
 
     @Bean
     public Map<String, DSLContext> dslContexts(DataSourceRegistry registry,
-            @Value("${app.jooq.slow-query-threshold-ms:500}") long slowQueryThresholdMs) {
+            @Value("${app.jooq.slow-query-threshold-ms:500}") long slowQueryThresholdMs,
+            NPlusOneProbe nPlusOneProbe,
+            NPlusOneSuspectRegistry nPlusOneSuspectRegistry) {
         Map<String, DSLContext> map = new LinkedHashMap<>();
-        registry.all().forEach((name, ds) -> map.put(name, buildDsl(ds, slowQueryThresholdMs)));
+        registry.all().forEach((name, ds) ->
+                map.put(name, buildDsl(ds, slowQueryThresholdMs, nPlusOneProbe, nPlusOneSuspectRegistry)));
         return map;
     }
 
-    /** 与 JooqConfig 保持一致的 DSLContext 构造（动态 DSL / MySQL 方言 / 慢 SQL 监听 / Snake 映射）。 */
-    private DSLContext buildDsl(DataSource ds, long slowQueryThresholdMs) {
+    /**
+     * 与 JooqConfig 保持一致的 DSLContext 构造（动态 DSL / MySQL 方言 / 慢 SQL 监听 /
+     * N+1 查询告警 / Snake 映射）——命名数据源显式访问路径同样具备可观测性。
+     */
+    private DSLContext buildDsl(DataSource ds, long slowQueryThresholdMs,
+            NPlusOneProbe nPlusOneProbe, NPlusOneSuspectRegistry nPlusOneSuspectRegistry) {
         DataSourceConnectionProvider connectionProvider =
                 new DataSourceConnectionProvider(new TransactionAwareDataSourceProxy(ds));
         org.jooq.Configuration configuration = new DefaultConfiguration()
@@ -80,6 +90,9 @@ public class DataSourceConfig {
                 .set(SQLDialect.MYSQL)
                 .set(new SnakeRecordMapperProvider())
                 .set(new DefaultExecuteListenerProvider(new SlowQueryListener(slowQueryThresholdMs)))
+                // N+1 查询告警：与主 DSLContext（JooqConfig）共用同一 probe 与留存组件
+                .set(new DefaultExecuteListenerProvider(
+                        new NPlusOneListener(nPlusOneProbe, nPlusOneSuspectRegistry)))
                 .set(new Settings().withRenderQuotedNames(RenderQuotedNames.NEVER));
         return org.jooq.impl.DSL.using(configuration);
     }

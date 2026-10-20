@@ -196,6 +196,11 @@ app:
   # 慢 SQL 阈值（毫秒），由 JooqConfig 注入 SlowQueryListener
   jooq:
     slow-query-threshold-ms: 500
+    # N+1 查询探测：同构 SQL 在单线程（通常对应一次请求）内执行达阈值即告警，
+    # 由 JooqConfig / DataSourceConfig 装配 NPlusOneListener（双路观测，只读、零业务影响）
+    nplus1-threshold: 10
+    # N+1 疑似事件留存容量（有界环形缓冲，超出按入队序淘汰最旧；越大越利于复盘频次，内存占用同比例增长）
+    nplus1-max-suspects: 200
   audit:
     async: true
 

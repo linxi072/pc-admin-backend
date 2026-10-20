@@ -4,6 +4,7 @@ import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
 import com.acme.scaffold.jooq.mapping.SnakeRecordMapperProvider;
 import com.acme.scaffold.monitor.detection.NPlusOneListener;
 import com.acme.scaffold.monitor.detection.NPlusOneProbe;
+import com.acme.scaffold.monitor.detection.NPlusOneSuspectRegistry;
 import com.acme.scaffold.monitor.detection.SlowQueryListener;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -37,9 +38,16 @@ public class JooqConfig {
     }
 
     @Bean
+    public NPlusOneSuspectRegistry nPlusOneSuspectRegistry(
+            @Value("${app.jooq.nplus1-max-suspects:200}") int capacity) {
+        return new NPlusOneSuspectRegistry(capacity);
+    }
+
+    @Bean
     public DSLContext dslContext(DataSource dataSource,
                                  @Value("${app.jooq.slow-query-threshold-ms:500}") long slowQueryThresholdMs,
-                                 NPlusOneProbe nPlusOneProbe) {
+                                 NPlusOneProbe nPlusOneProbe,
+                                 NPlusOneSuspectRegistry nPlusOneSuspectRegistry) {
         // TransactionAwareDataSourceProxy 使 jOOQ 获取的连接自动加入 Spring 声明式事务
         // （@Transactional 对 jOOQ 语句生效），无需额外的 jOOQ-Spring 依赖。
         DataSourceConnectionProvider connectionProvider =
@@ -52,8 +60,9 @@ public class JooqConfig {
                 .set(new SnakeRecordMapperProvider())
                 // 慢 SQL 观测（替代原 MyBatis-Plus 的 InnerInterceptor）
                 .set(new DefaultExecuteListenerProvider(new SlowQueryListener(slowQueryThresholdMs)),
-                // N+1 查询告警：同构 SQL 在单请求内重复执行超阈值即告警
-                     new DefaultExecuteListenerProvider(new NPlusOneListener(nPlusOneProbe)))
+                // N+1 查询告警：同构 SQL 在单请求内重复执行超阈值即告警，并向疑似事件留存登记
+                     new DefaultExecuteListenerProvider(
+                             new NPlusOneListener(nPlusOneProbe, nPlusOneSuspectRegistry)))
                 .set(new Settings().withRenderQuotedNames(RenderQuotedNames.NEVER));
         return org.jooq.impl.DSL.using(configuration);
     }
