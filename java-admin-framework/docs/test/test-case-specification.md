@@ -2,7 +2,7 @@
 
 > 项目：`java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端）
 > 测试类型：离线端到端切片测试（Offline E2E Slice）
-> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`
+> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`、`NPlusOneE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneSuspectRegistryTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneListenerTest.java`、`src/test/java/com/acme/scaffold/monitor/service/NPlusOneServiceTest.java`
 > 配套文档：[end-to-end-test-report.md](./end-to-end-test-report.md) · [sequence-diagrams.html](./sequence-diagrams.html)
 
 ---
@@ -11,10 +11,10 @@
 
 | 维度 | 说明 |
 | --- | --- |
-| 被测对象 | 7 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控、可观测性管理 |
+| 被测对象 | 8 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控、可观测性管理、N+1 查询探测 |
 | 测试形态 | Standalone `MockMvc` 装配**真实** `Controller` + **真实** `GlobalExceptionHandler` + **真实** `I18nService`；服务层以 Mockito 桩接，**无需 MySQL** |
 | 覆盖目标 | 正常流程 + 异常/边界（参数校验失败、业务异常、HTTP 状态与 `Result` 包络映射） |
-| 用例总量 | 47 例 E2E（分 6 个测试类：4 个 `@Nested` + `RealtimeE2eTest` + `KafkaMonitorE2eTest` + `ObservabilityE2eTest`）+ 26 例单元（`KafkaMonitorServiceTest` 4 + `SpanRecorderTest` 10 + `ObservabilityServiceTest` 8 + `ObservabilityPropertiesTest` 3 + `OtlpTracingFilterTest` 本轮新增 1 例），全部离线可跑、全绿 |
+| 用例总量 | 52 例 E2E（分 8 个测试类：4 个 `@Nested` + `RealtimeE2eTest` + `KafkaMonitorE2eTest` + `ObservabilityE2eTest` + `NPlusOneE2eTest`）+ 46 例单元（`KafkaMonitorServiceTest` 4 + `SpanRecorderTest` 10 + `ObservabilityServiceTest` 8 + `ObservabilityPropertiesTest` 3 + `OtlpTracingFilterTest` 本轮新增 1 例 + `NPlusOneSuspectRegistryTest` 10 + `NPlusOneListenerTest` 4 + `NPlusOneServiceTest` 6），全部离线可跑、全绿 |
 | 不覆盖 | 需本机 MySQL 的真实事务/多表联动，由 `*IT` 集成测试在 CI/本机执行（见报告 §4） |
 
 ### 优先级约定
@@ -131,7 +131,21 @@
 
 **关键交互时序**：见 [sequence-diagrams.html#sd7](./sequence-diagrams.html)（SD-07 可观测性管理与 span 回溯）。
 
-## 9. 全局异常与错误码映射（统一断言基线）
+## 9. N+1 查询探测模块（NPlusOneE2e，5 例）
+
+| 编号 | 标题 | 优先级 | 类型 | 前置条件 | 测试步骤 | 预期结果 |
+| --- | --- | --- | --- | --- | --- | --- |
+| NP-01 | 疑似事件列表 | P1 | 正常 | `nPlusOneService.recentSuspects(...)` 桩返回 1 条疑似事件视图（指纹/样本/计数/线程） | 1. `GET /api/system/monitor/n-plus-one/suspects` | HTTP 200；`code="0"`；`data[0].fingerprint="select * from sys_user where id=?"`、`data[0].count=12`、`data[0].threadName="http-nio-1"` |
+| NP-02 | 探测运行态 | P1 | 正常 | `status()` 桩返回阈值 10 / 容量 200 / 存量 3 / 累计 42 | 1. `GET /api/system/monitor/n-plus-one/status` | HTTP 200；`code="0"`；`data.threshold=10`、`data.capacity=200`、`data.registrySize=3`、`data.totalBreaches=42` |
+| NP-03 | limit 越界 | P0 | 边界 | `recentSuspects(0)` 桩抛 `BusinessException(VALIDATION_ERROR)` | 1. `GET /api/system/monitor/n-plus-one/suspects?limit=0` | HTTP 400；`code="COMMON_001"`（服务层 limit 范围校验经 `GlobalExceptionHandler` 映射） |
+| NP-04 | 清空疑似留存 | P1 | 正常 | `clear()` 桩返回 true | 1. `DELETE /api/system/monitor/n-plus-one/suspects` | HTTP 200；`code="0"`；`data=true` |
+| NP-05 | limit 缺省 | P2 | 边界 | `recentSuspects(50)` 桩返回空列表 | 1. `GET /api/system/monitor/n-plus-one/suspects`（不带 limit） | HTTP 200；`code="0"`；`data` 为空数组；服务层按默认 50 条查询 |
+
+> 配套单元（非 E2E 口径）：`NPlusOneSuspectRegistryTest` 10 例守护有界留存/淘汰/累计口径/样本截断/并发守恒；`NPlusOneListenerTest` 4 例守护越限登记/未越限不登记/每轮一次/null 安全；`NPlusOneServiceTest` 6 例守护 limit 校验/视图映射/状态聚合/清空委托。
+
+**关键交互时序**：见 [sequence-diagrams.html#sd8](./sequence-diagrams.html)（SD-08 N+1 查询探测与疑似事件留存）。
+
+## 10. 全局异常与错误码映射（统一断言基线）
 
 所有模块共享 `GlobalExceptionHandler` 的错误码映射（测试中以 `Result.code` 断言）：
 
@@ -149,7 +163,7 @@
 
 ---
 
-## 10. 用例与测试代码映射
+## 11. 用例与测试代码映射
 
 | 测试类（@Nested） | 方法数 | 覆盖用例 |
 | --- | --- | --- |
@@ -160,6 +174,10 @@
 | `RealtimeE2eTest` | 6 | RT-01 ~ RT-06 |
 | `KafkaMonitorE2eTest` | 5 | KM-01 ~ KM-05 |
 | `ObservabilityE2eTest` | 6 | OB-01 ~ OB-06 |
+| `NPlusOneE2eTest` | 5 | NP-01 ~ NP-05 |
+| `NPlusOneSuspectRegistryTest`（单元） | 10 | 有界留存/淘汰/累计口径/截断/null 安全/并发守恒 |
+| `NPlusOneListenerTest`（单元） | 4 | 越限登记/未越限不登记/每轮一次/null SQL 安全 |
+| `NPlusOneServiceTest`（单元） | 6 | limit 校验(0/越上限/负)/视图映射/状态聚合/清空委托 |
 | `KafkaMonitorServiceTest`（单元） | 4 | 单元：消费容器缺失降级 / 空 ID 校验(VALIDATION_ERROR) / retry 委托 / 死信按 key 过滤映射 |
 | `SpanRecorderTest`（单元） | 10 | 单元：倒序检索 / 容量淘汰 / traceId 聚合 / 状态统计 / 清空 / 禁用语义 / export 批量 / null 安全 / 并发有界守恒 |
 | `ObservabilityServiceTest`（单元） | 8 | 单元：limit 越界校验 / status 非法校验 / traceId 空校验 / 过滤映射 / clear 委托 / 双链路摘要 / 指标前缀过滤与排序 |

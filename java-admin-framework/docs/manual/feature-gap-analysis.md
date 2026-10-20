@@ -94,7 +94,7 @@
 
 | 项 | 维度 | 现状 | 建议 |
 |---|---|---|---|
-| **N+1 查询** | 性能 | ✅ **已落地**：`monitor/detection/NPlusOneListener` + `NPlusOneProbe`（线程级累计同构 SQL 执行次数）+ `NPlusOneResetFilter`（请求级重置），`JooqConfig`/`DataSourceConfig` 双注册；同构 SQL 单请求内重复超阈值即告警（含指纹），与 `SlowQueryListener` 同为只读观测 | — → 已完成 | 阈值可配置化；多实例场景可对接指标导出 |
+| **N+1 查询** | 性能 | ✅ **已落地（2026-10-20 补齐管理入口）**：`monitor/detection/NPlusOneListener` + `NPlusOneProbe`（线程级累计同构 SQL 执行次数）+ `NPlusOneResetFilter`（请求级重置）+ `NPlusOneSuspectRegistry`（有界事件留存，默认 200 条，超出淘汰最旧）；`JooqConfig` 与 `DataSourceConfig` **双路装配**（本轮补齐命名数据源 DSL 的 N+1 观测，此前仅主 `DSLContext` 接线）；同构 SQL 单请求内重复超阈值即告警并向留存登记事件，管理侧 `NPlusOneController`（`/api/system/monitor/n-plus-one`）倒序查询疑似事件 / 查看运行态 / 清空——由「只写不读（仅日志）」升级为「可查询、可复盘、可清理」 | — → 已完成 | 阈值 `app.jooq.nplus1-threshold`（默认 10）与留存容量 `app.jooq.nplus1-max-suspects`（默认 200）均可配置；多实例场景可对接指标导出 |
 | **深翻页** | 性能 | `PageQuery` 钳制 size，但未做游标/keyset | 已落地：common/api 新增 `KeysetPageQuery`/`KeysetPageResult`/`CursorCodec`（纯函数游标编解码），`jooq/JooqKeysetPager` 引擎（seek + size+1 判定 hasMore）；`FileService.keysetPage` + `FileController GET /api/system/files/keyset` 试点（固定 `created_at DESC, id DESC` 排序，含 id tie-breaker） |
 | **前端首屏 / 图表按需** | 体验 | ✅ **已落地**：`BaseChart.vue` 由全量 `import * as echarts` 改为 `echarts/core` 按需注册（bar/line/pie + grid/tooltip/legend/title + CanvasRenderer，注册项经 node_modules 安装链核实无遗漏），产物 **1.0M → 522KB（gzip 176KB）**；路由级懒加载既有，echarts 仅随报表/任务路由 chunk 加载，不进首屏 | — → 已完成 | 新增图表类型时在 `BaseChart.vue` 顶部同步补充 import |
 | **测试覆盖率门禁** | 质量 | CI 已接单元 + 集成，无覆盖率门禁 | 加 JaCoCo 阈值（先非阻塞，后转阻塞） |
