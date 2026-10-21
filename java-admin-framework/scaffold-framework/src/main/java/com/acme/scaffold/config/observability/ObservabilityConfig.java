@@ -6,6 +6,7 @@ import io.micrometer.core.instrument.config.MeterFilter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
@@ -39,8 +40,18 @@ public class ObservabilityConfig {
                 id.getName().startsWith("tomcat.") || id.getName().startsWith("flowable."));
     }
 
-    /** 零依赖 OTLP/HTTP span 导出器（A1）。默认关闭，由 observability.otlp.enabled 控制。 */
+    /**
+     * 零依赖 OTLP/HTTP span 导出器（A1）。默认关闭，由 observability.otlp.enabled 控制。
+     *
+     * <p>无条件注册（禁用时 {@code isEnabled()} 为 false，零副作用）：与 {@code SpanRecorder}
+     * 并列构成 {@code SpanExporter} 的两个 sink，由 {@code OtlpTracingFilter} 经
+     * {@code List<SpanExporter>} 按各自开关分发（双开关正交、互不影响）。</p>
+     *
+     * <p>标记 {@code @Primary}：使单点注入点（{@code ObservabilityService} 摘要中的
+     * 「OTLP 导出链路」状态）在双 sink 并存时明确解析到本 bean，避免按类型注入歧义。</p>
+     */
     @Bean
+    @Primary
     public OtlpSpanExporter otlpSpanExporter(ObservabilityProperties props) {
         ObservabilityProperties.Otlp otlp = props.getOtlp();
         return new OtlpSpanExporter(otlp.isEnabled(), otlp.getEndpoint(),
