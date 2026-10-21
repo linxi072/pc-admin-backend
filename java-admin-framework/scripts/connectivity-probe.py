@@ -19,6 +19,7 @@ connectivity-probe.py — 前后端联通运行时探针（零依赖，仅用标
 """
 import argparse
 import json
+import socket
 import sys
 import urllib.error
 import urllib.request
@@ -51,8 +52,10 @@ def check_endpoint(spec: dict, ep: dict, timeout_ms: int) -> tuple[bool, str]:
         except Exception:
             return False, f"HTTP {e.code} 且响应体非 JSON: {e.reason}"
         return _assert_envelope(ep, body, e.code)
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
-        return False, f"无法连接后端: {e.reason if hasattr(e, 'reason') else e}"
+    except (urllib.error.URLError, ConnectionError, TimeoutError, socket.timeout) as e:
+        # 注意：Python <=3.9 的 socket.timeout 不是 TimeoutError 子类（3.10 起才是别名），须分别捕获
+        reason = getattr(e, "reason", None)
+        return False, f"无法连接后端: {reason if reason is not None else e}"
     return _assert_envelope(ep, body, status)
 
 
@@ -74,7 +77,8 @@ def check_timeout(spec: dict, ep: dict, timeout_ms: int) -> tuple[bool, str]:
     url = spec["baseUrl"].rstrip("/") + ep["path"]
     try:
         do_request(ep["method"], url, timeout_ms)
-    except TimeoutError:
+    except (TimeoutError, socket.timeout):
+        # Python <=3.9 的 socket.timeout 不是 TimeoutError 子类，须分别捕获
         return True, "OK (触发超时 TimeoutError，符合预期)"
     except urllib.error.URLError as e:
         if "timed out" in str(e.reason).lower() or "timeout" in str(e.reason).lower():
