@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-workbench：工作台与报表域（首页看板、报表查询/导出）。
+
+  内容：workbench.controller / workbench.service / workbench.report（报表构建、
+  CSV/Sheets 导出任务）/ workbench.dto。
+
+  依赖方向：workbench → {common, system}。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-workbench</artifactId>
+    <name>scaffold-workbench</name>
+    <description>工作台与报表：首页看板统计、报表查询与多 Sheet 导出</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-system</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

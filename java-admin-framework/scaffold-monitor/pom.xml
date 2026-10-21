@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-monitor：运营监控域（N+1 告警收件箱、健康探针、监控查询）。
+
+  内容：monitor.alert（告警接收与收件箱）、monitor.health（liveness/readiness）、
+  monitor.service / monitor.controller / monitor.domain / monitor.dto。
+  注：monitor.detection（N+1/慢查询监听器）属框架装配，位于 scaffold-framework。
+
+  依赖方向：monitor → {common, framework, system}。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-monitor</artifactId>
+    <name>scaffold-monitor</name>
+    <description>运营监控：N+1 告警收件箱、健康探针、缓存与监控指标查询</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-framework</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-system</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

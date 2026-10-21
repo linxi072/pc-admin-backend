@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-job：调度任务域（JobRunr 任务定义管理 + 具体 Job + 周期任务注册）。
+
+  内容：job.domain / job.entity / job.dto / job.service / job.controller / job.port
+  （JobRunrSchedulerPort）/ job.handler（DemoJob、公告过期、监控采样、幂等清理）、
+  job.config.JobRunrConfig（周期任务注册，原 config.jobrunr，V1.0.3 迁入本模块）。
+
+  依赖方向：job → {common, monitor, system}。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-job</artifactId>
+    <name>scaffold-job</name>
+    <description>调度任务：JobRunr 任务定义管理、周期任务注册与具体 Job 实现</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jobrunr</groupId>
+            <artifactId>jobrunr-spring-boot-3-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-monitor</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-system</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

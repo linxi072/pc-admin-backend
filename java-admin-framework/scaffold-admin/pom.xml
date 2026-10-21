@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-admin：启动装配层（唯一可部署模块，产出可执行 jar）。
+
+  内容：
+  - FrameworkApplication 启动类（@SpringBootApplication，扫描 com.acme.scaffold 根包，
+    经 classpath 汇聚全部模块的 Bean）；
+  - 运行期配置与资源：application.yml / application-local.yml / application-prod.yml、
+    logback-spring.xml、Flyway 迁移（db/migration）、参考 DDL（db/reference）；
+  - 全部集成/端到端测试（*IT 与 e2e，需完整 Spring 上下文）与跨模块一致性守护测试
+    （consistency 包：错误码消息键化、可观测配置与 application.yml 一致性）。
+
+  依赖方向：admin → 全部模块（不含反向依赖）。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-admin</artifactId>
+    <name>scaffold-admin</name>
+    <description>启动装配层：应用入口、运行期配置与 Flyway 迁移、集成/端到端测试</description>
+
+    <dependencies>
+        <!-- 全部业务与基础模块（Bean 经根包扫描汇聚） -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-realtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-kafka</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-codegen</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-framework</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-system</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-monitor</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-job</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-workbench</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-workflow</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 运行期直连依赖：驱动、Flyway、Actuator（management 端点配置在本模块） -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

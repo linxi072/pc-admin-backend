@@ -4,7 +4,11 @@
 check-conventions.py — 编码风格与目录结构约定校验器（零依赖，仅用标准库）
 
 目标：在不引入任何第三方依赖（兼容离线 `mvn -o` / CI 环境）的前提下，对
-`src/main/java` 下的 Java 源码做静态约定校验，防止架构随时间漂移。
+Java 源码做静态约定校验，防止架构随时间漂移。
+
+V1.0.3 起工程拆分为多 Maven 模块（scaffold-*），本校验器默认自动发现全部
+`scaffold-*/src/main/java` 源码根做**全局**包级校验，并新增模块级依赖环检测；
+仍可用 `--src` 指定单个/多个目录（兼容单模块与单元测试场景）。
 
 校验项：
   H1. 包级循环依赖（强连通分量检测）—— 违反则失败。
@@ -13,22 +17,31 @@ check-conventions.py — 编码风格与目录结构约定校验器（零依赖�
   H4. 数据类放置 —— *DTO/*VO/*Request/*Command/*Query/*Response 应位于 dto/vo 等
       子包；*DO/*Entity/*Model/PO 应位于 domain/entity/model 子包（包路径任意一段
       命中即合规）。违反即失败，输出中附带应归位的子包指引。
+  H5. 模块级循环依赖（V1.0.3 新增）—— 解析父 POM <modules> 与各模块 POM 依赖，
+      模块依赖图必须成 DAG；违反即失败（Maven 反应堆同样无法成环，提前拦截）。
   W1. 类名后缀与层不一致（特性分包下允许，仅报告）。
   W2. 模块分层概览（已分层 vs 平铺，供人工参考，不强制）。
+  W3. 非启动模块依赖 scaffold-admin（V1.0.3 新增，仅报告——部署依赖只应收敛在 admin）。
+  W4. 模块 artifactId 未使用 scaffold- 前缀（V1.0.3 新增，仅报告）。
 
 退出码：发现任何 H* 硬违规 -> 1；仅 W* 警告或无问题 -> 0。
 
 用法：
-  python3 scripts/check-conventions.py
-  python3 scripts/check-conventions.py --src src/main/java
+  python3 scripts/check-conventions.py                        # 自动发现 scaffold-*/src/main/java
+  python3 scripts/check-conventions.py --src src/main/java    # 指定单目录（单模块模式）
+  python3 scripts/check-conventions.py --src a/src/main/java --src b/src/main/java
 """
 import argparse
 import os
 import re
 import sys
-from collections import defaultdict, deque
+import xml.etree.ElementTree as ET
+from collections import defaultdict
 
 ROOT_PKG = "com.acme.scaffold"
+MODULE_GROUP = "com.acme.scaffold"   # 模块坐标 groupId（与包根一致）
+ADMIN_MODULE = "scaffold-admin"      # 启动装配模块（唯一可部署模块）
+MODULE_PREFIX = "scaffold-"          # 模块 artifactId 命名规范前缀
 
 # ---- 分层定义（基于包路径“最后一段”判定层；非层段视为 neutral，不参与方向校验）----
 # 越低层越基础。domain/entity/model 为最底层，controller/web 为最高层。
@@ -103,16 +116,176 @@ def last_segment(pkg):
     return pkg.split(".")[-1]
 
 
+# ---- 多模块支持（V1.0.3）----
+
+def find_base(start_dirs):
+    """从给定起点逐级上溯，寻找含 scaffold-common 子模块的工程根（父 POM 所在目录）。"""
+    for start in start_dirs:
+        d = os.path.abspath(start)
+        while True:
+            if os.path.isfile(os.path.join(d, "scaffold-common", "pom.xml")):
+                return d
+            parent = os.path.dirname(d)
+            if parent == d:
+                break
+            d = parent
+    return None
+
+
+def discover_src_roots(base):
+    """发现全部 scaffold-*/src/main/java 源码根（按目录名排序，保证输出稳定）。"""
+    roots = []
+    if not os.path.isdir(base):
+        return roots
+    for name in sorted(os.listdir(base)):
+        candidate = os.path.join(base, name, "src", "main", "java")
+        if name.startswith(MODULE_PREFIX) and os.path.isdir(candidate):
+            roots.append(candidate)
+    return roots
+
+
+def _local(tag):
+    return tag.split("}")[-1] if "}" in tag else tag
+
+
+def parse_pom(path):
+    """解析 POM：返回 (<modules> 列表, <dependencies> 中 (groupId, artifactId) 列表)。零依赖 stdlib。"""
+    root = ET.parse(path).getroot()
+    modules = []
+    deps = []
+    mods_el = None
+    deps_el = None
+    for child in root:
+        name = _local(child.tag)
+        if name == "modules":
+            mods_el = child
+        elif name == "dependencies":
+            deps_el = child
+    if mods_el is not None:
+        for m in mods_el:
+            if _local(m.tag) == "module" and m.text and m.text.strip():
+                modules.append(m.text.strip())
+    if deps_el is not None:
+        for dep in deps_el:
+            if _local(dep.tag) != "dependency":
+                continue
+            g = a = None
+            for f in dep:
+                if _local(f.tag) == "groupId":
+                    g = (f.text or "").strip()
+                elif _local(f.tag) == "artifactId":
+                    a = (f.text or "").strip()
+            if g and a:
+                deps.append((g, a))
+    return modules, deps
+
+
+def find_cycles(graph):
+    """Tarjan 强连通分量：返回长度 > 1 的环列表（包级/模块级通用）。"""
+    index = {}
+    low = {}
+    onstack = {}
+    idx = 0
+    stack = []
+    sccs = []
+
+    def strongconnect(v):
+        nonlocal idx
+        index[v] = idx
+        low[v] = idx
+        onstack[v] = True
+        stack.append(v)
+        idx += 1
+        for w in graph.get(v, ()):
+            if w not in index:
+                strongconnect(w)
+                low[v] = min(low[v], low[w])
+            elif onstack.get(w):
+                low[v] = min(low[v], index[w])
+        if low[v] == index[v]:
+            comp = []
+            while True:
+                w = stack.pop()
+                onstack[w] = False
+                comp.append(w)
+                if w == v:
+                    break
+            sccs.append(comp)
+
+    nodes = set(graph) | {d for ds in graph.values() for d in ds}
+    for n in sorted(nodes):
+        if n not in index:
+            strongconnect(n)
+    return [c for c in sccs if len(c) > 1]
+
+
+def check_module_dag(base, hard_errors, warnings):
+    """H5 模块级依赖环检测 + W3/W4 模块命名与依赖方向告警。"""
+    root_pom = os.path.join(base, "pom.xml")
+    if not os.path.isfile(root_pom):
+        return
+    modules, _ = parse_pom(root_pom)
+    if not modules:
+        return
+    graph = {}
+    for m in modules:
+        mp = os.path.join(base, m, "pom.xml")
+        if not os.path.isfile(mp):
+            warnings.append(f"模块目录缺失 pom.xml: {m}")
+            continue
+        _, deps = parse_pom(mp)
+        graph[m] = sorted({a for g, a in deps if g == MODULE_GROUP})
+        if not m.startswith(MODULE_PREFIX):
+            warnings.append(f"W4 模块命名不规范: {m}（artifactId 应以 {MODULE_PREFIX} 开头）")
+        if m != ADMIN_MODULE and ADMIN_MODULE in graph[m]:
+            warnings.append(
+                f"W3 依赖方向可疑: {m} 依赖启动模块 {ADMIN_MODULE}（部署依赖只应收敛在 {ADMIN_MODULE}）")
+
+    cycles = find_cycles(graph)
+    for c in cycles:
+        hard_errors.append("模块级循环依赖(H5): " + " <-> ".join(sorted(c)))
+
+    print("=" * 64)
+    print("模块依赖图（H5 校验，共 %d 个模块）" % len(graph))
+    print("=" * 64)
+    for m in sorted(graph):
+        deps = graph[m]
+        print(f"  {m} -> {', '.join(deps) if deps else '(无内部依赖)'}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default="src/main/java")
+    ap.add_argument("--src", action="append", default=None,
+                    help="Java 源码目录（可重复传入多个）；默认自动发现 <base>/scaffold-*/src/main/java")
     args = ap.parse_args(argv)
 
-    if not os.path.isdir(args.src):
-        print(f"[ERROR] 源码目录不存在: {args.src}", file=sys.stderr)
+    script_base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    if args.src:
+        # 显式 --src 模式（单目录/多目录/回归测试）：仅做包级校验，不运行 H5，
+        # 避免在校验任意源码目录时误连到真实工程根。
+        roots = args.src
+        base = None
+    else:
+        # 默认模式：自动发现 scaffold-*/src/main/java，并附带 H5 模块依赖环检测
+        base = find_base([os.getcwd(), script_base])
+        if base:
+            roots = discover_src_roots(base)
+            if not roots:
+                print(f"[ERROR] 工程根 {base} 下未发现 {MODULE_PREFIX}*/src/main/java", file=sys.stderr)
+                return 2
+        else:
+            roots = ["src/main/java"]
+
+    missing = [r for r in roots if not os.path.isdir(r)]
+    if missing:
+        print(f"[ERROR] 源码目录不存在: {', '.join(missing)}", file=sys.stderr)
         return 2
 
-    files = list(iter_java(args.src))
+    files = []
+    for r in roots:
+        files.extend(iter_java(r))
+    print(f"扫描源码根: {len(roots)} 个")
     print(f"扫描 Java 文件: {len(files)}")
 
     fqn_to_pkg = {}
@@ -153,42 +326,7 @@ def main(argv=None):
             seen[key] = fp
 
     # H1: package-level cycles via Tarjan SCC
-    nodes = set(imports_by_pkg) | {d for ds in imports_by_pkg.values() for d in ds}
-    index = {}
-    low = {}
-    onstack = {}
-    idx = 0
-    stack = []
-    sccs = []
-
-    def strongconnect(v):
-        nonlocal idx
-        index[v] = idx
-        low[v] = idx
-        onstack[v] = True
-        stack.append(v)
-        idx += 1
-        for w in imports_by_pkg.get(v, ()):
-            if w not in index:
-                strongconnect(w)
-                low[v] = min(low[v], low[w])
-            elif onstack.get(w):
-                low[v] = min(low[v], index[w])
-        if low[v] == index[v]:
-            comp = []
-            while True:
-                w = stack.pop()
-                onstack[w] = False
-                comp.append(w)
-                if w == v:
-                    break
-            sccs.append(comp)
-
-    for n in list(nodes):
-        if n not in low:
-            strongconnect(n)
-
-    cycles = [c for c in sccs if len(c) > 1]
+    cycles = find_cycles(imports_by_pkg)
     if cycles:
         for c in cycles:
             hard_errors.append("包级循环依赖: " + " <-> ".join(sorted(c)))
@@ -273,6 +411,10 @@ def main(argv=None):
             + "\n    ".join(misplaced_data[:40])
             + ("\n    ..." if len(misplaced_data) > 40 else "")
         )
+
+    # H5: 模块级依赖环检测（多模块工程；单模块模式自动跳过）
+    if base:
+        check_module_dag(base, hard_errors, warnings)
 
     # ---- 输出 ----
     print("=" * 64)
