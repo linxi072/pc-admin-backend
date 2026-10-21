@@ -2321,3 +2321,70 @@ npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir        # 离线构建�
 3. 在 `fe-observability.mjs` 补该面用例（正常透传 / 业务错误 / 403 三类至少各一）；
 4. 若为新菜单，补 V 迁移（`INSERT IGNORE` + `uk_tenant_menu_code` 幂等，**id 先全量核对防碰撞**，见 V39 对 V35/V36 id=1091 碰撞的修复）；
 5. 跑 §3 三件套门禁。
+
+---
+
+## 公告已读回执中心（V40，M7）
+
+> 补齐公告管理最后一块对账能力：公告有发布/下线/置顶，但长期缺失「谁已读、谁未读、已读率多少」。站内信（V8）已有回执模型，公告侧此前无对称能力。本模块以**懒插入回执模型**补齐，与站内信的 eager 模型互补而非重复。
+
+### 1. 模型取舍：为什么公告不用「发送即全员投递」
+
+站内信一条消息的接收人是显式集合（按人/角色/部门筛选），发送时 eager 批量插回执天然合理；公告的受众却是**全体活跃用户**，且实际阅读者通常远小于受众——若沿用 eager 模型，每发布一条公告就要为全量用户预插回执，发布动作写放大，绝大多数行永远不会被读到。
+
+懒插入模型：
+
+| 关注点 | 站内信（eager） | 公告（lazy，本模块） |
+| --- | --- | --- |
+| 回执行写入时机 | 发送时全员预插 | 用户确认已读（markRead）时才插 |
+| 行数量级 | ≈ 受众数 | ≈ 实际阅读人数 |
+| 未读名单推导 | 回执表 `is_read=0` 直接枚举 | 反连接：活跃用户集合 − 已读回执集合 |
+| 已读率分母 | `sys_message.total_count` | `sys_announcement.audience_count`（发布时活跃用户快照） |
+
+分母必须落列：懒模型下回执表只含已读行，不存受众快照就无法计算比率，故发布时（`AnnouncementService.publish`）快照活跃用户数写入 `audience_count`；**V40 之前的存量公告该列为 0**，前端统计按「暂无分母」降级展示（`readPercent` 返回 0 走「—」分支），不用 readCount 自造分母。
+
+### 2. 表结构（`V40__announcement_read_receipt.sql`）
+
+- 新表 `sys_announcement_read`（id / tenant_id / announcement_id / user_id / read_at / created_at），唯一键 `uk_ann_user (tenant_id, announcement_id, user_id)` 是**幂等锚点**，另建 `idx_user` / `idx_ann`；
+- `sys_announcement` 增 `audience_count` / `read_count` 两列（information_schema 守卫幂等 ALTER，可重复执行）；
+- 无新菜单：回执入口内嵌于公告管理页；权限码 `system:announcement:read-receipt` / `system:announcement:remind` 由 `ApiResourceAutoSyncRunner` 启动时扫描 `@PreAuthorize` 自动登记并授予 SUPER_ADMIN。
+
+### 3. 幂等与并发语义
+
+`markRead` = 先查后插 + 唯一键兜底：
+
+1. `fetchOne` 查回执已存在 → 直接返回（重复标记幂等）；
+2. 插入被 `DataIntegrityViolationException` 拒绝（并发/重放的时间窗）→ 按已读处理。另一事务的回执插入与 `read_count + 1` 在同一事务内原子完成，不会出现「有回执没计数」；
+3. 不同用户并发标记时，`read_count = read_count + 1` 由 InnoDB 行锁串行化，终值正确。
+
+### 4. 反连接的相关性限定（本模块最易错点）
+
+`TableRef.field()` 产出的是**无限定列名**。NOT EXISTS 子查询里两表都有 `id` 列，无限定引用会被 MySQL 按内层作用域解析成回执表的 `id`，关联必错。服务内统一经 `qualified(table, column)`（`DSL.field(DSL.name(table, column), …)`）限定两侧列，`AnnouncementReadServiceTest` 对三处条件（myUnread / 未读用户 / 回执关键字）做 **SQL 渲染断言**守护此契约（渲染时去反引号后断言 `sys_announcement_read.announcement_id = sys_announcement.id` 等形态）。
+
+### 5. 接口（`AnnouncementReadController`，基路径与 `AnnouncementController` 共用 `/api/system/announcements`，字面路径优先无碰撞）
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/{id}/read` | 仅登录 | 标记已读（幂等）；详情页打开时前端自动调用 |
+| GET | `/mine/unread` | 仅登录 | 我的未读公告分页（反连接推导，置顶优先） |
+| GET | `/{id}/read-receipts` | `system:announcement:read-receipt` | 回执分页，支持阅读人关键字（收敛为 `user_id IN` 子查询，主表单表分页免 join） |
+| GET | `/{id}/read-stats` | `system:announcement:read-receipt` | 单条统计（已读率/已读/未读/受众） |
+| GET | `/read-stats/page` | `system:announcement:read-receipt` | 统计分页（公告管理页「已读进度」列数据源） |
+| POST | `/{id}/remind-unread?limit=` | `system:announcement:remind` | 催办未读：经 `MessageService.doSend` 发站内信（复用投递模型 + 实时推送），上限 500 人（`AnnouncementReadRules.resolveRemindLimit` 收敛，默认 100） |
+
+### 6. 纯函数规则（`AnnouncementReadRules`）
+
+`readRate`（分母 ≤ 0 返回 0、分子钳制）、`unreadCount`（分母缺失返回 0）、`resolveRemindLimit`（null 取默认、越界收敛 `[1,500]`）、`isRemindable`（仅 PUBLISHED）。比率保留一位小数，`AnnouncementReadStatsView.of` 统一出口径。
+
+### 7. 前端
+
+- `src/api/announcement.js` 增 5 个端点封装（`markAnnouncementRead` / `myUnreadAnnouncements` / `pageAnnouncementReceipts` / `getAnnouncementReadStats` / `remindAnnouncementUnread`）；
+- `AnnouncementView.vue`：列表增「已读进度」列（el-progress + `x/y 人`，无分母显示「—」）、操作列增「已读回执」入口；回执对话框含统计条、阅读人关键字筛选、回执分页表、催办按钮（popconfirm）；详情弹窗打开后对 PUBLISHED 公告自动 markRead（失败静默——回执是统计增强，不阻断查看本体）；
+- `NoticeView.vue` 公告 Tab 增未读角标（`myUnreadAnnouncements` 的 total，60s 轮询 + focus 刷新，与站内信角标同机制）。
+
+### 8. 验证状态（沙箱）
+
+- `mvn -o clean test`：**881 例全绿**（857 基线 + 24 新增：`AnnouncementReadRulesTest` 9 例 + `AnnouncementReadServiceTest` 15 例，后者含反连接 SQL 渲染断言）；
+- `scripts/check-conventions.py`：EXIT=0（514 文件 / 11 源码根，H1–H5 无违规）；
+- 前端 `vite build` 通过（产物输出 `/tmp`，规避沙箱清 dist）；
+- 待用户本机（需 MySQL）：迁移 V40 实跑、发布公告核对 audience_count 快照、标记已读后核对 read_count 与回执行一一对应。
