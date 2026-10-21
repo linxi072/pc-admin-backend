@@ -262,6 +262,8 @@
 | `ObservabilityPropertiesTest`（单元） | 3 | 单元：yml recorder 段绑定 / otlp 回归 / 默认值与 yml 一致 |
 | `OtlpTracingFilterTest`（单元） | 3 | 单元：exporter+recorder 双消费 / 双关零开销透传 / 仅本地留存时仍记录（本轮新增 1 例） |
 | `fe-observability.mjs`（前端，node:test） | 25 | OBS-01~05 / KFK-01~04 / NP1-01~03 / IDM-01~04 / ALR-01~03 / XUT-01 / FMT-01~05（API 形状契约 + 403 降级 + format.js 纯函数；驱动生产 http.js 拆包拦截器） |
-| `fe-connectivity.mjs`（前端，node:test） | 5 | 前后端联通契约（ping 包络 / 错误码映射 / 504 超时），存量回归 |
+| `fe-connectivity.mjs`（前端，node:test） | 5（离线）/ 3+2 跳过（真实后端模式） | 前后端联通契约（ping 包络 / 错误码映射 / 504 超时）；`API_BASE` 真实后端模式下 3 例走真实链路、2 例因后端未实现对应错误码探针端点条件跳过 |
+| `ConnectivityControllerTest`（单元，standalone MockMvc + 真实 handler/i18n） | 19 | 联通探针契约：ping 包络字段/nonce 防缓存/全错误码映射（400/401/403/404/405/409/422/429/500/504）/i18n 中英文案/504 超时映射；`/slow` 超时探针 4 例：默认 5000ms（>探针阈值）/`[0,10000]` 收敛/非数字 400 `COMMON_001`/`delayMs=0` 快路径 |
+| `realtime-ws-probe.py`（Python，RFC 6455 客户端） | 5 | WS-01 握手 101 + Accept 校验 / WS-02 ping→pong 真实帧往返 / WS-03 推送信封字段 / WS-04 缺 token 拒绝 / WS-05 篡改 token 拒绝（配 `realtime-ws-stub.py` 镜像后端 WS 契约） |
 
 > 每个 `@Test` 方法断言三要素：**HTTP 状态**、**`Result.code` 业务错误码**、**`Result.data` 形态/空值**，并覆盖 i18n 消息键解析。
