@@ -9,7 +9,11 @@
  *   4) 网络超时：后端故意慢响应，axios 抛出 ECONNABORTED。
  *
  * 实现说明：
- *   - 用 node:http 起一个本地 stub 服务端，模拟后端统一包络（沙箱无后端、无出网）；
+ *   - 默认（离线）模式：用 node:http 起一个本地 stub 服务端，模拟后端统一包络（沙箱无后端、无出网）；
+ *   - 真实模式：设置环境变量 API_BASE（如 API_BASE=http://localhost:8080）跳过本地 stub，
+ *     axios 经真实网络直连后端。此时 ping/超时两类用例走真实链路（超时用例依赖后端
+ *     GET /api/connectivity/slow，默认延迟 5000ms > 客户端 300ms 阈值，触发真实 ECONNABORTED）；
+ *     两类错误码用例因真实后端未实现对应探针端点而标注 SKIP（端点仅本地 stub 提供）；
  *   - 客户端 request() 镜像 src/api/http.js 的响应拦截拆包逻辑（code==='0' 返回 data，
  *     否则 reject 携带 code 的 Error），确保测试验证的就是前端真实依赖的契约；
  *   - 运行：node scripts/fe-connectivity.mjs（需项目已安装 axios，即 npm install 后）。
@@ -21,6 +25,10 @@ import axios from 'axios'
 import { URL } from 'node:url'
 
 const FRAMEWORK = 'java-admin-framework'
+
+// 真实后端模式：API_BASE 指向运行中的后端（本机联调 / CI 探针），详见文件头说明。
+const REAL_BASE = (process.env.API_BASE || '').replace(/\/+$/, '')
+const realMode = REAL_BASE.length > 0
 
 // 镜像 src/api/http.js：code==='0' 返回 data；否则 reject(Error)，Error.code = body.code。
 async function request(client, config) {
@@ -49,6 +57,12 @@ let server
 let baseURL
 
 before(async () => {
+  if (realMode) {
+    // 真实后端模式：跳过本地 stub，直连 API_BASE（本机联调 / CI 探针场景）
+    baseURL = REAL_BASE
+    console.log(`[fe-connectivity] 真实后端模式：API_BASE=${baseURL}（未启用本地 stub）`)
+    return
+  }
   server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://localhost')
     const envelope = (status, code, message, data) => {
@@ -84,8 +98,14 @@ before(async () => {
 })
 
 after(() => {
-  server.close()
+  if (server) server.close()
 })
+
+// 真实后端模式下，两类错误码探针端点（business-error/http-error）仅本地 stub 提供，
+// 真实后端未实现（无业务意义），故跳过并说明原因；离线模式全部执行。
+const skipRealErrorCase = realMode
+  ? '真实后端未实现该错误码探针端点（仅本地 stub 提供）；真实模式跳过，错误码映射由后端 ConnectivityControllerTest 覆盖'
+  : false
 
 test('1) ping 正常流程：拆包后得到 data 且字段与后端契约一致', async () => {
   const client = axios.create({ baseURL, timeout: 15000 })
@@ -105,7 +125,7 @@ test('2) 数据格式一致性：成功包络含 code/message/data/traceId/times
   assert.ok('data' in body && 'traceId' in body && 'timestamp' in body, '包络应包含 data/traceId/timestamp')
 })
 
-test('3a) 常见错误码：2xx 但 code!=0，前端应提取 code 并 reject', async () => {
+test('3a) 常见错误码：2xx 但 code!=0，前端应提取 code 并 reject', { skip: skipRealErrorCase }, async () => {
   const client = axios.create({ baseURL, timeout: 15000 })
   await assert.rejects(
     async () => request(client, { method: 'GET', url: '/api/connectivity/business-error' }),
@@ -114,7 +134,7 @@ test('3a) 常见错误码：2xx 但 code!=0，前端应提取 code 并 reject', 
   )
 })
 
-test('3b) 异常场景：5xx 返回后端错误码 COMMON_500', async () => {
+test('3b) 异常场景：5xx 返回后端错误码 COMMON_500', { skip: skipRealErrorCase }, async () => {
   const client = axios.create({ baseURL, timeout: 15000 })
   await assert.rejects(
     async () => request(client, { method: 'GET', url: '/api/connectivity/http-error' }),

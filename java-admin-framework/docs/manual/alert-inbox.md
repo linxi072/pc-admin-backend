@@ -124,7 +124,7 @@ receivers:
 
 ```bash
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
-/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o clean test   # 848 例全绿
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o clean test   # 852 例全绿（2026-10-21 运行时联调轮由 848 增至 852）
 python3 scripts/check-conventions.py                                            # EXIT=0
 ```
 

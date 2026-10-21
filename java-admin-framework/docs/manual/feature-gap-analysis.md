@@ -1,7 +1,7 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-21（**可观测中心前端入口已交付**：链路追踪/Kafka 监控/N+1 疑似/幂等记录/告警收件箱五个已交付后端运维面模块此前零前端封装，本轮补齐 5 个 API 模块 + 五合一页面（`/system/observability`，菜单 id=1094，权限 `system:monitor:read`，一页多权按 Tab 403 降级）+ V39 迁移（含 V35/V36 菜单 id=1091 碰撞修复）；前端契约测试 `fe-observability.mjs` 25 例全绿；后端主源/测试基线不变：509 主源 / 158 测试源 / 848 例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
-> 方法：**直接核查真实代码**（509 个后端主源 `.java` / 158 个测试源、848 个测试用例（surefire 汇总 0 失败 0 错误）、40 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-21（**运行时联调补强已交付**：后端新增 `/api/connectivity/slow` 超时探针端点（闭环真实 504 链路）+ `ConnectivityControllerTest` 补 4 例（15→19）；新增 WebSocket 运行时 stub/探针（`realtime-ws-stub.py` / `realtime-ws-probe.py`，手写 RFC 6455 客户端 5 用例）；`fe-connectivity.mjs` 支持 `API_BASE` 真实后端模式；后端基线刷新为 852 例全绿；JaCoCo coverage profile 结构校验 12 项通过、联网命令已文档化）｜ 早期更新：2026-10-21（**可观测中心前端入口已交付**：链路追踪/Kafka 监控/N+1 疑似/幂等记录/告警收件箱五个已交付后端运维面模块此前零前端封装，本轮补齐 5 个 API 模块 + 五合一页面（`/system/observability`，菜单 id=1094，权限 `system:monitor:read`，一页多权按 Tab 403 降级）+ V39 迁移（含 V35/V36 菜单 id=1091 碰撞修复）；前端契约测试 `fe-observability.mjs` 25 例全绿；后端主源/测试基线不变：509 主源 / 158 测试源 / 848 例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 方法：**直接核查真实代码**（509 个后端主源 `.java` / 158 个测试源、852 个测试用例（surefire 汇总 0 失败 0 错误）、40 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
 ---
@@ -123,8 +123,8 @@
 3. 原「需联网引入 POI」的 Excel 导出/导入已通过**零依赖 OOXML（写出 `XlsxDataExporter` / 解析 `XlsxDataReader`，仅用 JDK `java.util.zip`）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
 4. 导入中心为**模板注册**模式（同导出中心）：新增一种数据的导入只需新增一个 `ImportTask` Bean 并实现 `headers()`/`validate()`/`importRow()`，无需新增接口、迁移或前端页面（前端按 `/templates` 自动渲染）。
 5. 导出中心同理由 `ExportTask` Bean 自动扩充：如本轮新增 `LoginLogExportTask`（登录日志导出）**零迁移、零前端**，仅在 `system/export` 下加一个 `@Component` 即被 `/templates` 自动列举。脱敏遵循「类型驱动 + 安全默认」：对外视图/导出默认掩码，明文可见需显式授予 `system:*:sensitive` 权限。
-6. 测试基线：当前测试源共 **848 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-20 幂等记录管理轮新增 24 例：E2E 6 + 规则单测 12 + 服务单测 6；同日下午告警收件箱管理轮新增 24 例：E2E 7 + 规则单测 11 + 服务单测 6）。前端 `pc-admin-vue3-vite/scripts/` 下另有两套 `node:test` 离线测试：`fe-connectivity.mjs`（5 例，真实 HTTP 传输层联通契约）与 `fe-observability.mjs`（25 例，可观测中心 API 形状契约 + format.js 纯函数，驱动生产 `http.js` 拦截器链）。**前后端联通测试（连通探针 + 错误码映射 + 504 超时新增映射 + 契约对称脚本）已交付**，详见 `development.md` 同名章节。新增功能请同步补测，避免基线回退。
+6. 测试基线：当前测试源共 **852 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-20 幂等记录管理轮新增 24 例：E2E 6 + 规则单测 12 + 服务单测 6；同日下午告警收件箱管理轮新增 24 例：E2E 7 + 规则单测 11 + 服务单测 6；2026-10-21 运行时联调轮新增 4 例：`ConnectivityControllerTest` 超时探针 15→19）。前端 `pc-admin-vue3-vite/scripts/` 下另有两套 `node:test` 离线测试：`fe-connectivity.mjs`（离线 5 例；`API_BASE` 真实后端模式 3 通过 / 2 条件跳过）与 `fe-observability.mjs`（25 例，可观测中心 API 形状契约 + format.js 纯函数，驱动生产 `http.js` 拦截器链）。**前后端联通测试（连通探针 + 错误码映射 + 504 超时映射 + `/slow` 超时探针 + WebSocket 运行时探针 + 契约对称脚本）已交付**，详见 `development.md` 同名章节。新增功能请同步补测，避免基线回退。
 
 ---
 
-> 更新日期：2026-10-21（本轮交付可观测中心前端入口：5 个 API 模块 + 五合一页面 + 路由 + V39 菜单种子（含 V35/V36 菜单 id=1091 碰撞修复，导入中心改以 1093 重播种）+ 前端契约测试 25 例；§2 新增对应行、§6 新增「运维面零前端入口」行并标记已完成、§8.6 前端测试基线刷新为两套 node:test；后端主源/测试基线不变：509 主源 / 158 测试源 / 848 例全绿）
+> 更新日期：2026-10-21（本轮运行时联调补强：后端 `/api/connectivity/slow` 超时探针端点 + `ConnectivityControllerTest` 19 例；WebSocket 运行时 stub/探针脚本；`fe-connectivity.mjs` 真实后端模式；JaCoCo coverage profile 结构校验 12 项通过并文档化联网验证命令；后端基线 509 主源 / 158 测试源 / **852 例全绿**）｜ 2026-10-21（本轮交付可观测中心前端入口：5 个 API 模块 + 五合一页面 + 路由 + V39 菜单种子（含 V35/V36 菜单 id=1091 碰撞修复，导入中心改以 1093 重播种）+ 前端契约测试 25 例；§2 新增对应行、§6 新增「运维面零前端入口」行并标记已完成、§8.6 前端测试基线刷新为两套 node:test；后端主源/测试基线当时不变：509 主源 / 158 测试源 / 848 例全绿）

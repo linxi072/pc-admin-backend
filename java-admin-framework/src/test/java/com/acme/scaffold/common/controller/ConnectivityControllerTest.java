@@ -232,6 +232,48 @@ class ConnectivityControllerTest {
         assertEquals("Request timed out, please retry later", en.getBody().message());
     }
 
+    // ---------- 超时探针端点（真实 504 链路闭环） ----------
+
+    @Test
+    @DisplayName("slow 延迟解析（纯函数）：null/空白 -> 默认 5000ms，须大于探针默认超时阈值")
+    void resolveDelayMs_defaultsToFiveSeconds() {
+        assertEquals(5000, ConnectivityController.DEFAULT_DELAY_MS,
+                "默认延迟必须大于 connectivity-spec.json 的 2000ms 阈值，否则默认请求无法触发超时");
+        assertEquals(ConnectivityController.DEFAULT_DELAY_MS, ConnectivityController.resolveDelayMs(null));
+        assertEquals(ConnectivityController.DEFAULT_DELAY_MS, ConnectivityController.resolveDelayMs("   "));
+    }
+
+    @Test
+    @DisplayName("slow 延迟解析（纯函数）：整数按 [0,10000] 收敛")
+    void resolveDelayMs_clampsToBounds() {
+        assertEquals(0, ConnectivityController.resolveDelayMs("-5"), "负值应归零");
+        assertEquals(0, ConnectivityController.resolveDelayMs("0"));
+        assertEquals(1500, ConnectivityController.resolveDelayMs("1500"));
+        assertEquals(10000, ConnectivityController.resolveDelayMs("999999"), "超限应取 MAX_DELAY_MS 上限");
+        assertEquals(10000, ConnectivityController.MAX_DELAY_MS);
+    }
+
+    @Test
+    @DisplayName("slow 非数字参数 → 400 / COMMON_001（经真实 handler 映射，防线程耗尽型滥用）")
+    void slow_invalidDelayMapsTo400() throws Exception {
+        mvc().perform(get("/api/connectivity/slow").param("delayMs", "abc")
+                        .header(HttpHeaders.ACCEPT_LANGUAGE, ZH))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_001"))
+                .andExpect(jsonPath("$.message").value("delayMs 必须为 0-10000 之间的整数（毫秒）"));
+    }
+
+    @Test
+    @DisplayName("slow delayMs=0 立即返回成功包络并回显生效延迟（快路径，不拖慢测试套件）")
+    void slow_zeroDelayReturnsEnvelopeImmediately() throws Exception {
+        mvc().perform(get("/api/connectivity/slow").param("delayMs", "0")
+                        .header(HttpHeaders.ACCEPT_LANGUAGE, ZH))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("0"))
+                .andExpect(jsonPath("$.message").value("OK"))
+                .andExpect(jsonPath("$.data.delayMs").value(0));
+    }
+
     // ---------- 辅助 ----------
 
     private void expectError(String uri, HttpStatus http, String code, String message) throws Exception {

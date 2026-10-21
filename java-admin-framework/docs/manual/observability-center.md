@@ -151,7 +151,7 @@ python3 ../java-admin-framework/scripts/check-api-contract.py   # 静态契约�
 | 前端存量回归 | `node --test scripts/fe-connectivity.mjs` | 5/5 通过 |
 | 前后端契约对称 | `python3 ../java-admin-framework/scripts/check-api-contract.py` | 未发现契约漂移 |
 | 前端离线构建 | `npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir` | 成功（ObservabilityCenterView 懒加载 chunk 31.07 kB / gzip 9.23 kB） |
-| 后端全量单测 | `mvn -o clean test`（JAVA_HOME=21） | 848/848 通过（本轮无 Java 变更，基线不变） |
+| 后端全量单测 | `mvn -o clean test`（JAVA_HOME=21） | 848/848 通过（本轮无 Java 变更，基线不变；2026-10-21 运行时联调轮新增 4 例后为 852/852） |
 | 编码约定校验 | `python3 scripts/check-conventions.py` | EXIT=0 |
 
 无新增外部依赖、无配置变更；前端新增 1 个路由（`/system/observability`，meta
