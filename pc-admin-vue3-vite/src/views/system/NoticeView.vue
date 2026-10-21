@@ -8,6 +8,7 @@
           <span class="tab-label">
             <el-icon><Bell /></el-icon>
             系统公告
+            <el-badge v-if="unreadAnnouncements > 0" :value="unreadAnnouncements" type="danger" class="tab-badge" />
           </span>
         </template>
         <AnnouncementView embedded />
@@ -33,6 +34,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AnnouncementView from './AnnouncementView.vue'
 import MessageView from './MessageView.vue'
 import { getUnreadCount } from '@/api/message'
+import { myUnreadAnnouncements } from '@/api/announcement'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,6 +60,7 @@ watch(activeTab, (val) => {
 })
 
 const unread = ref(0)
+const unreadAnnouncements = ref(0)
 let timer = null
 
 async function loadUnread() {
@@ -69,15 +72,30 @@ async function loadUnread() {
   }
 }
 
+// 未读公告数（V40 回执中心）：我的未读 = 当前有效公告 − 我已读（反连接，服务端推导）
+async function loadUnreadAnnouncements() {
+  try {
+    const res = await myUnreadAnnouncements({ page: 1, size: 1 })
+    unreadAnnouncements.value = res?.total ?? res?.data?.total ?? 0
+  } catch (e) {
+    // 失败保留上一次计数（如权限差异导致 403 时角标保持 0）
+  }
+}
+
 function onFocus() {
   loadUnread()
+  loadUnreadAnnouncements()
 }
 
 onMounted(() => {
   loadUnread()
+  loadUnreadAnnouncements()
   // 与顶栏铃铛共享同一份未读数：回到页面时刷新，并每 60 秒兜底轮询
   window.addEventListener('focus', onFocus)
-  timer = setInterval(loadUnread, 60000)
+  timer = setInterval(() => {
+    loadUnread()
+    loadUnreadAnnouncements()
+  }, 60000)
 })
 
 onUnmounted(() => {
