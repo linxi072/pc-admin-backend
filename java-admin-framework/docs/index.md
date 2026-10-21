@@ -20,6 +20,7 @@
 | --- | --- | --- | --- |
 | 多数据源使用指南 | [`docs/manual/datasource-guide.md`](manual/datasource-guide.md) | 后端开发者 / 部署负责人 | 多数据源配置组织结构、环境变量外部化、加载方式（fail-fast）、路由切换逻辑（@WithDataSource / DataSourceRouter）、新增数据源五步、故障排查与 prod 变量更名注意事项 |
 | 编码规范与目录结构约定 | [`docs/manual/coding-standard.md`](manual/coding-standard.md) | 全体开发者 /  reviewer | 按特性分包 + 层子包的目录约定、各层职责与单一职责、命名规范（类/方法/包/常量）、代码格式基线（.editorconfig）、依赖方向与无环规则；配套零依赖校验脚本 `scripts/check-conventions.py` 的 CI 集成方式 |
+| 模块拆分指南（V1.0.3） | [`docs/manual/module-split.md`](manual/module-split.md) | 架构师 / 技术负责人 / 后端开发者 | 多 Maven 模块（scaffold-*）的职责边界、依赖 DAG 与命名规范、目录结构与资源配置、父/子 POM 核心配置、迁移与解环重构步骤、独立开发/测试/部署指南 |
 | 功能差距分析与优化建议 | [`docs/manual/feature-gap-analysis.md`](manual/feature-gap-analysis.md) | 技术负责人 / 架构师 | 对照设计方案 §12/§20、gap-analysis、模块计划逐项核对（直接核查真实代码）；严格需求已闭环的结论、真实未实现项（形态偏差）、已具备但未明示的能力（OpenAPI/慢 SQL 监听）、增强型基础功能（导出/导入中心、缓存管理、i18n、脱敏、Bean Validation 校验消息键化、通知渠道邮件+短信、限流注解化）与待优化项（N+1/深翻页/覆盖率门禁）的优先级与建议实现方式 |
 | 重构计划与进度 | [`docs/manual/refactoring-plan.md`](manual/refactoring-plan.md) | 技术负责人 / 架构师 | 代码结构重构的分批计划与落地状态（R/B/F/C 各批次条目、门禁依据、已实施步骤与剩余项） |
 | Kafka 顺序消费指南 | [`docs/manual/kafka-ordered-consumer.md`](manual/kafka-ordered-consumer.md) | 后端开发者 | 分区内顺序消费的启用方式、`kafka.ordered-consumer.*` 配置项、顺序性保证边界与并发度取舍、分区键设计建议与故障排查 |

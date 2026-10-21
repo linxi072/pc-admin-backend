@@ -106,12 +106,22 @@ com.acme.scaffold
 ├── monitor/        BusinessMetrics / BusinessHealthIndicator / SlowQueryListener
 │                   RuntimeMetricsCollector(JDK 采集 CPU/内存/磁盘/JVM)
 │                   MonitorService / MonitorController(运行指标+在线会话+异常日志)
+│                   detection/(N+1 检测，属框架装配) / alert/(告警收件箱)
 ├── job/            DemoJob（JobRunr 示例，替代原 XXL-JOB 的 demoJobHandler）
 │                   AnnouncementExpiryJob(公告过期下线) / MonitorSampleJob(指标采样)
-└── config/         Jooq / JobRunr / Redis / Web(CORS) / TraceId / Observability / SpringDoc
+│                   config/JobRunrConfig（周期任务注册，V1.0.3 由 config.jobrunr 迁入）
+├── kafka/          顺序消费规则与分区键约定
+├── realtime/       WebSocket 握手鉴权（realtime.port 端口）与定向推送
+├── codegen/        表元数据读取与 CRUD 骨架生成
+├── observability/  指标/链路追踪（OTLP 导出）
+├── workbench/      工作台看板与报表
+└── config/         Jooq / Redis / Web(CORS) / TraceId / Observability / SpringDoc
+                   （JobRunr 配置已迁至 job.config；多数据源见 application.yml）
 ```
 
 > 说明：迁移后**不再有 `mapper` 包**。原 `*Mapper` 接口全部删除，数据访问统一走 `DSLContext`。
+>
+> 说明（V1.0.3）：上述顶层包已按功能维度归入 11 个 Maven 模块（`scaffold-*`），包名不变、边界由 Maven 依赖强制，完整映射见 [`module-split.md`](module-split.md) 与本文 §3。
 
 基于 Spring Boot 的**模块化单体**企业后台基础框架，作为后续业务系统的脚手架。覆盖：RBAC 权限、认证授权与刷新令牌、性能监控、工作流审批、统一响应/异常/分页、操作审计与脱敏追溯、写接口幂等、Token 版本失效、数据权限扩展点。
 
@@ -267,149 +277,75 @@ modules.domain -X-> Spring MVC / MyBatis / Redis / Flowable / XXL-JOB
 
 ## 3. 完整目录结构
 
+V1.0.3 起为**多 Maven 模块**结构（11 个模块，参照 RuoYi-Vue 模块化单体思路；拆分方案、依赖矩阵与迁移步骤见 [`module-split.md`](module-split.md)）。包名保持 `com.acme.scaffold.*` 不变，模块边界由 Maven 依赖强制：
+
 ```text
-java-admin-scaffold/
-├── pom.xml
-├── mvnw
-├── mvnw.cmd
-├── .mvn/wrapper/
-├── .env.example
-├── docker-compose.yml
-├── checkstyle.xml
-├── deploy/
-│   ├── mysql/init/
-│   │   ├── 00-create-databases.sql
-│   │   └── 01-xxl-job.sql
-│   ├── prometheus/prometheus.yml
-│   └── grafana/provisioning/
-├── scaffold-bom/
-│   └── pom.xml
-├── scaffold-common/
-│   ├── common-core/
-│   │   └── src/main/java/com/acme/scaffold/common/core/
-│   │       ├── api/ApiResponse.java
-│   │       ├── api/PageQuery.java
-│   │       ├── api/PageResult.java
-│   │       ├── error/ErrorCode.java
-│   │       ├── error/CommonErrorCode.java
-│   │       ├── exception/BusinessException.java
-│   │       └── model/BaseId.java
-│   ├── common-web/
-│   │   └── src/main/java/com/acme/scaffold/common/web/
-│   │       ├── advice/GlobalExceptionHandler.java
-│   │       ├── filter/RequestContextFilter.java
-│   │       ├── config/JacksonConfig.java
-│   │       └── validation/
-│   ├── common-security/
-│   │   └── src/main/java/com/acme/scaffold/common/security/
-│   │       ├── context/CurrentPrincipal.java
-│   │       ├── context/SecurityContextFacade.java
-│   │       ├── permission/PermissionService.java
-│   │       ├── datascope/DataScopeProvider.java
-│   │       └── annotation/DataScope.java
-│   └── common-test/
-│       └── src/main/java/com/acme/scaffold/common/test/
-├── scaffold-starters/
-│   ├── starter-web/
-│   ├── starter-security/
-│   ├── starter-mybatis/
-│   ├── starter-redis/
-│   ├── starter-observability/
-│   ├── starter-audit/
-│   ├── starter-workflow-flowable/
-│   └── starter-job-xxl/
-├── scaffold-modules/
-│   ├── module-auth/
-│   │   └── src/main/java/com/acme/scaffold/auth/
-│   │       ├── api/controller/AuthController.java
-│   │       ├── api/dto/LoginCommand.java
-│   │       ├── api/vo/TokenView.java
-│   │       ├── application/AuthApplicationService.java
-│   │       ├── domain/model/RefreshToken.java
-│   │       ├── domain/service/TokenService.java
-│   │       ├── domain/port/TokenStore.java
-│   │       └── infrastructure/
-│   │           ├── jwt/JwtTokenService.java
-│   │           └── persistence/RefreshTokenRepositoryImpl.java
-│   ├── module-system/
-│   │   └── src/main/java/com/acme/scaffold/system/
-│   │       ├── api/controller/{User,Org,Role,Menu,ApiResource}Controller.java
-│   │       ├── application/
-│   │       ├── domain/
-│   │       │   ├── model/{User,Org,Role,Menu,ApiResource}.java
-│   │       │   ├── repository/
-│   │       │   └── service/
-│   │       └── infrastructure/persistence/
-│   │           ├── entity/
-│   │           ├── mapper/
-│   │           ├── repository/
-│   │           └── convert/
-│   ├── module-workflow/
-│   │   └── src/main/java/com/acme/scaffold/workflow/
-│   │       ├── api/controller/{Definition,Instance,Task}Controller.java
-│   │       ├── application/WorkflowApplicationService.java
-│   │       ├── domain/model/
-│   │       ├── domain/port/WorkflowEnginePort.java
-│   │       └── infrastructure/flowable/FlowableWorkflowAdapter.java
-│   ├── module-job/
-│   │   └── src/main/java/com/acme/scaffold/job/
-│   │       ├── domain/port/JobSchedulerPort.java
-│   │       ├── infrastructure/xxl/XxlJobSchedulerAdapter.java
-│   │       └── handler/
-│   ├── module-audit/
-│   │   └── src/main/java/com/acme/scaffold/audit/
-│   │       ├── annotation/AuditOperation.java
-│   │       ├── aspect/AuditOperationAspect.java
-│   │       ├── application/AuditLogService.java
-│   │       └── infrastructure/persistence/
-│   └── module-monitor/
-│       └── src/main/java/com/acme/scaffold/monitor/
-│           ├── metrics/BusinessMetrics.java
-│           ├── health/BusinessHealthIndicator.java
-│           └── slowquery/SlowQueryInterceptor.java
-├── scaffold-bootstrap/
-│   ├── pom.xml
-│   └── src/
-│       ├── main/java/com/acme/scaffold/ScaffoldApplication.java
-│       ├── main/resources/
-│       │   ├── application.yml
-│       │   ├── application-local.yml
-│       │   ├── application-test.yml
-│       │   ├── application-prod.yml
-│       │   ├── logback-spring.xml
-│       │   ├── db/migration/
-│       │   │   ├── V1__baseline.sql
-│       │   │   ├── V2__security.sql
-│       │   │   └── V3__workflow_extension.sql
-│       │   └── processes/
-│       │       └── leave-approval.bpmn20.xml
-│       └── test/java/com/acme/scaffold/
-│           ├── ArchitectureTest.java
-│           ├── SecurityIntegrationTest.java
-│           └── WorkflowIntegrationTest.java
-└── scripts/
-    ├── dev-up.sh
-    ├── dev-down.sh
-    └── smoke-test.sh
+java-admin-framework/
+├── pom.xml                          # 父 POM（packaging=pom，依赖/插件/Profile 统一管理）
+├── scripts/
+│   ├── check-conventions.py         # 编码约定校验（H1–H5，H5=模块依赖 DAG 无环）
+│   ├── test_check_conventions.py    # 校验器行为测试（17 例）
+│   └── migrate-modules.py           # V1.0.3 一次性迁移脚本（已执行，留档复现）
+├── docs/                            # 架构/开发/运维/部署四本手册 + 专项指南
+├── scaffold-common/                 # 基础层：common + jooq（零向上依赖）
+│   └── src/main/java/com/acme/scaffold/{common,jooq}/
+├── scaffold-realtime/               # 通信层：realtime（WebSocket 握手鉴权端口）
+│   └── src/main/java/com/acme/scaffold/realtime/
+├── scaffold-kafka/                  # 通信层：kafka（保序规则 + 消费者薄封装）
+│   └── src/main/java/com/acme/scaffold/kafka/
+├── scaffold-codegen/                # 工具层：codegen（表元数据 + CRUD 骨架）
+│   └── src/main/java/com/acme/scaffold/codegen/
+├── scaffold-framework/              # 框架装配层：config + observability + monitor.detection
+│   └── src/main/java/com/acme/scaffold/{config,observability,monitor/detection}/
+├── scaffold-system/                 # 业务层：security + system
+│   └── src/main/java/com/acme/scaffold/{security,system}/
+├── scaffold-monitor/                # 业务层：monitor（除 detection 外）
+│   └── src/main/java/com/acme/scaffold/monitor/
+├── scaffold-job/                    # 业务层：job（任务管理 + JobRunr 任务注册）
+│   └── src/main/java/com/acme/scaffold/job/
+├── scaffold-workbench/              # 业务层：workbench（工作台 + 报表）
+│   └── src/main/java/com/acme/scaffold/workbench/
+├── scaffold-workflow/               # 业务层：workflow（Flowable 对接）
+│   └── src/main/java/com/acme/scaffold/workflow/
+└── scaffold-admin/                  # 启动装配层（唯一可部署模块，依赖其余全部）
+    └── src/
+        ├── main/java/com/acme/scaffold/FrameworkApplication.java
+        ├── main/resources/
+        │   ├── application.yml / application-{local,test,prod}.yml
+        │   ├── logback-spring.xml
+        │   └── db/migration/        # Flyway 迁移 V32~V39
+        └── test/java/com/acme/scaffold/   # 集成测试 + 跨模块一致性守护测试
 ```
 
 ### 3.1 模块职责
 
 | 模块 | 负责 | 不负责 |
 |---|---|---|
-| `common-core` | 响应、错误码、分页、基础抽象 | Spring Bean、数据库访问 |
-| `common-web` | Web 异常映射、校验、序列化、请求上下文 | 业务异常定义以外的业务规则 |
-| `common-security` | 当前用户、权限与数据权限 SPI | 用户表持久化、Token 签发实现 |
-| `starter-*` | 自动配置、条件装配、统一依赖入口 | 业务实体 |
-| `module-auth` | 登录、刷新、注销、会话、账号风控 | 用户与角色的 CRUD |
-| `module-system` | 用户、机构、角色、菜单、接口资源 | Token 生命周期 |
-| `module-workflow` | 流程定义扩展、实例、任务、审批记录 | 直接修改 `ACT_*` 表 |
-| `module-job` | XXL-JOB 执行器适配、统一任务处理规范 | 调度中心源码二次开发 |
-| `module-audit` | 操作审计、安全审计 | 普通调试日志 |
-| `module-monitor` | 业务指标、慢 SQL、健康扩展 | 监控数据持久化平台 |
-| `bootstrap` | 聚合模块、启动、环境配置、Flyway | 具体领域逻辑 |
+| `scaffold-common` | 统一响应/异常/分页、i18n、安全上下文端口（`common.context`）、审计/幂等切面、导出/导入、脱敏、jOOQ 手写 DSL | Spring Security 装配、业务规则、具体表 CRUD |
+| `scaffold-realtime` | WebSocket 握手鉴权端口（`realtime.port`）、会话管理、定向推送 | JWT 解析（经端口由 system 注入实现） |
+| `scaffold-kafka` | Kafka 保序规则、原生消费者薄封装、监控查询 | spring-kafka 接入、业务消息语义 |
+| `scaffold-codegen` | 表元数据读取、CRUD 骨架生成 | 代码落盘持久化、模板市场 |
+| `scaffold-framework` | 全局 Spring 配置（多数据源/jOOQ/Web/缓存/Redis/可观测）、指标与链路追踪、N+1 与慢查询监听 | 业务逻辑、周期任务注册（在 job） |
+| `scaffold-system` | RBAC（用户/角色/菜单/字典/参数/机构/岗位）、认证授权（JWT/刷新令牌/Token 版本/密码策略/防重放/限流/验证码/数据权限/登录日志）、系统业务（公告/站内信/文件/短信记录） | 工作流、调度、报表 |
+| `scaffold-monitor` | 告警接收与收件箱、健康探针、监控指标查询 | jOOQ 监听探针（在 framework） |
+| `scaffold-job` | 任务定义管理、周期任务注册（`job.config.JobRunrConfig`）、具体 Job | 调度引擎装配（JobRunr starter 自动配置） |
+| `scaffold-workbench` | 工作台看板、报表查询与多 Sheet 导出 | 报表数据采集作业（复用 job） |
+| `scaffold-workflow` | Flowable 对接、任务认领/转办/完成、流程设计与部署 | 自定义引擎、表单引擎 |
+| `scaffold-admin` | 应用入口、运行期配置、Flyway 迁移、集成测试 | 业务逻辑、可被其他模块依赖 |
 
-> 目标：形成一个可直接创建、可本地启动、可作为后续业务系统脚手架的企业级 Java 后端基础框架。设计优先级依次为：安全正确、模块边界清晰、运维可见、低成本起步、可平滑拆分。
+模块依赖 DAG（`check-conventions.py` H5 强制无环；任何模块不得依赖 `scaffold-admin`）：
+
+```text
+scaffold-admin      ──▶ 其余全部 10 个模块
+scaffold-workflow   ──▶ common, monitor, realtime, system
+scaffold-job        ──▶ common, monitor, system
+scaffold-monitor    ──▶ common, framework, system
+scaffold-system     ──▶ common, realtime
+scaffold-workbench  ──▶ common, system
+scaffold-framework  ──▶ common, realtime
+scaffold-codegen / scaffold-kafka / scaffold-realtime ──▶ common
+scaffold-common     ──▶ （无内部依赖）
+```
 
 ## 4. 分层与命名约定
 
@@ -1761,7 +1697,7 @@ GET    /api/workflow/instances/{id}/history
 ## 20. 最小可交付验收清单
 
 - [ ] `docker compose up -d` 后 MySQL、Redis、XXL-JOB 健康。
-- [ ] `./mvnw clean verify` 通过。
+- [ ] `mvn -o clean verify` 通过。
 - [ ] Flyway 可在空库初始化，可对已初始化库重复校验。
 - [ ] 登录返回 Access Token 和一次性 Refresh Token。
 - [ ] Refresh Token 轮换与重放检测通过。

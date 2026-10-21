@@ -75,9 +75,9 @@
 |---|---|---|
 | JDK | **21**（编译基线 `pom.xml` `<java.version>` 为 17，运行时用 21） | `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` |
 | Maven | `/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn` | 仓库内**无 `mvnw`**；离线环境统一加 `-o` |
-| Spring Boot | 3.3.4（父 POM `spring-boot-starter-parent`） | 单 Maven 模块，包名 `com.acme.scaffold` |
+| Spring Boot | 3.3.4（父 POM `spring-boot-starter-parent`） | **多 Maven 模块**（V1.0.3 拆分，见《模块拆分指南》），包名统一 `com.acme.scaffold` |
 | 数据库 | MySQL 8.x，库名 **`scaffold`** | `jdbc:mysql://localhost:3306/scaffold`；Flyway 自动建表 |
-| 迁移链 | `db/migration/` `V32`~`V36`，schema 版本 **36** | `validate-on-migrate: true` |
+| 迁移链 | `scaffold-admin/src/main/resources/db/migration/` `V32`~`V39`，schema 版本 **39** | `validate-on-migrate: true` |
 | Redis | `127.0.0.1:6379`（local） | 缓存 / Token 黑名单 / 在线会话 |
 | 应用端口 | **8080** | `server.port`（API / Swagger / WebSocket），见下方端口说明 |
 | Actuator | `management.server.port` = **9090** | 独立管理端口，`/actuator/health`、`/actuator/prometheus` |
@@ -93,11 +93,13 @@ export PATH="$JAVA_HOME/bin:$PATH"
 export SPRING_PROFILES_ACTIVE=local
 MVN=/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn
 
-$MVN -o clean test                 # 全量单元测试（当前 559 例全绿）
-$MVN -o test -Dtest="*IT"          # 集成测试（需本地 MySQL，触发 Flyway）
-$MVN -o spring-boot:run            # 启动（见下端口说明）
+$MVN -o clean test                 # 全量单元测试（多模块反应堆，当前 852 例全绿）
+$MVN -o test -Dtest="*IT"          # 集成测试（需本地 MySQL，触发 Flyway；*IT 均在 scaffold-admin）
+$MVN -o spring-boot:run -pl scaffold-admin   # 启动（见下端口说明）
+# 单模块快速迭代（-am 连同依赖一起构建）
+$MVN -o -pl scaffold-system -am test
 
-# 编码约定校验（零依赖，CI 同款）
+# 编码约定校验（零依赖，CI 同款；H1-H4 包级 + H5 模块依赖环）
 python3 scripts/check-conventions.py
 python3 -m unittest discover -s scripts -p "test_*.py"
 
@@ -165,7 +167,7 @@ POST /api/workflow/tasks/{taskId}/claim   # 认领池化任务（无办理人）
 
 JobRunr 无需独立调度中心：任务以 JSON 持久化在业务库的 `jobrunr_*` 表，由应用内嵌的 `BackgroundJobServer` 执行。
 
-- 周期任务在 `JobRunrConfig` 中注册：
+- 周期任务在 `com.acme.scaffold.job.config.JobRunrConfig`（scaffold-job 模块，V1.0.3 由原 `config.jobrunr` 迁入）中注册：
   ```java
   jobScheduler.scheduleRecurrently("demo-job", "*/5 * * * *", demoJob::run);
   ```
@@ -1583,13 +1585,13 @@ sys_menu (id, parent_id 自引用)
 
 | 类型 | 文件 |
 |------|------|
-| 控制器 | `src/main/java/com/acme/scaffold/system/controller/MenuController.java` |
-| 服务 | `src/main/java/com/acme/scaffold/system/service/MenuService.java` |
-| 响应 VO | `src/main/java/com/acme/scaffold/system/dto/MenuTreeVO.java` |
-| 请求 DTO | `src/main/java/com/acme/scaffold/system/dto/CreateMenuRequest.java`、`UpdateMenuRequest.java` |
-| 实体 | `src/main/java/com/acme/scaffold/system/entity/SysMenuDO.java`、`SysRoleMenuDO.java`、`SysUserRoleDO.java` |
-| 响应封装 | `src/main/java/com/acme/scaffold/common/api/Result.java` |
-| 安全配置 | `src/main/java/com/acme/scaffold/security/config/SecurityConfig.java` |
+| 控制器 | `scaffold-system/src/main/java/com/acme/scaffold/system/controller/MenuController.java` |
+| 服务 | `scaffold-system/src/main/java/com/acme/scaffold/system/service/MenuService.java` |
+| 响应 VO | `scaffold-system/src/main/java/com/acme/scaffold/system/dto/MenuTreeVO.java` |
+| 请求 DTO | `scaffold-system/src/main/java/com/acme/scaffold/system/dto/CreateMenuRequest.java`、`UpdateMenuRequest.java` |
+| 实体 | `scaffold-system/src/main/java/com/acme/scaffold/system/entity/SysMenuDO.java`、`SysRoleMenuDO.java`、`SysUserRoleDO.java` |
+| 响应封装 | `scaffold-common/src/main/java/com/acme/scaffold/common/api/Result.java` |
+| 安全配置 | `scaffold-system/src/main/java/com/acme/scaffold/security/config/SecurityConfig.java` |
 | 表迁移 | `db/migration/V32__consolidated_schema.sql`（原 V1：sys_menu/sys_role_menu/sys_user_role/sys_role/sys_user 初始；原 V15：sys_user_role 重建；原 V17：菜单种子） |
 | 全量结构参考 | `src/main/resources/db/reference/schema_ddl.sql`（结构分类汇总；可执行迁移为 `db/migration/V32__consolidated_schema.sql`） |
 | 前端 | `pc-admin-vue3-vite/src/api/menu.js`、`store/auth.js`、`layout/Sidebar.vue`、`layout/MenuTree.vue`、`router/index.js`、`api/mock/db.js` |
@@ -2233,7 +2235,7 @@ npm run preview  # 预览构建产物
   /Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -Pcoverage verify    # 全量（含 IT，需 MySQL）+ check 门禁
   /Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -Pcoverage verify -DskipITs   # 跳过 IT 的快速门禁
   ```
-  报告产物：`target/site/jacoco/index.html`（聚合）/ `*-jacoco.csv`（机器可读）。
+  报告产物：`<各模块>/target/site/jacoco/index.html`（按模块独立出报告与卡门禁，BUNDLE 级；V1.0.3 起父 POM profile 被 11 个模块继承，无跨模块聚合报告）。
 - CI 可直接套用的 job 片段（当前 `ci.yml` 四任务未含 coverage，需要时添加）：
   ```yaml
   coverage-gate:

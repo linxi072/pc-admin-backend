@@ -126,7 +126,7 @@
 1. **启动即崩溃**：`logback-spring.xml` 的 `fileNamePattern` 含 `%i`，但滚动策略用的是  
    `TimeBasedRollingPolicy`（不支持 `%i`），导致应用无法启动。已改为 `SizeAndTimeBasedRollingPolicy`。
 2. **XXL-JOB 残留**：日志配置仍引用 `com.xuxueli.job`，已改为 `org.jobrunr`。
-3. **周期任务静默不注册**：`JobRunrConfig` 上的 `@ConditionalOnBean(JobScheduler.class)` 恒为 false  
+3. **周期任务静默不注册**：`com.acme.scaffold.job.config.JobRunrConfig` 上的 `@ConditionalOnBean(JobScheduler.class)` 恒为 false  
    —— 普通 `@Configuration` 先于自动配置解析，条件求值时 `JobScheduler` 尚未产出，  
    导致迁移前的 `demoJobHandler` 实际从未被调度。已改为 `ApplicationRunner` + `ObjectProvider<JobScheduler>`，  
    修复后日志确认 `已注册 JobRunr 周期任务 id=demo-job cron=*/5 * * * *`。

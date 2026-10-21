@@ -2,7 +2,7 @@
 
 > 模块路径（前端）：`pc-admin-vue3-vite/src/views/monitor/`（页面 + 5 Tab 组件）、`pc-admin-vue3-vite/src/api/`（5 个 API 封装模块）
 > 关联（后端存量）：`observability`（链路追踪）、`kafka`（有序消费监控）、`monitor/detection`（N+1 探测）、`common/idempotency`（幂等记录）、`monitor/alert`（告警收件箱）
-> 迁移：`java-admin-framework/src/main/resources/db/migration/V39__observability_center.sql`
+> 迁移：`scaffold-admin/src/main/resources/db/migration/V39__observability_center.sql`
 
 ## 1. 背景与缺口
 

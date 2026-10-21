@@ -283,14 +283,18 @@ volumes:
 brew services start mysql
 brew services start redis
 
-# 2) 构建并运行（JDK 21 + 本地 Maven，离线）
+# 2) 构建并运行（JDK 21 + 本地 Maven，离线；V1.0.3 起为多 Maven 模块）
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 export SPRING_PROFILES_ACTIVE=local
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o clean package -DskipTests
+java -jar scaffold-admin/target/scaffold-admin-1.0.0.jar
+# 开发态调试亦可 reactor 根直接跑（指定可部署模块，随改随启）：
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o -pl scaffold-admin -am spring-boot:run
+# 需要带全量测试/门禁的构建时用 verify（IT 需本机 MySQL）：
 /Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o clean verify
-/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o spring-boot:run
 ```
 
-> 工程为**单 Maven 模块**（非 `scaffold-bootstrap` 多模块），包名为 `com.acme.scaffold`；仓库内**无 `mvnw`**，请使用上文绝对路径的 Maven。
+> 工程为**多 Maven 模块**结构（11 个 `scaffold-*` 模块，映射见《模块拆分指南》），包名为 `com.acme.scaffold`；唯一可部署模块为 `scaffold-admin`，产物 jar 为 `scaffold-admin/target/scaffold-admin-1.0.0.jar`。仓库内**无 `mvnw`**，请使用上文绝对路径的 Maven。
 
 ### 13.3 冒烟检查
 
