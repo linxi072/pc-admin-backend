@@ -57,6 +57,11 @@ public class SecurityConfig {
             // Alertmanager webhook 接收端：外部告警系统无法出示 JWT，
             // 鉴权由控制器内 enabled 开关 + X-Alert-Token 承担（收件箱查询仍须登录）
             new AntPathRequestMatcher("/api/monitoring/alerts/webhook", HttpMethod.POST.name()),
+            // 前后端联通探针端点：匿名可访问是联调契约（前端 http.js 探测 / 探针脚本
+            // 均无 token）；ping 零数据库依赖，slow 的 delayMs 已由 resolveDelayMs
+            // 收敛到 [0,10000] 防线程耗尽型滥用
+            new AntPathRequestMatcher("/api/connectivity/ping", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/api/connectivity/slow", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/error"));
 
     /** Swagger / OpenAPI 文档端点（是否公开由 {@code app.swagger.public-access} 决定）。 */
