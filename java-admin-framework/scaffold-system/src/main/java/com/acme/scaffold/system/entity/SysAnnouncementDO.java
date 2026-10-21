@@ -25,6 +25,10 @@ public class SysAnnouncementDO {
     private LocalDateTime offlineAt;
     private Long publisherId;
     private Integer viewCount = 0;
+    /** 发布时活跃用户快照（V40 已读率分母；存量公告为 0，统计按 readCount 兜底） */
+    private Integer audienceCount = 0;
+    /** 已读人数（markRead 成功时 +1，与 sys_announcement_read 回执行一一对应） */
+    private Integer readCount = 0;
 
     private Integer version = 0;
 

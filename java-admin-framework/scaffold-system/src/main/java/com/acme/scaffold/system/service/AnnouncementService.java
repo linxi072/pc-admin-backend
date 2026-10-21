@@ -189,6 +189,9 @@ public class AnnouncementService {
         a.setPublishedAt(LocalDateTime.now());
         a.setOfflineAt(null); // 重新发布时清空下线时间
         a.setPublisherId(currentUserId());
+        // V40 已读率分母快照：懒插入回执模型下回执表只含已读行，分母（受众数）
+        // 必须在发布时落列；重新发布按当前活跃用户刷新快照
+        a.setAudienceCount(countActiveUsers());
         // 重新发布允许直接改置顶
         // offline_at 必须显式置空：updateById 的 NOT_NULL 策略会跳过 null 字段，
         // 导致重新发布的公告仍带历史 offlineAt（与 isEffective 口径相悖），故走
@@ -267,5 +270,12 @@ public class AnnouncementService {
 
     private Long currentUserId() {
         return securityContextFacade.getCurrentPrincipal().map(p -> p.userId()).orElse(null);
+    }
+
+    /** 活跃用户数：公告发布时的受众快照（V40 已读率分母）。 */
+    private int countActiveUsers() {
+        return (int) JooqWriters.count(dsl, JooqTables.SYS_USER,
+                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
+                        JooqTables.SYS_USER.field("status", String.class).eq("ACTIVE")));
     }
 }

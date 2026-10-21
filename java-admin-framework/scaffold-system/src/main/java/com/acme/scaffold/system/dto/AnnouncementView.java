@@ -5,18 +5,22 @@ import java.time.LocalDateTime;
 /**
  * 公告视图。
  *
- * @param effective 是否当前可见（status=PUBLISHED 且在有效期内）——列表「我的公告」据此过滤
+ * @param effective     是否当前可见（status=PUBLISHED 且在有效期内）——列表「我的公告」据此过滤
+ * @param audienceCount 发布时活跃用户快照（V40 已读率分母；存量公告为 0）
+ * @param readCount     已读人数（markRead 成功时 +1）
  */
 public record AnnouncementView(Long id, String title, String content, String status, Integer isTop,
                                LocalDateTime publishAt, LocalDateTime expireAt,
                                LocalDateTime publishedAt, LocalDateTime offlineAt,
                                Long publisherId, Integer viewCount, boolean effective,
+                               Integer audienceCount, Integer readCount,
                                LocalDateTime createdAt) {
 
     public static AnnouncementView from(com.acme.scaffold.system.entity.SysAnnouncementDO a, boolean effective) {
         return new AnnouncementView(a.getId(), a.getTitle(), a.getContent(), a.getStatus(), a.getIsTop(),
                 a.getPublishAt(), a.getExpireAt(), a.getPublishedAt(), a.getOfflineAt(),
-                a.getPublisherId(), a.getViewCount(), effective, a.getCreatedAt());
+                a.getPublisherId(), a.getViewCount(), effective,
+                a.getAudienceCount(), a.getReadCount(), a.getCreatedAt());
     }
 
     /** 按当前时间判定是否处于有效期且已发布。 */

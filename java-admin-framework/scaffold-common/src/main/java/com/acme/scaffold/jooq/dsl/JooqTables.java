@@ -103,10 +103,15 @@ public final class JooqTables {
 
     // ---------------- 公告 / 站内信 / 监控 ----------------
 
+    // audience_count / read_count 为 V40 公告已读回执中心新增，列名与 V40 迁移严格一致
     public static final TableRef SYS_ANNOUNCEMENT = new TableRef("sys_announcement",
             "id", "tenant_id", "title", "content", "status", "is_top", "publish_at", "expire_at",
-            "published_at", "offline_at", "publisher_id", "view_count", "version", "deleted",
-            "created_by", "created_at", "updated_by", "updated_at");
+            "published_at", "offline_at", "publisher_id", "view_count", "audience_count",
+            "read_count", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    /** 公告已读回执（懒插入模型：仅 markRead 时落行），与站内信 eager 投递对称互补。 */
+    public static final TableRef SYS_ANNOUNCEMENT_READ = new TableRef("sys_announcement_read",
+            "id", "tenant_id", "announcement_id", "user_id", "read_at", "created_at");
 
     public static final TableRef SYS_MESSAGE = new TableRef("sys_message",
             "id", "tenant_id", "title", "content", "msg_type", "sender_id", "filter_role_ids",
