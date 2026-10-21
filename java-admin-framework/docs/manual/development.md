@@ -2144,7 +2144,7 @@ npm run preview  # 预览构建产物
 
 - 端点一：`GET /api/connectivity/ping`（`common/controller/ConnectivityController`），零数据库依赖，返回统一包络 `Result<ConnectivityProbe>`。
 - `ConnectivityProbe`（`common/api/dto/ConnectivityProbe`）：`serverTime`（后端 UTC 时钟，用于时钟漂移粗校验）、`receivedLocale`（后端经 `LocaleContextHolder` 回显的实际语言标签，验证多语言协商）、`nonce`（每次随机串，防缓存误判联通）、`framework`（固定 `java-admin-framework`）。
-- 端点二：`GET /api/connectivity/slow?delayMs=<0-10000>`（2026-10-22 新增）——**超时探针**，闭环真实 504 链路：不传参默认休眠 5000ms（**刻意大于探针/前端默认超时阈值**，客户端侧必先超时）；`delayMs` 经纯函数 `resolveDelayMs` 解析（非数字 → 400/`COMMON_001` 原样文案；越界收敛到 `[0,10000]`，防线程耗尽型滥用），生效值回显于 `ConnectivitySlowProbe.delayMs`。
+- 端点二：`GET /api/connectivity/slow?delayMs=<0-10000>`（2026-10-21 新增）——**超时探针**，闭环真实 504 链路：不传参默认休眠 5000ms（**刻意大于探针/前端默认超时阈值**，客户端侧必先超时）；`delayMs` 经纯函数 `resolveDelayMs` 解析（非数字 → 400/`COMMON_001` 原样文案；越界收敛到 `[0,10000]`，防线程耗尽型滥用），生效值回显于 `ConnectivitySlowProbe.delayMs`。
 - 前端模块：`src/api/connectivity.js` 的 `ping()` 经 `src/api/http.js` 拆包后直接拿到 `data`。
 
 ### 2. 后端联通测试（`ConnectivityControllerTest`，19 例）
@@ -2154,7 +2154,7 @@ npm run preview  # 预览构建产物
   - 400 `COMMON_001`（参数校验，`data` 为字段错误 Map）｜ 401 `COMMON_401` ｜ 403 `COMMON_403` ｜ 404 `COMMON_404` ｜ 405 `COMMON_405` ｜ 409 `COMMON_409` ｜ 422 `COMMON_422` ｜ 429 / 500 `COMMON_500` ｜ **504 `COMMON_504`（新增超时映射）**。
 - 正常流：断言包络 `code=="0"` / `message=="OK"` / `data.*` 字段齐备 / `traceId` / `timestamp` 存在；`nonce` 每次不同（防缓存）。
 - 多语言：经 `Accept-Language` 头驱动，断言中文 `请求超时，请稍后重试` 与英文 `Request timed out, please retry later`；另以直接调用 `handler.handleTimeout(...)` 的确定性单测锁住 Locale 解析。
-- **超时探针 4 例（2026-10-22 新增）**：`resolveDelayMs` 纯函数三例（默认 5000ms 且 > 探针默认阈值；越界收敛到 `[0,10000]`；非数字 → 400/`COMMON_001` 中文案经真实 handler 映射）+ `delayMs=0` 快路径一例（立即返回成功包络并回显生效延迟，不拖慢套件）。
+- **超时探针 4 例（2026-10-21 新增）**：`resolveDelayMs` 纯函数三例（默认 5000ms 且 > 探针默认阈值；越界收敛到 `[0,10000]`；非数字 → 400/`COMMON_001` 中文案经真实 handler 映射）+ `delayMs=0` 快路径一例（立即返回成功包络并回显生效延迟，不拖慢套件）。
 
 ### 3. 新增超时错误码与全局映射
 
@@ -2177,7 +2177,7 @@ npm run preview  # 预览构建产物
 - `CommonErrorCode.GATEWAY_TIMEOUT("COMMON_504", "请求超时，请稍后重试", 504)`。
 - `GlobalExceptionHandler` 新增 `@ExceptionHandler(TimeoutException.class)` → 504 + `Result.error(COMMON_504, i18n.getMessage("error.gateway_timeout"))`；资源束三件套补 `error.gateway_timeout` 与 `error.COMMON_504`（中/英对称）。
 - 此前全局异常处理器**缺失超时映射**，本次补全，使网络超时有稳定错误码可识别。
-- **真实 504 链路闭环（2026-10-22）**：`connectivity-spec.json` 的 `timeoutEndpoint` 指向 `/api/connectivity/slow`，此前后端只有 `/ping`，探针打真实后端只会 404 而非超时；`/slow` 落地后，「客户端超时（真实 socket 读超时）」与「服务端 504 映射」两端各自可验证。
+- **真实 504 链路闭环（2026-10-21）**：`connectivity-spec.json` 的 `timeoutEndpoint` 指向 `/api/connectivity/slow`，此前后端只有 `/ping`，探针打真实后端只会 404 而非超时；`/slow` 落地后，「客户端超时（真实 socket 读超时）」与「服务端 504 映射」两端各自可验证。
 
 ### 4. 前端联通测试（`scripts/fe-connectivity.mjs`，离线 5 例 / 真实后端模式 3 通过 + 2 跳过）
 
@@ -2186,7 +2186,7 @@ npm run preview  # 预览构建产物
   2. 数据格式一致性：成功包络含 `code/message/data/traceId/timestamp`；
   3. 常见错误码：2xx 但 `code!=0` 提取 `code` 并 `reject`（如 `AUTH_001`）；5xx 回传后端错误码 `COMMON_500`；
   4. 网络超时：后端慢响应触发 axios `ECONNABORTED`。
-- **真实后端模式（2026-10-22 新增）**：设置 `API_BASE` 环境变量即跳过本地 stub 直连真实后端（如 `API_BASE=http://localhost:8080`）；ping / 包络字段 / 超时三例走真实链路（超时依赖后端 `/slow` 默认 5000ms > 客户端 300ms 阈值），两个错误码用例因后端未实现对应探针端点以 `test(..., {skip})` 明确跳过（错误码映射由后端 `ConnectivityControllerTest` 覆盖），**不留假绿**。
+- **真实后端模式（2026-10-21 新增）**：设置 `API_BASE` 环境变量即跳过本地 stub 直连真实后端（如 `API_BASE=http://localhost:8080`）；ping / 包络字段 / 超时三例走真实链路（超时依赖后端 `/slow` 默认 5000ms > 客户端 300ms 阈值），两个错误码用例因后端未实现对应探针端点以 `test(..., {skip})` 明确跳过（错误码映射由后端 `ConnectivityControllerTest` 覆盖），**不留假绿**。
 - 客户端 `request()` **镜像** `src/api/http.js` 的响应拦截拆包逻辑（`code==='0'` 返回 `data`，否则 `reject(Error)` 且 `Error.code = body.code`），确保验证的就是前端真实依赖的契约。
 - 运行：`cd pc-admin-vue3-vite && node --test scripts/fe-connectivity.mjs`（需已 `npm install`）；真实模式加 `API_BASE=<后端地址>` 前缀。
 
@@ -2195,7 +2195,7 @@ npm run preview  # 预览构建产物
 - `check-api-contract.py`：**静态**扫描后端 Controller 注解与前端 `api/*.js` 调用，归一化（小写/去查询串/参数无关 `*`）后比对，输出 `matched / backend_only / frontend_only`；`frontend_only` 即「前端调用但后端无路由」的契约漂移风险。`--strict` 时 drift 非空退出码 1。已兼容后端**无参** `@GetMapping`/`@PostMapping`（路径继承类级 `@RequestMapping`）与前端**拼接 URL**（`url: '/api/x/y/' + id` 视作 `/api/x/y/{id}`），当前全量扫描 `frontend_only=0`。
 - `connectivity-probe.py` + `connectivity-spec.json`：**运行时** HTTP 探针，对真实后端发请求断言包络字段与超时（urllib，零依赖）；后端不可达时打印清晰 SKIP 而非崩溃（连接失败经 `(TimeoutError, socket.timeout)` 双捕，兼容 Python ≤3.9）。
 - `connectivity-stub.py`：后端联通接口本地 stub（模拟 `Result` 包络 + 各错误码 + 慢响应端点），可在无后端环境离线验证探针。
-- `realtime-ws-stub.py` + `realtime-ws-probe.py`（2026-10-22 新增）：**运行时 WebSocket 探针**。stub 镜像后端 WS 契约（`/ws?token=<JWT>`，有效 token 默认 `stub-jwt`，其余 403 + JSON 包络；连接后按 `--push-delay-ms` 推送 `RealtimeMessage` 信封 `{type,payload,ts}`；收到 `ping` 回 `pong`）；probe 为**手写 RFC 6455 客户端**（零依赖），五用例：WS-01 握手 101 + `Sec-WebSocket-Accept` 校验；WS-02 `ping`→`pong` 真实帧往返；WS-03 推送信封字段校验（`--expect-push yes/no`）；WS-04 缺 token 拒绝；WS-05 篡改 token 拒绝。握手不可达时返回 status 0 干净失败（连不上 ≠ 拒绝，不可误判通过）。
+- `realtime-ws-stub.py` + `realtime-ws-probe.py`（2026-10-21 新增）：**运行时 WebSocket 探针**。stub 镜像后端 WS 契约（`/ws?token=<JWT>`，有效 token 默认 `stub-jwt`，其余 403 + JSON 包络；连接后按 `--push-delay-ms` 推送 `RealtimeMessage` 信封 `{type,payload,ts}`；收到 `ping` 回 `pong`）；probe 为**手写 RFC 6455 客户端**（零依赖），五用例：WS-01 握手 101 + `Sec-WebSocket-Accept` 校验；WS-02 `ping`→`pong` 真实帧往返；WS-03 推送信封字段校验（`--expect-push yes/no`）；WS-04 缺 token 拒绝；WS-05 篡改 token 拒绝。握手不可达时返回 status 0 干净失败（连不上 ≠ 拒绝，不可误判通过）。
 - 本机联调命令：
   ```bash
   # HTTP 联通
@@ -2209,7 +2209,7 @@ npm run preview  # 预览构建产物
 
 ### 6. 沙箱边界与本机收口
 
-- 沙箱无 MySQL 8.1.0、真实 Spring Boot 后端无法启动、Bash 无出网，**无法启动「后端 + 前端」跑完整真实链路**；但已用「真实跨进程 + 跨语言 + 真实 socket」组合把联调证据链做到沙箱内最大化（2026-10-22 实测，Python 3.13 与 3.9 双版本验证）：
+- 沙箱无 MySQL 8.1.0、真实 Spring Boot 后端无法启动、Bash 无出网，**无法启动「后端 + 前端」跑完整真实链路**；但已用「真实跨进程 + 跨语言 + 真实 socket」组合把联调证据链做到沙箱内最大化（2026-10-21 实测，Python 3.13 与 3.9 双版本验证）：
   1. **HTTP**：Python stub ↔ Python probe 真实跨进程（`connectivity-probe.py` 2/2 通过，含真实 `socket.timeout` 超时路径）；
   2. **WebSocket**：`realtime-ws-stub.py` ↔ `realtime-ws-probe.py` 真实 RFC 6455 帧往返（5/5 通过；死端口实测干净 FAIL + exit 1）；
   3. **前端**：Node axios 客户端 ↔ Python stub 真实 HTTP（`fe-connectivity.mjs` 真实模式 3 通过 / 2 跳过，含真实 `ECONNABORTED` 305ms）；
