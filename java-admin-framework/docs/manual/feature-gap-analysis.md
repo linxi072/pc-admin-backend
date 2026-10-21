@@ -1,6 +1,6 @@
 # 功能差距分析与优化建议（java-admin-framework）
 
-> 生成日期：2026-10-15 ｜ 更新日期：2026-10-20（**幂等记录管理已交付**：M2 幂等模块补齐运维侧面——`/api/system/idempotency-records` 三分点（分页查询/统计摘要/手动清理过期），`response_snapshot` 不暴露不检索、不提供单条删除（安全论证见手册），容错查询 posture 与登录日志/短信记录一致；单测基线刷新为 824 例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
+> 生成日期：2026-10-15 ｜ 更新日期：2026-10-21（**可观测中心前端入口已交付**：链路追踪/Kafka 监控/N+1 疑似/幂等记录/告警收件箱五个已交付后端运维面模块此前零前端封装，本轮补齐 5 个 API 模块 + 五合一页面（`/system/observability`，菜单 id=1094，权限 `system:monitor:read`，一页多权按 Tab 403 降级）+ V39 迁移（含 V35/V36 菜单 id=1091 碰撞修复）；前端契约测试 `fe-observability.mjs` 25 例全绿；后端主源/测试基线不变：509 主源 / 158 测试源 / 848 例全绿）｜ 分支：`feat/V1.0.2` ｜ 视角：当前状态盘点
 > 方法：**直接核查真实代码**（509 个后端主源 `.java` / 158 个测试源、848 个测试用例（surefire 汇总 0 失败 0 错误）、40 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
@@ -11,7 +11,7 @@
 - **严格需求层面已闭环**：设计方案 §12/§20、历史 gap-analysis（G1–G8、A1/A2/A4）、模块计划（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim）**全部已实现或明确记录为 N/A / 范围外**。
 - **直接核查确认的"已具备但未在需求文档明示"的能力**：OpenAPI/Swagger 文档、慢 SQL 监听、多数据源、文件管理、编码规范 + 零依赖校验脚本（本轮交付）。
 - **真实缺口极小**：仅 §12 中少量「独立端点」被合并进 DTO（前端已适配，非阻断），以及 `instances/{id}/history` 由 `/records` 等价承载。
-- **后续重点不是"补需求"，而是"增强型基础功能 + 优化"**（见 §5/§6），且其中多项受离线仓库依赖约束需联网引入或需先建基础设施。截至 2026-10-19 复核，**§5 与 §6 所列增强项与优化项已全部交付**（导出中心 CSV+XLSX 含多 Sheet 富格式 / 导入中心含预检与失败行报告 / 缓存管理含机构树分键缓存 / i18n 国际化 / 敏感数据脱敏通用化 / 通知渠道 M6 邮件 + M6 续短信（LOG/HTTP 双网关）/ 限流注解化 / N+1 告警 / keyset 深翻页 / 前端图表按需 / Bean Validation 校验消息键化）；残留方向仅为可选增强：前端 i18n（待前端配合）、测试覆盖率门禁（JaCoCo，需联网验证）、短信发送记录持久化（与邮件一致的有意取舍，按需再引入）。（Bean Validation 校验消息键化与 `BusinessException` 业务异常消息键化均已于本轮交付，详见 §5 i18n 行与 development.md。）
+- **后续重点不是"补需求"，而是"增强型基础功能 + 优化"**（见 §5/§6），且其中多项受离线仓库依赖约束需联网引入或需先建基础设施。截至 2026-10-19 复核，**§5 与 §6 所列增强项与优化项已全部交付**（导出中心 CSV+XLSX 含多 Sheet 富格式 / 导入中心含预检与失败行报告 / 缓存管理含机构树分键缓存 / i18n 国际化 / 敏感数据脱敏通用化 / 通知渠道 M6 邮件 + M6 续短信（LOG/HTTP 双网关）/ 限流注解化 / N+1 告警 / keyset 深翻页 / 前端图表按需 / Bean Validation 校验消息键化）；2026-10-21 追加交付**可观测中心前端入口**（五个已交付后端运维面模块的统一 UI，含 V39 菜单播种与 V35/V36 菜单 ID 碰撞修复，详见 §2 末行与《可观测中心使用指南》）；残留方向仅为可选增强：前端 i18n（待前端配合）、测试覆盖率门禁（JaCoCo，需联网验证）、短信发送记录持久化（与邮件一致的有意取舍，按需再引入）。（Bean Validation 校验消息键化与 `BusinessException` 业务异常消息键化均已于本轮交付，详见 §5 i18n 行与 development.md。）
 
 ---
 
@@ -49,6 +49,7 @@
 | API 文档（框架基线） | `springdoc-openapi 2.6.0` + `@Tag/@Operation` + `SecurityConfig` 放行 + yml 配路径 | ✅（已启用，未在需求文档明示） |
 | 慢 SQL 监听（性能基线） | `monitor/SlowQueryListener` 注册于 `JooqConfig` | ✅（已启用，未在需求文档明示） |
 | 岗位管理（系统模块增强，2026-10-16） | `PostController` `@RequestMapping("/api/system/posts")`（page/options/create/update/delete/assign）+ `PostService`（编码校验+唯一性+逻辑删除+用户岗位分配+防 N+1 装载）+ `SysPostDO`/`SysUserPostDO` + V35 迁移（菜单 `system:post` 绑定 SUPER_ADMIN）+ `PostRules` 纯函数；前端 `PostView.vue` + 用户表单岗位多选集成（`postIds`/`postNames` 贯穿创建/编辑/列表） | ✅ |
+| 可观测中心前端入口（运维面统一 UI，2026-10-21） | 链路追踪 / Kafka 有序消费 / N+1 探测 / 幂等记录 / 告警收件箱五个后端模块（均早有 Controller）此前零前端封装；本轮交付 5 个 `src/api/*.js` + `views/monitor/ObservabilityCenterView.vue`（五 Tab，`v-if` 懒渲染）+ `components/format.js` 纯函数 + 路由 `/system/observability` + V39 菜单种子（id=1094，`system:monitor:read`）+ 前端契约测试 `scripts/fe-observability.mjs` 25 例 | ✅ |
 
 ---
 
@@ -94,6 +95,7 @@
 
 | 项 | 维度 | 现状 | 建议 |
 |---|---|---|---|
+| **运维面零前端入口** | 体验 | ✅ **已落地（2026-10-21）**：链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五个后端模块此前只能 curl 使用；本轮以「可观测中心」五合一页面补齐（懒渲染 Tab + 403 降级空态 + format.js 纯函数），并修复 V35/V36 菜单 id=1091 碰撞（V39 以 1093 重播种「导入中心」） | — → 已完成 | 后续新运维模块优先挂入该页新增 Tab，避免再造单模块页面 |
 | **N+1 查询** | 性能 | ✅ **已落地（2026-10-20 补齐管理入口）**：`monitor/detection/NPlusOneListener` + `NPlusOneProbe`（线程级累计同构 SQL 执行次数）+ `NPlusOneResetFilter`（请求级重置）+ `NPlusOneSuspectRegistry`（有界事件留存，默认 200 条，超出淘汰最旧）；`JooqConfig` 与 `DataSourceConfig` **双路装配**（本轮补齐命名数据源 DSL 的 N+1 观测，此前仅主 `DSLContext` 接线）；同构 SQL 单请求内重复超阈值即告警并向留存登记事件，管理侧 `NPlusOneController`（`/api/system/monitor/n-plus-one`）倒序查询疑似事件 / 查看运行态 / 清空——由「只写不读（仅日志）」升级为「可查询、可复盘、可清理」 | — → 已完成 | 阈值 `app.jooq.nplus1-threshold`（默认 10）与留存容量 `app.jooq.nplus1-max-suspects`（默认 200）均可配置；多实例场景可对接指标导出 |
 | **幂等记录只写不查** | 运维 | ✅ **已落地（2026-10-20）**：`sys_idempotency_record` 由 M2 写路径持续写入（acquire/markSuccess/markFailed/release 均 REQUIRES_NEW）、`IdempotencyCleanupJob` 周期清理，但此前零查询入口。新增 `IdempotencyRecordController`（`/api/system/idempotency-records`：分页查询 / 统计摘要 / 手动清理过期）+ `IdempotencyRecordService`（只读 + 清理委托）+ `IdempotencyRecordRules`（筛选归一/时间窗收敛/过期判定纯函数）+ 2 个视图 DTO；`response_snapshot` 不暴露不检索、不提供单条删除（删除 PROCESSING 中记录会使同 key 在途请求重复执行）；零配置零迁移零新依赖，权限 `system:idempotency:read` / `system:idempotency:manage` 由 `ApiResourceAutoSyncRunner` 自动登记 | — → 已完成 | 菜单种子可按需补（与可观测性管理同处理）；DB 路径（分页/计数/删除）由 `*IT` 覆盖，沙箱以 E2E 桩接 + 纯函数单测等价验证 |
 | **深翻页** | 性能 | `PageQuery` 钳制 size，但未做游标/keyset | 已落地：common/api 新增 `KeysetPageQuery`/`KeysetPageResult`/`CursorCodec`（纯函数游标编解码），`jooq/JooqKeysetPager` 引擎（seek + size+1 判定 hasMore）；`FileService.keysetPage` + `FileController GET /api/system/files/keyset` 试点（固定 `created_at DESC, id DESC` 排序，含 id tie-breaker） |
@@ -121,8 +123,8 @@
 3. 原「需联网引入 POI」的 Excel 导出/导入已通过**零依赖 OOXML（写出 `XlsxDataExporter` / 解析 `XlsxDataReader`，仅用 JDK `java.util.zip`）**化解，无需联网；剩余需联网项（JaCoCo 覆盖率门禁验证）留待本机/联网环境执行，沙箱仅做结构设计与离线可编译部分。
 4. 导入中心为**模板注册**模式（同导出中心）：新增一种数据的导入只需新增一个 `ImportTask` Bean 并实现 `headers()`/`validate()`/`importRow()`，无需新增接口、迁移或前端页面（前端按 `/templates` 自动渲染）。
 5. 导出中心同理由 `ExportTask` Bean 自动扩充：如本轮新增 `LoginLogExportTask`（登录日志导出）**零迁移、零前端**，仅在 `system/export` 下加一个 `@Component` 即被 `/templates` 自动列举。脱敏遵循「类型驱动 + 安全默认」：对外视图/导出默认掩码，明文可见需显式授予 `system:*:sensitive` 权限。
-6. 测试基线：当前测试源共 **848 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-20 幂等记录管理轮新增 24 例：E2E 6 + 规则单测 12 + 服务单测 6；同日下午告警收件箱管理轮新增 24 例：E2E 7 + 规则单测 11 + 服务单测 6）。前端 `pc-admin-vue3-vite/scripts/fe-connectivity.mjs` 另含 5 例 `node:test` 联通测试（离线、本地 stub）。**前后端联通测试（连通探针 + 错误码映射 + 504 超时新增映射 + 契约对称脚本）已交付**，详见 `development.md` 同名章节。新增功能请同步补测，避免基线回退。
+6. 测试基线：当前测试源共 **848 个用例全绿**（surefire 汇总 0 失败 / 0 错误 / 0 跳过；含 2026-10-20 幂等记录管理轮新增 24 例：E2E 6 + 规则单测 12 + 服务单测 6；同日下午告警收件箱管理轮新增 24 例：E2E 7 + 规则单测 11 + 服务单测 6）。前端 `pc-admin-vue3-vite/scripts/` 下另有两套 `node:test` 离线测试：`fe-connectivity.mjs`（5 例，真实 HTTP 传输层联通契约）与 `fe-observability.mjs`（25 例，可观测中心 API 形状契约 + format.js 纯函数，驱动生产 `http.js` 拦截器链）。**前后端联通测试（连通探针 + 错误码映射 + 504 超时新增映射 + 契约对称脚本）已交付**，详见 `development.md` 同名章节。新增功能请同步补测，避免基线回退。
 
 ---
 
-> 更新日期：2026-10-20（本轮交付幂等记录管理：主源 494→499、测试源 152、测试基线 800→824 例全绿；§6 新增「幂等记录只写不查」行并标记已完成，头部口径同步刷新；**告警收件箱管理已交付**：`monitor/alert` 新增 `AlertInboxController`（/api/monitoring/alerts/inbox 筛选/汇总/清空）+ `AlertInboxService` + `AlertInboxRules` + 2 个视图 DTO，存量 `/webhook/inbox` 读取端点补 `system:monitor:read` 权限（修复匿名可读越权面），主源 499→509、测试源 152→158、测试基线 824→848 例全绿）
+> 更新日期：2026-10-21（本轮交付可观测中心前端入口：5 个 API 模块 + 五合一页面 + 路由 + V39 菜单种子（含 V35/V36 菜单 id=1091 碰撞修复，导入中心改以 1093 重播种）+ 前端契约测试 25 例；§2 新增对应行、§6 新增「运维面零前端入口」行并标记已完成、§8.6 前端测试基线刷新为两套 node:test；后端主源/测试基线不变：509 主源 / 158 测试源 / 848 例全绿）

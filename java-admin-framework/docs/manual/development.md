@@ -2185,3 +2185,45 @@ npm run preview  # 预览构建产物
 
 - 沙箱无 MySQL 8.1.0、后端未启动、Bash 无出网，**无法跑真实跨进程 HTTP 联调**；故后端用 standalone MockMvc（真实 handler/i18n）、前端用本地 stub 达成等价的契约验证。
 - **真实运行时联调（真实网络超时/真实 504 链路）需在本机执行**：① 启动后端 + 前端，浏览器/接口工具走真实 `ping`；② `python3 scripts/connectivity-probe.py` 指向真实后端；③ 前端 `node --test scripts/fe-connectivity.mjs` 指向真实 `API_BASE`。以上三类在沙箱外即构成完整联通证据链。
+
+---
+
+## 可观测中心前端契约测试（`scripts/fe-observability.mjs`，25 例，离线可跑）
+
+> 目标：为「可观测中心」五合一运维入口（链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱）建立 API 形状契约守护。与上文联通测试互补：`fe-connectivity.mjs` 验证**传输层**（真实 HTTP + 包络 + 超时），本文件验证**各运维面 API 的形状**（method/url/params）与**403 降级可判定性**，且端到端驱动生产 `src/api/http.js` 拦截器链而非重新实现契约。
+
+### 1. 被测对象与用例分布
+
+- 5 个 API 模块：`src/api/observability.js`（OBS-01~05）、`kafkaMonitor.js`（KFK-01~04）、`nplusOne.js`（NP1-01~03）、`idempotencyRecord.js`（IDM-01~04）、`alertInbox.js`（ALR-01~03）。
+- 纯函数 `src/views/monitor/components/format.js`（FMT-01~05：epoch/日期/时长/占比/`isForbidden`）。
+- 横切 XUT-01：403 拒绝时 reject 必须携带 `response.status===403`（页面据此走 Tab 级降级空态）。
+
+### 2. 测试基建（Node ≥ 22.15）
+
+- **`module.registerHooks` 虚拟 element-plus**：其完整依赖图在 Node 沙箱下实测被 kill（SIGTERM），故替换为无操作桩（`ElMessage` / `ElMessageBox`）；Vue 本体可原生 import。
+- **解析钩子**：`@/x/y` 映射 `src/x/y.js`（镜像 vite alias）；扩展名省略的相对导入（`./config`）解析失败时补 `.js` 重试。
+- **`localStorage` 打桩**：`store/auth` 模块初始化即读。
+- **可编排 axios 适配器**：`axios.defaults.adapter` 按路由表返回脚本化响应，不发起真实网络却驱动生产拦截器链；**非 2xx 必须自行抛 `AxiosError`（附 response）**——新版 axios 的 settle/validateStatus 在内置适配器内，自定义适配器返回非 2xx 会被当作成功，页面将永远拿不到 `response.status`（XUT-01 守护此契约，曾因此返工）。
+
+### 3. 运行方式
+
+```bash
+cd pc-admin-vue3-vite
+node --test scripts/fe-observability.mjs    # 25 例
+node --test scripts/fe-connectivity.mjs     # 存量联通回归 5 例
+```
+
+需已执行 `npm install`（依赖装在本机 managed workspace）。配套门禁：
+
+```bash
+python3 ../java-admin-framework/scripts/check-api-contract.py   # 前端 api ↔ 后端 Controller 路由静态对称
+npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir        # 离线构建（沙箱 shim 拦截清 dist，故换目录）
+```
+
+### 4. 新增运维面前端封装的标准动作
+
+1. 在 `src/api/` 加模块（复用 `http.js`，只声明 method + url + 参数，空值置 `undefined` 不传空串）；
+2. 在 `views/monitor/components/` 加 Tab 组件（汇总卡 + 筛选 + 表格；`isForbidden` 403 降级；危险操作 `ElMessageBox.confirm`）；
+3. 在 `fe-observability.mjs` 补该面用例（正常透传 / 业务错误 / 403 三类至少各一）；
+4. 若为新菜单，补 V 迁移（`INSERT IGNORE` + `uk_tenant_menu_code` 幂等，**id 先全量核对防碰撞**，见 V39 对 V35/V36 id=1091 碰撞的修复）；
+5. 跑 §3 三件套门禁。

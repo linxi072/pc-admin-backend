@@ -41,6 +41,7 @@
 - 健康检查：`GET /actuator/health`（仅 health/prometheus 公开，其余需 `platform:actuator:read`）。
 - 指标：`GET /actuator/prometheus`（JVM、HTTP、HikariCP、业务计数器、审批耗时）。
 - 慢 SQL：`SlowQueryListener`（jOOQ `ExecuteListener`）记录超过 `app.jooq.slow-query-threshold-ms`（默认 500ms）的 SQL。
+- **可观测中心菜单（V39）**：系统管理下新增「可观测中心」（`/system/observability`，五 Tab 统一入口——链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱），页面权限 `system:monitor:read`；各 Tab 数据为进程内/库内实时口径（span 留存、死信、疑似事件、幂等记录、告警收件箱均**重启清零**，多实例只见本实例）。无对应权限的 Tab 显示降级空态而非报错（最小授权）。使用细则见专项文档《可观测中心使用指南》。
 - 调度观测：JobRunr Dashboard（local 环境 `http://localhost:8000/dashboard`）可查看任务成功率、重试与耗时。
 - 告警阈值建议：QPS 跌零、错误率 >1%、P99 >800ms、JVM 老年代 >80%、连接池使用率 >85%、JobRunr 失败任务数 >0。
 

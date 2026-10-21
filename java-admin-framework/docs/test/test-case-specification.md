@@ -2,7 +2,7 @@
 
 > 项目：`java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端）
 > 测试类型：离线端到端切片测试（Offline E2E Slice）
-> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`、`NPlusOneE2eTest.java`、`IdempotencyRecordE2eTest.java`、`AlertInboxE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneSuspectRegistryTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneListenerTest.java`、`src/test/java/com/acme/scaffold/monitor/service/NPlusOneServiceTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/rules/IdempotencyRecordRulesTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/service/IdempotencyRecordServiceTest.java`、`src/test/java/com/acme/scaffold/monitor/alert/rules/AlertInboxRulesTest.java`、`src/test/java/com/acme/scaffold/monitor/alert/service/AlertInboxServiceTest.java`
+> 测试载体：`src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`、`RealtimeE2eTest.java`、`KafkaMonitorE2eTest.java`、`ObservabilityE2eTest.java`、`NPlusOneE2eTest.java`、`IdempotencyRecordE2eTest.java`、`AlertInboxE2eTest.java`，单元 `src/test/java/com/acme/scaffold/kafka/service/KafkaMonitorServiceTest.java`、`src/test/java/com/acme/scaffold/observability/recorder/SpanRecorderTest.java`、`src/test/java/com/acme/scaffold/observability/service/ObservabilityServiceTest.java`、`src/test/java/com/acme/scaffold/observability/export/ObservabilityPropertiesTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneSuspectRegistryTest.java`、`src/test/java/com/acme/scaffold/monitor/detection/NPlusOneListenerTest.java`、`src/test/java/com/acme/scaffold/monitor/service/NPlusOneServiceTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/rules/IdempotencyRecordRulesTest.java`、`src/test/java/com/acme/scaffold/common/idempotency/service/IdempotencyRecordServiceTest.java`、`src/test/java/com/acme/scaffold/monitor/alert/rules/AlertInboxRulesTest.java`、`src/test/java/com/acme/scaffold/monitor/alert/service/AlertInboxServiceTest.java`；前端 `pc-admin-vue3-vite/scripts/fe-observability.mjs`（25 例，node:test）与 `fe-connectivity.mjs`（5 例，node:test）
 > 配套文档：[end-to-end-test-report.md](./end-to-end-test-report.md) · [sequence-diagrams.html](./sequence-diagrams.html)
 
 ---
@@ -14,8 +14,8 @@
 | 被测对象 | 8 大核心用户路径：认证授权、系统参数、用户管理、工作流任务、实时推送管理、Kafka 消费监控、可观测性管理、N+1 查询探测 |
 | 测试形态 | Standalone `MockMvc` 装配**真实** `Controller` + **真实** `GlobalExceptionHandler` + **真实** `I18nService`；服务层以 Mockito 桩接，**无需 MySQL** |
 | 覆盖目标 | 正常流程 + 异常/边界（参数校验失败、业务异常、HTTP 状态与 `Result` 包络映射） |
-| 用例总量 | 52 例 E2E（分 8 个测试类：4 个 `@Nested` + `RealtimeE2eTest` + `KafkaMonitorE2eTest` + `ObservabilityE2eTest` + `NPlusOneE2eTest`）+ 46 例单元（`KafkaMonitorServiceTest` 4 + `SpanRecorderTest` 10 + `ObservabilityServiceTest` 8 + `ObservabilityPropertiesTest` 3 + `OtlpTracingFilterTest` 本轮新增 1 例 + `NPlusOneSuspectRegistryTest` 10 + `NPlusOneListenerTest` 4 + `NPlusOneServiceTest` 6），全部离线可跑、全绿 |
-| 不覆盖 | 需本机 MySQL 的真实事务/多表联动，由 `*IT` 集成测试在 CI/本机执行（见报告 §4） |
+| 用例总量 | 52 例 E2E（分 8 个测试类：4 个 `@Nested` + `RealtimeE2eTest` + `KafkaMonitorE2eTest` + `ObservabilityE2eTest` + `NPlusOneE2eTest`）+ 46 例单元（`KafkaMonitorServiceTest` 4 + `SpanRecorderTest` 10 + `ObservabilityServiceTest` 8 + `ObservabilityPropertiesTest` 3 + `OtlpTracingFilterTest` 本轮新增 1 例 + `NPlusOneSuspectRegistryTest` 10 + `NPlusOneListenerTest` 4 + `NPlusOneServiceTest` 6），全部离线可跑、全绿；另 24 例幂等记录（E2E 6 + 单元 18）与 24 例告警收件箱（E2E 7 + 单元 17）见 §10/§11；前端 `node:test` 另计 30 例（`fe-observability.mjs` 25 + `fe-connectivity.mjs` 5，见 §12） |
+| 不覆盖 | 需本机 MySQL 的真实事务/多表联动，由 `*IT` 集成测试在 CI/本机执行（见报告 §4）；浏览器 DOM 级渲染（Element Plus 组件）由前端构建与人工验收覆盖，Node 侧以 API 契约 + 纯函数等价验证 |
 
 ### 优先级约定
 - **P0（核心）**：主成功路径与会导致越权/数据损坏的关键异常。
@@ -181,7 +181,43 @@
 - `AlertInboxServiceTest`（6 例）：列表字段映射（receivedAt→epochMillis、summary 截断 200）、筛选委托规则类、limit 按容量自适应（3/999/0/2）、空箱返回空列表、汇总透传、清空委托；
 - 存量回归：`AlertWebhookControllerTest`（4 例）与 `AlertReceiverServiceTest`（3 例）——本轮对两个类仅增量方法（`capacity()` / `clearInbox()`），无行为变更。
 
-## 11. 全局异常与错误码映射（统一断言基线）
+## 12. 可观测中心前端契约测试（fe-observability.mjs，25 例）
+
+**被测对象**：`pc-admin-vue3-vite/src/api/` 下 5 个运维面 API 模块（observability / kafkaMonitor / nplusOne / idempotencyRecord / alertInbox）与 `src/views/monitor/components/format.js` 纯函数；测试以**可编排 axios 适配器**替代真实网络，端到端驱动生产 `src/api/http.js` 的请求构造与 `Result<T>` 拆包拦截器链（不重新实现契约）。
+
+**测试基建**：`module.registerHooks`（Node ≥ 22.15）将 element-plus 替换为无操作虚拟模块（其完整依赖图在 Node 下实测被 kill）、解析 `@/` 别名与扩展名省略的相对导入、打桩 `localStorage`；自定义适配器对非 2xx **自行抛 `AxiosError`**（新版 axios 的 settle 逻辑在内置适配器内，否则 403 会被当作成功，页面失去降级依据——由 XUT-01 守护）。
+
+| 用例 | 场景 | 预期 |
+|---|---|---|
+| OBS-01 | span 列表默认参数 | `GET /api/observability/traces`，limit 透传，拆包得数组 |
+| OBS-02 | span 筛选参数 | status/traceId 原样透传 |
+| OBS-03 | 链路详情 | traceId 经 `encodeURIComponent` 进入路径（防注入/特殊字符） |
+| OBS-04 | 清空 span | `DELETE /api/observability/traces`，返回清理条数 |
+| OBS-05 | 业务错误 | 2xx 但 `code!=0` → reject 且携带 code（拆包拦截器行为） |
+| KFK-01 | Kafka 消费状态 | `GET /api/kafka/consumer/status` |
+| KFK-02 | 死信分页 | 分页与 key 筛选参数透传，PageResult 拆包 |
+| KFK-03 | 死信重试 | `POST /consumer/poison/{id}/retry`，id 编码 |
+| KFK-04 | 死信丢弃 | `POST /consumer/poison/{id}/discard` |
+| NP1-01 | N+1 疑似列表 | limit 透传 |
+| NP1-02 | N+1 运行态 | `GET /status` |
+| NP1-03 | N+1 清空 | `DELETE /suspects` |
+| IDM-01 | 幂等记录分页 | 参数透传，空值保持 `undefined`（不传空串） |
+| IDM-02 | 幂等记录时间范围 | 起止时间参数透传 |
+| IDM-03 | 幂等记录摘要 | 同筛选口径打到 summary 端点 |
+| IDM-04 | 幂等记录清理 | `POST /purge`，返回删除条数 |
+| ALR-01 | 告警列表 | severity/status/limit 透传 |
+| ALR-02 | 告警汇总 | `GET /inbox/stats`（守护不与列表路由混淆） |
+| ALR-03 | 告警清空 | `DELETE /api/monitoring/alerts/inbox`，返回清理条数 |
+| XUT-01 | 403 鉴权拒绝 | reject 携带 `response.status===403`（页面据此走 Tab 级降级空态） |
+| FMT-01 | fmtEpoch | 0/负数/null 为无值（`--`），合法毫秒本地时区格式化 |
+| FMT-02 | fmtDateTime | ISO 串 / 空格串 / Jackson 数组 / null 四种形态 |
+| FMT-03 | fmtDuration | <1000ms 显示 ms，否则秒（2 位小数） |
+| FMT-04 | fmtShare | 0~1 → 百分比；空值兜底 |
+| FMT-05 | isForbidden | 仅 403 为真（其余状态不误判为降级） |
+
+**关键交互时序**：见 [sequence-diagrams.html#sd11](./sequence-diagrams.html)（SD-11 可观测中心一页多权与 403 降级）。
+
+## 13. 全局异常与错误码映射（统一断言基线）
 
 所有模块共享 `GlobalExceptionHandler` 的错误码映射（测试中以 `Result.code` 断言）：
 
@@ -199,7 +235,7 @@
 
 ---
 
-## 13. 用例与测试代码映射
+## 14. 用例与测试代码映射
 
 | 测试类（@Nested） | 方法数 | 覆盖用例 |
 | --- | --- | --- |
@@ -225,5 +261,7 @@
 | `ObservabilityServiceTest`（单元） | 8 | 单元：limit 越界校验 / status 非法校验 / traceId 空校验 / 过滤映射 / clear 委托 / 双链路摘要 / 指标前缀过滤与排序 |
 | `ObservabilityPropertiesTest`（单元） | 3 | 单元：yml recorder 段绑定 / otlp 回归 / 默认值与 yml 一致 |
 | `OtlpTracingFilterTest`（单元） | 3 | 单元：exporter+recorder 双消费 / 双关零开销透传 / 仅本地留存时仍记录（本轮新增 1 例） |
+| `fe-observability.mjs`（前端，node:test） | 25 | OBS-01~05 / KFK-01~04 / NP1-01~03 / IDM-01~04 / ALR-01~03 / XUT-01 / FMT-01~05（API 形状契约 + 403 降级 + format.js 纯函数；驱动生产 http.js 拆包拦截器） |
+| `fe-connectivity.mjs`（前端，node:test） | 5 | 前后端联通契约（ping 包络 / 错误码映射 / 504 超时），存量回归 |
 
 > 每个 `@Test` 方法断言三要素：**HTTP 状态**、**`Result.code` 业务错误码**、**`Result.data` 形态/空值**，并覆盖 i18n 消息键解析。

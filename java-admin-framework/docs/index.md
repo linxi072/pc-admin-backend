@@ -23,6 +23,7 @@
 | 功能差距分析与优化建议 | [`docs/manual/feature-gap-analysis.md`](manual/feature-gap-analysis.md) | 技术负责人 / 架构师 | 对照设计方案 §12/§20、gap-analysis、模块计划逐项核对（直接核查真实代码）；严格需求已闭环的结论、真实未实现项（形态偏差）、已具备但未明示的能力（OpenAPI/慢 SQL 监听）、增强型基础功能（导出/导入中心、缓存管理、i18n、脱敏、Bean Validation 校验消息键化、通知渠道邮件+短信、限流注解化）与待优化项（N+1/深翻页/覆盖率门禁）的优先级与建议实现方式 |
 | 重构计划与进度 | [`docs/manual/refactoring-plan.md`](manual/refactoring-plan.md) | 技术负责人 / 架构师 | 代码结构重构的分批计划与落地状态（R/B/F/C 各批次条目、门禁依据、已实施步骤与剩余项） |
 | Kafka 顺序消费指南 | [`docs/manual/kafka-ordered-consumer.md`](manual/kafka-ordered-consumer.md) | 后端开发者 | 分区内顺序消费的启用方式、`kafka.ordered-consumer.*` 配置项、顺序性保证边界与并发度取舍、分区键设计建议与故障排查 |
+| 可观测中心使用指南 | [`docs/manual/observability-center.md`](manual/observability-center.md) | 运维人员 / 前端开发者 | 链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五合一运维入口的页面结构、接口与权限模型（一页多权的 403 降级设计）、V39 菜单播种与 V35/V36 菜单 ID 碰撞修复说明、前端契约测试（node:test 25 例）运行方式 |
 | 全模块测试与修复报告（2026-10-19） | [`docs/manual/test-report-2026-10-19.md`](manual/test-report-2026-10-19.md) | 测试 / 技术负责人 | 全模块功能测试（正常/异常/边界三视角）与可量化性能测试的范围与方法、三门禁结果（630 单测/约定校验/前端构建）、31 项缺陷分级清单（P1×5 + P2×26，含复现步骤）、修复与回归验证、微基准吞吐指标、真实环境性能测试方案与沙箱边界说明 |
 
 > 四本手册中仅保留要点与交叉索引：架构手册 §9.6 / 开发手册 §34 / 运维手册 §31 / 部署手册 §15 / **编码规范见《编码规范与目录结构约定》**。
@@ -55,9 +56,9 @@
 
 - **实际技术栈**：Spring Boot 3.3.4 / Java 17（编译基线，`pom.xml` 声明；运行时可用 21）/ jOOQ 3.19.11（手写动态 DSL，无 codegen）/ JobRunr 6.3.4 / Flowable 7.1.0 / MySQL 8.x / Redis / Flyway；**不使用 Docker**，全部以原生进程方式构建与部署。
 - **设计文档 vs 实现**：设计方案描述目标架构（包名 `com.acme.scaffold`、XXL-JOB、Spring Boot 4 基线），而实际实现采用 jOOQ 替代 MyBatis-Plus、JobRunr 替代 XXL-JOB、Flowable 7.1.0，并以 `java-admin-framework` 为工程名；二者在调度引擎与持久层选型上存在**有意偏差**，以各手册正文为准。
-- **单一事实源**：表结构、接口契约、权限码、流程语义以 `db/migration/` 迁移链（当前 `V32`~`V36`，schema 版本 36）与四本手册正文为权威；归档文档仅作历史追溯。
+- **单一事实源**：表结构、接口契约、权限码、流程语义以 `db/migration/` 迁移链（当前 `V32`~`V39`，schema 版本 39）与四本手册正文为权威；归档文档仅作历史追溯。
 - **端口约定**：应用对外服务端口与 Actuator 管理端口分离，详见《部署手册》§端口与冒烟；JobRunr Dashboard 独立端口（local profile 默认 8000），不与应用端口复用。
 
 ---
 
-> 更新日期：2026-10-17（本轮按代码现状核对并修订：技术栈移除 MyBatis-Plus、标注实际编译基线为 Java 17；导航补齐《重构计划与进度》《Kafka 顺序消费指南》两篇专项文档，并核对 12 份归档文件与列表一一对应；单一事实源口径更新为 V32~V36 迁移链）
+> 更新日期：2026-10-21（本轮新增《可观测中心使用指南》专项文档：五合一运维入口 + V39 菜单播种/ID 碰撞修复 + 前端契约测试；迁移链口径更新为 V32~V39，schema 版本 39）

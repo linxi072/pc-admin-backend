@@ -3,11 +3,11 @@
 | 项 | 内容 |
 | --- | --- |
 | 项目 | `java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端） |
-| 测试日期 | 2026-09-28（沙箱离线执行） |
+| 测试日期 | 2026-09-28（沙箱离线执行，后端）；2026-10-21（前端契约测试复跑） |
 | 测试形态 | 离线端到端切片（Offline E2E Slice） |
-| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ `IdempotencyRecordE2eTest.java`（6 例）+ `AlertInboxE2eTest.java`（7 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例）+ `IdempotencyRecordRulesTest`（12 例）+ `IdempotencyRecordServiceTest`（6 例） |
+| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ `IdempotencyRecordE2eTest.java`（6 例）+ `AlertInboxE2eTest.java`（7 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例）+ `IdempotencyRecordRulesTest`（12 例）+ `IdempotencyRecordServiceTest`（6 例）；前端（`pc-admin-vue3-vite/scripts/`，node:test）：`fe-observability.mjs`（25 例）+ `fe-connectivity.mjs`（5 例） |
 | 配套文档 | [test-case-specification.md](./test-case-specification.md) · [sequence-diagrams.html](./sequence-diagrams.html) |
-| 总体结论 | ✅ **通过** — 848 例单测全绿（含新增 65 例 E2E 与 81 例单元），0 失败 / 0 错误 / 0 跳过 |
+| 总体结论 | ✅ **通过** — 848 例单测全绿（含新增 65 例 E2E 与 81 例单元），0 失败 / 0 错误 / 0 跳过；前端 node:test 30 例全绿（可观测中心契约 25 + 联通回归 5） |
 
 ---
 
@@ -109,7 +109,23 @@ Client (MockMvc 请求)
 | `IdempotencyRecordE2eTest` | ID-01~06 | ✅ 6/6 |
 | `AlertInboxE2eTest` | AI-01~07 | ✅ 7/7 |
 
-### 4.3 覆盖矩阵（正常 / 异常 / 边界）
+### 4.3 前端契约测试结果（node:test，离线）
+
+```
+$ node --test scripts/fe-observability.mjs
+✔ OBS-01~05 / KFK-01~04 / NP1-01~03 / IDM-01~04 / ALR-01~03 / XUT-01 / FMT-01~05（25 例）
+# pass 25  # fail 0
+
+$ node --test scripts/fe-connectivity.mjs   # 存量联通回归
+# pass 5   # fail 0
+```
+
+- 被测对象：`src/api/` 下 5 个运维面 API 模块 + `views/monitor/components/format.js` 纯函数；
+- 驱动方式：可编排 axios 适配器（无真实网络）端到端执行生产 `http.js` 的请求构造与 `Result<T>` 拆包拦截器；非 2xx 由适配器自抛 `AxiosError`（XUT-01 守护 403 可判定性）；
+- 基建：`module.registerHooks`（Node ≥ 22.15）虚拟 element-plus、解析 `@/` 别名与扩展名省略导入、打桩 `localStorage`；
+- 补充门禁：`python3 ../java-admin-framework/scripts/check-api-contract.py`（前端 api 模块 ↔ 后端 Controller 路由静态对称）无漂移；`npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir` 离线构建成功。
+
+### 4.4 覆盖矩阵（正常 / 异常 / 边界）
 | 模块 | 正常 | 异常 | 边界 | 典型用例 |
 | --- | --- | --- | --- | --- |
 | 认证 | ● | ● 密码错(401) | ● 空参(400) / 短口令(400) | AUTH-01/03/02/07 |
@@ -138,6 +154,9 @@ Client (MockMvc 请求)
 | SD-06 | Kafka 消费监控与死信补偿 | Client→Controller→MonitorService→Consumer；读取运行指标/死信列表，或经 retry/discard 清除失败计数与版本表占位以补偿毒消息 |
 | SD-07 | 可观测性管理与 span 回溯 | Client→Controller→ObservabilityService；请求级 span 由 OtlpTracingFilter 采集并分发给本地留存记录器（有界环形缓冲）与 OTLP 导出器；管理侧按 traceId 回溯、查摘要与指标快照 |
 | SD-08 | N+1 查询探测与疑似事件留存 | Client→Controller→NPlusOneService；jOOQ 执行链路上 NPlusOneListener 借 probe 线程级计数，越阈值即告警并向有界留存登记；管理侧倒序查询疑似事件、查看运行态与清空 |
+| SD-09 | 幂等记录管理 | Client→Controller→IdempotencyRecordService；分页/摘要同筛选口径（时间窗收敛 + 三态归一 + 关键字包裹），清理走 `REQUIRES_NEW` 删除过期行；不暴露 `response_snapshot`、不提供单条删除 |
+| SD-10 | 告警收件箱管理与快照读取 | Alertmanager webhook 入箱（机器向）与人向管理面分离；读取走快照副本 → capacity 定上限 → normalizeLimit 钳制 → filter 归一 → 截断映射视图；汇总含 unknown 桶保证守恒 |
+| SD-11 | 可观测中心（一页多权与 403 降级） | SPA 菜单驱动鉴权放行 `/system/observability`（挂 `system:monitor:read`）→ Tab 懒渲染分别调用五个运维面 API；各端点按自身权限码独立鉴权，403 经 AxiosError 携带 `response.status`，页面 `isForbidden` 判定后走 Tab 级降级空态 |
 
 > 详见 [sequence-diagrams.html](./sequence-diagrams.html)。
 
@@ -158,7 +177,7 @@ Client (MockMvc 请求)
 
 ## 7. 结论与后续建议
 
-**结论**：本次端到端功能测试在离线环境下达成对 8 大核心用户路径的全流程验证，**65 例新增 E2E 全部通过，另有 81 例单元覆盖降级路径、输入校验、并发安全与配置绑定，既有 702 例回归全绿，合计 848 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增 N+1 查询探测管理模块，将此前「只在日志中出现一次」的 N+1 告警升级为可查询、可复盘、可清理的运行态数据，并修正了命名数据源 DSL 缺少 N+1 观测的装配缺口（与主 DSLContext 双路一致）。
+**结论**：本次端到端功能测试在离线环境下达成对 8 大核心用户路径的全流程验证，**65 例新增 E2E 全部通过，另有 81 例单元覆盖降级路径、输入校验、并发安全与配置绑定，既有 702 例回归全绿，合计 848 例 0 失败**。系统核心接口的路由、参数校验、异常映射与 i18n 响应契约稳定可靠；本轮新增 N+1 查询探测管理模块，将此前「只在日志中出现一次」的 N+1 告警升级为可查询、可复盘、可清理的运行态数据，并修正了命名数据源 DSL 缺少 N+1 观测的装配缺口（与主 DSLContext 双路一致）。**2026-10-21 前端侧复跑**：可观测中心五合一入口（链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱）以 25 例 `node:test` 契约测试 + 5 例联通回归全绿收口，五个此前只能 curl 使用的后端运维面模块自此具备产品化入口（详见 §14）。
 
 **后续建议**：
 1. 在 CI/本机 MySQL 环境执行 `*IT` 集成测试，补全真实事务与 Flowable 引擎链路验证；
@@ -228,7 +247,7 @@ M2 幂等模块此前「只写不查」：`sys_idempotency_record` 由 `Idempote
 5. **容错查询 posture**：与登录日志/短信记录页一致，非法状态/非数字用户 ID/空关键字一律忽略该筛选条件而非 400；唯一硬校验是排序方向（`PageQuery.of` → `SortItem.single`，静默降级会让前端误以为排序生效）。E2E ID-06 守护该 posture（曾因误用 `@Validated` 导致 `ConstraintViolationException` 穿透 500，见 §6 历史缺陷）。
 6. **DB 路径的验证口径**：沙箱无 MySQL，分页/计数/删除按项目约定交由集成测试（`*IT`）覆盖；离线侧以「E2E 桩接（HTTP 契约 + 异常映射）+ 规则/摘要纯函数单测（18 例）」达成等价验证。前端对接建议：运维「中间件/稳定性」页渲染分页表（`expired` 字段直接标红待清理行）与摘要卡（`processing`/`expiredPending` 水位告警），「立即清理」按钮调 `POST /purge`。
 
-*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（848/0/0/0）与 `scripts/check-conventions.py`（EXIT=0）。*
+*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（848/0/0/0）、`node --test scripts/fe-observability.mjs`（25/0）、`node --test scripts/fe-connectivity.mjs`（5/0）、`scripts/check-api-contract.py`（无漂移）与 `scripts/check-conventions.py`（EXIT=0）。*
 
 ## 13. 集成说明（告警收件箱管理如何接入现有系统）
 
@@ -238,3 +257,16 @@ M2 幂等模块此前「只写不查」：`sys_idempotency_record` 由 `Idempote
 4. **无配置与依赖变更**：不新增外部依赖、不新增配置项、无 DDL；limit 上限按收件箱实际容量自适应（`AlertInboxRules.normalizeLimit`），容量误填 ≤0 时保底 1。
 5. **与事件扩展点的关系**：`AlertReceivedEvent` 在入箱时发布，当前无应用内监听器（有意保留为集成方扩展点：转发外部网关/站内信/WebSocket 推送）；如需实时推送可复用 `realtime` 模块会话管理，勿在接收线程内做阻塞 IO。
 6. **验证口径**：沙箱无 Alertmanager 与真实告警流，接收链路由存量 `AlertWebhookControllerTest`（4 例）+ `AlertReceiverServiceTest`（3 例）覆盖；管理面以「E2E 桩接（HTTP 契约 + 参数透传分层 + 异常映射）+ 规则/服务纯函数单测（17 例）」达成等价验证。前端对接建议：运维「监控告警」页渲染收件箱列表（severity/status 下拉筛选 + limit 输入）与汇总卡（firing/resolved 水位、severity 分布 Top-N 直出免排序），「一键清空」按钮调 `DELETE /inbox` 并展示返回条数。
+
+---
+
+## 14. 集成说明（可观测中心前端入口如何接入现有系统）
+
+五个后端运维面模块（链路追踪 / Kafka 有序消费监控 / N+1 探测 / 幂等记录 / 告警收件箱）此前**零前端封装**，只能 curl 使用。本轮以「可观测中心」统一入口补齐产品化界面，集成方式如下：
+
+1. **API 层零新代码**：5 个 `src/api/*.js` 模块全部复用既有 `http.js`（baseURL / token 注入 / `Result<T>` 拆包 / 业务错误 reject 携 code），各模块 17~24 行，仅声明 method + url + 参数。
+2. **页面接入既有菜单体系**：新增路由 `/system/observability`（`meta.permission='system:monitor:read'`）与 V39 菜单种子（id=1094，挂「系统管理」目录，绑定 SUPER_ADMIN）；路由守卫按菜单树放行，无需改守卫逻辑。
+3. **一页多权的最小授权落地**：SPA 无按钮级权限，一个菜单只能挂一个权限码——取监控域基础权限 `system:monitor:read`（覆盖 N+1 与告警两个 Tab）；其余三个 Tab 由后端按 `system:observability:read` / `system:kafka:read` / `system:idempotency:read` 独立鉴权，前端 `isForbidden`（`err.response.status===403`）判定后渲染 Tab 级降级空态（`el-empty`），不越权放行也不整页报错。
+4. **懒渲染控制请求面**：`v-if="activeTab===..."` 使未激活 Tab 不挂载不发请求，避免进入页面即触发 5 组调用（3 组对普通运维角色必然 403）的首屏噪声。
+5. **顺手修复历史缺陷**：V39 同时修复 V35/V36 菜单 id=1091 碰撞（`INSERT IGNORE` 主键冲突致「导入中心」菜单在全新部署被静默丢弃、页面不可达），以未占用 id=1093 按 `uk_tenant_menu_code` 幂等重播种。
+6. **验证口径**：沙箱无浏览器 DOM 测试框架，采用「API 契约（可编排 axios 适配器驱动生产拦截器链，25 例）+ 纯函数单测（format.js 5 例）+ 静态契约对称脚本（check-api-contract.py）+ 离线构建」四件套等价验证；浏览器级渲染由构建产物与人工验收覆盖。后端无 Java 变更，`mvn -o clean test` 848 例基线不回退。
