@@ -2388,3 +2388,65 @@ npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir        # 离线构建�
 - `scripts/check-conventions.py`：EXIT=0（514 文件 / 11 源码根，H1–H5 无违规）；
 - 前端 `vite build` 通过（产物输出 `/tmp`，规避沙箱清 dist）；
 - 待用户本机（需 MySQL）：迁移 V40 实跑、发布公告核对 audience_count 快照、标记已读后核对 read_count 与回执行一一对应。
+
+---
+
+## 站内信已读回执中心（M8）
+
+> 复用 M7 公告已读回执中心已验证的「回执管理 / 催办」对称模式，补齐站内信管理侧能力：站内信此前在收件端有「我已读 / 未读数」与打开详情落回执，但**发送者缺乏「谁已读、谁未读、已读率多少」的对账入口**。本模块补齐「已读统计 / 回执管理 / 催办」三端点，与 M7 同构但模型更轻、风险更低。
+
+### 1. 模型取舍：eager 投递，分母天然存在
+
+站内信是显式接收人集合，发送时（`MessageService.send`）已 eager 批量预插 `sys_message_receipt` 每行一人（`is_read` 0/1，`read_at` 已读时间）。因此：
+
+| 关注点 | 站内信（eager，本模块） | 公告（lazy，M7） |
+| --- | --- | --- |
+| 回执行写入时机 | 发送时全员预插 | 用户确认已读才插 |
+| 行数量级 | ≈ 接收人数 | ≈ 实际阅读人数 |
+| 未读名单推导 | 回执表 `is_read=0` 直接枚举 | 反连接：活跃用户 − 已读回执 |
+| 已读率分母 | `sys_message_receipt` 行数（天然存在） | `audience_count` 发布时快照（存量可能为 0） |
+
+结论：站内信统计**无反连接、无活跃用户快照、无需新建表**，分母恒等于回执表行数，口径比公告更稳。与公告另一个关键差异是**权限边界**：
+
+- 公告是全员可见，回执/统计对所有管理者开放；
+- 站内信是私有一对多，**仅发送者可查看其已读情况与催办未读**，服务端 `requireOwnedMessage` 校验 `sender_id == 当前用户`，防 ID 遍历他人消息（已覆盖单测 `readStats_forbiddenWhenNotOwner` / `pageReceipts_forbiddenWhenNotOwner` / `remindUnread_forbiddenWhenNotOwner`）。
+
+### 2. 表结构与权限
+
+- 复用既有 `sys_message_receipt`（id / tenant_id / message_id / user_id / is_read / read_at / created_at）与 `sys_message`（`sender_id` 等），**无新表、无迁移**；
+- 无新菜单：回执入口内嵌于站内信管理页「我发出的」Tab；权限码 `system:message:read-receipt` / `system:message:remind` 由 `ApiResourceAutoSyncRunner` 启动时扫描 `@PreAuthorize` 自动登记并授予 SUPER_ADMIN，无需手工种子。
+
+### 3. 统计与回执聚合（eager，源真值）
+
+- `readStats`：`JooqWriters.count(SYS_MESSAGE_RECEIPT, message_id=?)` 取 total，再 `count(..., is_read=1)` 取 read；`MessageReadStatsView.of` 统一推导 `unreadCount` / `readRate`（保留一位小数，分母缺失归 0）。分母来自回执表行数，**绝不自造分母**——与公告"存量公告无分母降级"形成对比，站内信无此问题。
+- `pageReceipts`：主表单表分页（免 join），条件 `message_id=?` + 可选 `readStatus`（READ→`is_read=1`、UNREAD→`is_read=0`）+ 可选 `keyword`→`user_id IN (select id from sys_user where display_name like ? or username like ?)`；排序 `is_read asc, id desc`（未读优先）；逐页批量装载 `display_name`（用户被删缺项时视图降级展示 userId，无 N+1）。
+
+### 4. 催办与并发语义
+
+- `remindUnread`：`requireOwnedMessage` → `resolveRemindLimit`（null 取默认 100、越界收敛 `[1,500]`）→ `unreadUserIds`（`fetchTop is_read=0`，限长截断）；空未读则抛 `CONFLICT「当前没有未读用户，无需催办」`；否则经 `MessageService.doSend`（绕过幂等切面，催办由发送者触发无 HTTP 幂等键）发一条 `NOTICE` 站内信，复用投递模型 + 实时推送，返回实际催办人数 `reminded`。
+- 上限 `MAX_REMIND_LIMIT=500`（保守取值，远低群发上限 5000）；收敛而非报错——调用方传 0/负数/超大值按最近合法值执行。
+
+### 5. 接口（`MessageReadController`，与 `MessageController` 共用 `/api/system/messages`，字面路径无碰撞）
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/{id}/read-stats` | `system:message:read-receipt` | 单条已读统计（已读率/已读/未读/接收人），eager 聚合 |
+| GET | `/{id}/receipts` | `system:message:read-receipt` | 回执分页，支持阅读人关键字（收敛为 `user_id IN` 子查询，单表免 join）+ 回执状态筛选 |
+| POST | `/{id}/remind-unread?limit=` | `system:message:remind` | 催办未读：经 `MessageService.doSend` 发站内信（复用投递+推送），默认 100 / 上限 500 |
+
+### 6. 纯函数规则（`MessageReadRules`）
+
+`readRate`（分母 ≤ 0 返回 0、分子钳制、一位小数）、`unreadCount`（分母缺失返回 0）、`resolveRemindLimit`（null 取默认、越界收敛 `[1,500]`）、`hasUnread`（分母存在且已读<总数）。`MessageReadStatsView.of` 统一出口径，与 M7 同构。
+
+### 7. 前端
+
+- `src/api/message.js` 增 3 个端点封装（`getMessageReadStats` / `pageMessageReceipts` / `remindMessageUnread`）；
+- `MessageView.vue`「我发出的」Tab 表格增「操作」列（`已读回执` 按钮 → `openReceipts(row)`）；新增「已读回执中心」对话框（`receiptVisible`）：统计进度条 + 已读/未读/接收人数字、`keyword` 输入 + `readStatus` 选择（READ/UNREAD）+ 查询、`催办未读` popconfirm（防空发打扰）、回执分页表（接收人 / 状态 / 已读时间）；`row.messageId ?? row.id` 兼容收发两端 id 字段；
+- 打开对话框即 `getMessageReadStats` + `pageMessageReceipts`，催办后刷新统计与回执。
+
+### 8. 验证状态（沙箱）
+
+- `mvn -o clean test`：**1810 例全绿**（M8 新增 24 例：`MessageReadRulesTest` 9 例 + `MessageReadServiceTest` 15 例，后者含 SQL 渲染断言校验 `message_id =` 无限定列名契约与 `is_read =` 单 count 含条件）；
+- `scripts/check-conventions.py`：EXIT=0（520 文件 / 11 源码根，H1–H5 无违规）；
+- 前端经 `@vue/compiler-sfc` 校验 `MessageView.vue`（SFC 解析 + 脚本/模板编译，**78 个 bindings** 通过；沙箱 `vite build` 受资源限制被 SIGKILL，已绕过验证，语法已确认）；
+- 待用户本机（需 MySQL）：启动后端 + 前端走真实页面，发信后核对回执表行数 = 接收人数、标记已读后 `is_read` 翻转、催办经 `doSend` 落库并实时推送。
