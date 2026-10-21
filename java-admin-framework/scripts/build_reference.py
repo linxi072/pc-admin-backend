@@ -7,6 +7,12 @@
     按其内部动态 SQL 的首个关键字归类（CREATE/ALTER/DROP -> DDL，INSERT/UPDATE/DELETE -> DML）。
   * 会话语句（SET NAMES 等）归一：两个文件各保留一条文件头 SET NAMES，不重复罗列。
   * 顺序：DDL / DML 各自按「源文件版本序 + 文件内原始顺序」排列。
+
+⚠️ 归档说明（2026-10-21）：本脚本为 V32 合并迁移（2026-10-15）配套分类参考件的历史
+生成工具。其输入 V1~V31 原件、permission-schema.sql 已按「原件删除」策略移除，
+故本脚本不可直接重跑；保留以供追溯分类口径。注意脚本内的路径常量为拆分前口径
+（MIG/REF_DIR 指向工程根 src/main/resources/...），实际位置已随 V1.0.3 模块拆分
+移至 scaffold-admin/src/main/resources/db/migration 与 db/reference。
 """
 import glob
 import os

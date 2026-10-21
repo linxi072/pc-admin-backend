@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
-"""V32 合并迁移生成器：V1~V31 按版本序原样拼接 + 版本横幅，字节级等价校验。"""
+"""V32 合并迁移生成器：V1~V31 按版本序原样拼接 + 版本横幅，字节级等价校验。
+
+⚠️ 归档说明（2026-10-21）：本脚本为 V32 合并迁移（2026-10-15）的历史复现工具。
+其输入 V1~V31 原件已按「原件删除」策略移除，且迁移目录随后移至
+scaffold-admin/src/main/resources/db/migration（V1.0.3 模块拆分），本脚本
+已不可直接重跑；保留以供追溯 V32 的生成方式与等价性校验口径。
+可执行迁移链的当前位置：scaffold-admin/src/main/resources/db/migration/。
+"""
 import glob
 import os
 import re
