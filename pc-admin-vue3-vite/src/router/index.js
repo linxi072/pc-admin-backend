@@ -227,6 +227,16 @@ const routes = [
         name: 'importCenter',
         component: () => import('@/views/system/ImportCenterView.vue'),
         meta: { title: '导入中心', permission: 'system:import:read' }
+      },
+      {
+        // 可观测中心：链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五个运维面统一入口，
+        // 页内 Tab 各自对应后端独立权限（observability/kafka/monitor/idempotency:read），
+        // 无权限 Tab 展示降级空态；菜单与权限由后端驱动（menu_code=system:observability-center,
+        // permission=system:monitor:read——监控域基础权限，与「系统监控」同权）
+        path: 'system/observability',
+        name: 'observabilityCenter',
+        component: () => import('@/views/monitor/ObservabilityCenterView.vue'),
+        meta: { title: '可观测中心', permission: 'system:monitor:read' }
       }
     ]
   },
