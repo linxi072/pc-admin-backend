@@ -1592,8 +1592,8 @@ sys_menu (id, parent_id 自引用)
 | 实体 | `scaffold-system/src/main/java/com/acme/scaffold/system/entity/SysMenuDO.java`、`SysRoleMenuDO.java`、`SysUserRoleDO.java` |
 | 响应封装 | `scaffold-common/src/main/java/com/acme/scaffold/common/api/Result.java` |
 | 安全配置 | `scaffold-system/src/main/java/com/acme/scaffold/security/config/SecurityConfig.java` |
-| 表迁移 | `db/migration/V32__consolidated_schema.sql`（原 V1：sys_menu/sys_role_menu/sys_user_role/sys_role/sys_user 初始；原 V15：sys_user_role 重建；原 V17：菜单种子） |
-| 全量结构参考 | `src/main/resources/db/reference/schema_ddl.sql`（结构分类汇总；可执行迁移为 `db/migration/V32__consolidated_schema.sql`） |
+| 表迁移 | `scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`（原 V1：sys_menu/sys_role_menu/sys_user_role/sys_role/sys_user 初始；原 V15：sys_user_role 重建；原 V17：菜单种子） |
+| 全量结构参考 | `scaffold-admin/src/main/resources/db/reference/schema_ddl.sql`（结构分类汇总；可执行迁移为 `scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`） |
 | 前端 | `pc-admin-vue3-vite/src/api/menu.js`、`store/auth.js`、`layout/Sidebar.vue`、`layout/MenuTree.vue`、`router/index.js`、`api/mock/db.js` |
 
 > 适用范围：`pc-admin-vue3-vite`（Vue 3 + Vite + Element Plus）全部页面与组件。

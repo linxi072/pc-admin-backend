@@ -402,7 +402,7 @@ JobRunr 原生的 `jobrunr_*` 表由框架内部维护、不可 CRUD，无法承
 
 | 类型 | 文件 |
 | --- | --- |
-| 迁移 | `db/migration/V32__consolidated_schema.sql`（原 V27 段：两表 + 菜单 + API 资源种子） |
+| 迁移 | `scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`（原 V27 段：两表 + 菜单 + API 资源种子） |
 | 实体 | `system/entity/SysOnlineSessionDO.java`、`SysLoginRestrictionDO.java` |
 | 规则 | `security/online/OnlineSessionRules.java`、`RestrictionRules.java`、`HeartbeatThrottle.java` |
 | 过滤器 / 任务 | `security/online/OnlineSessionFilter.java`、`LoginRestrictionJob.java`、`LoginRestrictionRunner.java` |

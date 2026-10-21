@@ -12,6 +12,8 @@
 | 运维手册 | [`docs/manual/operations.md`](manual/operations.md) | 运维 / 一线支撑 | 可观测性（Actuator/Prometheus 与指标解读）、监控/日志/在线用户/定时任务等运营菜单、报表与工作台、审计日志查询与脱敏、健康探针、Token 缓存失效、缓存管理增强（M5）与通知渠道（M6 邮件 + 短信，含短信发送记录中心）运维要点、常见故障排查（含工作流设计「不存在」案例） |
 | 部署手册 | [`docs/manual/deployment.md`](manual/deployment.md) | 部署 / 上线负责人 | 部署架构与依赖（MySQL/Redis/Flyway/JobRunr/Flowable）、本地原生部署（无 Docker）、数据库迁移与 V32 既有环境升级、profile 配置、可观测性运营侧部署、生产加固清单、CI/CD、冒烟验收与回滚 |
 
+> **新手第一次接触本仓库？先读** [《新手开发部署教程》](manual/getting-started.md)：从零环境到本地跑通后端 + 前端并按序执行的完整路径（环境准备 → 依赖安装 → 项目配置 → 部署步骤 → 常见问题排查），含实战踩坑排查表；配合 [初始化脚本套件](../scripts/init/README.md) 可一键完成环境就绪校验。
+
 ## 五、专项指南（专题文档）
 
 针对跨手册的进阶主题，单独成文以避免在四本手册中重复展开：
@@ -32,9 +34,10 @@
 ## 二、部署与运维配套产物（非文档，随代码交付）
 
 - `monitoring/`：Prometheus / Alertmanager / Grafana 配置与看板（运营侧部署用，详见《部署手册》）。
-- `db/migration/V32__consolidated_schema.sql`：合并迁移（V1~V31 顺序拼接，可执行为单一来源）。
-- `db/reference/schema_ddl.sql`、`db/reference/data_dml.sql`：DDL / DML 分类参考件（**不可直接当迁移执行**，详见《部署手册》§SQL 资产整理）。
-- `scripts/`：`build_v32.py`、`build_reference.py` 等构建/校验脚本；`check-conventions.py` 为编码风格与目录结构约定校验器（零依赖，详见《编码规范与目录结构约定》）。
+- `scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`：合并迁移（V1~V31 顺序拼接，可执行为单一来源；V1.0.3 模块拆分后随 scaffold-admin 交付）。
+- `scaffold-admin/src/main/resources/db/reference/schema_ddl.sql`、`data_dml.sql`：DDL / DML 分类参考件（**不可直接当迁移执行**，详见《部署手册》§SQL 资产整理）。
+- `scripts/init/`：系统初始化安装脚本套件（`.env` 生成 / 建库授权 / 基础数据核对补种 / 安装校验，幂等可重复，另见该目录 README 与《新手开发部署教程》§4.6）。
+- `scripts/`：`build_v32.py`、`build_reference.py` 为 V32 合并迁移的历史归档工具（输入原件已删除，不可重跑，仅存追溯口径）；`check-conventions.py` 为编码风格与目录结构约定校验器（零依赖，详见《编码规范与目录结构约定》）；`connectivity-probe.py` / `realtime-ws-probe.py` / `fe-connectivity.mjs` 为前后端联通探针（详见《开发手册》「真实运行环境联调」章节）。
 
 ## 三、历史归档（已被手册整合，保留以供追溯）
 
@@ -57,9 +60,9 @@
 
 - **实际技术栈**：Spring Boot 3.3.4 / Java 17（编译基线，`pom.xml` 声明；运行时可用 21）/ jOOQ 3.19.11（手写动态 DSL，无 codegen）/ JobRunr 6.3.4 / Flowable 7.1.0 / MySQL 8.x / Redis / Flyway；**不使用 Docker**，全部以原生进程方式构建与部署。
 - **设计文档 vs 实现**：设计方案描述目标架构（包名 `com.acme.scaffold`、XXL-JOB、Spring Boot 4 基线），而实际实现采用 jOOQ 替代 MyBatis-Plus、JobRunr 替代 XXL-JOB、Flowable 7.1.0，并以 `java-admin-framework` 为工程名；二者在调度引擎与持久层选型上存在**有意偏差**，以各手册正文为准。
-- **单一事实源**：表结构、接口契约、权限码、流程语义以 `db/migration/` 迁移链（当前 `V32`~`V39`，schema 版本 39）与四本手册正文为权威；归档文档仅作历史追溯。
+- **单一事实源**：表结构、接口契约、权限码、流程语义以 `scaffold-admin/src/main/resources/db/migration/` 迁移链（当前 `V32`~`V39`，schema 版本 39）与四本手册正文为权威；归档文档仅作历史追溯。
 - **端口约定**：应用对外服务端口与 Actuator 管理端口分离，详见《部署手册》§端口与冒烟；JobRunr Dashboard 独立端口（local profile 默认 8000），不与应用端口复用。
 
 ---
 
-> 更新日期：2026-10-21（本轮新增《可观测中心使用指南》专项文档：五合一运维入口 + V39 菜单播种/ID 碰撞修复 + 前端契约测试；迁移链口径更新为 V32~V39，schema 版本 39）
+> 更新日期：2026-10-21（本轮新增《新手开发部署教程》（docs/manual/getting-started.md，五段式 + 实战踩坑排查表）与系统初始化安装脚本套件 scripts/init/（env/db/seed/verify 四步，幂等可重复，20 例离线自测）；登记新手入口；修正 V1.0.3 模块拆分后的陈旧路径口径：迁移链与 DDL/DML 分类参考件位于 scaffold-admin/src/main/resources/db/，build_v32/build_reference 脚本转为历史归档）
