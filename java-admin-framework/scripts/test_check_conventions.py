@@ -206,5 +206,142 @@ class TestWarningsNonBlocking(CheckerTestCase):
             self.assertIn("分层概览", out)
 
 
+class TestModuleDag(CheckerTestCase):
+    """H5 模块级依赖环检测（V1.0.3 多模块拆分新增，硬规则）。
+
+    构造含 scaffold-common / scaffold-a 两个模块的临时反应堆（父 POM + 模块 POM），
+    在反应堆根目录下以无参方式运行校验器（自动发现源码根 + H5）。
+    """
+
+    def make_reactor(self, td, deps):
+        """deps: {模块名: [依赖的模块名]}；返回反应堆根目录。"""
+        root = os.path.join(td, "reactor")
+        os.makedirs(root, exist_ok=True)
+        modules = sorted(deps)
+        with open(os.path.join(root, "pom.xml"), "w", encoding="utf-8") as f:
+            f.write(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<project xmlns="http://maven.apache.org/POM/4.0.0">\n'
+                "  <modelVersion>4.0.0</modelVersion>\n"
+                "  <groupId>com.acme.scaffold</groupId>\n"
+                "  <artifactId>java-admin-framework</artifactId>\n"
+                "  <version>1.0.0</version>\n"
+                "  <packaging>pom</packaging>\n"
+                "  <modules>\n"
+                + "".join(f"    <module>{m}</module>\n" for m in modules)
+                + "  </modules>\n"
+                "</project>\n"
+            )
+        for m in modules:
+            os.makedirs(os.path.join(root, m, "src", "main", "java"), exist_ok=True)
+            dep_xml = "".join(
+                "      <dependency>\n"
+                "        <groupId>com.acme.scaffold</groupId>\n"
+                f"        <artifactId>{d}</artifactId>\n"
+                "        <version>1.0.0</version>\n"
+                "      </dependency>\n"
+                for d in deps[m]
+            )
+            with open(os.path.join(root, m, "pom.xml"), "w", encoding="utf-8") as f:
+                f.write(
+                    '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    '<project xmlns="http://maven.apache.org/POM/4.0.0">\n'
+                    "  <modelVersion>4.0.0</modelVersion>\n"
+                    "  <parent>\n"
+                    "    <groupId>com.acme.scaffold</groupId>\n"
+                    "    <artifactId>java-admin-framework</artifactId>\n"
+                    "    <version>1.0.0</version>\n"
+                    "  </parent>\n"
+                    f"  <artifactId>{m}</artifactId>\n"
+                    "  <dependencies>\n"
+                    + dep_xml
+                    + "  </dependencies>\n"
+                    "</project>\n"
+                )
+        return root
+
+    def run_checker_at(self, cwd, argv=()):
+        old = os.getcwd()
+        os.chdir(cwd)
+        try:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = self.checker.main(list(argv))
+            return code, buf.getvalue()
+        finally:
+            os.chdir(old)
+
+    def test_acyclic_modules_exit_0(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_reactor(td, {
+                "scaffold-common": [],
+                "scaffold-a": ["scaffold-common"],
+            })
+            code, out = self.run_checker_at(root)
+            self.assertEqual(code, 0, out)
+            self.assertIn("模块依赖图", out)
+            self.assertNotIn("模块级循环依赖", out)
+
+    def test_module_cycle_exit_1(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_reactor(td, {
+                "scaffold-common": ["scaffold-a"],
+                "scaffold-a": ["scaffold-common"],
+            })
+            code, out = self.run_checker_at(root)
+            self.assertEqual(code, 1)
+            self.assertIn("模块级循环依赖", out)
+            self.assertIn("H5", out)
+
+    def test_admin_depends_on_all_is_acyclic(self):
+        # 形态复刻真实工程：admin 依赖全部模块，其余模块只向下依赖 -> DAG，通过
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_reactor(td, {
+                "scaffold-common": [],
+                "scaffold-framework": ["scaffold-common"],
+                "scaffold-system": ["scaffold-common"],
+                "scaffold-admin": ["scaffold-common", "scaffold-framework", "scaffold-system"],
+            })
+            code, out = self.run_checker_at(root)
+            self.assertEqual(code, 0, out)
+
+    def test_single_module_mode_skips_h5(self):
+        # --src 单目录模式（单模块/回归场景）不应触发 H5，也不应因找不到反应堆根而失败
+        with tempfile.TemporaryDirectory() as td:
+            src = self.tmp_src(td)
+            self.write_java(src, "com.acme.scaffold.common.api.Result")
+            code, out = self.run_checker_at(td, ["--src", src])
+            self.assertEqual(code, 0, out)
+            self.assertNotIn("模块依赖图", out)
+
+    def test_parse_pom_handles_default_namespace(self):
+        # 真实 POM 带默认 xmlns，ET 解析须正确剥离命名空间取出 modules/dependencies
+        with tempfile.TemporaryDirectory() as td:
+            pom = os.path.join(td, "pom.xml")
+            with open(pom, "w", encoding="utf-8") as f:
+                f.write(
+                    '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    '<project xmlns="http://maven.apache.org/POM/4.0.0"\n'
+                    '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'
+                    "  <modelVersion>4.0.0</modelVersion>\n"
+                    "  <modules>\n    <module>scaffold-common</module>\n  </modules>\n"
+                    "  <dependencies>\n"
+                    "    <dependency>\n"
+                    "      <groupId>com.acme.scaffold</groupId>\n"
+                    "      <artifactId>scaffold-common</artifactId>\n"
+                    "    </dependency>\n"
+                    "    <dependency>\n"
+                    "      <groupId>org.springframework.boot</groupId>\n"
+                    "      <artifactId>spring-boot-starter-web</artifactId>\n"
+                    "    </dependency>\n"
+                    "  </dependencies>\n"
+                    "</project>\n"
+                )
+            modules, deps = self.checker.parse_pom(pom)
+            self.assertEqual(modules, ["scaffold-common"])
+            self.assertIn(("com.acme.scaffold", "scaffold-common"), deps)
+            self.assertIn(("org.springframework.boot", "spring-boot-starter-web"), deps)
+
+
 if __name__ == "__main__":
     unittest.main()
