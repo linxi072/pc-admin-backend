@@ -94,6 +94,11 @@
               </template>
             </el-table-column>
             <el-table-column prop="sentAt" label="发送时间" width="160" />
+            <el-table-column label="操作" width="120" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="info" :icon="Reading" @click="openReceipts(row)">已读回执</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <div class="pager">
@@ -213,20 +218,105 @@
       <el-divider />
       <div class="detail-content">{{ current?.content }}</div>
     </el-dialog>
+
+    <!-- 已读回执中心（M8）：统计 + 回执分页 + 催办未读（eager 投递模型，分母=回执总行数） -->
+    <el-dialog v-model="receiptVisible" title="站内信已读回执" width="680px">
+      <div v-if="receiptStats" class="receipt-summary">
+        <el-progress
+          :percentage="receiptStats.readRate ?? 0"
+          :stroke-width="14"
+          :text-inside="true"
+          style="flex: 1"
+        />
+        <span class="receipt-figures">
+          已读 {{ receiptStats.readCount ?? 0 }} / 未读 {{ receiptStats.unreadCount ?? 0 }} /
+          接收人 {{ receiptStats.totalCount ?? 0 }} 人
+        </span>
+      </div>
+      <div v-else class="receipt-figures">统计加载中…</div>
+
+      <div class="toolbar receipt-toolbar">
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">接收人</span>
+            <el-input
+              v-model="receiptQuery.keyword"
+              placeholder="按姓名/账号搜索"
+              clearable
+              style="width: 200px"
+              @keyup.enter="loadReceipts"
+            />
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">状态</span>
+            <el-select v-model="receiptQuery.readStatus" placeholder="全部" clearable style="width: 120px">
+              <el-option label="已读" value="READ" />
+              <el-option label="未读" value="UNREAD" />
+            </el-select>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button :icon="Search" @click="loadReceipts">查询</el-button>
+            <el-popconfirm
+              title="将给未读用户发送站内信催办，确认继续？"
+              @confirm="onRemindUnread"
+            >
+              <template #reference>
+                <el-button type="warning" :icon="Bell" :loading="reminding">催办未读</el-button>
+              </template>
+            </el-popconfirm>
+          </div>
+        </div>
+      </div>
+
+      <el-table :data="receipts" v-loading="receiptLoading" border stripe max-height="360">
+        <el-table-column label="接收人" min-width="160">
+          <template #default="{ row }">
+            {{ row.displayName || ('用户#' + row.userId) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.isRead ? 'success' : 'warning'" size="small">
+              {{ row.isRead ? '已读' : '未读' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="readAt" label="已读时间" min-width="180">
+          <template #default="{ row }">{{ row.readAt || '未读' }}</template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="receiptQuery.page"
+          v-model:page-size="receiptQuery.size"
+          :total="receiptTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadReceipts"
+          @size-change="onReceiptSizeChange"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Promotion, Select } from '@element-plus/icons-vue'
+import { Promotion, Select, Reading, Bell, Search } from '@element-plus/icons-vue'
 import {
   sendMessage,
   pageMyMessages,
   pageSentMessages,
   getUnreadCount,
   markMessageRead,
-  markAllMessagesRead
+  markAllMessagesRead,
+  getMessageReadStats,
+  pageMessageReceipts,
+  remindMessageUnread
 } from '@/api/message'
 import { sendNotification } from '@/api/notification'
 
@@ -285,6 +375,16 @@ const current = ref(null)
 const roleOptions = ref([])
 const orgFlatOptions = ref([])
 const userOptions = ref([])
+
+// ---- 已读回执中心（M8）：eager 投递模型，分母=回执表行数 ----
+const receiptVisible = ref(false)
+const receiptTarget = ref(null)
+const receiptStats = ref(null)
+const receipts = ref([])
+const receiptTotal = ref(0)
+const receiptLoading = ref(false)
+const reminding = ref(false)
+const receiptQuery = reactive({ page: 1, size: 10, keyword: '', readStatus: '' })
 
 const typeText = (t) => ({ NOTICE: '通知', ALERT: '告警', SYSTEM: '系统' }[t] || t)
 
@@ -385,6 +485,67 @@ async function openDetail(row) {
     } catch (e) {
       // 回执失败不影响详情阅读，拦截器已提示
     }
+  }
+}
+
+// ---- 已读回执中心（M8）----
+
+/** 打开回执对话框：拉统计 + 第一页回执。 */
+async function openReceipts(row) {
+  receiptTarget.value = row
+  receiptStats.value = null
+  receiptQuery.keyword = ''
+  receiptQuery.readStatus = ''
+  receiptQuery.page = 1
+  receiptVisible.value = true
+  try {
+    receiptStats.value = await getMessageReadStats(row.messageId ?? row.id)
+  } catch (e) {
+    // 拦截器已提示；统计缺失时对话框按「统计加载中…」降级
+  }
+  loadReceipts()
+}
+
+async function loadReceipts() {
+  if (!receiptTarget.value) return
+  receiptLoading.value = true
+  try {
+    const data = await pageMessageReceipts(receiptTarget.value.messageId ?? receiptTarget.value.id, {
+      page: receiptQuery.page,
+      size: receiptQuery.size,
+      keyword: receiptQuery.keyword || undefined,
+      readStatus: receiptQuery.readStatus || undefined
+    })
+    receipts.value = data.records || []
+    receiptTotal.value = data.total || 0
+  } catch (e) {
+    receipts.value = []
+    receiptTotal.value = 0
+  } finally {
+    receiptLoading.value = false
+  }
+}
+
+function onReceiptSizeChange(size) {
+  receiptQuery.size = size
+  receiptQuery.page = 1
+  loadReceipts()
+}
+
+async function onRemindUnread() {
+  if (!receiptTarget.value) return
+  reminding.value = true
+  try {
+    const res = await remindMessageUnread(receiptTarget.value.messageId ?? receiptTarget.value.id)
+    const count = res?.reminded ?? res?.data?.reminded ?? 0
+    ElMessage.success(`已向 ${count} 位未读用户发送催办`)
+    // 催办后未读数下降，刷新统计与回执
+    receiptStats.value = await getMessageReadStats(receiptTarget.value.messageId ?? receiptTarget.value.id)
+    loadReceipts()
+  } catch (e) {
+    // 拦截器已提示（如「当前没有未读用户」）
+  } finally {
+    reminding.value = false
   }
 }
 
