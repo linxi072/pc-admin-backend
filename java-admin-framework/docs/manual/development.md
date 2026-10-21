@@ -93,7 +93,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 export SPRING_PROFILES_ACTIVE=local
 MVN=/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn
 
-$MVN -o clean test                 # 全量单元测试（多模块反应堆，当前 852 例全绿）
+$MVN -o clean test                 # 全量单元测试（多模块反应堆，当前 857 例全绿）
 $MVN -o test -Dtest="*IT"          # 集成测试（需本地 MySQL，触发 Flyway；*IT 均在 scaffold-admin）
 $MVN -o spring-boot:run -pl scaffold-admin   # 启动（见下端口说明）
 # 单模块快速迭代（-am 连同依赖一起构建）
@@ -2163,22 +2163,6 @@ npm run preview  # 预览构建产物
 - `CommonErrorCode.GATEWAY_TIMEOUT("COMMON_504", "请求超时，请稍后重试", 504)`。
 - `GlobalExceptionHandler` 新增 `@ExceptionHandler(TimeoutException.class)` → 504 + `Result.error(COMMON_504, i18n.getMessage("error.gateway_timeout"))`；资源束三件套补 `error.gateway_timeout` 与 `error.COMMON_504`（中/英对称）。
 - 此前全局异常处理器**缺失超时映射**，本次补全，使网络超时有稳定错误码可识别。
-
-### 4. 前端联通测试（`scripts/fe-connectivity.mjs`，5 例，离线可跑）
-
-- 用 `node:http` 起本地 stub 服务端模拟后端统一包络（沙箱无后端、无出网）；`node:test` + `axios` 验证四类场景：
-  1. ping 正常流程：拆包后得到 `data` 且 `framework`/`serverTime`/`nonce`/`receivedLocale` 与契约一致；
-  2. 数据格式一致性：成功包络含 `code/message/data/traceId/timestamp`；
-  3. 常见错误码：2xx 但 `code!=0` 提取 `code` 并 `reject`（如 `AUTH_001`）；5xx 回传后端错误码 `COMMON_500`；
-  4. 网络超时：后端慢响应触发 axios `ECONNABORTED`。
-- 客户端 `request()` **镜像** `src/api/http.js` 的响应拦截拆包逻辑（`code==='0'` 返回 `data`，否则 `reject(Error)` 且 `Error.code = body.code`），确保验证的就是前端真实依赖的契约。
-- 运行：`cd pc-admin-vue3-vite && node --test scripts/fe-connectivity.mjs`（需已 `npm install`）。
-
-### 3. 新增超时错误码与全局映射
-
-- `CommonErrorCode.GATEWAY_TIMEOUT("COMMON_504", "请求超时，请稍后重试", 504)`。
-- `GlobalExceptionHandler` 新增 `@ExceptionHandler(TimeoutException.class)` → 504 + `Result.error(COMMON_504, i18n.getMessage("error.gateway_timeout"))`；资源束三件套补 `error.gateway_timeout` 与 `error.COMMON_504`（中/英对称）。
-- 此前全局异常处理器**缺失超时映射**，本次补全，使网络超时有稳定错误码可识别。
 - **真实 504 链路闭环（2026-10-21）**：`connectivity-spec.json` 的 `timeoutEndpoint` 指向 `/api/connectivity/slow`，此前后端只有 `/ping`，探针打真实后端只会 404 而非超时；`/slow` 落地后，「客户端超时（真实 socket 读超时）」与「服务端 504 映射」两端各自可验证。
 
 ### 4. 前端联通测试（`scripts/fe-connectivity.mjs`，离线 5 例 / 真实后端模式 3 通过 + 2 跳过）
@@ -2209,20 +2193,65 @@ npm run preview  # 预览构建产物
   python3 scripts/realtime-ws-probe.py --base-url ws://127.0.0.1:18091 --token stub-jwt
   ```
 
-### 6. 沙箱边界与本机收口
+### 6. 真实运行环境联调（2026-10-21 沙箱内实测全链路）
 
-- 沙箱无 MySQL 8.1.0、真实 Spring Boot 后端无法启动、Bash 无出网，**无法启动「后端 + 前端」跑完整真实链路**；但已用「真实跨进程 + 跨语言 + 真实 socket」组合把联调证据链做到沙箱内最大化（2026-10-21 实测，Python 3.13 与 3.9 双版本验证）：
-  1. **HTTP**：Python stub ↔ Python probe 真实跨进程（`connectivity-probe.py` 2/2 通过，含真实 `socket.timeout` 超时路径）；
-  2. **WebSocket**：`realtime-ws-stub.py` ↔ `realtime-ws-probe.py` 真实 RFC 6455 帧往返（5/5 通过；死端口实测干净 FAIL + exit 1）；
-  3. **前端**：Node axios 客户端 ↔ Python stub 真实 HTTP（`fe-connectivity.mjs` 真实模式 3 通过 / 2 跳过，含真实 `ECONNABORTED` 305ms）；
-  4. **后端**：`mvn -o clean test` **852/852 全绿**（含 `ConnectivityControllerTest` 19 例）。
-- **遗留仅需本机执行**（后端就绪后三条命令即构成完整真实证据链）：
-  ```bash
-  python3 scripts/connectivity-probe.py --base-url http://localhost:8080
-  python3 scripts/realtime-ws-probe.py --base-url ws://localhost:8080 --token <JWT>
-  API_BASE=http://localhost:8080 node --test scripts/fe-connectivity.mjs   # 前端目录
-  ```
-  另：浏览器走真实登录页/可观测中心页面（沙箱无出网、无 MySQL，页面级走查只能在本机完成）。
+> 本轮已在沙箱内启动**真实 MySQL 8.4.11 + Redis + JDK 21 后端实例**，完成「探针端点 → 登录链路 → 三类联通探针 → vite 代理链路」全要素验证，并修复 2 个仅真实环境暴露的 P0。以下为实测证据与启动方法。
+
+#### 6.1 离线环境启动真实后端的唯一可行路径（`java -cp` 法）
+
+离线 Maven 仓库缺少打包插件依赖（`maven-jar-plugin:3.4.2` 的传递依赖、`spring-boot-maven-plugin:3.3.4` 的 buildpack 依赖等），`clean package` 与 `spring-boot:run` 均不可用；改用 surefire booter classpath 直接启动：
+
+1. 提取 classpath（**必须 `-X` 模式**，booter 目录才留存；普通 `mvn test` 后目录被清理）：
+   ```bash
+   mvn -o -X -pl scaffold-admin -am test -Dtest='ObservabilityPropertiesTest' \
+     -DfailIfNoTests=false -Dsurefire.failIfNoSpecifiedTests=false
+   # 解析 scaffold-admin/target/surefire/surefirebooter*.jar manifest 的 Class-Path（折行拼接）
+   # 生成 scaffold-admin/target/dev-classpath.txt（205 项绝对路径，0 missing，含 11 模块 target/classes）
+   ```
+2. 启动（**三个关键坑**，缺一不可）：
+   ```bash
+   cd scaffold-admin
+   env -u SERVER__PORT -u SERVER__HOST JWT_SECRET="<32字节base64>" \
+     $JAVA_HOME/bin/java -cp "$(cat target/dev-classpath.txt)" \
+     com.acme.scaffold.FrameworkApplication --spring.profiles.active=local --server.port=8080
+   ```
+   - **坑 1：`SERVER__PORT` 环境变量劫持**。后台任务环境会注入 `SERVER__PORT=<随机5位>`（联动 `CODEBUDDY_SERVICE_PROXY_URL`），Spring Boot relaxed binding 将双下划线映射为 `server.port`，**覆盖 yml 的 8080**，表现为每次启动随机高位端口（实测 50280/50860）。对策：`env -u SERVER__PORT -u SERVER__HOST` + 显式 `--server.port=8080`。
+   - **坑 2：JobRunr Dashboard 8000 端口冲突**。重启前必须先 `lsof -ti :8080/:9090/:8000` 杀残留实例，否则新实例 `BindException: Address already in use` 启动失败。
+   - **坑 3：沙箱代理**。访问 localhost 必须 `curl --noproxy '*'` 或 `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY no_proxy="*"`（沙箱注入 `http_proxy=http://127.0.0.1:50910`）。
+3. 启动验证：`Started FrameworkApplication in ~15s`；V32~V39 迁移全 green 应用（此前库仅到 V38）；`/livez`、`/readyz` UP。
+
+#### 6.2 真实环境暴露并修复的 2 个 P0
+
+| # | 现象 | 触发条件 | 根因 | 修复 | 守护测试 |
+|---|---|---|---|---|---|
+| P0-1 | `APPLICATION FAILED TO START ... required a single bean, but 2 were found: spanRecorder, otlpSpanExporter` | local 默认组合（otlp=false + recorder=true）必现；单测用 Mockito 手工构造不暴露 | `ObservabilityConfig.otlpSpanExporter` 无条件注册，与 `SpanRecorder` 形成单点注入歧义 | `otlpSpanExporter` 加 `@Primary`（双 sink 经 `OtlpTracingFilter` 的 `List<SpanExporter>` 聚合分发语义不变） | `ObservabilityWiringTest` 3 例（`AnnotationConfigApplicationContext` + `MapPropertySource` 驱动三种开关组合） |
+| P0-2 | 探针 ping/slow 返回 401 空体（`WWW-Authenticate: Bearer`） | 无 token 直连 `/api/connectivity/*` | `SecurityConfig.BASE_PUBLIC_API` 白名单遗漏联通探针端点（联调契约要求匿名可访问） | 白名单插入两条 GET matcher | `SecurityPublicApiTest` 2 例（反射读 `BASE_PUBLIC_API`；helper 显式 `setServletPath(uri)`——`MockHttpServletRequest` 默认空 servletPath 会使 `AntPathRequestMatcher` 恒 false） |
+
+#### 6.3 登录链路（真实 MySQL）
+
+- 验证码为四则运算，**乘法用全角 `×`、除法用 `÷`**（如 `3 × 4 = ?`），客户端须替换后再求值；`LoginCommand` 字段为 `captchaAnswer`（非 `captcha`，误发报 400 `AUTH_008`）。
+- 登录成功取得 JWT（后续 WS 探针复用）。
+
+#### 6.4 三类联通探针实测结果（真实后端 8080）
+
+| 探针 | 命令 | 结果 |
+|---|---|---|
+| HTTP | `python3 scripts/connectivity-probe.py --base-url http://localhost:8080` | **2/2 PASS**（ping code=0 全字段；slow 真实触发 `TimeoutError`） |
+| WebSocket | `python3 scripts/realtime-ws-probe.py --base-url ws://localhost:8080 --token <JWT>` | **4 PASS / 0 FAIL / 1 SKIP**（WS-03 推送信封因无业务事件合理跳过） |
+| 前端 Node | `API_BASE=http://localhost:8080 node --test scripts/fe-connectivity.mjs` | **3 PASS / 0 FAIL / 2 SKIP**（两个错误码用例后端无对应探针端点，由 `ConnectivityControllerTest` 覆盖，不留假绿） |
+
+#### 6.5 vite 代理链路（真实 dev server 5173）
+
+- 启动：`node node_modules/vite/bin/vite.js --port 5173 --host 127.0.0.1`（须用受管后台任务前台化启动；`nohup ... &` 的脱离进程会被沙箱回收，实测 5173 起不来）。
+- 实测：`/api/connectivity/ping` 经 5173 代理 → 8080 返回完整包络（16ms）；SPA 首页 200「运营管理后台」；`/src/main.js` 模块转换 200；WS 经 `/ws` 代理 4 PASS / 1 SKIP。前端 WS 客户端连同源 `/ws` 的链路由此闭合。
+
+#### 6.6 本轮回归门禁（零副作用确认）
+
+- `mvn -o clean test`：**857/857 全绿**（852 基线 + `ObservabilityWiringTest` 3 例 + `SecurityPublicApiTest` 2 例；12 模块 SUCCESS）。
+- `scripts/check-conventions.py`：EXIT=0（11 源码根 / 507 文件）。
+- 约定校验器 Python 自测（`scripts/test_check_conventions.py`）：17/17 OK。
+- 三类探针 + vite 代理：见上表，全绿。
+- 历史证据链（Python stub ↔ probe 跨进程、WS stub ↔ probe 真实 RFC 6455 帧、Node ↔ Python stub）仍有效，见 §5。
 
 ### 7. JaCoCo 覆盖率门禁（profile 已就绪，联网环境验证）
 

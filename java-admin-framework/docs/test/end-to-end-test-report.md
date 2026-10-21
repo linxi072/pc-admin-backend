@@ -3,11 +3,11 @@
 | 项 | 内容 |
 | --- | --- |
 | 项目 | `java-admin-framework`（Spring Boot 3.3.4 / Java 21，仅后端） |
-| 测试日期 | 2026-09-28（沙箱离线执行，后端）；2026-10-21（前端契约测试复跑）；2026-10-21（运行时联调补强复跑） |
+| 测试日期 | 2026-09-28（沙箱离线执行，后端）；2026-10-21（前端契约测试复跑）；2026-10-21（运行时联调补强复跑）；2026-10-21（真实运行环境联调：真实 MySQL + Redis + 后端实例 + 三类探针 + vite 代理） |
 | 测试形态 | 离线端到端切片（Offline E2E Slice） |
-| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ `IdempotencyRecordE2eTest.java`（6 例）+ `AlertInboxE2eTest.java`（7 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例）+ `IdempotencyRecordRulesTest`（12 例）+ `IdempotencyRecordServiceTest`（6 例）；前端（`pc-admin-vue3-vite/scripts/`，node:test）：`fe-observability.mjs`（25 例）+ `fe-connectivity.mjs`（5 例） |
+| 测试载体 | `src/test/java/com/acme/scaffold/e2e/CoreApiE2eTest.java`（30 例）+ `RealtimeE2eTest.java`（6 例）+ `KafkaMonitorE2eTest.java`（5 例）+ `ObservabilityE2eTest.java`（6 例）+ `NPlusOneE2eTest.java`（5 例）+ `IdempotencyRecordE2eTest.java`（6 例）+ `AlertInboxE2eTest.java`（7 例）+ 单元：`KafkaMonitorServiceTest`（4 例）+ `SpanRecorderTest`（10 例）+ `ObservabilityServiceTest`（8 例）+ `ObservabilityPropertiesTest`（3 例）+ `NPlusOneSuspectRegistryTest`（10 例）+ `NPlusOneListenerTest`（4 例）+ `NPlusOneServiceTest`（6 例）+ `IdempotencyRecordRulesTest`（12 例）+ `IdempotencyRecordServiceTest`（6 例）+ `ConnectivityControllerTest`（19 例）+ `ObservabilityWiringTest`（3 例）+ `SecurityPublicApiTest`（2 例）；前端（`pc-admin-vue3-vite/scripts/`，node:test）：`fe-observability.mjs`（25 例）+ `fe-connectivity.mjs`（5 例） |
 | 配套文档 | [test-case-specification.md](./test-case-specification.md) · [sequence-diagrams.html](./sequence-diagrams.html) |
-| 总体结论 | ✅ **通过** — 852 例单测全绿（含新增 65 例 E2E 与 81 例单元，及 2026-10-21 运行时联调轮新增 4 例超时探针），0 失败 / 0 错误 / 0 跳过；前端 node:test 离线 30 例全绿（可观测中心契约 25 + 联通回归 5），联通测试另支持 `API_BASE` 真实后端模式（3 通过 / 2 条件跳过） |
+| 总体结论 | ✅ **通过** — 857 例单测全绿（含新增 65 例 E2E 与 81 例单元、2026-10-21 运行时联调轮新增 4 例超时探针、2026-10-21 真实运行环境联调轮新增 5 例守护测试），0 失败 / 0 错误 / 0 跳过；前端 node:test 离线 30 例全绿（可观测中心契约 25 + 联通回归 5），联通测试另支持 `API_BASE` 真实后端模式（3 通过 / 2 条件跳过） |
 
 ---
 
@@ -38,7 +38,7 @@
 | **合计** | — | **52** | 正常流程 + 异常/边界 |
 
 未纳入本切片、但已在仓库中存在并执行通过的相邻测试：
-- `ConnectivityControllerTest`（15 例，前后端联通契约，含 504 超时链路）；
+- `ConnectivityControllerTest`（19 例，前后端联通契约，含 504 超时链路与 `/slow` 超时探针）；
 - 既有单元测试与规则类测试（如 `ClaimRulesTest`、`WorkflowDesignValidatorTest` 等）；
 - `*IT` 集成测试（真实 Spring 上下文 + 本机 MySQL + `TestRestTemplate`），沙箱无法运行，需在 CI/本机执行（见 §6）。
 
@@ -87,13 +87,14 @@ Client (MockMvc 请求)
 
 ### 4.1 全量单测汇总
 ```
-[INFO] Tests run: 852, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 857, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 - 本次新增 E2E：**65 例**（前序 `CoreApiE2eTest` 30 例：Auth 9 + Config 7 + User 9 + Workflow 5；`RealtimeE2eTest` 6 例：RT-01~06；`KafkaMonitorE2eTest` 5 例：KM-01~05；`ObservabilityE2eTest` 6 例：OB-01~06；`NPlusOneE2eTest` 5 例：NP-01~05；前轮 `IdempotencyRecordE2eTest` 6 例：ID-01~06；本轮 `AlertInboxE2eTest` 7 例：AI-01~07），全部通过；
 - 本次新增单元：**81 例**（`KafkaMonitorServiceTest` 4 例：消费容器缺失降级与输入校验；`SpanRecorderTest` 10 例：有界缓冲/倒序检索/traceId 聚合/并发安全；`ObservabilityServiceTest` 8 例：limit/status/traceId 校验与指标快照；`ObservabilityPropertiesTest` 3 例：属性类与 `application.yml` recorder 段绑定一致性；`OtlpTracingFilterTest` 由 2 例扩至 3 例：双 sink 开关正交；`NPlusOneSuspectRegistryTest` 10 例：有界留存/淘汰/累计口径/截断/并发守恒；`NPlusOneListenerTest` 4 例：越限登记/未越限不登记/每轮一次/null 安全；`NPlusOneServiceTest` 6 例：limit 校验/视图映射/状态聚合/清空委托；前轮 `IdempotencyRecordRulesTest` 12 例：筛选值归一（容错 posture）/时间窗收敛/过期判定/截断；`IdempotencyRecordServiceTest` 6 例：摘要组装口径/占比舍入/零记录与脏计数防御；本轮 `AlertInboxRulesTest` 11 例：筛选值归一/limit 钳制（含容量误填保底）/纯筛选顺序与容错/汇总守恒与时间戳/截断；`AlertInboxServiceTest` 6 例：列表字段映射与筛选委托/limit 按容量自适应/空箱与 summary 截断/汇总透传/清空委托）；
 - 既有基线：702 例（含 `ConnectivityControllerTest` 15 例），历次 E2E 增量回归全绿；2026-10-21 运行时联调轮 `ConnectivityControllerTest` 15→19（`/slow` 超时探针：默认 5000ms 纯函数、`[0,10000]` 收敛、非数字 400/`COMMON_001`、`delayMs=0` 快路径）；
-- 合计 **852 例，0 失败 / 0 错误 / 0 跳过**。
+- 2026-10-21 **真实运行环境联调轮**新增 5 例守护测试（真实后端实例暴露 2 个 P0 后修复沉淀）：`ObservabilityWiringTest` 3 例（otlp/recorder 开关正交组合下 `SpanExporter` bean 数量与 `ObservabilityService.summary().exporterEnabled()` 一致，复现并锁死启动歧义修复）；`SecurityPublicApiTest` 2 例（`/api/connectivity/ping|slow` GET 命中匿名白名单，POST 与带后缀路径不得命中；helper 显式 `setServletPath(uri)` 修正 `MockHttpServletRequest` 空 servletPath 导致 `AntPathRequestMatcher` 恒 false 的测试陷阱）；
+- 合计 **857 例，0 失败 / 0 错误 / 0 跳过**。
 
 ### 4.2 新增 E2E 用例执行明细
 | 嵌套类 | 用例 | 结果 |
@@ -247,7 +248,7 @@ M2 幂等模块此前「只写不查」：`sys_idempotency_record` 由 `Idempote
 5. **容错查询 posture**：与登录日志/短信记录页一致，非法状态/非数字用户 ID/空关键字一律忽略该筛选条件而非 400；唯一硬校验是排序方向（`PageQuery.of` → `SortItem.single`，静默降级会让前端误以为排序生效）。E2E ID-06 守护该 posture（曾因误用 `@Validated` 导致 `ConstraintViolationException` 穿透 500，见 §6 历史缺陷）。
 6. **DB 路径的验证口径**：沙箱无 MySQL，分页/计数/删除按项目约定交由集成测试（`*IT`）覆盖；离线侧以「E2E 桩接（HTTP 契约 + 异常映射）+ 规则/摘要纯函数单测（18 例）」达成等价验证。前端对接建议：运维「中间件/稳定性」页渲染分页表（`expired` 字段直接标红待清理行）与摘要卡（`processing`/`expiredPending` 水位告警），「立即清理」按钮调 `POST /purge`。
 
-*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（852/0/0/0）、`node --test scripts/fe-observability.mjs`（25/0）、`node --test scripts/fe-connectivity.mjs`（离线 5/0；真实后端模式 3 通过 / 2 条件跳过）、`scripts/check-api-contract.py`（无漂移）与 `scripts/check-conventions.py`（EXIT=0）。*
+*报告由离线测试执行结果自动汇总生成，数据来源：`mvn -o clean test` 输出（857/0/0/0）、`node --test scripts/fe-observability.mjs`（25/0）、`node --test scripts/fe-connectivity.mjs`（离线 5/0；真实后端模式 3 通过 / 2 条件跳过）、`scripts/check-api-contract.py`（无漂移）与 `scripts/check-conventions.py`（EXIT=0）。2026-10-21 真实运行环境联调轮另取得：真实后端实例 HTTP 探针 2/2、WS 探针 4 通过/1 跳过、vite 代理链路（API/SPA/模块转换/WS）全通的运行时证据。*
 
 ## 13. 集成说明（告警收件箱管理如何接入现有系统）
 
@@ -269,4 +270,4 @@ M2 幂等模块此前「只写不查」：`sys_idempotency_record` 由 `Idempote
 3. **一页多权的最小授权落地**：SPA 无按钮级权限，一个菜单只能挂一个权限码——取监控域基础权限 `system:monitor:read`（覆盖 N+1 与告警两个 Tab）；其余三个 Tab 由后端按 `system:observability:read` / `system:kafka:read` / `system:idempotency:read` 独立鉴权，前端 `isForbidden`（`err.response.status===403`）判定后渲染 Tab 级降级空态（`el-empty`），不越权放行也不整页报错。
 4. **懒渲染控制请求面**：`v-if="activeTab===..."` 使未激活 Tab 不挂载不发请求，避免进入页面即触发 5 组调用（3 组对普通运维角色必然 403）的首屏噪声。
 5. **顺手修复历史缺陷**：V39 同时修复 V35/V36 菜单 id=1091 碰撞（`INSERT IGNORE` 主键冲突致「导入中心」菜单在全新部署被静默丢弃、页面不可达），以未占用 id=1093 按 `uk_tenant_menu_code` 幂等重播种。
-6. **验证口径**：沙箱无浏览器 DOM 测试框架，采用「API 契约（可编排 axios 适配器驱动生产拦截器链，25 例）+ 纯函数单测（format.js 5 例）+ 静态契约对称脚本（check-api-contract.py）+ 离线构建」四件套等价验证；浏览器级渲染由构建产物与人工验收覆盖。后端无 Java 变更，`mvn -o clean test` 848 例基线不回退（2026-10-21 运行时联调轮新增 4 例后为 852 例）。
+6. **验证口径**：沙箱无浏览器 DOM 测试框架，采用「API 契约（可编排 axios 适配器驱动生产拦截器链，25 例）+ 纯函数单测（format.js 5 例）+ 静态契约对称脚本（check-api-contract.py）+ 离线构建」四件套等价验证；浏览器级渲染由构建产物与人工验收覆盖。后端无 Java 变更，`mvn -o clean test` 848 例基线不回退（2026-10-21 运行时联调轮新增 4 例后为 852 例；同日晚真实运行环境联调轮再新增 5 例守护测试后为 857 例）。
