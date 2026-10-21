@@ -36,8 +36,8 @@ public class ApiResourceController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:api:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "注册接口资源")
-    public Result<Long> create(@Valid @RequestBody CreateApiResourceRequest request) {
-        return Result.success(apiResourceService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateApiResourceRequest request) {
+        return Result.success(String.valueOf(apiResourceService.create(request)));
     }
 
     @Operation(summary = "删除接口资源")

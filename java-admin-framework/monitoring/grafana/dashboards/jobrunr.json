@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 39,
+  "title": "调度 (JobRunr)",
+  "uid": "jobrunr",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "refresh": "30s",
+  "tags": [
+    "java-admin-framework"
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "失败任务累计",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "jobrunr_jobs_failed_total",
+          "legendFormat": "value"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "近 5m 失败增量",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "increase(jobrunr_jobs_failed_total[5m])",
+          "legendFormat": "failed/5m"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "成功任务累计",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "jobrunr_jobs_succeeded_total",
+          "legendFormat": "value"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "队列 / 处理中",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "jobrunr_jobs_enqueued_total",
+          "legendFormat": "enqueued"
+        },
+        {
+          "expr": "jobrunr_jobs_processing_total",
+          "legendFormat": "processing"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "title": "启用说明",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "JobRunr 指标需开启 `org.jobrunr.metrics.enabled: true`（Spring Boot Starter 自动注册 Micrometer 指标）。开启后上述 jobrunr_jobs_* 指标才会出现；未开启时对应面板为 No Data。"
+      }
+    }
+  ]
+}

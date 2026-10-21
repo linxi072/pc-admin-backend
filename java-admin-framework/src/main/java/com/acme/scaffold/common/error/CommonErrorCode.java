@@ -14,7 +14,8 @@ public enum CommonErrorCode implements ErrorCode {
     CONFLICT("COMMON_409", "数据冲突，请刷新后重试", HttpStatus.CONFLICT.value()),
     BUSINESS_ERROR("COMMON_422", "业务处理失败", HttpStatus.UNPROCESSABLE_ENTITY.value()),
     RATE_LIMITED("COMMON_429", "请求过于频繁，请稍后再试", HttpStatus.TOO_MANY_REQUESTS.value()),
-    INTERNAL_ERROR("COMMON_500", "系统内部错误", HttpStatus.INTERNAL_SERVER_ERROR.value());
+    INTERNAL_ERROR("COMMON_500", "系统内部错误", HttpStatus.INTERNAL_SERVER_ERROR.value()),
+    GATEWAY_TIMEOUT("COMMON_504", "请求超时，请稍后重试", HttpStatus.GATEWAY_TIMEOUT.value());
 
     private final String code;
     private final String message;

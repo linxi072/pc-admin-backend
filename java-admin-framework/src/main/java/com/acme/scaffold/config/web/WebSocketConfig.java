@@ -1,0 +1,37 @@
+package com.acme.scaffold.config.web;
+
+import com.acme.scaffold.realtime.websocket.RealtimeHandshakeInterceptor;
+import com.acme.scaffold.realtime.websocket.RealtimeWebSocketHandler;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
+import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+
+/**
+ * 原生 WebSocket 端点配置：暴露 {@code /ws}（握手需带 {@code ?token=<JWT>}）。
+ * <p>鉴权由 {@link RealtimeHandshakeInterceptor} 完成；跨域放开便于本地前后端分离联调，
+ * 生产应改为具体前端域名。
+ */
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    private final RealtimeWebSocketHandler handler;
+    private final RealtimeHandshakeInterceptor handshakeInterceptor;
+    private final CorsProperties corsProperties;
+
+    public WebSocketConfig(RealtimeWebSocketHandler handler,
+                           RealtimeHandshakeInterceptor handshakeInterceptor,
+                           CorsProperties corsProperties) {
+        this.handler = handler;
+        this.handshakeInterceptor = handshakeInterceptor;
+        this.corsProperties = corsProperties;
+    }
+
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(handler, "/ws")
+                .addInterceptors(handshakeInterceptor)
+                .setAllowedOriginPatterns(corsProperties.getAllowedOrigins().toArray(new String[0]));
+    }
+}

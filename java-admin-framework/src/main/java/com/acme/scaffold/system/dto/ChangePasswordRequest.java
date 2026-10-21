@@ -13,10 +13,10 @@ import jakarta.validation.constraints.Size;
  * @param newPassword 新密码
  */
 public record ChangePasswordRequest(
-        @NotBlank(message = "原密码不能为空")
+        @NotBlank(message = "{validation.oldPassword.notBlank}")
         String oldPassword,
 
-        @NotBlank(message = "新密码不能为空")
-        @Size(min = 8, max = 64, message = "密码长度需为 8~64 位")
+        @NotBlank(message = "{validation.password.notBlank}")
+        @Size(min = 8, max = 64, message = "{validation.password.size}")
         String newPassword) {
 }

@@ -1,8 +1,9 @@
 package com.acme.scaffold.common.audit;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 
 import java.util.List;
+import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 
 /**
  * 操作审计服务。实现可基于数据库、消息队列或独立审计存储。
@@ -11,7 +12,7 @@ import java.util.List;
  * <ul>
  *   <li><b>写入</b>：{@link #saveAsync} 由 {@link AuditAspect} 在切面里调用，事务提交后落库；</li>
  *   <li><b>查询</b>：面向管理员的审计追溯能力（设计方案 §20「审计日志可按 traceId 查询且无敏感字段」）。
- *       查询结果一律经 {@link SensitiveMasker} 脱敏后再对外返回。</li>
+ *       查询结果一律经 {@link com.acme.scaffold.common.sensitive.SensitiveMasker} 脱敏后再对外返回。</li>
  * </ul>
  */
 public interface AuditLogService {

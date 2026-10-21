@@ -2,27 +2,41 @@
   <div>
     <h2 class="page-title">用户管理</h2>
     <el-card class="page-card">
-      <!-- 搜索筛选 -->
+      <!-- 搜索筛选：条件区（上）/ 操作区（下）分区布局 -->
       <div class="toolbar">
-        <el-input
-          v-model="query.username"
-          placeholder="用户名（模糊）"
-          clearable
-          style="width: 180px"
-          @keyup.enter="load"
-        />
-        <el-select v-model="query.status" placeholder="状态" clearable style="width: 140px">
-          <el-option label="启用" value="ACTIVE" />
-          <el-option label="停用" value="DISABLED" />
-        </el-select>
-        <el-button type="primary" :icon="Search" @click="load">查询</el-button>
-        <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-        <span class="spacer" />
-        <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">用户名</span>
+            <el-input
+              v-model="query.username"
+              placeholder="用户名（模糊）"
+              clearable
+              style="width: 180px"
+              @keyup.enter="load"
+            />
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">状态</span>
+            <el-select v-model="query.status" placeholder="状态" clearable style="width: 140px">
+              <el-option label="启用" value="ACTIVE" />
+              <el-option label="停用" value="DISABLED" />
+            </el-select>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Search" @click="load">查询</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+          </div>
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
+          </div>
+        </div>
       </div>
 
       <!-- 列表 -->
-      <el-table :data="rows" v-loading="loading" border stripe height="480" @sort-change="onSortChange">
+      <!-- 不设 height：随内容自适应，与其他列表页一致 -->
+      <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <el-table-column prop="id" label="ID" width="70" sortable="custom" />
         <el-table-column prop="username" label="用户名" width="130" sortable="custom" />
         <el-table-column prop="displayName" label="昵称" width="120" />
@@ -30,9 +44,8 @@
         <el-table-column prop="email" label="邮箱" min-width="180" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">
-              {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
-            </el-tag>
+            <!-- 状态标签统一走 utils/status 映射 -->
+            <el-tag :type="statusTag(row.status).type">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="部门" min-width="150">
@@ -51,6 +64,12 @@
               :type="row.roleCodes && row.roleCodes[i] === 'SUPER_ADMIN' ? 'danger' : 'primary'"
             >{{ n }}</el-tag>
             <span v-if="!(row.roleNames || []).length" class="text-muted">未分配</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="岗位" min-width="150">
+          <template #default="{ row }">
+            <el-tag v-for="(n, i) in (row.postNames || [])" :key="'p' + i" class="role-tag" size="small" type="warning">{{ n }}</el-tag>
+            <span v-if="!(row.postNames || []).length" class="text-muted">未分配</span>
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" sortable="custom" />
@@ -125,6 +144,11 @@
             <el-option v-for="r in selectedRoleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="岗位">
+          <el-select v-model="form.postIds" multiple filterable clearable style="width: 100%" placeholder="选择岗位（可多选）">
+            <el-option v-for="p in postOptions" :key="p.id" :label="p.postName" :value="p.id" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -158,6 +182,10 @@ import { Search, RefreshLeft, Plus, Edit, Key, Delete } from '@element-plus/icon
 import { pageUsers, createUser, updateUser, deleteUser, resetPassword } from '@/api/user'
 import { listRoles } from '@/api/role'
 import { orgTree } from '@/api/org'
+import { listPostOptions } from '@/api/post'
+// 状态标签映射 / 部门树拍平均统一到 utils
+import { statusTag } from '@/utils/status'
+import { flattenTree } from '@/utils/tree'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -165,6 +193,7 @@ const rows = ref([])
 const total = ref(0)
 const roleOptions = ref([])
 const orgOptions = ref([])
+const postOptions = ref([])
 const query = reactive({ page: 1, size: 10, username: '', status: '', sortField: '', sortDirection: '' })
 
 const dialogVisible = ref(false)
@@ -174,7 +203,8 @@ const form = reactive({
   id: null, username: '', password: '', displayName: '', mobile: '', email: '',
   status: 'ACTIVE',
   roleIds: [], primaryRoleId: null,
-  deptIds: [], primaryDeptId: null
+  deptIds: [], primaryDeptId: null,
+  postIds: []
 })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -222,25 +252,19 @@ function resetQuery() {
   load()
 }
 
-/** 拍平部门树为下拉选项（带缩进前缀）。 */
-function flattenOrgs(nodes, depth = 0, acc = []) {
-  ;(nodes || []).forEach((n) => {
-    acc.push({ id: n.id, orgName: `${'　'.repeat(depth)}${n.orgName}` })
-    if (n.children) flattenOrgs(n.children, depth + 1, acc)
-  })
-  return acc
-}
-
 async function ensureRoles() {
   if (roleOptions.value.length === 0) roleOptions.value = await listRoles()
-  if (orgOptions.value.length === 0) orgOptions.value = flattenOrgs(await orgTree())
+  if (orgOptions.value.length === 0) {
+    orgOptions.value = flattenTree(await orgTree(), { nameKey: 'orgName', labelKey: 'orgName' })
+  }
+  if (postOptions.value.length === 0) postOptions.value = await listPostOptions()
 }
 
 function openCreate() {
   isEdit.value = false
   Object.assign(form, {
     id: null, username: '', password: '', displayName: '', mobile: '', email: '',
-    status: 'ACTIVE', roleIds: [], primaryRoleId: null, deptIds: [], primaryDeptId: null
+    status: 'ACTIVE', roleIds: [], primaryRoleId: null, deptIds: [], primaryDeptId: null, postIds: []
   })
   ensureRoles()
   dialogVisible.value = true
@@ -254,7 +278,8 @@ async function openEdit(row) {
     roleIds: [...(row.roleIds || [])],
     primaryRoleId: row.primaryRoleId ?? (row.roleIds && row.roleIds[0] != null ? row.roleIds[0] : null),
     deptIds: [...(row.deptIds || [])],
-    primaryDeptId: row.primaryDeptId ?? (row.deptIds && row.deptIds[0] != null ? row.deptIds[0] : null)
+    primaryDeptId: row.primaryDeptId ?? (row.deptIds && row.deptIds[0] != null ? row.deptIds[0] : null),
+    postIds: [...(row.postIds || [])]
   })
   ensureRoles()
   dialogVisible.value = true
@@ -270,7 +295,8 @@ async function onSubmit() {
         displayName: form.displayName, mobile: form.mobile, email: form.email,
         status: form.status,
         roleIds: form.roleIds, primaryRoleId: form.primaryRoleId || undefined,
-        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined
+        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined,
+        postIds: form.postIds
       })
       ElMessage.success('更新成功')
     } else {
@@ -278,7 +304,8 @@ async function onSubmit() {
         username: form.username, password: form.password, displayName: form.displayName,
         mobile: form.mobile, email: form.email,
         roleIds: form.roleIds, primaryRoleId: form.primaryRoleId || undefined,
-        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined
+        deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined,
+        postIds: form.postIds
       })
       ElMessage.success('创建成功')
     }

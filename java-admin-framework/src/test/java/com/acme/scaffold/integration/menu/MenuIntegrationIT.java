@@ -2,16 +2,19 @@ package com.acme.scaffold.integration.menu;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.integration.AbstractHttpIntegrationTest;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.entity.SysMenuDO;
 import com.acme.scaffold.system.entity.SysRoleMenuDO;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -85,7 +88,8 @@ class MenuIntegrationIT extends AbstractHttpIntegrationTest {
         List<Map<String, Object>> menus = (List<Map<String, Object>>) resp.getBody().data();
         Set<Long> returnedIds = new HashSet<>();
         for (Map<String, Object> m : menus) {
-            returnedIds.add(((Number) m.get("id")).longValue());
+            // 雪花 ID（18 位）经 @JsonSerialize(ToStringSerializer) 以字符串下发，避免 JS Number 精度丢失
+            returnedIds.add(Long.parseLong(m.get("id").toString()));
         }
 
         // 角色绑定的菜单
@@ -115,5 +119,46 @@ class MenuIntegrationIT extends AbstractHttpIntegrationTest {
             assertTrue(closure.contains(id),
                     "菜单 id=" + id + " 不应超出当前角色授权（含祖先）范围");
         }
+    }
+
+    /**
+     * 数据一致性（O-2 回归）：删除菜单后 sys_role_menu 不得残留孤儿行（按 menu_id 级联清理）。
+     *
+     * <p>孤儿行的危害：菜单已删但角色仍"挂"着它——{@code menusForCurrentUser} 的授权
+     * 闭包计算会包含不存在的菜单 id（被 byId 过滤后不渲染，但数据卫生失控），
+     * 且重建同 id 菜单时历史授权不会恢复。修复前 {@code MenuService.delete}
+     * 只删主表不碰关联表；修复后与 {@code RoleService.delete} 的级联清理互为补充
+     * （那里按 role_id 清，这里按 menu_id 清）。
+     */
+    @Test
+    void deleteMenu_leavesNoOrphanRoleMenu() {
+        String token = login("admin", "admin123");
+
+        // 造一个无子菜单的独立菜单（满足删除前置条件）
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("menuCode", "it-menu-orphan-" + System.nanoTime());
+        body.put("menuName", "IT孤儿菜单");
+        body.put("menuType", "MENU");
+        ResponseEntity<Result> created = post("/api/system/menus", body, Result.class, token);
+        assertEquals(200, created.getStatusCode().value(), "创建菜单应成功");
+        Long menuId = Long.valueOf((String) created.getBody().data());
+
+        // 直接给 SUPER_ADMIN 绑定该菜单，模拟既有授权
+        SysRoleMenuDO rm = new SysRoleMenuDO();
+        rm.setRoleId(SUPER_ADMIN_ROLE_ID);
+        rm.setMenuId(menuId);
+        JooqWriters.insert(dsl, JooqTables.SYS_ROLE_MENU, rm);
+        assertEquals(1, JooqWriters.count(dsl, JooqTables.SYS_ROLE_MENU,
+                JooqTables.SYS_ROLE_MENU.field("menu_id", Long.class).eq(menuId)),
+                "前置绑定应存在");
+
+        // 删除菜单（逻辑删）
+        ResponseEntity<Result> resp = rest.exchange(baseUrl() + "/api/system/menus/" + menuId,
+                HttpMethod.DELETE, new HttpEntity<>(bearer(token)), Result.class);
+        assertEquals(200, resp.getStatusCode().value(), "删除菜单应成功");
+
+        long orphan = JooqWriters.count(dsl, JooqTables.SYS_ROLE_MENU,
+                JooqTables.SYS_ROLE_MENU.field("menu_id", Long.class).eq(menuId));
+        assertEquals(0, orphan, "删除菜单后 sys_role_menu 不得残留孤儿行（O-2 修复回归）");
     }
 }

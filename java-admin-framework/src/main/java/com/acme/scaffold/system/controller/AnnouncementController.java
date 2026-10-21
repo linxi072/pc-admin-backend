@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.controller;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.system.dto.AnnouncementQuery;
@@ -58,8 +58,8 @@ public class AnnouncementController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:announcement:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建公告")
-    public Result<Long> create(@Valid @RequestBody CreateAnnouncementRequest request) {
-        return Result.success(announcementService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateAnnouncementRequest request) {
+        return Result.success(String.valueOf(announcementService.create(request)));
     }
 
     @Operation(summary = "编辑公告（仅草稿/已下线可编辑）")

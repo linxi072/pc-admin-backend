@@ -6,6 +6,9 @@
   --app-footer-h: 40px;
   --brand: #409eff;
   --brand-dark: #337ecc;
+  /* 语义色变量：次要文本（常规）/ 弱化文本（占位、辅助说明） */
+  --text-secondary: #909399;
+  --text-muted: #a8abb2;
 }
 
 * {
@@ -45,6 +48,49 @@ body {
 
 .toolbar .spacer {
   flex: 1;
+}
+
+/* ===== 工具栏分区布局：条件区（上）/ 操作区（下）分层，避免筛选控件与按钮单行堆积 ===== */
+/* flex-basis:100% 兼容两种父容器：div.toolbar 为 flex 行布局时强制两区分行堆叠；
+   el-card.toolbar 内部分区位于块级 card body 中，该属性自然失效保持块级堆叠 */
+.toolbar-filters {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+}
+
+.toolbar-filters .filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-filters .filter-label {
+  color: #8a919f;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.toolbar-actions {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #ebeef5;
+}
+
+.toolbar-actions .action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .stat-grid {
@@ -120,6 +166,17 @@ body {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 16px;
+}
+
+/* 弱化文本：未分配 / 无值占位（统一到全局类，避免各页 #c0c4cc / #909399 混用） */
+.text-muted {
+  color: var(--el-text-color-secondary, var(--text-secondary));
+}
+
+/* 卡片内小标题（toolbar / card header 中的区块名），统一到全局类 */
+.card-title {
+  font-weight: 600;
+  font-size: 15px;
 }
 
 .pager {

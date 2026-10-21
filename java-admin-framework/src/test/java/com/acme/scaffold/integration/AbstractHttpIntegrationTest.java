@@ -41,9 +41,11 @@ public abstract class AbstractHttpIntegrationTest extends BaseIntegrationTest {
     /** 以用户名/密码登录，返回 accessToken；登录失败抛 {@link IllegalStateException}。 */
     protected String login(String username, String password) {
         Map<String, String> body = Map.of("username", username, "password", password);
+        HttpHeaders h = bearer(null);
+        h.set("X-Forwarded-For", clientIp());
         ResponseEntity<Result> resp = rest.postForEntity(
                 baseUrl() + "/api/auth/login",
-                new HttpEntity<>(body, bearer(null)),
+                new HttpEntity<>(body, h),
                 Result.class);
         if (resp.getStatusCode().value() != 200 || resp.getBody() == null || !resp.getBody().isSuccess()) {
             throw new IllegalStateException("登录失败: " + resp.getStatusCode());

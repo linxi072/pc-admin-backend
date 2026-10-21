@@ -1,6 +1,6 @@
 package com.acme.scaffold.security.permission;
 
-import com.acme.scaffold.jooq.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqTables;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;

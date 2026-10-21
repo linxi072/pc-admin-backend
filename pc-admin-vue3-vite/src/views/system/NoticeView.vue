@@ -40,6 +40,17 @@ const router = useRouter()
 // 支持 /system/notice?tab=message 直达站内信（顶部铃铛点击也走这里）
 const activeTab = ref(route.query.tab === 'message' ? 'message' : 'announcement')
 
+// 反向同步：组件复用（如顶栏铃铛 push ?tab=message）时 setup 不会重跑，
+// 仅靠初始值无法切换页签，故监听 query 回填 activeTab。
+// 与下方 activeTab → query 的 watch 不会形成循环：两侧值一致时不再 replace。
+watch(
+  () => route.query.tab,
+  (tab) => {
+    const next = tab === 'message' ? 'message' : 'announcement'
+    if (activeTab.value !== next) activeTab.value = next
+  }
+)
+
 watch(activeTab, (val) => {
   if (route.query.tab !== val) {
     router.replace({ path: '/system/notice', query: { ...route.query, tab: val === 'announcement' ? undefined : val } })

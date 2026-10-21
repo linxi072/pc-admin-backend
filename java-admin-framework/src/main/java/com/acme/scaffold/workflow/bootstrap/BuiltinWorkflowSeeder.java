@@ -51,12 +51,24 @@ public class BuiltinWorkflowSeeder implements ApplicationRunner {
 
     /** 注册全部内置流程：新增内置流程只需在此追加一条即可。 */
     private void seedAll() {
-        seed(LEAVE_APPROVAL_KEY, "请假审批（含会签/或签/驳回）",
+        // 每个内置流程独立播种：单个失败不应中断其余流程的初始化（如某个设计因 BPMN 编译错误失败，
+        // 其余设计仍应尝试发布成功），且失败必须显式 ERROR 可见（含 processKey 与堆栈），
+        // 便于启动即发现「内置流程从未发布成功」类静默故障。
+        seedSafely(LEAVE_APPROVAL_KEY, "请假审批（含会签/或签/驳回）",
                 "内置请假流程，已改造为可编辑设计；受让人/驳回策略可在设计器中调整。",
                 BuiltinWorkflowSeeder::buildLeaveApprovalDesign);
-        seed(EXPENSE_KEY, "报销审批（主管+财务）",
+        seedSafely(EXPENSE_KEY, "报销审批（主管+财务）",
                 "内置报销流程，已改造为可编辑设计；部门主管与财务受让人可在设计器中调整。",
                 BuiltinWorkflowSeeder::buildExpenseDesign);
+    }
+
+    /** 单条流程播种的失败隔离包装：记录具体 processKey 与完整堆栈，避免静默吞错。 */
+    private void seedSafely(String key, String name, String desc, Function<String, SaveDesignRequest> designer) {
+        try {
+            seed(key, name, desc, designer);
+        } catch (Exception e) {
+            log.error("内置工作流 {} 播种失败（其余内置流程不受影响）: {}", key, e.getMessage(), e);
+        }
     }
 
     /**

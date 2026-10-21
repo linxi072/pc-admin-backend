@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.dto;
 
-import com.acme.scaffold.common.api.PageQuery;
+import com.acme.scaffold.common.api.dto.PageQuery;
 
 /**
  * 用户分页查询入参。

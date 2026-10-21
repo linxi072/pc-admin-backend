@@ -1,8 +1,8 @@
 package com.acme.scaffold.integration.user;
 
 import com.acme.scaffold.BaseIntegrationTest;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.entity.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDO;
@@ -12,6 +12,7 @@ import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,8 +77,8 @@ class UserIntegrationIT extends BaseIntegrationTest {
         long org = firstOrgId();
 
         Long uid = userService.create(new CreateUserRequest(
-                "it-u-" + System.nanoTime(), "Password123", "IT User A", null, null,
-                List.of(r1, r2), null, List.of(org), null));
+                "it-u-" + System.nanoTime(), "Password123!", "IT User A", null, null,
+                List.of(r1, r2), null, List.of(org), null, null));
 
         assertEquals(2, userRoles(uid).size());
         assertEquals(r1, primaryRoleOf(uid), "未指定主角色时应取角色集合首位");
@@ -92,8 +93,8 @@ class UserIntegrationIT extends BaseIntegrationTest {
         long org = firstOrgId();
 
         Long uid = userService.create(new CreateUserRequest(
-                "it-u-" + System.nanoTime(), "Password123", "IT User B", null, null,
-                List.of(r1, r2), r2, List.of(org), null));
+                "it-u-" + System.nanoTime(), "Password123!", "IT User B", null, null,
+                List.of(r1, r2), r2, List.of(org), null, null));
 
         assertEquals(r2, primaryRoleOf(uid), "显式主角色 r2 应被标记为主");
     }
@@ -107,12 +108,17 @@ class UserIntegrationIT extends BaseIntegrationTest {
     void assignRolesWithEmptyRoleListDoesNotThrow() {
         List<SysRoleDO> r = roles();
         long uid = userService.create(new CreateUserRequest(
-                "it-u-" + System.nanoTime(), "Password123", "IT User C", null, null,
-                List.of(r.get(0).getId()), null, List.of(firstOrgId()), null));
+                "it-u-" + System.nanoTime(), "Password123!", "IT User C", null, null,
+                List.of(r.get(0).getId()), null, List.of(firstOrgId()), null, null));
         assertEquals(1, userRoles(uid).size(), "前置：应已绑定 1 个角色");
 
+        // 经 AopTestUtils 解包取得目标实例：UserService 带 @Transactional 由 CGLIB 代理，
+        // 直接对代理反射调用私有方法时 this.dsl 为 null（依赖注入发生在目标实例上）。
+        // 注意：解包结果先存入 UserService 类型局部变量再传入，避免泛型多态表达式触发
+        // invokeMethod(Class<?>, String, Object...) 重载误选（编译器按最具体规则解析）。
+        UserService target = AopTestUtils.getTargetObject(userService);
         assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
-                userService, "assignRoles", uid, List.of(), null),
+                target, "assignRoles", uid, List.of(), null),
                 "空角色集合不应触发越界异常（M1 守卫）");
 
         assertTrue(userRoles(uid).isEmpty(), "空角色集合应将原关联清空");

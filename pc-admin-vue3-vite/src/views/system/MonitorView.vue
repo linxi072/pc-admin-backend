@@ -5,16 +5,26 @@
     <!-- 运行指标 -->
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
-        <span class="card-title">服务器与运行状态</span>
-        <span class="spacer" />
-        <el-select v-model="range" style="width: 150px" @change="loadSamples">
-          <el-option label="最近1小时" value="1" />
-          <el-option label="最近6小时" value="6" />
-          <el-option label="最近24小时" value="24" />
-          <el-option label="最近7天" value="168" />
-        </el-select>
-        <el-checkbox v-model="autoRefresh">自动刷新(30s)</el-checkbox>
-        <el-button type="primary" :icon="Refresh" :loading="refreshing" @click="refreshAll">刷新</el-button>
+        <div class="toolbar-filters">
+          <span class="card-title">服务器与运行状态</span>
+          <div class="filter-group">
+            <span class="filter-label">时间范围</span>
+            <el-select v-model="range" style="width: 150px" @change="loadSamples">
+              <el-option label="最近1小时" value="1" />
+              <el-option label="最近6小时" value="6" />
+              <el-option label="最近24小时" value="24" />
+              <el-option label="最近7天" value="168" />
+            </el-select>
+          </div>
+          <div class="filter-group">
+            <el-checkbox v-model="autoRefresh">自动刷新(30s)</el-checkbox>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Refresh" :loading="refreshing" @click="refreshAll">刷新</el-button>
+          </div>
+        </div>
       </div>
 
       <el-row :gutter="16">
@@ -30,7 +40,8 @@
           <div class="metric-card">
             <div class="metric-label">JVM 内存</div>
             <div class="metric-value">{{ fmtPct(metrics?.memoryUsage) }}</div>
-            <el-progress :percentage="pctNum(metrics?.memoryUsage)" :stroke-width="8" :show-text="false" color="#409eff" />
+            <!-- 品牌色统一到全局 --brand 变量 -->
+            <el-progress :percentage="pctNum(metrics?.memoryUsage)" :stroke-width="8" :show-text="false" color="var(--brand)" />
             <div class="metric-sub">{{ fmtBytes(metrics?.usedHeapBytes) }} / {{ fmtBytes(metrics?.maxHeapBytes) }}</div>
           </div>
         </el-col>
@@ -52,6 +63,12 @@
         </el-col>
       </el-row>
 
+      <!-- 历史趋势：时间范围下拉驱动（修复前 loadSamples 为占位空实现，下拉无任何效果） -->
+      <div class="chart-block" v-loading="sampleLoading">
+        <BaseChart v-if="samples.length" :option="sampleChartOption" height="280px" />
+        <el-empty v-else description="暂无历史采样数据（点击「刷新」可立即采样一次）" :image-size="60" />
+      </div>
+
       <el-descriptions class="runtime-desc" :column="4" border size="small">
         <el-descriptions-item label="JVM">{{ metrics?.jvmName || '--' }}</el-descriptions-item>
         <el-descriptions-item label="Java 版本">{{ metrics?.javaVersion || '--' }}</el-descriptions-item>
@@ -67,16 +84,24 @@
     <!-- 在线用户 -->
     <el-card class="page-card">
       <div class="toolbar">
-        <span class="card-title">在线用户与会话</span>
-        <span class="spacer" />
-        <el-input
-          v-model="sessionKeyword"
-          placeholder="按用户名/姓名筛选"
-          clearable
-          style="width: 220px"
-          @keyup.enter="loadSessions"
-        />
-        <el-button :icon="Search" @click="loadSessions">查询</el-button>
+        <div class="toolbar-filters">
+          <span class="card-title">在线用户与会话</span>
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input
+              v-model="sessionKeyword"
+              placeholder="按用户名/姓名筛选"
+              clearable
+              style="width: 220px"
+              @keyup.enter="loadSessions"
+            />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button :icon="Search" @click="loadSessions">查询</el-button>
+          </div>
+        </div>
       </div>
 
       <el-row :gutter="16" class="online-row">
@@ -120,16 +145,24 @@
     <!-- 异常日志 -->
     <el-card class="page-card">
       <div class="toolbar">
-        <span class="card-title">关键接口 / 任务异常日志</span>
-        <span class="spacer" />
-        <el-input
-          v-model="errQuery.keyword"
-          placeholder="按路径/操作/操作人/traceId"
-          clearable
-          style="width: 240px"
-          @keyup.enter="loadErrors"
-        />
-        <el-button type="primary" :icon="Search" @click="loadErrors">查询</el-button>
+        <div class="toolbar-filters">
+          <span class="card-title">关键接口 / 任务异常日志</span>
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input
+              v-model="errQuery.keyword"
+              placeholder="按路径/操作/操作人/traceId"
+              clearable
+              style="width: 240px"
+              @keyup.enter="loadErrors"
+            />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Search" @click="loadErrors">查询</el-button>
+          </div>
+        </div>
       </div>
 
       <el-table :data="errors" v-loading="errLoading" border stripe @sort-change="onErrorSortChange">
@@ -149,31 +182,36 @@
         <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
       </el-table>
 
-      <el-pagination
-        class="pager"
-        layout="total, sizes, prev, pager, next"
-        :total="errTotal"
-        v-model:current-page="errQuery.page"
-        v-model:page-size="errQuery.size"
-        :page-sizes="[10, 20, 50]"
-        @change="loadErrors"
-      />
+      <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="errQuery.page"
+          v-model:page-size="errQuery.size"
+          :total="errTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadErrors"
+          @size-change="onErrorSizeChange"
+        />
+      </div>
       <div class="hint">默认查询最近 24 小时的失败记录（success=0）。</div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
+import BaseChart from '@/components/BaseChart.vue'
 import {
   getServerMetrics,
   getOnlineSummary,
   listOnlineSessions,
+  listMonitorSamples,
   pageErrorLogs,
   triggerMonitorSample
-} from '../../api/monitor'
+} from '@/api/monitor'
 
 const metrics = ref(null)
 const online = ref(null)
@@ -183,10 +221,13 @@ const sessionKeyword = ref('')
 const errors = ref([])
 const errLoading = ref(false)
 const errTotal = ref(0)
-const errQuery = reactive({ page: 1, size: 20, keyword: '', sortField: '', sortDirection: '' })
+// 默认每页条数统一为 10（与其他列表页一致）
+const errQuery = reactive({ page: 1, size: 10, keyword: '', sortField: '', sortDirection: '' })
 const range = ref('24')
 const autoRefresh = ref(false)
 const refreshing = ref(false)
+const samples = ref([])
+const sampleLoading = ref(false)
 let timer = null
 
 const pctNum = (v) => (v === null || v === undefined ? 0 : Math.min(100, Number(v)))
@@ -216,18 +257,29 @@ function fmtUptime(ms) {
   return `${m} 分 ${s % 60} 秒`
 }
 
+// 失败统一静默：http 拦截器已弹出提示，此处只保证不产生 Uncaught (in promise)
 async function loadMetrics() {
-  metrics.value = await getServerMetrics()
+  try {
+    metrics.value = await getServerMetrics()
+  } catch (e) {
+    /* 拦截器已提示 */
+  }
 }
 
 async function loadOnline() {
-  online.value = await getOnlineSummary()
+  try {
+    online.value = await getOnlineSummary()
+  } catch (e) {
+    /* 拦截器已提示 */
+  }
 }
 
 async function loadSessions() {
   sessionLoading.value = true
   try {
     sessions.value = (await listOnlineSessions({ keyword: sessionKeyword.value || undefined, limit: 100 })) || []
+  } catch (e) {
+    sessions.value = []
   } finally {
     sessionLoading.value = false
   }
@@ -245,9 +297,19 @@ async function loadErrors() {
     })
     errors.value = data.records || []
     errTotal.value = data.total || 0
+  } catch (e) {
+    errors.value = []
+    errTotal.value = 0
   } finally {
     errLoading.value = false
   }
+}
+
+/** 异常日志分页：每页条数变化后回到第一页。 */
+function onErrorSizeChange(size) {
+  errQuery.size = size
+  errQuery.page = 1
+  loadErrors()
 }
 
 /** 异常日志表头排序：走服务端白名单（occurredAt / durationMs 等）。 */
@@ -258,9 +320,45 @@ function onErrorSortChange({ prop, order }) {
   loadErrors()
 }
 
-function loadSamples() {
-  // 预留：历史趋势接口（/monitor/samples），如需图表可在此接入
+/**
+ * 历史趋势采样：按「时间范围」下拉的小时数取 [now-hours, now] 窗口。
+ * 后端按 sampled_at 倒序返回，图表按时间正序展示。
+ */
+async function loadSamples() {
+  const hours = Number(range.value) || 24
+  const to = new Date()
+  const from = new Date(to.getTime() - hours * 3600 * 1000)
+  sampleLoading.value = true
+  try {
+    samples.value = (await listMonitorSamples({
+      from: from.toISOString(),
+      to: to.toISOString(),
+      limit: 500
+    })) || []
+  } catch (e) {
+    samples.value = []
+  } finally {
+    sampleLoading.value = false
+  }
 }
+
+/** 趋势图配置：CPU / JVM 内存 / 物理内存三条使用率曲线（0-100%）。 */
+const sampleChartOption = computed(() => {
+  const rows = [...samples.value].reverse()
+  const label = (t) => (t || '').replace('T', ' ').slice(5, 16)
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['CPU %', 'JVM 内存 %', '物理内存 %'], right: 0 },
+    grid: { left: 48, right: 16, top: 36, bottom: 28 },
+    xAxis: { type: 'category', boundaryGap: false, data: rows.map((r) => label(r.sampledAt)) },
+    yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
+    series: [
+      { name: 'CPU %', type: 'line', showSymbol: false, smooth: true, data: rows.map((r) => r.cpuUsage ?? null) },
+      { name: 'JVM 内存 %', type: 'line', showSymbol: false, smooth: true, data: rows.map((r) => r.memoryUsage ?? null) },
+      { name: '物理内存 %', type: 'line', showSymbol: false, smooth: true, data: rows.map((r) => r.systemMemoryUsage ?? null) }
+    ]
+  }
+})
 
 async function refreshAll() {
   refreshing.value = true
@@ -269,11 +367,14 @@ async function refreshAll() {
     await triggerMonitorSample()
     await Promise.all([loadMetrics(), loadOnline(), loadSessions(), loadErrors()])
     ElMessage.success('已刷新')
+  } catch (e) {
+    // 拦截器已提示；采样失败不阻断后续刷新
   } finally {
     refreshing.value = false
   }
 }
 
+/** 按勾选状态重建 30s 轮询定时器（先停后排，避免叠加）。 */
 function setupAutoRefresh() {
   if (timer) {
     clearInterval(timer)
@@ -287,13 +388,22 @@ function setupAutoRefresh() {
   }
 }
 
+// 勾选「自动刷新」后接线生效（此前 setupAutoRefresh 定义了却从未调用）
+watch(autoRefresh, setupAutoRefresh)
+
 onMounted(() => {
   loadMetrics()
   loadOnline()
   loadSessions()
   loadErrors()
+  loadSamples()
 })
-onUnmounted(() => timer && clearInterval(timer))
+onBeforeUnmount(() => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+})
 </script>
 
 <style scoped>
@@ -302,6 +412,10 @@ onUnmounted(() => timer && clearInterval(timer))
   border-radius: 6px;
   padding: 14px 16px;
   margin-bottom: 8px;
+}
+.chart-block {
+  margin: 12px 0 4px;
+  min-height: 60px;
 }
 .metric-label {
   font-size: 13px;
@@ -337,7 +451,7 @@ onUnmounted(() => timer && clearInterval(timer))
 .online-num {
   font-size: 26px;
   font-weight: 600;
-  color: #409eff;
+  color: var(--brand);
 }
 .online-label {
   font-size: 13px;

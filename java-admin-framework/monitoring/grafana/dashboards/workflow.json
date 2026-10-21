@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 39,
+  "title": "工作流 / 认证",
+  "uid": "workflow",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "refresh": "30s",
+  "tags": [
+    "java-admin-framework"
+  ],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "审批处理耗时 P99 (s)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(app_approval_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(app_approval_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "审批吞吐 (ops)",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(app_approval_duration_seconds_count[1m]))",
+          "legendFormat": "value"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "登录失败率 (%)",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(app_login_total{result=\"failure\"}[5m])) / sum(rate(app_login_total[5m])) * 100",
+          "legendFormat": "value"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "登录成功 / 失败 (ops)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (result)(rate(app_login_total[1m]))",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "type": "text",
+      "title": "说明",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "「在途审批」实例数当前由业务库 workflow 表提供，未暴露为 Prometheus gauge；如需面板请在 BusinessMetrics 中增加自定义 Gauge（如 app_workflow_inflight）。指标 app.approval.duration / app.login.total 来自 monitor.BusinessMetrics。"
+      }
+    }
+  ]
+}

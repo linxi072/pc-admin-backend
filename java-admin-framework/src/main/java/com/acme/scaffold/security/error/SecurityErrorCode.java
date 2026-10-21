@@ -11,7 +11,15 @@ public enum SecurityErrorCode implements ErrorCode {
     REFRESH_INVALID("AUTH_004", "刷新令牌无效或已过期", HttpStatus.UNAUTHORIZED.value()),
     TOKEN_REVOKED("AUTH_005", "凭证已失效，请重新登录", HttpStatus.UNAUTHORIZED.value()),
     PASSWORD_WEAK("AUTH_006", "密码强度不足", HttpStatus.UNPROCESSABLE_ENTITY.value()),
-    PASSWORD_REUSED("AUTH_007", "不能与最近使用的密码相同", HttpStatus.UNPROCESSABLE_ENTITY.value());
+    PASSWORD_REUSED("AUTH_007", "不能与最近使用的密码相同", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+    CAPTCHA_REQUIRED("AUTH_008", "请先获取并完成验证码", HttpStatus.BAD_REQUEST.value()),
+    CAPTCHA_INVALID("AUTH_009", "验证码错误或已失效", HttpStatus.BAD_REQUEST.value()),
+    RATE_LIMITED("AUTH_010", "请求过于频繁，请稍后再试", 429),
+    TOO_MANY_SESSIONS("AUTH_011", "同一账号同时登录设备数已达上限", 409),
+    REPLAY_TIMESTAMP_INVALID("AUTH_012", "请求时间戳无效或已过期", 400),
+    REPLAY_DETECTED("AUTH_013", "检测到重放请求", 409),
+    MUST_CHANGE_PASSWORD("AUTH_014", "请修改初始/重置密码后再登录", 423),
+    ACCOUNT_RESTRICTED("AUTH_015", "账号已被限制登录，请联系管理员", 423);
 
     private final String code;
     private final String message;

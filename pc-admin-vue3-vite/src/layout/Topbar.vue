@@ -39,7 +39,11 @@
           </el-button>
         </el-badge>
       </el-tooltip>
-      <el-button text class="icon-btn"><el-icon size="18"><Setting /></el-icon></el-button>
+      <el-tooltip content="账号设置" placement="bottom">
+        <el-button text class="icon-btn" @click="onCmd('settings')">
+          <el-icon size="18"><Setting /></el-icon>
+        </el-button>
+      </el-tooltip>
       <el-dropdown @command="onCmd">
         <span class="user">
           <el-avatar :size="28" class="avatar">U</el-avatar>
@@ -81,7 +85,7 @@ import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { getUnreadCount } from '@/api/message'
-import { initRealtime, onRealtime } from '@/api/realtime'
+import { initRealtime, onRealtime, closeRealtime } from '@/api/realtime'
 
 defineProps({ collapsed: Boolean })
 defineEmits(['toggle'])
@@ -193,6 +197,9 @@ async function onCmd(cmd) {
       // 后端登出失败仍清理本地会话，保证前端状态一致
     }
     clearAuth()
+    // 关闭实时通道并复位 started 标志：否则重新登录后 initRealtime() 直接 early-return，
+    // WebSocket 永不重连（未读角标只能靠 60s 轮询兜底）
+    closeRealtime()
     ElMessage.success('已退出登录')
     router.replace('/login')
   } else {

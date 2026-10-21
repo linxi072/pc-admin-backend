@@ -1,7 +1,8 @@
 package com.acme.scaffold.common.idempotency;
 
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordDO;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
@@ -166,8 +167,12 @@ public class IdempotencyService {
     }
 
     private String toSnapshot(Object response) {
+        // void 方法或返回 null 的成功响应：存 JSON null 字面量而非 Java null。
+        // 否则重放路径会把「快照缺失」误判为不可重放而 409 拒绝——@Idempotent 的
+        // 两处业务（WorkflowService#completeTask/#transfer）均为 void，不存 sentinel
+        // 时客户端任何同 key 重试都被拦截，「幂等」退化为「拒绝重试」。
         if (response == null) {
-            return null;
+            return "null";
         }
         try {
             String json = objectMapper.writeValueAsString(response);

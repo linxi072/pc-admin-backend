@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.controller;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.audit.AuditLogQuery;
+import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogSummary;
 import com.acme.scaffold.common.audit.AuditLogView;

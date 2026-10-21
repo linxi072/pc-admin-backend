@@ -2,8 +2,8 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.RoleView;
 import com.acme.scaffold.system.entity.SysRoleApiDO;
@@ -13,6 +13,7 @@ import com.acme.scaffold.system.entity.SysRoleMenuDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,11 @@ public class RoleService {
 
     private final DSLContext dsl;
 
+    /**
+     * 创建角色。菜单授权影响用户菜单树（{@link MenuService#USER_MENUS_CACHE}），
+     * 整缓存驱逐（新建角色尚无用户绑定，此处为防御性语义）。
+     */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, allEntries = true)
     @Transactional
     public Long create(CreateRoleRequest request) {
         if (existsByCode(request.roleCode())) {
@@ -46,6 +52,11 @@ public class RoleService {
         return role.getId();
     }
 
+    /**
+     * 更新角色。menuIds / apiIds 非 null 时整体替换绑定：菜单授权变化影响所有
+     * 持有该角色的用户的菜单树，故整缓存驱逐 {@value MenuService#USER_MENUS_CACHE}。
+     */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, allEntries = true)
     @Transactional
     public void update(Long id, CreateRoleRequest request) {
         SysRoleDO role = get(id);
@@ -60,8 +71,16 @@ public class RoleService {
             role.setSortNo(request.sortNo());
         }
         JooqWriters.updateById(dsl, JooqTables.SYS_ROLE, id, role);
-        assignMenus(id, request.menuIds());
-        assignApis(id, request.apiIds());
+        // 绑定语义：menuIds / apiIds 为 null 表示「本次不改动绑定」（保留原授权），
+        // 空集合表示「清空全部绑定」。原实现无条件重建绑定，调用方局部更新角色信息
+        // （如只改角色名）时漏传即把菜单/接口授权全部清空——契约二义且误清后果严重。
+        // 前端编辑角色始终回填两个集合（空集合=全部取消勾选），语义切换对其无感。
+        if (request.menuIds() != null) {
+            assignMenus(id, request.menuIds());
+        }
+        if (request.apiIds() != null) {
+            assignApis(id, request.apiIds());
+        }
     }
 
     public RoleView getView(Long id) {
@@ -83,8 +102,16 @@ public class RoleService {
                 .stream().map(RoleView::from).collect(Collectors.toList());
     }
 
+    /**
+     * 删除角色（级联清理用户-角色、角色-菜单、角色-接口关联）。
+     * 受影响用户的菜单树随缓存整缓存驱逐。
+     */
+    @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, allEntries = true)
     @Transactional
     public void delete(Long id) {
+        // 用户-角色关联先清：该表无外键约束，漏删会残留孤儿行（角色已不存在但用户仍"挂"着它，
+        // 权限计算靠 notDeleted 兜底过滤虽不泄露，但数据卫生失控且角色重建后历史绑定不会恢复）
+        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "role_id", id);
         JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "role_id", id);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_API, "role_id", id);

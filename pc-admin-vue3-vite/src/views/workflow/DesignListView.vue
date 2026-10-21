@@ -3,9 +3,17 @@
     <h2 class="page-title">工作流设计</h2>
     <el-card class="page-card">
       <div class="toolbar">
-        <el-button type="primary" :icon="Plus" @click="openCreate">新建工作流</el-button>
-        <span class="spacer" />
-        <el-input v-model="keyword" placeholder="按流程名称/编码搜索" style="width: 220px" clearable />
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">关键字</span>
+            <el-input v-model="keyword" placeholder="按流程名称/编码搜索" style="width: 220px" clearable />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Plus" @click="openCreate">新建工作流</el-button>
+          </div>
+        </div>
       </div>
       <el-table :data="filteredRows" v-loading="loading" border stripe>
         <el-table-column prop="processKey" label="流程编码" width="140" />
@@ -29,7 +37,11 @@
             <el-button
               v-else link type="warning" :icon="Download"
               :loading="row._publishing" @click="doUnpublish(row)">取消发布</el-button>
-            <el-button link type="primary" :icon="View" @click="previewBpmn(row)">BPMN</el-button>
+            <el-tooltip :content="row.status === 'PUBLISHED' ? '' : '发布后可查看 BPMN'" :disabled="row.status === 'PUBLISHED'">
+              <span>
+                <el-button link type="primary" :icon="View" :disabled="row.status !== 'PUBLISHED'" @click="previewBpmn(row)">BPMN</el-button>
+              </span>
+            </el-tooltip>
             <el-button link type="danger" :icon="Delete" @click="doDelete(row)">删除</el-button>
           </template>
         </el-table-column>

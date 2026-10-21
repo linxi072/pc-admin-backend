@@ -1,7 +1,7 @@
 package com.acme.scaffold.security.permission;
 
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.entity.SysApiResourceDO;
 import com.acme.scaffold.system.entity.SysMenuDO;
 import com.acme.scaffold.system.entity.SysRoleApiDO;

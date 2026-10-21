@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
+import com.acme.scaffold.system.dto.MenuSortItem;
 import com.acme.scaffold.system.dto.MenuTreeVO;
 import com.acme.scaffold.system.dto.UpdateMenuRequest;
 import com.acme.scaffold.system.service.MenuService;
@@ -39,12 +40,13 @@ public class MenuController {
         return Result.success(menuService.tree());
     }
 
+    /** 创建菜单，返回新菜单 id（字符串：18 位雪花 ID 超出 JS 安全整数范围，防前端精度丢失）。 */
     @Operation(summary = "创建菜单")
     @PostMapping
     @PreAuthorize("hasAuthority('system:menu:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建菜单")
-    public Result<Long> create(@Valid @RequestBody CreateMenuRequest request) {
-        return Result.success(menuService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateMenuRequest request) {
+        return Result.success(String.valueOf(menuService.create(request)));
     }
 
     @Operation(summary = "删除菜单")
@@ -62,6 +64,15 @@ public class MenuController {
     @AuditOperation(module = "system", type = "UPDATE", name = "更新菜单")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateMenuRequest request) {
         menuService.update(id, request);
+        return Result.success();
+    }
+
+    @Operation(summary = "批量调整菜单排序（拖拽排序 / 上移下移）")
+    @PutMapping("/sort")
+    @PreAuthorize("hasAuthority('system:menu:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "菜单排序")
+    public Result<Void> reorder(@RequestBody List<@Valid MenuSortItem> items) {
+        menuService.reorder(items);
         return Result.success();
     }
 }

@@ -29,3 +29,10 @@ management:
   health:
     redis:
       enabled: false
+
+# 说明（不覆盖 flowable.database-schema-update，继承主配置的 true）：
+# 本机 MySQL 同一实例上 local 库（scaffold）已建 Flowable schema，而 Flowable 的
+# isTablePresent 使用 DatabaseMetaData.getTables 且不限定库名，会误判「schema 已存在」，
+# 导致 IT 库（java_admin）走 upgrade 路径并在读不到版本号时以 FlowableWrongDbException 失败。
+# 本机修复：已在 java_admin 预建 Flowable schema（common/engine/history 三脚本 + 版本行）。
+# CI 为全新 MySQL 实例，无跨库干扰，true 模式的标准 create 路径可直接建表，无需任何覆盖。

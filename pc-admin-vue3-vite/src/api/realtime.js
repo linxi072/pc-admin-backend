@@ -14,6 +14,7 @@ const listeners = new Set()
 let started = false
 let ws = null
 let heartbeatTimer = null
+let reconnectTimer = null
 
 function dispatch(msg) {
   listeners.forEach((cb) => {
@@ -33,6 +34,15 @@ function wsBase() {
 function connectReal() {
   const token = authState.token
   if (!token) return
+  // 重连前先清掉上一轮遗留的定时器，否则每次重连都会叠加一个心跳定时器
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
   const url = `${wsBase()}?token=${encodeURIComponent(token)}`
   try {
     ws = new WebSocket(url)
@@ -40,18 +50,21 @@ function connectReal() {
     return
   }
   ws.onmessage = (ev) => {
+    const raw = ev.data
+    // 后端以原始字符串 'pong' 回应心跳（非 JSON），先按字符串短路，避免 JSON.parse 抛错被静默吞掉
+    if (raw === 'pong' || raw === '"pong"') return
     try {
-      const msg = JSON.parse(ev.data)
+      const msg = JSON.parse(raw)
       if (msg && msg.type === 'PONG') return
       dispatch(msg)
     } catch (e) {
-      // 忽略非 JSON 帧
+      // 忽略其他非 JSON 帧
     }
   }
   ws.onclose = () => {
     ws = null
     if (started) {
-      setTimeout(connectReal, 5000) // 断线 5s 后重连
+      reconnectTimer = setTimeout(connectReal, 5000) // 断线 5s 后重连
     }
   }
   ws.onerror = () => {
@@ -89,6 +102,13 @@ export function closeRealtime() {
     }
     ws = null
   }
-  if (heartbeatTimer) clearInterval(heartbeatTimer)
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
   listeners.clear()
 }

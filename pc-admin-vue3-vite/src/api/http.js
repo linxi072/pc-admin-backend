@@ -2,15 +2,59 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { API_BASE } from './config'
 import { clearAuth } from '../store/auth'
+import { closeRealtime } from './realtime'
 
 const realAxios = axios.create({ baseURL: API_BASE, timeout: 15000 })
 
-// 请求拦截：注入 JWT
-realAxios.interceptors.request.use((cfg) => {
+// 稳定的设备标识：每个浏览器首次访问时生成并持久化，用于后端「同账号多端登录限制」统计在线设备数。
+// 该标识随每个请求经 X-Device-Id 头上报，后端据此区分不同登录设备。
+function getDeviceId() {
+  let id = localStorage.getItem('pc_admin_device_id')
+  if (id) return id
+  try {
+    id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'dev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+  } catch (e) {
+    id = 'dev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+  }
+  localStorage.setItem('pc_admin_device_id', id)
+  return id
+}
+
+function injectAuthHeaders(cfg) {
   const token = localStorage.getItem('pc_admin_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
+  if (!cfg.headers['X-Device-Id']) cfg.headers['X-Device-Id'] = getDeviceId()
   return cfg
-})
+}
+
+/**
+ * HTTP 层错误统一处理（realAxios 与 rawAxios 共用）：
+ * - 401：清理登录态、关闭实时通道、带 redirect 回跳登录页
+ * - 其余：弹出错误提示（调用方 catch 里无需重复提示）
+ *
+ * 早期 rawAxios 漏配本拦截器，导致下载/导出/导入类请求的 HTTP 错误完全静默，
+ * 且 401 不清理登录态（用户卡在死页）。
+ */
+function handleHttpError(err) {
+  const status = err.response?.status
+  if (status === 401) {
+    clearAuth()
+    closeRealtime()
+    import('../router').then((m) => m.default.replace({
+      path: '/login',
+      query: { redirect: m.default.currentRoute.value.fullPath }
+    }))
+    return Promise.reject(err)
+  }
+  const msg = err.response?.data?.message || err.message || '网络错误'
+  ElMessage.error(msg)
+  return Promise.reject(err)
+}
+
+// 请求拦截：注入 JWT 与设备标识
+realAxios.interceptors.request.use(injectAuthHeaders)
 
 // 响应拦截：统一拆包 Result<T>{code,message,data}，code!=='0' 视为业务错误
 realAxios.interceptors.response.use(
@@ -21,16 +65,7 @@ realAxios.interceptors.response.use(
     ElMessage.error(msg)
     return Promise.reject(Object.assign(new Error(msg), { code: body?.code }))
   },
-  (err) => {
-    const status = err.response?.status
-    if (status === 401) {
-      clearAuth()
-      import('../router').then((m) => m.default.replace('/login'))
-    }
-    const msg = err.response?.data?.message || err.message || '网络错误'
-    ElMessage.error(msg)
-    return Promise.reject(err)
-  }
+  handleHttpError
 )
 
 /**
@@ -42,4 +77,25 @@ realAxios.interceptors.response.use(
 export function request(config) {
   const { method = 'GET', url, params, data, headers } = config
   return realAxios.request({ method, url, params, data, headers })
+}
+
+// 原始请求通道：不经过「拆包」响应拦截，用于文件下载（blob）等需要原始响应的场景。
+// responseType 等调用方显式声明的 axios 配置必须透传——早前白名单式解构只取了
+// method/url/params/data/headers，导致调用方传的 responseType: 'blob' 被静默丢弃，
+// 文件下载按默认 JSON 解析响应（CSV/ZIP 文本以 string 形式返回），
+// 调用方 URL.createObjectURL(string) 直接抛 "Overload resolution failed"。
+// 响应错误拦截与 realAxios 共用 handleHttpError：401 清理登录态并跳登录，其余弹提示——
+// 早期本通道无错误拦截，下载/导出/导入的 HTTP 失败完全静默。
+export const rawAxios = axios.create({ baseURL: API_BASE, timeout: 30000 })
+
+rawAxios.interceptors.request.use(injectAuthHeaders)
+
+rawAxios.interceptors.response.use(
+  (resp) => resp,
+  handleHttpError
+)
+
+export function requestRaw(config) {
+  const { method = 'GET', url, params, data, headers, responseType } = config
+  return rawAxios.request({ method, url, params, data, headers, responseType })
 }

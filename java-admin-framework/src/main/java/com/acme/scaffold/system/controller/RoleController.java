@@ -44,8 +44,8 @@ public class RoleController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:role:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建角色")
-    public Result<Long> create(@Valid @RequestBody CreateRoleRequest request) {
-        return Result.success(roleService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateRoleRequest request) {
+        return Result.success(String.valueOf(roleService.create(request)));
     }
 
     @Operation(summary = "更新角色")

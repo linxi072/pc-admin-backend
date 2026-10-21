@@ -17,10 +17,10 @@ import jakarta.validation.constraints.Min;
  * @param discoverable      允许被搜索到
  */
 public record UpdatePreferenceRequest(
-        @Min(value = 0, message = "开关取值只能为 0 或 1") @Max(value = 1, message = "开关取值只能为 0 或 1") Integer notifySiteMessage,
-        @Min(value = 0, message = "开关取值只能为 0 或 1") @Max(value = 1, message = "开关取值只能为 0 或 1") Integer notifyEmail,
-        @Min(value = 0, message = "开关取值只能为 0 或 1") @Max(value = 1, message = "开关取值只能为 0 或 1") Integer notifyMobile,
-        @Min(value = 0, message = "开关取值只能为 0 或 1") @Max(value = 1, message = "开关取值只能为 0 或 1") Integer showLoginLog,
-        @Min(value = 0, message = "开关取值只能为 0 或 1") @Max(value = 1, message = "开关取值只能为 0 或 1") Integer maskMobile,
-        @Min(value = 0, message = "开关取值只能为 0 或 1") @Max(value = 1, message = "开关取值只能为 0 或 1") Integer discoverable) {
+        @Min(value = 0, message = "{validation.preference.switch.range}") @Max(value = 1, message = "{validation.preference.switch.range}") Integer notifySiteMessage,
+        @Min(value = 0, message = "{validation.preference.switch.range}") @Max(value = 1, message = "{validation.preference.switch.range}") Integer notifyEmail,
+        @Min(value = 0, message = "{validation.preference.switch.range}") @Max(value = 1, message = "{validation.preference.switch.range}") Integer notifyMobile,
+        @Min(value = 0, message = "{validation.preference.switch.range}") @Max(value = 1, message = "{validation.preference.switch.range}") Integer showLoginLog,
+        @Min(value = 0, message = "{validation.preference.switch.range}") @Max(value = 1, message = "{validation.preference.switch.range}") Integer maskMobile,
+        @Min(value = 0, message = "{validation.preference.switch.range}") @Max(value = 1, message = "{validation.preference.switch.range}") Integer discoverable) {
 }

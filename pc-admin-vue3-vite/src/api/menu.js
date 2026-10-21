@@ -19,3 +19,7 @@ export const deleteMenu = (id) =>
 // PUT /api/system/menus/{id} -> Void (UpdateMenuRequest: 同上编辑字段，parentId 由后端忽略以保持层级)
 export const updateMenu = (id, data) =>
   request({ method: 'PUT', url: `/api/system/menus/${id}`, data })
+
+// PUT /api/system/menus/sort -> Void (批量排序：[{ id, sortNo }]，拖拽/上下移动后整级提交)
+export const sortMenus = (items) =>
+  request({ method: 'PUT', url: '/api/system/menus/sort', data: items })

@@ -3,6 +3,7 @@ package com.acme.scaffold.system.controller;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.error.CommonErrorCode;
+import com.acme.scaffold.security.ratelimit.RateLimit;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.system.dto.ConfigVO;
 import com.acme.scaffold.system.dto.CreateConfigRequest;
@@ -47,13 +48,14 @@ public class ConfigController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:config:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建系统配置")
-    public Result<Long> create(@Valid @RequestBody CreateConfigRequest request) {
-        return Result.success(configService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateConfigRequest request) {
+        return Result.success(String.valueOf(configService.create(request)));
     }
 
     @Operation(summary = "更新配置")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('system:config:update')")
+    @RateLimit(max = 10, windowSeconds = 60, scope = RateLimit.Scope.USER)
     @AuditOperation(module = "system", type = "UPDATE", name = "更新系统配置")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateConfigRequest request) {
         configService.update(id, request);

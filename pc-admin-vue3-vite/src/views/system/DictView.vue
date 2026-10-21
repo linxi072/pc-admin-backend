@@ -23,9 +23,8 @@
             <el-table-column prop="dictName" label="名称" min-width="120" />
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">
-                  {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
-                </el-tag>
+                <!-- 状态标签统一走 utils/status 映射 -->
+                <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="130" fixed="right">
@@ -72,9 +71,8 @@
             <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">
-                  {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
-                </el-tag>
+                <!-- 状态标签统一走 utils/status 映射 -->
+                <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="130" fixed="right">
@@ -159,6 +157,8 @@ import { ElMessage } from 'element-plus'
 import { Plus, Delete, Edit } from '@element-plus/icons-vue'
 import { listDictTypes, createDictType, updateDictType, deleteDictType } from '@/api/dictType'
 import { listDictData, createDictData, updateDictData, deleteDictData } from '@/api/dictData'
+// 状态标签映射统一到 utils
+import { statusTag } from '@/utils/status'
 
 const typeLoading = ref(false)
 const dataLoading = ref(false)

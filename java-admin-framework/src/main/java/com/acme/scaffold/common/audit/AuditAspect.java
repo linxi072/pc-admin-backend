@@ -1,6 +1,7 @@
 package com.acme.scaffold.common.audit;
 
-import com.acme.scaffold.security.context.CurrentPrincipal;
+import com.acme.scaffold.common.sensitive.SensitiveMasker;
+import com.acme.scaffold.config.web.ClientIpResolver;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,11 +16,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.time.Instant;
 
 /**
  * 操作审计切面：对标注 {@link AuditOperation} 的方法自动记录审计日志。
- * 仅记录白名单字段，参数与结果均脱敏后截断。
+ * 参数与结果序列化后统一经 {@link SensitiveMasker#maskSummary(String)} 脱敏并截断至 2000 字符——
+ * <b>不做字段级白名单</b>，因此涉及密钥/凭据的接口应显式设置 {@code recordParams = false}。
  */
 @Slf4j
 @Aspect
@@ -30,6 +31,7 @@ public class AuditAspect {
     private final SecurityContextFacade securityContextFacade;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
+    private final ClientIpResolver clientIpResolver;
 
     @Around("@annotation(com.acme.scaffold.common.audit.AuditOperation)")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -78,7 +80,10 @@ public class AuditAspect {
         }
         try {
             String json = objectMapper.writeValueAsString(value);
-            return json.length() > 2000 ? json.substring(0, 2000) : json;
+            // 落库前统一脱敏：参数/结果可能携带密码、手机号、邮箱、身份证等敏感值
+            // （典型如「重置用户密码」接口的新密码明文），否则持有审计敏感权限者即可原样读回
+            String masked = SensitiveMasker.maskSummary(json);
+            return masked.length() > 2000 ? masked.substring(0, 2000) : masked;
         } catch (Exception e) {
             return value.getClass().getSimpleName();
         }
@@ -86,14 +91,8 @@ public class AuditAspect {
 
     private String resolveClientIp() {
         HttpServletRequest request = currentRequest();
-        if (request == null) {
-            return null;
-        }
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        // 非 HTTP 上下文（定时任务等）返回 null，由审计记录按缺失处理
+        return request == null ? null : clientIpResolver.resolve(request);
     }
 
     private String resolveMethod() {

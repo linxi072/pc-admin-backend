@@ -12,10 +12,19 @@
       <el-tab-pane label="我的消息" name="mine">
         <el-card class="page-card">
           <div class="toolbar">
-            <el-checkbox v-model="onlyUnread" @change="onSearch">仅看未读</el-checkbox>
-            <span class="spacer" />
-            <el-button :icon="Select" @click="onReadAll">全部标记已读</el-button>
-            <el-button type="primary" :icon="Promotion" @click="openSend">发送站内信</el-button>
+            <div class="toolbar-filters">
+              <div class="filter-group">
+                <el-checkbox v-model="onlyUnread" @change="onSearch">仅看未读</el-checkbox>
+              </div>
+            </div>
+            <div class="toolbar-actions">
+              <div class="action-buttons">
+                <el-button :icon="Select" @click="onReadAll">全部标记已读</el-button>
+              </div>
+              <div class="action-buttons">
+                <el-button type="primary" :icon="Promotion" @click="openSend">发送站内信</el-button>
+              </div>
+            </div>
           </div>
 
           <el-table :data="list" v-loading="loading" border stripe>
@@ -51,15 +60,18 @@
             </el-table-column>
           </el-table>
 
-          <el-pagination
-            class="pager"
-            layout="total, sizes, prev, pager, next"
-            :total="total"
-            v-model:current-page="query.page"
-            v-model:page-size="query.size"
-            :page-sizes="[10, 20, 50]"
-            @change="load"
-          />
+          <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+          <div class="pager">
+            <el-pagination
+              v-model:current-page="query.page"
+              v-model:page-size="query.size"
+              :total="total"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @current-change="load"
+              @size-change="onSizeChange"
+            />
+          </div>
         </el-card>
       </el-tab-pane>
 
@@ -84,61 +96,109 @@
             <el-table-column prop="sentAt" label="发送时间" width="160" />
           </el-table>
 
-          <el-pagination
-            class="pager"
-            layout="total, prev, pager, next"
-            :total="sentTotal"
-            v-model:current-page="sentQuery.page"
-            @change="loadSent"
-          />
+          <div class="pager">
+            <el-pagination
+              v-model:current-page="sentQuery.page"
+              v-model:page-size="sentQuery.size"
+              :total="sentTotal"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @current-change="loadSent"
+              @size-change="onSentSizeChange"
+            />
+          </div>
         </el-card>
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 发送弹窗：单条 / 批量 -->
-    <el-dialog v-model="sendVisible" title="发送站内信" width="640px">
+    <!-- 发送弹窗：渠道（站内信 / 邮件 / 短信）× 单条 / 批量 -->
+    <el-dialog v-model="sendVisible" :title="sendDialogTitle" width="640px">
       <el-form :model="sendForm" :rules="sendRules" ref="sendFormRef" label-width="90px">
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
-        </el-form-item>
-        <el-form-item label="内容" prop="content">
-          <el-input v-model="sendForm.content" type="textarea" :rows="5" />
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-radio-group v-model="sendForm.msgType">
-            <el-radio label="NOTICE">通知</el-radio>
-            <el-radio label="ALERT">告警</el-radio>
-            <el-radio label="SYSTEM">系统</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="发送方式">
-          <el-radio-group v-model="sendMode">
-            <el-radio label="batch">按角色/部门批量</el-radio>
-            <el-radio label="single">指定接收人</el-radio>
+        <el-form-item label="通知渠道">
+          <el-radio-group v-model="sendChannel">
+            <el-radio label="IN_APP">站内信</el-radio>
+            <el-radio label="EMAIL">邮件</el-radio>
+            <el-radio label="SMS">短信</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <template v-if="sendMode === 'batch'">
-          <el-form-item label="按角色">
-            <el-select v-model="sendForm.roleIds" multiple placeholder="选择角色（与部门为或关系）" style="width: 100%">
-              <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
-            </el-select>
+        <!-- 站内信：既有完整形态不变 -->
+        <template v-if="sendChannel === 'IN_APP'">
+          <el-form-item label="标题" prop="title">
+            <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
           </el-form-item>
-          <el-form-item label="按部门">
-            <el-select v-model="sendForm.orgIds" multiple placeholder="选择部门（与角色为或关系）" style="width: 100%">
-              <el-option v-for="o in orgFlatOptions" :key="o.id" :label="o.orgName" :value="o.id" />
+          <el-form-item label="内容" prop="content">
+            <el-input v-model="sendForm.content" type="textarea" :rows="5" />
+          </el-form-item>
+          <el-form-item label="类型">
+            <el-radio-group v-model="sendForm.msgType">
+              <el-radio label="NOTICE">通知</el-radio>
+              <el-radio label="ALERT">告警</el-radio>
+              <el-radio label="SYSTEM">系统</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="发送方式">
+            <el-radio-group v-model="sendMode">
+              <el-radio label="batch">按角色/部门批量</el-radio>
+              <el-radio label="single">指定接收人</el-radio>
+            </el-radio-group>
+          </el-form-item>
+
+          <template v-if="sendMode === 'batch'">
+            <el-form-item label="按角色">
+              <el-select v-model="sendForm.roleIds" multiple placeholder="选择角色（与部门为或关系）" style="width: 100%">
+                <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="按部门">
+              <el-select v-model="sendForm.orgIds" multiple placeholder="选择部门（与角色为或关系）" style="width: 100%">
+                <el-option v-for="o in orgFlatOptions" :key="o.id" :label="o.orgName" :value="o.id" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <el-form-item v-else label="接收人">
+            <el-select v-model="sendForm.receiverIds" multiple filterable placeholder="选择接收人" style="width: 100%">
+              <el-option v-for="u in userOptions" :key="u.id" :label="`${u.displayName}(${u.username})`" :value="u.id" />
             </el-select>
           </el-form-item>
         </template>
-        <el-form-item v-else label="接收人">
-          <el-select v-model="sendForm.receiverIds" multiple filterable placeholder="选择接收人" style="width: 100%">
-            <el-option v-for="u in userOptions" :key="u.id" :label="`${u.displayName}(${u.username})`" :value="u.id" />
-          </el-select>
-        </el-form-item>
+
+        <!-- 邮件：主题 + 正文 + 收件人地址列表 -->
+        <template v-if="sendChannel === 'EMAIL'">
+          <el-form-item label="邮件主题" prop="title">
+            <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item label="邮件正文" prop="content">
+            <el-input v-model="sendForm.content" type="textarea" :rows="5" />
+          </el-form-item>
+          <el-form-item label="收件人" prop="emails">
+            <el-input
+              v-model="sendForm.emails"
+              type="textarea"
+              :rows="3"
+              placeholder="每行一个邮箱，或用逗号 / 分号分隔（单封上限 50）"
+            />
+          </el-form-item>
+        </template>
+
+        <!-- 短信：正文 + 接收手机号列表（无主题；渠道未启用时后端返回校验错误） -->
+        <template v-if="sendChannel === 'SMS'">
+          <el-form-item label="短信内容" prop="content">
+            <el-input v-model="sendForm.content" type="textarea" :rows="4" maxlength="500" show-word-limit />
+          </el-form-item>
+          <el-form-item label="接收手机" prop="mobiles">
+            <el-input
+              v-model="sendForm.mobiles"
+              type="textarea"
+              :rows="3"
+              placeholder="每行一个手机号，或用逗号 / 分号分隔（单次上限 100）"
+            />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="sendVisible = false">取消</el-button>
-        <el-button type="primary" @click="onSend">发送</el-button>
+        <el-button type="primary" :loading="sending" @click="onSend">发送</el-button>
       </template>
     </el-dialog>
 
@@ -157,7 +217,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Promotion, Select } from '@element-plus/icons-vue'
 import {
@@ -167,13 +227,16 @@ import {
   getUnreadCount,
   markMessageRead,
   markAllMessagesRead
-} from '../../api/message'
+} from '@/api/message'
+import { sendNotification } from '@/api/notification'
 
 // 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
 defineProps({ embedded: { type: Boolean, default: false } })
-import { listRoles } from '../../api/role'
-import { orgTree } from '../../api/org'
-import { pageUsers } from '../../api/user'
+import { listRoles } from '@/api/role'
+import { orgTree } from '@/api/org'
+import { pageUsers } from '@/api/user'
+// 部门树拍平统一到 utils/tree
+import { flattenTree } from '@/utils/tree'
 
 const activeTab = ref('mine')
 const loading = ref(false)
@@ -181,23 +244,40 @@ const list = ref([])
 const total = ref(0)
 const unread = ref(0)
 const onlyUnread = ref(false)
-const query = reactive({ page: 1, size: 20 })
+// 默认每页条数统一为 10（与其他列表页一致）
+const query = reactive({ page: 1, size: 10 })
 
 const sentLoading = ref(false)
 const sentList = ref([])
 const sentTotal = ref(0)
-const sentQuery = reactive({ page: 1, size: 20 })
+const sentQuery = reactive({ page: 1, size: 10 })
 
 const sendVisible = ref(false)
+// 发送防重：与公告页同款 loading 绑定
+const sending = ref(false)
 const sendFormRef = ref()
 const sendMode = ref('batch')
+// 通知渠道：IN_APP 站内信 / EMAIL 邮件 / SMS 短信（后两者走跨渠道统一端点）
+const sendChannel = ref('IN_APP')
 const sendForm = reactive({
-  title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: []
+  title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: [],
+  emails: '', mobiles: ''
 })
-const sendRules = {
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
-}
+// 短信无主题，标题不作为必填项；其余渠道标题必填
+const sendRules = computed(() =>
+  sendChannel.value === 'SMS'
+    ? { content: [{ required: true, message: '请输入短信内容', trigger: 'blur' }] }
+    : {
+        title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+        content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
+      }
+)
+const sendDialogTitle = computed(
+  () => ({ IN_APP: '发送站内信', EMAIL: '发送邮件', SMS: '发送短信' }[sendChannel.value])
+)
+// 列表型文本域拆分：逗号 / 分号 / 换行分隔，trim 去空项
+const splitList = (text) =>
+  (text || '').split(/[,;，；\n]/).map((s) => s.trim()).filter((s) => s.length > 0)
 
 const detailVisible = ref(false)
 const current = ref(null)
@@ -211,30 +291,30 @@ const typeText = (t) => ({ NOTICE: '通知', ALERT: '告警', SYSTEM: '系统' }
 const readPercent = (row) =>
   row.totalCount ? Math.round((row.readCount / row.totalCount) * 100) : 0
 
-/** 拍平部门树为下拉选项（带缩进前缀）。 */
-function flattenOrgs(nodes, depth = 0, acc = []) {
-  ;(nodes || []).forEach((n) => {
-    acc.push({ id: n.id, orgName: `${'　'.repeat(depth)}${n.orgName}` })
-    if (n.children) flattenOrgs(n.children, depth + 1, acc)
-  })
-  return acc
-}
-
 async function load() {
   loading.value = true
   try {
     const data = await pageMyMessages({ page: query.page, size: query.size, onlyUnread: onlyUnread.value })
     list.value = data.records || []
     total.value = data.total || 0
+  } catch (e) {
+    // 失败静默：http 拦截器已统一提示，此处只避免 Uncaught (in promise)
+    list.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
   loadUnread()
 }
 
+/** 未读数为展示增强：失败静默降级，保留上一次计数，不打扰消息列表。 */
 async function loadUnread() {
-  const data = await getUnreadCount()
-  unread.value = data?.unread || 0
+  try {
+    const data = await getUnreadCount()
+    unread.value = data?.unread || 0
+  } catch (e) {
+    // 静默降级：不改动 unread
+  }
 }
 
 async function loadSent() {
@@ -243,9 +323,25 @@ async function loadSent() {
     const data = await pageSentMessages({ page: sentQuery.page, size: sentQuery.size })
     sentList.value = data.records || []
     sentTotal.value = data.total || 0
+  } catch (e) {
+    sentList.value = []
+    sentTotal.value = 0
   } finally {
     sentLoading.value = false
   }
+}
+
+/** 每页条数变化后回到第一页。 */
+function onSizeChange(size) {
+  query.size = size
+  query.page = 1
+  load()
+}
+
+function onSentSizeChange(size) {
+  sentQuery.size = size
+  sentQuery.page = 1
+  loadSent()
 }
 
 function onTabChange(name) {
@@ -259,15 +355,23 @@ function onSearch() {
 }
 
 async function onRead(row) {
-  await markMessageRead(row.messageId)
-  ElMessage.success('已标记为已读')
-  load()
+  try {
+    await markMessageRead(row.messageId)
+    ElMessage.success('已标记为已读')
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function onReadAll() {
-  const res = await markAllMessagesRead()
-  ElMessage.success(`已标记 ${res?.updated ?? 0} 条为已读`)
-  load()
+  try {
+    const res = await markAllMessagesRead()
+    ElMessage.success(`已标记 ${res?.updated ?? 0} 条为已读`)
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
 }
 
 async function openDetail(row) {
@@ -275,8 +379,12 @@ async function openDetail(row) {
   detailVisible.value = true
   // 打开详情即视为已读，回执时间在此落库
   if (!row.isRead) {
-    await markMessageRead(row.messageId)
-    load()
+    try {
+      await markMessageRead(row.messageId)
+      load()
+    } catch (e) {
+      // 回执失败不影响详情阅读，拦截器已提示
+    }
   }
 }
 
@@ -288,7 +396,7 @@ async function loadOptions() {
       pageUsers({ page: 1, size: 200 })
     ])
     roleOptions.value = roles || []
-    orgFlatOptions.value = flattenOrgs(tree)
+    orgFlatOptions.value = flattenTree(tree, { nameKey: 'orgName', labelKey: 'orgName' })
     userOptions.value = users?.records || []
   } catch (e) {
     console.warn('加载收件人选项失败', e)
@@ -297,16 +405,63 @@ async function loadOptions() {
 
 function openSend() {
   Object.assign(sendForm, {
-    title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: []
+    title: '', content: '', msgType: 'NOTICE', receiverIds: [], roleIds: [], orgIds: [],
+    emails: '', mobiles: ''
   })
   sendMode.value = 'batch'
+  sendChannel.value = 'IN_APP'
   sendVisible.value = true
   sendFormRef.value?.clearValidate()
   loadOptions()
 }
 
+/** 邮件 / 短信渠道：走跨渠道统一端点，目标列表由文本域拆分。 */
+async function sendViaNotification() {
+  if (sendChannel.value === 'EMAIL') {
+    const emails = splitList(sendForm.emails)
+    if (emails.length === 0) {
+      ElMessage.warning('请至少填写一个收件人邮箱')
+      return
+    }
+    const res = await sendNotification({
+      channel: 'EMAIL', title: sendForm.title, content: sendForm.content,
+      msgType: sendForm.msgType, emails
+    })
+    ElMessage.success(`已发送给 ${res?.delivered ?? 0} 个邮箱地址`)
+    return
+  }
+  const mobiles = splitList(sendForm.mobiles)
+  if (mobiles.length === 0) {
+    ElMessage.warning('请至少填写一个接收手机号')
+    return
+  }
+  const res = await sendNotification({
+    // 短信无主题：title 仅作审计标识（后端不随短信发送），取内容前缀便于审计识别
+    channel: 'SMS', title: sendForm.content.slice(0, 50) || '短信通知',
+    content: sendForm.content, mobiles
+  })
+  ElMessage.success(`已发送给 ${res?.delivered ?? 0} 个手机号`)
+}
+
 async function onSend() {
-  await sendFormRef.value.validate()
+  // 校验失败时 validate() 会 reject，须捕获避免 Uncaught (in promise)
+  const valid = await sendFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  // 邮件 / 短信渠道分支：目标校验与调用均不同于站内信
+  if (sendChannel.value !== 'IN_APP') {
+    sending.value = true
+    try {
+      await sendViaNotification()
+      sendVisible.value = false
+    } catch (e) {
+      // 拦截器已提示；保持弹窗开启便于修正后重发
+    } finally {
+      sending.value = false
+    }
+    return
+  }
+
   // 校验：批量模式至少选一个角色或部门；单条模式至少选一个接收人
   if (sendMode.value === 'batch' && sendForm.roleIds.length === 0 && sendForm.orgIds.length === 0) {
     ElMessage.warning('请至少选择一个角色或一个部门')
@@ -324,11 +479,19 @@ async function onSend() {
       : { title: sendForm.title, content: sendForm.content, msgType: sendForm.msgType,
           receiverIds: sendForm.receiverIds }
 
-  const res = await sendMessage(body)
-  ElMessage.success(`已发送给 ${res?.receiverCount ?? 0} 人`)
-  sendVisible.value = false
-  activeTab.value = 'sent'
-  loadSent()
+  // 按钮 loading 防重：慢网络下重复点击曾重复发送同一条站内信
+  sending.value = true
+  try {
+    const res = await sendMessage(body)
+    ElMessage.success(`已发送给 ${res?.receiverCount ?? 0} 人`)
+    sendVisible.value = false
+    activeTab.value = 'sent'
+    loadSent()
+  } catch (e) {
+    // 拦截器已提示；保持弹窗开启便于修正后重发
+  } finally {
+    sending.value = false
+  }
 }
 
 onMounted(load)
@@ -352,9 +515,7 @@ onMounted(load)
   color: #909399;
   margin-top: 2px;
 }
-.text-muted {
-  color: #c0c4cc;
-}
+/* .text-muted 已统一到全局 styles.css */
 .detail-title {
   margin: 0 0 8px;
   font-size: 18px;

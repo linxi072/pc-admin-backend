@@ -41,8 +41,8 @@ public class OrgController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:org:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建机构")
-    public Result<Long> create(@Valid @RequestBody CreateOrgRequest request) {
-        return Result.success(orgService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateOrgRequest request) {
+        return Result.success(String.valueOf(orgService.create(request)));
     }
 
     @Operation(summary = "更新机构（支持调整上级与层级移动）")

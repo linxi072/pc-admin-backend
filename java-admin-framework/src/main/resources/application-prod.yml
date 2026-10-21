@@ -1,8 +1,4 @@
 spring:
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
   data:
     redis:
       host: ${REDIS_HOST}
@@ -11,6 +7,20 @@ spring:
   flyway:
     # 生产环境结构变更必须走已评审迁移文件
     baseline-on-migrate: false
+
+app:
+  datasources:
+    entries:
+      primary:
+        url: ${DB_PRIMARY_URL}
+        username: ${DB_PRIMARY_USERNAME}
+        password: ${DB_PRIMARY_PASSWORD}
+  # WebSocket 跨域允许来源：生产收紧为具体前端域名（经环境变量覆盖，避免硬编码）
+  cors:
+    allowed-origins: ${WS_ALLOWED_ORIGINS:https://admin.example.com}
+  # Swagger 文档：生产需鉴权（文档本身已被 springdoc.api-docs.enabled=false 关闭，此处仅为策略显式开关）
+  swagger:
+    public-access: false
 
 management:
   endpoints:
@@ -34,6 +44,23 @@ jobrunr:
     worker-count: 8
   dashboard:
     enabled: false
+
+# 登录验证码：开启后 /api/auth/login 必须携带 GET /api/auth/captcha 下发的 token 与答案
+auth:
+  captcha:
+    enabled: true
+    expire-seconds: 120
+    max-number: 20
+    # 乘 / 除操作数上界；运算类型默认四则全集，可收窄为 operators: ADD,SUB
+    mul-max-number: 10
+    operators: ADD,SUB,MUL,DIV
+  # 请求级防重放（opt-in）：默认关闭，避免未携带时间戳/nonce 头的既有登录链路（含前端、InstanceIntegrationIT）被阻断。
+  # 启用后前端需为每个 /api/auth/login、/api/auth/refresh 请求附带 X-Request-Timestamp 与 X-Request-Nonce 头。
+  anti-replay:
+    enabled: false
+    max-clock-skew-millis: 5000
+    nonce-ttl-seconds: 60
+    max-nonce-cache-size: 100000
 
 logging:
   level:

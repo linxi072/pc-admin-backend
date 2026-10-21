@@ -13,8 +13,11 @@ public class SysConfigDO {
     private String configKey;
     private String configName;
     private String configValue;
+    private String defaultValue;
     private String configType = "STRING";
     private String remark;
+    /** 是否可编辑：1=运行时可改，0=系统内置不可改。 */
+    private Integer editable = 1;
     private String status = "ACTIVE";
 
     private Integer version = 0;

@@ -16,14 +16,14 @@ import java.util.List;
  * @param orgIds       自定义机构集合；仅 {@code CUSTOM} 时生效，其余类型必须为空
  */
 public record SaveDataScopeRequest(
-        @NotNull(message = "资源编码不能为空")
-        @Size(max = 128, message = "资源编码长度不能超过 128")
+        @NotNull(message = "{validation.dataScope.code.notBlank}")
+        @Size(max = 128, message = "{validation.dataScope.code.size}")
         String resourceCode,
 
-        @NotNull(message = "数据范围类型不能为空")
+        @NotNull(message = "{validation.dataScope.type.notBlank}")
         DataScopeTypeView scopeType,
 
-        @Size(max = 500, message = "自定义机构数量不能超过 500")
+        @Size(max = 500, message = "{validation.dataScope.orgIds.size}")
         List<Long> orgIds) {
 
     /**

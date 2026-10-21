@@ -3,35 +3,51 @@
     <h2 class="page-title">接口资源管理</h2>
     <el-card class="page-card">
       <div class="toolbar">
-        <el-input
-          v-model="filters.resourceName"
-          placeholder="资源名称"
-          clearable
-          style="width: 180px"
-          @clear="page = 1"
-        />
-        <el-input
-          v-model="filters.permissionCode"
-          placeholder="权限标识"
-          clearable
-          style="width: 180px"
-          @clear="page = 1"
-        />
-        <el-select
-          v-model="filters.httpMethod"
-          placeholder="方法"
-          clearable
-          style="width: 120px"
-          @change="page = 1"
-        >
-          <el-option label="GET" value="GET" />
-          <el-option label="POST" value="POST" />
-          <el-option label="PUT" value="PUT" />
-          <el-option label="DELETE" value="DELETE" />
-        </el-select>
-        <span class="spacer" />
-        <el-button :icon="Refresh" :loading="scanning" @click="onScan">扫描对比</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate">注册接口资源</el-button>
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">资源名称</span>
+            <el-input
+              v-model="filters.resourceName"
+              placeholder="资源名称"
+              clearable
+              style="width: 180px"
+              @clear="page = 1"
+            />
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">权限标识</span>
+            <el-input
+              v-model="filters.permissionCode"
+              placeholder="权限标识"
+              clearable
+              style="width: 180px"
+              @clear="page = 1"
+            />
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">方法</span>
+            <el-select
+              v-model="filters.httpMethod"
+              placeholder="方法"
+              clearable
+              style="width: 120px"
+              @change="page = 1"
+            >
+              <el-option label="GET" value="GET" />
+              <el-option label="POST" value="POST" />
+              <el-option label="PUT" value="PUT" />
+              <el-option label="DELETE" value="DELETE" />
+            </el-select>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button :icon="Refresh" :loading="scanning" @click="onScan">扫描对比</el-button>
+          </div>
+          <div class="action-buttons">
+            <el-button type="primary" :icon="Plus" @click="openCreate">注册接口资源</el-button>
+          </div>
+        </div>
       </div>
 
       <el-table :data="pagedRows" v-loading="loading" border stripe>
@@ -271,8 +287,9 @@ const filtered = computed(() => {
   const hm = filters.httpMethod
   return all.value.filter(
     (a) =>
-      (!rn || a.resourceName.toLowerCase().includes(rn)) &&
-      (!pc || a.permissionCode.toLowerCase().includes(pc)) &&
+      // 历史脏数据可能缺 resourceName/permissionCode，空值兜底避免整表 computed 抛错白板
+      (!rn || (a.resourceName || '').toLowerCase().includes(rn)) &&
+      (!pc || (a.permissionCode || '').toLowerCase().includes(pc)) &&
       (!hm || a.httpMethod === hm)
   )
 })

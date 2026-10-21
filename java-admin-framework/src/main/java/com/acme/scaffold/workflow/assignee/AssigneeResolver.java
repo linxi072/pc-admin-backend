@@ -2,7 +2,7 @@ package com.acme.scaffold.workflow.assignee;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.workflow.dto.design.WorkflowNodeDTO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -80,7 +80,22 @@ public class AssigneeResolver {
                             "审批节点 " + nodeDesc(node) + " 引用的部门不存在: " + orgId);
                 }
             }
-            default -> { /* USER / INITIATOR / INITIATOR_MANAGER 由运行时校验 */ }
+            case "USER" -> {
+                // 逗号分隔的用户ID：格式在发布期校验，避免运行时才以 500 暴露 NumberFormatException
+                String expr = orDefault(node.assigneeExpression(), "");
+                if (expr.isBlank()) {
+                    throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                            "审批节点 " + nodeDesc(node) + " 的 USER 受让人需指定用户ID（逗号分隔）");
+                }
+                for (String part : expr.split(",")) {
+                    String t = part.trim();
+                    if (!t.isEmpty() && !t.matches("\\d+")) {
+                        throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                                "审批节点 " + nodeDesc(node) + " 的 USER 受让人用户ID非法: " + expr);
+                    }
+                }
+            }
+            default -> { /* INITIATOR / INITIATOR_MANAGER 由运行时发起人推导 */ }
         }
     }
 

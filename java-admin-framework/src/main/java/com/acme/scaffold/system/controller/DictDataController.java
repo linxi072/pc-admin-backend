@@ -34,8 +34,8 @@ public class DictDataController {
     @PostMapping
     @PreAuthorize("hasAuthority('system:dict:create')")
     @AuditOperation(module = "system", type = "CREATE", name = "创建字典数据")
-    public Result<Long> create(@Valid @RequestBody CreateDictDataRequest request) {
-        return Result.success(dictDataService.create(request));
+    public Result<String> create(@Valid @RequestBody CreateDictDataRequest request) {
+        return Result.success(String.valueOf(dictDataService.create(request)));
     }
 
     @Operation(summary = "更新字典数据")

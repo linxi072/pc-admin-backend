@@ -20,15 +20,10 @@ spring:
     init:
       mode: never
 
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    hikari:
-      minimum-idle: 5
-      maximum-pool-size: 20
-      connection-timeout: 3000
-      validation-timeout: 1000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+  # 数据源连接属性已迁移至 app.datasources 并按环境外部化到环境变量，避免硬编码。
+  # 关闭 Spring Boot 自带单数据源自动装配，改由 app.datasources 多数据源配置接管。
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 
   data:
     redis:
@@ -100,25 +95,169 @@ flowable:
   rest-enabled: false
 
 app:
+  # ===== 多数据源 =====
+  # 默认主数据源名称；不切换时所有查询落主库（业务表 / Flyway / JobRunr / Flowable 均主库）。
+  # 具体连接串与凭据在各 profile yml 中通过环境变量注入，不在此硬编码。
+  datasources:
+    primary: primary
+  # ===== WebSocket 跨域允许来源 =====
+  # 默认放开全部来源便于本地前后端分离联调；生产经环境变量 WS_ALLOWED_ORIGINS 收紧为具体前端域名。
+  cors:
+    allowed-origins: ["*"]
+  # ===== 客户端真实 IP 解析 =====
+  # 可信反向代理跳数：决定解析 X-Forwarded-For 时自右向左跳过几跳。
+  # 客户端可任意伪造 X-Forwarded-For，若直接采信其首段（左段），
+  # 限流（IP 为计数键）可被无限换键绕过，审计/登录日志的 IP 也会被污染。
+  #   0 = 应用直连公网，完全忽略 X-Forwarded-For，取 TCP 直连地址；
+  #   1 = 单级 Nginx（默认）；2+ = 多级代理 / CDN，按实际可信跳数设置。
+  web:
+    trusted-proxy-count: 1
   # 头像上传目录（相对项目根或绝对路径）。仅存图片文件，文件名由服务端生成。
   upload:
     avatar-dir: ${AVATAR_DIR:./uploads/avatar}
     max-avatar-bytes: 2097152
+  file:
+    # 本地文件存储根目录（绝对路径或相对路径；生产建议通过环境变量 FILE_STORAGE_DIR 指定绝对路径）
+    storage-dir: ${FILE_STORAGE_DIR:./uploads/file}
+    # 单文件大小上限（字节），默认 10MB
+    max-bytes: 10485760
+    # 扩展名白名单（逗号分隔）；同时叠加图片/PDF 魔数校验，拒绝可执行文件伪装
+    allowed-extensions: jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z
+  # ===== 通知渠道（站内信 / Webhook / 邮件） =====
+  # 站内信（IN_APP）始终可用；Webhook 与邮件默认关闭，启用并配置后才外发。
+  notifications:
+    webhook:
+      # 是否允许 Webhook 外发（默认 false，缺省关闭避免误发）
+      enabled: false
+      # 消息未显式带 webhookUrl 时的兜底地址（启用后建议配置）
+      default-url:
+      # 可选共享密钥，透传为报文 secret 字段
+      secret:
+      # 读超时 / 连接超时（毫秒）
+      timeout-ms: 5000
+      connect-timeout-ms: 2000
+    email:
+      # 是否允许邮件发送（默认 false，缺省关闭避免误发与启动依赖 SMTP）
+      enabled: false
+      # 发件人地址（启用后必配）
+      from:
+      # SMTP 服务器与端口（25 / 465 / 587 依服务商）
+      host: localhost
+      port: 25
+      # 凭据：生产经环境变量 NOTIFICATION_EMAIL_USERNAME / NOTIFICATION_EMAIL_PASSWORD 注入
+      username: ${NOTIFICATION_EMAIL_USERNAME:}
+      password: ${NOTIFICATION_EMAIL_PASSWORD:}
+      # 587 端口通常需开启 STARTTLS 升级
+      starttls: false
+      # 读写超时（毫秒）
+      timeout-ms: 5000
+    sms:
+      # 是否允许短信发送（默认 false：短信按条计费，缺省关闭避免误发与费用）
+      enabled: false
+      # 网关实现：LOG（默认，仅打脱敏日志不真发，开发/联调）/ HTTP（通用 HTTP 网关 POST JSON）
+      provider: LOG
+      # HTTP 模式必配：短信网关接收地址（厂商无关最小契约 appId/appKey/mobiles/content）
+      # 示例（含冒号须加引号）："https://sms-gateway.example.com/api/v1/send"
+      gateway-url:
+      # 网关凭据：生产经环境变量 NOTIFICATION_SMS_APP_KEY 注入
+      app-id:
+      app-key: ${NOTIFICATION_SMS_APP_KEY:}
+      # 短信签名，拼接到正文头部（如【Acme】；留空则不拼）
+      signature:
+      # HTTP 读超时 / 连接超时（毫秒）
+      timeout-ms: 5000
+      connect-timeout-ms: 2000
+  # ===== 缓存管理（Spring Cache 抽象，Redis 实现） =====
+  # 缓存为惰性能力：未使用 @Cacheable 时不产生 Redis 流量。
+  # 命中率/条目数统计与清理入口见 GET /api/system/monitor/caches（进程内口径，按实例）。
+  cache:
+    # @Cacheable 未显式指定时的默认 TTL
+    ttl: 30m
+    # Redis key 前缀（与业务 key 隔离，便于运维排查与批量清理；含冒号须加引号）
+    key-prefix: "acme:cache:"
   security:
     issuer: java-admin-framework
     audience: admin-api
-    access-token-ttl: 15m
-    refresh-token-ttl: 7d
+    # token 超时延长（配合验证码 + 多端登录限制整体提升会话安全）：access 15m→30m，refresh 7d→30d
+    access-token-ttl: 30m
+    refresh-token-ttl: 30d
     max-login-failures: 5
     lock-duration: 15m
+    # 同一账号同时在线设备数上限（<=0 不限制）；超出时策略 reject=拒绝新登录 / evict_oldest=淘汰最早登录（会话挤占）
+    max-concurrent-sessions: 3
+    session-eviction-strategy: evict_oldest
+    # 异常退出会话回收：刷新令牌空闲超过该时长即被吊销（进程崩溃 / 连接中断后 token 及时失效）
+    session-max-inactive: 30m
+    session-cleanup-enabled: true
+    session-cleanup-interval-ms: 300000
     # JWT 签名密钥：必须通过环境变量 JWT_SECRET 提供（Base64 编码、≥256 位）。
     # 未配置时不使用任何硬编码默认值，将自动生成仅当前进程有效的随机临时密钥（重启失效），仅用于开发/测试。
     jwt-secret: ${JWT_SECRET:}
   # 慢 SQL 阈值（毫秒），由 JooqConfig 注入 SlowQueryListener
   jooq:
     slow-query-threshold-ms: 500
+    # N+1 查询探测：同构 SQL 在单线程（通常对应一次请求）内执行达阈值即告警，
+    # 由 JooqConfig / DataSourceConfig 装配 NPlusOneListener（双路观测，只读、零业务影响）
+    nplus1-threshold: 10
+    # N+1 疑似事件留存容量（有界环形缓冲，超出按入队序淘汰最旧；越大越利于复盘频次，内存占用同比例增长）
+    nplus1-max-suspects: 200
   audit:
     async: true
+
+# 可观测性导出（A1）：OTLP/HTTP span 导出至 Collector（Jaeger / Tempo / OTel Collector）。
+# 默认关闭；具备 Collector 的环境置 enabled=true 并指向其 /v1/traces 端点。
+# 说明：本项目离线构建未引入 opentelemetry-sdk，此处为零依赖自研 OTLP 导出器，
+#       与既有 W3C traceparent / MDC traceId 对齐；联网环境可平滑切换至官方 SDK（-Potel）。
+observability:
+  otlp:
+    enabled: false
+    endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+    service-name: ${spring.application.name}
+    timeout-ms: 2000
+  # 本地 span 记录（与 OTLP 导出正交）：应用内有界内存留存最近 N 条请求 span，
+  # 供 GET /api/observability/traces 回溯（Collector 未部署时尤其有用）。
+  # 容量超出后按入队序淘汰最旧记录；置 enabled=false 可关闭（过滤器双开关均关时零开销透传）。
+  recorder:
+    enabled: true
+    capacity: 200
+
+# 告警接收（A2）：作为 Alertmanager 的真实 webhook 接收端（应用内）。
+# token 非空时要求请求携带匹配的 X-Alert-Token 头；生产须由网络/网关层加固。
+monitoring:
+  alert:
+    webhook:
+      enabled: true
+      token: ${ALERT_WEBHOOK_TOKEN:}
+    inbox-capacity: 200
+
+# 海量数据有序消费（Kafka）：默认关闭——无集群环境（本地/CI）不建连。
+# 保序四要素见 docs/manual/kafka-ordered-consumer.md：
+#   ①生产端同 key 经 murmur2 稳定落同一分区 + enable.idempotence=true（max.in.flight<=5）
+#   ②容器单线程按分区 offset 升序串行处理（禁同分区并发）
+#   ③消息头 x-version 携带业务版本号，消费端「严格大于才处理」丢弃乱序旧版本
+#   ④enable.auto.commit=false + 整批处理完成后手动 commitSync（at-least-once）
+# 启用：enabled=true 并指向集群；业务方实现 OrderedRecordHandler 并标注 @Primary 接管处理。
+kafka:
+  ordered-consumer:
+    enabled: ${KAFKA_ORDERED_CONSUMER_ENABLED:false}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    group-id: ${KAFKA_GROUP_ID:scaffold-ordered-consumer}
+    topic: ${KAFKA_TOPIC:business.data.updated}
+    poll-timeout: 200ms
+    max-poll-records: 500
+
+# 外部密钥源（A4）：默认 local（沿用环境变量 / 随机临时密钥，离线可用）；
+# 接入 HashiCorp Vault 时置 provider=vault 并配置 address / token / paths。
+secret:
+  provider: ${SECRET_PROVIDER:local}
+  vault:
+    address: ${VAULT_ADDR:http://localhost:8200}
+    token: ${VAULT_TOKEN:}
+    paths:
+      jwt-secret: secret/data/admin/jwt
+      previous-jwt-secret: secret/data/admin/jwt-previous
+  local:
+    secrets: {}
 
 logging:
   level:

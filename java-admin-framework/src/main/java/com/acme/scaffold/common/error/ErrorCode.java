@@ -11,4 +11,15 @@ public interface ErrorCode {
     String message();
 
     int httpStatus();
+
+    /**
+     * 资源束消息键。约定为 {@code error.<code()>}，由各实现枚举自动继承，无需逐条声明。
+     *
+     * <p>{@code GlobalExceptionHandler} 在响应中经 {@code I18nService} 按当前请求语言解析该键，
+     * 实现业务异常消息的本地化；资源束位于 {@code i18n/messages*.properties}，
+     * 缺失键经 {@code I18nService} 回退为键本身（见 {@code ErrorCode} 契约与 {@code I18nService}）。
+     */
+    default String messageKey() {
+        return "error." + code();
+    }
 }

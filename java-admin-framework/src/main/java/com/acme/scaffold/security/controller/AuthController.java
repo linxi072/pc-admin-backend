@@ -1,7 +1,10 @@
 package com.acme.scaffold.security.controller;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.security.application.AuthApplicationService;
+import com.acme.scaffold.config.web.ClientIpResolver;
+import com.acme.scaffold.security.service.AuthService;
+import com.acme.scaffold.security.dto.AuthChangePasswordRequest;
+import com.acme.scaffold.security.dto.ForgotPasswordRequest;
 import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.vo.TokenView;
@@ -21,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthApplicationService authApplicationService;
+    private final AuthService authApplicationService;
+    private final ClientIpResolver clientIpResolver;
 
     @Operation(summary = "账号密码登录")
     @PostMapping("/login")
@@ -45,11 +49,23 @@ public class AuthController {
         return Result.success();
     }
 
+    @Operation(summary = "会话无关改密（强制改密闭环）：以用户名+原密码认证后修改密码，无需已登录会话")
+    @PostMapping("/change-password")
+    public Result<Void> changePassword(@Valid @RequestBody AuthChangePasswordRequest request) {
+        authApplicationService.changePassword(request.username(), request.oldPassword(), request.newPassword());
+        return Result.success();
+    }
+
+    @Operation(summary = "忘记密码自助重置：以用户名+手机号/邮箱核验后重置密码，无需原密码")
+    @PostMapping("/forgot-password")
+    public Result<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authApplicationService.forgotPassword(request.username(), request.newPassword(),
+                request.mobile(), request.email());
+        return Result.success();
+    }
+
+    /** 客户端 IP：经 {@link ClientIpResolver} 按可信代理跳数解析，避免伪造 X-Forwarded-For。 */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return clientIpResolver.resolve(request);
     }
 }

@@ -6,7 +6,9 @@ public record CreateConfigRequest(
         @NotBlank String configKey,
         @NotBlank String configName,
         String configValue,
+        String defaultValue,
         @NotBlank String configType,
         String remark,
+        Integer editable,
         String status) {
 }

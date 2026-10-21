@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.service;
 
-import com.acme.scaffold.common.api.PageResult;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.JooqSorts;
-import com.acme.scaffold.jooq.JooqTables;
-import com.acme.scaffold.jooq.JooqWriters;
+import com.acme.scaffold.jooq.dsl.JooqSorts;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.AnnouncementQuery;
 import com.acme.scaffold.system.dto.AnnouncementView;
@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 系统公告服务：发布 / 编辑 / 定时生效 / 下线 / 置顶 / 关键词检索。
@@ -189,7 +190,10 @@ public class AnnouncementService {
         a.setOfflineAt(null); // 重新发布时清空下线时间
         a.setPublisherId(currentUserId());
         // 重新发布允许直接改置顶
-        JooqWriters.updateById(dsl, JooqTables.SYS_ANNOUNCEMENT, id, a);
+        // offline_at 必须显式置空：updateById 的 NOT_NULL 策略会跳过 null 字段，
+        // 导致重新发布的公告仍带历史 offlineAt（与 isEffective 口径相悖），故走
+        // updateByIdWithNulls 把 offline_at 列入待置空列。
+        JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_ANNOUNCEMENT, id, a, Set.of("offline_at"));
     }
 
     /** 下线公告：已发布 → 已下线。 */
