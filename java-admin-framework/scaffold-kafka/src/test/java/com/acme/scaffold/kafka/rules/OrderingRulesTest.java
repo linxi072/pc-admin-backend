@@ -1,7 +1,9 @@
 package com.acme.scaffold.kafka.rules;
 
+import org.apache.kafka.common.utils.Utils;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -50,6 +52,53 @@ class OrderingRulesTest {
     }
 
     // ---- 分区选择 ----
+
+    @Test
+    void murmur2_与Kafka默认分区器位级一致() {
+        // 整合关键证据：本类 murmur2 必须与 org.apache.kafka.common.utils.Utils.murmur2 逐位相同，
+        // 否则同 key 经本规则选出的分区与 Kafka 默认分区器（DefaultPartitioner）不一致，
+        // 破坏「同 key 保序」根基。覆盖边界：空、单字节、多字、Unicode、随机大键。
+        byte[][] cases = {
+                new byte[0],
+                {0x00},
+                {0x01},
+                {(byte) 0xFF},
+                "a".getBytes(StandardCharsets.UTF_8),
+                "order-10086".getBytes(StandardCharsets.UTF_8),
+                "房间-42-用户".getBytes(StandardCharsets.UTF_8),
+                new byte[1 << 10] // 1KB 随机键
+        };
+        java.util.Random rnd = new java.util.Random(20261022L);
+        byte[] big = cases[cases.length - 1];
+        rnd.nextBytes(big);
+        for (byte[] data : cases) {
+            assertEquals(Utils.murmur2(data), OrderingRules.murmur2(data),
+                    "murmur2 与 Kafka Utils 不一致: " + java.util.Arrays.toString(data));
+        }
+        // 额外 1000 个随机键，确保统计层面一致
+        for (int i = 0; i < 1000; i++) {
+            byte[] key = ("key-" + rnd.nextInt(1_000_000)).getBytes(StandardCharsets.UTF_8);
+            assertEquals(Utils.murmur2(key), OrderingRules.murmur2(key), "随机键不一致 #" + i);
+        }
+    }
+
+    @Test
+    void partitionForKey_与Kafka默认分区器分区选择一致() {
+        // 进一步验证分区结果：toPositive(murmur2(key)) % numPartitions 与 Kafka 一致
+        String[] keys = {"user-1", "room-99", "device-xyz", "订单-88271", ""};
+        int[] partitionsList = {1, 12, 64, 144, 500};
+        for (String k : keys) {
+            byte[] kb = k.getBytes(StandardCharsets.UTF_8);
+            int expected = Utils.toPositive(Utils.murmur2(kb)) % 144;
+            for (int p : partitionsList) {
+                int expectedP = Utils.toPositive(Utils.murmur2(kb)) % p;
+                assertEquals(expectedP, OrderingRules.partitionForKey(kb, p),
+                        "分区选择不一致: key=" + k + ", p=" + p);
+            }
+            // 与私有常量结果无关，仅确认确定性
+            assertEquals(expected, OrderingRules.partitionForKey(kb, 144));
+        }
+    }
 
     @Test
     void partitionForKey_同key同分区_不同序列化等价() {
