@@ -199,4 +199,37 @@ class NotificationTemplateServiceTest {
             assertThrows(BusinessException.class, () -> service.get(1L));
         }
     }
+
+    @Test
+    @DisplayName("requireEnabledByCode：命中启用模板返回 DO")
+    void requireEnabledByCode_returnsEnabled() {
+        try (MockedStatic<JooqWriters> mw = mockStatic(JooqWriters.class, CALLS_REAL_METHODS)) {
+            mw.when(() -> JooqWriters.fetchOne(any(), eq(JooqTables.SYS_NOTIFICATION_TEMPLATE),
+                    eq(SysNotificationTemplateDO.class), any())).thenReturn(template(1L, "T", "c", 1));
+            SysNotificationTemplateDO d = service.requireEnabledByCode("T");
+            assertEquals("T", d.getTemplateCode());
+        }
+    }
+
+    @Test
+    @DisplayName("requireEnabledByCode：缺失抛出 NOT_FOUND")
+    void requireEnabledByCode_missingThrows() {
+        try (MockedStatic<JooqWriters> mw = mockStatic(JooqWriters.class, CALLS_REAL_METHODS)) {
+            mw.when(() -> JooqWriters.fetchOne(any(), eq(JooqTables.SYS_NOTIFICATION_TEMPLATE),
+                    eq(SysNotificationTemplateDO.class), any())).thenReturn(null);
+            BusinessException ex = assertThrows(BusinessException.class, () -> service.requireEnabledByCode("T"));
+            assertTrue(ex.getMessage().contains("模板不存在"));
+        }
+    }
+
+    @Test
+    @DisplayName("requireEnabledByCode：停用模板抛出 CONFLICT")
+    void requireEnabledByCode_disabledThrows() {
+        try (MockedStatic<JooqWriters> mw = mockStatic(JooqWriters.class, CALLS_REAL_METHODS)) {
+            mw.when(() -> JooqWriters.fetchOne(any(), eq(JooqTables.SYS_NOTIFICATION_TEMPLATE),
+                    eq(SysNotificationTemplateDO.class), any())).thenReturn(template(1L, "T", "c", 0));
+            BusinessException ex = assertThrows(BusinessException.class, () -> service.requireEnabledByCode("T"));
+            assertTrue(ex.getMessage().contains("已停用"));
+        }
+    }
 }
