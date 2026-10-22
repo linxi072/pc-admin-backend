@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.LongAdder;
  * （首次见到该 key 一律处理）。
  *
  * <p>装配：由 {@code com.acme.scaffold.kafka.config.KafkaOrderedConsumerConfig} 以
- * {@code @Bean} 创建并受 {@code acme.kafka.ordered-consumer.enabled=true} 门禁
+ * {@code @Bean} 创建并受 {@code kafka.ordered-consumer.enabled=true} 门禁
  * （未启用时不注册，避免无 broker 环境下启动失败）。
  */
 @Slf4j

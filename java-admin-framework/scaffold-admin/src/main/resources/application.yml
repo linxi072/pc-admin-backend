@@ -245,6 +245,17 @@ kafka:
     topic: ${KAFKA_TOPIC:business.data.updated}
     poll-timeout: 200ms
     max-poll-records: 500
+  # Kafka 网关（消息生产侧）：默认关闭——无集群环境（本地/CI）不建连。
+  # 启用：enabled=true 并指向集群；消息总线 KafkaBus 经 kafka.gateway.* 统一参数装配。
+  # 拓扑（分区/副本/保留/扇出分片）为单一事实来源：com.acme.scaffold.kafka.gateway.topology.Topology.designDefault(144,64)。
+  # 其余调优项（linger-ms/batch-size/retries）未配置时取代码内置默认值，开启幂等时 acks 强制 all。
+  gateway:
+    enabled: ${KAFKA_GATEWAY_ENABLED:false}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    client-id: ${KAFKA_GATEWAY_CLIENT_ID:scaffold-kafka-gateway}
+    acks: ${KAFKA_GATEWAY_ACKS:all}
+    compression-type: ${KAFKA_GATEWAY_COMPRESSION:zstd}
+    enable-idempotence: true
 
 # 外部密钥源（A4）：默认 local（沿用环境变量 / 随机临时密钥，离线可用）；
 # 接入 HashiCorp Vault 时置 provider=vault 并配置 address / token / paths。

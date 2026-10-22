@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Kafka 有序消费监控与死信补偿接口。
  *
  * <p>能力：消费容器运行态与指标（handled/stale/poison/commit-failure/版本表）、死信列表、
- * 毒消息重试与丢弃补偿。消费容器由 {@code acme.kafka.ordered-consumer.enabled} 门禁控制，
+ * 毒消息重试与丢弃补偿。消费容器由 {@code kafka.ordered-consumer.enabled} 门禁控制，
  * 未启用时状态返回 {@code enabled=false}，补偿操作返回 false。</p>
  *
  * <p><b>权限</b>：读接口需 {@code system:kafka:read}；补偿（写）接口需 {@code system:kafka:manage}。

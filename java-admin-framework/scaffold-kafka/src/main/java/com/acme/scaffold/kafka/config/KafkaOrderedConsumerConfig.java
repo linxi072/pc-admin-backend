@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * 有序消费装配。
  *
- * <p>门禁：{@code acme.kafka.ordered-consumer.enabled=true} 时才注册
+ * <p>门禁：{@code kafka.ordered-consumer.enabled=true} 时才注册
  * {@link RecordSource} 与 {@link OrderedKafkaConsumer}——默认关闭使脚手架在
  * 无 Kafka 集群的环境（本地/CI）正常启动。业务处理器经 {@link OrderedRecordHandler}
  * 注入：框架内置 {@code LoggingOrderedRecordHandler} 作为兜底，业务方实现同名接口
@@ -31,7 +31,7 @@ public class KafkaOrderedConsumerConfig {
      * @return 记录源
      */
     @Bean
-    @ConditionalOnProperty(prefix = "acme.kafka.ordered-consumer", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = "kafka.ordered-consumer", name = "enabled", havingValue = "true")
     public RecordSource kafkaRecordSource(KafkaOrderedConsumerProperties properties) {
         return new KafkaRecordSource(properties);
     }
@@ -45,7 +45,7 @@ public class KafkaOrderedConsumerConfig {
      * @return 容器
      */
     @Bean
-    @ConditionalOnProperty(prefix = "acme.kafka.ordered-consumer", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = "kafka.ordered-consumer", name = "enabled", havingValue = "true")
     public OrderedKafkaConsumer orderedKafkaConsumer(RecordSource recordSource,
                                                      ObjectProvider<OrderedRecordHandler> handlerProvider,
                                                      KafkaOrderedConsumerProperties properties) {

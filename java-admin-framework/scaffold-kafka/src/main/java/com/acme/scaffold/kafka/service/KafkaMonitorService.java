@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * Kafka 有序消费运维服务：聚合 {@link OrderedKafkaConsumer} 的运行指标与死信存储，向 REST 层提供只读视图与补偿操作。
  *
- * <p>消费容器由 {@code acme.kafka.ordered-consumer.enabled} 门禁控制，未启用时 {@link OrderedKafkaConsumer}
+ * <p>消费容器由 {@code kafka.ordered-consumer.enabled} 门禁控制，未启用时 {@link OrderedKafkaConsumer}
  * Bean 不注册。本服务通过 {@link ObjectProvider#getIfAvailable()} 惰性获取，缺失时所有只读接口返回「未启用」视图、
  * 补偿操作返回 false，避免对未装配环境产生硬依赖。</p>
  */

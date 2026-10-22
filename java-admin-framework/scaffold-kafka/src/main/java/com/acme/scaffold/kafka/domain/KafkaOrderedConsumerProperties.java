@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.time.Duration;
 
 /**
- * 有序消费配置属性（{@code acme.kafka.ordered-consumer}）。
+ * 有序消费配置属性（{@code kafka.ordered-consumer}）。
  *
  * <p>默认关闭（{@code enabled=false}）——脚手架不在无 broker 环境误连；
  * 业务环境显式开启并指向集群。record 构造器绑定，字段缺失时取 Java 默认值
@@ -18,7 +18,7 @@ import java.time.Duration;
  * @param pollTimeout    单次 poll 最长阻塞（null 时容器默认 100ms）
  * @param maxPollRecords 单批最大记录数（&lt;=0 表示不覆盖 broker/client 默认，靠背压防 rebalance）
  */
-@ConfigurationProperties(prefix = "acme.kafka.ordered-consumer")
+@ConfigurationProperties(prefix = "kafka.ordered-consumer")
 public record KafkaOrderedConsumerProperties(
         boolean enabled,
         String bootstrapServers,

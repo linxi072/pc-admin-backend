@@ -3,7 +3,7 @@ package com.acme.scaffold.kafka.dto;
 /**
  * 有序消费容器运行态视图（只读聚合，经 {@code KafkaMonitorService} 从 {@code OrderedKafkaConsumer} 采集）。
  *
- * <p>容器由 {@code acme.kafka.ordered-consumer.enabled} 门禁控制：未启用时消费者 Bean 不注册，
+ * <p>容器由 {@code kafka.ordered-consumer.enabled} 门禁控制：未启用时消费者 Bean 不注册，
  * 此时 {@code enabled=false} 且其余计数均为 0。</p>
  *
  * @param enabled                消费容器是否已装配（配置启用且 Bean 已注册）

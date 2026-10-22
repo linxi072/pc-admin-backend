@@ -49,13 +49,13 @@ public class KafkaRecordSource implements RecordSource, Closeable {
      */
     public KafkaRecordSource(KafkaOrderedConsumerProperties props) {
         if (props.bootstrapServers() == null || props.bootstrapServers().isBlank()) {
-            throw new IllegalStateException("acme.kafka.ordered-consumer.bootstrap-servers 未配置");
+            throw new IllegalStateException("kafka.ordered-consumer.bootstrap-servers 未配置");
         }
         if (props.groupId() == null || props.groupId().isBlank()) {
-            throw new IllegalStateException("acme.kafka.ordered-consumer.group-id 未配置");
+            throw new IllegalStateException("kafka.ordered-consumer.group-id 未配置");
         }
         if (props.topic() == null || props.topic().isBlank()) {
-            throw new IllegalStateException("acme.kafka.ordered-consumer.topic 未配置");
+            throw new IllegalStateException("kafka.ordered-consumer.topic 未配置");
         }
         this.pollTimeout = props.pollTimeout() == null ? Duration.ofMillis(100) : props.pollTimeout();
 

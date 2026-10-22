@@ -32,6 +32,12 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
         </dependency>
+        <!-- zstd 压缩原生库：kafka-clients 以 optional 声明，网关启用 compression.type=zstd 时需显式引入 -->
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <version>1.5.5-11</version>
+        </dependency>
         <dependency>
             <groupId>com.acme.scaffold</groupId>
             <artifactId>scaffold-common</artifactId>
