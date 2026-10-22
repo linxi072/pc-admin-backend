@@ -2505,3 +2505,82 @@ npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir        # 离线构建�
 - `scripts/check-conventions.py`：EXIT=0（525 文件 / 11 源码根，H1–H5 无违规）；
 - 前端经 `@vue/compiler-sfc` 校验 `NotificationBell.vue` 与 `Topbar.vue`（SFC 解析 + 脚本 / 模板编译通过；沙箱 `vite build` 受资源限制被 SIGKILL，已绕过验证，语法已确认）；
 - 待用户本机（需 MySQL + 运行后端）：顶栏铃铛角标 = 公告未读 + 站内信未读；点开抽屉见近期条目、点「全部已读」后角标归零、WebSocket 推新消息时角标自增并 Toast。
+
+## 通知模板中心（V41，M10）
+
+> 为 M6 多渠道通知（站内信 / 邮件 / 短信 / Webhook / WebSocket）提供**可复用 `${var}` 模板**，与具体发送链路解耦：管理员在中心管理模板，发送侧按需取模板、渲染后投递。职责清晰，文案统一治理。
+
+### 1. 模型取舍：模板与发送解耦
+
+- M6 已有 `NotificationController#send`（按 `channel` 直发），但正文/标题散落在各调用方，重复且易错；
+- 引入通知模板中心后：**模板只管「编码 + 渠道 + 标题 + 正文(${var}) + 消息类型 + 启停」**，不含任何发送逻辑；渲染（`${var}` 替换）为纯函数（`NotificationTemplateRules#render`），发送侧复用；
+- 是否套用模板由调用方决定（模板是「可选样板」而非强制），故 `NotificationController#send` 暂不强制改写，向后兼容。
+
+### 2. 表结构（`V41__notification_template.sql`）
+
+```sql
+CREATE TABLE sys_notification_template (
+  id BIGINT UNSIGNED NOT NULL,
+  tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  template_code VARCHAR(64) NOT NULL,          -- 业务键，形如 ORDER_SHIPPED，租户内唯一
+  template_name VARCHAR(100) NOT NULL,
+  channel VARCHAR(16) NOT NULL,                -- IN_APP / EMAIL / SMS / WEBHOOK / WEBSOCKET
+  title VARCHAR(200) NULL,                     -- 短信渠道忽略
+  content TEXT NOT NULL,                       -- 支持 ${var} 占位
+  msg_type VARCHAR(16) NOT NULL DEFAULT 'NOTICE',
+  enabled TINYINT(1) NOT NULL DEFAULT 1,       -- 0/1 开关
+  remark VARCHAR(255) NULL,
+  version INT NOT NULL DEFAULT 0,
+  deleted INT NOT NULL DEFAULT 0,
+  created_by / created_at / updated_by / updated_at,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_tenant_code (tenant_id, template_code)
+);
+```
+
+- 迁移同时播种菜单 `id=1095`（挂「系统管理」`1002` 下，`sort_no=104`），权限码 `system:notification-template:read`，并 `INSERT IGNORE` 绑定 `SUPER_ADMIN`（`role_id=1`）；
+- 接口资源（`system:notification-template:read` / `:manage`）**不手工登记**，由 `ApiResourceAutoSyncRunner` 扫描 `@PreAuthorize` 自动落库并授予 SUPER_ADMIN。
+
+### 3. 接口（`NotificationTemplateController`，基路径 `/api/system/notification-templates`）
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/page` | `read` | 分页（channel/keyword/enabled 筛选 + 服务端排序白名单） |
+| GET | `/{id}` | `read` | 单个（含 `variableNames` 变量名列表） |
+| GET | `/{id}/variables` | `read` | 仅返回变量名列表（供前端渲染输入表单） |
+| POST | `/{id}/preview` | `read` | 渲染预览：`{variables:{name:value}}` → `rendered/requiredVariables/missingVariables` |
+| POST | `/` | `manage` | 创建（结构校验 + 编码唯一性） |
+| PUT | `/{id}` | `manage` | 更新（部分更新，仅非空字段参与） |
+| DELETE | `/{id}` | `manage` | 逻辑删除 |
+| PUT | `/{id}/toggle?enabled=` | `manage` | 启停 |
+
+### 4. 纯函数规则（`NotificationTemplateRules`）
+
+- `normalizeChannel(channel)`：大小写不敏感匹配 `Channel` 枚举，非法返回 `null`（入库前归一为大写枚举名）；
+- `extractVariables(content)`：提取 `${var}` 去重保序变量名列表；`countVariables` 计数；
+- `render(content, vars)`：`Matcher.quoteReplacement` 防注入，未知变量保持 `${name}` 原样（保证可回退、不丢占位）；
+- `validate(code, name, channel, content)`：编码 `^[A-Z][A-Z0-9_]{1,63}$`、名称/正文非空、渠道合法，返回错误字符串列表（空 = 通过）。
+
+### 5. 服务编排（`NotificationTemplateService`）
+
+- `page(...)`：`JooqWriters.page` + 视图映射（含 `extractVariables`）；排序走 `JooqSorts.whitelist`（白名单外忽略，防 ORDER BY 注入，末位补 `created_at/id`）；
+- `create`：先 `validate`（失败抛 `VALIDATION_ERROR`）→ `existsByCode` 唯一性（冲突抛 `CONFLICT`）→ `JooqWriters.insert`；
+- `update`：以「合并后的完整值」再 `validate`，编码变更再做唯一性，构造 patch DO 后 `updateById`；
+- `remove`：`delete(..., true)` 逻辑删除；`toggle`：`updateById` 仅置 `enabled` 列（0/1）；
+- `preview`/`variables`/`get`：委托 `extractVariables` + `render`，`requireById` 缺失抛 `NOT_FOUND`。
+
+> **字段类型约定**：DO 的 `enabled` 为 `Integer`（库列 `TINYINT`），服务层与 API 统一以 `Integer 0/1` 落库、以布尔对外；`Create/UpdateRequest.enabled` 为 `Boolean`（缺省默认启用）。
+
+### 6. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationTemplate.js`：8 个 API 封装（page / get / variables / preview / create / update / delete / toggle），均经 `request` 调 `/api/system/notification-templates`；
+- `src/views/system/NotificationTemplate.vue`：列表（渠道/状态/关键字筛选 + 服务端排序 + 启停开关）+ 新建/编辑 `el-dialog`（含 `${var}` 提示）+ 渲染预览 `el-dialog`（按 `variables` 接口生成变量输入，点「渲染预览」调 preview 接口，展示结果并提示缺失变量）；
+- `src/router/index.js`：增 `system/notification-templates` 懒加载条目，`meta.permission = 'system:notification-template:read'`，菜单由后端 V41 驱动（无需前端手工加菜单）；
+- 与发送链路解耦：本页只管模板，**不触碰 `sendNotification`**（M6 发送端点）。
+
+### 7. 验证状态（沙箱）
+
+- `scripts/check-conventions.py`：EXIT=0（533 文件 / 11 源码根，H1–H5 无违规）；
+- M10 单测 **14 例全绿**：`NotificationTemplateRulesTest` 4 例（normalizeChannel / extractVariables / render / validate）+ `NotificationTemplateServiceTest` 10 例（page / create 唯一性 / VALIDATION_ERROR / update / remove / toggle / preview / variables / get NOT_FOUND / 复用 `mockStatic(JooqWriters, CALLS_REAL_METHODS)` 打库替身，void 方法 `updateById`/`delete` 以 `thenAnswer(inv -> null)` 桩掉避免 mock(DSLContext) 返回 null 的 NPE）；
+- 前端 `NotificationTemplate.vue` 经 `@vue/compiler-sfc` 解析 + 脚本/模板编译通过；`notificationTemplate.js` 与既有 `notification.js` 同 ESM 风格；
+- 待用户本机（需 MySQL + 运行后端）：菜单「通知模板」可见（超管）， CRUD 与启停即时生效，预览按变量渲染且缺失变量被明确提示。
