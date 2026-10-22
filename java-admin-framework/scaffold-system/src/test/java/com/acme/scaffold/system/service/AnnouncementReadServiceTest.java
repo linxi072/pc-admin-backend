@@ -400,4 +400,96 @@ class AnnouncementReadServiceTest {
                     "子查询引用 sys_user.id 必须限定，否则被解析成回执表 id: " + sql);
         }
     }
+
+    // ------------------------------------------------------------------
+    // countMyUnread（反连接，与 myUnread 同源）
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("countMyUnread：返回未读公告总数，条件含 NOT EXISTS 且外表列限定")
+    void countMyUnread_returnsCountWithQualifiedAntiJoin() {
+        try (MockedStatic<JooqWriters> mw = mockStatic(JooqWriters.class)) {
+            mw.when(() -> JooqWriters.count(any(), eq(JooqTables.SYS_ANNOUNCEMENT), any(Condition.class)))
+                    .thenReturn(7L);
+
+            long count = service.countMyUnread();
+
+            assertEquals(7L, count);
+            mw.verify(() -> JooqWriters.count(any(), eq(JooqTables.SYS_ANNOUNCEMENT), any(Condition.class)));
+
+            // 与 myUnread 同源：未读口径必须同样含限定反连接
+            ArgumentCaptor<Condition> captor = ArgumentCaptor.forClass(Condition.class);
+            mw.verify(() -> JooqWriters.count(any(), eq(JooqTables.SYS_ANNOUNCEMENT), captor.capture()));
+            String sql = render(JooqTables.SYS_ANNOUNCEMENT, captor.getValue()).toLowerCase();
+            assertTrue(sql.contains("not exists"), "应含 NOT EXISTS 反连接: " + sql);
+            assertTrue(sql.contains("sys_announcement_read.announcement_id = sys_announcement.id"),
+                    "子查询两侧列必须带表名限定: " + sql);
+            assertTrue(sql.contains("sys_announcement_read.user_id"), sql);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // markAllRead
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("markAllRead：遍历有效未读公告逐条标记，已读回执计数随新增条数累加")
+    void markAllRead_marksEachUnreadAnnouncement() {
+        try (MockedStatic<JooqWriters> mw = mockStatic(JooqWriters.class)) {
+            mw.when(() -> JooqWriters.fetchTop(any(), eq(JooqTables.SYS_ANNOUNCEMENT),
+                    eq(SysAnnouncementDO.class), any(), anyInt(),
+                    any(org.jooq.OrderField.class), any(org.jooq.OrderField.class), any(org.jooq.OrderField.class)))
+                    .thenReturn(List.of(announcement(11L, "PUBLISHED"), announcement(12L, "PUBLISHED")));
+            mw.when(() -> JooqWriters.fetchOne(any(), eq(JooqTables.SYS_ANNOUNCEMENT_READ),
+                    eq(SysAnnouncementReadDO.class), any())).thenReturn(null);
+
+            int marked = service.markAllRead();
+
+            assertEquals(2, marked);
+            // 每条未读各触发一次回执插入与 read_count 累加
+            mw.verify(() -> JooqWriters.insert(any(), eq(JooqTables.SYS_ANNOUNCEMENT_READ),
+                    any(SysAnnouncementReadDO.class)), Mockito.times(2));
+            verify(dsl, Mockito.times(2)).update(any(Table.class));
+        }
+    }
+
+    @Test
+    @DisplayName("markAllRead：无未读公告时返回 0 且不写回执")
+    void markAllRead_noUnreadReturnsZero() {
+        try (MockedStatic<JooqWriters> mw = mockStatic(JooqWriters.class)) {
+            mw.when(() -> JooqWriters.fetchTop(any(), eq(JooqTables.SYS_ANNOUNCEMENT),
+                    eq(SysAnnouncementDO.class), any(), anyInt(),
+                    any(org.jooq.OrderField.class), any(org.jooq.OrderField.class), any(org.jooq.OrderField.class)))
+                    .thenReturn(List.of());
+
+            int marked = service.markAllRead();
+
+            assertEquals(0, marked);
+            mw.verify(() -> JooqWriters.insert(any(), eq(JooqTables.SYS_ANNOUNCEMENT_READ),
+                    any(SysAnnouncementReadDO.class)), Mockito.never());
+            verify(dsl, Mockito.never()).update(any(Table.class));
+        }
+    }
+
+    @Test
+    @DisplayName("markAllRead：已读公告跳过插入（幂等），仍返回 0")
+    void markAllRead_skipsAlreadyRead() {
+        try (MockedStatic<JooqWriters> mw = mockStatic(JooqWriters.class)) {
+            mw.when(() -> JooqWriters.fetchTop(any(), eq(JooqTables.SYS_ANNOUNCEMENT),
+                    eq(SysAnnouncementDO.class), any(), anyInt(),
+                    any(org.jooq.OrderField.class), any(org.jooq.OrderField.class), any(org.jooq.OrderField.class)))
+                    .thenReturn(List.of(announcement(11L, "PUBLISHED")));
+            SysAnnouncementReadDO exist = new SysAnnouncementReadDO();
+            exist.setId(99L);
+            mw.when(() -> JooqWriters.fetchOne(any(), eq(JooqTables.SYS_ANNOUNCEMENT_READ),
+                    eq(SysAnnouncementReadDO.class), any())).thenReturn(exist);
+
+            int marked = service.markAllRead();
+
+            assertEquals(0, marked);
+            mw.verify(() -> JooqWriters.insert(any(), eq(JooqTables.SYS_ANNOUNCEMENT_READ),
+                    any(SysAnnouncementReadDO.class)), Mockito.never());
+            verify(dsl, Mockito.never()).update(any(Table.class));
+        }
+    }
 }
