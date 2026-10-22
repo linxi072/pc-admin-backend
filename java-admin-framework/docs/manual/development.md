@@ -2620,3 +2620,53 @@ CREATE TABLE sys_notification_template (
 - `scripts/check-conventions.py`：EXIT=0（system 主源码 197 文件 / 11 源码根，H1–H5 无违规）；
 - 前端 `NotificationTemplate.vue` 经 `@vue/compiler-sfc` 编译通过，`notification.js`/`notificationTemplate.js` 经 `node --check` ESM 校验通过；
 - 待用户本机（需 MySQL + 运行后端）：在「通知模板」页对启用模板点「发送」→ 填变量与接收人 → 收到按模板渲染的消息；对停用/不存在模板发送返回 409/404。
+
+## 通知发送记录中心（V42，M12）
+
+> M10/M11 让「按模板发送」成为闭环，但运维侧仍缺一块拼图：IN_APP / WEBHOOK / WEBSOCKET / EMAIL 四路发送**无任何留痕**（仅 SMS 有 `sys_sms_record` 对账面），「通知发出去了吗、失败为什么、是不是模板渲染错了」无从回答。M12 在 `NotificationService.dispatch` 这一唯一漏斗挂记录器，落 `sys_notification_record`（V42），提供全五渠道统一审计面 + 「通知记录」页。
+
+### 1. 挂点设计：dispatch 是全部发送路径的唯一漏斗
+
+- `dispatch(message)` 的调用方只有两个：原始 `POST /send`（`NotificationController` 直调）与 `sendWithTemplate`（M11 内部复用）——在 dispatch 外包一层记录器即**全覆盖**，无需改任何适配器；
+- `dispatch(message)` 委托 `dispatch(message, null)`；`sendWithTemplate` 改调 `dispatch(msg, request.templateCode())`，把 **templateCode 透传进记录**（provenance：这条通知是哪个模板发出来的）；
+- **不改 `NotificationMessage`**（scaffold-common 共享模型）：模板来源经重载参数透传，避免为审计诉求污染领域载体。
+
+### 2. 语义与口径（与 sys_sms_record 的分工）
+
+| 维度 | `sys_notification_record`（M12） | `sys_sms_record`（V37） |
+| --- | --- | --- |
+| 记录时机 | 每次 dispatch **尝试**（含被拒与失败） | 仅校验通过后**实际尝试**的网关投递 |
+| 渠道覆盖 | 全五渠道（统一审计面） | 仅 SMS（网关对账面） |
+| 短信一次发送 | 双写本表 | 双写对账表 |
+
+双写是刻意设计：审计面回答「有没有发、成没成、为什么失败」，对账面回答「网关视角的批次与计费」。
+
+### 3. 实现清单（`system/notifylog`，镜像 `system/smslog` 范式）
+
+- **`SysNotificationRecordDO`**（`@Data`）：channel / templateCode / msgType / 标题摘要 / 正文摘要 / 接收方摘要 / receiverCount / delivered / status / errorMessage / 操作人 / traceId / sentAt；
+- **`NotificationRecordRules`**（纯函数）：`normalizeChannel`/`normalizeStatus`（白名单归一，非法忽略）；`summarizeTitle`/`summarizeContent`（CR/LF/TAB 折叠 + 截断加省略号）；`summarizeExtra`（WEBHOOK 无正文时以 `{k=v}` 兜底）；`receiverSummary`/`receiverCount` **按渠道推导**——SMS/EMAIL 掩码列表、IN_APP `用户/角色/机构` 维度拼接、WEBHOOK 抹除 URL query（机器人 key/token 均在 query 上）、WEBSOCKET 区分定向/广播；
+- **`NotificationRecordRecorder`**（REQUIRES_NEW + 失败 warn 不阻断）：MDC traceId、`SecurityContextFacade` 操作人（内部触发留空）、`JooqWriters.insert`；**失败路径的留痕依赖 REQUIRES_NEW**——否则主流程抛异常回滚会把记录一并带走；
+- **`NotificationRecordService`**（只读）：page + summary，筛选 channel/status/关键字（八列 LIKE）/ 时间区间（默认 7 天），排序白名单 7 列，`buildSummary` 纯函数；
+- **`NotificationRecordController`**：`/api/system/notification-records` 的 `GET /page` + `GET /summary`，权限 `system:notification-record:read`（`ApiResourceAutoSyncRunner` 自动登记）；
+- **`NotificationRecordView`**：record 直出（入库前已脱敏摘要，无「查看原文」入口）；
+- **`JooqTables.SYS_NOTIFICATION_RECORD`**：16 列与 V42 DDL 严格一致；无 deleted 列（记录即审计，永久留存）。
+
+### 4. 迁移 V42 与菜单
+
+- `V42__notification_record.sql`：建表（`idx_tenant_time` / `idx_channel_time` / `idx_status_time` 三索引）+ 菜单 id=**1096**（挂「系统管理」1002，sort_no=**105**，route `/system/notification-records`，component `system/NotificationRecord`，icon `Tickets`）+ SUPER_ADMIN 绑定；
+- 权限码不手工登记 `sys_api_resource`，由 `ApiResourceAutoSyncRunner` 启动扫描 `@PreAuthorize` 落库。
+
+### 5. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationRecord.js`：`pageNotificationRecords` / `notificationRecordSummary`；
+- `src/views/system/NotificationRecordView.vue`：镜像 SmsLogView——渠道筛选（五渠道标签配色）+ 结果筛选 + 时间范围 + 关键字 + 摘要统计卡（总数/成功/失败/失败率/最近发送）+ 服务端白名单排序 + 分页；
+- `src/router/index.js`：`system/notification-records` 懒加载条目（permission `system:notification-record:read`）。
+
+### 6. 验证状态（沙箱）
+
+- `mvn -o clean test-compile`：**BUILD SUCCESS**（12 模块）；
+- M12 定向单测：`NotificationRecordRulesTest` 12 例（渠道归一/摘要/掩码/按渠道接收方与计数/null 防御）+ `NotificationRecordServiceTest` 3 例（buildSummary 比率口径）+ `NotificationServiceTest` 扩至 **8 例**（+dispatch 成功记录/失败记录并重抛/templateCode 透传/失败带模板码）；
+- `scripts/check-conventions.py`：EXIT=0；
+- 前端 SFC 经 `@vue/compiler-sfc` 编译通过，api/router 经 ESM 校验通过；
+- 待用户本机（需 MySQL + 运行后端）：V42 自动迁移后进「通知记录」页，从消息中心发一条各渠道通知（含一次失败，如未启用短信渠道），核对记录的状态/投递数/失败原因/traceId。
+
