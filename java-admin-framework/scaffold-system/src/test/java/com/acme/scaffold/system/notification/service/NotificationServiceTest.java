@@ -7,6 +7,7 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.entity.SysNotificationTemplateDO;
 import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
+import com.acme.scaffold.system.notifylog.NotificationRecordRecorder;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,17 +20,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * {@link NotificationService} 单元测试：覆盖 M11 按模板发送的编排（取启用中模板 → 渲染 ${var}
- * → 按模板渠道走 {@code NotificationRouter} 路由到适配器）。模板服务以 mock 替身，
+ * → 按模板渠道走 {@code NotificationRouter} 路由到适配器）与 M12 发送记录旁路
+ * （dispatch 成功/失败均留痕、templateCode 透传）。模板服务与记录器以 mock 替身，
  * 渠道适配器用捕获型 fake，全离线、不依赖数据库与 Spring 上下文。
  */
 class NotificationServiceTest {
 
     private NotificationTemplateService templateService;
+    private NotificationRecordRecorder recordRecorder;
     private CapturingPort port;
     private NotificationService service;
 
@@ -66,8 +74,9 @@ class NotificationServiceTest {
     @BeforeEach
     void setUp() {
         templateService = mock(NotificationTemplateService.class);
+        recordRecorder = mock(NotificationRecordRecorder.class);
         port = new CapturingPort();
-        service = new NotificationService(List.of(port), templateService);
+        service = new NotificationService(List.of(port), templateService, recordRecorder);
     }
 
     @Test
@@ -125,5 +134,60 @@ class NotificationServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class, () -> service.sendWithTemplate(req));
         assertTrue(ex.getMessage().contains("不支持的通知渠道"));
+    }
+
+    // ------------------------------------------------------------------
+    // M12：发送记录旁路
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("dispatch：投递成功记录 SUCCESS + 实际投递数，原始直发 templateCode 为 null")
+    void dispatch_successRecords() {
+        port.ret = 2;
+
+        int delivered = service.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文"));
+
+        assertEquals(2, delivered);
+        verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(2), eq(true), isNull());
+    }
+
+    @Test
+    @DisplayName("dispatch：渠道无适配器时记录 FAILED + 异常消息并原样重抛")
+    void dispatch_failureRecordsAndRethrows() {
+        NotificationMessage msg = new NotificationMessage(Channel.SMS, null, "正文");
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.dispatch(msg));
+
+        assertTrue(ex.getMessage().contains("不支持的通知渠道"));
+        verify(recordRecorder).record(eq(msg), isNull(), eq(0), eq(false),
+                contains("不支持的通知渠道"));
+    }
+
+    @Test
+    @DisplayName("sendWithTemplate：模板编码透传到发送记录（provenance 审计）")
+    void sendWithTemplate_templateCodePropagatedToRecord() {
+        when(templateService.requireEnabledByCode("ORDER_SHIPPED"))
+                .thenReturn(template("订单已发货", "尊敬的会员，订单已发货。", "EMAIL", 1));
+        SendWithTemplateNotificationRequest req = new SendWithTemplateNotificationRequest(
+                "ORDER_SHIPPED", Map.of(), null, null, null, null, List.of("a@x.com"), null);
+
+        service.sendWithTemplate(req);
+
+        verify(recordRecorder).record(any(NotificationMessage.class), eq("ORDER_SHIPPED"),
+                eq(1), eq(true), isNull());
+    }
+
+    @Test
+    @DisplayName("sendWithTemplate：投递失败同样记录 FAILED（含模板编码）并向上传播")
+    void sendWithTemplate_failureRecordsWithTemplateCode() {
+        when(templateService.requireEnabledByCode("ORDER_SHIPPED"))
+                .thenReturn(template("t", "c", "SMS", 1)); // 仅注册了 EMAIL 适配器
+        SendWithTemplateNotificationRequest req = new SendWithTemplateNotificationRequest(
+                "ORDER_SHIPPED", Map.of(), null, null, null, null, null, List.of("13800000000"));
+
+        assertThrows(BusinessException.class, () -> service.sendWithTemplate(req));
+
+        verify(recordRecorder).record(any(NotificationMessage.class), eq("ORDER_SHIPPED"),
+                eq(0), eq(false), contains("不支持的通知渠道"));
     }
 }
