@@ -11,6 +11,8 @@ import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationReq
 import com.acme.scaffold.system.notifylog.NotificationRecordRecorder;
 import com.acme.scaffold.system.notifypref.NotificationPreferenceService;
 import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules;
+import com.acme.scaffold.system.notifyquiet.NotificationQuietHoursService;
+import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
 import com.acme.scaffold.system.rules.NotificationTemplateRules;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,12 @@ import java.util.Map;
  * 并静默返回 0（不抛异常、不调适配器）。广播（角色/机构维度）与 WEBHOOK 无个人偏好语义，
  * 不过滤。自此 {@code sys_user} 的 {@code notify_*} 渠道总开关不再是「死开关」——
  * 发送链路首次读取它们。</p>
+ *
+ * <p>M14 起 dispatch 在偏好过滤<b>之前</b>先按<b>免打扰时段</b>过滤
+ * （{@link NotificationQuietHoursService}，时间维总闸）：处于免打扰窗口内的定向接收者
+ * 不投递（{@code ALERT} 可按用户配置的告警穿透例外）；全部定向接收者均被抑制时记一条
+ * {@code SKIPPED}（原因 {@value NotificationQuietHoursRules#REASON_QUIET_HOURS}）并静默返回 0。
+ * 两道过滤均只作用于定向接收者；广播与 WEBHOOK 无个人作息/偏好语义，不过滤。</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +55,7 @@ public class NotificationService {
     private final NotificationTemplateService templateService;
     private final NotificationRecordRecorder recordRecorder;
     private final NotificationPreferenceService preferenceService;
+    private final NotificationQuietHoursService quietHoursService;
 
     /** 投递一条消息（无模板来源），返回实际投递单元数（见各适配器语义）。 */
     public int dispatch(NotificationMessage message) {
@@ -54,24 +63,36 @@ public class NotificationService {
     }
 
     /**
-     * 投递一条消息并留痕（M12），按接收者偏好过滤（M13）。
+     * 投递一条消息并留痕（M12），按免打扰时段（M14）与接收者偏好（M13）过滤。
      *
      * <p>成功记 {@code SUCCESS} + 实际投递数；{@link RuntimeException}（渠道未启用、报文被拒、
      * 适配器/网关异常等）记 {@code FAILED} + 异常消息后<b>原样重抛</b>——记录是审计旁路，
      * 不改变投递结论，也不掩盖失败。</p>
      *
-     * <p>M13 新增第三种终态：定向接收者全部退订 → 记 {@code SKIPPED} + 跳过原因，
-     * <b>静默返回 0</b>（不抛异常：退订是正常业务结果而非故障；也不调适配器：
-     * 没有该投递的对象）。过滤以原始消息为审计对象——记录里的「目标接收数」反映
-     * 发送意图，退订差异由 SKIPPED 状态本身表达。</p>
+     * <p>两道接收侧过滤（均只作用于定向接收者，广播/WEBHOOK 不过滤）：
+     * <ol>
+     *   <li>免打扰时段（M14，时间维总闸）：全部定向接收者均处于免打扰 → 记 {@code SKIPPED}
+     *       （原因 {@value NotificationQuietHoursRules#REASON_QUIET_HOURS}），静默返回 0；</li>
+     *   <li>接收者偏好（M13，渠道 × 类型维）：剩余接收者全部退订 → 记 {@code SKIPPED}
+     *       （原因 {@value NotificationPreferenceRules#REASON_ALL_UNSUBSCRIBED}），静默返回 0。</li>
+     * </ol>
+     * 静默语义：退订与作息抑制都是正常业务结果而非故障，不抛异常；也没有该投递的对象，
+     * 不调适配器。过滤以原始消息为审计对象——记录里的「目标接收数」反映发送意图，
+     * 抑制差异由 SKIPPED 状态与原因本身表达。</p>
      *
      * @param message      被投递的渠道无关消息
      * @param templateCode 来源模板编码（原始直发传 null，按模板发送回填以支撑 provenance 审计）
-     * @return 实际投递单元数（见各适配器语义；全部退订为 0）
+     * @return 实际投递单元数（见各适配器语义；全部被抑制为 0）
      */
     public int dispatch(NotificationMessage message, String templateCode) {
         try {
-            NotificationMessage effective = preferenceService.applyPreferences(message);
+            NotificationMessage effective = quietHoursService.applyQuietHours(message);
+            if (effective == null) {
+                recordRecorder.skip(message, templateCode,
+                        NotificationQuietHoursRules.REASON_QUIET_HOURS);
+                return 0;
+            }
+            effective = preferenceService.applyPreferences(effective);
             if (effective == null) {
                 recordRecorder.skip(message, templateCode,
                         NotificationPreferenceRules.REASON_ALL_UNSUBSCRIBED);

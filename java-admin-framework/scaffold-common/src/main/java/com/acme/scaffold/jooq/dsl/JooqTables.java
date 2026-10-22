@@ -245,6 +245,18 @@ public final class JooqTables {
             "id", "tenant_id", "user_id", "channel", "msg_type", "enabled",
             "created_at", "updated_at");
 
+    // ---------------- 通知免打扰时段（V44） ----------------
+
+    /**
+     * 通知免打扰时段表（列名与 V44__notification_quiet_hours.sql 严格一致）。无 deleted / version 列：
+     * 「无行 = 无免打扰」的懒行模型，与 {@link #SYS_NOTIFICATION_PREFERENCE} 同范式；
+     * 唯一键 uk_user 保证同一用户至多一行（按接收者维度，而非按渠道——免打扰是时间维总闸，
+     * 不区分渠道）。start_time / end_time 为 TIME 列（服务器本地时间，跨午夜窗口用起止关系表达）。
+     */
+    public static final TableRef SYS_NOTIFICATION_QUIET_HOURS = new TableRef("sys_notification_quiet_hours",
+            "id", "tenant_id", "user_id", "enabled", "start_time", "end_time",
+            "alert_breakthrough", "created_at", "updated_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",

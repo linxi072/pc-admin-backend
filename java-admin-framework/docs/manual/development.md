@@ -2718,3 +2718,52 @@ effective(渠道, 类型) = 渠道总开关(sys_user.notify_*) && (细分偏好�
 - 前端 `npm run build` 通过（ProfileView 分块 24.81 kB）；
 - 待用户本机（需 MySQL + 运行后端）：V43 自动迁移后进「个人中心 → 通知订阅」，关闭「站内信 × 告警」后由消息中心发一条 ALERT 站内信给自己——应收不到且「通知记录」出现一条 SKIPPED；恢复默认后再发应收到的。
 
+## 通知免打扰时段（V44，M14）
+
+### 1. 选题与模型取舍
+
+- M13 偏好中心闭合接收侧的「谁想收什么」（渠道 × 消息类型），本模块补齐最后一维「**什么时候收**」；
+- **时间维总闸**：免打扰先于偏好过滤生效（dispatch 内两道挂点串联，免打扰在前）；
+- **按接收者维度、不按渠道**（镜像 M13）：一名用户至多一行——时间窗不区分渠道，与「渠道 × 类型」矩阵正交；
+- **懒行模型**：无行 = 无免打扰（与 M13「无行默认开通」互为镜像）；关停免打扰保留配置行（`enabled=0`），无「恢复默认」删行语义，故无 `deleted` 列；
+- **半开区间 `[start, end)` + 跨午夜**：`start < end` 为当日窗口，`start > end` 表达跨午夜（默认 22:00–08:00）；`start == end` 为退化窗口，服务端拒绝；
+- **服务器本地时间**（`LocalTime.now()`）：免随时区换算，属文档化限制（与「验证码过期」等既有本地时间口径一致）；
+- **告警穿透**：`ALERT` 且 `alert_breakthrough=1` 时免打扰不生效——故障告警不应被时间窗吞掉；其余类型（NOTICE/SYSTEM/CC/未知）一律受抑制；
+- **广播与 WEBHOOK 不过滤**：角色/机构广播受众规模不定、WEBHOOK 地址属外部系统，均无个人作息语义，属文档化限制。
+
+### 2. 表结构（`V44__notification_quiet_hours.sql`）与契约
+
+- `sys_notification_quiet_hours`：`id` / `tenant_id` / `user_id` / `enabled` / `start_time` TIME / `end_time` TIME / `alert_breakthrough` / `created_at` / `updated_at`；唯一键 `uk_user(user_id)`（同一用户至多一行，兜底幂等，写入走「查现存 → 更新或插入」）+ `idx_tenant_user`；
+- 契约：`GET|PUT /api/notification-quiet-hours/mine`（自服务，无权限码、无菜单，userId 一律服务端取自安全上下文）；视图字段 `enabled` / `startTime` / `endTime`（`HH:mm` 字符串）/ `alertBreakthrough` / `quietNow`（仅展示的当前状态提示，不参与发送裁决）；
+- 请求体 `UpdateQuietHoursRequest`：`@NotNull enabled/alertBreakthrough` + `@NotBlank startTime/endTime`；格式与窗口合法性由服务端二次校验（Bean Validation 只管非空）；
+- 新增校验键三件套：`validation.quietHours.switch.notNull` / `validation.quietHours.time.notBlank`。
+
+### 3. 实现清单（`system/notifyquiet`，镜像 `notifypref` 范式）
+
+- `domain/SysNotificationQuietHoursDO`：`LocalTime` 时间列（jOOQ 动态 DSL 直接绑定，`SnakeRecordMapper` 透传）；
+- `rules/NotificationQuietHoursRules`（纯函数）：`parseTime`（`HH:mm` 严格格式）/ `isValidWindow` / `isQuiet`（半开区间 + 跨午夜，退化输入防御）/ `isAlert` / `suppresses`（穿透决策）/ `isSuppressed` / `filterReceivers`（保序过滤，null 元素剔除）+ 内嵌 `QuietSetting` record（H4 不命中 Matrix/Cell 命名）；
+- `NotificationQuietHoursView`：top-level record（镜像 M12 View 放置），`defaults()` 兜底未配置用户；
+- `dto/UpdateQuietHoursRequest` + `NotificationQuietHoursService`（`mine` / `update` 先全额校验再 upsert / `applyQuietHours` 按接收者过滤返 null=抑制）+ `NotificationQuietHoursController`；
+- EMAIL/SMS 的地址 → userId 反查与偏好服务同口径（email 小写归一、soft-deleted 除外、外部地址默认放行），两处挂点过滤结论相互独立，暂不抽公共层。
+
+### 4. dispatch 挂点与 SKIPPED 原因区分（M12/M13 链路扩展）
+
+- `NotificationService` 构造器扩第 5 参 `NotificationQuietHoursService`；`dispatch` 先 `applyQuietHours`（null → 记 **`SKIPPED`**，原因「免打扰时段内已抑制」）再 `applyPreferences`（null → 原因「全部接收者已退订该类型通知」）——两道过滤串联，免打扰为总闸；
+- 抑制/退订均**静默返回 0**：不抛异常（正常业务结果而非故障）、不调适配器（没有该投递的对象）；记录仍以原始消息为审计对象，抑制差异由 SKIPPED 状态与原因表达；
+- SKIPPED 不计失败率（M12 口径不变）；通知记录页的「已跳过」筛选与「失败/跳过原因」列自动兼容新原因文案，无需改动。
+
+### 5. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationQuietHours.js`：`getMyQuietHours` / `updateMyQuietHours`；
+- `src/views/profile/components/NotificationQuietHoursPanel.vue`：启用开关 + 起止时间（`el-time-picker`，`HH:mm`）+ 告警穿透开关；`quietNow` 状态提示（「当前处于免打扰中」）、跨午夜提示（`end < start` 字符串字典序判定）；与服务端同口径的起止相同前置校验；PUT 返回视图直接刷新快照省回查；镜像 M13 面板的 skeleton/alert/保存态范式；
+- `src/views/profile/ProfileView.vue`：新增「免打扰」Tab（`#quietHours` 可直达）。
+
+### 6. 验证状态（沙箱）
+
+- `mvn -o clean test`：**1017 单元全绿**（较 M13 基线 990 +27；12 模块 SUCCESS）；
+- M14 定向单测：`NotificationQuietHoursRulesTest` **14 例**（时间解析/半开区间边界/跨午夜/退化防御/穿透决策/保序过滤）+ `NotificationQuietHoursServiceTest` **8 例**（格式与退化窗口拒绝且零库交互/跨午夜合法/四类零库放行路径）+ `NotificationServiceTest` 扩至 **17 例**（+全抑制 SKIPPED 不调 port 且不落 FAILED / 总闸短路不再查偏好 / 放行后才进偏好且记录以原始消息为对象 / 免打扰查询异常 FAILED / 模板发送同过免打扰）；
+- `scripts/check-conventions.py`：EXIT=0；
+- 前端 `npm run build` 通过；
+- 待用户本机（需 MySQL + 运行后端）：V44 自动迁移后进「个人中心 → 免打扰」设置 22:00–08:00（保持当前时刻在窗口内即可验证），发一条 NOTICE 给自己——通知记录出现一条 SKIPPED（原因「免打扰时段内已抑制」）；改发 ALERT（告警穿透开启）则应正常收到；关闭开关后再发恢复投递。
+
+
