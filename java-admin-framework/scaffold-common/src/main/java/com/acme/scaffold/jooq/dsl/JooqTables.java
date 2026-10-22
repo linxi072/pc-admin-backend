@@ -207,6 +207,18 @@ public final class JooqTables {
             "provider", "status", "error_message", "operator_id", "operator_name",
             "trace_id", "sent_at");
 
+    // ---------------- 通知模板中心（V41） ----------------
+
+    /**
+     * 通知模板表（列名与 V41__notification_template.sql 严格一致）。逻辑删除（deleted），
+     * 启用状态（enabled）独立控制；渠道名存 {@code Channel} 枚举大写
+     * （IN_APP / EMAIL / SMS / WEBHOOK / WEBSOCKET）。
+     */
+    public static final TableRef SYS_NOTIFICATION_TEMPLATE = new TableRef("sys_notification_template",
+            "id", "tenant_id", "template_code", "template_name", "channel", "title", "content",
+            "msg_type", "enabled", "remark", "version", "deleted", "created_by", "created_at",
+            "updated_by", "updated_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",

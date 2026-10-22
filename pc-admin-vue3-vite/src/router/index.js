@@ -139,6 +139,13 @@ const routes = [
         meta: { title: '短信记录', permission: 'system:sms-record:read' }
       },
       {
+        // 通知模板中心（V41）：为 M6 多渠道通知提供可复用 ${var} 模板；权限码与菜单由后端驱动
+        path: 'system/notification-templates',
+        name: 'notificationTemplate',
+        component: () => import('@/views/system/NotificationTemplate.vue'),
+        meta: { title: '通知模板', permission: 'system:notification-template:read' }
+      },
+      {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),
