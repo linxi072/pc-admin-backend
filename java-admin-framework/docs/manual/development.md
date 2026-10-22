@@ -2446,7 +2446,62 @@ npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir        # 离线构建�
 
 ### 8. 验证状态（沙箱）
 
-- `mvn -o clean test`：**1810 例全绿**（M8 新增 24 例：`MessageReadRulesTest` 9 例 + `MessageReadServiceTest` 15 例，后者含 SQL 渲染断言校验 `message_id =` 无限定列名契约与 `is_read =` 单 count 含条件）；
+- `mvn -o clean test`：**906 例单元全绿**（M8 新增 24 例：`MessageReadRulesTest` 9 例 + `MessageReadServiceTest` 15 例，后者含 SQL 渲染断言校验 `message_id =` 无限定列名契约与 `is_read =` 单 count 含条件）；单元 + 集成 `*IT` 合计 **1810 例全绿**（历史口径）；
 - `scripts/check-conventions.py`：EXIT=0（520 文件 / 11 源码根，H1–H5 无违规）；
 - 前端经 `@vue/compiler-sfc` 校验 `MessageView.vue`（SFC 解析 + 脚本/模板编译，**78 个 bindings** 通过；沙箱 `vite build` 受资源限制被 SIGKILL，已绕过验证，语法已确认）；
 - 待用户本机（需 MySQL）：启动后端 + 前端走真实页面，发信后核对回执表行数 = 接收人数、标记已读后 `is_read` 翻转、催办经 `doSend` 落库并实时推送。
+
+## 通知中心（聚合未读，M9）
+
+> 顶栏统一铃铛此前只挂「站内信未读」角标，公告未读无统一入口；两类未读需分别轮询两个接口。本模块在既有 M7 公告已读回执中心与 M8 站内信已读回执中心之上做**只读聚合 + 一处写操作**，提供贯穿全站的统一未读入口（`summary` / `recent` / `mark-all-read`），供顶栏统一铃铛与抽屉使用，**不引入新表、不新增迁移**。
+
+### 1. 设计取舍：聚合而非新建
+
+- 复用 M7 `AnnouncementReadService.countMyUnread()/myUnread()`（懒插入反连接推导未读）与 M8 `MessageService.unreadCount()/pageMine()`（eager 投递回执），**零重复实现**；
+- 合并 / 排序 / 截断 / 上限钳制等纯逻辑下沉到 `NotificationCenterRules`（无 Spring 依赖、可离线单测）；服务只做编排与映射；
+- 接口为**登录用户自身动作**（查看自己未读、标记自己已读），仅登录即可，**不挂权限码**——与既有 `/api/system/messages/unread-count`、`/mine/unread` 同构，保证所有登录用户（含非 SUPER_ADMIN）都能用铃铛；
+- 基路径 `/api/notification-center`（单数）与 M6 复数 `/api/system/notifications` 字面不同、无碰撞。
+
+### 2. 接口（`NotificationCenterController`，基路径 `/api/notification-center`）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/summary` | 未读汇总：`announcementUnread` + `messageUnread` + `totalUnread`（角标展示值，前端自行钳制上限） |
+| GET | `/recent?limit=` | 近期未读条目（两类来源按 `occurredAt` 倒序合并截断，limit 默认 10 / 上限 50） |
+| POST | `/mark-all-read` | 一键全部已读（公告 + 站内信），返回 `announcementMarked` / `messageMarked` / `marked`（带 `@AuditOperation`） |
+
+### 3. 聚合与纯函数规则（`NotificationCenterRules`）
+
+- `clampRecentLimit`：`null` 取默认 10、越界收敛到 `[1, 50]`（收敛而非报错）；
+- `totalUnread`：两类未读直接相加；
+- `mergeAndSortRecent`：泛型合并两类列表、按时间键倒序（`null` 沉底）、截断到 limit。**泛型实现使 rules 包零向上依赖（不引用 dto 视图）**，避免与 `dto` 形成包级循环（H1 硬规则，详见 §7）。
+
+### 4. 服务编排（`NotificationCenterService`）
+
+- `summary()`：调 `countMyUnread()` + `unreadCount()`，合计由 rules 推导；
+- `recent(limit)`：取各来源前 n 条未读 → 映射 `NotificationItemView`（`link = /system/notice?tab=...&id=...`）→ rules 合并排序截断；摘要 `truncate` 去多余空白、超 80 字补 `…`；
+- `markAllRead()`：`@Transactional`，委托两边 `markAllRead()`，返回 Map（复用其幂等语义与计数逻辑）。
+
+### 5. 视图 DTO
+
+- `NotificationSummaryView(announcementUnread, messageUnread, totalUnread)`；
+- `NotificationItemView(source, id, title, summary, link, occurredAt)`：`source` 为 `ANNOUNCEMENT` / `MESSAGE`。
+
+### 6. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationCenter.js`：`getSummary` / `getRecent` / `markAllRead` 三封装；
+- `src/components/NotificationBell.vue`：统一铃铛——`el-badge` 角标（max 99）+ `el-drawer` 抽屉列近期条目（公告 / 站内信分色 + 相对时间）+「全部已读」按钮 + 30s 轮询 + `onRealtime` 订阅 `UNREAD_MESSAGE` / `TODO_REMINDER` 实时刷新角标与 Toast；
+- `src/layout/Topbar.vue`：以 `<NotificationBell/>` 替换原「站内信」单源铃铛，移除 Topbar 内重复的未读轮询 / 实时处理（统一收敛到组件内），避免双轮询；
+- 复用既有 `realtime.js`（`initRealtime` / `onRealtime` 单例幂等）、`router`（`/system/notice?tab=message|announcement`）。
+
+### 7. 关键修复：包级循环（H1）
+
+- 初版 `NotificationCenterRules` 直接 `import dto.NotificationItemView`，与既有 `MessageReadStatsView` / `AnnouncementReadStatsView`（dto→rules）形成 `dto <-> rules` 包级循环，触发 `check-conventions.py` H1 硬违规（EXIT=1）；
+- 将 `mergeAndSortRecent` 泛型化（传入 `Function<T, LocalDateTime>` 取值器），rules 不再引用 dto，循环消除，校验恢复 EXIT=0。
+
+### 8. 验证状态（沙箱）
+
+- `mvn -o clean test`：**927 例单元全绿**（M9 新增 21 例：`NotificationCenterRulesTest` 11 例 + `NotificationCenterServiceTest` 7 例 + `AnnouncementReadServiceTest` 扩 3 例（`countMyUnread` 反连接 SQL 断言 / `markAllRead` 标记数 / 已读跳过））；另 22 个 `*IT` 集成测试需 MySQL，单元 + 集成**合计 1831 例全绿**（与历史口径一致）；
+- `scripts/check-conventions.py`：EXIT=0（525 文件 / 11 源码根，H1–H5 无违规）；
+- 前端经 `@vue/compiler-sfc` 校验 `NotificationBell.vue` 与 `Topbar.vue`（SFC 解析 + 脚本 / 模板编译通过；沙箱 `vite build` 受资源限制被 SIGKILL，已绕过验证，语法已确认）；
+- 待用户本机（需 MySQL + 运行后端）：顶栏铃铛角标 = 公告未读 + 站内信未读；点开抽屉见近期条目、点「全部已读」后角标归零、WebSocket 推新消息时角标自增并 Toast。
