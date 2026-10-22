@@ -10,6 +10,8 @@ import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationReq
 import com.acme.scaffold.system.notifylog.NotificationRecordRecorder;
 import com.acme.scaffold.system.notifypref.NotificationPreferenceService;
 import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules;
+import com.acme.scaffold.system.notifyquiet.NotificationQuietHoursService;
+import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,16 +38,18 @@ import static org.mockito.Mockito.when;
 /**
  * {@link NotificationService} 单元测试：覆盖 M11 按模板发送的编排（取启用中模板 → 渲染 ${var}
  * → 按模板渠道走 {@code NotificationRouter} 路由到适配器）、M12 发送记录旁路
- * （dispatch 成功/失败均留痕、templateCode 透传）与 M13 偏好过滤挂点
- * （过滤后消息才进适配器、全部退订记 SKIPPED 不调端口、偏好查询异常按 FAILED 处理）。
- * 模板服务、记录器与偏好服务以 mock 替身，渠道适配器用捕获型 fake，全离线、
- * 不依赖数据库与 Spring 上下文。
+ * （dispatch 成功/失败均留痕、templateCode 透传）、M13 偏好过滤挂点
+ * （过滤后消息才进适配器、全部退订记 SKIPPED 不调端口、偏好查询异常按 FAILED 处理）
+ * 与 M14 免打扰挂点（时间维总闸先于偏好、全部抑制记 SKIPPED 且不再查偏好、
+ * 免打扰查询异常按 FAILED 处理）。模板服务、记录器、偏好与免打扰服务以 mock 替身，
+ * 渠道适配器用捕获型 fake，全离线、不依赖数据库与 Spring 上下文。
  */
 class NotificationServiceTest {
 
     private NotificationTemplateService templateService;
     private NotificationRecordRecorder recordRecorder;
     private NotificationPreferenceService preferenceService;
+    private NotificationQuietHoursService quietHoursService;
     private CapturingPort port;
     private NotificationService service;
 
@@ -84,10 +88,13 @@ class NotificationServiceTest {
         templateService = mock(NotificationTemplateService.class);
         recordRecorder = mock(NotificationRecordRecorder.class);
         preferenceService = mock(NotificationPreferenceService.class);
+        quietHoursService = mock(NotificationQuietHoursService.class);
         port = new CapturingPort();
         service = new NotificationService(List.of(port), templateService, recordRecorder,
-                preferenceService);
-        // 默认不过滤：原样返回入参消息（覆盖 M11/M12 各例的既有语义）
+                preferenceService, quietHoursService);
+        // 默认两道过滤均放行：原样返回入参消息（覆盖 M11/M12 各例的既有语义）
+        when(quietHoursService.applyQuietHours(any(NotificationMessage.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
         when(preferenceService.applyPreferences(any(NotificationMessage.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
     }
@@ -272,5 +279,88 @@ class NotificationServiceTest {
         assertNull(port.last);
         verify(recordRecorder).skip(any(NotificationMessage.class), eq("ORDER_SHIPPED"),
                 eq(NotificationPreferenceRules.REASON_ALL_UNSUBSCRIBED));
+    }
+
+    // ------------------------------------------------------------------
+    // M14：免打扰时段挂点（时间维总闸，先于 M13 偏好过滤）
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("dispatch：定向接收者全部处于免打扰 → 记 SKIPPED、不调适配器、静默返回 0")
+    void dispatch_quietHoursSuppressedSkipsPortAndRecordsSkipped() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("asleep@x.com"), null);
+        when(quietHoursService.applyQuietHours(msg)).thenReturn(null);
+
+        int delivered = service.dispatch(msg);
+
+        assertEquals(0, delivered);
+        assertNull(port.last);
+        verify(recordRecorder).skip(eq(msg), isNull(),
+                eq(NotificationQuietHoursRules.REASON_QUIET_HOURS));
+        // 抑制不是故障：不得落入 FAILED 记录
+        verify(recordRecorder, never()).record(any(), any(), anyInt(), eq(false), any());
+    }
+
+    @Test
+    @DisplayName("dispatch：免打扰抑制时不再进入偏好过滤（总闸短路，偏好无查询必要）")
+    void dispatch_quietHoursShortCircuitsBeforePreferences() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("asleep@x.com"), null);
+        when(quietHoursService.applyQuietHours(msg)).thenReturn(null);
+
+        service.dispatch(msg);
+
+        verify(preferenceService, never()).applyPreferences(any(NotificationMessage.class));
+    }
+
+    @Test
+    @DisplayName("dispatch：免打扰放行后的消息才进入偏好过滤，记录仍以原始消息为审计对象")
+    void dispatch_quietHoursFilteredMessageFlowsToPreferences() {
+        NotificationMessage original = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com", "b@x.com"), null);
+        NotificationMessage afterQuiet = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com"), null);
+        when(quietHoursService.applyQuietHours(original)).thenReturn(afterQuiet);
+
+        int delivered = service.dispatch(original);
+
+        assertEquals(1, delivered);
+        assertSame(afterQuiet, port.last);
+        verify(preferenceService).applyPreferences(afterQuiet);
+        verify(recordRecorder).record(eq(original), isNull(), eq(1), eq(true), isNull());
+    }
+
+    @Test
+    @DisplayName("dispatch：免打扰查询异常按 FAILED 记录并向上传播（不静默吞掉）")
+    void dispatch_quietHoursLookupFailureRecordsFailed() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文");
+        when(quietHoursService.applyQuietHours(msg))
+                .thenThrow(new IllegalStateException("免打扰查询失败"));
+
+        RuntimeException ex = assertThrows(IllegalStateException.class, () -> service.dispatch(msg));
+
+        assertEquals("免打扰查询失败", ex.getMessage());
+        assertNull(port.last);
+        verify(recordRecorder).record(eq(msg), isNull(), eq(0), eq(false), eq("免打扰查询失败"));
+        // 异常发生在偏好过滤之前：偏好服务不应被调用
+        verify(preferenceService, never()).applyPreferences(any(NotificationMessage.class));
+    }
+
+    @Test
+    @DisplayName("sendWithTemplate：模板发送同样经过免打扰过滤（模板编码随 SKIPPED 回填）")
+    void sendWithTemplate_quietHoursHookAppliesWithTemplateCode() {
+        when(templateService.requireEnabledByCode("ORDER_SHIPPED"))
+                .thenReturn(template("t", "c", "EMAIL", 1));
+        SendWithTemplateNotificationRequest req = new SendWithTemplateNotificationRequest(
+                "ORDER_SHIPPED", Map.of(), null, null, null, null, List.of("asleep@x.com"), null);
+        when(quietHoursService.applyQuietHours(any(NotificationMessage.class))).thenReturn(null);
+
+        int delivered = service.sendWithTemplate(req);
+
+        assertEquals(0, delivered);
+        assertNull(port.last);
+        verify(recordRecorder).skip(any(NotificationMessage.class), eq("ORDER_SHIPPED"),
+                eq(NotificationQuietHoursRules.REASON_QUIET_HOURS));
     }
 }
