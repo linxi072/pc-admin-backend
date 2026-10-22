@@ -2584,3 +2584,39 @@ CREATE TABLE sys_notification_template (
 - M10 单测 **14 例全绿**：`NotificationTemplateRulesTest` 4 例（normalizeChannel / extractVariables / render / validate）+ `NotificationTemplateServiceTest` 10 例（page / create 唯一性 / VALIDATION_ERROR / update / remove / toggle / preview / variables / get NOT_FOUND / 复用 `mockStatic(JooqWriters, CALLS_REAL_METHODS)` 打库替身，void 方法 `updateById`/`delete` 以 `thenAnswer(inv -> null)` 桩掉避免 mock(DSLContext) 返回 null 的 NPE）；
 - 前端 `NotificationTemplate.vue` 经 `@vue/compiler-sfc` 解析 + 脚本/模板编译通过；`notificationTemplate.js` 与既有 `notification.js` 同 ESM 风格；
 - 待用户本机（需 MySQL + 运行后端）：菜单「通知模板」可见（超管）， CRUD 与启停即时生效，预览按变量渲染且缺失变量被明确提示。
+
+## 通知发送模板化（send-with-template，M11）
+
+> M10 交付了模板中心，但发送侧仍是「调用方自带 title/content」的原始直发——模板成了孤岛。M11 闭合这一环：新增 `POST /api/system/notifications/send-with-template`，**模板成为标题/正文/渠道/消息类型的唯一事实来源**，发送侧只提供接收人与变量取值，取启用中模板、渲染 `${var}` 后复用既有渠道链路投递。
+
+### 1. 设计取舍：并存而非替换，模板是可选样板
+
+- 原始 `POST /send`（`SendNotificationRequest`，自带 title/content）**原样保留**，是否套用模板由调用方决定，向后兼容、互不影响；
+- 模板缺失抛 `NOT_FOUND`、停用抛 `CONFLICT`（`requireEnabledByCode` 判定）、渠道无适配器抛 `VALIDATION_ERROR`（`NotificationRouter`）——**发送必须显式失败，绝不静默降级**到空正文或停用模板；
+- 编排放 `NotificationService.sendWithTemplate`（与 `dispatch` 同层），而非 Controller：保持控制器薄，且服务→服务依赖是既有范式（如 `AnnouncementReadService` → `MessageService`）。
+
+### 2. 契约
+
+- **请求** `SendWithTemplateNotificationRequest`：`templateCode`（@NotBlank，≤64）+ `variables`（Map，可空）+ 按渠道的接收字段（`receiverIds`/`roleIds`/`orgIds`/`emails`/`mobiles`/`webhookUrl`）；
+- **响应**：`Result<{delivered: 单元数}>`，与 `/send` 一致；
+- **权限**：复用 `system:message:send`（不新增权限码，`ApiResourceAutoSyncRunner` 自动登记幂等 scope `system:notification:send-with-template`）；
+- **无迁移**：不新增表/菜单/权限，纯编排层扩展（V41 模板表复用）。
+
+### 3. 关键实现点
+
+- `NotificationTemplateService.requireEnabledByCode(code)`：按编码取未删除模板（抽出 `fetchByCode` 私有助手，`existsByCode` 复用），启用校验 `enabled != 1 → CONFLICT`；
+- `NotificationService.sendWithTemplate`：`normalizeChannel(tpl.channel)` 得 `String` 后 `Channel.valueOf(...)`（**注意 normalizeChannel 返回 String 而非枚举**），null 兜底抛 `VALIDATION_ERROR`；`title` 允许为 null（短信渠道），`content` 走 `render`（防注入、未知变量保持 `${name}`）；
+- `NotificationService` 构造器新增 `NotificationTemplateService` 依赖（Spring DI，无循环：模板服务不反向依赖通知服务）。
+
+### 4. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notification.js` 增 `sendWithTemplateNotification(body)`（与 `sendNotification` 同基路径 `/api/system/notifications`）；
+- `NotificationTemplate.vue` 行内增「发送」按钮 + 发送弹窗：按渠道动态展示接收字段（IN_APP/WEBSOCKET→接收人ID、EMAIL→邮箱、SMS→手机号、WEBHOOK→地址），变量输入复用 `getTemplateVariables`，**仅提交非空变量**（空值不入参，渲染时保持 `${name}` 原样），逗号分隔解析（兼容中英文逗号），成功后 Toast 展示 `delivered`。
+
+### 5. 验证状态（沙箱）
+
+- `mvn -o clean test`：**BUILD SUCCESS**（12 模块）；M11 定向 **21 例全绿**：`NotificationServiceTest` 4 例（渲染投递 / 缺变量保持 / 模板异常传播 / 渠道无适配器显式失败）+ `NotificationTemplateServiceTest` 扩至 13 例（+`requireEnabledByCode` 命中/缺失/停用）+ `NotificationTemplateRulesTest` 4 例；
+- 新增校验键 `validation.templateCode.notBlank` 已补 `validation{_zh_CN,_en_US}.properties` 三件套（守护 `ValidationMessageBundleConsistencyTest`）；
+- `scripts/check-conventions.py`：EXIT=0（system 主源码 197 文件 / 11 源码根，H1–H5 无违规）；
+- 前端 `NotificationTemplate.vue` 经 `@vue/compiler-sfc` 编译通过，`notification.js`/`notificationTemplate.js` 经 `node --check` ESM 校验通过；
+- 待用户本机（需 MySQL + 运行后端）：在「通知模板」页对启用模板点「发送」→ 填变量与接收人 → 收到按模板渲染的消息；对停用/不存在模板发送返回 409/404。
