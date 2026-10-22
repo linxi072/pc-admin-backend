@@ -8,6 +8,8 @@ import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.entity.SysNotificationTemplateDO;
 import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
 import com.acme.scaffold.system.notifylog.NotificationRecordRecorder;
+import com.acme.scaffold.system.notifypref.NotificationPreferenceService;
+import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,26 +20,32 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * {@link NotificationService} 单元测试：覆盖 M11 按模板发送的编排（取启用中模板 → 渲染 ${var}
- * → 按模板渠道走 {@code NotificationRouter} 路由到适配器）与 M12 发送记录旁路
- * （dispatch 成功/失败均留痕、templateCode 透传）。模板服务与记录器以 mock 替身，
- * 渠道适配器用捕获型 fake，全离线、不依赖数据库与 Spring 上下文。
+ * → 按模板渠道走 {@code NotificationRouter} 路由到适配器）、M12 发送记录旁路
+ * （dispatch 成功/失败均留痕、templateCode 透传）与 M13 偏好过滤挂点
+ * （过滤后消息才进适配器、全部退订记 SKIPPED 不调端口、偏好查询异常按 FAILED 处理）。
+ * 模板服务、记录器与偏好服务以 mock 替身，渠道适配器用捕获型 fake，全离线、
+ * 不依赖数据库与 Spring 上下文。
  */
 class NotificationServiceTest {
 
     private NotificationTemplateService templateService;
     private NotificationRecordRecorder recordRecorder;
+    private NotificationPreferenceService preferenceService;
     private CapturingPort port;
     private NotificationService service;
 
@@ -75,8 +83,13 @@ class NotificationServiceTest {
     void setUp() {
         templateService = mock(NotificationTemplateService.class);
         recordRecorder = mock(NotificationRecordRecorder.class);
+        preferenceService = mock(NotificationPreferenceService.class);
         port = new CapturingPort();
-        service = new NotificationService(List.of(port), templateService, recordRecorder);
+        service = new NotificationService(List.of(port), templateService, recordRecorder,
+                preferenceService);
+        // 默认不过滤：原样返回入参消息（覆盖 M11/M12 各例的既有语义）
+        when(preferenceService.applyPreferences(any(NotificationMessage.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
@@ -189,5 +202,75 @@ class NotificationServiceTest {
 
         verify(recordRecorder).record(any(NotificationMessage.class), eq("ORDER_SHIPPED"),
                 eq(0), eq(false), contains("不支持的通知渠道"));
+    }
+
+    // ------------------------------------------------------------------
+    // M13：偏好过滤挂点
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("dispatch：偏好过滤后的消息才进适配器，记录仍以原始消息为审计对象")
+    void dispatch_preferenceFilteredMessageIsDispatched() {
+        NotificationMessage original = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com", "b@x.com"), null);
+        NotificationMessage filtered = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com"), null);
+        when(preferenceService.applyPreferences(original)).thenReturn(filtered);
+
+        int delivered = service.dispatch(original);
+
+        assertEquals(1, delivered);
+        assertSame(filtered, port.last);
+        // 记录旁路以原始消息为对象：目标接收数反映发送意图，退订差异由状态码表达
+        verify(recordRecorder).record(eq(original), isNull(), eq(1), eq(true), isNull());
+    }
+
+    @Test
+    @DisplayName("dispatch：定向接收者全部退订 → 记 SKIPPED、不调适配器、静默返回 0")
+    void dispatch_allUnsubscribedSkipsPortAndRecordsSkipped() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "ALERT", null, null, null, null, null, List.of("opted.out@x.com"), null);
+        when(preferenceService.applyPreferences(msg)).thenReturn(null);
+
+        int delivered = service.dispatch(msg);
+
+        assertEquals(0, delivered);
+        assertNull(port.last);
+        // port 为手写捕获型 fake（非 Mockito mock），以「无消息进入适配器」断言替代 never() 验证
+        verify(recordRecorder).skip(eq(msg), isNull(),
+                eq(NotificationPreferenceRules.REASON_ALL_UNSUBSCRIBED));
+        // 退订不是故障：不得落入 FAILED 记录
+        verify(recordRecorder, never()).record(any(), any(), anyInt(), eq(false), any());
+    }
+
+    @Test
+    @DisplayName("dispatch：偏好查询异常按 FAILED 记录并向上传播（不静默吞掉）")
+    void dispatch_preferenceLookupFailureRecordsFailed() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文");
+        when(preferenceService.applyPreferences(msg))
+                .thenThrow(new IllegalStateException("偏好查询失败"));
+
+        RuntimeException ex = assertThrows(IllegalStateException.class, () -> service.dispatch(msg));
+
+        assertEquals("偏好查询失败", ex.getMessage());
+        assertNull(port.last);
+        verify(recordRecorder).record(eq(msg), isNull(), eq(0), eq(false), eq("偏好查询失败"));
+    }
+
+    @Test
+    @DisplayName("sendWithTemplate：模板发送同样经过偏好过滤（模板编码随 SKIPPED 回填）")
+    void sendWithTemplate_preferenceHookAppliesWithTemplateCode() {
+        when(templateService.requireEnabledByCode("ORDER_SHIPPED"))
+                .thenReturn(template("t", "c", "EMAIL", 1));
+        SendWithTemplateNotificationRequest req = new SendWithTemplateNotificationRequest(
+                "ORDER_SHIPPED", Map.of(), null, null, null, null, List.of("opted.out@x.com"), null);
+        when(preferenceService.applyPreferences(any(NotificationMessage.class))).thenReturn(null);
+
+        int delivered = service.sendWithTemplate(req);
+
+        assertEquals(0, delivered);
+        assertNull(port.last);
+        verify(recordRecorder).skip(any(NotificationMessage.class), eq("ORDER_SHIPPED"),
+                eq(NotificationPreferenceRules.REASON_ALL_UNSUBSCRIBED));
     }
 }
