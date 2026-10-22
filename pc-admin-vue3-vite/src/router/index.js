@@ -146,6 +146,13 @@ const routes = [
         meta: { title: '通知模板', permission: 'system:notification-template:read' }
       },
       {
+        // 通知记录（V42）：全五渠道统一发送审计面（含被拒与失败），入库前已脱敏摘要，菜单与权限由后端驱动
+        path: 'system/notification-records',
+        name: 'notificationRecord',
+        component: () => import('@/views/system/NotificationRecordView.vue'),
+        meta: { title: '通知记录', permission: 'system:notification-record:read' }
+      },
+      {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),

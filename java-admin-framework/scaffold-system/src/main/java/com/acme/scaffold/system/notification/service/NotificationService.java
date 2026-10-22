@@ -8,6 +8,7 @@ import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.common.notification.NotificationRouter;
 import com.acme.scaffold.system.entity.SysNotificationTemplateDO;
 import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
+import com.acme.scaffold.system.notifylog.NotificationRecordRecorder;
 import com.acme.scaffold.system.rules.NotificationTemplateRules;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,10 @@ import java.util.Map;
  * <p>M11 起支持<b>按模板发送</b>（{@link #sendWithTemplate}）：模板为标题/正文/渠道/消息类型的
  * 唯一事实来源，发送侧取启用中模板、渲染 {@code ${var}} 后复用 {@link #dispatch} 链路，
  * 与原始直发（调用方自带 title/content）并存、向后兼容。</p>
+ *
+ * <p>M12 起每次 {@link #dispatch} 尝试（含被拒与失败）均落一条通知发送记录
+ * （{@link NotificationRecordRecorder}，独立事务、脱敏摘要）——dispatch 是全部发送路径的
+ * 唯一漏斗（原始 /send 直调、sendWithTemplate 内部复用），包一层即全覆盖五渠道审计。</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -32,9 +37,37 @@ public class NotificationService {
 
     private final List<NotificationPort> ports;
     private final NotificationTemplateService templateService;
+    private final NotificationRecordRecorder recordRecorder;
 
-    /** 投递一条消息，返回实际投递单元数（见各适配器语义）。 */
+    /** 投递一条消息（无模板来源），返回实际投递单元数（见各适配器语义）。 */
     public int dispatch(NotificationMessage message) {
+        return dispatch(message, null);
+    }
+
+    /**
+     * 投递一条消息并留痕（M12）。
+     *
+     * <p>成功记 {@code SUCCESS} + 实际投递数；{@link RuntimeException}（渠道未启用、报文被拒、
+     * 适配器/网关异常等）记 {@code FAILED} + 异常消息后<b>原样重抛</b>——记录是审计旁路，
+     * 不改变投递结论，也不掩盖失败。</p>
+     *
+     * @param message      被投递的渠道无关消息
+     * @param templateCode 来源模板编码（原始直发传 null，按模板发送回填以支撑 provenance 审计）
+     * @return 实际投递单元数（见各适配器语义）
+     */
+    public int dispatch(NotificationMessage message, String templateCode) {
+        try {
+            int delivered = dispatchInternal(message);
+            recordRecorder.record(message, templateCode, delivered, true, null);
+            return delivered;
+        } catch (RuntimeException ex) {
+            recordRecorder.record(message, templateCode, 0, false, ex.getMessage());
+            throw ex;
+        }
+    }
+
+    /** 实际路由与投递（不含记录旁路）。 */
+    private int dispatchInternal(NotificationMessage message) {
         NotificationPort port = NotificationRouter.resolve(message.channel(), ports);
         return port.dispatch(message);
     }
@@ -44,7 +77,7 @@ public class NotificationService {
      *
      * <p>渠道/标题/正文/消息类型全部取自模板（模板是唯一事实来源），请求侧只提供接收人与变量取值；
      * 模板缺失抛 {@code NOT_FOUND}、停用抛 {@code CONFLICT}（由 {@code requireEnabledByCode} 判定），
-     * 模板渠道非法抛 {@code VALIDATION_ERROR}。</p>
+     * 模板渠道非法抛 {@code VALIDATION_ERROR}。模板编码随投递回填到通知发送记录（M12 provenance）。</p>
      *
      * @return 实际投递单元数（见各适配器语义）
      */
@@ -62,6 +95,6 @@ public class NotificationService {
                 channel, title, content, tpl.getMsgType(),
                 request.receiverIds(), request.roleIds(), request.orgIds(),
                 request.webhookUrl(), null, request.emails(), request.mobiles());
-        return dispatch(msg);
+        return dispatch(msg, request.templateCode());
     }
 }

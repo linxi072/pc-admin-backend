@@ -207,6 +207,20 @@ public final class JooqTables {
             "provider", "status", "error_message", "operator_id", "operator_name",
             "trace_id", "sent_at");
 
+    // ---------------- 通知发送记录（V42） ----------------
+
+    /**
+     * 通知发送记录表（列名与 V42__notification_record.sql 严格一致）。无 deleted 列：记录即审计，永久留存。
+     * 与 {@link #SYS_SMS_RECORD} 的分工：本表记「每次 {@code NotificationService.dispatch} 尝试」
+     * （含被拒与失败，覆盖全部五渠道，是统一审计面）；短信记录保持「仅校验后实际尝试的网关投递」
+     * （网关账单对账面）。短信一次发送双写两表，口径差异见开发手册 M12 章节。
+     * 标题/正文/接收方均以摘要 + 掩码形态落库，PII 不明文存储。
+     */
+    public static final TableRef SYS_NOTIFICATION_RECORD = new TableRef("sys_notification_record",
+            "id", "tenant_id", "channel", "template_code", "msg_type", "title_summary",
+            "content_summary", "receiver_summary", "receiver_count", "delivered", "status",
+            "error_message", "operator_id", "operator_name", "trace_id", "sent_at");
+
     // ---------------- 通知模板中心（V41） ----------------
 
     /**
