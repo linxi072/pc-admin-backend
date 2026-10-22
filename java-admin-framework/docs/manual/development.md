@@ -2670,3 +2670,51 @@ CREATE TABLE sys_notification_template (
 - 前端 SFC 经 `@vue/compiler-sfc` 编译通过，api/router 经 ESM 校验通过；
 - 待用户本机（需 MySQL + 运行后端）：V42 自动迁移后进「通知记录」页，从消息中心发一条各渠道通知（含一次失败，如未启用短信渠道），核对记录的状态/投递数/失败原因/traceId。
 
+## 通知偏好中心（V43，M13）
+
+> M10～M12 闭合了「模板 → 发送 → 留痕」，但通知域仍缺「谁想收什么」这一面：`sys_user` 的 `notify_site_message`/`notify_email`/`notify_mobile` 三个渠道总开关，全仓唯一读取方是个人中心自身（`ProfileService`），**发送链路从不读取**——用户在「通知与隐私」关掉站内信通知，站内信照收，是确凿的「死开关」缺陷。M13 建 `sys_notification_preference`（V43）细分偏好表，在 `NotificationService.dispatch` 路由前按偏好过滤，并提供「个人中心 → 通知订阅」矩阵自服务页。
+
+### 1. 两级生效模型
+
+```
+effective(渠道, 类型) = 渠道总开关(sys_user.notify_*) && (细分偏好行 != null ? 行值 : true)
+```
+
+- **渠道总开关**：IN_APP→`notify_site_message`、EMAIL→`notify_email`、SMS→`notify_mobile`；关闭时该渠道一切消息均不投递（行值被短路）；
+- **细分偏好**：本表行，**无行 = 默认开通**（与「设过又还原」同构——还原即物理删行）；WEBSOCKET 无 sys_user 列，总开关恒开、仅由行裁决；
+- **WEBHOOK 拒绝建行**：webhookUrl 是外部系统地址，无个人偏好语义（`supportsPreference` 白名单外）。
+
+### 2. 表结构（`V43__notification_preference.sql`）与契约
+
+- `sys_notification_preference`：(id, tenant_id=0, user_id, channel, msg_type, enabled, create/update time)，唯一键 `uk_user_channel_type`（幂等 + 并发兜底）；
+- 可设渠道白名单 `IN_APP/EMAIL/SMS/WEBSOCKET`（有序，决定前端矩阵行序）；消息类型白名单 `NOTICE/ALERT/SYSTEM/CC`（有序，列序；空归一 NOTICE，与 `MessageService` 直发默认一致）；
+- `GET/PUT /api/notification-preferences/mine`：无权限码、无菜单的自服务范式（镜像 `/api/profile`，userId 一律服务端从安全上下文取）；`GET` 返回 4×4 矩阵，每格带 `enabled` + `source`（`CHANNEL` 总开关关闭强制关 / `PREFERENCE` 显式设置 / `DEFAULT` 无行默认开）；`PUT` 局部批量更新，`enabled` 三态（0/1/null，null=删行恢复默认），返回更新后完整矩阵省一次回查。
+
+### 3. 实现清单（`system/notifypref`）
+
+- **`NotificationPreferenceRules`**（纯函数，矩阵域模型同源）：`normalizeChannel`/`normalizeMsgType`/`filterKey`（发送侧键：白名单外非空值原样透传，避免误判退订）；`channelColumn`/`channelSwitch`/`channelDefault`（sys_user 列映射，null 按列默认兜底）；`isEnabled`/`filterReceivers`/`filterAddresses`（保序过滤，外部地址默认放行）；`buildMatrix`（16 格 + 来源标注，嵌嵌套 record `ChannelMatrix`/`PreferenceCell`/`NotificationPreferenceMatrix`）；
+- **`NotificationPreferenceService`**：`mine`/`update`（先全额校验再落库，避免半成品；jOOQ 动态 DSL 无 upsert，走「查现存 → updateById 或 insert」，删行表达恢复默认）；`applyPreferences` 挂点过滤（IN_APP/WEBSOCKET 按 receiverIds、EMAIL/SMS 按地址反查 sys_user；广播与 WEBHOOK 不过滤；**全部定向接收者退订返回 null**）；
+- **`NotificationPreferenceController`**：上述两端点 + `@AuditOperation` 审计；
+- **`UpdateNotificationPreferenceRequest`/`PreferenceItemRequest`**：`@Size(max=16)` 收敛到矩阵格子总数；校验键复用 `validation.channel.notBlank`/`validation.preference.switch.range`，新增 `validation.preference.items.notEmpty`/`.size`（三件套同步）。
+
+### 4. dispatch 挂点与 SKIPPED 状态（M12 记录中心扩展）
+
+- `NotificationService` 构造器扩第 4 参 `NotificationPreferenceService`；`dispatch` 在路由前调 `applyPreferences`：返回 null（全退订）→ 记 **`SKIPPED`**（`NotificationRecordRecorder.skip`，原因「全部接收者已退订该类型通知」）+ 返回 0 **静默跳过，不调 port、不报错**；
+- `NotificationRecordRules` 增 `STATUS_SKIPPED` 且 `normalizeStatus` 接受；`buildSummary` 改签名 `(total, success, skipped, lastSentAt)`，`failure = total - success - skipped`——**退订不是故障，不计入失败率**；
+- 前端记录页：结果筛选加「已跳过」、摘要卡加「已跳过」、结果标签三态、`errorMessage` 列更名「失败/跳过原因」。
+
+### 5. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationPreference.js`：`getMyNotificationPreference`/`updateMyNotificationPreference`；
+- `src/views/profile/components/NotificationPreferencePanel.vue`：渠道 × 类型矩阵表（el-switch 逐格 + 单格/整行「恢复默认」），总开关关闭的渠道置灰并标注「需先绑定邮箱/手机号」或「总开关已关闭」；保存仅提交变化格子（diff 快照），PUT 返回矩阵直接刷新；镜像 PreferencePanel 的 skeleton/alert/保存态范式；
+- `src/views/profile/ProfileView.vue`：新增「通知订阅」Tab（`#subscription` 可直达）；
+- `src/views/system/NotificationRecordView.vue`：见上。
+
+### 6. 验证状态（沙箱）
+
+- `mvn -o clean test`：**990 单元全绿**（较 M12 基线 967 +23；12 模块 SUCCESS）；
+- M13 定向单测：`NotificationPreferenceRulesTest` 14 例（归一/总开关映射/生效判定/分区过滤/矩阵 16 格来源）+ `NotificationPreferenceServiceTest` 4 例（校验拒绝路径：渠道/类型白名单、空 items，先校验后落库）+ `NotificationServiceTest` 扩至 **12 例**（+偏好过滤生效 / 全退订 SKIPPED 不调 port 且不落 FAILED / 广播不过滤 / WEBHOOK 不过滤）+ `NotificationRecordRulesTest`/`NotificationRecordServiceTest` 适配 SKIPPED；
+- `scripts/check-conventions.py`：EXIT=0；
+- 前端 `npm run build` 通过（ProfileView 分块 24.81 kB）；
+- 待用户本机（需 MySQL + 运行后端）：V43 自动迁移后进「个人中心 → 通知订阅」，关闭「站内信 × 告警」后由消息中心发一条 ALERT 站内信给自己——应收不到且「通知记录」出现一条 SKIPPED；恢复默认后再发应收到的。
+
