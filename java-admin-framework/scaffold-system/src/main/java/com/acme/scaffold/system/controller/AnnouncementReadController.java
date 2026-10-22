@@ -54,6 +54,20 @@ public class AnnouncementReadController {
         return Result.success(readService.myUnread(page, size));
     }
 
+    @Operation(summary = "我的未读公告总数（顶栏统一铃铛/通知中心聚合用）")
+    @GetMapping("/mine/unread-count")
+    public Result<Map<String, Long>> unreadCount() {
+        return Result.success(Map.of("unread", readService.countMyUnread()));
+    }
+
+    @Operation(summary = "一键全部已读（仅标记当前用户的有效未读公告）")
+    @PostMapping("/mark-all-read")
+    @AuditOperation(module = "system", type = "UPDATE", name = "全部已读公告")
+    public Result<Map<String, Integer>> markAllRead() {
+        int marked = readService.markAllRead();
+        return Result.success(Map.of("marked", marked));
+    }
+
     @Operation(summary = "公告已读回执分页（谁在何时已读，支持阅读人关键字）")
     @GetMapping("/{id}/read-receipts")
     @PreAuthorize("hasAuthority('system:announcement:read-receipt')")

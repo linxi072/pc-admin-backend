@@ -32,13 +32,7 @@
     <div v-else class="notice-placeholder" aria-hidden="true" />
 
     <div class="right">
-      <el-tooltip content="站内信" placement="bottom">
-        <el-badge :value="unread" :hidden="unread === 0" type="danger" class="icon-btn">
-          <el-button text class="bell" @click="goNotice('message')">
-            <el-icon size="18"><Bell /></el-icon>
-          </el-button>
-        </el-badge>
-      </el-tooltip>
+      <NotificationBell />
       <el-tooltip content="账号设置" placement="bottom">
         <el-button text class="icon-btn" @click="onCmd('settings')">
           <el-icon size="18"><Setting /></el-icon>
@@ -84,8 +78,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
-import { getUnreadCount } from '@/api/message'
-import { initRealtime, onRealtime, closeRealtime } from '@/api/realtime'
+import { closeRealtime } from '@/api/realtime'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 defineProps({ collapsed: Boolean })
 defineEmits(['toggle'])
@@ -96,15 +90,12 @@ const username = computed(() => authState.username || 'admin')
 const currentTitle = computed(() => route.meta.title || '')
 
 const notice = ref(null)
-const unread = ref(0)
 const paused = ref(false)
 const detailVisible = ref(false)
 const current = ref(null)
 const overflowing = ref(false)
-let timer = null
 let offset = 0
 let raf = null
-let offRealtime = null
 
 const trackStyle = computed(() => ({
   // 仅在溢出且未暂停时位移；否则回到起点
@@ -142,21 +133,6 @@ async function loadNotice() {
     // 公告加载失败不阻塞顶栏，静默降级为不展示
     notice.value = null
   }
-}
-
-async function loadUnread() {
-  try {
-    const res = await getUnreadCount()
-    unread.value = res?.data?.unread ?? res?.unread ?? 0
-  } catch (e) {
-    // 轮询失败静默处理，保留上一次计数
-  }
-}
-
-/** 实时消息处理：未读/待办事件触发角标刷新，始终以后端接口返回的权威值为准。 */
-function handleRealtime(msg) {
-  if (!msg || (msg.type !== 'UNREAD_MESSAGE' && msg.type !== 'TODO_REMINDER')) return
-  loadUnread()
 }
 
 async function openAnnouncement() {
@@ -209,19 +185,11 @@ async function onCmd(cmd) {
 
 onMounted(async () => {
   await loadNotice()
-  loadUnread()
   raf = requestAnimationFrame(step)
-  // 实时消息：连接后端 WebSocket，未读/待办事件实时刷新角标
-  initRealtime()
-  offRealtime = onRealtime(handleRealtime)
-  // 未读轮询兜底：WebSocket 不可用时仍保证角标与后端一致
-  timer = setInterval(loadUnread, 60000)
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
   if (raf) cancelAnimationFrame(raf)
-  if (offRealtime) offRealtime()
 })
 </script>
 
@@ -310,13 +278,6 @@ onUnmounted(() => {
 .icon-btn {
   display: flex;
   align-items: center;
-}
-.bell {
-  color: #ffd04b;
-}
-:deep(.icon-btn .el-button),
-:deep(.hamburger) {
-  color: #c0c4cc;
 }
 .user {
   display: flex;

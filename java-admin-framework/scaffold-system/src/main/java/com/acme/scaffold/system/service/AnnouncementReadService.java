@@ -59,6 +59,9 @@ public class AnnouncementReadService {
     private static final String PUBLISHED = "PUBLISHED";
     private static final String ACTIVE = "ACTIVE";
 
+    /** markAllRead 保护性上限：实际场景未读公告远不会达到，仅防止极端情况下遍历过宽。 */
+    private static final int MAX_MARK_ALL = 1000;
+
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
     private final MessageService messageService;
@@ -87,13 +90,26 @@ public class AnnouncementReadService {
         if (!PUBLISHED.equals(a.getStatus())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "公告未发布，无需确认已读");
         }
+        markReadInternal(announcementId, userId);
+    }
 
+    /**
+     * 标记单条公告已读（幂等，内部实现）。
+     *
+     * <p>抽取自 {@link #markRead} 与 {@link #markAllRead} 共用：先查后插 + 唯一键兜底并发，
+     * 并发下唯一键 {@code uk_ann_user} 拒绝的插入按已读处理；插入成功后再累加 {@code read_count}。
+     * 调用方须保证公告已发布且有效（{@link #markRead} 已校验；{@link #markAllRead} 仅遍历
+     * {@link #myUnreadConditions} 过滤出的有效未读公告，天然满足）。
+     *
+     * @return 本次实际新增的已读回执数（0 表示已读/冲突，1 表示首次标记）
+     */
+    private int markReadInternal(Long announcementId, Long userId) {
         SysAnnouncementReadDO exist = JooqWriters.fetchOne(dsl, JooqTables.SYS_ANNOUNCEMENT_READ,
                 SysAnnouncementReadDO.class,
                 DSL.and(JooqTables.SYS_ANNOUNCEMENT_READ.field("announcement_id", Long.class).eq(announcementId),
                         JooqTables.SYS_ANNOUNCEMENT_READ.field("user_id", Long.class).eq(userId)));
         if (exist != null) {
-            return; // 已读，幂等返回
+            return 0; // 已读，幂等返回
         }
 
         SysAnnouncementReadDO r = new SysAnnouncementReadDO();
@@ -105,7 +121,7 @@ public class AnnouncementReadService {
             // 并发/重放：应用层查重与插入之间的时间窗由唯一键裁决，冲突即视为已读
             log.debug("公告已读回执并发插入被唯一键拒绝，按幂等处理 announcementId={} userId={}",
                     announcementId, userId);
-            return;
+            return 0;
         }
 
         dsl.update(JooqTables.SYS_ANNOUNCEMENT.table())
@@ -113,6 +129,39 @@ public class AnnouncementReadService {
                         JooqTables.SYS_ANNOUNCEMENT.field("read_count", Integer.class).plus(1))
                 .where(JooqTables.SYS_ANNOUNCEMENT.field("id", Long.class).eq(announcementId))
                 .execute();
+        return 1;
+    }
+
+    /**
+     * 我的未读公告总数（反连接推导，与 {@link #myUnread} 同源）。
+     * 供顶栏统一铃铛/通知中心聚合未读角标，无需分页。
+     */
+    public long countMyUnread() {
+        Long userId = requireCurrentUserId();
+        LocalDateTime now = LocalDateTime.now();
+        return JooqWriters.count(dsl, JooqTables.SYS_ANNOUNCEMENT,
+                DSL.and(myUnreadConditions(userId, now)));
+    }
+
+    /**
+     * 一键全部已读（仅作用于当前用户的有效未读公告）。
+     *
+     * <p>遍历 {@link #myUnreadConditions} 过滤出的未读公告逐条调用 {@link #markReadInternal}，
+     * 复用幂等语义与 {@code read_count} 累加；返回实际标记的条数。
+     * 上限 {@value #MAX_MARK_ALL} 条（实际场景远不会达到，仅作保护性护栏）。
+     */
+    @Transactional
+    public int markAllRead() {
+        Long userId = requireCurrentUserId();
+        LocalDateTime now = LocalDateTime.now();
+        List<SysAnnouncementDO> unread = JooqWriters.fetchTop(dsl, JooqTables.SYS_ANNOUNCEMENT,
+                SysAnnouncementDO.class, DSL.and(myUnreadConditions(userId, now)),
+                MAX_MARK_ALL, defaultOrder(JooqTables.SYS_ANNOUNCEMENT));
+        int marked = 0;
+        for (SysAnnouncementDO a : unread) {
+            marked += markReadInternal(a.getId(), userId);
+        }
+        return marked;
     }
 
     /**
@@ -158,26 +207,10 @@ public class AnnouncementReadService {
         Long userId = requireCurrentUserId();
         LocalDateTime now = LocalDateTime.now();
         var ann = JooqTables.SYS_ANNOUNCEMENT;
-        var rd = JooqTables.SYS_ANNOUNCEMENT_READ;
-
-        List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(ann));
-        conds.add(ann.field("status", String.class).eq(PUBLISHED));
-        conds.add(DSL.or(ann.field("publish_at", LocalDateTime.class).isNull(),
-                ann.field("publish_at", LocalDateTime.class).le(now)));
-        conds.add(DSL.or(ann.field("expire_at", LocalDateTime.class).isNull(),
-                ann.field("expire_at", LocalDateTime.class).gt(now)));
-        // 反连接：NOT EXISTS (我的回执行)。子查询内两侧列均加表名限定——
-        // 两表都有 id 列，无限定时 MySQL 会按内层作用域把 id 解析成回执表的 id，关联必错
-        conds.add(DSL.notExists(
-                dsl.selectOne().from(rd.table())
-                        .where(qualified(rd.name(), "announcement_id")
-                                        .eq(qualified(ann.name(), "id")),
-                                qualified(rd.name(), "user_id").eq(userId))));
 
         var q = PageQuery.of(page, size);
         PageResult<SysAnnouncementDO> pageResult = JooqWriters.page(dsl, ann, SysAnnouncementDO.class,
-                DSL.and(conds), q, defaultOrder(ann));
+                DSL.and(myUnreadConditions(userId, now)), q, defaultOrder(ann));
         List<AnnouncementView> views = pageResult.records().stream()
                 .map(a -> AnnouncementView.from(a, AnnouncementView.isEffective(a, now)))
                 .toList();
@@ -254,6 +287,30 @@ public class AnnouncementReadService {
                 ann.field("is_top", Integer.class).desc(),
                 ann.field("publish_at", LocalDateTime.class).desc().nullsLast(),
                 ann.field("id", Long.class).desc()};
+    }
+
+    /**
+     * 我的未读公告条件（反连接推导）：已发布且在有效期内，且不存在我的回执行。
+     * 子查询内两侧列均加表名限定——两表都有 id 列，无限定时 MySQL 会按内层作用域把
+     * id 解析成回执表的 id，关联必错。被 {@link #myUnread} / {@link #countMyUnread} /
+     * {@link #markAllRead} 共用，保证三者未读口径完全一致。
+     */
+    private List<Condition> myUnreadConditions(Long userId, LocalDateTime now) {
+        var ann = JooqTables.SYS_ANNOUNCEMENT;
+        var rd = JooqTables.SYS_ANNOUNCEMENT_READ;
+        List<Condition> conds = new ArrayList<>();
+        conds.add(JooqWriters.notDeleted(ann));
+        conds.add(ann.field("status", String.class).eq(PUBLISHED));
+        conds.add(DSL.or(ann.field("publish_at", LocalDateTime.class).isNull(),
+                ann.field("publish_at", LocalDateTime.class).le(now)));
+        conds.add(DSL.or(ann.field("expire_at", LocalDateTime.class).isNull(),
+                ann.field("expire_at", LocalDateTime.class).gt(now)));
+        conds.add(DSL.notExists(
+                dsl.selectOne().from(rd.table())
+                        .where(qualified(rd.name(), "announcement_id")
+                                        .eq(qualified(ann.name(), "id")),
+                                qualified(rd.name(), "user_id").eq(userId))));
+        return conds;
     }
 
     /**
