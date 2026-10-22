@@ -215,11 +215,32 @@ public class NotificationTemplateService {
     }
 
     private boolean existsByCode(String code) {
-        SysNotificationTemplateDO d = JooqWriters.fetchOne(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE,
+        return fetchByCode(code) != null;
+    }
+
+    /** 按编码取未删除模板（不存在返回 null）。create/requireEnabledByCode 共用。 */
+    private SysNotificationTemplateDO fetchByCode(String code) {
+        return JooqWriters.fetchOne(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE,
                 SysNotificationTemplateDO.class,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_NOTIFICATION_TEMPLATE),
                         JooqTables.SYS_NOTIFICATION_TEMPLATE.field("template_code", String.class).eq(code)));
-        return d != null;
+    }
+
+    /**
+     * 按编码取「启用中」的模板，供发送侧（M11 {@code send-with-template}）渲染投递前取模板。
+     *
+     * <p>缺失抛 {@code NOT_FOUND}、停用抛 {@code CONFLICT}——发送必须显式失败，
+     * 不允许静默使用停用模板或回退到空正文。</p>
+     */
+    public SysNotificationTemplateDO requireEnabledByCode(String code) {
+        SysNotificationTemplateDO d = fetchByCode(code);
+        if (d == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "通知模板不存在: " + code);
+        }
+        if (d.getEnabled() == null || d.getEnabled() != 1) {
+            throw new BusinessException(CommonErrorCode.CONFLICT, "通知模板已停用: " + code);
+        }
+        return d;
     }
 
     /** 统一筛选条件：逻辑删除恒成立；渠道/启用状态/关键字按需收敛。 */

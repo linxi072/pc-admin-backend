@@ -64,8 +64,9 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" :icon="Promotion" @click="openSend(row)">发送</el-button>
             <el-button link type="primary" :icon="View" @click="openPreview(row)">预览</el-button>
             <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
             <el-popconfirm title="确认删除该模板？" @confirm="onDelete(row)">
@@ -181,13 +182,61 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 按模板发送弹窗（M11）：渠道/标题/正文取自模板，请求侧只填变量与接收人 -->
+    <el-dialog v-model="sendVisible" title="按模板发送" width="600px" @closed="closeSend">
+      <template v-if="sendRow">
+        <el-descriptions :column="2" border size="small" style="margin-bottom: 12px">
+          <el-descriptions-item label="编码">{{ sendRow.templateCode }}</el-descriptions-item>
+          <el-descriptions-item label="渠道">{{ channelTag(sendRow.channel).label }}</el-descriptions-item>
+        </el-descriptions>
+        <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px" :title="sendRecipientHint" />
+
+        <div v-if="sendVariables.length" class="preview-vars">
+          <div class="preview-vars-title">变量赋值</div>
+          <el-form label-width="120px">
+            <el-form-item v-for="v in sendVariables" :key="v" :label="v">
+              <el-input v-model="sendVarValues[v]" :placeholder="`请填写 ${v} 的取值`" />
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <el-form label-width="120px">
+          <el-form-item
+            v-if="sendNeedField('receiverIds')"
+            label="接收人ID"
+            :required="sendNeedField('receiverIds')"
+          >
+            <el-input
+              v-model="sendForm.receiverIds"
+              type="textarea"
+              :rows="2"
+              placeholder="多个用逗号分隔，如 1001,1002；WebSocket 留空为广播"
+            />
+          </el-form-item>
+          <el-form-item v-if="sendNeedField('emails')" label="收件邮箱" :required="sendNeedField('emails')">
+            <el-input v-model="sendForm.emails" type="textarea" :rows="2" placeholder="多个用逗号分隔" />
+          </el-form-item>
+          <el-form-item v-if="sendNeedField('mobiles')" label="接收手机号" :required="sendNeedField('mobiles')">
+            <el-input v-model="sendForm.mobiles" type="textarea" :rows="2" placeholder="多个用逗号分隔" />
+          </el-form-item>
+          <el-form-item v-if="sendRow.channel === 'WEBHOOK'" label="Webhook 地址">
+            <el-input v-model="sendForm.webhookUrl" placeholder="留空走配置默认地址" />
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #footer>
+        <el-button @click="sendVisible = false">取消</el-button>
+        <el-button type="primary" :loading="sending" @click="onSend">发送</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Edit, Search, RefreshLeft, View } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Search, RefreshLeft, View, Promotion } from '@element-plus/icons-vue'
 import {
   pageNotificationTemplates,
   getTemplateVariables,
@@ -197,6 +246,7 @@ import {
   deleteNotificationTemplate,
   toggleNotificationTemplate
 } from '@/api/notificationTemplate'
+import { sendWithTemplateNotification } from '@/api/notification'
 
 // 与后端 Channel 枚举一致
 const channelOptions = [
@@ -426,6 +476,84 @@ async function renderPreview() {
     previewMissing.value = res.missingVariables || []
   } finally {
     previewing.value = false
+  }
+}
+
+// ---- 按模板发送（M11）：渠道/标题/正文取自模板，请求侧只填变量与接收人 ----
+const sendVisible = ref(false)
+const sendRow = ref(null)
+const sendVariables = ref([])
+const sendVarValues = reactive({})
+const sending = ref(false)
+const sendForm = reactive({ receiverIds: '', emails: '', mobiles: '', webhookUrl: '' })
+
+/** 渠道 → 接收字段填写提示（随所选模板联动）。 */
+const sendRecipientHint = computed(() => {
+  const map = {
+    IN_APP: '站内信：请填写「接收人ID」（多个用逗号分隔）',
+    EMAIL: '邮件：请填写「收件邮箱」',
+    SMS: '短信：请填写「接收手机号」',
+    WEBSOCKET: '实时推送：填写「接收人ID」定向，留空为广播',
+    WEBHOOK: 'Webhook：可填写目标地址，留空走配置默认地址'
+  }
+  return map[sendRow.value?.channel] || '请按渠道填写接收人'
+})
+
+/** 当前渠道是否需要展示/必填某接收字段。 */
+function sendNeedField(field) {
+  const ch = sendRow.value?.channel
+  if (field === 'receiverIds') return ch === 'IN_APP' || ch === 'WEBSOCKET'
+  if (field === 'emails') return ch === 'EMAIL'
+  if (field === 'mobiles') return ch === 'SMS'
+  return false
+}
+
+/** 逗号分隔字符串 → 字符串数组（去空白/空项，兼容中英文逗号）。 */
+const splitCsv = (s) => (s || '').split(/[,，]/).map((t) => t.trim()).filter(Boolean)
+/** 逗号分隔字符串 → 数字数组。 */
+const splitCsvIds = (s) => splitCsv(s).map((t) => Number(t)).filter((n) => !Number.isNaN(n))
+
+async function openSend(row) {
+  sendRow.value = row
+  sendVisible.value = true
+  Object.assign(sendForm, { receiverIds: '', emails: '', mobiles: '', webhookUrl: '' })
+  sendVariables.value = []
+  try {
+    sendVariables.value = await getTemplateVariables(row.id)
+    sendVariables.value.forEach((v) => {
+      if (!(v in sendVarValues)) sendVarValues[v] = ''
+    })
+  } catch (e) {
+    sendVariables.value = []
+  }
+}
+
+function closeSend() {
+  sendRow.value = null
+  sendVariables.value = []
+  Object.keys(sendVarValues).forEach((k) => delete sendVarValues[k])
+}
+
+async function onSend() {
+  if (!sendRow.value) return
+  sending.value = true
+  try {
+    // 仅传递非空变量：空值不入参，渲染时按未知变量保持 ${name} 原样
+    const variables = {}
+    sendVariables.value.forEach((v) => {
+      const val = sendVarValues[v]
+      if (val != null && String(val).trim() !== '') variables[v] = val
+    })
+    const body = { templateCode: sendRow.value.templateCode, variables }
+    if (sendNeedField('receiverIds') && sendForm.receiverIds) body.receiverIds = splitCsvIds(sendForm.receiverIds)
+    if (sendNeedField('emails') && sendForm.emails) body.emails = splitCsv(sendForm.emails)
+    if (sendNeedField('mobiles') && sendForm.mobiles) body.mobiles = splitCsv(sendForm.mobiles)
+    if (sendRow.value.channel === 'WEBHOOK' && sendForm.webhookUrl) body.webhookUrl = sendForm.webhookUrl
+    const res = await sendWithTemplateNotification(body)
+    ElMessage.success(`已发送，投递 ${res?.delivered ?? 0} 个单元`)
+    sendVisible.value = false
+  } finally {
+    sending.value = false
   }
 }
 

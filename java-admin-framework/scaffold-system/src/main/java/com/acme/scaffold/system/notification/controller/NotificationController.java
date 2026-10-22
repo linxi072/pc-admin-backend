@@ -6,6 +6,7 @@ import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.system.notification.service.NotificationService;
 import com.acme.scaffold.system.notification.dto.SendNotificationRequest;
+import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -46,6 +47,16 @@ public class NotificationController {
                 request.emails(),
                 request.mobiles());
         int delivered = notificationService.dispatch(msg);
+        return Result.success(Map.of("delivered", delivered));
+    }
+
+    @Operation(summary = "按通知模板发送（templateCode + variables 渲染 ${var} 后投递）")
+    @PostMapping("/send-with-template")
+    @PreAuthorize("hasAuthority('system:message:send')")
+    @AuditOperation(module = "system", type = "CREATE", name = "按模板发送通知")
+    @Idempotent(scope = "system:notification:send-with-template")
+    public Result<Map<String, Object>> sendWithTemplate(@Valid @RequestBody SendWithTemplateNotificationRequest request) {
+        int delivered = notificationService.sendWithTemplate(request);
         return Result.success(Map.of("delivered", delivered));
     }
 }
