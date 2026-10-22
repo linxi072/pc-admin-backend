@@ -25,6 +25,13 @@ public final class NotificationRecordRules {
     /** 结果码：失败（渠道未启用、校验被拒、适配器或网关异常）。 */
     public static final String STATUS_FAILED = "FAILED";
 
+    /**
+     * 结果码：已跳过（M13：定向接收者全部退订该类型通知，未调适配器、静默返回 0）。
+     * 退订是正常业务结果而非故障，故与 FAILED 分开统计——否则「失败率」会把用户
+     * 主动退订误计为发送故障，误导运营判断。
+     */
+    public static final String STATUS_SKIPPED = "SKIPPED";
+
     /** 渠道缺失时的兜底编码（防御性：{@code NotificationMessage.channel} 理论可为 null）。 */
     public static final String CHANNEL_UNKNOWN = "UNKNOWN";
 
@@ -74,15 +81,17 @@ public final class NotificationRecordRules {
     }
 
     /**
-     * 结果筛选值归一：仅接受 {@value #STATUS_SUCCESS} / {@value #STATUS_FAILED}（大小写不敏感），
-     * 其余（含空）返回 {@code null}——调用方据此忽略该筛选条件。
+     * 结果筛选值归一：仅接受 {@value #STATUS_SUCCESS} / {@value #STATUS_FAILED} /
+     * {@value #STATUS_SKIPPED}（大小写不敏感），其余（含空）返回 {@code null}——
+     * 调用方据此忽略该筛选条件。
      */
     public static String normalizeStatus(String status) {
         if (status == null || status.isBlank()) {
             return null;
         }
         String s = status.trim().toUpperCase();
-        return STATUS_SUCCESS.equals(s) || STATUS_FAILED.equals(s) ? s : null;
+        return STATUS_SUCCESS.equals(s) || STATUS_FAILED.equals(s) || STATUS_SKIPPED.equals(s)
+                ? s : null;
     }
 
     // ------------------------------------------------------------------

@@ -48,6 +48,29 @@ public class NotificationRecordRecorder {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(NotificationMessage message, String templateCode, int delivered,
                        boolean success, String errorMessage) {
+        write(message, templateCode, delivered,
+                success ? NotificationRecordRules.STATUS_SUCCESS : NotificationRecordRules.STATUS_FAILED,
+                errorMessage);
+    }
+
+    /**
+     * 记录一次「已跳过」投递（M13：定向接收者全部退订，未调适配器）。
+     *
+     * <p>与 FAILED 分开的状态码：退订是正常业务结果而非故障；跳过原因记入
+     * {@code error_message} 列（V42 表无专用列，复用该列承载可读原因，
+     * 避免为纯展示信息改已应用的迁移）。</p>
+     *
+     * @param message      被跳过的渠道无关消息（审计对象为<b>原始</b>消息：目标接收数反映发送意图）
+     * @param templateCode 来源模板编码（原始直发传 null）
+     * @param reason       跳过原因（如 {@code 全部接收者已退订该类型通知}）
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void skip(NotificationMessage message, String templateCode, String reason) {
+        write(message, templateCode, 0, NotificationRecordRules.STATUS_SKIPPED, reason);
+    }
+
+    private void write(NotificationMessage message, String templateCode, int delivered,
+                       String status, String errorMessage) {
         try {
             SysNotificationRecordDO row = new SysNotificationRecordDO();
             row.setChannel(message.channel() == null
@@ -59,7 +82,7 @@ public class NotificationRecordRecorder {
             row.setReceiverSummary(NotificationRecordRules.receiverSummary(message));
             row.setReceiverCount(NotificationRecordRules.receiverCount(message));
             row.setDelivered(delivered);
-            row.setStatus(success ? NotificationRecordRules.STATUS_SUCCESS : NotificationRecordRules.STATUS_FAILED);
+            row.setStatus(status);
             row.setErrorMessage(NotificationRecordRules.truncate(errorMessage, 512));
             // 操作人：无登录上下文（周期任务、告警 webhook 等内部触发）时留空，不影响记录完整性
             securityContextFacade.getCurrentPrincipal().ifPresent(p -> {
@@ -71,8 +94,8 @@ public class NotificationRecordRecorder {
             JooqWriters.insert(dsl, JooqTables.SYS_NOTIFICATION_RECORD, row);
         } catch (Exception e) {
             // 通知记录属审计旁路，写入失败不阻断发送主流程（消息已真实投递，记录缺失可补）
-            log.warn("通知发送记录写入失败 channel={} success={} err={}",
-                    message.channel(), success, e.getMessage());
+            log.warn("通知发送记录写入失败 channel={} status={} err={}",
+                    message.channel(), status, e.getMessage());
         }
     }
 

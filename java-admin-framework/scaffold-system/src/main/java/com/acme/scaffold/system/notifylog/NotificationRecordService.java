@@ -79,7 +79,10 @@ public class NotificationRecordService {
     /**
      * 统计摘要（与 page 相同筛选口径）。
      *
-     * @return total / success / failure / failureRate / lastSentAt
+     * <p>M13 起 {@code SKIPPED}（全部接收者退订）单列：失败数 = 总数 − 成功 − 跳过，
+     * 保证「失败率」只反映真实发送故障，不把用户主动退订误计为故障。</p>
+     *
+     * @return total / success / failure / skipped / failureRate / lastSentAt
      */
     public Map<String, Object> summary(String channel, String status, String keyword,
                                        LocalDateTime startTime, LocalDateTime endTime) {
@@ -89,11 +92,15 @@ public class NotificationRecordService {
         Long success = dsl.selectCount().from(JooqTables.SYS_NOTIFICATION_RECORD.table())
                 .where(DSL.and(cond, JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
                         .eq(NotificationRecordRules.STATUS_SUCCESS))).fetchOne(0, Long.class);
+        Long skipped = dsl.selectCount().from(JooqTables.SYS_NOTIFICATION_RECORD.table())
+                .where(DSL.and(cond, JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
+                        .eq(NotificationRecordRules.STATUS_SKIPPED))).fetchOne(0, Long.class);
         LocalDateTime lastSentAt = dsl.select(
                         JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", LocalDateTime.class).max())
                 .from(JooqTables.SYS_NOTIFICATION_RECORD.table())
                 .where(cond).fetchOne(0, LocalDateTime.class);
-        return buildSummary(total == null ? 0L : total, success == null ? 0L : success, lastSentAt);
+        return buildSummary(total == null ? 0L : total, success == null ? 0L : success,
+                skipped == null ? 0L : skipped, lastSentAt);
     }
 
     /**
@@ -101,14 +108,18 @@ public class NotificationRecordService {
      *
      * @param total      总记录数
      * @param success    成功数
+     * @param skipped    跳过数（M13：全部接收者退订；不计入失败）
      * @param lastSentAt 最近一次发送时间（无记录为 null）
      */
-    static Map<String, Object> buildSummary(long total, long success, LocalDateTime lastSentAt) {
-        double failureRate = total == 0 ? 0.0 : (double) (total - success) / total;
+    static Map<String, Object> buildSummary(long total, long success, long skipped,
+                                            LocalDateTime lastSentAt) {
+        long failure = total - success - skipped;
+        double failureRate = total == 0 ? 0.0 : (double) failure / total;
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("total", total);
         out.put("success", success);
-        out.put("failure", total - success);
+        out.put("failure", failure);
+        out.put("skipped", skipped);
         out.put("failureRate", failureRate);
         out.put("lastSentAt", lastSentAt);
         return out;

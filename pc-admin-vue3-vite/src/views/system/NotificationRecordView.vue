@@ -21,6 +21,7 @@
             <el-select v-model="query.status" placeholder="全部" clearable style="width: 120px">
               <el-option label="成功" value="SUCCESS" />
               <el-option label="失败" value="FAILED" />
+              <el-option label="已跳过" value="SKIPPED" />
             </el-select>
           </div>
           <div class="filter-group">
@@ -71,6 +72,12 @@
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
+            <div class="stat-num stat-warning">{{ summary.skipped ?? '--' }}</div>
+            <div class="stat-label">已跳过</div>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="stat-card">
             <div class="stat-num">{{ fmtPct(summary.failureRate) }}</div>
             <div class="stat-label">失败率</div>
           </div>
@@ -104,16 +111,16 @@
         <el-table-column prop="receiverSummary" label="接收方（掩码）" min-width="200" show-overflow-tooltip />
         <el-table-column prop="receiverCount" label="目标数" width="90" sortable="custom" />
         <el-table-column prop="delivered" label="投递数" width="90" />
-        <el-table-column label="结果" width="90">
+        <el-table-column label="结果" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'SUCCESS' ? '成功' : '失败' }}
+            <el-tag :type="statusTagType(row.status)" size="small">
+              {{ statusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="errorMessage" label="失败原因" min-width="160" show-overflow-tooltip>
+        <el-table-column prop="errorMessage" label="失败/跳过原因" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.errorMessage" class="error-text">{{ row.errorMessage }}</span>
+            <span v-if="row.errorMessage" :class="row.status === 'SKIPPED' ? 'skip-text' : 'error-text'">{{ row.errorMessage }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
@@ -137,7 +144,7 @@
           @size-change="onSizeChange"
         />
       </div>
-      <div class="hint">默认查询最近 7 天记录；覆盖 IN_APP/WEBHOOK/WEBSOCKET/EMAIL/SMS 全渠道的每次投递尝试（含被拒与失败），标题/正文为摘要、接收方已掩码；短信网关对账请到「短信记录」页；「来源模板」为 M11 按模板发送回填，直发为空。</div>
+      <div class="hint">默认查询最近 7 天记录；覆盖 IN_APP/WEBHOOK/WEBSOCKET/EMAIL/SMS 全渠道的每次投递尝试（含被拒、失败与跳过），标题/正文为摘要、接收方已掩码；短信网关对账请到「短信记录」页；「来源模板」为 M11 按模板发送回填，直发为空；「已跳过」为 M13 通知偏好生效——定向接收者全部退订该类型，非故障、不计入失败率。</div>
     </el-card>
   </div>
 </template>
@@ -174,6 +181,15 @@ const CHANNEL_META = {
 }
 const channelLabel = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].label : c || '--')
 const channelTagType = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].type : 'info')
+
+/** 结果三态（M13 起支持 SKIPPED：定向接收者全部退订，非故障不计入失败）。 */
+const STATUS_META = {
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' },
+  SKIPPED: { label: '已跳过', type: 'warning' }
+}
+const statusLabel = (s) => (STATUS_META[s] ? STATUS_META[s].label : s || '--')
+const statusTagType = (s) => (STATUS_META[s] ? STATUS_META[s].type : 'info')
 
 /** 统一把时间范围与筛选条件映射为查询参数（空值一律 undefined，不传空串）。 */
 function buildParams() {
@@ -265,6 +281,7 @@ onMounted(load)
 }
 .stat-ok { color: #67c23a; }
 .stat-danger { color: #f56c6c; }
+.stat-warning { color: #e6a23c; }
 .stat-time { font-size: 15px; line-height: 26px; }
 .stat-label {
   font-size: 12px;
@@ -273,6 +290,7 @@ onMounted(load)
 }
 .muted { color: #c0c4cc; }
 .error-text { color: #f56c6c; }
+.skip-text { color: #e6a23c; }
 .hint {
   font-size: 12px;
   color: #a8abb2;

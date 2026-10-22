@@ -233,6 +233,18 @@ public final class JooqTables {
             "msg_type", "enabled", "remark", "version", "deleted", "created_by", "created_at",
             "updated_by", "updated_at");
 
+    // ---------------- 通知偏好中心（V43） ----------------
+
+    /**
+     * 通知偏好表（列名与 V43__notification_preference.sql 严格一致）。无 deleted / version 列：
+     * 「无行 = 默认开通」的懒行模型，恢复默认即物理删行；唯一键 uk_user_channel_type 兜底幂等，
+     * 并发写入以唯一索引裁决（与幂等记录表同范式）。渠道名存 {@code Channel} 枚举大写
+     * （仅 IN_APP / EMAIL / SMS / WEBSOCKET 四路可设偏好，WEBHOOK 无个人偏好语义拒绝建行）。
+     */
+    public static final TableRef SYS_NOTIFICATION_PREFERENCE = new TableRef("sys_notification_preference",
+            "id", "tenant_id", "user_id", "channel", "msg_type", "enabled",
+            "created_at", "updated_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",
