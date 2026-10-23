@@ -18,6 +18,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Random;
 
 
 /**
@@ -28,13 +29,30 @@ import java.util.Deque;
 @Slf4j
 @Aspect
 @Component
-@RequiredArgsConstructor
 public class AuditAspect {
 
     private final SecurityContextFacade securityContextFacade;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
     private final ClientIpResolver clientIpResolver;
+    private final AuditProperties auditProperties;
+    private final Random random = new Random();
+
+    /** 保留 4 参构造器以兼容既有测试；读审计开关默认关闭。 */
+    public AuditAspect(SecurityContextFacade securityContextFacade, AuditLogService auditLogService,
+                       ObjectMapper objectMapper, ClientIpResolver clientIpResolver) {
+        this(securityContextFacade, auditLogService, objectMapper, clientIpResolver, new AuditProperties());
+    }
+
+    public AuditAspect(SecurityContextFacade securityContextFacade, AuditLogService auditLogService,
+                       ObjectMapper objectMapper, ClientIpResolver clientIpResolver,
+                       AuditProperties auditProperties) {
+        this.securityContextFacade = securityContextFacade;
+        this.auditLogService = auditLogService;
+        this.objectMapper = objectMapper;
+        this.clientIpResolver = clientIpResolver;
+        this.auditProperties = auditProperties;
+    }
 
     @Around("@annotation(com.acme.scaffold.common.audit.AuditOperation)")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -66,9 +84,57 @@ public class AuditAspect {
         }
     }
 
+    @Around("@annotation(com.acme.scaffold.common.audit.AuditRead)")
+    public Object aroundRead(ProceedingJoinPoint joinPoint) throws Throwable {
+        // 读审计默认关闭：开关未开或采样未命中都不落库，仅透传原结果
+        if (!auditProperties.isAuditReads()) {
+            return joinPoint.proceed();
+        }
+        AuditRead annotation = AnnotationUtils.findAnnotation(
+                ((MethodSignature) joinPoint.getSignature()).getMethod(), AuditRead.class);
+        if (annotation == null) {
+            return joinPoint.proceed();
+        }
+        // 采样：readSampleRate ∈ [0,1]，1=全量，0=不采（与开关关闭等价）
+        double rate = auditProperties.getReadSampleRate();
+        if (rate <= 0.0 || random.nextDouble() >= rate) {
+            return joinPoint.proceed();
+        }
+
+        long start = System.currentTimeMillis();
+        String traceId = org.slf4j.MDC.get("traceId");
+        String ip = resolveClientIp();
+        String method = resolveMethod();
+        String path = resolvePath();
+        String paramSummary = annotation.recordParams() ? safeSummarize(joinPoint.getArgs()) : null;
+
+        try {
+            Object result = joinPoint.proceed();
+            long duration = System.currentTimeMillis() - start;
+            String resultSummary = annotation.recordResult() ? safeSummarize(result) : null;
+            AuditRecord record = build(annotation.module(), annotation.type(), annotation.name(),
+                    ip, traceId, method, path, paramSummary, resultSummary, "0", true, duration);
+            auditLogService.saveAsync(record);
+            return result;
+        } catch (Throwable t) {
+            long duration = System.currentTimeMillis() - start;
+            AuditRecord record = build(annotation.module(), annotation.type(), annotation.name(),
+                    ip, traceId, method, path, paramSummary, null, "EXCEPTION", false, duration);
+            auditLogService.saveAsync(record);
+            throw t;
+        }
+    }
+
     private AuditRecord build(AuditOperation a, String ip, String traceId, String method, String path,
                               String paramSummary, String resultSummary, String resultCode, boolean success, long duration) {
-        AuditRecord record = AuditRecord.of(a.module(), a.type(), a.name())
+        return build(a.module(), a.type(), a.name(), ip, traceId, method, path,
+                paramSummary, resultSummary, resultCode, success, duration);
+    }
+
+    private AuditRecord build(String module, String type, String name, String ip, String traceId, String method,
+                              String path, String paramSummary, String resultSummary, String resultCode,
+                              boolean success, long duration) {
+        AuditRecord record = AuditRecord.of(module, type, name)
                 .request(method, path, paramSummary)
                 .result(resultSummary, resultCode, success)
                 .meta(ip, traceId, duration);

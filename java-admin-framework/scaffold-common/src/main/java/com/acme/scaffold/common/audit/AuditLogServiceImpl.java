@@ -199,6 +199,22 @@ public class AuditLogServiceImpl implements AuditLogService {
         return new AuditLogSummary(total, successCount, total - successCount, slowCount, avg, max);
     }
 
+    @Override
+    public int purgeBefore(LocalDateTime cutoff) {
+        if (cutoff == null) {
+            return 0;
+        }
+        try {
+            // sys_operation_log 无 deleted 列，过期数据直接物理删除（与留存清理语义一致）
+            return dsl.deleteFrom(JooqTables.SYS_OPERATION_LOG.table())
+                    .where(JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).lt(cutoff))
+                    .execute();
+        } catch (Exception e) {
+            log.error("清理过期审计日志失败 cutoff={}", cutoff, e);
+            return 0;
+        }
+    }
+
     /** 把查询条件翻译为 jOOQ 条件集合；无过滤条件时返回恒真。 */
     private Condition conditions(AuditLogQuery query) {
         List<Condition> conds = new ArrayList<>();

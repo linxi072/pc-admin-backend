@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 import com.acme.scaffold.common.audit.AuditLogService;
+import com.acme.scaffold.common.audit.AuditRead;
 import com.acme.scaffold.common.audit.AuditLogSummary;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -40,6 +41,7 @@ public class AuditLogController {
     @Operation(summary = "分页查询审计日志（支持模块/操作类型/操作人/结果/traceId/关键词/时间区间）")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('system:audit:read')")
+    @AuditRead(module = "audit", type = "READ", name = "查询审计日志列表")
     public Result<PageResult<AuditLogView>> page(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -65,6 +67,7 @@ public class AuditLogController {
     @Operation(summary = "按 traceId 查询一次请求的完整操作链路")
     @GetMapping("/trace/{traceId}")
     @PreAuthorize("hasAuthority('system:audit:read')")
+    @AuditRead(module = "audit", type = "READ", name = "按 traceId 查询操作链路")
     public Result<List<AuditLogView>> trace(@PathVariable String traceId) {
         return Result.success(auditLogService.findByTraceId(traceId, sensitiveVisible()));
     }

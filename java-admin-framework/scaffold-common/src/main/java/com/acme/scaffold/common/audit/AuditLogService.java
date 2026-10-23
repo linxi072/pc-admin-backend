@@ -2,6 +2,7 @@ package com.acme.scaffold.common.audit;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 
@@ -39,4 +40,12 @@ public interface AuditLogService {
 
     /** 按条件统计摘要（总数 / 成功 / 失败 / 慢操作 / 平均与最大耗时）。 */
     AuditLogSummary summary(AuditLogQuery query);
+
+    /**
+     * 清理发生时间早于 {@code cutoff} 的审计记录（留存清理，M20 增强）。
+     *
+     * @param cutoff 截止时间（不含）；{@code null} 时调用方应跳过
+     * @return 删除的记录条数
+     */
+    int purgeBefore(LocalDateTime cutoff);
 }
