@@ -1,0 +1,72 @@
+package com.acme.scaffold.system.export;
+
+import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.audit.AuditLogService;
+import com.acme.scaffold.common.audit.AuditLogView;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * {@link AuditLogExportTask} 单元测试（M20 增强）：验证「导出中心模板注册」契约与脱敏。
+ *
+ * <p>重点锁定：表头与行宽一致（否则 CSV/XLSX 会错列）、以脱敏视图（sensitiveVisible=false）取数、
+ * IP 经 {@code SensitiveMasker#maskIp} 兜底掩码（数据离开系统边界不应暴露原文）。</p>
+ */
+class AuditLogExportTaskTest {
+
+    private static AuditLogView sampleView() {
+        return new AuditLogView(2001L, "audit", "READ", "查询审计日志列表", 7L, "admin", "GET",
+                "/api/system/audit-logs/page", "{\"keyword\":\"x\"}", null, "0", 12L,
+                "192.168.1.100", "trace-xyz", true, LocalDateTime.of(2026, 10, 16, 9, 30));
+    }
+
+    @Test
+    void declaresExpectedMetadata() {
+        AuditLogExportTask task = new AuditLogExportTask(mock(AuditLogService.class));
+        assertEquals("audit-logs", task.code());
+        assertEquals("审计日志", task.displayName());
+        assertEquals("audit-log", task.fileName());
+        assertFalse(task.headers().isEmpty());
+    }
+
+    @Test
+    void headerAndRowWidthsAreConsistentAndMasked() {
+        AuditLogService svc = mock(AuditLogService.class);
+        when(svc.query(any(), anyBoolean())).thenReturn(new PageResult<>(1L, 10L, 1L, List.of(sampleView())));
+        AuditLogExportTask task = new AuditLogExportTask(svc);
+
+        List<List<String>> rows = task.rows(Map.of());
+        assertEquals(1, rows.size());
+        assertEquals(task.headers().size(), rows.get(0).size(), "行宽必须与表头一致");
+        assertEquals("audit", rows.get(0).get(1), "模块列");
+        assertEquals("READ", rows.get(0).get(2), "操作类型列");
+        assertTrue(rows.get(0).get(5).contains("*"), "IP 列应被掩码，实际值: " + rows.get(0).get(5));
+        assertEquals("2001", rows.get(0).get(0), "日志ID 列");
+    }
+
+    @Test
+    void queriesWithSensitiveHiddenRegardlessOfCaller() {
+        AuditLogService svc = mock(AuditLogService.class);
+        when(svc.query(any(), anyBoolean())).thenReturn(new PageResult<>(1L, 10L, 0L, List.of()));
+        AuditLogExportTask task = new AuditLogExportTask(svc);
+
+        task.rows(Map.of("moduleCode", "audit", "startTime", "2026-10-01T00:00:00"));
+
+        // 第二参 sensitiveVisible 必须为 false（导出一律脱敏）
+        org.mockito.ArgumentCaptor<Boolean> visible = org.mockito.ArgumentCaptor.forClass(Boolean.class);
+        verify(svc).query(any(), visible.capture());
+        assertEquals(Boolean.FALSE, visible.getValue(), "导出查询必须 sensitiveVisible=false");
+    }
+}
