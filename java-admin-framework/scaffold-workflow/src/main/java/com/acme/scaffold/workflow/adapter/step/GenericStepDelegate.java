@@ -7,7 +7,6 @@ import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -36,7 +35,7 @@ public class GenericStepDelegate implements JavaDelegate {
                 nodeId, processInstanceId, businessKey);
         // 扩展点：在此调用外部服务 / 落库步骤执行记录。
 
-        List<Long> watchers = parseUserIds(execution.getVariable("node_" + nodeId + "_assignees"));
+        List<Long> watchers = StepUserIds.parseUserIds(execution.getVariable("node_" + nodeId + "_assignees"));
         if (!watchers.isEmpty()) {
             try {
                 int sent = messageService.sendCcNotification(watchers,
@@ -49,29 +48,5 @@ public class GenericStepDelegate implements JavaDelegate {
             }
         }
         execution.setVariable("step_" + nodeId + "_done", true);
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Long> parseUserIds(Object raw) {
-        List<Long> result = new ArrayList<>();
-        if (raw == null) {
-            return result;
-        }
-        if (raw instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof Long l) {
-                    result.add(l);
-                } else if (o instanceof String s && !s.isBlank()) {
-                    try {
-                        result.add(Long.parseLong(s));
-                    } catch (NumberFormatException ignored) {
-                        // 忽略非数字元素
-                    }
-                } else if (o instanceof Number n) {
-                    result.add(n.longValue());
-                }
-            }
-        }
-        return result;
     }
 }

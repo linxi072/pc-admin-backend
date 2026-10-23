@@ -7,7 +7,6 @@ import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,7 +27,7 @@ public class CcStepDelegate implements JavaDelegate {
     public void execute(DelegateExecution execution) {
         String nodeId = execution.getCurrentActivityId();
         String processInstanceId = execution.getProcessInstanceId();
-        List<Long> ccUserIds = parseUserIds(execution.getVariable("node_" + nodeId + "_assignees"));
+        List<Long> ccUserIds = StepUserIds.parseUserIds(execution.getVariable("node_" + nodeId + "_assignees"));
         if (ccUserIds.isEmpty()) {
             log.warn("[工作流抄送] 节点={} 未配置抄送人，跳过。processInstanceId={}", nodeId, processInstanceId);
             execution.setVariable("cc_" + nodeId + "_done", true);
@@ -43,29 +42,5 @@ public class CcStepDelegate implements JavaDelegate {
             log.error("[工作流抄送] 发送抄送通知失败，节点={} processInstanceId={}", nodeId, processInstanceId, e);
         }
         execution.setVariable("cc_" + nodeId + "_done", true);
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Long> parseUserIds(Object raw) {
-        List<Long> result = new ArrayList<>();
-        if (raw == null) {
-            return result;
-        }
-        if (raw instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof Long l) {
-                    result.add(l);
-                } else if (o instanceof String s && !s.isBlank()) {
-                    try {
-                        result.add(Long.parseLong(s));
-                    } catch (NumberFormatException ignored) {
-                        // 忽略非数字元素
-                    }
-                } else if (o instanceof Number n) {
-                    result.add(n.longValue());
-                }
-            }
-        }
-        return result;
     }
 }
