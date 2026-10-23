@@ -1,6 +1,8 @@
 package com.acme.scaffold.common.importer;
 
 import com.acme.scaffold.common.export.XlsxDataExporter;
+import com.acme.scaffold.common.export.XlsxSheet;
+import com.acme.scaffold.common.importer.Segment;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -91,6 +93,39 @@ class XlsxDataReaderTest {
     void emptyInputYieldsEmptyTable() {
         assertTrue(XlsxDataReader.read(null).isEmpty());
         assertTrue(XlsxDataReader.read(new byte[0]).isEmpty());
+    }
+
+    @Test
+    void readWorkbookReturnsAllSheetsInOrder() {
+        List<XlsxSheet> sheets = List.of(
+                new XlsxSheet("字典类型", List.of("编码", "名称"), List.of(List.of("A", "类型A"))),
+                new XlsxSheet("字典数据", List.of("类型", "标签", "值"), List.of(List.of("A", "l", "v"))));
+        byte[] xlsx = XlsxDataExporter.exportWorkbook(sheets);
+
+        List<Segment> segments = XlsxDataReader.readWorkbook(xlsx);
+
+        assertEquals(2, segments.size());
+        assertEquals("字典类型", segments.get(0).name());
+        assertEquals(List.of("编码", "名称"), segments.get(0).data().headers());
+        assertEquals(List.of("A", "类型A"), segments.get(0).data().rows().get(0));
+        assertEquals("字典数据", segments.get(1).name());
+        assertEquals(3, segments.get(1).data().columnCount());
+    }
+
+    @Test
+    void readWorkbookEmptyInputYieldsEmpty() {
+        assertTrue(XlsxDataReader.readWorkbook(null).isEmpty());
+        assertTrue(XlsxDataReader.readWorkbook(new byte[0]).isEmpty());
+    }
+
+    @Test
+    void readWorkbookReturnsNormalizedSheetName() {
+        // 写出器规范化表名（去首尾空白），读取时原样返回规范化后的名
+        List<XlsxSheet> sheets = List.of(new XlsxSheet(" Sheet1 ", List.of("a"), List.of()));
+        byte[] xlsx = XlsxDataExporter.exportWorkbook(sheets);
+        List<Segment> segments = XlsxDataReader.readWorkbook(xlsx);
+        assertEquals(1, segments.size());
+        assertTrue(segments.get(0).name().startsWith("Sheet1"));
     }
 
     private static Map<String, String> parts(String sheetXml) {

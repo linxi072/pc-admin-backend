@@ -2,9 +2,12 @@ package com.acme.scaffold.system.controller;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.common.importer.ImportValidators;
+import com.acme.scaffold.common.importer.MultiSegmentImportTask;
+import com.acme.scaffold.common.importer.SegmentSpec;
 import com.acme.scaffold.system.importer.config.ImportProperties;
 import com.acme.scaffold.system.service.ImportCenterService;
 
@@ -81,10 +84,70 @@ class ImportControllerTest {
     }
 
     private MockMvc mvc(ImportProperties props) {
-        ImportCenterService service = new ImportCenterService(List.of(demoTask()), props);
+        ImportCenterService service = new ImportCenterService(List.of(demoTask(), multiTask()), props);
         return MockMvcBuilders.standaloneSetup(new ImportController(service))
                 .setControllerAdvice(new TestAdvice())
                 .build();
+    }
+
+    /** 多段导入任务：两段（段A / 段B），各为独立表头。 */
+    private static ImportTask multiTask() {
+        return new MultiSegmentImportTask() {
+            @Override
+            public String code() {
+                return "multi";
+            }
+
+            @Override
+            public String displayName() {
+                return "多段演示";
+            }
+
+            @Override
+            public List<SegmentSpec> segments() {
+                return List.of(
+                        new SegmentSpec() {
+                            @Override
+                            public String name() {
+                                return "段A";
+                            }
+
+                            @Override
+                            public List<String> headers() {
+                                return List.of("名称", "数量");
+                            }
+
+                            @Override
+                            public List<String> validate(ImportRow row) {
+                                return List.of();
+                            }
+
+                            @Override
+                            public void importRow(ImportRow row) {
+                            }
+                        },
+                        new SegmentSpec() {
+                            @Override
+                            public String name() {
+                                return "段B";
+                            }
+
+                            @Override
+                            public List<String> headers() {
+                                return List.of("编号", "说明");
+                            }
+
+                            @Override
+                            public List<String> validate(ImportRow row) {
+                                return List.of();
+                            }
+
+                            @Override
+                            public void importRow(ImportRow row) {
+                            }
+                        });
+            }
+        };
     }
 
     @Test
@@ -219,6 +282,40 @@ class ImportControllerTest {
                 .andExpect(jsonPath("$.code").value("0"))
                 .andExpect(jsonPath("$.data.successCount").value(2))
                 .andExpect(jsonPath("$.data.failureCount").value(0));
+    }
+
+    @Test
+    void templates_markMultiSegmentWithSegments() throws Exception {
+        mvc().perform(get("/api/system/import/templates"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].multiSegment").value(false))
+                .andExpect(jsonPath("$.data[1].code").value("multi"))
+                .andExpect(jsonPath("$.data[1].multiSegment").value(true))
+                .andExpect(jsonPath("$.data[1].segments.length()").value(2))
+                .andExpect(jsonPath("$.data[1].segments[0].name").value("段A"))
+                .andExpect(jsonPath("$.data[1].segments[0].headers[0]").value("名称"));
+    }
+
+    @Test
+    void template_multiSegmentDownloadsMultiSheetWorkbook() throws Exception {
+        byte[] body = mvc().perform(get("/api/system/import/template").param("code", "multi"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", Matchers.containsString(".xlsx")))
+                .andReturn().getResponse().getContentAsByteArray();
+
+        assertEquals('P', body[0]);
+        assertEquals('K', body[1]);
+        // 多 Sheet 工作簿应含两张工作表部件
+        String s = new String(body, StandardCharsets.ISO_8859_1);
+        assertTrue(s.contains("xl/worksheets/sheet1.xml"), "应含 sheet1");
+        assertTrue(s.contains("xl/worksheets/sheet2.xml"), "多段模板应含 sheet2");
+    }
+
+    @Test
+    void template_multiSegmentCsvRejected() throws Exception {
+        mvc().perform(get("/api/system/import/template").param("code", "multi").param("format", "CSV"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_001"));
     }
 
     /** 复刻生产全局异常处理器对 BusinessException → HTTP 状态码的映射。 */

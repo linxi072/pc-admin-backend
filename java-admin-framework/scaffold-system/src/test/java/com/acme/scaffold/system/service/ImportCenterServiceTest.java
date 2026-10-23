@@ -2,11 +2,14 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.XlsxDataExporter;
+import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.common.importer.ImportOutcome;
 import com.acme.scaffold.common.importer.ImportResult;
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.common.importer.ImportValidators;
+import com.acme.scaffold.common.importer.MultiSegmentImportTask;
+import com.acme.scaffold.common.importer.SegmentSpec;
 import com.acme.scaffold.system.importer.config.ImportProperties;
 import org.junit.jupiter.api.Test;
 
@@ -231,5 +234,165 @@ class ImportCenterServiceTest {
         assertTrue(outcome.failedRows().isEmpty());
         assertEquals(1, outcome.result().successCount());
         assertTrue(outcome.result().allSucceeded());
+    }
+
+    // ---- 多段结构导入（MultiSegmentImportTask）----
+
+    /** 假多段任务：段A(名称,数量) + 段B(编号,说明)，分别独立收集落库结果。 */
+    private static final class FakeMultiTask implements MultiSegmentImportTask {
+
+        final List<String> importedA = new ArrayList<>();
+        final List<String> importedB = new ArrayList<>();
+
+        @Override
+        public String code() {
+            return "multi";
+        }
+
+        @Override
+        public String displayName() {
+            return "多段演示";
+        }
+
+        @Override
+        public List<SegmentSpec> segments() {
+            return List.of(segA(), segB());
+        }
+
+        private SegmentSpec segA() {
+            return new SegmentSpec() {
+                @Override
+                public String name() {
+                    return "段A";
+                }
+
+                @Override
+                public List<String> headers() {
+                    return List.of("名称", "数量");
+                }
+
+                @Override
+                public List<String> validate(ImportRow row) {
+                    return ImportValidators.collect(
+                            ImportValidators.required(row.trimmed("名称"), "名称"),
+                            ImportValidators.integerRange(row.trimmed("数量"), "数量", 1, 999, false));
+                }
+
+                @Override
+                public void importRow(ImportRow row) {
+                    importedA.add(row.trimmed("名称"));
+                }
+            };
+        }
+
+        private SegmentSpec segB() {
+            return new SegmentSpec() {
+                @Override
+                public String name() {
+                    return "段B";
+                }
+
+                @Override
+                public List<String> headers() {
+                    return List.of("编号", "说明");
+                }
+
+                @Override
+                public List<String> validate(ImportRow row) {
+                    return ImportValidators.collect(
+                            ImportValidators.required(row.trimmed("编号"), "编号"),
+                            ImportValidators.required(row.trimmed("说明"), "说明"));
+                }
+
+                @Override
+                public void importRow(ImportRow row) {
+                    importedB.add(row.trimmed("编号"));
+                }
+            };
+        }
+    }
+
+    /** 构建含两段的工作簿（段A 在前、段B 在后）。 */
+    private static byte[] multiXlsx() {
+        List<XlsxSheet> sheets = List.of(
+                new XlsxSheet("段A", List.of("名称", "数量"), List.of(List.of("A", "1"))),
+                new XlsxSheet("段B", List.of("编号", "说明"), List.of(List.of("B1", "x"))));
+        return XlsxDataExporter.exportWorkbook(sheets);
+    }
+
+    @Test
+    void multiSegmentProcessesAllSheetsAndReportsPerSegment() {
+        FakeMultiTask task = new FakeMultiTask();
+        ImportResult result = service(new ImportProperties(), task)
+                .importData("multi", "multi.xlsx", multiXlsx(), false);
+
+        assertEquals(2, result.totalRows());
+        assertEquals(2, result.successCount());
+        assertEquals(0, result.failureCount());
+        assertEquals(List.of("A"), task.importedA);
+        assertEquals(List.of("B1"), task.importedB);
+        // 逐段明细：顺序与段定义一致
+        assertEquals(2, result.segments().size());
+        assertEquals("段A", result.segments().get(0).name());
+        assertEquals(1, result.segments().get(0).totalRows());
+        assertEquals("段B", result.segments().get(1).name());
+        assertEquals(1, result.segments().get(1).totalRows());
+    }
+
+    @Test
+    void multiSegmentRejectsHeaderMismatch() {
+        FakeMultiTask task = new FakeMultiTask();
+        List<XlsxSheet> sheets = List.of(
+                new XlsxSheet("段A", List.of("名称X", "数量"), List.of(List.of("A", "1"))),
+                new XlsxSheet("段B", List.of("编号", "说明"), List.of(List.of("B1", "x"))));
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service(new ImportProperties(), task)
+                        .importData("multi", "multi.xlsx", XlsxDataExporter.exportWorkbook(sheets), false));
+        assertTrue(e.getMessage().contains("表头"), e.getMessage());
+    }
+
+    @Test
+    void multiSegmentRejectsMissingSheet() {
+        FakeMultiTask task = new FakeMultiTask();
+        // 仅含段A，缺失段B
+        List<XlsxSheet> sheets = List.of(new XlsxSheet("段A", List.of("名称", "数量"), List.of(List.of("A", "1"))));
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service(new ImportProperties(), task)
+                        .importData("multi", "multi.xlsx", XlsxDataExporter.exportWorkbook(sheets), false));
+        assertTrue(e.getMessage().contains("缺少工作表"), e.getMessage());
+    }
+
+    @Test
+    void multiSegmentRejectsCsv() {
+        FakeMultiTask task = new FakeMultiTask();
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service(new ImportProperties(), task)
+                        .importData("multi", "multi.csv", csv("名称,数量\nA,1\n"), false));
+        assertTrue(e.getMessage().contains("XLSX"), e.getMessage());
+    }
+
+    @Test
+    void multiSegmentFailedRowCarriesSegmentName() {
+        FakeMultiTask task = new FakeMultiTask();
+        // 段A 正常、段B 编号缺失 → 失败行应标记来自「段B」
+        List<XlsxSheet> sheets = List.of(
+                new XlsxSheet("段A", List.of("名称", "数量"), List.of(List.of("A", "1"))),
+                new XlsxSheet("段B", List.of("编号", "说明"), List.of(List.of("", "x"))));
+        ImportOutcome outcome = service(new ImportProperties(), task)
+                .importDetailed("multi", "multi.xlsx", XlsxDataExporter.exportWorkbook(sheets), false);
+
+        assertEquals(1, outcome.result().failureCount());
+        assertEquals("段B", outcome.failedRows().get(0).segment());
+        assertEquals(1, outcome.failedRows().get(0).rowNo());
+    }
+
+    @Test
+    void singleSegmentResultCarriesOneSegmentNamedByDisplayName() {
+        FakeTask task = new FakeTask();
+        ImportResult result = service(new ImportProperties(), task)
+                .importData("demo", "demo.csv", csv("名称,数量\nA,1\n"), false);
+        assertEquals(1, result.segments().size());
+        assertEquals("演示数据", result.segments().get(0).name());
+        assertEquals(1, result.segments().get(0).successCount());
     }
 }
