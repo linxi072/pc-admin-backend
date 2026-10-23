@@ -37,6 +37,24 @@ app:
         username: ${TEST_DB_USER:${SPRING_DATASOURCE_USERNAME:root}}
         password: ${TEST_DB_PASSWORD:${SPRING_DATASOURCE_PASSWORD:root}}
 
+app:
+  # 关闭缓存注解（生产默认 true，见 CacheConfig matchIfMissing）
+  cache:
+    enabled: false
+  # ===== IT 专用数据源 =====
+  # 自数据源外部化改造（V1.0.2）起，连接属性统一由 app.datasources 多数据源配置接管
+  # （application.yml 已排除 DataSourceAutoConfiguration，旧 spring.datasource.* 为失效配置，
+  #  曾导致 IT 上下文加载失败：primary=primary 在 entries 中无对应项）。
+  # 本 profile 必须显式提供 entries.primary：默认连本机 MySQL 的 IT 库 java_admin
+  # （root/root，可用环境变量覆盖，不使用容器）。
+  # createDatabaseIfNotExist=true 使 java_admin 在不存在时自动创建，便于本地直接跑集成测试。
+  datasources:
+    entries:
+      primary:
+        url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8&createDatabaseIfNotExist=true}
+        username: ${TEST_DB_USER:root}
+        password: ${TEST_DB_PASSWORD:root}
+
 org:
   jobrunr:
     job-scheduler:
