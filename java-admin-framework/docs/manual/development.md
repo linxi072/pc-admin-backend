@@ -2766,4 +2766,53 @@ effective(渠道, 类型) = 渠道总开关(sys_user.notify_*) && (细分偏好�
 - 前端 `npm run build` 通过；
 - 待用户本机（需 MySQL + 运行后端）：V44 自动迁移后进「个人中心 → 免打扰」设置 22:00–08:00（保持当前时刻在窗口内即可验证），发一条 NOTICE 给自己——通知记录出现一条 SKIPPED（原因「免打扰时段内已抑制」）；改发 ALERT（告警穿透开启）则应正常收到；关闭开关后再发恢复投递。
 
+---
+
+## 35. 通知子系统收尾：退订令牌 / 故障转移+有界重试 / 聚合摘要 / Webhook 外发 HMAC（M15–M18）
+
+> 承接 M9–M14（通知中心 / 模板 / 发送模板化 / 发送记录 / 偏好中心 / 免打扰时段），本轮补齐接收侧与发送侧的「安全退订、韧性投递、频次合并、外发鉴权」四块能力，dispatch 管线顺序固定为：**免打扰过滤（M14）→ 偏好过滤（M13）→ digest 挂点（M17）→ 路由 `NotificationRouter` → 有界重试 / 故障转移（M16）→ `NotificationRecordRecorder` 留痕（M12）**。
+
+### 35.1 退订令牌（M15，2026-10-23）
+
+- **背景**：邮件/短信退订需「免登录、防伪造、链接不可关联」，且密钥不得落库。
+- **能力**：`UnsubscribeTokenRules.mint/verify` 铸造 `v1.<base64url(payload)>.<base64url(HmacSHA256(secret, v1.<payload>))>`；payload = `userId|channel|msgType|expMillis|nonce`（base64url 编码，不含点号与令牌分隔符冲突）；`nonce` 8 字符随机（同用户多次铸造互不相等，链接不可关联）；`expMillis` 短 TTL（默认 72h，`unsubscribe.ttl-hours`）；恒定时间比较防时序侧信道；`secret` 经 `NOTIFICATION_UNSUBSCRIBE_SECRET` 注入，缺失即安全失败（任何令牌都无效）。
+- **关键文件**：`notification/unsubscribe/{NotificationUnsubscribeService,NotificationUnsubscribeController,NotificationUnsubscribeProperties,rules/UnsubscribeTokenRules}`；`NotificationService`/邮件·短信 `Adapter` 在正文注入退订链接（`unsubscribe.base-url` + token）。
+- **端点**：`GET /api/notification/unsubscribe?token=...` 公开，验签且未过期即退订该 `userId+channel+msgType`。
+- **验证**：`UnsubscribeTokenRulesTest`（铸造/验签/过期/篡改/密钥错/nonce 唯一）。
+
+### 35.2 渠道故障转移 + 有界重试（M16，2026-10-23）
+
+- **背景**：网关瞬时故障（IO/超时）不应直接判失败；主适配器彻底失败时需可切换同渠道备用。
+- **能力**：
+  - **有界重试**：`NotificationRetryProperties`（`enabled`/`max-attempts` 默认 3/`backoff-ms` 默认 200），`DeliveryRetryRules` 计算第 n 次重试前等待 `n × backoff-ms`，总等待有硬上界；仅对「非 `BusinessException` 的运行时异常（如网关 IO 失败）」重试，业务确定性拒绝（渠道未启用/报文非法）不重试。
+  - **故障转移**：`NotificationFailoverProperties`（`enabled` 默认 **false**），主适配器抛异常时切换同渠道备用适配器；至少一次语义（主「已投递但响应丢失」时会重复投递，故默认关闭，显式开启需评估重复容忍度）。
+- **关键文件**：`notification/{rules/DeliveryRetryRules,config/NotificationRetryProperties,config/NotificationFailoverProperties}`；由 `NotificationService.dispatch` 在路由（`NotificationRouter`）**之后**编排。
+- **验证**：`NotificationServiceTest` 覆盖重试耗尽记 FAILED / failover 切换备用 / 业务拒绝不重试 / 重试不重复写失败记录。
+
+### 35.3 通知聚合摘要 digest（M17，2026-10-23）
+
+- **背景**：命中类型的定向高频通知（如「订单已发货」「优惠券到账」）应合并为一条摘要，降低打扰、减少投递次数。
+- **挂点位置**：`NotificationService.dispatch` 在免打扰（M14）与偏好（M13）过滤**之后**、路由投递**之前**调用 `digestService.enqueue(effective)`——只聚合「本来会投递」的消息，已退订/免打扰抑制的不进摘要。
+- **聚合范围**（`shouldDigest` 纯预检、不触库）：类型命中 `digest.msg-types`（默认 `NOTICE`）；IN_APP/WEBSOCKET 有 `receiverIds`（广播无个人投递箱不聚合）；EMAIL/SMS 有 `emails`/`mobiles`（**全映射才聚合**：经 `fetchAddressUserIds` 反查 `sys_user`，任一外部地址即整体放弃、走正常投递，防部分丢消息）；WEBHOOK 不聚合（与 M13/M14 广播不过滤口径一致）。
+- **合并写入**（`enqueue`）：逐用户「查现存 → 更新或插入」（`JooqWriters`，动态 DSL 无 upsert，`uk_user_channel_type` 兜底并发），`item_count` 累加、`items_json` 保留最近 `maxItems`、`last_at` 前推；达 `threshold` 的聚合行随结果返回，由 `dispatch` 内立即刷新投递（先到先投，防囤积）。
+- **兜底刷新**：`NotificationDigestJob`（`@Scheduled(fixedDelay=scan-interval-ms)`）`findDue` 扫描 `last_at` 超 `max-wait-minutes` 的聚合行强制刷新，防低流量用户「永远差一条」。
+- **一次性投递语义**：摘要行无论 SUCCESS/SKIPPED/FAILED 均物理删（聚合行是待投递缓冲非档案，审计由 M12 承担）；投递编排由 Job 经 `NotificationService.dispatch` 递归，包依赖图保持 DAG（Job 置于 `notifydigest.job` 子包，H1 合规）。
+- **防递归挂起**：摘要消息 `msgType=DIGEST`（不在 `digest.msg-types` 内→不再挂起；不在 M13 白名单→默认开通，仅受渠道总开关约束）。
+- **M12 状态语义**：`STATUS_DIGEST_PENDING` + `Recorder.pending(message, templateCode, reason)` + `buildSummary(total, success, skipped, digestPending, lastSentAt)`，`failure = total − success − skipped − digestPending`（SKIPPED 与 DIGEST_PENDING 均不计失败率）；前端通知记录页新增「聚合中」态（`NotificationRecordView.vue` 筛选/统计卡/`STATUS_META`/`DIGEST_PENDING`）。
+- **关键文件**：`notifydigest/{SysNotificationDigestDO,NotificationDigestRules,NotificationDigestProperties,NotificationDigestService,job/NotificationDigestJob}`、`V45__notification_digest.sql`（`uk_user_channel_type`，无 status/逻辑删除列）、`notification/config/NotificationDigestProperties`、`notifylog` M12 契约扩展。
+- **验证**：`NotificationDigestServiceTest` 9 分支（disabled/null/类型未命中/WEBHOOK/IN_APP 广播/IN_APP 有 receiverIds/EMAIL 无地址/EMAIL 有地址/SMS 有 mobiles，均 `verifyNoInteractions(dsl,preferenceService,objectMapper)`）+ `NotificationDigestRulesTest` 6 例 + `NotificationServiceTest` 5 例（挂点编排/pending 记录/阈值刷新递归/失败仍删行/直通）+ `NotificationRecordServiceTest`/`RulesTest` 适配 `DIGEST_PENDING` + 前端 `NotificationRecordView.vue`。
+
+### 35.4 Webhook 外发 HMAC 签名（M18，2026-10-23）
+
+- **背景**：原 `app.notifications.webhook.secret` 明文透传报文不安全；改为 HMAC 签名 + 时间戳 + nonce 防篡改与重放。
+- **能力**：`WebhookProperties.signingKey` 配置即启用（经 `NOTIFICATION_WEBHOOK_SIGNING_KEY` 注入，不落库）；`WebhookSignatureRules.sign(key, ts, nonce, rawBody)` 对**实际发出的原始 JSON 报文**做 HMAC-SHA256（base64url），签名覆盖 `ts + "." + nonce + "." + rawBody`（与接收方原始 body 逐字节一致，规避 JSON 重排/空格差异导致验签不一致）；注入三头 `X-Webhook-Signature=sha256=<sig>` / `X-Webhook-Timestamp` / `X-Webhook-Nonce`；`verify(...)` 恒定时间比较 + 时间戳新鲜度窗口（默认建议 5min）+ 5s 正向漂移容错；nonce 由接收方去重表彻底防重放（发送侧不维护全局态，符合本仓「不引入额外依赖」约束）。
+- **关键文件**：`notification/rules/WebhookSignatureRules`、`notification/adapter/RestTemplateWebhookClient`（注入 `ObjectMapper` 序列化→签名→`HttpEntity<String>` 发送）、`notification/config/WebhookProperties`（增 `signingKey`；原 `secret` 标记 legacy 废弃）、`application.yml` webhook 段增 `signing-key`。
+- **验证**：`WebhookSignatureRulesTest` 11 例（确定性/命中/篡改/错密钥/过期/缺参/未来漂移/nonce 唯一）+ `RestTemplateWebhookClientTest` 2 例（签名头存在且可经 `verify` 用捕获原始报文还原验签通过）。
+
+### 35.5 验证状态（沙箱，2026-10-23）
+
+- `mvn -o clean test`：**全仓 11 模块 BUILD SUCCESS**；`scaffold-system` **564 例全绿**（较 M13 基线 +13：M17 新增 17 例 + M18 新增 13 例）。
+- `scripts/check-conventions.py`：EXIT=0（H1 包级循环 / H5 模块环等无违例；`notifydigest` 与 `notification.service` 经 `notifydigest.job` 维持 DAG）。
+- 待用户本机（需 MySQL + 运行后端）：邮件/短信退订链接点击即解退订；Webhook 接收方按三头验签；digest 阈值合并投递、低流量用户超时兜底刷新。
+
 
