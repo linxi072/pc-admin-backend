@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -68,5 +69,18 @@ class SpringConnChannelTest {
         ch.close(1001, "draining");
         ch.close(1001, "draining");
         verify(session, times(1)).close(any(CloseStatus.class));
+    }
+
+    @Test
+    @DisplayName("writeFrame 写失败：立即标记非活跃，避免死连接滞留至空闲超时")
+    void writeFrame_ioFailure_marksInactive() throws Exception {
+        WebSocketSession session = mockSession();
+        doThrow(new java.io.IOException("broken pipe")).when(session).sendMessage(any(BinaryMessage.class));
+        SpringConnChannel ch = new SpringConnChannel(session);
+
+        ch.writeFrame(new byte[]{0x57, 0x01, 0x01});
+
+        assertFalse(ch.isActive(), "写失败后 isActive 必须为 false");
+        assertEquals(0, ch.inflight(), "finally 语义：in-flight 计数必须归零");
     }
 }

@@ -28,7 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li>menus/mine：报表管理为一级目录且仅含 3 个统计页（顺序：任务执行 → 登录 → 接口调用），
  *       权限码与路由 path 均保持不变；</li>
- *   <li>menus/mine：运维管理不再包含报表统计，仅保留 7 个功能菜单；</li>
+ *   <li>menus/mine：运维管理不再包含报表统计，仅保留功能菜单（V31 时 7 个，
+ *       V33 文件管理模块迁入后为 8 个）；</li>
  *   <li>sys_menu 结构：1030 复活为一级 CATALOG（sort 45，接排个人中心与运维管理之间），
  *       1053/1054/1055 迁入并重排 sort 10/20/30，1050~1052 公共统计页保持软删不复活；</li>
  *   <li>sys_role_menu：SUPER_ADMIN 重新绑定报表管理目录（V30 清理过），3 个统计页绑定不丢失；</li>
@@ -73,7 +74,13 @@ class ReportMenuRestoreIT extends AbstractHttpIntegrationTest {
         assertEquals("/report/api-call", children.get(2).get("routePath"));
     }
 
-    /** 运维管理不再包含 3 个统计页，仅保留 7 个功能菜单。 */
+    /**
+     * 运维管理不再包含 3 个统计页，仅保留功能菜单。
+     *
+     * <p>V31 重组时为 7 个；V33 文件管理模块在运维管理下新增 1080「文件管理」，
+     * 故当前基线为 8 个。本断言锁定「统计页已迁出」这一重组语义，功能菜单集合
+     * 随业务模块演进，新增模块时需同步维护此清单。</p>
+     */
     @Test
     void mine_opsMenuKeepsOnlySevenFunctions() {
         List<Map<String, Object>> tree = menusMine();
@@ -82,9 +89,10 @@ class ReportMenuRestoreIT extends AbstractHttpIntegrationTest {
         assertNotNull(ops, "应存在一级菜单「运维管理」");
 
         assertEquals(List.of("system:api-resource", "dev-codegen", "system:monitor",
-                        "system:cache", "system:datasource", "system:login-log", "system:operation-log"),
+                        "system:cache", "system:datasource", "system:login-log", "system:operation-log",
+                        "file-management"),
                 codes(childrenOf(ops)),
-                "运维管理应仅含 7 个功能菜单（报表统计已迁出）");
+                "运维管理不应再含报表统计页（已迁入报表管理），功能菜单为既有 7 项 + V33 文件管理");
     }
 
     // ---------------- 2. 库结构（DSL 直查） ----------------

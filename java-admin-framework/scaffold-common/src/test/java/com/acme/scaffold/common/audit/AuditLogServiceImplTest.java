@@ -1,5 +1,6 @@
 package com.acme.scaffold.common.audit;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +34,7 @@ class AuditLogServiceImplTest {
     private final Executor recordingExecutor = submitted::add;
 
     private final AuditLogServiceImpl service =
-            new AuditLogServiceImpl(Mockito.mock(DSLContext.class), recordingExecutor);
+            new AuditLogServiceImpl(Mockito.mock(DSLContext.class), recordingExecutor, new ObjectMapper());
 
     @AfterEach
     void clearTransactionSynchronization() {
@@ -71,7 +72,7 @@ class AuditLogServiceImplTest {
         AuditLogServiceImpl rejecting = new AuditLogServiceImpl(Mockito.mock(DSLContext.class),
                 task -> {
                     throw new RejectedExecutionException("queue full");
-                });
+                }, new ObjectMapper());
 
         // 审计属合规留痕：线程池满不能让整条记录丢失，也不能把异常抛回业务链路
         assertDoesNotThrow(() -> rejecting.saveAsync(AuditRecord.of("system", "DELETE", "删除用户")),
