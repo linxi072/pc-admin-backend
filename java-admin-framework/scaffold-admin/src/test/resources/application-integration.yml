@@ -28,8 +28,9 @@ app:
   # （root/root，可用环境变量覆盖，不使用容器）。
   # createDatabaseIfNotExist=true 使 java_admin 在不存在时自动创建，便于本地直接跑集成测试。
   # 覆盖优先级：TEST_DB_* > SPRING_DATASOURCE_*（CI workflow 仍按旧名单数据源名传值，
-  # @ActiveProfiles("integration") 优先于 SPRING_PROFILES_ACTIVE，故 CI 的 ci profile 实际不生效，
-  # 此处嵌套默认值使 CI 无需改 workflow 即可命中其 MySQL 服务容器凭据）> 本地默认 root/root。
+  # 而 @ActiveProfiles("integration") 优先于 SPRING_PROFILES_ACTIVE，CI 的 ci profile
+  # 实际不生效；此处嵌套默认值使 CI 无需改 workflow 即可命中其 MySQL 服务容器凭据）
+  # > 本地默认 root/root。
   datasources:
     entries:
       primary:
