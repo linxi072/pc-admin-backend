@@ -211,4 +211,123 @@ class GatewayNodeTest {
         assertEquals(1, counts.get(1L));
         assertEquals(1, counts.get(2L));
     }
+
+    // ---------------------------------------------------------------- 协议容错（双魔数）
+
+    @Test
+    @DisplayName("控制帧 PONG（0x41）上行：容忍不断链（旧行为会误判损坏帧 4003）")
+    void onFrame_controlPong_tolerated() {
+        GatewayNode node = newNode();
+        GatewayNode.HandshakeOutcome hs = handshake(node, "c1", "1");
+        FakeConnChannel ch = (FakeConnChannel) hs.session().channel();
+
+        GatewayNode.IngestOutcome out = node.onFrame(hs.session(), ControlCodec.encodePong(), CLOCK.nowMillis());
+
+        assertEquals(GatewayNode.IngestStatus.OK, out.status());
+        assertEquals(-1, ch.closeCode(), "不得关闭连接");
+        assertEquals(1, node.connectionCount());
+    }
+
+    @Test
+    @DisplayName("控制帧 ACK（0x41）上行：推进已确认水位")
+    void onFrame_controlAck_advancesWatermark() {
+        GatewayNode node = newNode();
+        GatewayNode.HandshakeOutcome hs = handshake(node, "c1", "1");
+
+        node.onFrame(hs.session(), ControlCodec.encodeAck(9L), CLOCK.nowMillis());
+
+        assertEquals(9L, hs.session().lastAckedSeq());
+    }
+
+    @Test
+    @DisplayName("控制帧 CLOSE（0x41）上行：清理会话与路由")
+    void onFrame_controlClose_cleans() {
+        GatewayNode node = newNode();
+        GatewayNode.HandshakeOutcome hs = handshake(node, "c1", "1");
+
+        byte[] closeFrame = new byte[]{(byte) ControlCodec.MAGIC, 0x01, (byte) MsgType.CLOSE.code(), 0};
+        GatewayNode.IngestOutcome out = node.onFrame(hs.session(), closeFrame, CLOCK.nowMillis());
+
+        assertEquals(GatewayNode.IngestStatus.OK, out.status());
+        assertEquals(0, node.connectionCount());
+    }
+
+    @Test
+    @DisplayName("数据帧魔数损坏：协议错误关闭 4003 并清理")
+    void onFrame_corruptMagic_closes4003() {
+        GatewayNode node = newNode();
+        GatewayNode.HandshakeOutcome hs = handshake(node, "c1", "1");
+        FakeConnChannel ch = (FakeConnChannel) hs.session().channel();
+
+        GatewayNode.IngestOutcome out = node.onFrame(hs.session(), new byte[]{0x00, 0x01, 0x02}, CLOCK.nowMillis());
+
+        assertEquals(GatewayNode.IngestStatus.PROTOCOL_REJECTED, out.status());
+        assertEquals(4003, ch.closeCode());
+        assertEquals(0, node.connectionCount());
+        assertTrue(node.backpressure().protocolRejected() >= 1);
+    }
+
+    // ---------------------------------------------------------------- 会话/路由回收
+
+    @Test
+    @DisplayName("心跳 tick：无 close 回调的失效会话被兜底回收（防内存泄漏）")
+    void onTick_inactiveSession_reclaimed() {
+        GatewayNode node = newNode();
+        GatewayNode.HandshakeOutcome hs = handshake(node, "c1", "1");
+        FakeConnChannel ch = (FakeConnChannel) hs.session().channel();
+        ch.close(4009, "replaced"); // 模拟通道已失效但无 afterConnectionClosed 回调
+
+        node.onTick(CLOCK.nowMillis());
+
+        assertEquals(0, node.connectionCount(), "失效会话必须被 tick 回收");
+    }
+
+    @Test
+    @DisplayName("长连接保活：ping 刷新路由 lastSeen，超过 TTL 不被误摘（回归：touch 漏刷）")
+    void longLivedConnection_routeNotExpired() {
+        GatewayNode node = newNode();
+        GatewayNode.HandshakeOutcome hs = handshake(node, "c1", "1");
+        FakeConnChannel ch = (FakeConnChannel) hs.session().channel();
+
+        // 模拟 10 分钟长连接：每 30s 客户端回 PONG（刷新读活动）+ 服务端 tick 发 ping（刷路由）
+        for (int i = 0; i < 20; i++) {
+            CLOCK.advanceBy(30_000L);
+            node.onFrame(hs.session(), ControlCodec.encodePong(), CLOCK.nowMillis());
+            node.onTick(CLOCK.nowMillis());
+        }
+
+        assertEquals(1, node.connectionCount(), "活跃长连接的路由不得被 TTL 误摘");
+        Envelope push = new Envelope(Envelope.SEQ_UNASSIGNED, "m9", MsgType.DATA, "1",
+                "p".getBytes(), CLOCK.nowMillis(), "");
+        GatewayNode.DeliverOutcome out = node.deliver("1", push, true, CLOCK.nowMillis());
+        assertEquals(GatewayNode.DeliverStatus.DELIVERED, out.status(), "长连接推送必须仍可达");
+        assertTrue(ch.writtenFrames().size() >= 20, "20 次 tick 至少 20 个 ping");
+    }
+
+    // ---------------------------------------------------------------- 优雅退出最坏路径
+
+    @Test
+    @DisplayName("优雅退出最坏路径：in-flight 30s 超时才排空，drain 必须到达 TERMINATED")
+    void drain_worstCase_reachesTerminated() {
+        GatewayNode node = newNode();
+        GatewayNode.HandshakeOutcome hs = handshake(node, "c1", "1");
+        FakeConnChannel ch = (FakeConnChannel) hs.session().channel();
+        ch.setInflight(500); // 水位不归零：强制走 30s 超时兜底路径
+
+        long now = CLOCK.nowMillis();
+        DrainState.DrainStep step = node.drainStep();
+        // 与 GatewayNodeConfig 关停生命周期同构：模拟时间截止驱动（最坏 3+30+2 步）
+        long deadline = now + node.settings().drainInflightTimeoutMs()
+                + node.settings().drainFlushTimeoutMs() + 10_000L;
+        int ticks = 0;
+        while (step != DrainState.DrainStep.TERMINATED && now < deadline) {
+            now += 1000;
+            step = node.drainTick(now);
+            ticks++;
+        }
+
+        assertEquals(DrainState.DrainStep.TERMINATED, step, "截止时间内必须完成七步排空");
+        assertTrue(ticks > 24, "最坏路径步数应超过旧的 24 次上限（本用例 " + ticks + " 步）");
+        assertEquals(0, node.connectionCount(), "TERMINATED 后路由表已清空");
+    }
 }
