@@ -234,8 +234,8 @@
     <profiles>
         <!--
           JaCoCo 覆盖率门禁（N+1 告警 + 覆盖率质检的一部分）。
-          默认不激活：jacoco-maven-plugin 未在本地离线仓库缓存，且常规离线构建（mvn -o）不应
-          因解析不到插件而失败。在 CI 或已联网解析过插件的环境中用 -Pcoverage 激活：
+          默认不激活：常规离线构建（mvn -o）不挂载探针、不跑 check，避免无谓开销；jacoco-maven-plugin
+          已在本地离线仓库缓存，离线亦可跑。在需要覆盖率报告/门禁时用 -Pcoverage 激活：
             mvn -Pcoverage test        # 挂载探针 + 生成报告（按模块分别产出）
             mvn -Pcoverage verify      # 额外执行 check 门禁（行/分支覆盖率低于下限则构建失败）
           阈值（0.10 行 / 0.05 分支）为保守起步线，应随测试完善逐步收紧（如 0.70 行 / 0.60 分支）。
