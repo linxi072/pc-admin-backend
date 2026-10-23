@@ -18,12 +18,14 @@ import java.util.List;
  * @param successCount 成功行数（预检模式为「校验通过」的行数）
  * @param failureCount 失败行数（真实值，不受错误明细上限影响）
  * @param errors       失败明细（最多 {@code app.import.max-errors} 条）
+ * @param segments     逐段结果明细（单段导入为一项；多段导入为各段逐项；顺序与模板段定义一致）
  */
 public record ImportResult(boolean dryRun, int totalRows, int successCount, int failureCount,
-                           List<RowError> errors) {
+                           List<RowError> errors, List<SegmentResult> segments) {
 
     public ImportResult {
         errors = errors == null ? List.of() : List.copyOf(errors);
+        segments = segments == null ? List.of() : List.copyOf(segments);
     }
 
     /** 是否全部行均成功。 */

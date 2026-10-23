@@ -5,11 +5,14 @@ import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.CsvExporter;
 import com.acme.scaffold.common.export.XlsxDataExporter;
+import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.common.importer.FailedRow;
 import com.acme.scaffold.common.importer.ImportFormat;
 import com.acme.scaffold.common.importer.ImportOutcome;
 import com.acme.scaffold.common.importer.ImportResult;
 import com.acme.scaffold.common.importer.ImportTask;
+import com.acme.scaffold.common.importer.MultiSegmentImportTask;
+import com.acme.scaffold.common.importer.SegmentSpec;
 import com.acme.scaffold.security.ratelimit.RateLimit;
 import com.acme.scaffold.system.service.ImportCenterService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,17 +66,28 @@ public class ImportController {
 
     private final ImportCenterService importCenterService;
 
-    @Operation(summary = "导入模板列表（导入中心可触发的全部模板及其表头）")
+    @Operation(summary = "导入模板列表（导入中心可触发的全部模板及其表头/多段定义）")
     @GetMapping("/templates")
     @PreAuthorize("hasAuthority('system:import:read')")
     public Result<List<ImportTemplateView>> templates() {
         List<ImportTemplateView> list = importCenterService.tasks().stream()
-                .map(t -> new ImportTemplateView(t.code(), t.displayName(), t.headers()))
+                .map(t -> {
+                    if (t instanceof MultiSegmentImportTask ms) {
+                        // 多段模板：暴露各段名与段内表头；headers 取首段表头以兼容旧前端
+                        List<SegmentTemplateView> segs = ms.segments().stream()
+                                .map(s -> new SegmentTemplateView(s.name(), s.headers()))
+                                .toList();
+                        List<String> primary = ms.segments().isEmpty()
+                                ? List.of() : ms.segments().get(0).headers();
+                        return new ImportTemplateView(t.code(), t.displayName(), primary, true, segs);
+                    }
+                    return new ImportTemplateView(t.code(), t.displayName(), t.headers(), false, List.of());
+                })
                 .toList();
         return Result.success(list);
     }
 
-    @Operation(summary = "下载导入模板（仅表头，format=CSV 或 XLSX，默认 XLSX）")
+    @Operation(summary = "下载导入模板（仅表头；多段模板仅支持 XLSX 多工作表，单段模板支持 CSV / XLSX，默认 XLSX）")
     @GetMapping("/template")
     @PreAuthorize("hasAuthority('system:import:read')")
     @AuditOperation(module = "import", type = "READ", name = "下载导入模板")
@@ -85,6 +99,17 @@ public class ImportController {
                 : ImportFormat.from(rawFormat);
         if (format == null) {
             throw BusinessException.badRequest("不支持的模板格式: " + rawFormat);
+        }
+        // 多段模板：仅 XLSX 多工作表可承载多段；CSV 无法承载，直接拒绝
+        if (task instanceof MultiSegmentImportTask ms) {
+            if (format != ImportFormat.XLSX) {
+                throw BusinessException.badRequest("多段导入模板仅支持 XLSX 格式下载");
+            }
+            List<XlsxSheet> sheets = ms.segments().stream()
+                    .map(s -> new XlsxSheet(s.name(), s.headers(), List.of()))
+                    .toList();
+            byte[] body = XlsxDataExporter.exportWorkbook(sheets);
+            return fileResponse(body, "导入模板-" + task.displayName(), ImportFormat.XLSX);
         }
         List<String> headers = task.headers();
         byte[] body = (format == ImportFormat.CSV)
@@ -131,23 +156,48 @@ public class ImportController {
         return jsonResult(importCenterService.importData(code, file.getOriginalFilename(), content, dryRun));
     }
 
-    /** 生成「导入失败报告」CSV（行号 + 原因 + 模板各列原始值；防公式注入）。 */
+    /** 生成「导入失败报告」CSV（数据段 + 行号 + 原因 + 模板各列原始值；防公式注入）。 */
     private static ResponseEntity<byte[]> errorReportResponse(ImportTask task, ImportOutcome outcome) {
+        boolean multi = task instanceof MultiSegmentImportTask;
         List<String> headers = new ArrayList<>();
+        if (multi) {
+            headers.add("数据段");
+        }
         headers.add("数据行号");
         headers.add("失败原因");
-        headers.addAll(task.headers());
+        // 值列：单段=模板表头；多段=各段表头按段序拼接（去重保序），使报告为统一宽度的表
+        final List<String> valueColumns;
+        if (multi) {
+            List<String> union = new ArrayList<>();
+            MultiSegmentImportTask ms = (MultiSegmentImportTask) task;
+            for (SegmentSpec s : ms.segments()) {
+                for (String h : s.headers()) {
+                    if (!union.contains(h)) {
+                        union.add(h);
+                    }
+                }
+            }
+            valueColumns = union;
+        } else {
+            valueColumns = task.headers();
+        }
+        headers.addAll(valueColumns);
+
         List<List<String>> rows = outcome.failedRows().stream()
-                .map(f -> reportRow(task, f))
+                .map(f -> reportRow(task, f, valueColumns))
                 .toList();
         return fileResponse(csvBytes(headers, rows), "导入失败报告-" + task.displayName(), ImportFormat.CSV);
     }
 
-    private static List<String> reportRow(ImportTask task, FailedRow failed) {
+    private static List<String> reportRow(ImportTask task, FailedRow failed, List<String> valueColumns) {
+        boolean multi = task instanceof MultiSegmentImportTask;
         List<String> cells = new ArrayList<>();
+        if (multi) {
+            cells.add(sanitizeFormula(failed.segment()));
+        }
         cells.add(String.valueOf(failed.rowNo()));
         cells.add(sanitizeFormula(failed.message()));
-        for (String header : task.headers()) {
+        for (String header : valueColumns) {
             cells.add(sanitizeFormula(failed.values().getOrDefault(header, "")));
         }
         return cells;
@@ -198,7 +248,16 @@ public class ImportController {
                 .body(body);
     }
 
-    /** 导入模板视图（编码 / 展示名 / 表头）。 */
-    public record ImportTemplateView(String code, String displayName, List<String> headers) {
+    /** 单段视图（段名 / 段内表头），多段模板下随 {@link ImportTemplateView#segments()} 返回。 */
+    public record SegmentTemplateView(String name, List<String> headers) {
+    }
+
+    /** 导入模板视图（编码 / 展示名 / 首段表头 / 是否多段 / 各段定义）。 */
+    public record ImportTemplateView(String code, String displayName, List<String> headers,
+                                     boolean multiSegment, List<SegmentTemplateView> segments) {
+        public ImportTemplateView {
+            headers = headers == null ? List.of() : List.copyOf(headers);
+            segments = segments == null ? List.of() : List.copyOf(segments);
+        }
     }
 }

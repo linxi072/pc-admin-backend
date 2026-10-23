@@ -64,7 +64,63 @@ public final class XlsxDataReader {
             throw new IllegalArgumentException("不是有效的 XLSX 文件：未找到工作表");
         }
         List<String> shared = parseSharedStrings(parts.get(SHARED_STRINGS));
-        List<List<String>> rows = parseSheet(parts.get(sheetName), shared);
+        return toTabular(parseSheet(parts.get(sheetName), shared));
+    }
+
+    /**
+     * 解析 XLSX 字节为多段结构（每张工作表一个 {@link Segment}），保留工作表名与顺序。
+     *
+     * <p>解析 {@code xl/workbook.xml} 的有序（工作表名 / r:id）序列，再经
+     * {@code xl/_rels/workbook.xml.rels} 将 r:id 映射到工作表部件；因此工作表顺序严格遵循
+     * 用户在 Excel 中看到的标签顺序，而非部件文件名序。空文件返回空列表。</p>
+     *
+     * @param bytes XLSX 文件字节
+     * @return 按工作簿顺序的段列表
+     * @throws IllegalArgumentException 非合法 ZIP / XML 结构（非 OOXML 文件）
+     */
+    public static List<Segment> readWorkbook(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return List.of();
+        }
+        Map<String, byte[]> parts = unzip(bytes);
+        List<String[]> sheets = parseWorkbookSheets(parts.get("xl/workbook.xml"));
+        Map<String, String> rels = parseWorkbookRels(parts.get("xl/_rels/workbook.xml.rels"));
+        List<Segment> result = new ArrayList<>();
+        if (sheets != null) {
+            List<String> shared = parseSharedStrings(parts.get(SHARED_STRINGS));
+            for (String[] s : sheets) {
+                String target = rels.get(s[1]);
+                if (target == null) {
+                    continue;
+                }
+                String partName = target.startsWith("/") ? target.substring(1) : "xl/" + target;
+                byte[] xml = parts.get(partName);
+                if (xml == null) {
+                    continue;
+                }
+                result.add(new Segment(s[0], toTabular(parseSheet(xml, shared))));
+            }
+            return List.copyOf(result);
+        }
+        // 回退：无 workbook.xml / rels 时（如手工构造的最简文件），按文件名顺序取工作表并命名为 SheetN
+        String fallback = firstSheetName(parts);
+        if (fallback == null) {
+            throw new IllegalArgumentException("不是有效的 XLSX 文件：未找到工作表");
+        }
+        List<String> wsParts = parts.keySet().stream()
+                .filter(n -> n.startsWith(SHEET_PREFIX) && n.endsWith(".xml") && !n.contains("_rels"))
+                .sorted()
+                .toList();
+        for (int i = 0; i < wsParts.size(); i++) {
+            result.add(new Segment("Sheet" + (i + 1),
+                    toTabular(parseSheet(parts.get(wsParts.get(i)),
+                            parseSharedStrings(parts.get(SHARED_STRINGS))))));
+        }
+        return List.copyOf(result);
+    }
+
+    /** 由「首行表头 + 其余行」的原始网格构建 {@link TabularData}（补齐至统一列宽）。 */
+    private static TabularData toTabular(List<List<String>> rows) {
         if (rows.isEmpty()) {
             return new TabularData(List.of(), List.of());
         }
@@ -97,6 +153,58 @@ public final class XlsxDataReader {
             throw new IllegalArgumentException("不是有效的 XLSX 文件：内容为空");
         }
         return parts;
+    }
+
+    /** 解析 workbook.xml：按顺序返回 (工作表名, r:id) 对；无工作表或结构非法返回 {@code null}。 */
+    private static List<String[]> parseWorkbookSheets(byte[] xml) {
+        if (xml == null) {
+            return null;
+        }
+        List<String[]> out = new ArrayList<>();
+        XMLStreamReader r = newReader(xml);
+        try {
+            while (r.hasNext()) {
+                int event = r.next();
+                if (event == XMLStreamConstants.START_ELEMENT && "sheet".equals(r.getLocalName())) {
+                    String name = attr(r, "name");
+                    String rId = attrLocal(r, "id"); // r:id 的本地名是 id
+                    if (name != null && rId != null) {
+                        out.add(new String[]{name, rId});
+                    }
+                }
+            }
+        } catch (XMLStreamException e) {
+            throw new IllegalArgumentException("XLSX 工作簿结构解析失败", e);
+        } finally {
+            close(r);
+        }
+        return out.isEmpty() ? null : out;
+    }
+
+    /** 解析 workbook.xml.rels：r:id → Target（相对于 xl/ 的相对路径或包内绝对路径）。 */
+    private static Map<String, String> parseWorkbookRels(byte[] xml) {
+        Map<String, String> out = new LinkedHashMap<>();
+        if (xml == null) {
+            return out;
+        }
+        XMLStreamReader r = newReader(xml);
+        try {
+            while (r.hasNext()) {
+                int event = r.next();
+                if (event == XMLStreamConstants.START_ELEMENT && "Relationship".equals(r.getLocalName())) {
+                    String id = attr(r, "Id");
+                    String target = attr(r, "Target");
+                    if (id != null && target != null) {
+                        out.put(id, target);
+                    }
+                }
+            }
+        } catch (XMLStreamException e) {
+            throw new IllegalArgumentException("XLSX 关系表解析失败", e);
+        } finally {
+            close(r);
+        }
+        return out;
     }
 
     /** 取第一个工作表条目名；无工作表返回 {@code null}。 */
@@ -257,6 +365,16 @@ public final class XlsxDataReader {
     private static String attr(XMLStreamReader r, String name) {
         for (int i = 0; i < r.getAttributeCount(); i++) {
             if (name.equals(r.getAttributeLocalName(i))) {
+                return r.getAttributeValue(i);
+            }
+        }
+        return null;
+    }
+
+    /** 按属性本地名取属性值（忽略命名空间前缀，用于 {@code r:id} 这类带前缀属性）。 */
+    private static String attrLocal(XMLStreamReader r, String localName) {
+        for (int i = 0; i < r.getAttributeCount(); i++) {
+            if (localName.equals(r.getAttributeLocalName(i))) {
                 return r.getAttributeValue(i);
             }
         }

@@ -16,7 +16,15 @@
         </el-table-column>
         <el-table-column label="表头列" min-width="280">
           <template #default="{ row }">
-            <el-tag v-for="h in row.headers" :key="h" size="small" class="header-tag">{{ h }}</el-tag>
+            <template v-if="row.multiSegment">
+              <div v-for="seg in row.segments" :key="seg.name" class="segment-block">
+                <el-tag size="small" type="warning" class="segment-name">{{ seg.name }}</el-tag>
+                <el-tag v-for="h in seg.headers" :key="h" size="small" class="header-tag">{{ h }}</el-tag>
+              </div>
+            </template>
+            <template v-else>
+              <el-tag v-for="h in row.headers" :key="h" size="small" class="header-tag">{{ h }}</el-tag>
+            </template>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="360" fixed="right">
@@ -27,7 +35,11 @@
               :loading="downloading === row.code + ':XLSX'"
               @click="onDownloadTemplate(row, 'XLSX')"
             >下载模板 XLSX</el-button>
+            <el-tooltip v-if="row.multiSegment" content="多段模板仅支持 XLSX（含多工作表）" placement="top">
+              <el-button :icon="Download" disabled>CSV</el-button>
+            </el-tooltip>
             <el-button
+              v-else
               :icon="Download"
               :loading="downloading === row.code + ':CSV'"
               @click="onDownloadTemplate(row, 'CSV')"
@@ -42,6 +54,9 @@
       <el-alert type="info" :closable="false" show-icon class="dialog-tip">
         <template #title>
           请先下载模板，严格按模板表头填写后上传（支持 CSV / XLSX）。建议先「预检」确认数据无误，再「确认导入」。
+          <template v-if="current && current.multiSegment">
+            <br />本模板为<b>多段结构</b>，仅支持 XLSX：每个工作表对应一段数据，工作表名须与模板完全一致。
+          </template>
         </template>
       </el-alert>
 
@@ -79,6 +94,11 @@
           <span v-else-if="result.errors.length < result.failureCount">
             （下方仅展示前 {{ result.errors.length }} 条失败明细）
           </span>
+          <template v-if="result.segments && result.segments.length > 1">
+            <div v-for="seg in result.segments" :key="seg.name" class="seg-summary">
+              · {{ seg.name }}：{{ seg.totalRows }} 行 / 成功 {{ seg.successCount }} / 失败 {{ seg.failureCount }}
+            </div>
+          </template>
         </template>
       </el-alert>
 
@@ -91,6 +111,7 @@
         max-height="260"
         class="error-table"
       >
+        <el-table-column v-if="resultHasSegment" prop="segment" label="数据段" width="120" />
         <el-table-column prop="rowNo" label="数据行号" width="110" />
         <el-table-column prop="message" label="失败原因" />
       </el-table>
@@ -135,6 +156,10 @@ const withReport = ref(true)
 
 const dialogTitle = computed(() =>
   current.value ? `导入数据 - ${current.value.displayName}` : '导入数据')
+
+// 失败明细是否含「数据段」列（多段导入的报告才有）
+const resultHasSegment = computed(() =>
+  !!(result.value && result.value.errors && result.value.errors.some((e) => e.segment)))
 
 async function load() {
   loading.value = true
@@ -279,9 +304,9 @@ async function submitWithReport(dryRun) {
 }
 
 /**
- * 解析导入失败报告 CSV（表头：数据行号 / 失败原因 / 各模板列）。
- * 最小 RFC4180 解析：支持引号内逗号/换行/双引号转义；跳过 UTF-8 BOM；
+ * 解析导入失败报告 CSV。最小 RFC4180 解析：支持引号内逗号/换行/双引号转义；跳过 UTF-8 BOM；
  * 失败原因去掉后端防公式注入的 ' 前缀。
+ * 报告表头按列名定位（兼容单段「数据行号/失败原因/...」与多段「数据段/数据行号/失败原因/...」两种布局）。
  */
 function parseImportErrorReport(text) {
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
@@ -321,9 +346,16 @@ function parseImportErrorReport(text) {
     row.push(field)
     if (row.some((x) => x !== '')) rows.push(row)
   }
-  const errors = rows.slice(1).map((r) => ({
-    rowNo: Number(r[0]),
-    message: (r[1] || '').replace(/^'/, '')
+  if (rows.length < 1) return { errors: [] }
+  const header = rows[0].map((h) => (h || '').trim())
+  const segIdx = header.indexOf('数据段')
+  const noIdx = header.indexOf('数据行号')
+  const msgIdx = header.indexOf('失败原因')
+  const data = rows.slice(1).filter((r) => r.some((x) => x !== ''))
+  const errors = data.map((r) => ({
+    segment: segIdx >= 0 ? (r[segIdx] || '') : '',
+    rowNo: Number(r[noIdx]),
+    message: (r[msgIdx] || '').replace(/^'/, '')
   })).filter((e) => !Number.isNaN(e.rowNo))
   return { errors }
 }
