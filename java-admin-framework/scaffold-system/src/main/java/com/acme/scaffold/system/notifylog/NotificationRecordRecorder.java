@@ -69,6 +69,23 @@ public class NotificationRecordRecorder {
         write(message, templateCode, 0, NotificationRecordRules.STATUS_SKIPPED, reason);
     }
 
+    /**
+     * 记录一次「聚合中」投递（M17：消息已进入 digest 聚合队列，未调适配器）。
+     *
+     * <p>与 SKIPPED 分开的第三态：聚合是频次治理的正常结果（不计失败率），但消息
+     * 并未被丢弃——它将以摘要形式在阈值达成或兜底刷新时投递（摘要自身的投递结果
+     * 另立记录），故不能复用 SKIPPED 的「终止」语义。原因记入 {@code error_message} 列，
+     * 与 skip 同口径。</p>
+     *
+     * @param message      被聚合的渠道无关消息（审计对象为过滤后的有效消息）
+     * @param templateCode 来源模板编码（原始直发传 null）
+     * @param reason       聚合原因（如 {@code 已进入聚合摘要队列，等待摘要投递}）
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void pending(NotificationMessage message, String templateCode, String reason) {
+        write(message, templateCode, 0, NotificationRecordRules.STATUS_DIGEST_PENDING, reason);
+    }
+
     private void write(NotificationMessage message, String templateCode, int delivered,
                        String status, String errorMessage) {
         try {

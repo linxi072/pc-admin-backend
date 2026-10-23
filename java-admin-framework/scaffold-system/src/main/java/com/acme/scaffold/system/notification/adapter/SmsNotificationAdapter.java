@@ -8,9 +8,13 @@ import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.SmsProperties;
 import com.acme.scaffold.system.notification.port.SmsGateway;
 import com.acme.scaffold.system.notification.rules.SmsRules;
+import com.acme.scaffold.system.notification.unsubscribe.NotificationUnsubscribeService;
 import com.acme.scaffold.system.smslog.SmsRecordRecorder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 短信渠道适配器：把渠道无关消息经 {@link SmsGateway} 发送给 {@code mobiles} 手机号列表。
@@ -25,6 +29,12 @@ import org.springframework.stereotype.Component;
  * <p><b>发送记录</b>：校验通过并生成批次号后，无论网关成功还是失败均落一条
  * {@code sys_sms_record}（经 {@link SmsRecordRecorder}，独立事务、脱敏存储），
  * 供「短信记录」页对账排查；校验不合法的报文未尝试发送，不产生记录。</p>
+ *
+ * <p><b>M15 退订链接注入</b>：退订功能激活且手机号能反查到用户时，按号码<b>逐条个性化</b>
+ * 发送（每人内容尾部追加各自的 HMAC 签名退订链接）；短信按条计费、逐条投递，
+ * 拆循环不改变计费模型，仅把批量合并的网关调用拆开。追加后超长的该条回落原正文
+ * （{@link SmsRules#MAX_CONTENT_LEN}）——不能因注入链接把短信拦在长度门外。
+ * 未激活或全军覆没时保持原有「一次批量」路径，行为零变化。</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -33,6 +43,7 @@ public class SmsNotificationAdapter implements NotificationPort {
     private final SmsGateway gateway;
     private final SmsProperties properties;
     private final SmsRecordRecorder recorder;
+    private final NotificationUnsubscribeService unsubscribeService;
 
     @Override
     public boolean supports(Channel channel) {
@@ -49,7 +60,16 @@ public class SmsNotificationAdapter implements NotificationPort {
         String batchNo = SmsRecordRecorder.newBatchNo();
         String provider = properties.getProvider().name();
         try {
-            gateway.send(draft);
+            Map<String, String> links =
+                    unsubscribeService.resolveLinks(draft.mobiles(), false, Channel.SMS, message.msgType());
+            if (links.isEmpty()) {
+                gateway.send(draft);
+            } else {
+                for (String mobile : draft.mobiles()) {
+                    gateway.send(new SmsRules.SmsDraft(List.of(mobile),
+                            withUnsubscribeSuffix(draft.content(), links.get(mobile))));
+                }
+            }
             recorder.record(batchNo, draft.mobiles(), draft.content(), provider, true, null);
             return draft.mobiles().size();
         } catch (RuntimeException ex) {
@@ -57,5 +77,14 @@ public class SmsNotificationAdapter implements NotificationPort {
             recorder.record(batchNo, draft.mobiles(), draft.content(), provider, false, ex.getMessage());
             throw ex;
         }
+    }
+
+    /** 追加退订链接后缀；无链接或超长（规则上限）时回落原正文。 */
+    private static String withUnsubscribeSuffix(String content, String link) {
+        if (link == null) {
+            return content;
+        }
+        String withLink = content + " 退订请点击：" + link;
+        return withLink.length() > SmsRules.MAX_CONTENT_LEN ? content : withLink;
     }
 }

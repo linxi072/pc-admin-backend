@@ -268,6 +268,60 @@ public class NotificationPreferenceService {
     }
 
     // ------------------------------------------------------------------
+    // 免登录退订写入口（M15 退订端点复用）
+    // ------------------------------------------------------------------
+
+    /**
+     * 把指定用户的指定 (渠道 × 消息类型) 置为不退订（{@code enabled=0}）。
+     *
+     * <p>与 {@link #update} 的分工：本方法userId 由调用方提供（退订令牌承载），
+     * <b>不走安全上下文</b>——公开退订端点没有登录主体；写入口径（校验 + 查现存 →
+     * 更新或插入）与批量更新完全一致，唯一键 {@code uk_user_channel_type} 兜底并发。</p>
+     *
+     * <p>渠道须支持偏好（WEBHOOK 拒绝）、消息类型须在白名单内（归一后非空），
+     * 否则抛校验异常——令牌只能由本系统铸造，二者不满足即数据异常，不放行。</p>
+     *
+     * @param userId  退订目标用户（令牌承载，非前端传入）
+     * @param channel 退订目标渠道
+     * @param msgType 退订目标消息类型（空白按缺省类型归一）
+     * @return {@code true} = 本次发生状态变更（此前未退订）；{@code false} = 已是退订态（幂等）
+     */
+    @Transactional
+    public boolean unsubscribe(Long userId, Channel channel, String msgType) {
+        if (userId == null || !NotificationPreferenceRules.supportsPreference(channel)) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "不支持的退订目标");
+        }
+        String type = NotificationPreferenceRules.normalizeMsgType(msgType);
+        if (type == null) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "不支持的消息类型: " + msgType);
+        }
+        SysNotificationPreferenceDO exist = JooqWriters.fetchOne(dsl,
+                JooqTables.SYS_NOTIFICATION_PREFERENCE, SysNotificationPreferenceDO.class,
+                JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).eq(userId)
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class)
+                                .eq(channel.name()))
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class)
+                                .eq(type)));
+        if (exist != null) {
+            if (exist.getEnabled() != null && exist.getEnabled() == 0) {
+                return false;
+            }
+            SysNotificationPreferenceDO patch = new SysNotificationPreferenceDO();
+            patch.setEnabled(0);
+            JooqWriters.updateById(dsl, JooqTables.SYS_NOTIFICATION_PREFERENCE,
+                    exist.getId(), patch);
+            return true;
+        }
+        SysNotificationPreferenceDO row = new SysNotificationPreferenceDO();
+        row.setUserId(userId);
+        row.setChannel(channel.name());
+        row.setMsgType(type);
+        row.setEnabled(0);
+        JooqWriters.insert(dsl, JooqTables.SYS_NOTIFICATION_PREFERENCE, row);
+        return true;
+    }
+
+    // ------------------------------------------------------------------
     // 内部实现
     // ------------------------------------------------------------------
 
@@ -310,11 +364,13 @@ public class NotificationPreferenceService {
     }
 
     /**
-     * 地址 → userId 反查（soft-deleted 用户除外）。
-     * 键为归一化地址：email 小写（DB collation 大小写不敏感，存储值可能与原写大小写不一致），
-     * mobile 原样 trim。
+     * 地址 → userId 反查（soft-deleted 用户除外）。公开供 M15 退订链接注入复用：
+     * 邮件/短信适配器按地址列表批量取用户，逐用户铸造退订令牌。
+     *
+     * <p>键为归一化地址：email 小写（DB collation 大小写不敏感，存储值可能与原写大小写不一致），
+     * mobile 原样 trim。absent = 无匹配用户（外部收件人，注入方按「无链接」处理）。</p>
      */
-    private Map<String, Long> fetchAddressUserIds(List<String> addresses, boolean byEmail) {
+    public Map<String, Long> fetchAddressUserIds(List<String> addresses, boolean byEmail) {
         String column = byEmail ? "email" : "mobile";
         Field<Long> idField = JooqTables.SYS_USER.field("id", Long.class);
         Field<String> addrField = JooqTables.SYS_USER.field(column, String.class);

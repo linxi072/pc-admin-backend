@@ -32,6 +32,14 @@ public final class NotificationRecordRules {
      */
     public static final String STATUS_SKIPPED = "SKIPPED";
 
+    /**
+     * 结果码：聚合中（M17：消息已进入 digest 聚合队列，等待阈值/兜底刷新时以摘要形式投递）。
+     * 与 SKIPPED 同哲学——聚合是正常的频次治理而非故障；但它是<b>独立生命周期态</b>
+     * （消息并未被丢弃，只是延迟合并投递），故不复用 SKIPPED：失败率同样不计入，
+     * 「通知记录」页可单独筛出查看聚合吞吐。
+     */
+    public static final String STATUS_DIGEST_PENDING = "DIGEST_PENDING";
+
     /** 渠道缺失时的兜底编码（防御性：{@code NotificationMessage.channel} 理论可为 null）。 */
     public static final String CHANNEL_UNKNOWN = "UNKNOWN";
 
@@ -82,8 +90,8 @@ public final class NotificationRecordRules {
 
     /**
      * 结果筛选值归一：仅接受 {@value #STATUS_SUCCESS} / {@value #STATUS_FAILED} /
-     * {@value #STATUS_SKIPPED}（大小写不敏感），其余（含空）返回 {@code null}——
-     * 调用方据此忽略该筛选条件。
+     * {@value #STATUS_SKIPPED} / {@value #STATUS_DIGEST_PENDING}（大小写不敏感），
+     * 其余（含空）返回 {@code null}——调用方据此忽略该筛选条件。
      */
     public static String normalizeStatus(String status) {
         if (status == null || status.isBlank()) {
@@ -91,6 +99,7 @@ public final class NotificationRecordRules {
         }
         String s = status.trim().toUpperCase();
         return STATUS_SUCCESS.equals(s) || STATUS_FAILED.equals(s) || STATUS_SKIPPED.equals(s)
+                || STATUS_DIGEST_PENDING.equals(s)
                 ? s : null;
     }
 

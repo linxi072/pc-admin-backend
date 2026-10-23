@@ -131,7 +131,11 @@ app:
       enabled: false
       # 消息未显式带 webhookUrl 时的兜底地址（启用后建议配置）
       default-url:
-      # 可选共享密钥，透传为报文 secret 字段
+      # M18 HMAC-SHA256 签名密钥：配置即启用外发签名（防篡改 + 时间戳/nonce 防重放）；
+      # 须经环境变量 NOTIFICATION_WEBHOOK_SIGNING_KEY 注入，不写入仓库；留空即不签名（向下兼容明文透传）
+      signing-key: ${NOTIFICATION_WEBHOOK_SIGNING_KEY:}
+      # 已废弃（legacy）：原明文透传为报文 secret 字段的做法不安全，新接入请改用 signing-key 签名；
+      # 保留仅为兼容既有接收方，后续版本将移除
       secret:
       # 读超时 / 连接超时（毫秒）
       timeout-ms: 5000
@@ -167,6 +171,49 @@ app:
       # HTTP 读超时 / 连接超时（毫秒）
       timeout-ms: 5000
       connect-timeout-ms: 2000
+    unsubscribe:
+      # M15 退订令牌：是否在邮件/短信正文注入 HMAC 签名退订链接（默认 false，缺省关闭，
+      # 不影响既有报文形态；公开端点 GET /api/notification/unsubscribe 始终开放，
+      # 但 secret/base-url 未配置时任何令牌都无法通过验签——安全失败）
+      enabled: false
+      # HMAC-SHA256 密钥：必须经环境变量 NOTIFICATION_UNSUBSCRIBE_SECRET 注入，不写入仓库；
+      # 留空即功能未激活（与 jwt-secret 的外部化策略一致）
+      secret: ${NOTIFICATION_UNSUBSCRIBE_SECRET:}
+      # 退订链接基址（拼 /api/notification/unsubscribe?token=...；尾部斜杠自动归一）
+      # 示例："https://admin.example.com"
+      base-url:
+      # 令牌有效期（小时）：兼顾「稍后决定」与「链接长期漂浮」的权衡
+      ttl-hours: 72
+    retry:
+      # M16 有界重试：适配器投递瞬时故障（非 BusinessException 的运行时异常，如网关 IO 失败）
+      # 按次数 + 线性退避重试；业务确定性拒绝（渠道未启用/报文非法）不重试
+      enabled: true
+      # 单渠道最大尝试次数（含首次；<1 按 1 处理）
+      max-attempts: 3
+      # 重试基准退避（毫秒）：第 n 次重试前等 n × backoff-ms，总等待有硬上界
+      backoff-ms: 200
+    failover:
+      # M16 故障转移：主适配器彻底失败时切换同渠道备用适配器（至少一次语义，
+      # 主适配器「已投递但响应丢失」时会重复投递，故默认关闭，显式开启需评估重复容忍度）
+      enabled: false
+    digest:
+      # M17 聚合摘要：命中类型的定向消息先聚合、按阈值/最大等待时长合并投递（默认关闭，
+      # 聚合改变投递时机与报文形态，须显式开启；关闭时 dispatch 行为与 M16 及以前一致）
+      enabled: false
+      # 命中聚合的消息类型白名单（大小写不敏感；摘要消息自身的 DIGEST 不在其内，防递归挂起）
+      msg-types:
+        - NOTICE
+      # 合并阈值：单用户单 (渠道, 类型) 聚合达该条数立即刷新投递（先到先投）
+      threshold: 5
+      # 摘要正文保留的条目上限（超出丢弃最旧；全量条数由标题 ${count} 与尾注补偿表达）
+      max-items: 50
+      # 最大等待时长（分钟）：低流量用户兜底——定时任务扫描 last_at 超期的聚合行强制刷新
+      max-wait-minutes: 60
+      # 兜底扫描周期（毫秒）
+      scan-interval-ms: 60000
+      # 摘要标题/正文模板（${count}=全量条数、${items}=条目列表、${date}=统计截止时刻）
+      title-template: "您有 ${count} 条新通知"
+      content-template: "以下是最近的通知摘要：\n${items}\n（统计截至 ${date}）"
   # ===== 缓存管理（Spring Cache 抽象，Redis 实现） =====
   # 缓存为惰性能力：未使用 @Cacheable 时不产生 Redis 流量。
   # 命中率/条目数统计与清理入口见 GET /api/system/monitor/caches（进程内口径，按实例）。

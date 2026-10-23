@@ -257,6 +257,20 @@ public final class JooqTables {
             "id", "tenant_id", "user_id", "enabled", "start_time", "end_time",
             "alert_breakthrough", "created_at", "updated_at");
 
+    // ---------------- 通知聚合摘要（V45） ----------------
+
+    /**
+     * 通知聚合摘要表（列名与 V45__notification_digest.sql 严格一致）。无 deleted / version 列：
+     * 聚合行是「待投递缓冲」而非档案——摘要一旦投递（无论成败）即物理删行，审计由
+     * {@link #SYS_NOTIFICATION_RECORD}（M12）承担；唯一键 uk_user_channel_type 保证同一用户
+     * 同一 (渠道, 消息类型) 至多一行（新消息合并进现存行，item_count 累加），
+     * 与 {@link #SYS_NOTIFICATION_PREFERENCE} 同范式。idx_last_at 支撑兜底扫描：
+     * last_at 超期（max-wait-minutes）的聚合行由定时任务强制刷新投递。
+     */
+    public static final TableRef SYS_NOTIFICATION_DIGEST = new TableRef("sys_notification_digest",
+            "id", "tenant_id", "user_id", "channel", "msg_type", "item_count",
+            "items_json", "first_at", "last_at", "created_at", "updated_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",

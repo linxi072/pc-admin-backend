@@ -55,7 +55,7 @@ public class NotificationRecordService {
      * @param page          页码（从 1 开始）
      * @param size          每页条数
      * @param channel       渠道精确筛选（IN_APP / WEBHOOK / WEBSOCKET / EMAIL / SMS），归一后非法值忽略
-     * @param status        结果精确筛选（SUCCESS / FAILED），归一后非法值忽略
+     * @param status        结果精确筛选（SUCCESS / FAILED / SKIPPED / DIGEST_PENDING），归一后非法值忽略
      * @param keyword       渠道/模板/标题/正文摘要/接收方/失败原因/traceId/操作人联合模糊筛选，为空不过滤
      * @param startTime     起始时间（含），为空默认 7 天前
      * @param endTime       结束时间（含），为空默认当前
@@ -79,10 +79,11 @@ public class NotificationRecordService {
     /**
      * 统计摘要（与 page 相同筛选口径）。
      *
-     * <p>M13 起 {@code SKIPPED}（全部接收者退订）单列：失败数 = 总数 − 成功 − 跳过，
-     * 保证「失败率」只反映真实发送故障，不把用户主动退订误计为故障。</p>
+     * <p>M13 起 {@code SKIPPED}（全部接收者退订）单列、M17 起
+     * {@code DIGEST_PENDING}（聚合中）单列：失败数 = 总数 − 成功 − 跳过 − 聚合中，
+     * 保证「失败率」只反映真实发送故障，不把用户主动退订或正常频次治理误计为故障。</p>
      *
-     * @return total / success / failure / skipped / failureRate / lastSentAt
+     * @return total / success / failure / skipped / digestPending / failureRate / lastSentAt
      */
     public Map<String, Object> summary(String channel, String status, String keyword,
                                        LocalDateTime startTime, LocalDateTime endTime) {
@@ -95,31 +96,36 @@ public class NotificationRecordService {
         Long skipped = dsl.selectCount().from(JooqTables.SYS_NOTIFICATION_RECORD.table())
                 .where(DSL.and(cond, JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
                         .eq(NotificationRecordRules.STATUS_SKIPPED))).fetchOne(0, Long.class);
+        Long digestPending = dsl.selectCount().from(JooqTables.SYS_NOTIFICATION_RECORD.table())
+                .where(DSL.and(cond, JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
+                        .eq(NotificationRecordRules.STATUS_DIGEST_PENDING))).fetchOne(0, Long.class);
         LocalDateTime lastSentAt = dsl.select(
                         JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", LocalDateTime.class).max())
                 .from(JooqTables.SYS_NOTIFICATION_RECORD.table())
                 .where(cond).fetchOne(0, LocalDateTime.class);
         return buildSummary(total == null ? 0L : total, success == null ? 0L : success,
-                skipped == null ? 0L : skipped, lastSentAt);
+                skipped == null ? 0L : skipped, digestPending == null ? 0L : digestPending, lastSentAt);
     }
 
     /**
      * 摘要 Map 组装（纯函数，与 DB 解耦便于离线单测）。
      *
-     * @param total      总记录数
-     * @param success    成功数
-     * @param skipped    跳过数（M13：全部接收者退订；不计入失败）
-     * @param lastSentAt 最近一次发送时间（无记录为 null）
+     * @param total         总记录数
+     * @param success       成功数
+     * @param skipped       跳过数（M13：全部接收者退订；不计入失败）
+     * @param digestPending 聚合中数（M17：已进入 digest 队列等待摘要投递；不计入失败）
+     * @param lastSentAt    最近一次发送时间（无记录为 null）
      */
     static Map<String, Object> buildSummary(long total, long success, long skipped,
-                                            LocalDateTime lastSentAt) {
-        long failure = total - success - skipped;
+                                            long digestPending, LocalDateTime lastSentAt) {
+        long failure = total - success - skipped - digestPending;
         double failureRate = total == 0 ? 0.0 : (double) failure / total;
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("total", total);
         out.put("success", success);
         out.put("failure", failure);
         out.put("skipped", skipped);
+        out.put("digestPending", digestPending);
         out.put("failureRate", failureRate);
         out.put("lastSentAt", lastSentAt);
         return out;

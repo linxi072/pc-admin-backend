@@ -22,6 +22,7 @@
               <el-option label="成功" value="SUCCESS" />
               <el-option label="失败" value="FAILED" />
               <el-option label="已跳过" value="SKIPPED" />
+              <el-option label="聚合中" value="DIGEST_PENDING" />
             </el-select>
           </div>
           <div class="filter-group">
@@ -74,6 +75,12 @@
           <div class="stat-card">
             <div class="stat-num stat-warning">{{ summary.skipped ?? '--' }}</div>
             <div class="stat-label">已跳过</div>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="stat-card">
+            <div class="stat-num stat-info">{{ summary.digestPending ?? '--' }}</div>
+            <div class="stat-label">聚合中</div>
           </div>
         </el-col>
         <el-col :span="4">
@@ -144,7 +151,7 @@
           @size-change="onSizeChange"
         />
       </div>
-      <div class="hint">默认查询最近 7 天记录；覆盖 IN_APP/WEBHOOK/WEBSOCKET/EMAIL/SMS 全渠道的每次投递尝试（含被拒、失败与跳过），标题/正文为摘要、接收方已掩码；短信网关对账请到「短信记录」页；「来源模板」为 M11 按模板发送回填，直发为空；「已跳过」为 M13 通知偏好生效——定向接收者全部退订该类型，非故障、不计入失败率。</div>
+      <div class="hint">默认查询最近 7 天记录；覆盖 IN_APP/WEBHOOK/WEBSOCKET/EMAIL/SMS 全渠道的每次投递尝试（含被拒、失败与跳过），标题/正文为摘要、接收方已掩码；短信网关对账请到「短信记录」页；「来源模板」为 M11 按模板发送回填，直发为空；「已跳过」为 M13 通知偏好生效——定向接收者全部退订该类型，非故障、不计入失败率；「聚合中」为 M17 聚合摘要生效——命中类型的定向消息已合并进摘要队列等待阈值/限时合并投递，属独立生命周期态、不计入失败率，且原消息不单独投递。</div>
     </el-card>
   </div>
 </template>
@@ -182,11 +189,13 @@ const CHANNEL_META = {
 const channelLabel = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].label : c || '--')
 const channelTagType = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].type : 'info')
 
-/** 结果三态（M13 起支持 SKIPPED：定向接收者全部退订，非故障不计入失败）。 */
+/** 结果四态（M13 起支持 SKIPPED：定向接收者全部退订，非故障不计入失败；
+ *  M17 起支持 DIGEST_PENDING：消息进入聚合摘要队列等待合并投递，属独立生命周期态、不计失败）。 */
 const STATUS_META = {
   SUCCESS: { label: '成功', type: 'success' },
   FAILED: { label: '失败', type: 'danger' },
-  SKIPPED: { label: '已跳过', type: 'warning' }
+  SKIPPED: { label: '已跳过', type: 'warning' },
+  DIGEST_PENDING: { label: '聚合中', type: 'info' }
 }
 const statusLabel = (s) => (STATUS_META[s] ? STATUS_META[s].label : s || '--')
 const statusTagType = (s) => (STATUS_META[s] ? STATUS_META[s].type : 'info')
@@ -282,6 +291,7 @@ onMounted(load)
 .stat-ok { color: #67c23a; }
 .stat-danger { color: #f56c6c; }
 .stat-warning { color: #e6a23c; }
+.stat-info { color: #909399; }
 .stat-time { font-size: 15px; line-height: 26px; }
 .stat-label {
   font-size: 12px;
