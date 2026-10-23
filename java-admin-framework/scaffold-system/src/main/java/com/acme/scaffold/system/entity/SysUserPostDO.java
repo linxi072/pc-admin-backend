@@ -1,6 +1,5 @@
 package com.acme.scaffold.system.entity;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
 import lombok.Data;
 
 import java.time.LocalDateTime;

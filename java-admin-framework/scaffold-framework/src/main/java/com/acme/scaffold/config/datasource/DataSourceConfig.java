@@ -1,6 +1,5 @@
 package com.acme.scaffold.config.datasource;
 
-import com.acme.scaffold.config.jooq.JooqConfig;
 import com.acme.scaffold.jooq.mapping.SnakeRecordMapperProvider;
 import com.acme.scaffold.monitor.detection.NPlusOneListener;
 import com.acme.scaffold.monitor.detection.NPlusOneProbe;

@@ -3,7 +3,6 @@ package com.acme.scaffold.system.notifyquiet;
 import com.acme.scaffold.system.notifyquiet.domain.SysNotificationQuietHoursDO;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
 
-import java.time.LocalTime;
 
 /**
  * 免打扰时段视图（个人中心「免打扰」页数据源，对应 {@code sys_notification_quiet_hours} 表）。

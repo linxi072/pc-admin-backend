@@ -1,6 +1,5 @@
 package com.acme.scaffold.system.dto;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.system.rules.AnnouncementReadRules;
 
 /**

@@ -2,7 +2,6 @@ package com.acme.scaffold.realtime.websocket;
 
 import com.acme.scaffold.realtime.gateway.GatewayNode;
 import com.acme.scaffold.realtime.gateway.HandshakeAuthenticator;
-import com.acme.scaffold.realtime.gateway.HandshakeAuthenticator.AuthResult;
 import com.acme.scaffold.realtime.gateway.Session;
 import com.acme.scaffold.realtime.gateway.SpringConnChannel;
 import com.acme.scaffold.realtime.gateway.SpringHandshakeAuthenticator;

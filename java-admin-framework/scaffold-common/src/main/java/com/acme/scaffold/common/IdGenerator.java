@@ -20,7 +20,11 @@ public final class IdGenerator {
     private IdGenerator() {
     }
 
-    public static void setWorkerId(long id) {
+    /**
+     * 设置 workerId（启动期配置一次）。与 {@link #nextId} 同锁：
+     * 保证配置写入对后续所有取号线程可见（happens-before），避免依赖隐式可见性。
+     */
+    public static synchronized void setWorkerId(long id) {
         if (id < 0 || id > MAX_WORKER_ID) {
             throw new IllegalArgumentException("workerId 超出范围 [0, " + MAX_WORKER_ID + "]");
         }

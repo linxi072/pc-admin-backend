@@ -7,7 +7,6 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.notifyquiet.domain.SysNotificationQuietHoursDO;
 import com.acme.scaffold.system.notifyquiet.dto.UpdateQuietHoursRequest;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;

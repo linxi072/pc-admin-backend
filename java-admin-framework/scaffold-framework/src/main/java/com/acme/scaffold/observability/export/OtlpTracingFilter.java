@@ -1,6 +1,5 @@
 package com.acme.scaffold.observability.export;
 
-import com.acme.scaffold.config.web.TraceIdFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
