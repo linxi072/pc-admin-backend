@@ -257,6 +257,34 @@ kafka:
     compression-type: ${KAFKA_GATEWAY_COMPRESSION:zstd}
     enable-idempotence: true
 
+# 实时 WebSocket 网关（realtime.gateway.*）：传输无关节点内核 GatewayNode 已随 scaffold-realtime 装配
+# （默认 enabled=true）。下行统一走 common.messaging 二进制信封；无 Kafka 集群时总线由 LocalBus 兜底，
+# 开启 kafka.gateway.enabled=true 则自动改投 KafkaBus。握手鉴权默认复用框架 JWT 端口
+# （security.jwt 的 HandshakeTokenAuthenticator 适配器）；开启 hmac.enabled=true 则改走
+# HMAC 短期令牌（须配置 secret，生产经外部密钥源注入）。未列出项取 GatewayProperties 代码默认值，
+# 关闭码语义（4001 鉴权失败 / 4003 协议错误 / 4028 限流 / 4029 慢消费者 / 4030 空闲 / 1001 优雅退出 /
+# 4027 容量耗尽 / 4009 同节点重连顶替）与原 ws-kafka-gateway 保持一致。
+realtime:
+  gateway:
+    enabled: ${REALTIME_GATEWAY_ENABLED:true}
+    max-connections-per-node: ${REALTIME_GATEWAY_MAX_CONNECTIONS:200000}
+    rate-per-conn-per-sec: ${REALTIME_GATEWAY_RATE:100}
+    burst-per-conn: ${REALTIME_GATEWAY_BURST:500}
+    gateway-id: ${REALTIME_GATEWAY_ID:}
+    heartbeat:
+      ping-interval-ms: ${REALTIME_GATEWAY_PING_MS:30000}
+      idle-timeout-ms: ${REALTIME_GATEWAY_IDLE_MS:90000}
+      route-ttl-ms: ${REALTIME_GATEWAY_ROUTE_TTL_MS:90000}
+    slow-consumer:
+      queue-limit: ${REALTIME_GATEWAY_QUEUE_LIMIT:1000}
+      node-high-water: ${REALTIME_GATEWAY_NODE_HIGH_WATER:0.70}
+    drain:
+      inflight-timeout-ms: 30000
+      flush-timeout-ms: 5000
+    hmac:
+      enabled: ${REALTIME_GATEWAY_HMAC_ENABLED:false}
+      secret: ${REALTIME_GATEWAY_HMAC_SECRET:}
+
 # 外部密钥源（A4）：默认 local（沿用环境变量 / 随机临时密钥，离线可用）；
 # 接入 HashiCorp Vault 时置 provider=vault 并配置 address / token / paths。
 secret:

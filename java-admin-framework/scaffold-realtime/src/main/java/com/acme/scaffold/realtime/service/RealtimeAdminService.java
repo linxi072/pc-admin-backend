@@ -4,8 +4,9 @@ import com.acme.scaffold.realtime.dto.RealtimeBroadcastRequest;
 import com.acme.scaffold.realtime.dto.RealtimePushResultView;
 import com.acme.scaffold.realtime.dto.RealtimeSessionView;
 import com.acme.scaffold.realtime.dto.RealtimeUserPushRequest;
-import com.acme.scaffold.realtime.session.RealtimeSessionManager;
+import com.acme.scaffold.realtime.gateway.GatewayNode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -14,20 +15,29 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 实时推送管理应用服务：把 {@link RealtimeSessionManager}（在线会话只读视图）与
+ * 实时推送管理应用服务：把 {@link GatewayNode}（在线会话只读视图与下行投递）与
  * {@link RealtimePushService}（定向 / 广播推送）编排为运维可调用能力。
- * <p>仅读取内存会话态与触发推送，不落库；在线会话本身由 WebSocket 生命周期维护。
+ *
+ * <p>原实现依赖 {@code RealtimeSessionManager}；本次整合后在线视图来自
+ * {@link GatewayNode#onlineUserCounts()}/{@link GatewayNode#connectionCount()}，推送经由
+ * {@link RealtimePushService}（内部走 GatewayNode）。仅读取内存会话态与触发推送，不落库。
+ *
+ * <p>{@code GatewayNode} 未装配（{@code realtime.gateway.enabled=false}）时在线视图返回空 / 0。
  */
 @Service
 @RequiredArgsConstructor
 public class RealtimeAdminService {
 
-    private final RealtimeSessionManager sessionManager;
+    private final ObjectProvider<GatewayNode> gatewayNodeProvider;
     private final RealtimePushService pushService;
 
     /** 在线会话快照：userId → 活跃会话数，按 userId 升序。 */
     public List<RealtimeSessionView> listSessions() {
-        Map<Long, Integer> counts = sessionManager.onlineUserCounts();
+        GatewayNode node = gatewayNodeProvider.getIfAvailable();
+        if (node == null) {
+            return List.of();
+        }
+        Map<Long, Integer> counts = node.onlineUserCounts();
         return counts.entrySet().stream()
                 .map(e -> new RealtimeSessionView(e.getKey(), e.getValue()))
                 .sorted(Comparator.comparing(RealtimeSessionView::userId))
@@ -36,7 +46,8 @@ public class RealtimeAdminService {
 
     /** 当前在线会话总数（同一用户多端累加）。 */
     public int onlineCount() {
-        return sessionManager.onlineCount();
+        GatewayNode node = gatewayNodeProvider.getIfAvailable();
+        return node == null ? 0 : node.connectionCount();
     }
 
     /** 向所有在线会话广播，返回成功触达的会话数。 */

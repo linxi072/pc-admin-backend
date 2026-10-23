@@ -1,7 +1,6 @@
 package com.acme.scaffold.realtime.websocket;
 
-import com.acme.scaffold.realtime.port.HandshakeTokenAuthenticator;
-import com.acme.scaffold.realtime.session.RealtimeSessionManager;
+import com.acme.scaffold.realtime.websocket.WebSocketOriginPolicy;
 import org.springframework.stereotype.Component;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -11,20 +10,25 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import java.util.Map;
 
 /**
- * 握手拦截器：从 query {@code ?token=} 取令牌，经 {@link HandshakeTokenAuthenticator} 端口
- * 解析出 userId 写入会话属性，供后续定向推送。
- * <p>校验失败返回 false 直接拒绝握手（对应 SecurityConfig 已对 /ws/** 放行，鉴权由此处负责）。
- * 本模块不直接依赖 JWT 实现——端口由认证模块（security.jwt）注入，保持 realtime 不反向依赖 system。
+ * 握手拦截器：从 query {@code ?token=} 取令牌，经 {@link WebSocketOriginPolicy} 做 CSWSH 源站白名单校验，
+ * 通过后把令牌透传给 {@link RealtimeWebSocketHandler}（存入会话属性 {@link #ATTR_TOKEN}）。
+ *
+ * <p>鉴权本身不在此处完成——握手令牌的解析与用户身份判定统一交给 {@code GatewayNode#onHandshake}
+ * （经 {@code SpringHandshakeAuthenticator} 复用框架 JWT 解析端口），避免与处理器重复鉴权、
+ * 并让鉴权成为节点内核的可测试纯逻辑。本拦截器只负责「取令牌 + 源站防御 + 透传」。
+ *
+ * <p>令牌缺失或源站不在白名单时直接拒绝握手（返回 false），对应 SecurityConfig 已对 /ws/** 放行、
+ * 鉴权与源站防御由此处负责。
  */
 @Component
 public class RealtimeHandshakeInterceptor implements HandshakeInterceptor {
 
-    private final HandshakeTokenAuthenticator tokenAuthenticator;
+    /** 会话属性键：握手后写入的令牌原文，供 {@link RealtimeWebSocketHandler} 交给节点鉴权。 */
+    public static final String ATTR_TOKEN = "token";
+
     private final WebSocketOriginPolicy originPolicy;
 
-    public RealtimeHandshakeInterceptor(HandshakeTokenAuthenticator tokenAuthenticator,
-                                        WebSocketOriginPolicy originPolicy) {
-        this.tokenAuthenticator = tokenAuthenticator;
+    public RealtimeHandshakeInterceptor(WebSocketOriginPolicy originPolicy) {
         this.originPolicy = originPolicy;
     }
 
@@ -39,11 +43,7 @@ public class RealtimeHandshakeInterceptor implements HandshakeInterceptor {
         if (!originPolicy.allows(request.getHeaders().getOrigin())) {
             return false;
         }
-        Long userId = tokenAuthenticator.resolveUserId(token);
-        if (userId == null) {
-            return false;
-        }
-        attributes.put(RealtimeSessionManager.ATTR_USER_ID, userId);
+        attributes.put(ATTR_TOKEN, token);
         return true;
     }
 
