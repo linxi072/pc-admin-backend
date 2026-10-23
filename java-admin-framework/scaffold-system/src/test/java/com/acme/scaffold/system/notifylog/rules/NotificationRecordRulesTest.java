@@ -35,11 +35,12 @@ class NotificationRecordRulesTest {
     }
 
     @Test
-    @DisplayName("normalizeStatus：仅接受 SUCCESS/FAILED/SKIPPED，其余返回 null")
+    @DisplayName("normalizeStatus：仅接受 SUCCESS/FAILED/SKIPPED/DIGEST_PENDING，其余返回 null")
     void normalizeStatus() {
         assertEquals("SUCCESS", NotificationRecordRules.normalizeStatus("success"));
         assertEquals("FAILED", NotificationRecordRules.normalizeStatus(" Failed "));
         assertEquals("SKIPPED", NotificationRecordRules.normalizeStatus("skipped"));
+        assertEquals("DIGEST_PENDING", NotificationRecordRules.normalizeStatus("digest_pending"));
         assertNull(NotificationRecordRules.normalizeStatus("PENDING"));
         assertNull(NotificationRecordRules.normalizeStatus(null));
     }

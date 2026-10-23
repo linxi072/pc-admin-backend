@@ -3,6 +3,7 @@ package com.acme.scaffold.system.notifypref;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.system.notifypref.dto.PreferenceItemRequest;
 import com.acme.scaffold.system.notifypref.dto.UpdateNotificationPreferenceRequest;
 import org.jooq.DSLContext;
@@ -86,6 +87,34 @@ class NotificationPreferenceServiceTest {
 
         assertTrue(ex.getMessage().contains("不支持的消息类型"), ex.getMessage());
         // 第一项合法也绝不能落库
+        verifyNoInteractions(dsl);
+    }
+
+    @Test
+    @DisplayName("unsubscribe：WEBHOOK 拒绝（无个人偏好语义）")
+    void unsubscribe_rejectsWebhookChannel() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.unsubscribe(
+                1L, Channel.WEBHOOK, "NOTICE"));
+
+        assertTrue(ex.getMessage().contains("不支持的退订目标"), ex.getMessage());
+        verifyNoInteractions(dsl);
+    }
+
+    @Test
+    @DisplayName("unsubscribe：userId 为空拒绝（令牌承载缺失即数据异常）")
+    void unsubscribe_rejectsNullUserId() {
+        assertThrows(BusinessException.class,
+                () -> service.unsubscribe(null, Channel.EMAIL, "NOTICE"));
+        verifyNoInteractions(dsl);
+    }
+
+    @Test
+    @DisplayName("unsubscribe：白名单外消息类型拒绝")
+    void unsubscribe_rejectsUnknownMsgType() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.unsubscribe(
+                1L, Channel.EMAIL, "MARKETING"));
+
+        assertTrue(ex.getMessage().contains("不支持的消息类型"), ex.getMessage());
         verifyNoInteractions(dsl);
     }
 }

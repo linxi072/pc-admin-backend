@@ -6,7 +6,13 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.entity.SysNotificationTemplateDO;
+import com.acme.scaffold.system.notification.config.NotificationFailoverProperties;
+import com.acme.scaffold.system.notification.config.NotificationRetryProperties;
 import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
+import com.acme.scaffold.system.notifydigest.NotificationDigestService;
+import com.acme.scaffold.system.notifydigest.NotificationDigestService.EnqueueResult;
+import com.acme.scaffold.system.notifydigest.domain.SysNotificationDigestDO;
+import com.acme.scaffold.system.notifydigest.rules.NotificationDigestRules;
 import com.acme.scaffold.system.notifylog.NotificationRecordRecorder;
 import com.acme.scaffold.system.notifypref.NotificationPreferenceService;
 import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules;
@@ -41,7 +47,11 @@ import static org.mockito.Mockito.when;
  * （dispatch 成功/失败均留痕、templateCode 透传）、M13 偏好过滤挂点
  * （过滤后消息才进适配器、全部退订记 SKIPPED 不调端口、偏好查询异常按 FAILED 处理）
  * 与 M14 免打扰挂点（时间维总闸先于偏好、全部抑制记 SKIPPED 且不再查偏好、
- * 免打扰查询异常按 FAILED 处理）。模板服务、记录器、偏好与免打扰服务以 mock 替身，
+ * 免打扰查询异常按 FAILED 处理）、M16 有界重试与故障转移（瞬时故障按次数重试、
+ * 业务拒绝不重试、耗尽即败、开启故障转移后切备适配器、关闭时不切）、
+ * M17 聚合摘要挂点（挂起记 DIGEST_PENDING 返 0 不调端口、达阈值刷新摘要消息
+ * 递归走完整 dispatch 且删行、摘要投递异常/无处可投仍删行不影响原消息结论）。
+ * 模板服务、记录器、偏好/免打扰/聚合服务以 mock 替身，
  * 渠道适配器用捕获型 fake，全离线、不依赖数据库与 Spring 上下文。
  */
 class NotificationServiceTest {
@@ -50,13 +60,21 @@ class NotificationServiceTest {
     private NotificationRecordRecorder recordRecorder;
     private NotificationPreferenceService preferenceService;
     private NotificationQuietHoursService quietHoursService;
+    private NotificationRetryProperties retryProperties;
+    private NotificationFailoverProperties failoverProperties;
+    private NotificationDigestService digestService;
     private CapturingPort port;
     private NotificationService service;
 
-    /** 捕获被投递消息的测试适配器（仅支持 EMAIL）。 */
+    /** 捕获被投递消息的测试适配器（仅支持 EMAIL，支持失败注入与调用计数）。 */
     static final class CapturingPort implements NotificationPort {
         NotificationMessage last;
         int ret = 1;
+        int calls;
+        /** 每次调用都抛该异常（置空即恢复正常）。 */
+        RuntimeException failWith;
+        /** 前 N 次调用抛瞬时异常，之后成功（与 failWith 互斥，failWith 优先）。 */
+        int failTimes;
 
         @Override
         public boolean supports(Channel channel) {
@@ -66,6 +84,14 @@ class NotificationServiceTest {
         @Override
         public int dispatch(NotificationMessage message) {
             this.last = message;
+            this.calls++;
+            if (failWith != null) {
+                throw failWith;
+            }
+            if (failTimes > 0) {
+                failTimes--;
+                throw new IllegalStateException("瞬时故障");
+            }
             return ret;
         }
     }
@@ -83,20 +109,41 @@ class NotificationServiceTest {
         return d;
     }
 
+    /** 构造一行待刷新聚合摘要（EMAIL / NOTICE / 5 条）。 */
+    private static SysNotificationDigestDO digestRow(Long id, Long userId) {
+        SysNotificationDigestDO row = new SysNotificationDigestDO();
+        row.setId(id);
+        row.setUserId(userId);
+        row.setChannel("EMAIL");
+        row.setMsgType("NOTICE");
+        row.setItemCount(5);
+        row.setItemsJson("[\"订单已发货\",\"优惠券到账\"]");
+        return row;
+    }
+
     @BeforeEach
     void setUp() {
         templateService = mock(NotificationTemplateService.class);
         recordRecorder = mock(NotificationRecordRecorder.class);
         preferenceService = mock(NotificationPreferenceService.class);
         quietHoursService = mock(NotificationQuietHoursService.class);
+        digestService = mock(NotificationDigestService.class);
+        retryProperties = new NotificationRetryProperties();
+        // 单测不等待真实退避：线性退避计算由 DeliveryRetryRulesTest 纯函数覆盖
+        retryProperties.setBackoffMs(0);
+        failoverProperties = new NotificationFailoverProperties();
         port = new CapturingPort();
         service = new NotificationService(List.of(port), templateService, recordRecorder,
-                preferenceService, quietHoursService);
-        // 默认两道过滤均放行：原样返回入参消息（覆盖 M11/M12 各例的既有语义）
+                preferenceService, quietHoursService, retryProperties, failoverProperties,
+                digestService);
+        // 默认三道过滤/挂点均放行：原样返回入参消息（覆盖 M11/M12 各例的既有语义）
         when(quietHoursService.applyQuietHours(any(NotificationMessage.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         when(preferenceService.applyPreferences(any(NotificationMessage.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        // 默认不聚合：直通投递（M17 各例按需覆写为 digested 结果）
+        when(digestService.enqueue(any(NotificationMessage.class)))
+                .thenReturn(NotificationDigestService.NOT_DIGESTED);
     }
 
     @Test
@@ -362,5 +409,260 @@ class NotificationServiceTest {
         assertNull(port.last);
         verify(recordRecorder).skip(any(NotificationMessage.class), eq("ORDER_SHIPPED"),
                 eq(NotificationQuietHoursRules.REASON_QUIET_HOURS));
+    }
+
+    // ------------------------------------------------------------------
+    // M16：有界重试与故障转移
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("dispatch：瞬时故障重试后成功，记录 SUCCESS（重试不改变终态契约）")
+    void dispatch_retriesTransientFailureThenSucceeds() {
+        port.failTimes = 2; // 前两次瞬时故障，第三次成功
+
+        int delivered = service.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文"));
+
+        assertEquals(1, delivered);
+        assertEquals(3, port.calls);
+        verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(1), eq(true), isNull());
+    }
+
+    @Test
+    @DisplayName("dispatch：业务确定性拒绝不重试（BusinessException 原样上抛）")
+    void dispatch_doesNotRetryBusinessException() {
+        BusinessException denied = new BusinessException(
+                CommonErrorCode.VALIDATION_ERROR, "邮件通知渠道未启用");
+        port.failWith = denied;
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
+
+        assertSame(denied, ex);
+        assertEquals(1, port.calls);
+        verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(0), eq(false),
+                eq("邮件通知渠道未启用"));
+    }
+
+    @Test
+    @DisplayName("dispatch：瞬时故障耗尽最大次数后原样上抛并记 FAILED")
+    void dispatch_givesUpAfterMaxAttempts() {
+        port.failWith = new IllegalStateException("网关持续故障");
+
+        RuntimeException ex = assertThrows(IllegalStateException.class,
+                () -> service.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
+
+        assertEquals("网关持续故障", ex.getMessage());
+        assertEquals(3, port.calls); // 默认 max-attempts=3，含首次
+        verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(0), eq(false),
+                eq("网关持续故障"));
+    }
+
+    @Test
+    @DisplayName("dispatch：重试关闭时只尝试一次")
+    void dispatch_noRetryWhenDisabled() {
+        retryProperties.setEnabled(false);
+        port.failWith = new IllegalStateException("网关持续故障");
+
+        assertThrows(IllegalStateException.class,
+                () -> service.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
+
+        assertEquals(1, port.calls);
+    }
+
+    @Test
+    @DisplayName("dispatch：max-attempts 配置被遵守（含 <1 钳制为 1）")
+    void dispatch_maxAttemptsConfigured() {
+        retryProperties.setMaxAttempts(5);
+        port.failWith = new IllegalStateException("网关持续故障");
+
+        assertThrows(IllegalStateException.class,
+                () -> service.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
+
+        assertEquals(5, port.calls);
+    }
+
+    @Test
+    @DisplayName("dispatch：开启故障转移后主适配器彻底失败即切备，备成功记 SUCCESS")
+    void dispatch_failoverToBackupPortWhenEnabled() {
+        failoverProperties.setEnabled(true);
+        CapturingPort primary = new CapturingPort();
+        primary.failWith = new IllegalStateException("主网关故障");
+        CapturingPort backup = new CapturingPort();
+        backup.ret = 2;
+        NotificationService multi = new NotificationService(List.of(primary, backup),
+                templateService, recordRecorder, preferenceService, quietHoursService,
+                retryProperties, failoverProperties, digestService);
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文");
+
+        int delivered = multi.dispatch(msg);
+
+        assertEquals(2, delivered);
+        assertEquals(3, primary.calls); // 主适配器自身重试耗尽
+        assertEquals(1, backup.calls);
+        assertSame(msg, backup.last);   // 备适配器收到同一消息
+        verify(recordRecorder).record(eq(msg), isNull(), eq(2), eq(true), isNull());
+    }
+
+    @Test
+    @DisplayName("dispatch：故障转移关闭时不切备（保持单适配器历史行为）")
+    void dispatch_noFailoverWhenDisabled() {
+        CapturingPort primary = new CapturingPort();
+        primary.failWith = new IllegalStateException("主网关故障");
+        CapturingPort backup = new CapturingPort();
+        NotificationService multi = new NotificationService(List.of(primary, backup),
+                templateService, recordRecorder, preferenceService, quietHoursService,
+                retryProperties, failoverProperties, digestService);
+
+        assertThrows(IllegalStateException.class,
+                () -> multi.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
+
+        assertEquals(3, primary.calls);
+        assertEquals(0, backup.calls);
+    }
+
+    @Test
+    @DisplayName("dispatch：主备均失败时上抛最后一个异常并记 FAILED")
+    void dispatch_failoverAllFailThrowsLast() {
+        failoverProperties.setEnabled(true);
+        CapturingPort primary = new CapturingPort();
+        primary.failWith = new IllegalStateException("主网关故障");
+        CapturingPort backup = new CapturingPort();
+        backup.failWith = new IllegalStateException("备网关故障");
+        NotificationService multi = new NotificationService(List.of(primary, backup),
+                templateService, recordRecorder, preferenceService, quietHoursService,
+                retryProperties, failoverProperties, digestService);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> multi.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
+
+        assertEquals("备网关故障", ex.getMessage());
+        verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(0), eq(false),
+                eq("备网关故障"));
+    }
+
+    @Test
+    @DisplayName("dispatch：开启故障转移但渠道无任何适配器时仍显式失败（不静默丢弃）")
+    void dispatch_failoverWithoutAnyPortStillFails() {
+        failoverProperties.setEnabled(true);
+        NotificationService empty = new NotificationService(List.of(),
+                templateService, recordRecorder, preferenceService, quietHoursService,
+                retryProperties, failoverProperties, digestService);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> empty.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
+
+        assertTrue(ex.getMessage().contains("不支持的通知渠道"));
+        verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(0), eq(false),
+                contains("不支持的通知渠道"));
+    }
+
+    // ------------------------------------------------------------------
+    // M17：聚合摘要挂点（M14/M13 过滤之后、实际路由之前）
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("dispatch：命中聚合配置 → 记 DIGEST_PENDING、不调适配器、静默返回 0")
+    void dispatch_digestedRecordsPendingAndSkipsPort() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com"), null);
+        when(digestService.enqueue(msg)).thenReturn(new EnqueueResult(true, List.of()));
+
+        int delivered = service.dispatch(msg);
+
+        assertEquals(0, delivered);
+        assertNull(port.last);
+        // 原消息未投递：记 DIGEST_PENDING（聚合中是独立生命周期态，不计失败）
+        verify(recordRecorder).pending(eq(msg), isNull(),
+                eq(NotificationDigestRules.REASON_DIGEST_PENDING));
+        // 不得落终态记录或跳过记录
+        verify(recordRecorder, never()).record(any(), any(), anyInt(), eq(true), any());
+        verify(recordRecorder, never()).record(any(), any(), anyInt(), eq(false), any());
+        verify(recordRecorder, never()).skip(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("dispatch：合并达阈值 → 摘要消息递归走完整 dispatch 投递，行按一次性语义删除")
+    void dispatch_digestThresholdFlushesDigestMessage() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com"), null);
+        SysNotificationDigestDO row = digestRow(99L, 7L);
+        NotificationMessage digestMsg = new NotificationMessage(Channel.EMAIL, "您有 5 条新通知",
+                "摘要正文", NotificationDigestRules.DIGEST_MSG_TYPE, null, null, null, null, null,
+                List.of("a@x.com"), null);
+        // 摘要消息 msgType=DIGEST 不在聚合配置内：不递归挂起，直通投递（防无限递归）
+        when(digestService.enqueue(any(NotificationMessage.class))).thenAnswer(inv -> {
+            NotificationMessage m = inv.getArgument(0);
+            return NotificationDigestRules.DIGEST_MSG_TYPE.equals(m.msgType())
+                    ? NotificationDigestService.NOT_DIGESTED
+                    : new EnqueueResult(true, List.of(row));
+        });
+        when(digestService.buildDigestMessage(row)).thenReturn(digestMsg);
+
+        int delivered = service.dispatch(msg);
+
+        assertEquals(0, delivered); // 原消息被聚合吞并，挂点口径返 0
+        assertSame(digestMsg, port.last); // 摘要消息经同一适配器投递
+        assertEquals("DIGEST", port.last.msgType());
+        // 原消息记 DIGEST_PENDING
+        verify(recordRecorder).pending(eq(msg), isNull(),
+                eq(NotificationDigestRules.REASON_DIGEST_PENDING));
+        // 摘要消息自身也走 M12 留痕（全链路复用）
+        verify(recordRecorder).record(eq(digestMsg), isNull(), eq(1), eq(true), isNull());
+        // 一次性语义：投递后删行
+        verify(digestService).delete(99L);
+    }
+
+    @Test
+    @DisplayName("dispatch：摘要投递异常仅 warn 兜底，原消息仍返 0 且行仍删（防囤积）")
+    void dispatch_digestFlushFailureStillDeletesRow() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com"), null);
+        SysNotificationDigestDO row = digestRow(99L, 7L);
+        when(digestService.enqueue(any(NotificationMessage.class)))
+                .thenReturn(new EnqueueResult(true, List.of(row)));
+        when(digestService.buildDigestMessage(row))
+                .thenThrow(new IllegalStateException("摘要渲染失败"));
+
+        int delivered = service.dispatch(msg);
+
+        assertEquals(0, delivered);
+        assertNull(port.last);
+        verify(recordRecorder).pending(eq(msg), isNull(),
+                eq(NotificationDigestRules.REASON_DIGEST_PENDING));
+        // 一次性语义：异常也删行（聚合缓冲不囤积）
+        verify(digestService).delete(99L);
+        // 原消息结论不受摘要投递影响：不得记 FAILED
+        verify(recordRecorder, never()).record(any(), any(), anyInt(), eq(false), any());
+    }
+
+    @Test
+    @DisplayName("dispatch：摘要无处可投（buildDigestMessage 返 null）→ 不投递、删行、原消息返 0")
+    void dispatch_digestFlushNullMessageDeletesRow() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文",
+                "NOTICE", null, null, null, null, null, List.of("a@x.com"), null);
+        SysNotificationDigestDO row = digestRow(99L, 7L);
+        when(digestService.enqueue(any(NotificationMessage.class)))
+                .thenReturn(new EnqueueResult(true, List.of(row)));
+        when(digestService.buildDigestMessage(row)).thenReturn(null);
+
+        int delivered = service.dispatch(msg);
+
+        assertEquals(0, delivered);
+        assertNull(port.last);
+        verify(digestService).delete(99L);
+    }
+
+    @Test
+    @DisplayName("dispatch：聚合未命中（NOT_DIGESTED）→ 直通投递，与 M16 及以前行为一致")
+    void dispatch_digestDisabledPassesThrough() {
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文");
+        when(digestService.enqueue(any(NotificationMessage.class)))
+                .thenReturn(NotificationDigestService.NOT_DIGESTED);
+
+        int delivered = service.dispatch(msg);
+
+        assertEquals(1, delivered);
+        verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(1), eq(true), isNull());
+        verify(recordRecorder, never()).pending(any(), any(), any());
     }
 }
