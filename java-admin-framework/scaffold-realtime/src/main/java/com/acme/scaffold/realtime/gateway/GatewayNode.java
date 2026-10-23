@@ -126,7 +126,6 @@ public final class GatewayNode {
                 old.channel().close(settings.closeCodeSessionReplaced(), "session replaced by reconnect");
             }
         }
-
         Session session = new Session(channel.connId(), userId, registry.findConn(userId)
                 .map(RouteEntry::epoch).orElse(0L), now, channel,
                 new RateLimiter(settings.ratePerConnPerSec(), settings.burstPerConn(), clock));
@@ -170,18 +169,23 @@ public final class GatewayNode {
         if (session == null || session.isClosed() || !session.channel().isActive()) {
             return IngestOutcome.of(IngestStatus.IGNORED_INACTIVE, "会话已关闭");
         }
-        session.markRead(now);
+        markActivity(session, now);
+
+        // 双魔数路由：控制帧（0x41，服务端 ping/pong/ack 的同形态）与数据帧（0x57）分流，
+        // 避免客户端回传 ControlCodec 形态的 PONG/ACK 被当成损坏数据帧而误断链（4003）。
+        if (frame == null || frame.length == 0) {
+            return rejectProtocol(session, "空帧");
+        }
+        int magic = frame[0] & 0xFF;
+        if (magic == ControlCodec.MAGIC) {
+            return onControlFrame(session, frame);
+        }
 
         final Envelope decoded;
         try {
             decoded = FrameCodec.decode(frame);
         } catch (CorruptFrameException ex) {
-            backpressure.onProtocolRejected();
-            session.markClosed();
-            session.channel().close(settings.closeCodeProtocol(), "协议错误: " + ex.getMessage());
-            sessions.remove(session.connId());
-            registry.remove(session.connId());
-            return IngestOutcome.of(IngestStatus.PROTOCOL_REJECTED, ex.getMessage());
+            return rejectProtocol(session, ex.getMessage());
         }
 
         switch (decoded.type()) {
@@ -195,9 +199,7 @@ public final class GatewayNode {
             }
             case PONG, CLOSE, RESUME -> {
                 if (decoded.type() == MsgType.CLOSE) {
-                    session.markClosed();
-                    sessions.remove(session.connId());
-                    registry.remove(session.connId());
+                    dropSession(session);
                 }
                 return IngestOutcome.ok(session.peekNextSeq(), decoded.msgId());
             }
@@ -205,10 +207,8 @@ public final class GatewayNode {
                 // 单连接令牌桶（§3.2：100/s、突发 500）
                 if (!session.limiter().tryConsume()) {
                     backpressure.onRateLimited();
-                    session.markClosed();
                     session.channel().close(settings.closeCodeRateLimited(), "触发单连接限流");
-                    sessions.remove(session.connId());
-                    registry.remove(session.connId());
+                    dropSession(session);
                     return IngestOutcome.of(IngestStatus.RATE_LIMITED,
                             "超过 " + settings.ratePerConnPerSec() + " msg/s（突发 " + settings.burstPerConn() + "）");
                 }
@@ -223,9 +223,56 @@ public final class GatewayNode {
                 return IngestOutcome.ok(seq, assigned.msgId());
             }
             default -> {
-                return IngestOutcome.of(IngestStatus.PROTOCOL_REJECTED, "未覆盖类型: " + decoded.type());
+                // 与 IngestStatus#PROTOCOL_REJECTED 的契约一致：未知类型按协议错误关连接（4003）
+                return rejectProtocol(session, "未覆盖类型: " + decoded.type());
             }
         }
+    }
+
+    /**
+     * 控制帧（{@link ControlCodec}，魔数 0x41）上行处理。
+     *
+     * <p>容忍客户端以服务端同形态回传 PONG/ACK/CLOSE（否则会被当成损坏数据帧误断链）；
+     * 仅 PONG/ACK/CLOSE 有定义语义，其余控制类型按协议错误关闭（4003）。
+     */
+    private IngestOutcome onControlFrame(Session session, byte[] frame) {
+        final ControlCodec.ControlFrame control;
+        try {
+            control = ControlCodec.decode(frame);
+        } catch (CorruptFrameException ex) {
+            return rejectProtocol(session, ex.getMessage());
+        }
+        switch (control.type()) {
+            case PONG -> {
+                return IngestOutcome.ok(session.peekNextSeq(), "pong");
+            }
+            case ACK -> {
+                session.markAcked(control.seq());
+                return IngestOutcome.ok(control.seq(), "ack");
+            }
+            case CLOSE -> {
+                dropSession(session);
+                return IngestOutcome.ok(session.peekNextSeq(), "close");
+            }
+            default -> {
+                return rejectProtocol(session, "未覆盖控制帧类型: " + control.type());
+            }
+        }
+    }
+
+    /** 协议错误统一处置：计数 → 4003 关闭 → 清理会话与路由。 */
+    private IngestOutcome rejectProtocol(Session session, String reason) {
+        backpressure.onProtocolRejected();
+        session.channel().close(settings.closeCodeProtocol(), "协议错误: " + reason);
+        dropSession(session);
+        return IngestOutcome.of(IngestStatus.PROTOCOL_REJECTED, reason);
+    }
+
+    /** 会话摘除：标记关闭 + 同步清理会话表与路由表（幂等）。 */
+    private void dropSession(Session session) {
+        session.markClosed();
+        sessions.remove(session.connId());
+        registry.remove(session.connId());
     }
 
     /** 客户端 ACK：推进已确认水位（§3.3）。 */
@@ -238,8 +285,19 @@ public final class GatewayNode {
     /** 客户端 PONG：刷新读活动时间。 */
     public void onPong(Session session, long now) {
         if (session != null && !session.isClosed()) {
-            session.markRead(now);
+            markActivity(session, now);
         }
+    }
+
+    /**
+     * 活动刷新：会话读时间 + 路由表 lastSeen 同步推进。
+     *
+     * <p>二者必须同时刷新：路由 TTL（90s）以 lastSeen 判定存活，漏刷会把长连接
+     * （浏览器页面常驻）误判为幽灵路由而摘除，导致推送静默失效（§3.4）。
+     */
+    private void markActivity(Session session, long now) {
+        session.markRead(now);
+        registry.touch(session.connId(), now);
     }
 
     // ================================================================ 下行
@@ -278,16 +336,14 @@ public final class GatewayNode {
         if (session == null || session.isClosed() || !session.channel().isActive()) {
             return DeliverOutcome.of(DeliverStatus.SESSION_CLOSED, -1L, found.get().connId());
         }
-        session.markRead(now);
+        markActivity(session, now);
 
         SlowConsumerPolicy.SlowLevel level = settings.slowConsumer()
                 .classify(session.channel().inflight(), realtime);
         if (level == SlowConsumerPolicy.SlowLevel.L2_CLOSE_4029) {
             backpressure.onSlowClosed();
-            session.markClosed();
             session.channel().close(settings.closeCodeSlowConsumer(), "慢消费者断链，请重连续传");
-            sessions.remove(session.connId());
-            registry.remove(session.connId());
+            dropSession(session);
             return DeliverOutcome.of(DeliverStatus.CLOSED_SLOW_CONSUMER, -1L, session.connId());
         }
         if (level == SlowConsumerPolicy.SlowLevel.L1_DROP_OLDEST) {
@@ -333,22 +389,32 @@ public final class GatewayNode {
         List<String> idleClosed = new ArrayList<>();
         for (Session session : sessions.values()) {
             if (session.isClosed() || !session.channel().isActive()) {
+                // 无 close 回调到达时的兜底回收：失效会话不得滞留会话表（否则内存泄漏，
+                // 且 onlineUserCounts/totalInflight 持续计入幽灵连接）
+                dropSession(session);
                 continue;
             }
             if (heartbeat.isIdleExpired(session.lastReadAt(), now)) {
                 backpressure.onIdleClosed();
-                session.markClosed();
                 session.channel().close(settings.closeCodeIdleTimeout(), "读写空闲超时");
-                sessions.remove(session.connId());
-                registry.remove(session.connId());
+                dropSession(session);
                 idleClosed.add(session.connId());
             } else if (heartbeat.isPingDue(session.lastPingAt(), now)) {
                 session.channel().writeFrame(ControlCodec.encodePing());
                 session.markPinged(now);
+                // 成功写 ping 即证明通道存活：同步刷新路由 lastSeen，防长连接被 TTL 误摘
+                registry.touch(session.connId(), now);
                 pings.add(session.connId());
             }
         }
         List<String> expired = registry.expireIdle(heartbeat.routeTtlMs(), now);
+        for (String connId : expired) {
+            // 路由 TTL 过期（幽灵连接兜底）必须同步清理会话表，否则 Session 对象成为孤儿
+            Session orphan = sessions.remove(connId);
+            if (orphan != null) {
+                orphan.markClosed();
+            }
+        }
 
         int inflightTotal = totalInflight();
         double nodeCapacity = (double) settings.maxConnectionsPerNode() * settings.slowConsumer().queueLimit();

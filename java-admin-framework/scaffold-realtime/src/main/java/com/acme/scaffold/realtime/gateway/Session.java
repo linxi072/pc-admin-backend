@@ -1,5 +1,7 @@
 package com.acme.scaffold.realtime.gateway;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * 连接会话（握手成功后的本节点会话状态）。
  *
@@ -9,6 +11,11 @@ package com.acme.scaffold.realtime.gateway;
  *   <li>{@code lastAckedSeq}：客户端已确认水位（ACK 帧推进），补洞与
  *       重复判定（{@code EnvelopeRules}）的依据。</li>
  * </ul>
+ *
+ * <p>线程安全：Spring WebSocket 部署下同一会话可被「收帧线程」（onFrame）与
+ * 「业务推送线程」（deliver）并发访问，故可变状态一律 volatile / 原子化；
+ * seq 分配用 {@link AtomicLong#getAndIncrement} 保证不重不漏，ACK 水位用
+ * {@link AtomicLong#updateAndGet} 取 max 保证单调不回绕。
  */
 public final class Session {
 
@@ -19,11 +26,11 @@ public final class Session {
     private final ConnChannel channel;
     private final RateLimiter limiter;
 
-    private long lastReadAt;
-    private long lastPingAt;
-    private long nextSeq;
-    private long lastAckedSeq;
-    private boolean closed;
+    private final AtomicLong nextSeq;
+    private final AtomicLong ackedSeq;
+    private volatile long lastReadAt;
+    private volatile long lastPingAt;
+    private volatile boolean closed;
 
     public Session(String connId, String userId, long epoch, long now, ConnChannel channel, RateLimiter limiter) {
         this.connId = connId;
@@ -34,8 +41,8 @@ public final class Session {
         this.limiter = limiter;
         this.lastReadAt = now;
         this.lastPingAt = now;
-        this.nextSeq = 1L;
-        this.lastAckedSeq = 0L;
+        this.nextSeq = new AtomicLong(1L);
+        this.ackedSeq = new AtomicLong(0L);
     }
 
     public String connId() {
@@ -78,22 +85,22 @@ public final class Session {
         this.lastPingAt = now;
     }
 
-    /** 取下一个下行序号（先取后增）。 */
+    /** 取下一个下行序号（原子先取后增，多线程推送不重不漏）。 */
     public long nextSeq() {
-        return nextSeq++;
+        return nextSeq.getAndIncrement();
     }
 
     public long peekNextSeq() {
-        return nextSeq;
+        return nextSeq.get();
     }
 
     public long lastAckedSeq() {
-        return lastAckedSeq;
+        return ackedSeq.get();
     }
 
-    /** ACK 推进水位（单调不退，防乱序 ACK 回绕）。 */
+    /** ACK 推进水位（原子取 max，单调不退，防乱序 ACK 回绕）。 */
     public void markAcked(long seq) {
-        this.lastAckedSeq = Math.max(this.lastAckedSeq, seq);
+        ackedSeq.updateAndGet(current -> Math.max(current, seq));
     }
 
     public boolean isClosed() {

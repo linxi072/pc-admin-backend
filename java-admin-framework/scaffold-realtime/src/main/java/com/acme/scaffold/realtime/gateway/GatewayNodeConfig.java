@@ -13,7 +13,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.net.InetAddress;
-
 /**
  * 实时网关节点装配（{@code realtime.gateway}）。
  *
@@ -31,6 +30,11 @@ import java.net.InetAddress;
 public class GatewayNodeConfig {
 
     private final Clock clock = Clock.System.instance();
+    private final ObjectProvider<GatewayNode> gatewayNodes;
+
+    public GatewayNodeConfig(ObjectProvider<GatewayNode> gatewayNodes) {
+        this.gatewayNodes = gatewayNodes;
+    }
 
     /** 无 Kafka 集群环境下的兜底总线（Kafka 网关启用时被 {@code KafkaBus} 取代）。 */
     @Bean
@@ -45,10 +49,16 @@ public class GatewayNodeConfig {
         return new GatewayNode(props.toGatewaySettings(gatewayId), bus, clock, gatewayId);
     }
 
-    /** 心跳 tick：周期触发 {@link GatewayNode#onTick}，发 ping / 断空闲 / 清幽灵路由 / 节点熔断。 */
+    /**
+     * 心跳 tick：周期触发 {@link GatewayNode#onTick}，发 ping / 断空闲 / 清幽灵路由 / 节点熔断。
+     *
+     * <p>Spring 约束 @Scheduled 方法必须无参，故节点经 {@link ObjectProvider} 延迟获取
+     * （与 {@code RealtimeWebSocketHandler} 同款注入方式），避免配置类与同类 @Bean
+     * 形成构造期依赖；节点未装配时自然跳过。
+     */
     @Scheduled(fixedDelayString = "${realtime.gateway.heartbeat.ping-interval-ms:30000}")
-    public void heartbeatTick(GatewayNode gatewayNode) {
-        gatewayNode.onTick(clock.nowMillis());
+    public void heartbeatTick() {
+        gatewayNodes.ifAvailable(node -> node.onTick(clock.nowMillis()));
     }
 
     /** 优雅退出：进程关闭时推进七步状态机（含全量 1001 关闭客户端），带时间推进兜底。 */
@@ -65,12 +75,15 @@ public class GatewayNodeConfig {
             @Override
             public void stop() {
                 long now = clock.nowMillis();
+                // 以「模拟时间截止」驱动而非固定尝试次数：最坏路径为 3 步原子迁移
+                // + in-flight 排空 30s 超时（每秒一步，共 30 步）+ flush 1~2 步 ≈ 35 步，
+                // 固定 24 次上限不足以覆盖，会跳过 TERMINATED 的路由表清理即退出。
+                long deadline = now + gatewayNode.settings().drainInflightTimeoutMs()
+                        + gatewayNode.settings().drainFlushTimeoutMs() + 10_000L;
                 DrainState.DrainStep step = gatewayNode.drainStep();
-                int attempts = 0;
-                while (!DrainState.DrainStep.TERMINATED.equals(step) && attempts < 24) {
+                while (!DrainState.DrainStep.TERMINATED.equals(step) && now < deadline) {
                     now += 1000; // 模拟时间推进以越过各步超时门槛
                     step = gatewayNode.drainTick(now);
-                    attempts++;
                 }
                 running = false;
             }

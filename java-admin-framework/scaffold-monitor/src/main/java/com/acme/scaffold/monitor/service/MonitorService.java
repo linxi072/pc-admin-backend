@@ -5,6 +5,7 @@ import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
 import com.acme.scaffold.config.cache.CacheStats;
 import com.acme.scaffold.config.cache.StatisticsCacheManager;
+import com.acme.scaffold.config.datasource.DataSourceRegistry;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
@@ -64,6 +65,8 @@ public class MonitorService {
     private final RuntimeMetricsCollector collector;
     private final TokenVersionService tokenVersionService;
     private final DataSource dataSource;
+    /** 多数据源注册表（路由数据源后注入的 DataSource 不再是 Hikari 本体，需经此解包主库）。 */
+    private final ObjectProvider<DataSourceRegistry> dataSourceRegistryProvider;
     /** Spring Cache 管理器（带统计装饰）；ObjectProvider 容忍无缓存bean的裁剪上下文（如单测）。 */
     private final ObjectProvider<CacheManager> cacheManagerProvider;
 
@@ -142,9 +145,15 @@ public class MonitorService {
      *
      * <p>优先取 HikariCP 的 {@code HikariPoolMXBean} 实时计数；非 Hikari 数据源时
      * 回退为配置项快照（计数为 -1），保证页面在任何数据源实现下都可展示。
+     *
+     * <p>多数据源装配后注入的 {@link DataSource} 为 {@code RoutingDataSource}
+     * （{@code DataSourceConfig} 的 @Primary Bean），不再直接
+     * {@code instanceof HikariDataSource}——曾致统计整体回退为 -1、监控页失真，
+     * 现经 {@link DataSourceRegistry} 解包主库 Hikari 数据源。
      */
     public PoolStatView datasourceStats() {
-        if (dataSource instanceof HikariDataSource hikari) {
+        HikariDataSource hikari = resolveHikari();
+        if (hikari != null) {
             HikariPoolMXBean pool = hikari.getHikariPoolMXBean();
             int max = hikari.getMaximumPoolSize();
             long active = pool == null ? PoolStatView.UNAVAILABLE : pool.getActiveConnections();
@@ -166,6 +175,18 @@ public class MonitorService {
                 PoolStatView.UNAVAILABLE, PoolStatView.UNAVAILABLE,
                 PoolStatView.UNAVAILABLE, PoolStatView.UNAVAILABLE,
                 null);
+    }
+
+    /** 解析主库 Hikari 数据源：直连形态直接返回；路由数据源经注册表取主库。 */
+    private HikariDataSource resolveHikari() {
+        if (dataSource instanceof HikariDataSource direct) {
+            return direct;
+        }
+        DataSourceRegistry registry = dataSourceRegistryProvider.getIfAvailable();
+        if (registry != null && registry.primary() instanceof HikariDataSource hikari) {
+            return hikari;
+        }
+        return null;
     }
 
     /**

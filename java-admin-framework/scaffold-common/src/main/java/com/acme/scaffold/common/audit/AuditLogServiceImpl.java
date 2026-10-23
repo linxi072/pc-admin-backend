@@ -8,6 +8,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -54,12 +55,17 @@ public class AuditLogServiceImpl implements AuditLogService {
     /** 审计专用线程池（{@code config.observability.ObservabilityConfig#auditExecutor}）。 */
     private final Executor auditExecutor;
 
+    /** 摘要截断的 JSON 合法性校验（两个摘要列均为 JSON 类型，截断不得破坏语法）。 */
+    private final ObjectMapper objectMapper;
+
     /**
      * 显式构造器：{@code Executor} 在容器中存在多个实现，需按 Bean 名精确注入审计线程池。
      */
-    public AuditLogServiceImpl(DSLContext dsl, @Qualifier("auditExecutor") Executor auditExecutor) {
+    public AuditLogServiceImpl(DSLContext dsl, @Qualifier("auditExecutor") Executor auditExecutor,
+                               ObjectMapper objectMapper) {
         this.dsl = dsl;
         this.auditExecutor = auditExecutor;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -236,6 +242,17 @@ public class AuditLogServiceImpl implements AuditLogService {
         if (s == null) {
             return null;
         }
-        return s.length() <= max ? s : s.substring(0, max);
+        if (s.length() <= max) {
+            return s;
+        }
+        // 摘要列为 JSON 类型：截断点可能落在转义序列中间产生非法 JSON（MySQL 3140），
+        // 校验失败时降级为合法字符串标量，保证审计不因摘要超长而静默丢失
+        String truncated = s.substring(0, max);
+        try {
+            objectMapper.readTree(truncated);
+            return truncated;
+        } catch (Exception e) {
+            return "\"[truncated]\"";
+        }
     }
 }

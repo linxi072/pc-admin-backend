@@ -21,8 +21,15 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>与 wg-server 的演示版不同，本实现<b>不回推</b> RT 通道（避免「上行 → 总线 → 下行」自环），
  * 仅作内存留存 + 计数，供观测与单测快照。
+ *
+ * <p><b>留存有界</b>：仅保留最近 {@link #MAX_RETAINED} 条信封（环形收敛，丢最旧）。
+ * 无界留存在长跑 + 无 Kafka 场景会随消息量线性增长直至 OOM——本类是 Kafka 关闭时的
+ * <b>默认</b>总线，必须自带容量上限；观测语义（最近流量）不受影响。
  */
 public final class LocalBus implements MessageBus {
+
+    /** 留存上限（观测快照口径）：超出后丢最旧，防止无界累积。 */
+    public static final int MAX_RETAINED = 1024;
 
     private final List<Envelope> records = new CopyOnWriteArrayList<>();
     private final AtomicLong produced = new AtomicLong();
@@ -31,6 +38,9 @@ public final class LocalBus implements MessageBus {
     @Override
     public ProduceResult produce(Envelope envelope, Tier tier) {
         records.add(envelope);
+        while (records.size() > MAX_RETAINED) {
+            records.remove(0);
+        }
         produced.incrementAndGet();
         return ProduceResult.accepted(tier.name(), -1);
     }

@@ -16,6 +16,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 
 /**
  * 操作审计切面：对标注 {@link AuditOperation} 的方法自动记录审计日志。
@@ -83,9 +86,117 @@ public class AuditAspect {
             // 落库前统一脱敏：参数/结果可能携带密码、手机号、邮箱、身份证等敏感值
             // （典型如「重置用户密码」接口的新密码明文），否则持有审计敏感权限者即可原样读回
             String masked = SensitiveMasker.maskSummary(json);
-            return masked.length() > 2000 ? masked.substring(0, 2000) : masked;
+            return truncateJson(masked);
         } catch (Exception e) {
-            return value.getClass().getSimpleName();
+            // 序列化失败时必须仍产出「合法 JSON 标量」：request_summary 为 JSON 列，
+            // 裸类名（如 Object[]）会触发 MySQL 3140 Invalid JSON text 使整条审计静默丢失
+            log.warn("审计摘要序列化失败，降级为类型名: {}", value.getClass().getName());
+            return quoteJson(value.getClass().getSimpleName());
+        }
+    }
+
+    /** 截断至 2000 字符且保证截断结果仍是合法 JSON（截断点可能落在转义序列中间）。 */
+    private String truncateJson(String json) {
+        if (json.length() <= 2000) {
+            return json;
+        }
+        String truncated = json.substring(0, 2000);
+        if (isValidJson(truncated)) {
+            return truncated;
+        }
+        // 截断点几乎总落在字符串或容器内部：扫描未闭合结构并补齐，尽量保留原文
+        // （审计的价值恰恰在超长摘要里，整体降级为占位符等于丢失证据）
+        String repaired = repairTruncatedJson(truncated);
+        if (repaired != null && isValidJson(repaired)) {
+            return repaired;
+        }
+        return quoteJson("[truncated]");
+    }
+
+    /**
+     * 补齐被截断 JSON 的闭合结构：按扫描栈补回未闭合的字符串引号（含悬空转义）与容器括号。
+     *
+     * <p>截断点落在裸字面量（数字/布尔）中间时无法安全补齐，返回 null 由调用方降级。</p>
+     *
+     * @param truncated 已截断的 JSON 文本（长度须 ≤ 2000）
+     * @return 补齐后的合法 JSON 文本；无法补齐时返回 null
+     */
+    private String repairTruncatedJson(String truncated) {
+        // 预留补齐空间：悬空转义 + 闭合引号 + 多层容器括号（预留 16 字符，更深嵌套降级处理）
+        int budget = 2000 - 16;
+        if (truncated.length() > budget) {
+            truncated = truncated.substring(0, budget);
+        }
+        boolean inString = false;
+        boolean escape = false;
+        boolean inLiteral = false;
+        Deque<Character> closers = new ArrayDeque<>();
+        for (int i = 0; i < truncated.length(); i++) {
+            char c = truncated.charAt(i);
+            if (inString) {
+                if (escape) {
+                    escape = false;
+                } else if (c == '\\') {
+                    escape = true;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+                inLiteral = false;
+            } else if (c == '{' || c == '[') {
+                closers.push(c == '{' ? '}' : ']');
+                inLiteral = false;
+            } else if (c == '}' || c == ']') {
+                if (!closers.isEmpty() && closers.peek() == c) {
+                    closers.pop();
+                }
+                inLiteral = false;
+            } else if (c == ',' || c == ':') {
+                inLiteral = false;
+            } else if (!Character.isWhitespace(c)) {
+                if (c == '-' || c == '+' || c == '.' || Character.isLetterOrDigit(c)) {
+                    inLiteral = true;
+                } else {
+                    inLiteral = false;
+                }
+            }
+        }
+        if (!inString && inLiteral) {
+            // 裸字面量被拦腰截断（如 123→12、true→tr）：补齐任何括号都救不活，交给降级路径
+            return null;
+        }
+        StringBuilder suffix = new StringBuilder();
+        if (escape) {
+            // 悬空反斜杠：先自转义再补引号，否则补的引号会被当成转义字符
+            suffix.append('\\');
+        }
+        if (inString) {
+            suffix.append('"');
+        }
+        while (!closers.isEmpty()) {
+            suffix.append(closers.pop());
+        }
+        return truncated + suffix;
+    }
+
+    private boolean isValidJson(String candidate) {
+        try {
+            objectMapper.readTree(candidate);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 将任意文本包成合法 JSON 字符串标量（双引号包裹，供 JSON 列安全落库）。 */
+    private String quoteJson(String text) {
+        try {
+            return objectMapper.writeValueAsString(text);
+        } catch (Exception e) {
+            return "\"[unserializable]\"";
         }
     }
 

@@ -55,7 +55,9 @@ public final class SpringConnChannel implements ConnChannel {
                 session.sendMessage(new BinaryMessage(frame));
             }
         } catch (IOException ex) {
-            // 写入失败：交由 close 流程清理（心跳 tick 会回收失效会话）
+            // 写入失败即通道不可用：立即标记 closed，使 isActive() 反映真实状态，
+            // 避免死连接继续接受 onFrame 并滞留至空闲超时（§3.3）才回收
+            closed = true;
         } finally {
             inflight.decrementAndGet();
         }
