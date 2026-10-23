@@ -5,8 +5,8 @@
         <el-icon size="20"><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
       </el-button>
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
-        <el-breadcrumb-item>{{ currentTitle }}</el-breadcrumb-item>
+        <el-breadcrumb-item :to="{ path: '/dashboard' }">{{ t('topbar.home') }}</el-breadcrumb-item>
+        <el-breadcrumb-item>{{ t(currentTitle) }}</el-breadcrumb-item>
       </el-breadcrumb>
     </div>
 
@@ -18,7 +18,7 @@
       @mouseleave="paused = false"
     >
       <el-icon class="notice-icon"><Bell /></el-icon>
-      <el-tag v-if="notice.isTop" size="small" type="danger" effect="dark" class="top-tag">置顶</el-tag>
+      <el-tag v-if="notice.isTop" size="small" type="danger" effect="dark" class="top-tag">{{ t('topbar.pinned') }}</el-tag>
       <div class="notice-viewport">
         <div class="notice-track" :style="trackStyle">
           <!-- 仅在内容超出可视区时才滚动，否则静态展示，避免无意义位移 -->
@@ -27,13 +27,28 @@
           </span>
         </div>
       </div>
-      <el-button text class="notice-more" @click="goNotice('announcement')">详情</el-button>
+      <el-button text class="notice-more" @click="goNotice('announcement')">{{ t('common.detail') }}</el-button>
     </div>
     <div v-else class="notice-placeholder" aria-hidden="true" />
 
     <div class="right">
+      <!-- 语言切换：持久化到 localStorage，随请求经 ?lang= 上报后端（见 src/api/http.js），
+           同时驱动 Element Plus 语言包（App.vue 的 el-config-provider）。 -->
+      <el-select
+        :model-value="i18n.locale"
+        size="small"
+        class="locale-select"
+        @change="onLocaleChange"
+      >
+        <el-option
+          v-for="opt in availableLocales"
+          :key="opt.code"
+          :label="opt.label"
+          :value="opt.code"
+        />
+      </el-select>
       <NotificationBell />
-      <el-tooltip content="账号设置" placement="bottom">
+      <el-tooltip :content="t('topbar.accountSettings')" placement="bottom">
         <el-button text class="icon-btn" @click="onCmd('settings')">
           <el-icon size="18"><Setting /></el-icon>
         </el-button>
@@ -46,26 +61,26 @@
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-            <el-dropdown-item command="settings">账号设置</el-dropdown-item>
-            <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+            <el-dropdown-item command="profile">{{ t('topbar.profile') }}</el-dropdown-item>
+            <el-dropdown-item command="settings">{{ t('topbar.accountSettings') }}</el-dropdown-item>
+            <el-dropdown-item command="logout" divided>{{ t('topbar.logout') }}</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
     </div>
 
     <!-- 点击公告查看详情 -->
-    <el-dialog v-model="detailVisible" title="公告详情" width="680px">
+    <el-dialog v-model="detailVisible" :title="t('topbar.announcementDetail')" width="680px">
       <h3 class="detail-title">{{ current?.title }}</h3>
       <div class="detail-meta">
-        <span class="meta-item">生效：{{ current?.publishAt || '立即' }}</span>
-        <span class="meta-item">有效期至：{{ current?.expireAt || '长期有效' }}</span>
-        <span class="meta-item">浏览：{{ current?.viewCount ?? 0 }}</span>
+        <span class="meta-item">{{ t('topbar.effective') }}{{ current?.publishAt || t('common.all') }}</span>
+        <span class="meta-item">{{ t('topbar.expireAt') }}{{ current?.expireAt || t('topbar.longTerm') }}</span>
+        <span class="meta-item">{{ t('topbar.views') }}{{ current?.viewCount ?? 0 }}</span>
       </div>
       <div class="detail-content">{{ current?.content }}</div>
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-        <el-button type="primary" @click="goNotice('announcement')">查看全部公告</el-button>
+        <el-button @click="detailVisible = false">{{ t('common.close') }}</el-button>
+        <el-button type="primary" @click="goNotice('announcement')">{{ t('topbar.viewAllAnnouncements') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -79,6 +94,7 @@ import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { closeRealtime } from '@/api/realtime'
+import { i18n, t, setLocale, availableLocales } from '@/i18n'
 import NotificationBell from '@/components/NotificationBell.vue'
 
 defineProps({ collapsed: Boolean })
@@ -96,6 +112,11 @@ const current = ref(null)
 const overflowing = ref(false)
 let offset = 0
 let raf = null
+
+// 语言切换：写入响应式状态 + localStorage（i18n.setLocale 内部处理 <html lang> 与持久化）
+function onLocaleChange(code) {
+  setLocale(code)
+}
 
 const trackStyle = computed(() => ({
   // 仅在溢出且未暂停时位移；否则回到起点
@@ -142,7 +163,7 @@ async function openAnnouncement() {
     current.value = res?.data ?? res
     detailVisible.value = true
   } catch (e) {
-    ElMessage.error('公告详情加载失败')
+    ElMessage.error(t('topbar.noticeLoadFailed'))
   }
 }
 
@@ -159,9 +180,9 @@ async function onCmd(cmd) {
   } else if (cmd === 'logout') {
     // 二次确认：避免误触直接退出
     try {
-      await ElMessageBox.confirm('退出后需要重新登录才能继续使用，确认退出吗？', '退出登录', {
-        confirmButtonText: '确认退出',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(t('topbar.exitConfirm'), t('topbar.exitConfirmTitle'), {
+        confirmButtonText: t('topbar.confirmExit'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       })
     } catch (e) {
@@ -176,10 +197,10 @@ async function onCmd(cmd) {
     // 关闭实时通道并复位 started 标志：否则重新登录后 initRealtime() 直接 early-return，
     // WebSocket 永不重连（未读角标只能靠 60s 轮询兜底）
     closeRealtime()
-    ElMessage.success('已退出登录')
+    ElMessage.success(t('topbar.exitSuccess'))
     router.replace('/login')
   } else {
-    ElMessage.info('演示环境暂未实现该页面')
+    ElMessage.info(t('topbar.demoNotImpl'))
   }
 }
 
@@ -275,6 +296,13 @@ onUnmounted(() => {
   gap: 8px;
   flex-shrink: 0;
 }
+.locale-select {
+  width: 104px;
+  /* Element Plus 选择器在深色顶栏下的可读性适配 */
+  --el-fill-color-blank: rgba(255, 255, 255, 0.12);
+  --el-text-color-regular: #e6e8eb;
+  --el-border-color: rgba(255, 255, 255, 0.25);
+}
 .icon-btn {
   display: flex;
   align-items: center;
@@ -341,6 +369,9 @@ onUnmounted(() => {
   }
   .right {
     gap: 2px;
+  }
+  .locale-select {
+    width: 84px;
   }
 }
 /* 超窄屏：隐藏设置按钮，优先保证公告与铃铛可用 */

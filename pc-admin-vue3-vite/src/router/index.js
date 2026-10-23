@@ -6,7 +6,7 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { public: true, title: '登录' }
+    meta: { public: true, title: 'route.loginTitle' }
   },
   {
     path: '/',
@@ -17,69 +17,69 @@ const routes = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/DashboardView.vue'),
-        meta: { title: '工作台' }
+        meta: { title: 'route.dashboard' }
       },
       {
         path: 'profile',
         name: 'profile',
         component: () => import('@/views/profile/ProfileView.vue'),
-        meta: { title: '个人中心' }
+        meta: { title: 'route.profile' }
       },
       {
         path: 'system/user',
         name: 'user',
         component: () => import('@/views/system/UserView.vue'),
-        meta: { title: '用户管理' }
+        meta: { title: 'route.user' }
       },
       {
         path: 'system/role',
         name: 'role',
         component: () => import('@/views/system/RoleView.vue'),
-        meta: { title: '角色管理' }
+        meta: { title: 'route.role' }
       },
       {
         path: 'system/menu',
         name: 'menu',
         component: () => import('@/views/system/MenuView.vue'),
-        meta: { title: '菜单管理' }
+        meta: { title: 'route.menu' }
       },
       {
         path: 'system/api-resource',
         name: 'apiResource',
         component: () => import('@/views/system/ApiResourceView.vue'),
-        meta: { title: '接口资源管理' }
+        meta: { title: 'route.apiResource' }
       },
       {
         path: 'system/department',
         name: 'department',
         component: () => import('@/views/system/DepartmentView.vue'),
-        meta: { title: '部门管理' }
+        meta: { title: 'route.department' }
       },
       {
         // 岗位管理（V35）：岗位 CRUD + 用户岗位分配，菜单与权限由后端驱动
         path: 'system/post',
         name: 'post',
         component: () => import('@/views/system/PostView.vue'),
-        meta: { title: '岗位管理', permission: 'system:post:read' }
+        meta: { title: 'route.post', permission: 'system:post:read' }
       },
       {
         path: 'system/dict',
         name: 'dict',
         component: () => import('@/views/system/DictView.vue'),
-        meta: { title: '字典管理' }
+        meta: { title: 'route.dict' }
       },
       {
         path: 'system/config',
         name: 'config',
         component: () => import('@/views/system/ConfigView.vue'),
-        meta: { title: '系统变量' }
+        meta: { title: 'route.config' }
       },
       {
         // 消息中心：合并「系统公告」与「站内信」，页内以 Tab 切换
         path: 'system/notice',
         name: 'notice',
         component: () => import('@/views/system/NoticeView.vue'),
-        meta: { title: '消息中心', permission: 'system:announcement:read' }
+        meta: { title: 'route.notice', permission: 'system:announcement:read' }
       },
       {
         // 旧入口保留重定向，避免历史书签/菜单配置失效
@@ -94,87 +94,87 @@ const routes = [
         path: 'system/monitor',
         name: 'monitor',
         component: () => import('@/views/system/MonitorView.vue'),
-        meta: { title: '系统监控', permission: 'system:monitor:read' }
+        meta: { title: 'route.monitor', permission: 'system:monitor:read' }
       },
       {
         // 在线用户管理（V27）：在线会话跟踪 / 强制下线 / 临时限制登录，菜单与权限由后端驱动
         path: 'system/online',
         name: 'onlineUser',
         component: () => import('@/views/system/OnlineUserView.vue'),
-        meta: { title: '在线用户管理', permission: 'system:online:read' }
+        meta: { title: 'route.onlineUser', permission: 'system:online:read' }
       },
       {
         // 缓存监控（V29）：进程内缓存条目/命中率/淘汰统计与清理，菜单与权限由后端驱动
         path: 'system/cache',
         name: 'cacheMonitor',
         component: () => import('@/views/system/CacheMonitorView.vue'),
-        meta: { title: '缓存监控', permission: 'system:monitor:read' }
+        meta: { title: 'route.cacheMonitor', permission: 'system:monitor:read' }
       },
       {
         // 连接池监控（V29）：HikariCP 活跃/空闲/等待线程与池配置，菜单与权限由后端驱动
         path: 'system/datasource',
         name: 'poolMonitor',
         component: () => import('@/views/system/PoolMonitorView.vue'),
-        meta: { title: '连接池监控', permission: 'system:monitor:read' }
+        meta: { title: 'route.poolMonitor', permission: 'system:monitor:read' }
       },
       {
         // 登录日志（V29）：登录成功/失败逐条明细（安全审计），菜单与权限由后端驱动
         path: 'system/login-log',
         name: 'loginLog',
         component: () => import('@/views/system/LoginLogView.vue'),
-        meta: { title: '登录日志', permission: 'system:login-log:read' }
+        meta: { title: 'route.loginLog', permission: 'system:login-log:read' }
       },
       {
         // 操作日志（V29）：审计日志明细与 traceId 链路，菜单与权限由后端驱动
         path: 'system/operation-log',
         name: 'operationLog',
         component: () => import('@/views/system/OperationLogView.vue'),
-        meta: { title: '操作日志', permission: 'system:audit:read' }
+        meta: { title: 'route.operationLog', permission: 'system:audit:read' }
       },
       {
         // 短信记录（V37）：短信渠道发送明细（对账排查），入库前已脱敏，菜单与权限由后端驱动
         path: 'system/sms-record',
         name: 'smsRecord',
         component: () => import('@/views/system/SmsLogView.vue'),
-        meta: { title: '短信记录', permission: 'system:sms-record:read' }
+        meta: { title: 'route.smsRecord', permission: 'system:sms-record:read' }
       },
       {
         // 通知模板中心（V41）：为 M6 多渠道通知提供可复用 ${var} 模板；权限码与菜单由后端驱动
         path: 'system/notification-templates',
         name: 'notificationTemplate',
         component: () => import('@/views/system/NotificationTemplate.vue'),
-        meta: { title: '通知模板', permission: 'system:notification-template:read' }
+        meta: { title: 'route.notificationTemplate', permission: 'system:notification-template:read' }
       },
       {
         // 通知记录（V42）：全五渠道统一发送审计面（含被拒与失败），入库前已脱敏摘要，菜单与权限由后端驱动
         path: 'system/notification-records',
         name: 'notificationRecord',
         component: () => import('@/views/system/NotificationRecordView.vue'),
-        meta: { title: '通知记录', permission: 'system:notification-record:read' }
+        meta: { title: 'route.notificationRecord', permission: 'system:notification-record:read' }
       },
       {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),
-        meta: { title: '我的待办' }
+        meta: { title: 'route.task' }
       },
       {
         path: 'workflow/instance',
         name: 'instance',
         component: () => import('@/views/workflow/InstanceView.vue'),
-        meta: { title: '我发起的流程' }
+        meta: { title: 'route.instance' }
       },
       {
         path: 'workflow/definition',
         name: 'definition',
         component: () => import('@/views/workflow/DesignListView.vue'),
-        meta: { title: '工作流设计', permission: 'workflow:definition:read' }
+        meta: { title: 'route.definition', permission: 'workflow:definition:read' }
       },
       {
         path: 'workflow/designer/:id',
         name: 'designer',
         component: () => import('@/views/workflow/WorkflowDesigner.vue'),
-        meta: { title: '工作流设计器', permission: 'workflow:definition:update' }
+        meta: { title: 'route.designer', permission: 'workflow:definition:update' }
       },
       {
         // 报表入口：V30 移除公共统计页（使用/类别/状态）后，旧入口重定向到保留的
@@ -188,35 +188,35 @@ const routes = [
         path: 'report/job-exec',
         name: 'reportJobExec',
         component: () => import('@/views/report/JobExecReportView.vue'),
-        meta: { title: '定时任务执行统计', permission: 'report:read' }
+        meta: { title: 'route.reportJobExec', permission: 'report:read' }
       },
       {
         // 报表-登录统计：登录次数 / 活跃用户趋势 / 异常登录记录
         path: 'report/login',
         name: 'reportLogin',
         component: () => import('@/views/report/LoginReportView.vue'),
-        meta: { title: '登录统计', permission: 'report:read' }
+        meta: { title: 'route.reportLogin', permission: 'report:read' }
       },
       {
         // 报表-接口调用统计：调用量 / 响应时间分布 / 错误率 / Top 接口
         path: 'report/api-call',
         name: 'reportApiCall',
         component: () => import('@/views/report/ApiCallReportView.vue'),
-        meta: { title: '接口调用统计', permission: 'report:read' }
+        meta: { title: 'route.reportApiCall', permission: 'report:read' }
       },
       {
         // 定时任务：在线任务管理（列表/启动/暂停/编辑/日志），菜单与权限由后端驱动
         path: 'job/list',
         name: 'jobList',
         component: () => import('@/views/JobListView.vue'),
-        meta: { title: '定时任务', permission: 'job:read' }
+        meta: { title: 'route.jobList', permission: 'job:read' }
       },
       {
         // 代码生成：按表结构生成 CRUD 骨架（后端六层 + 前端两文件），菜单与权限由后端驱动
         path: 'dev/codegen',
         name: 'codegen',
         component: () => import('@/views/CodegenView.vue'),
-        meta: { title: '代码生成', permission: 'codegen:read' }
+        meta: { title: 'route.codegen', permission: 'codegen:read' }
       },
       {
         // 文件管理（V33）：上传 / 下载 / 列表 / 删除，记录来源功能模块与上传人，
@@ -224,7 +224,7 @@ const routes = [
         path: 'system/file',
         name: 'file',
         component: () => import('@/views/system/FileManagementView.vue'),
-        meta: { title: '文件管理', permission: 'system:file:read' }
+        meta: { title: 'route.file', permission: 'system:file:read' }
       },
       {
         // 导出中心（V34）：可复用 CSV 导出中心，模板由后端 ExportTask 自动发现，
@@ -232,7 +232,7 @@ const routes = [
         path: 'system/export',
         name: 'exportCenter',
         component: () => import('@/views/system/ExportCenterView.vue'),
-        meta: { title: '导出中心', permission: 'system:export:read' }
+        meta: { title: 'route.exportCenter', permission: 'system:export:read' }
       },
       {
         // 导入中心（V36）：模板由后端 ImportTask 自动发现，支持 CSV / XLSX 上传与预检，
@@ -240,7 +240,7 @@ const routes = [
         path: 'system/import',
         name: 'importCenter',
         component: () => import('@/views/system/ImportCenterView.vue'),
-        meta: { title: '导入中心', permission: 'system:import:read' }
+        meta: { title: 'route.importCenter', permission: 'system:import:read' }
       },
       {
         // 可观测中心：链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五个运维面统一入口，
@@ -250,7 +250,7 @@ const routes = [
         path: 'system/observability',
         name: 'observabilityCenter',
         component: () => import('@/views/monitor/ObservabilityCenterView.vue'),
-        meta: { title: '可观测中心', permission: 'system:monitor:read' }
+        meta: { title: 'route.observabilityCenter', permission: 'system:monitor:read' }
       }
     ]
   },

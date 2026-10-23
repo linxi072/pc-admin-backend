@@ -3,6 +3,7 @@ import { ElMessage } from 'element-plus'
 import { API_BASE } from './config'
 import { clearAuth } from '../store/auth'
 import { closeRealtime } from './realtime'
+import { backendLocale } from '../i18n'
 
 const realAxios = axios.create({ baseURL: API_BASE, timeout: 15000 })
 
@@ -26,6 +27,10 @@ function injectAuthHeaders(cfg) {
   const token = localStorage.getItem('pc_admin_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
   if (!cfg.headers['X-Device-Id']) cfg.headers['X-Device-Id'] = getDeviceId()
+  // 本地化：把当前语言随每个请求经 ?lang= 上报，后端 LocaleChangeInterceptor 据此切换语言，
+  // 使后端异常 / 业务错误消息按用户语言返回（与 GlobalExceptionHandler 本地化对齐）。
+  // 合并调用方已有的 params，避免覆盖（如分页 size/page）。
+  cfg.params = { ...(cfg.params || {}), lang: backendLocale() }
   return cfg
 }
 
