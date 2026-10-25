@@ -91,4 +91,6 @@
 > 3. **M22 低代码仅做 spike**：先交付契约 + 单字段渲染原型验证可行性，再正式立项。
 > 4. **M24 API 开放平台本期需要**：涉及 OAuth2 客户端注册与密钥治理，立项前需离线核验 `spring-security-oauth2` 等依赖可用性。
 >
+> **M24 离线核验结论（2026-10-25）**：离线仓库仅有 `spring-security-oauth2-core/jose/resource-server` 6.3.3（与 Boot 3.3.4 匹配），**不含** `spring-security-oauth2-client`（`RegisteredClient`/`RegisteredClientRepository` 所在）与 `spring-security-oauth2-authorization-server`（授权服务器所在）——完整 OAuth2 授权服务器（authorization code / `/oauth2/token`）离线不可建。据此 M24 收口为**自包含的「客户端注册 + 密钥治理」**（自有领域模型 + 复用 `SecurityConfig` 的 `DelegatingPasswordEncoder` 哈希，零新增依赖），V48 `sys_openapi_client` 已落地；协议级开放（token 端点、资源服务器过滤器）待联网补齐依赖后另行立项。
+>
 > 后续：将 M20 / M21 / M22(spike) / M24 拆为 `module-plan` 形式的 Mxx 任务卡（范围/契约/迁移/测试/门禁），按关注点分批在 `feat/V1.0.3` 落地；本文件已更新为「已采纳路线」。
