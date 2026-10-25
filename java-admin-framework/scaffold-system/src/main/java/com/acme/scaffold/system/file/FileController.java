@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * 文件管理接口（运维管理 → 文件管理）。
@@ -37,8 +39,9 @@ import java.nio.charset.StandardCharsets;
  *   <li>列表 system:file:read</li>
  *   <li>删除 system:file:delete</li>
  * </ul>
- * 接口资源由 ApiResourceAutoSyncRunner 在启动时按 @PreAuthorize 自动登记并授予 SUPER_ADMIN，
- * 因此 V33 迁移中无需手工写入 sys_api_resource。
+ * V50 新增秒传预检 / 统计 / 批量删除三个端点，分别复用上述上传/读取/删除权限码，
+ * 不新增权限码（SUPER_ADMIN 授权不变）。接口资源由 ApiResourceAutoSyncRunner 在启动时按
+ * PreAuthorize 自动登记并授予 SUPER_ADMIN，因此迁移中无需手工写入 sys_api_resource。
  */
 @Slf4j
 @Tag(name = "文件管理")
@@ -102,7 +105,29 @@ public class FileController {
                 .body(fd.resource());
     }
 
-    @Operation(summary = "删除文件（逻辑删除记录，移除物理文件）")
+    @Operation(summary = "秒传预检（前端上传前计算内容 SHA-256 回传，命中则提示可秒传）")
+    @GetMapping("/dedup-check")
+    @PreAuthorize("hasAuthority('system:file:upload')")
+    public Result<DedupCheckView> dedupCheck(@RequestParam String hash) {
+        return Result.success(fileService.checkDedup(hash));
+    }
+
+    @Operation(summary = "文件统计（总量 / 占用空间 / 按来源模块拆分）")
+    @GetMapping("/stats")
+    @PreAuthorize("hasAuthority('system:file:read')")
+    public Result<FileStatsView> stats() {
+        return Result.success(fileService.stats());
+    }
+
+    @Operation(summary = "批量删除文件（部分成功语义：单项失败不影响其余，返回成功数与失败明细）")
+    @PostMapping("/batch-delete")
+    @PreAuthorize("hasAuthority('system:file:delete')")
+    @AuditOperation(module = "file", type = "DELETE", name = "批量删除文件")
+    public Result<BatchDeleteView> batchDelete(@RequestBody(required = false) List<Long> ids) {
+        return Result.success(fileService.batchDelete(ids));
+    }
+
+    @Operation(summary = "删除文件（逻辑删除记录；物理文件按引用计数保护，被共享时保留）")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('system:file:delete')")
     @AuditOperation(module = "file", type = "DELETE", name = "删除文件")

@@ -73,4 +73,10 @@ public class FileStorageService {
             log.warn("删除物理文件失败 storedName={}", storedName, e);
         }
     }
+
+    /** 物理文件是否存在（秒传命中时校验存量文件未被外部清理，V50 新增）。 */
+    public boolean exists(String storedName) {
+        Path target = resolve(storedName);
+        return Files.exists(target) && Files.isRegularFile(target);
+    }
 }

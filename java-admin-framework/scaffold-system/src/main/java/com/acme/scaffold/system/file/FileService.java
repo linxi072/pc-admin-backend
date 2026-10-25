@@ -17,6 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
+import org.jooq.Record2;
+import org.jooq.Record3;
+import org.jooq.Result;
 import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -26,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -44,7 +48,8 @@ import java.util.Set;
  * <ul>
  *   <li>落盘文件名完全由服务端生成（UUID），客户端原始名仅作展示，杜绝路径穿越与覆盖；</li>
  *   <li>先落盘再写记录，DB 写入失败时清理孤儿文件，保证最终一致；</li>
- *   <li>删除为逻辑删除（deleted=1），保留来源模块/上传人记录，物理文件同步清理。</li>
+ *   <li>删除为逻辑删除（deleted=1），保留来源模块/上传人记录，物理文件按引用计数保护性清理；</li>
+ *   <li>秒传（V50）：上传时计算内容 SHA-256，命中存量记录则复用物理文件不落盘。</li>
  * </ul>
  */
 @Slf4j
@@ -61,6 +66,9 @@ public class FileService {
             "uploaderName", "uploader_name",
             "downloadCount", "download_count",
             "createdAt", "created_at");
+
+    /** 批量删除单次上限（防御性限制，避免超长 ID 列表拖垮事务）。 */
+    private static final int BATCH_DELETE_LIMIT = 100;
 
     private final DSLContext dsl;
     private final FileStorageService fileStorageService;
@@ -86,6 +94,9 @@ public class FileService {
 
     /**
      * 上传文件（公共可复用接口）。
+     *
+     * <p>秒传（V50）：魔数校验通过后计算内容 SHA-256，命中未删记录且物理文件仍在时，
+     * 复用其 stored_name / storage_path，不落盘、不产生新物理文件（响应 deduplicated=true）。
      *
      * @param file          文件内容
      * @param sourceModule  来源功能模块（必填，如 workflow / report / file-management）
@@ -114,9 +125,25 @@ public class FileService {
 
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
 
-        // 先落盘（文件名服务端生成），再写记录；落盘失败直接抛异常，不会留脏数据
-        String storedName = fileStorageService.store(file, ext);
-        Path abs = fileStorageService.resolve(storedName);
+        // 秒传判定（V50）：内容 SHA-256 命中未删记录、且物理文件仍存在时复用，跳过落盘
+        String contentHash;
+        try (InputStream hashIn = file.getInputStream()) {
+            contentHash = FileDedupRules.sha256Hex(hashIn);
+        } catch (IOException e) {
+            throw BusinessException.of(FileErrorCode.FILE_STORE_FAILED, "文件读取失败，无法计算内容摘要");
+        }
+        SysFileDO existing = findByContentHash(contentHash);
+        boolean deduplicated = existing != null && fileStorageService.exists(existing.getStoredName());
+        String storedName;
+        Path abs;
+        if (deduplicated) {
+            storedName = existing.getStoredName();
+            abs = fileStorageService.resolve(storedName);
+        } else {
+            // 先落盘（文件名服务端生成），再写记录；落盘失败直接抛异常，不会留脏数据
+            storedName = fileStorageService.store(file, ext);
+            abs = fileStorageService.resolve(storedName);
+        }
 
         SysFileDO record = new SysFileDO();
         record.setOriginalName(file.getOriginalFilename());
@@ -124,6 +151,7 @@ public class FileService {
         record.setStoragePath(abs.toString());
         record.setFileSize(file.getSize());
         record.setContentType(file.getContentType());
+        record.setContentHash(contentHash);
         record.setSourceModule(sourceModule.trim());
         record.setBizId(bizId);
         record.setUploaderId(principal.userId());
@@ -131,11 +159,13 @@ public class FileService {
         try {
             JooqWriters.insert(dsl, JooqTables.SYS_FILE, record);
         } catch (RuntimeException e) {
-            // DB 写入失败：清理已落盘的孤儿文件，避免磁盘残留
-            fileStorageService.delete(storedName);
+            // DB 写入失败：仅清理本次新落盘的孤儿文件（秒传复用场景无新文件可清）
+            if (!deduplicated) {
+                fileStorageService.delete(storedName);
+            }
             throw e;
         }
-        return toView(record);
+        return toView(record, deduplicated);
     }
 
     /** 下载：返回文件资源与原始文件名（Content-Disposition 由 Controller 设置）。 */
@@ -158,15 +188,108 @@ public class FileService {
         return new FileDownload(resource, record.getOriginalName(), record.getContentType());
     }
 
-    /** 逻辑删除文件记录并移除物理文件（保留来源模块/上传人记录供审计）。 */
+    /**
+     * 逻辑删除文件记录（保留来源模块/上传人记录供审计）。
+     *
+     * <p>物理文件按引用计数保护（V50）：同一 stored_name 还存在其它未删记录时，
+     * 仅逻辑删本记录、保留物理文件，避免误删仍被引用的文件。
+     */
     @Transactional
     public void delete(Long id) {
+        deleteOne(id);
+    }
+
+    /**
+     * 批量逻辑删除（部分成功语义，V50）：单个 ID 失败（不存在/异常）不影响其余，
+     * 逐项 try-catch 吞异常（事务内不传播即不回滚），返回成功数与失败明细。
+     */
+    @Transactional
+    public BatchDeleteView batchDelete(List<Long> ids) {
+        List<Long> distinct = FileDedupRules.distinctIds(ids);
+        if (distinct.isEmpty()) {
+            throw BusinessException.of(FileErrorCode.FILE_BATCH_EMPTY, FileErrorCode.FILE_BATCH_EMPTY.message());
+        }
+        if (distinct.size() > BATCH_DELETE_LIMIT) {
+            throw BusinessException.of(FileErrorCode.FILE_BATCH_TOO_MANY,
+                    "单次最多删除 " + BATCH_DELETE_LIMIT + " 个文件");
+        }
+        int deleted = 0;
+        List<BatchDeleteFailure> failures = new ArrayList<>();
+        for (Long id : distinct) {
+            try {
+                deleteOne(id);
+                deleted++;
+            } catch (BusinessException e) {
+                failures.add(new BatchDeleteFailure(id, e.getMessage()));
+            } catch (RuntimeException e) {
+                log.warn("批量删除单项失败 fileId={}", id, e);
+                failures.add(new BatchDeleteFailure(id, "删除失败，请稍后重试"));
+            }
+        }
+        return new BatchDeleteView(deleted, failures);
+    }
+
+    /** 删除单条记录（无事务注解，供批量删除在同事务内逐项调用，避免 Spring 自调用不走代理）。 */
+    private void deleteOne(Long id) {
         SysFileDO record = JooqWriters.fetchById(dsl, JooqTables.SYS_FILE, SysFileDO.class, id);
         if (record == null) {
             throw BusinessException.of(FileErrorCode.FILE_NOT_FOUND, FileErrorCode.FILE_NOT_FOUND.message());
         }
-        fileStorageService.delete(record.getStoredName());
+        long refCount = JooqWriters.count(dsl, JooqTables.SYS_FILE, DSL.and(
+                JooqWriters.notDeleted(JooqTables.SYS_FILE),
+                JooqTables.SYS_FILE.field("stored_name", String.class).eq(record.getStoredName())));
+        if (FileDedupRules.shouldDeletePhysical(refCount)) {
+            fileStorageService.delete(record.getStoredName());
+        } else {
+            log.info("物理文件被 {} 条记录共享，保留磁盘文件 storedName={}", refCount, record.getStoredName());
+        }
         JooqWriters.delete(dsl, JooqTables.SYS_FILE, id, true);
+    }
+
+    /**
+     * 秒传预检（V50）：前端上传前计算内容 SHA-256 回传，服务端告知是否已存在同内容文件。
+     * 哈希非法（非 64 位十六进制）直接 400，不进入存储层。
+     */
+    @Transactional(readOnly = true)
+    public DedupCheckView checkDedup(String hash) {
+        String normalized = FileDedupRules.normalizeHash(hash);
+        SysFileDO hit = findByContentHash(normalized);
+        if (hit == null) {
+            return new DedupCheckView(normalized, false, null, null, null);
+        }
+        return new DedupCheckView(normalized, true, hit.getId(), hit.getOriginalName(), hit.getFileSize());
+    }
+
+    /** 文件统计（V50）：按来源模块聚合数量与占用空间；空表自然返回零值，无需特殊分支。 */
+    @Transactional(readOnly = true)
+    public FileStatsView stats() {
+        var t = JooqTables.SYS_FILE;
+        Field<String> module = t.field("source_module", String.class);
+        Result<Record3<String, Integer, BigDecimal>> rs = dsl
+                .select(module, DSL.count(), DSL.sum(t.field("file_size", Long.class)))
+                .from(t.table())
+                .where(JooqWriters.notDeleted(t))
+                .groupBy(module)
+                .orderBy(DSL.count().desc())
+                .fetch();
+        List<ModuleFileStat> modules = new ArrayList<>(rs.size());
+        long totalCount = 0L;
+        long totalSize = 0L;
+        for (Record3<String, Integer, BigDecimal> r : rs) {
+            long count = r.value2().longValue();
+            long size = r.value3() == null ? 0L : r.value3().longValue();
+            modules.add(new ModuleFileStat(r.value1(), count, size));
+            totalCount += count;
+            totalSize += size;
+        }
+        return new FileStatsView(totalCount, totalSize, modules);
+    }
+
+    /** 按内容哈希查未删记录（秒传锚点）；无命中返回 null。 */
+    private SysFileDO findByContentHash(String contentHash) {
+        return JooqWriters.fetchOne(dsl, JooqTables.SYS_FILE, SysFileDO.class, DSL.and(
+                JooqWriters.notDeleted(JooqTables.SYS_FILE),
+                JooqTables.SYS_FILE.field("content_hash", String.class).eq(contentHash)));
     }
 
     /** 分页查询（含来源模块 / 上传人 / 文件名筛选，逻辑删除自动排除）。 */
@@ -191,7 +314,7 @@ public class FileService {
         var raw = JooqWriters.page(dsl, JooqTables.SYS_FILE, SysFileDO.class, cond, q,
                 JooqSorts.resolve(JooqTables.SYS_FILE, q, FILE_SORT_FIELDS,
                         JooqTables.SYS_FILE.field("created_at", LocalDateTime.class).desc()));
-        List<FileView> views = raw.records().stream().map(this::toView).toList();
+        List<FileView> views = toViewsWithSharedFlag(raw.records());
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
     }
 
@@ -214,7 +337,7 @@ public class FileService {
         Condition cond = DSL.and(conds);
         List<SysFileDO> records = JooqWriters.fetchList(dsl, JooqTables.SYS_FILE, SysFileDO.class, cond,
                 JooqTables.SYS_FILE.field("created_at", LocalDateTime.class).desc());
-        return records.stream().map(this::toView).toList();
+        return toViewsWithSharedFlag(records);
     }
 
     /**
@@ -248,13 +371,46 @@ public class FileService {
         boolean[] ascending = {false, false}; // created_at DESC, id DESC
         KeysetPageResult<SysFileDO> raw = JooqKeysetPager.query(dsl, JooqTables.SYS_FILE, SysFileDO.class,
                 cond, q, f -> new Object[]{f.getCreatedAt(), f.getId()}, keyFields, ascending);
-        List<FileView> views = raw.records().stream().map(this::toView).toList();
+        List<FileView> views = toViewsWithSharedFlag(raw.records());
         return KeysetPageResult.of(raw.size(), views, raw.nextCursor());
     }
 
-    private FileView toView(SysFileDO d) {
+    private FileView toView(SysFileDO d, boolean deduplicated) {
         return new FileView(d.getId(), d.getOriginalName(), d.getFileSize(), d.getContentType(),
                 d.getSourceModule(), d.getBizId(), d.getUploaderId(), d.getUploaderName(),
-                d.getDownloadCount(), d.getCreatedAt());
+                d.getDownloadCount(), d.getCreatedAt(), deduplicated);
+    }
+
+    /**
+     * 列表视图映射 + 「物理文件共享」标记（V50）：一次 GROUP BY 统计本页各 stored_name 的
+     * 未删引用数，&gt;1 即秒传共享组（删除时不会释放物理文件），前端以标签列展示。
+     */
+    private List<FileView> toViewsWithSharedFlag(List<SysFileDO> records) {
+        if (records.isEmpty()) {
+            return List.of();
+        }
+        Set<String> names = new java.util.LinkedHashSet<>();
+        for (SysFileDO d : records) {
+            names.add(d.getStoredName());
+        }
+        var t = JooqTables.SYS_FILE;
+        Result<Record2<String, Integer>> rs = dsl
+                .select(t.field("stored_name", String.class), DSL.count())
+                .from(t.table())
+                .where(DSL.and(JooqWriters.notDeleted(t),
+                        t.field("stored_name", String.class).in(names)))
+                .groupBy(t.field("stored_name", String.class))
+                .fetch();
+        Set<String> shared = new java.util.HashSet<>();
+        for (Record2<String, Integer> r : rs) {
+            if (r.value2().longValue() > 1) {
+                shared.add(r.value1());
+            }
+        }
+        List<FileView> views = new ArrayList<>(records.size());
+        for (SysFileDO d : records) {
+            views.add(toView(d, shared.contains(d.getStoredName())));
+        }
+        return views;
     }
 }

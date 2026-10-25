@@ -26,6 +26,9 @@ public class SysFileDO {
 
     private String contentType;
 
+    /** 内容 SHA-256 十六进制（秒传去重锚点，V50 新增；存量行为 NULL 不参与去重）。 */
+    private String contentHash;
+
     /** 来源功能模块，如 workflow / report / file-management。 */
     private String sourceModule;
 

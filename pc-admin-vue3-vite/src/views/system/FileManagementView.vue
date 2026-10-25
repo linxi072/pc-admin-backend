@@ -54,6 +54,35 @@
       </el-form>
     </el-card>
 
+    <!-- 存储统计：总量 / 占用空间 / 按来源模块拆分（V50） -->
+    <el-card class="page-card" shadow="never" v-loading="statsLoading">
+      <template #header>
+        <span class="card-title">存储统计</span>
+      </template>
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-value">{{ stats.totalCount }}</div>
+          <div class="stat-label">文件总数</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">{{ fmtSize(stats.totalSize) }}</div>
+          <div class="stat-label">占用空间</div>
+        </div>
+        <div class="stat-item stat-modules">
+          <el-tag
+            v-for="m in stats.modules"
+            :key="m.sourceModule"
+            size="small"
+            type="info"
+            class="stat-tag"
+          >
+            {{ m.sourceModule }} · {{ m.fileCount }} 个 / {{ fmtSize(m.totalSize) }}
+          </el-tag>
+          <span v-if="!stats.modules.length" class="muted">暂无文件</span>
+        </div>
+      </div>
+    </el-card>
+
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
@@ -80,6 +109,14 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
+            <el-button
+              type="danger"
+              :icon="Delete"
+              :disabled="!selectedRows.length"
+              @click="onBatchDelete"
+            >
+              批量删除{{ selectedRows.length ? `（${selectedRows.length}）` : '' }}
+            </el-button>
             <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
           </div>
@@ -87,11 +124,18 @@
       </div>
 
       <!-- 明细表格 -->
-      <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
+      <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange" @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="originalName" label="文件名" min-width="200" show-overflow-tooltip />
         <el-table-column prop="sourceModule" label="来源功能模块" width="150">
           <template #default="{ row }">
             <el-tag size="small" type="info">{{ row.sourceModule || '--' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="秒传" width="80">
+          <template #default="{ row }">
+            <el-tag v-if="row.deduplicated" size="small" type="warning">秒传</el-tag>
+            <span v-else class="muted">--</span>
           </template>
         </el-table-column>
         <el-table-column prop="uploaderName" label="上传人" width="140" />
@@ -137,8 +181,8 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft, Upload, UploadFilled, Download, Delete } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { pageFiles, uploadFile, downloadFile, deleteFile } from '@/api/file'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { pageFiles, uploadFile, downloadFile, deleteFile, checkDedup, fileStats, batchDeleteFiles } from '@/api/file'
 // Blob 下载统一到 utils/download
 import { saveBlobFromResponse } from '@/utils/download'
 
@@ -163,6 +207,25 @@ const rows = ref([])
 const total = ref(0)
 const uploading = ref(false)
 const uploadRef = ref()
+const selectedRows = ref([])
+
+// 存储统计（V50）：总量 / 占用空间 / 按来源模块拆分
+const statsLoading = ref(false)
+const stats = reactive({ totalCount: 0, totalSize: 0, modules: [] })
+
+async function loadStats() {
+  statsLoading.value = true
+  try {
+    const s = await fileStats()
+    stats.totalCount = s.totalCount || 0
+    stats.totalSize = s.totalSize || 0
+    stats.modules = s.modules || []
+  } catch (e) {
+    // 响应拦截器已弹错误提示
+  } finally {
+    statsLoading.value = false
+  }
+}
 
 const uploadForm = reactive({ sourceModule: '', bizId: '' })
 const query = reactive({
@@ -235,7 +298,7 @@ function onExceed() {
   ElMessage.warning('一次仅可上传一个文件，请先移除已选文件')
 }
 
-/** 上传：先做客户端预校验（模块必填 / 大小 / 扩展名），再调用后端公共上传接口。 */
+/** 上传：先做客户端预校验（模块必填 / 大小 / 扩展名），再秒传预检，最后调用后端公共上传接口。 */
 async function onSubmit() {
   if (!uploadForm.sourceModule) {
     ElMessage.warning('请选择或输入来源功能模块')
@@ -256,18 +319,40 @@ async function onSubmit() {
     ElMessage.error(`不支持的文件类型：.${ext}`)
     return
   }
+  await precheckDedup(picked)
   uploading.value = true
   try {
-    await uploadFile(picked, uploadForm.sourceModule, uploadForm.bizId || undefined)
-    ElMessage.success('上传成功')
+    const view = await uploadFile(picked, uploadForm.sourceModule, uploadForm.bizId || undefined)
+    ElMessage.success(view?.deduplicated ? '上传成功（秒传复用，未占用额外空间）' : '上传成功')
     uploadRef.value?.clearFiles()
     uploadForm.bizId = ''
     query.page = 1
     load()
+    loadStats()
   } catch (e) {
     // 响应拦截器已弹错误提示（含后端 FILE_* 业务码）
   } finally {
     uploading.value = false
+  }
+}
+
+/**
+ * 秒传预检（V50）：安全上下文（https/localhost）下用 Web Crypto 计算 SHA-256 回传服务端预检，
+ * 命中存量文件时提示将复用（后端上传时仍会计算并去重，预检仅改善体验）。
+ * 非安全上下文 crypto.subtle 不可用，静默降级跳过。
+ */
+async function precheckDedup(picked) {
+  if (!window.crypto?.subtle) return
+  try {
+    const buf = await picked.arrayBuffer()
+    const digest = await window.crypto.subtle.digest('SHA-256', buf)
+    const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+    const res = await checkDedup(hex)
+    if (res?.exists) {
+      ElMessage.info(`检测到相同内容文件「${res.originalName || ''}」，将秒传复用，不占用额外空间`)
+    }
+  } catch (e) {
+    // 预检失败不阻断上传（后端仍会计算哈希去重）
   }
 }
 
@@ -290,8 +375,40 @@ async function onDelete(row) {
     // 文案统一为「已删除」，与其余列表页一致
     ElMessage.success('已删除')
     load()
+    loadStats()
   } catch (e) {
     // 响应拦截器已弹错误提示
+  }
+}
+
+/** 表格选择变化（批量删除）。 */
+function onSelectionChange(rows) {
+  selectedRows.value = rows || []
+}
+
+/**
+ * 批量删除（V50，部分成功语义）：逐项失败不影响其余，按成功数 / 失败明细分别提示。
+ * 单次上限 100（后端 FILE_007 拦截）。
+ */
+async function onBatchDelete() {
+  if (!selectedRows.value.length) return
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedRows.value.length} 个文件？`, '批量删除', { type: 'warning' })
+  } catch (e) {
+    return // 用户取消
+  }
+  try {
+    const res = await batchDeleteFiles(selectedRows.value.map((r) => r.id))
+    const failed = res?.failures || []
+    if (failed.length) {
+      ElMessage.warning(`已删除 ${res.deletedCount} 个，${failed.length} 个失败：${failed.map((f) => `#${f.id} ${f.reason}`).join('；')}`)
+    } else {
+      ElMessage.success(`已删除 ${res.deletedCount} 个文件`)
+    }
+    load()
+    loadStats()
+  } catch (e) {
+    // 响应拦截器已弹错误提示（含 FILE_006/007）
   }
 }
 
@@ -304,7 +421,10 @@ const fmtSize = (bytes) => {
 }
 const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '--')
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadStats()
+})
 </script>
 
 <style scoped>
@@ -314,4 +434,11 @@ onMounted(load)
 .upload-form :deep(.el-form-item) { margin-bottom: 0; }
 .muted { color: #c0c4cc; }
 .el-upload__tip { line-height: 1.4; color: #a8abb2; font-size: 12px; }
+
+/* 存储统计卡（V50） */
+.stats-row { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+.stat-item { min-width: 110px; }
+.stat-value { font-size: 20px; font-weight: 600; color: #303133; line-height: 1.2; }
+.stat-label { font-size: 12px; color: #a8abb2; margin-top: 4px; }
+.stat-modules { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; }
 </style>
