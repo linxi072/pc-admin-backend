@@ -90,4 +90,32 @@ public final class TreeBuilder {
         }
         return result;
     }
+
+    /**
+     * 深度优先展平树（或森林）为平铺列表：父节点先于其子节点，同级保持输入顺序。
+     *
+     * <p>与 {@link #build} 互为逆操作：build 把平铺数据组装为层级 VO，flatten 把层级 VO 还原为
+     * 「父先于子」的平铺序列。典型场景为导出（部门树导出为扁平表格）与按编码反查
+     * （遍历全树建 code→id 映射）。递归深度为树高（通常 <10），无栈溢出风险。</p>
+     *
+     * @param roots      顶层节点列表（{@code null} 视为空森林）
+     * @param childrenOf 取子节点列表
+     * @param <V>        节点类型
+     * @return 平铺节点列表（父先于子，同级保序）
+     */
+    public static <V> List<V> flatten(List<V> roots, Function<V, List<V>> childrenOf) {
+        List<V> out = new ArrayList<>();
+        flattenInto(roots, childrenOf, out);
+        return out;
+    }
+
+    private static <V> void flattenInto(List<V> nodes, Function<V, List<V>> childrenOf, List<V> out) {
+        if (nodes == null) {
+            return;
+        }
+        for (V node : nodes) {
+            out.add(node);
+            flattenInto(childrenOf.apply(node), childrenOf, out);
+        }
+    }
 }
