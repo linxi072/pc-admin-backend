@@ -290,6 +290,11 @@ public final class JooqTables {
             "enabled", "remark", "version", "deleted", "created_by", "created_at",
             "updated_by", "updated_at");
 
+    public static final TableRef OPENAPI_CLIENT = new TableRef("sys_openapi_client",
+            "id", "tenant_id", "client_id", "client_name", "client_secret_hash", "scopes",
+            "status", "secret_rotated_at", "expired_at", "remark",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",

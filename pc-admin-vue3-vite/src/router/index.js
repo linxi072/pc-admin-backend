@@ -260,6 +260,15 @@ const routes = [
         meta: { title: 'route.formPilot', permission: 'system:form-definition:read' }
       },
       {
+        // 开放平台客户端（V48 / M24）：客户端注册 + 密钥治理（明文一次性展示/哈希落库/轮换/停用），
+        // 授权服务器依赖不在离线仓库暂无 token 端点；菜单与权限由后端驱动
+        // （menu_code=system:openapi-client, permission=system:openapi-client:read）
+        path: 'system/openapi-clients',
+        name: 'openApiClient',
+        component: () => import('@/views/system/OpenApiClientView.vue'),
+        meta: { title: 'route.openApiClient', permission: 'system:openapi-client:read' }
+      },
+      {
         // 可观测中心：链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五个运维面统一入口，
         // 页内 Tab 各自对应后端独立权限（observability/kafka/monitor/idempotency:read），
         // 无权限 Tab 展示降级空态；菜单与权限由后端驱动（menu_code=system:observability-center,
