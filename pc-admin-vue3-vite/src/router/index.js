@@ -171,6 +171,14 @@ const routes = [
         meta: { title: 'route.definition', permission: 'workflow:definition:read' }
       },
       {
+        // 流程监控（M23）：运行实例 / 超时任务 / 定义版本链 / 统计摘要 + 催办，
+        // 与「我发起的/我的待办」个人面互补的管理员全局视角。
+        path: 'workflow/monitor',
+        name: 'workflowMonitor',
+        component: () => import('@/views/workflow/MonitorView.vue'),
+        meta: { title: 'route.workflowMonitor', permission: 'workflow:monitor:read' }
+      },
+      {
         path: 'workflow/designer/:id',
         name: 'designer',
         component: () => import('@/views/workflow/WorkflowDesigner.vue'),

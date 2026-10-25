@@ -140,6 +140,47 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
         return historic.getEndTime() == null ? "RUNNING" : "FINISHED";
     }
 
+    @Override
+    public List<TaskInfo> overdueTasks(LocalDateTime before, int firstResult, int maxResults) {
+        Date bound = toDate(before);
+        return taskService.createTaskQuery()
+                .taskDueBefore(bound)
+                .orderByTaskDueDate().asc()
+                .listPage(firstResult, maxResults).stream()
+                .map(this::toInfo)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countOverdueTasks(LocalDateTime before) {
+        return taskService.createTaskQuery()
+                .taskDueBefore(toDate(before))
+                .count();
+    }
+
+    @Override
+    public List<DefinitionVersion> definitionVersions(String processKey) {
+        List<ProcessDefinition> definitions = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionKey(processKey)
+                .orderByProcessDefinitionVersion().desc()
+                .list();
+        if (definitions.isEmpty()) {
+            return List.of();
+        }
+        // ProcessDefinition 不直接暴露部署时间，按 deploymentId 批量关联 Deployment（一次查询，避免 N+1）
+        Map<String, Date> deployTimes = new HashMap<>();
+        repositoryService.createDeploymentQuery()
+                .deploymentIds(definitions.stream().map(ProcessDefinition::getDeploymentId).distinct().toList())
+                .list()
+                .forEach(d -> deployTimes.put(d.getId(), d.getDeploymentTime()));
+        return definitions.stream()
+                .map(pd -> new DefinitionVersion(pd.getId(), pd.getVersion(), pd.getName(), pd.getKey(),
+                        pd.isSuspended(), pd.getDeploymentId(),
+                        deployTimes.containsKey(pd.getDeploymentId())
+                                ? toLocal(deployTimes.get(pd.getDeploymentId())) : null))
+                .collect(Collectors.toList());
+    }
+
     private TaskInfo toInfo(Task task) {
         Long assignee = task.getAssignee() == null ? null : Long.valueOf(task.getAssignee());
         LocalDateTime dueAt = task.getDueDate() == null ? null : toLocal(task.getDueDate());
@@ -149,5 +190,9 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
 
     private LocalDateTime toLocal(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+
+    private Date toDate(LocalDateTime dateTime) {
+        return Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
     }
 }
