@@ -243,6 +243,14 @@ const routes = [
         meta: { title: 'route.importCenter', permission: 'system:import:read' }
       },
       {
+        // 脱敏策略中心（V46）：按字段键 + 角色豁免的统一脱敏策略配置面，
+        // 供 M1 审计/M20 增强等既有脱敏点经 MaskStrategyResolver 分派；菜单与权限由后端驱动
+        path: 'system/mask-strategies',
+        name: 'maskStrategy',
+        component: () => import('@/views/system/MaskStrategyView.vue'),
+        meta: { title: 'route.maskStrategy', permission: 'system:mask-strategy:read' }
+      },
+      {
         // 可观测中心：链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五个运维面统一入口，
         // 页内 Tab 各自对应后端独立权限（observability/kafka/monitor/idempotency:read），
         // 无权限 Tab 展示降级空态；菜单与权限由后端驱动（menu_code=system:observability-center,

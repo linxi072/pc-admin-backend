@@ -271,6 +271,20 @@ public final class JooqTables {
             "id", "tenant_id", "user_id", "channel", "msg_type", "item_count",
             "items_json", "first_at", "last_at", "created_at", "updated_at");
 
+    // ---------------- 脱敏策略中心（V46） ----------------
+
+    /**
+     * 脱敏策略表（列名与 V46__mask_strategy_center.sql 严格一致）。逻辑删除（deleted），
+     * 乐观锁（version）；(tenant_id, strategy_code) 唯一约束兜底并发写入。
+     * 解析/命中/豁免判定集中在 {@code system.maskstrategy.rules.MaskStrategyRules}（纯函数），
+     * 实际脱敏委托 {@code common.sensitive.SensitiveMasker}，默认安全回落由调用方声明的
+     * {@code SensitiveType} 驱动（与既有视图层脱敏口径一致）。
+     */
+    public static final TableRef MASK_STRATEGY = new TableRef("sys_mask_strategy",
+            "id", "tenant_id", "strategy_code", "strategy_name", "field_key", "sensitive_type",
+            "apply_scope", "exempt_roles", "priority", "enabled", "remark",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",
