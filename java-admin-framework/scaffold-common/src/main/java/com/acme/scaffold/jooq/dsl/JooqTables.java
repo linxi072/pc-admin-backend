@@ -285,6 +285,11 @@ public final class JooqTables {
             "apply_scope", "exempt_roles", "priority", "enabled", "remark",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
+    public static final TableRef FORM_DEFINITION = new TableRef("sys_form_definition",
+            "id", "tenant_id", "form_code", "form_name", "schema_json", "target_type",
+            "enabled", "remark", "version", "deleted", "created_by", "created_at",
+            "updated_by", "updated_at");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",

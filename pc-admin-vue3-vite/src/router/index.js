@@ -251,6 +251,15 @@ const routes = [
         meta: { title: 'route.maskStrategy', permission: 'system:mask-strategy:read' }
       },
       {
+        // 低代码表单试点（V47 / M22 spike）：Schema 契约 + 零依赖渲染验证，提交落库与绑定目标
+        // 为正式立项决策点；菜单与权限由后端驱动（menu_code=system:form-pilot,
+        // permission=system:form-definition:read）
+        path: 'system/form-pilot',
+        name: 'formPilot',
+        component: () => import('@/views/system/FormPilotView.vue'),
+        meta: { title: 'route.formPilot', permission: 'system:form-definition:read' }
+      },
+      {
         // 可观测中心：链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五个运维面统一入口，
         // 页内 Tab 各自对应后端独立权限（observability/kafka/monitor/idempotency:read），
         // 无权限 Tab 展示降级空态；菜单与权限由后端驱动（menu_code=system:observability-center,
