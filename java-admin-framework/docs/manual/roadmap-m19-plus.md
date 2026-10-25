@@ -1,6 +1,6 @@
 # 路线图规划：M19+ 后续模块提案（java-admin-framework）
 
-> 状态：**已采纳路线（2026-10-23 确认决策）** ｜ 日期：2026-10-23 ｜ 分支：`feat/V1.0.3` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
+> 状态：**已采纳路线（2026-10-23 确认决策；M20–M25 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新交付状态）｜ 分支：`feat/V1.0.3` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
 > 方法：直接核查已交付能力（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim / M5 缓存 / M6 通知渠道 / M7–M8 已读回执 / M14 免打扰 / M15 退订令牌 / M16 故障转移+有界重试 / M17 聚合摘要 / M18 Webhook HMAC / 导入导出中心 / i18n / 限流注解化 / 敏感数据脱敏通用化 / 多段导入 #651 / 可观测中心前端 / 岗位管理 / 文件管理 / 多数据源 / 编码规范校验脚本），不凭空假设。
 > 约束：离线 Maven 仓库可用依赖优先；禁止引入需联网拉取的重型依赖（如 POI，已用零依赖 OOXML 替代）；数据访问以手写 jOOQ DSL（JooqTables + TableRef）为准；新模块须延续「模板注册 / 纯函数规则 / 条件装配 / 自动登记权限码」的既有范式。
 
@@ -22,7 +22,7 @@
 | **M22 低代码/动态表单引擎** | 高 | 大（易膨胀） | ⚠️ 渲染层需评估（零依赖 JSON Schema 渲染 or 轻量依赖） | 作用域易失控；建议先 spike | P3（后期/spike 优先） |
 | **M23 流程中心增强（M4 续）** | 中 | 中 | ✅ 扩展 Flowable 7.1 监控/版本/超时 | 依赖 M4 既有 claim/transfer/complete | P3 |
 | **M24 API 开放平台 / 密钥治理** | 中 | 中 | ✅ 复用 `@RateLimit` + 密钥轮转（M 已有 `JwtKeyRotationService`） | OAuth2 客户端注册可能需 spring-security-oauth2（需离线核验） | P3 |
-| **M25 文件管理增强** | 中 | 中 | ✅ 复用既有 `system/file` + 对象存储适配 | 分片/秒传需前端配合；预览需格式库 | P3 |
+| **M25 文件管理增强** | 中 | 中 | ✅ 复用既有 `system/file` + 对象存储适配 | 分片/秒传需前端配合；预览需格式库 | P3 → ✅ 已交付（2026-10-25，秒传/引用计数/统计/批量删除） |
 
 > 说明：表中 M19–M22 为本轮重点细化候选（与既定规划方向一致）；M23–M25 列入观察清单，待前序模块稳定后再排期。
 
@@ -93,6 +93,10 @@
 >
 > **M24 离线核验结论（2026-10-25）**：离线仓库仅有 `spring-security-oauth2-core/jose/resource-server` 6.3.3（与 Boot 3.3.4 匹配），**不含** `spring-security-oauth2-client`（`RegisteredClient`/`RegisteredClientRepository` 所在）与 `spring-security-oauth2-authorization-server`（授权服务器所在）——完整 OAuth2 授权服务器（authorization code / `/oauth2/token`）离线不可建。据此 M24 收口为**自包含的「客户端注册 + 密钥治理」**（自有领域模型 + 复用 `SecurityConfig` 的 `DelegatingPasswordEncoder` 哈希，零新增依赖），V48 `sys_openapi_client` 已落地；协议级开放（token 端点、资源服务器过滤器）待联网补齐依赖后另行立项。
 >
-> **M23 流程中心增强已交付（2026-10-25）**：随 M20/M21/M22/M24 之后落地——V49 迁移零表结构变更（仅播种菜单 id=1123），`WorkflowEnginePort` 扩展超时任务分页与定义版本链查询，`WorkflowMonitorService` 提供运行实例/超时任务/统计摘要只读面 + 催办唯一写操作（实时推送 + 最小间隔防轰炸，催办记录复用 `wf_approval_record`），前端 `MonitorView.vue` 三 Tab。观察清单中的 **M25 文件管理增强**为最后一项候选（秒传/统计/批量删除方向，离线可行），排期后落地。
+> **M23 流程中心增强已交付（2026-10-25）**：随 M20/M21/M22/M24 之后落地——V49 迁移零表结构变更（仅播种菜单 id=1123），`WorkflowEnginePort` 扩展超时任务分页与定义版本链查询，`WorkflowMonitorService` 提供运行实例/超时任务/统计摘要只读面 + 催办唯一写操作（实时推送 + 最小间隔防轰炸，催办记录复用 `wf_approval_record`），前端 `MonitorView.vue` 三 Tab。
+>
+> **M25 文件管理增强已交付（2026-10-25）**：观察清单最后一项候选落地，复用既有 `system/file` 零新页面膨胀——V50 迁移为 `sys_file` 幂等增加 `content_hash CHAR(64)` + `idx_content_hash`（存量行 hash 为 NULL 不参与去重，不设默认值避免全表回填）；`FileDedupRules` 纯函数（SHA-256 十六进制计算与 64 位十六进制归一、id 保序去重、引用计数删物理判定 `refCount<=1`）+ `FileService` 扩展：上传第三流算 contentHash，命中且物理文件仍在则复用 `stored_name` 不落盘（二次校验 `FileStorageService.exists`，孤儿记录回退正常落盘），删除前 `COUNT(*) WHERE stored_name=? AND deleted=0`（含自身）>1 时仅逻辑删记录、保留物理文件防误删共享文件，`stats()` 按 `source_module` groupBy 聚合（空表自然零值），`batchDelete` 100 上限 + 部分成功语义（私有 `deleteOne` 规避 Spring 自调用不走代理，@Transactional 内单项失败不传播即不回滚）；`FileController` 增 `GET /dedup-check`、`GET /stats`、`POST /batch-delete`（复用既有权限码不新增）；`FileView.deduplicated` 双重语义（上传响应=本次命中秒传 / 列表行=物理文件共享组，由一次 `GROUP BY stored_name IN (本页名集合)` 标记）；前端 `FileManagementView.vue` 增存储统计卡、批量删除、秒传列与 Web Crypto 上传预检（`crypto.subtle` 仅安全上下文可用，非安全上下文静默降级不阻断）；新增 21 例单测，全仓 **1318→1339 例**全绿。
+>
+> 至此 M19+ 已采纳路线中的 M20/M21/M22(spike)/M23/M24/M25 全部交付；M19 多租户按既定决策延后，留作未来立项基线。
 >
 > 后续：将 M20 / M21 / M22(spike) / M24 拆为 `module-plan` 形式的 Mxx 任务卡（范围/契约/迁移/测试/门禁），按关注点分批在 `feat/V1.0.3` 落地；本文件已更新为「已采纳路线」。
