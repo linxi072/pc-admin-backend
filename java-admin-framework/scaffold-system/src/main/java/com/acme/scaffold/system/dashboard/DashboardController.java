@@ -8,10 +8,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 运营总览看板接口（M27 报表大屏 / 后端第一刀）。
+ * 运营总览看板接口（M27 报表大屏）。
  *
  * <p><b>权限</b>：{@code system:dashboard:read}，由 {@code ApiResourceAutoSyncRunner}
  * 扫描 {@code @PreAuthorize} 自动登记并授予 SUPER_ADMIN，无需手工登记。</p>
@@ -31,5 +32,13 @@ public class DashboardController {
     @TenantIgnorable("平台级全局统计，跨租户聚合")
     public Result<DashboardOverview> overview() {
         return Result.success(service.overview());
+    }
+
+    @Operation(summary = "获取运营趋势（近 N 日新增用户/新增租户/活跃租户时间序列，连续日期）")
+    @GetMapping("/trend")
+    @PreAuthorize("hasAuthority('system:dashboard:read')")
+    @TenantIgnorable("平台级全局趋势统计，跨租户聚合")
+    public Result<DashboardTrend> trend(@RequestParam(value = "days", defaultValue = "30") int days) {
+        return Result.success(service.trend(days));
     }
 }
