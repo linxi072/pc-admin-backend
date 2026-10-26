@@ -138,7 +138,9 @@ export default {
       file: '文件管理',
       exportCenter: '导出中心',
       importCenter: '导入中心',
-      observabilityCenter: '可观测中心'
+      observabilityCenter: '可观测中心',
+      reportDashboard: '报表大屏',
+      tenant: '租户管理'
     },
     error: {
       network: '网络错误',
@@ -282,7 +284,9 @@ export default {
       file: 'File Management',
       exportCenter: 'Export Center',
       importCenter: 'Import Center',
-      observabilityCenter: 'Observability Center'
+      observabilityCenter: 'Observability Center',
+      reportDashboard: 'Report Dashboard',
+      tenant: 'Tenant Management'
     },
     error: {
       network: 'Network error',

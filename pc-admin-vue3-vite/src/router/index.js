@@ -213,6 +213,14 @@ const routes = [
         meta: { title: 'route.reportApiCall', permission: 'report:read' }
       },
       {
+        // 报表大屏（M27）：运营总览 + 时间序列趋势，菜单与权限由后端驱动
+        // （menu_code=system:dashboard, permission=system:dashboard:read）
+        path: 'report/dashboard',
+        name: 'reportDashboard',
+        component: () => import('@/views/report/DashboardView.vue'),
+        meta: { title: 'route.reportDashboard', permission: 'system:dashboard:read' }
+      },
+      {
         // 定时任务：在线任务管理（列表/启动/暂停/编辑/日志），菜单与权限由后端驱动
         path: 'job/list',
         name: 'jobList',
@@ -249,6 +257,14 @@ const routes = [
         name: 'importCenter',
         component: () => import('@/views/system/ImportCenterView.vue'),
         meta: { title: 'route.importCenter', permission: 'system:import:read' }
+      },
+      {
+        // 租户管理（V51 / M19 P2）：租户注册表 CRUD + 启停，菜单与权限由后端驱动
+        // （menu_code=system:tenant, permission=system:tenant:read）
+        path: 'system/tenants',
+        name: 'tenant',
+        component: () => import('@/views/system/TenantView.vue'),
+        meta: { title: 'route.tenant', permission: 'system:tenant:read' }
       },
       {
         // 脱敏策略中心（V46）：按字段键 + 角色豁免的统一脱敏策略配置面，
