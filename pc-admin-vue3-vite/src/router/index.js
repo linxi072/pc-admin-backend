@@ -267,6 +267,14 @@ const routes = [
         meta: { title: 'route.tenant', permission: 'system:tenant:read' }
       },
       {
+        // 租户隔离态势（M28 只读运维诊断）：聚合隔离「配置态 + 运行态 + 当前执行作用域 + 配置校验结果」，
+        // 供运维只读诊断；后端 GET /api/system/tenant-isolation/status，权限 system:tenant-isolation:read
+        path: 'system/tenant-isolation',
+        name: 'tenantIsolation',
+        component: () => import('@/views/system/TenantIsolationView.vue'),
+        meta: { title: 'route.tenantIsolation', permission: 'system:tenant-isolation:read' }
+      },
+      {
         // 脱敏策略中心（V46）：按字段键 + 角色豁免的统一脱敏策略配置面，
         // 供 M1 审计/M20 增强等既有脱敏点经 MaskStrategyResolver 分派；菜单与权限由后端驱动
         path: 'system/mask-strategies',

@@ -140,7 +140,8 @@ export default {
       importCenter: '导入中心',
       observabilityCenter: '可观测中心',
       reportDashboard: '报表大屏',
-      tenant: '租户管理'
+      tenant: '租户管理',
+      tenantIsolation: '租户隔离态势'
     },
     error: {
       network: '网络错误',
@@ -286,7 +287,8 @@ export default {
       importCenter: 'Import Center',
       observabilityCenter: 'Observability Center',
       reportDashboard: 'Report Dashboard',
-      tenant: 'Tenant Management'
+      tenant: 'Tenant Management',
+      tenantIsolation: 'Tenant Isolation Status'
     },
     error: {
       network: 'Network error',
