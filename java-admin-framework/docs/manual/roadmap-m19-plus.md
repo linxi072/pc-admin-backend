@@ -1,6 +1,6 @@
 # 路线图规划：M19+ 后续模块提案（java-admin-framework）
 
-> 状态：**已采纳路线（2026-10-23 确认决策；M20–M26 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新交付状态）｜ 分支：`feat/V1.0.3` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
+> 状态：**已采纳路线（2026-10-23 确认决策；M19 P1/P2 + M20–M26 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新 M20–M26 交付状态；2026-10-26 更新 M19 P1/P2 交付状态）｜ 分支：`feat/V1.0.4` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
 > 方法：直接核查已交付能力（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim / M5 缓存 / M6 通知渠道 / M7–M8 已读回执 / M14 免打扰 / M15 退订令牌 / M16 故障转移+有界重试 / M17 聚合摘要 / M18 Webhook HMAC / 导入导出中心 / i18n / 限流注解化 / 敏感数据脱敏通用化 / 多段导入 #651 / 可观测中心前端 / 岗位管理 / 文件管理 / 多数据源 / 编码规范校验脚本），不凭空假设。
 > 约束：离线 Maven 仓库可用依赖优先；禁止引入需联网拉取的重型依赖（如 POI，已用零依赖 OOXML 替代）；数据访问以手写 jOOQ DSL（JooqTables + TableRef）为准；新模块须延续「模板注册 / 纯函数规则 / 条件装配 / 自动登记权限码」的既有范式。
 
@@ -16,7 +16,7 @@
 
 | 候选 | 业务价值 | 范围量级 | 离线可行性 | 风险/前置 | 建议优先级 |
 |---|---|---|---|---|---|
-| **M19 多租户隔离（SaaS 化）** | 高（框架作为可复用基座的核心分水岭） | 大（侵入式） | ✅ 用 jOOQ DSL + TenantContext + 多数据源路由，零新依赖 | 既有表需 `tenant_id` 迁移；跨租户管理视图需独立通道；影响面全局 | P1（若 SaaS 为目标） |
+| **M19 多租户隔离（SaaS 化）** | 高（框架作为可复用基座的核心分水岭） | 大（侵入式） | ✅ 用 jOOQ DSL + TenantContext + 多数据源路由，零新依赖 | 既有表需 `tenant_id` 迁移；跨租户管理视图需独立通道；影响面全局 | **P1 基础层 + P2 租户管理域已交付（feat/V1.0.4）；P3 jOOQ 强制注入隔离待做** |
 | **M20 操作/审计增强** | 中 | 中 | ✅ 增量扩展 M1 `AuditAspect` | 读操作审计量爆炸需采样/开关 | P2 |
 | **M21 数据脱敏策略中心（可视化配置）** | 中 | 中 | ✅ 复用 `common/sensitive` + 规则表 | 运行时解析需缓存与刷新；默认安全需保留 | P2 |
 | **M22 低代码/动态表单引擎** | 高 | 大（易膨胀） | ⚠️ 渲染层需评估（零依赖 JSON Schema 渲染 or 轻量依赖） | 作用域易失控；建议先 spike | P3（后期/spike 优先） |
@@ -47,6 +47,11 @@
   2. **Schema/库 隔离**：每租户独立 schema，经 `AbstractRoutingDataSource` 按 `TenantContext` 路由（复用既有多数据源 `app.datasources.entries.*` 机制）。
 - **关键构件**：`TenantResolver`（从 JWT claims / `X-Tenant-Id` 解析，缺失即拒绝或默认平台租户）、`TenantInterceptor`、`TenantAwareJooqConfig`、`V4x__add_tenant_id.sql`（存量表回填默认租户）、`sys_tenant` 租户表 + 租户管理端点。
 - **可行性**：✅ 零新依赖（jOOQ + Spring 原生）。**风险**：既有 ~50+ 表迁移、跨租户统计/报表需显式绕过隔离（平台通道）。**建议**：阶段 A 先行，且先交付「写入路径强制隔离 + 平台跨租户通道」最小闭环。
+
+#### 4.1.1 M19 落地进度（feat/V1.0.4）
+- **P1 基础层（已交付）**：`common.tenant` 包——`TenantContext`（ThreadLocal：tenantId + platformAdmin 标志）、`TenantProperties`（enabled / defaultTenantId / platformAdminRoleCode / headerName / claimName）、`TenantResolver`（JWT claim `tid` / 请求头 `X-Tenant-Id` / 默认租户解析，纯函数化）、`TenantRules`（租户 ID 解析归一、编码/名称/状态/联系人格式校验，纯函数）；配套 17 例单测全绿。
+- **P2 租户管理域（已交付）**：V51 迁移建 `sys_tenant`（tenant_code 唯一 + 状态机 ENABLED/DISABLED + 可选过期）+ 菜单播种（id=1124 挂系统管理 1002 并绑定 SUPER_ADMIN）；`JooqTables.SYS_TENANT`；`SysTenantDO` + `CreateTenantRequest`/`UpdateTenantRequest`/`TenantView`（tenant_code 创建后不可变更）；`TenantService`（CRUD + 整表缓存写失效 + 结构校验同源 `TenantRules` + tenant_code 唯一性裁决）；`TenantController`（`/api/system/tenants`，读 `system:tenant:read` / 写 `system:tenant:manage` 由 `ApiResourceAutoSyncRunner` 自动登记）；配套 13 例单测全绿。全仓 **1399→1412 例**。
+- **P3 jOOQ 强制注入隔离（待做）**：`TenantInterceptor`（请求级注入）+ `TenantVisitListener`（自动追加 `tenant_id = :current` 且禁止 null 越权查询）+ `@TenantIgnorable`（平台跨租户通道，跳过本表）。该层上线后将使 `sys_tenant` 等维度表的读取需显式 `@TenantIgnorable` 旁路。
 
 ### 4.2 M20 操作/审计增强
 - **目标**：在 M1 写操作审计基础上，补「读操作审计（可开关/采样）」「审计导出」「留存与清理」「按角色脱敏展示」。
