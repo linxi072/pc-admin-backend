@@ -3,6 +3,8 @@ package com.acme.scaffold.system.dashboard;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.acme.scaffold.common.observability.ObservabilitySnapshot;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -47,9 +49,42 @@ class DashboardRulesTest {
     }
 
     @Test
-    @DisplayName("metricOrder 字段数量与快照字段一致（8 项）")
+    @DisplayName("metricOrder 字段数量与快照字段一致（11 项：含 3 项跨模块可观测指标）")
     void metricOrderMatches() {
-        assertEquals(8, DashboardRules.metricOrder().size());
+        assertEquals(11, DashboardRules.metricOrder().size());
+    }
+
+    @Test
+    @DisplayName("带可观测快照的 buildOverview 应用 N+1 指标字段")
+    void buildOverviewWithObservabilityAppliesSnapshot() {
+        ObservabilitySnapshot obs = new ObservabilitySnapshot(7, 3, 1_700_000_000_000L);
+        DashboardOverview o = DashboardRules.buildOverview(
+                1, 2, 3, 4, 5, 6, 7, 8, obs, 123L);
+        assertEquals(7, o.nPlusOneSuspectTotal());
+        assertEquals(3, o.nPlusOneSuspectRetained());
+        assertEquals(1_700_000_000_000L, o.lastBreachAtMillis());
+        assertEquals(123L, o.generatedAt());
+    }
+
+    @Test
+    @DisplayName("可观测快照为 null 时回落全零（EMPTY 语义）")
+    void buildOverviewWithObservabilityNullFallsBackToEmpty() {
+        DashboardOverview o = DashboardRules.buildOverview(
+                1, 2, 3, 4, 5, 6, 7, 8, (ObservabilitySnapshot) null, 123L);
+        assertEquals(0, o.nPlusOneSuspectTotal());
+        assertEquals(0, o.nPlusOneSuspectRetained());
+        assertEquals(0, o.lastBreachAtMillis());
+    }
+
+    @Test
+    @DisplayName("可观测快照负数被钳制为 0")
+    void buildOverviewWithObservabilityClampsNegative() {
+        ObservabilitySnapshot obs = new ObservabilitySnapshot(-5, -1, -9);
+        DashboardOverview o = DashboardRules.buildOverview(
+                1, 2, 3, 4, 5, 6, 7, 8, obs, 123L);
+        assertEquals(0, o.nPlusOneSuspectTotal());
+        assertEquals(0, o.nPlusOneSuspectRetained());
+        assertEquals(0, o.lastBreachAtMillis());
     }
 
     @Test

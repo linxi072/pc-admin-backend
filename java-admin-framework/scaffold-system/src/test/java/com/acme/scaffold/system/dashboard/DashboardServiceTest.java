@@ -3,6 +3,9 @@ package com.acme.scaffold.system.dashboard;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.acme.scaffold.common.observability.ObservabilitySnapshot;
+import com.acme.scaffold.common.observability.ObservabilityStatsPort;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -108,5 +111,62 @@ class DashboardServiceTest {
         assertEquals(1, svc.trend(0).days());
         assertEquals(DashboardRules.MAX_TREND_DAYS, svc.trend(1000).days());
         assertEquals(7, svc.trend(7).days());
+    }
+
+    /** 假可观测端口：固定返回预置快照。 */
+    static class FakeObservabilityPort implements ObservabilityStatsPort {
+        ObservabilitySnapshot snapshot = new ObservabilitySnapshot(9, 4, 1_700_000_000_000L);
+        boolean thrown = false;
+
+        @Override
+        public ObservabilitySnapshot snapshot() {
+            if (thrown) {
+                throw new IllegalStateException("observability source unavailable");
+            }
+            return snapshot;
+        }
+    }
+
+    @Test
+    @DisplayName("overview 在有可观测端口时填充 N+1 指标字段")
+    void overviewIncludesObservabilityWhenPortPresent() {
+        DashboardService svc = new DashboardService(new FakeStatsPort());
+        FakeObservabilityPort port = new FakeObservabilityPort();
+        svc.setObservabilityPort(port);
+
+        DashboardOverview o = svc.overview();
+        assertEquals(9, o.nPlusOneSuspectTotal());
+        assertEquals(4, o.nPlusOneSuspectRetained());
+        assertEquals(1_700_000_000_000L, o.lastBreachAtMillis());
+        // 系统域计数不受影响
+        assertEquals(100, o.userCount());
+    }
+
+    @Test
+    @DisplayName("未装配可观测端口时回落全零（EMPTY 语义）")
+    void overviewFallsBackToEmptyWhenNoPort() {
+        DashboardService svc = new DashboardService(new FakeStatsPort());
+        // 不调用 setObservabilityPort
+
+        DashboardOverview o = svc.overview();
+        assertEquals(0, o.nPlusOneSuspectTotal());
+        assertEquals(0, o.nPlusOneSuspectRetained());
+        assertEquals(0, o.lastBreachAtMillis());
+    }
+
+    @Test
+    @DisplayName("可观测端口抛异常时回落全零（看板不被阻断）")
+    void overviewFallsBackToEmptyWhenPortThrows() {
+        DashboardService svc = new DashboardService(new FakeStatsPort());
+        FakeObservabilityPort port = new FakeObservabilityPort();
+        port.thrown = true;
+        svc.setObservabilityPort(port);
+
+        DashboardOverview o = svc.overview();
+        assertEquals(0, o.nPlusOneSuspectTotal());
+        assertEquals(0, o.nPlusOneSuspectRetained());
+        assertEquals(0, o.lastBreachAtMillis());
+        // 系统域计数仍正常
+        assertEquals(5000, o.operationLogCount());
     }
 }
