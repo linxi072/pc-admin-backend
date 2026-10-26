@@ -3,6 +3,9 @@ package com.acme.scaffold.system.dashboard;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,6 +19,11 @@ class DashboardServiceTest {
     static class FakeStatsPort implements SystemStatsPort {
         long tenants = 2, users = 100, roles = 10, menus = 50, online = 7,
                 idem = 30, ops = 5000, loginToday = 42;
+        List<TrendPoint> newUsers = List.of(
+                new TrendPoint(LocalDate.of(2026, 10, 25), 3),
+                new TrendPoint(LocalDate.of(2026, 10, 26), 5));
+        List<TrendPoint> newTenants = List.of();
+        List<TrendPoint> activeTenants = List.of(new TrendPoint(LocalDate.of(2026, 10, 26), 2));
 
         @Override public long countTenants() { return tenants; }
         @Override public long countUsers() { return users; }
@@ -25,6 +33,9 @@ class DashboardServiceTest {
         @Override public long countIdempotencyRecords() { return idem; }
         @Override public long countOperationLogs() { return ops; }
         @Override public long countLoginLogsToday() { return loginToday; }
+        @Override public List<TrendPoint> dailyNewUsers(int days) { return newUsers; }
+        @Override public List<TrendPoint> dailyNewTenants(int days) { return newTenants; }
+        @Override public List<TrendPoint> dailyActiveTenants(int days) { return activeTenants; }
     }
 
     @Test
@@ -70,5 +81,32 @@ class DashboardServiceTest {
         assertEquals(0, o.tenantCount());
         assertEquals(0, o.operationLogCount());
         assertTrue(o.generatedAt() > 0);
+    }
+
+    @Test
+    @DisplayName("trend 返回三条连续序列且长度=钳制后天数")
+    void trendReturnsContinuousSeries() {
+        DashboardService svc = new DashboardService(new FakeStatsPort());
+        DashboardTrend t = svc.trend(30);
+        assertEquals(30, t.days());
+        assertEquals(30, t.newUsers().size());
+        assertEquals(30, t.newTenants().size());
+        assertEquals(30, t.activeTenants().size());
+        assertTrue(t.generatedAt() > 0);
+        // 连续日期：相邻相差 1 天
+        for (int i = 1; i < t.newUsers().size(); i++) {
+            long gap = java.time.temporal.ChronoUnit.DAYS.between(
+                    t.newUsers().get(i - 1).date(), t.newUsers().get(i).date());
+            assertEquals(1, gap);
+        }
+    }
+
+    @Test
+    @DisplayName("trend 天数越界被钳制到 [1,90]")
+    void trendDaysClamped() {
+        DashboardService svc = new DashboardService(new FakeStatsPort());
+        assertEquals(1, svc.trend(0).days());
+        assertEquals(DashboardRules.MAX_TREND_DAYS, svc.trend(1000).days());
+        assertEquals(7, svc.trend(7).days());
     }
 }
