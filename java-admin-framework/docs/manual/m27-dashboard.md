@@ -1,8 +1,9 @@
 # M27 报表大屏（后端：运营总览 API + 时间序列趋势）
 
-> 状态：**后端三刀均已交付（feat/V1.0.4，门禁 1465 例全绿）** ｜ 日期：2026-10-26 ｜ 分支：`feat/V1.0.4`
+> 状态：**后端四刀均已交付（feat/V1.0.4，门禁 1470 例全绿）** ｜ 日期：2026-10-26 ｜ 分支：`feat/V1.0.4`
 > 来源：用户选定「报表大屏模块」+「前端配套页」后续方向；本文件仅覆盖**后端**统计接口，前端可视化合与「前端配套页」在 `pc-admin-vue3-vite` 另行落地。
 > 第三刀（N+1 疑似跨模块可观测指标接入看板）：通过 `common` 跨模块端口范式，将 `scaffold-framework` 的 `NPlusOneSuspectRegistry` 指标零耦合接入 `DashboardOverview`，`scaffold-system` 不依赖 framework。
+> 第四刀（链路追踪指标跨模块接入看板）：沿用第三刀的 `common` 跨模块端口范式，将 `scaffold-framework` 的 `SpanRecorder` 链路追踪指标（启用状态 / 当前留存 / 累计条数 / 错误条数）零耦合接入 `DashboardOverview`；`ObservabilitySnapshot` 由 3 字段扩展为 7 字段，`scaffold-system` 仍不依赖 framework。
 
 ---
 
@@ -37,6 +38,10 @@
 | `nPlusOneSuspectTotal` | N+1 疑似累计越限次数 | 跨模块端口 `ObservabilityStatsPort`（framework 适配器读 `NPlusOneSuspectRegistry.total()`）；无适配器时回落 0 |
 | `nPlusOneSuspectRetained` | N+1 疑似当前留存条数（有界留存，默认 200） | 同上（`registry.size()`）；无适配器时回落 0 |
 | `lastBreachAtMillis` | 最近一次 N+1 疑似越限时刻（epoch 毫秒，0=从未） | 同上（`registry.lastBreachAt()`）；无适配器时回落 0 |
+| `traceRecorderEnabled` | 链路追踪记录器是否启用 | 跨模块端口 `ObservabilityStatsPort`（framework 适配器读 `SpanRecorder.stats().enabled()`）；无适配器时回落 false |
+| `traceRetained` | 链路追踪当前留存 span 条数（有界留存，默认 200） | 同上（`stats.size()`）；无适配器时回落 0 |
+| `traceTotal` | 链路追踪累计记录 span 条数（ok + error + unset） | 同上（`stats.okCount() + errorCount() + unsetCount()`）；无适配器时回落 0 |
+| `traceErrorTotal` | 链路追踪累计错误 span 条数 | 同上（`stats.errorCount()`）；无适配器时回落 0 |
 | `generatedAt` | 快照生成时刻（epoch 毫秒） | 服务端 |
 
 `DashboardTrend` 字段：
@@ -70,24 +75,25 @@
 
 | 层 | 类 | 职责 |
 |---|---|---|
-| `scaffold-common` | `observability/ObservabilitySnapshot` | 不可变 snapshot record（`nPlusOneSuspectTotal` / `nPlusOneSuspectRetained` / `lastBreachAtMillis`），含 `EMPTY` 哨兵与 `clampNonNegative()` |
+| `scaffold-common` | `observability/ObservabilitySnapshot` | 不可变 snapshot record（N+1 三字段 `nPlusOneSuspectTotal` / `nPlusOneSuspectRetained` / `lastBreachAtMillis` + 链路追踪四字段 `traceRecorderEnabled` / `traceRetained` / `traceTotal` / `traceErrorTotal`，共 7 字段），含 `EMPTY` 哨兵（全零 + 未启用）与 `clampNonNegative()`（long 钳非负、boolean 原样保留） |
 | `scaffold-common` | `observability/ObservabilityStatsPort` | 跨模块统计端口接口，`snapshot()` 无数据时返回 `EMPTY`（不得返回 null） |
 | `scaffold-framework` | `monitor/observability/FrameworkObservabilityAdapter` | `@Component` 实现端口，构造注入 `NPlusOneSuspectRegistry`，读取累计越限 / 留存条数 / 最近越限时刻并经 `clampNonNegative()` 归一 |
 | `scaffold-system` | `dashboard/DashboardService` | 保留构造注入 `SystemStatsPort`，**新增 `@Autowired(required=false) setObservabilityPort`** setter；port 为 null 或调用抛异常时回落 `ObservabilitySnapshot.EMPTY` |
 
 - **零耦合**：`system` 仅依赖 `common` 的端口契约，不 import framework；framework 不在 classpath 时，setter 不触发注入，看板自动回落全零指标，行为等同未接入。
 - **单测安全**：`DashboardServiceTest` 用假 `ObservabilityStatsPort`（可模拟抛异常）验证「有 port / 无 port / port 抛异常」三种回落，无需 Spring 容器。
-- `DashboardRules.buildOverview` 新增 11 参重载（第 9 参为 `ObservabilitySnapshot`），**保留既有 9 参重载**以免破坏既有测试；`metricOrder()` 由 8 项扩为 11 项（追加三个 N+1 字段）。
+- `DashboardRules.buildOverview` 将 `ObservabilitySnapshot` 的 7 个字段全部映射到 `DashboardOverview`（现 15 个业务字段 + `generatedAt` 共 16）；`metricOrder()` 由 11 项扩为 15 项（追加四个 trace 字段 `traceRecorderEnabled` / `traceRetained` / `traceTotal` / `traceErrorTotal`）。`generatedAt` 经 `DashboardOverview` 构造置于末位，保持既有字段顺序稳定。
 
 ## 4. 测试
 
-- `DashboardRulesTest`（12 例）：负数钳制、时间戳回落、字段顺序、clampDays 边界、fillDailyGaps 补齐/负数钳制、buildTrend 钳制与回落；**第三刀新增 3 例**：`buildOverviewWithObservabilityAppliesSnapshot`、`buildOverviewWithObservabilityNullFallsBackToEmpty`、`buildOverviewWithObservabilityClampsNegative`。
-- `DashboardServiceTest`（8 例）：overview 聚合、负数钳制、全零兜底、trend 连续序列、（trend 天数越界钳制），均以假 `SystemStatsPort`，无 DB/Spring；**第三刀新增 3 例**：`overviewIncludesObservabilityWhenPortPresent`、`overviewFallsBackToEmptyWhenNoPort`、`overviewFallsBackToEmptyWhenPortThrows`（含可抛异常的假 `ObservabilityStatsPort` 内部类）。
-- `FrameworkObservabilityAdapterTest`（3 例，scaffold-framework）：snapshot 反映 registry（total/size/lastBreachAt）、无越限时全零、容量淘汰后留存=容量且累计单调。
+- `DashboardRulesTest`（12 例）：负数钳制、时间戳回落、字段顺序、clampDays 边界、fillDailyGaps 补齐/负数钳制、buildTrend 钳制与回落；**第三刀新增 3 例**：`buildOverviewWithObservabilityAppliesSnapshot`、`buildOverviewWithObservabilityNullFallsBackToEmpty`、`buildOverviewWithObservabilityClampsNegative`（第四刀扩展断言覆盖四个 trace 字段，`metricOrder` 由 11→15 项）。
+- `DashboardServiceTest`（8 例）：overview 聚合、负数钳制、全零兜底、trend 连续序列、（trend 天数越界钳制），均以假 `SystemStatsPort`，无 DB/Spring；**第三刀新增 3 例**：`overviewIncludesObservabilityWhenPortPresent`、`overviewFallsBackToEmptyWhenNoPort`、`overviewFallsBackToEmptyWhenPortThrows`（含可抛异常的假 `ObservabilityStatsPort` 内部类，第四刀扩展断言覆盖四个 trace 字段）。
+- `ObservabilitySnapshotTest`（5 例，scaffold-common）：`EMPTY` 哨兵全零 + 未启用、带四个 trace 字段构造、未启用承载计数、`clampNonNegative` 钳制 long 保留 boolean、合法值原样保留（不可变新实例断言 `assertNotSame`）。
+- `FrameworkObservabilityAdapterTest`（3 例，scaffold-framework）：构造注入 `SpanRecorder`，snapshot 反映 `NPlusOneSuspectRegistry` + `SpanRecorder.stats()`（`traceRecorderEnabled`/`traceRetained`/`traceTotal`/`traceErrorTotal`，`traceTotal=ok+error+unset`）、N+1 无越限与 trace 未启用时全零、容量淘汰后留存=容量且累计单调。
 
 > 注：jOOQ 日期分组 SQL 仅在运行时对真实数据库生效；本仓禁用 Docker，`clean test` 以假 port 验证聚合与规则，适配器 SQL 由编译期类型检查 + 上线前对真实库验证保障。
 
 ## 5. 后续（待办，未含于本切片）
 
-- **链路追踪指标（跨模块）**：N+1 疑似已通过端口范式接入；链路追踪（OTel `TraceContext` 等）可沿用同一 `ObservabilityStatsPort` 扩展第二个 `snapshot()` 维度（或新增端口），`scaffold-system` 仍无需依赖 framework。
+- **链路追踪指标（跨模块）**：✅ 已交付（第四刀）——沿用第三刀端口范式，`ObservabilitySnapshot` 扩展 `traceRecorderEnabled` / `traceRetained` / `traceTotal` / `traceErrorTotal` 四个字段，framework 适配器注入 `SpanRecorder.stats()`，`scaffold-system` 仍不依赖 framework；看板 `DashboardOverview` 现含 15 业务字段。
 - **前端看板页** + **租户管理页 / 脱敏策略中心前端**（用户选定的「前端配套页」）在 `pc-admin-vue3-vite` 落地。
