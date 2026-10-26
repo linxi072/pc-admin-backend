@@ -82,6 +82,19 @@ public final class JooqTables {
             "id", "tenant_id", "post_code", "post_name", "post_sort", "status", "remark",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
+    // ---------------- 多租户隔离（M19） ----------------
+
+    /**
+     * 租户注册表（列名与 V51__tenant_management.sql 严格一致）。逻辑删除（deleted），乐观锁（version）；
+     * (tenant_id, tenant_code) 唯一约束兜底并发注册。
+     * <p>该表为「租户维度表」而非「被隔离数据」：所有行 {@code tenant_id} 恒为 0（平台租户），
+     * 由平台管理员统一维护，查询不按当前租户过滤；P3 的 jOOQ 强制注入会显式跳过本表。</p>
+     */
+    public static final TableRef SYS_TENANT = new TableRef("sys_tenant",
+            "id", "tenant_id", "tenant_code", "tenant_name", "contact_name", "contact_phone",
+            "contact_email", "status", "expire_at", "remark",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
     /** 用户-岗位关联（多对多）。无 deleted 列，分配整体替换为物理删除。 */
     public static final TableRef SYS_USER_POST = new TableRef("sys_user_post",
             "id", "tenant_id", "user_id", "post_id", "created_at");
