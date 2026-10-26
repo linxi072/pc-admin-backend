@@ -1,5 +1,7 @@
 package com.acme.scaffold.system.dashboard;
 
+import com.acme.scaffold.common.observability.ObservabilitySnapshot;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -34,13 +36,29 @@ public final class DashboardRules {
     }
 
     /**
-     * 构建总览快照：对每个计数做非负钳制；{@code generatedAt} 为 0 或负数时回落为当前时刻。
+     * 构建总览快照：对每个计数做非负钳制；跨模块可观测指标回落 {@link ObservabilitySnapshot#EMPTY}；
+     * {@code generatedAt} 为 0 或负数时回落为当前时刻。
      */
     public static DashboardOverview buildOverview(
             long tenantCount, long userCount, long roleCount, long menuCount,
             long onlineSessionCount, long idempotencyRecordCount, long operationLogCount,
             long loginLogTodayCount, long generatedAt) {
+        return buildOverview(tenantCount, userCount, roleCount, menuCount,
+                onlineSessionCount, idempotencyRecordCount, operationLogCount,
+                loginLogTodayCount, ObservabilitySnapshot.EMPTY, generatedAt);
+    }
+
+    /**
+     * 构建总览快照（含跨模块可观测指标）：系统域计数经非负钳制，
+     * {@code obs} 为空时按 {@link ObservabilitySnapshot#EMPTY} 处理并再做一次非负钳制，保证绝不出现负值；
+     * {@code generatedAt} 为 0 或负数时回落为当前时刻。
+     */
+    public static DashboardOverview buildOverview(
+            long tenantCount, long userCount, long roleCount, long menuCount,
+            long onlineSessionCount, long idempotencyRecordCount, long operationLogCount,
+            long loginLogTodayCount, ObservabilitySnapshot obs, long generatedAt) {
         long ts = (generatedAt > 0) ? generatedAt : System.currentTimeMillis();
+        ObservabilitySnapshot c = (obs == null) ? ObservabilitySnapshot.EMPTY : obs.clampNonNegative();
         return new DashboardOverview(
                 clampNonNegative(tenantCount),
                 clampNonNegative(userCount),
@@ -50,6 +68,9 @@ public final class DashboardRules {
                 clampNonNegative(idempotencyRecordCount),
                 clampNonNegative(operationLogCount),
                 clampNonNegative(loginLogTodayCount),
+                c.nPlusOneSuspectTotal(),
+                c.nPlusOneSuspectRetained(),
+                c.lastBreachAtMillis(),
                 ts);
     }
 
@@ -120,6 +141,7 @@ public final class DashboardRules {
     public static List<String> metricOrder() {
         return List.of("tenantCount", "userCount", "roleCount", "menuCount",
                 "onlineSessionCount", "idempotencyRecordCount",
-                "operationLogCount", "loginLogTodayCount");
+                "operationLogCount", "loginLogTodayCount",
+                "nPlusOneSuspectTotal", "nPlusOneSuspectRetained", "lastBreachAtMillis");
     }
 }

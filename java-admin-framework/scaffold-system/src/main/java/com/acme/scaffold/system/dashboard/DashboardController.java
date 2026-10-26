@@ -26,7 +26,7 @@ public class DashboardController {
 
     private final DashboardService service;
 
-    @Operation(summary = "获取运营总览快照（租户数/用户数/角色数/菜单数/在线会话/幂等记录/操作日志/今日登录）")
+    @Operation(summary = "获取运营总览快照（租户数/用户数/角色数/菜单数/在线会话/幂等记录/操作日志/今日登录/N+1 疑似指标）")
     @GetMapping("/overview")
     @PreAuthorize("hasAuthority('system:dashboard:read')")
     @TenantIgnorable("平台级全局统计，跨租户聚合")
