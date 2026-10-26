@@ -141,7 +141,8 @@ export default {
       observabilityCenter: '可观测中心',
       reportDashboard: '报表大屏',
       tenant: '租户管理',
-      tenantIsolation: '租户隔离态势'
+      tenantIsolation: '租户隔离态势',
+      realtime: '实时推送'
     },
     error: {
       network: '网络错误',
@@ -288,7 +289,8 @@ export default {
       observabilityCenter: 'Observability Center',
       reportDashboard: 'Report Dashboard',
       tenant: 'Tenant Management',
-      tenantIsolation: 'Tenant Isolation Status'
+      tenantIsolation: 'Tenant Isolation Status',
+      realtime: 'Realtime Push'
     },
     error: {
       network: 'Network error',

@@ -322,3 +322,47 @@ export function closeRealtime() {
   }
   listeners.clear()
 }
+
+// ---- 实时推送管理（M29）：运维侧只读查询 + 手动推送 REST 入口 ----
+// 后端 RealtimeController（/api/realtime）契约：
+//   GET  /sessions        -> List<RealtimeSessionView(userId, sessionCount)>
+//   GET  /online-count    -> Integer
+//   POST /push/broadcast  -> RealtimePushResultView(delivered)  { type, payload }
+//   POST /push/user       -> RealtimePushResultView(delivered)  { userIds, type, payload }
+// 权限：read 端点需 system:realtime:read；push 端点需 system:realtime:push。
+
+import { request } from './http'
+
+/**
+ * GET /api/realtime/sessions -> List<RealtimeSessionView>
+ * 在线会话列表：userId 与其当前活跃 WebSocket 会话数（同一用户多端登录累加）。
+ */
+export const listRealtimeSessions = () =>
+  request({ method: 'GET', url: '/api/realtime/sessions' })
+
+/**
+ * GET /api/realtime/online-count -> Integer
+ * 在线会话总数（所有在线用户的活跃连接数之和）。
+ */
+export const realtimeOnlineCount = () =>
+  request({ method: 'GET', url: '/api/realtime/online-count' })
+
+/**
+ * POST /api/realtime/push/broadcast -> RealtimePushResultView
+ * 向所有在线会话广播实时消息。type 必填（UNREAD_MESSAGE / TODO_REMINDER / NOTIFICATION / PONG），
+ * payload 透传业务负载（字符串或 JSON 均可）。
+ * @param {string} type 推送类型
+ * @param {*} payload 业务负载
+ */
+export const realtimeBroadcast = (type, payload) =>
+  request({ method: 'POST', url: '/api/realtime/push/broadcast', data: { type, payload } })
+
+/**
+ * POST /api/realtime/push/user -> RealtimePushResultView
+ * 向指定用户集合定向推送实时消息。userIds 必填且非空。
+ * @param {Array<number>} userIds 目标用户 ID 列表
+ * @param {string} type 推送类型
+ * @param {*} payload 业务负载
+ */
+export const realtimePushToUser = (userIds, type, payload) =>
+  request({ method: 'POST', url: '/api/realtime/push/user', data: { userIds, type, payload } })

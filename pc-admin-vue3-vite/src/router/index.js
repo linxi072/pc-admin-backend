@@ -283,6 +283,15 @@ const routes = [
         meta: { title: 'route.maskStrategy', permission: 'system:mask-strategy:read' }
       },
       {
+        // 实时推送管理（M29）：在线会话只读视图 + 运维侧手动广播/定向推送，
+        // 后端 RealtimeController（/api/realtime），权限由后端驱动
+        // （menu_code=system:realtime, permission=system:realtime:read；推送另需 system:realtime:push）
+        path: 'system/realtime',
+        name: 'realtime',
+        component: () => import('@/views/system/RealtimeView.vue'),
+        meta: { title: 'route.realtime', permission: 'system:realtime:read' }
+      },
+      {
         // 低代码表单试点（V47 / M22 spike）：Schema 契约 + 零依赖渲染验证，提交落库与绑定目标
         // 为正式立项决策点；菜单与权限由后端驱动（menu_code=system:form-pilot,
         // permission=system:form-definition:read）
