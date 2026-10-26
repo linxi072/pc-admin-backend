@@ -1,5 +1,8 @@
 package com.acme.scaffold.config.web;
 
+import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.common.tenant.TenantProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -7,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -20,13 +24,27 @@ import java.util.List;
  */
 @Configuration
 @EnableConfigurationProperties(CorsProperties.class)
+@RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
     /** 头像访问前缀，与 ProfileService 中保存的 avatarUrl 前缀保持一致。 */
     private static final String AVATAR_URL_PREFIX = "/uploads/avatar/";
 
+    private final TenantProperties tenantProperties;
+    private final SecurityContextFacade securityContextFacade;
+
     @Value("${app.upload.avatar-dir:./uploads/avatar}")
     private String avatarDir;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(tenantInterceptor());
+    }
+
+    @Bean
+    public TenantInterceptor tenantInterceptor() {
+        return new TenantInterceptor(tenantProperties, securityContextFacade);
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

@@ -3,6 +3,7 @@ package com.acme.scaffold.jooq.dsl;
 import com.acme.scaffold.common.IdGenerator;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.tenant.TenantEnforcement;
 import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -51,7 +52,12 @@ public final class JooqWriters {
         Long id = IdGenerator.nextId();
         setIdIfPresent(pojo, id);
         putIfPresent(values, table, "id", id);
-        putIfPresent(values, table, "tenant_id", 0L);
+        // 租户隔离：enforce 开启且当前表需隔离时，写入当前租户；否则维持既有行为（平台租户 0）
+        if (TenantEnforcement.shouldEnforce(table.name())) {
+            putIfPresent(values, table, "tenant_id", TenantEnforcement.currentTenantId());
+        } else {
+            putIfPresent(values, table, "tenant_id", 0L);
+        }
         putIfPresent(values, table, "deleted", 0);
         putIfPresent(values, table, "version", 0);
         putIfPresent(values, table, "created_at", Timestamp.valueOf(LocalDateTime.now()));
@@ -77,7 +83,11 @@ public final class JooqWriters {
             Long id = IdGenerator.nextId();
             setIdIfPresent(pojo, id);
             putIfPresent(values, table, "id", id);
-            putIfPresent(values, table, "tenant_id", 0L);
+            if (TenantEnforcement.shouldEnforce(table.name())) {
+                putIfPresent(values, table, "tenant_id", TenantEnforcement.currentTenantId());
+            } else {
+                putIfPresent(values, table, "tenant_id", 0L);
+            }
             putIfPresent(values, table, "deleted", 0);
             putIfPresent(values, table, "version", 0);
             putIfPresent(values, table, "created_at", Timestamp.valueOf(LocalDateTime.now()));
@@ -101,7 +111,7 @@ public final class JooqWriters {
         }
         dsl.update(table.table())
                 .set(toFieldMap(table, values))
-                .where(table.field("id", Long.class).eq(id))
+                .where(withTenant(table, table.field("id", Long.class).eq(id)))
                 .execute();
     }
 
@@ -132,7 +142,7 @@ public final class JooqWriters {
         }
         dsl.update(table.table())
                 .set(toFieldMap(table, values))
-                .where(table.field("id", Long.class).eq(id))
+                .where(withTenant(table, table.field("id", Long.class).eq(id)))
                 .execute();
     }
 
@@ -145,11 +155,11 @@ public final class JooqWriters {
             dsl.update(table.table())
                     .set(table.field("deleted", Integer.class), 1)
                     .set(table.field("updated_at", Timestamp.class), Timestamp.valueOf(LocalDateTime.now()))
-                    .where(table.field("id", Long.class).eq(id))
+                    .where(withTenant(table, table.field("id", Long.class).eq(id)))
                     .execute();
         } else {
             dsl.deleteFrom(table.table())
-                    .where(table.field("id", Long.class).eq(id))
+                    .where(withTenant(table, table.field("id", Long.class).eq(id)))
                     .execute();
         }
     }
@@ -159,13 +169,15 @@ public final class JooqWriters {
         if (value == null || !table.has(column)) {
             return;
         }
+        Condition base;
         if (value instanceof Long lv) {
-            dsl.deleteFrom(table.table()).where(table.field(column, Long.class).eq(lv)).execute();
+            base = table.field(column, Long.class).eq(lv);
         } else if (value instanceof String sv) {
-            dsl.deleteFrom(table.table()).where(table.field(column, String.class).eq(sv)).execute();
+            base = table.field(column, String.class).eq(sv);
         } else {
-            dsl.deleteFrom(table.table()).where(table.field(column, Object.class).eq(value)).execute();
+            base = table.field(column, Object.class).eq(value);
         }
+        dsl.deleteFrom(table.table()).where(withTenant(table, base)).execute();
     }
 
     // ------------------------------------------------------------------
@@ -181,7 +193,7 @@ public final class JooqWriters {
 
     /** 按条件查询单条记录并映射为 POJO；无结果返回 null。 */
     public static <E> E fetchOne(DSLContext dsl, JooqTables.TableRef table, Class<E> type, Condition cond) {
-        return dsl.selectFrom(table.table()).where(cond).fetchOne(new SnakeRecordMapper<>(type));
+        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).fetchOne(new SnakeRecordMapper<>(type));
     }
 
     /** 按 id 查询单条记录（含逻辑删除过滤）。 */
@@ -190,13 +202,13 @@ public final class JooqWriters {
             return null;
         }
         return fetchOne(dsl, table, type,
-                DSL.and(notDeleted(table), table.field("id", Long.class).eq(id)));
+                withTenant(table, DSL.and(notDeleted(table), table.field("id", Long.class).eq(id))));
     }
 
     /** 按条件查询列表。 */
     public static <E> List<E> fetchList(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
                                         Condition cond) {
-        return dsl.selectFrom(table.table()).where(cond).fetch(new SnakeRecordMapper<>(type));
+        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).fetch(new SnakeRecordMapper<>(type));
     }
 
     /** 按条件查询列表并排序。 */
@@ -205,7 +217,7 @@ public final class JooqWriters {
         if (orderBy == null || orderBy.length == 0) {
             return fetchList(dsl, table, type, cond);
         }
-        return dsl.selectFrom(table.table()).where(cond).orderBy(orderBy)
+        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).orderBy(orderBy)
                 .fetch(new SnakeRecordMapper<>(type));
     }
 
@@ -219,16 +231,16 @@ public final class JooqWriters {
                                        Condition cond, int limit, OrderField<?>... orderBy) {
         int n = Math.min(Math.max(limit, 1), 1000);
         if (orderBy == null || orderBy.length == 0) {
-            return dsl.selectFrom(table.table()).where(cond).limit(n)
+            return dsl.selectFrom(table.table()).where(withTenant(table, cond)).limit(n)
                     .fetch(new SnakeRecordMapper<>(type));
         }
-        return dsl.selectFrom(table.table()).where(cond).orderBy(orderBy).limit(n)
+        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).orderBy(orderBy).limit(n)
                 .fetch(new SnakeRecordMapper<>(type));
     }
 
     /** 按条件统计数量。 */
     public static long count(DSLContext dsl, JooqTables.TableRef table, Condition cond) {
-        Integer total = dsl.selectCount().from(table.table()).where(cond).fetchOne(0, int.class);
+        Integer total = dsl.selectCount().from(table.table()).where(withTenant(table, cond)).fetchOne(0, int.class);
         return total == null ? 0L : total.longValue();
     }
 
@@ -236,7 +248,7 @@ public final class JooqWriters {
     public static <E> PageResult<E> page(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
                                          Condition cond, PageQuery q, OrderField<?>... orderBy) {
         long total = count(dsl, table, cond);
-        var step = dsl.selectFrom(table.table()).where(cond);
+        var step = dsl.selectFrom(table.table()).where(withTenant(table, cond));
         List<E> records;
         if (orderBy != null && orderBy.length > 0) {
             records = step.orderBy(orderBy)
@@ -252,6 +264,23 @@ public final class JooqWriters {
     // ------------------------------------------------------------------
     // 内部实现
     // ------------------------------------------------------------------
+
+    /**
+     * 租户隔离装饰（M19 P3）：仅当强制隔离生效时，向给定条件追加 {@code tenant_id = currentTenantId()}。
+     *
+     * <p><b>生效条件</b>（全部满足才追加）：{@code app.tenant.enforce=true} 且目标表需隔离（非平台维表）
+     * 且当前线程已设置租户作用域；否则原样返回条件，保证与既有单租户逻辑零回归。</p>
+     *
+     * <p>目标表若不存在 {@code tenant_id} 列，视为无需隔离，原样返回（避免无列场景 NPE）。</p>
+     */
+    private static Condition withTenant(JooqTables.TableRef table, Condition cond) {
+        if (!TenantEnforcement.shouldEnforce(table.name()) || !table.has("tenant_id")) {
+            return cond;
+        }
+        Condition tenantCond = table.field("tenant_id", Long.class).eq(TenantEnforcement.currentTenantId());
+        return (cond == null) ? tenantCond : cond.and(tenantCond);
+    }
+
 
     /** 按列名收集 POJO 非 null 属性（跳过 id，由主键生成器统一处理）。 */
     private static <T> Map<String, Object> columnValues(T pojo, JooqTables.TableRef table) {

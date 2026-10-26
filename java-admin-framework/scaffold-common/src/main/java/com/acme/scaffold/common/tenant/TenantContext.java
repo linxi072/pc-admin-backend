@@ -1,5 +1,7 @@
 package com.acme.scaffold.common.tenant;
 
+import java.util.function.Supplier;
+
 /**
  * 租户上下文：请求/线程级当前租户与作用域标记（ThreadLocal 载体）。
  *
@@ -89,7 +91,35 @@ public final class TenantContext {
         HOLDER.remove();
     }
 
-    /** 不可变作用域值对象：租户 ID + 平台管理员标记。 */
-    public record TenantScope(long tenantId, boolean platformAdmin) {
+    /** 当前是否处于跨租户旁路（@TenantIgnorable 作用域）。 */
+    public static boolean isBypass() {
+        TenantScope s = HOLDER.get();
+        return s != null && s.bypass();
+    }
+
+    /**
+     * 在跨租户旁路作用域下执行有返回值动作（@TenantIgnorable 切面使用），结束后恢复原作用域。
+     * 仅当已设置租户上下文时可用，避免把无作用域调用误判为平台旁路。
+     */
+    public static <T> T runWithBypass(Supplier<T> action) {
+        TenantScope prev = HOLDER.get();
+        if (prev == null) {
+            throw new IllegalStateException("runWithBypass 需先设置租户上下文");
+        }
+        HOLDER.set(new TenantScope(prev.tenantId(), prev.platformAdmin(), true));
+        try {
+            return action.get();
+        } finally {
+            HOLDER.set(prev);
+        }
+    }
+
+    /** 不可变作用域值对象：租户 ID + 平台管理员标记 + 跨租户旁路标记。 */
+    public record TenantScope(long tenantId, boolean platformAdmin, boolean bypass) {
+        /** 兼容旧调用：缺省非旁路。 */
+        @Deprecated
+        public TenantScope(long tenantId, boolean platformAdmin) {
+            this(tenantId, platformAdmin, false);
+        }
     }
 }

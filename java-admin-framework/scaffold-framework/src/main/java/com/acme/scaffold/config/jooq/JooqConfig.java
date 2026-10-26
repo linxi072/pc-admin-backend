@@ -1,5 +1,7 @@
 package com.acme.scaffold.config.jooq;
 
+import com.acme.scaffold.common.tenant.TenantEnforcement;
+import com.acme.scaffold.common.tenant.TenantProperties;
 import com.acme.scaffold.jooq.mapping.SnakeRecordMapperProvider;
 import com.acme.scaffold.monitor.detection.NPlusOneListener;
 import com.acme.scaffold.monitor.detection.NPlusOneProbe;
@@ -46,7 +48,10 @@ public class JooqConfig {
     public DSLContext dslContext(DataSource dataSource,
                                  @Value("${app.jooq.slow-query-threshold-ms:500}") long slowQueryThresholdMs,
                                  NPlusOneProbe nPlusOneProbe,
-                                 NPlusOneSuspectRegistry nPlusOneSuspectRegistry) {
+                                 NPlusOneSuspectRegistry nPlusOneSuspectRegistry,
+                                 TenantProperties tenantProperties) {
+        // M19 P3：将租户隔离配置快照注入 TenantEnforcement（静态单点裁决，enforce=false 默认零回归）。
+        TenantEnforcement.configure(tenantProperties);
         // TransactionAwareDataSourceProxy 使 jOOQ 获取的连接自动加入 Spring 声明式事务
         // （@Transactional 对 jOOQ 语句生效），无需额外的 jOOQ-Spring 依赖。
         DataSourceConnectionProvider connectionProvider =
