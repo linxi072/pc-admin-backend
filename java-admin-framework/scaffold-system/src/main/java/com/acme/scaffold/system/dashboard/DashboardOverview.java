@@ -6,7 +6,7 @@ import com.acme.scaffold.common.observability.ObservabilitySnapshot;
  * 运营总览快照（M27 报表大屏 / 后端）。
  *
  * <p>聚合系统域核心计数（租户/用户/角色/菜单/在线会话/幂等记录/操作日志/今日登录），
- * 以及来自 {@code scaffold-framework} 的跨模块可观测指标（N+1 疑似）。
+ * 以及来自 {@code scaffold-framework} 的跨模块可观测指标（N+1 疑似 + 链路追踪本地 span 留存）。
  * 所有计数为非负长整型；{@code generatedAt} 为生成时刻（epoch 毫秒），便于前端展示「数据时间」。
  * 跨模块指标通过 {@link ObservabilitySnapshot} 解耦获取，缺源时回落全零，不影响系统域统计。</p>
  *
@@ -21,6 +21,10 @@ import com.acme.scaffold.common.observability.ObservabilitySnapshot;
  * @param nPlusOneSuspectTotal   N+1 疑似累计越限次数（跨模块指标，缺源为 0）
  * @param nPlusOneSuspectRetained N+1 疑似当前留存条数（跨模块指标，缺源为 0）
  * @param lastBreachAtMillis     最近一次 N+1 越限时间（epoch 毫秒，缺源/未越限为 0）
+ * @param traceRecorderEnabled   链路追踪本地记录器是否启用（跨模块指标，缺源为 false）
+ * @param traceRetained          当前留存 span 条数（跨模块指标，缺源为 0）
+ * @param traceTotal             历史累计 span 条数（跨模块指标，缺源为 0）
+ * @param traceErrorTotal        历史累计 ERROR 状态 span 条数（跨模块指标，缺源为 0）
  * @param generatedAt            快照生成时刻（epoch 毫秒）
  */
 public record DashboardOverview(
@@ -35,5 +39,9 @@ public record DashboardOverview(
         long nPlusOneSuspectTotal,
         long nPlusOneSuspectRetained,
         long lastBreachAtMillis,
+        boolean traceRecorderEnabled,
+        long traceRetained,
+        long traceTotal,
+        long traceErrorTotal,
         long generatedAt) {
 }

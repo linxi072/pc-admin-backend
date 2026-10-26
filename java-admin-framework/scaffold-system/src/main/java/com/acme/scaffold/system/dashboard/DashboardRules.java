@@ -71,6 +71,10 @@ public final class DashboardRules {
                 c.nPlusOneSuspectTotal(),
                 c.nPlusOneSuspectRetained(),
                 c.lastBreachAtMillis(),
+                c.traceRecorderEnabled(),
+                c.traceRetained(),
+                c.traceTotal(),
+                c.traceErrorTotal(),
                 ts);
     }
 
@@ -142,6 +146,7 @@ public final class DashboardRules {
         return List.of("tenantCount", "userCount", "roleCount", "menuCount",
                 "onlineSessionCount", "idempotencyRecordCount",
                 "operationLogCount", "loginLogTodayCount",
-                "nPlusOneSuspectTotal", "nPlusOneSuspectRetained", "lastBreachAtMillis");
+                "nPlusOneSuspectTotal", "nPlusOneSuspectRetained", "lastBreachAtMillis",
+                "traceRecorderEnabled", "traceRetained", "traceTotal", "traceErrorTotal");
     }
 }
