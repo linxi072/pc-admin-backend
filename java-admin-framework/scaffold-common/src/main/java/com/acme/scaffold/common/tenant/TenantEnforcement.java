@@ -1,5 +1,7 @@
 package com.acme.scaffold.common.tenant;
 
+import java.util.List;
+
 /**
  * 租户隔离强制策略（M19 P3）：集中裁决「某次数据访问是否应追加 tenant_id 约束」。
  *
@@ -15,6 +17,10 @@ package com.acme.scaffold.common.tenant;
  *   <li>未处于 {@code @TenantIgnorable} 跨租户旁路（{@link TenantContext#isBypass()}）；</li>
  *   <li>目标表非「平台共享维表」（{@code app.tenant.platform-tables}）。</li>
  * </ol>
+ *
+ * <p><b>启动护栏</b>：当 {@code enforce=true} 时，应用启动期须通过 {@link #validateConfiguration()}
+ * 校验配置自洽（默认租户合法、平台维表非空），否则 fail-fast 阻止「配置不全却开启强制隔离」上线。
+ * 由 framework 模块的 {@code TenantEnforcementValidator}（{@code CommandLineRunner}）在启动时调用。</p>
  */
 public final class TenantEnforcement {
 
@@ -31,6 +37,50 @@ public final class TenantEnforcement {
     /** 强制隔离总开关是否开启。 */
     public static boolean isEnabled() {
         return properties != null && properties.isEnforce();
+    }
+
+    /** 配置快照是否已注入（非 null）。 */
+    public static boolean isConfigured() {
+        return properties != null;
+    }
+
+    /**
+     * 校验隔离配置的自洽性（开启 enforce 前的启动护栏）。
+     *
+     * <p>仅当 {@code enforce=true} 时执行严格校验；{@code enforce=false} 时直接放行
+     * （隔离实际不生效，无需校验，避免对既有单租户部署造成启动失败）。</p>
+     *
+     * <p>校验项：
+     * <ol>
+     *   <li>配置快照必须已注入（{@code configure} 已调用）；</li>
+     *   <li>{@code defaultTenantId} 必须合法（非负长整型，不能为 null）；</li>
+     *   <li>{@code platform-tables} 平台共享维表列表必须非空，否则平台维表会被错误地追加 tenant_id 过滤而不可见。</li>
+     * </ol>
+     *
+     * @throws IllegalStateException 当 {@code enforce=true} 但配置不自洽，提示含可操作的修正建议
+     */
+    public static void validateConfiguration() {
+        if (!isEnabled()) {
+            return;
+        }
+        TenantProperties props = properties;
+        if (props == null) {
+            throw new IllegalStateException(
+                    "租户隔离已开启(enforce=true)但配置未注入：请在应用启动时调用 TenantEnforcement.configure("
+                            + "tenantProperties) 注入 app.tenant 配置");
+        }
+        if (!TenantRules.isValidTenantId(props.getDefaultTenantId())) {
+            throw new IllegalStateException(
+                    "租户隔离已开启(enforce=true)但 defaultTenantId 非法（" + props.getDefaultTenantId()
+                            + "）：必须为非负长整型，建议设为平台租户 " + TenantRules.PLATFORM_TENANT_ID);
+        }
+        List<String> platformTables = props.getPlatformTables();
+        if (platformTables == null || platformTables.isEmpty()) {
+            throw new IllegalStateException(
+                    "租户隔离已开启(enforce=true)但 platform-tables 为空：平台共享维表（sys_tenant/sys_menu/"
+                            + "sys_dict_type/sys_dict_data/sys_config/sys_api_resource）必须纳入豁免列表，"
+                            + "否则将错误地对平台维表追加 tenant_id 过滤，导致平台数据不可见");
+        }
     }
 
     /**
