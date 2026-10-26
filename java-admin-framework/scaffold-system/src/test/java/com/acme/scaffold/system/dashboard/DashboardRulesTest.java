@@ -49,20 +49,25 @@ class DashboardRulesTest {
     }
 
     @Test
-    @DisplayName("metricOrder 字段数量与快照字段一致（11 项：含 3 项跨模块可观测指标）")
+    @DisplayName("metricOrder 字段数量与快照字段一致（15 项：含 7 项跨模块可观测指标）")
     void metricOrderMatches() {
-        assertEquals(11, DashboardRules.metricOrder().size());
+        assertEquals(15, DashboardRules.metricOrder().size());
     }
 
     @Test
-    @DisplayName("带可观测快照的 buildOverview 应用 N+1 指标字段")
+    @DisplayName("带可观测快照的 buildOverview 应用 N+1 与链路追踪指标字段")
     void buildOverviewWithObservabilityAppliesSnapshot() {
-        ObservabilitySnapshot obs = new ObservabilitySnapshot(7, 3, 1_700_000_000_000L);
+        ObservabilitySnapshot obs = new ObservabilitySnapshot(
+                7, 3, 1_700_000_000_000L, true, 12, 45, 4);
         DashboardOverview o = DashboardRules.buildOverview(
                 1, 2, 3, 4, 5, 6, 7, 8, obs, 123L);
         assertEquals(7, o.nPlusOneSuspectTotal());
         assertEquals(3, o.nPlusOneSuspectRetained());
         assertEquals(1_700_000_000_000L, o.lastBreachAtMillis());
+        assertTrue(o.traceRecorderEnabled());
+        assertEquals(12, o.traceRetained());
+        assertEquals(45, o.traceTotal());
+        assertEquals(4, o.traceErrorTotal());
         assertEquals(123L, o.generatedAt());
     }
 
@@ -74,17 +79,26 @@ class DashboardRulesTest {
         assertEquals(0, o.nPlusOneSuspectTotal());
         assertEquals(0, o.nPlusOneSuspectRetained());
         assertEquals(0, o.lastBreachAtMillis());
+        assertEquals(false, o.traceRecorderEnabled());
+        assertEquals(0, o.traceRetained());
+        assertEquals(0, o.traceTotal());
+        assertEquals(0, o.traceErrorTotal());
     }
 
     @Test
-    @DisplayName("可观测快照负数被钳制为 0")
+    @DisplayName("可观测快照负数被钳制为 0，boolean 启用态原样保留")
     void buildOverviewWithObservabilityClampsNegative() {
-        ObservabilitySnapshot obs = new ObservabilitySnapshot(-5, -1, -9);
+        ObservabilitySnapshot obs = new ObservabilitySnapshot(
+                -5, -1, -9, true, -12, -45, -4);
         DashboardOverview o = DashboardRules.buildOverview(
                 1, 2, 3, 4, 5, 6, 7, 8, obs, 123L);
         assertEquals(0, o.nPlusOneSuspectTotal());
         assertEquals(0, o.nPlusOneSuspectRetained());
         assertEquals(0, o.lastBreachAtMillis());
+        assertTrue(o.traceRecorderEnabled()); // boolean 不受数值钳制影响
+        assertEquals(0, o.traceRetained());
+        assertEquals(0, o.traceTotal());
+        assertEquals(0, o.traceErrorTotal());
     }
 
     @Test

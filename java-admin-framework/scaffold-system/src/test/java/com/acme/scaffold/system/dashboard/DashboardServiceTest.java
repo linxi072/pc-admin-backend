@@ -115,7 +115,8 @@ class DashboardServiceTest {
 
     /** 假可观测端口：固定返回预置快照。 */
     static class FakeObservabilityPort implements ObservabilityStatsPort {
-        ObservabilitySnapshot snapshot = new ObservabilitySnapshot(9, 4, 1_700_000_000_000L);
+        ObservabilitySnapshot snapshot = new ObservabilitySnapshot(
+                9, 4, 1_700_000_000_000L, true, 12, 45, 4);
         boolean thrown = false;
 
         @Override
@@ -128,7 +129,7 @@ class DashboardServiceTest {
     }
 
     @Test
-    @DisplayName("overview 在有可观测端口时填充 N+1 指标字段")
+    @DisplayName("overview 在有可观测端口时填充 N+1 与链路追踪指标字段")
     void overviewIncludesObservabilityWhenPortPresent() {
         DashboardService svc = new DashboardService(new FakeStatsPort());
         FakeObservabilityPort port = new FakeObservabilityPort();
@@ -138,6 +139,10 @@ class DashboardServiceTest {
         assertEquals(9, o.nPlusOneSuspectTotal());
         assertEquals(4, o.nPlusOneSuspectRetained());
         assertEquals(1_700_000_000_000L, o.lastBreachAtMillis());
+        assertTrue(o.traceRecorderEnabled());
+        assertEquals(12, o.traceRetained());
+        assertEquals(45, o.traceTotal());
+        assertEquals(4, o.traceErrorTotal());
         // 系统域计数不受影响
         assertEquals(100, o.userCount());
     }
@@ -152,6 +157,10 @@ class DashboardServiceTest {
         assertEquals(0, o.nPlusOneSuspectTotal());
         assertEquals(0, o.nPlusOneSuspectRetained());
         assertEquals(0, o.lastBreachAtMillis());
+        assertEquals(false, o.traceRecorderEnabled());
+        assertEquals(0, o.traceRetained());
+        assertEquals(0, o.traceTotal());
+        assertEquals(0, o.traceErrorTotal());
     }
 
     @Test
@@ -166,6 +175,10 @@ class DashboardServiceTest {
         assertEquals(0, o.nPlusOneSuspectTotal());
         assertEquals(0, o.nPlusOneSuspectRetained());
         assertEquals(0, o.lastBreachAtMillis());
+        assertEquals(false, o.traceRecorderEnabled());
+        assertEquals(0, o.traceRetained());
+        assertEquals(0, o.traceTotal());
+        assertEquals(0, o.traceErrorTotal());
         // 系统域计数仍正常
         assertEquals(5000, o.operationLogCount());
     }
