@@ -351,18 +351,29 @@ export const realtimeOnlineCount = () =>
  * POST /api/realtime/push/broadcast -> RealtimePushResultView
  * 向所有在线会话广播实时消息。type 必填（UNREAD_MESSAGE / TODO_REMINDER / NOTIFICATION / PONG），
  * payload 透传业务负载（字符串或 JSON 均可）。
+ *
+ * M30 模板化：可选 templateCode + variables 复用通知模板中心（WEBSOCKET 渠道）渲染实时通知负载；
+ * 指定后 type 由服务端按 NOTIFICATION 处理、payload 被忽略；二者为空时走原始 type/payload 路径。
  * @param {string} type 推送类型
- * @param {*} payload 业务负载
+ * @param {*} payload 业务负载（模板模式传 null）
+ * @param {string|null} templateCode 模板编码（可选）
+ * @param {Object|null} variables 变量名 → 取值（可选）
  */
-export const realtimeBroadcast = (type, payload) =>
-  request({ method: 'POST', url: '/api/realtime/push/broadcast', data: { type, payload } })
+export const realtimeBroadcast = (type, payload, templateCode = null, variables = null) =>
+  request({ method: 'POST', url: '/api/realtime/push/broadcast', data: { type, payload, templateCode, variables } })
 
 /**
  * POST /api/realtime/push/user -> RealtimePushResultView
  * 向指定用户集合定向推送实时消息。userIds 必填且非空。
  * @param {Array<number>} userIds 目标用户 ID 列表
  * @param {string} type 推送类型
- * @param {*} payload 业务负载
+ * @param {*} payload 业务负载（模板模式传 null）
+ * @param {string|null} templateCode 模板编码（可选）
+ * @param {Object|null} variables 变量名 → 取值（可选）
  */
-export const realtimePushToUser = (userIds, type, payload) =>
-  request({ method: 'POST', url: '/api/realtime/push/user', data: { userIds, type, payload } })
+export const realtimePushToUser = (userIds, type, payload, templateCode = null, variables = null) =>
+  request({
+    method: 'POST',
+    url: '/api/realtime/push/user',
+    data: { userIds, type, payload, templateCode, variables }
+  })
