@@ -308,6 +308,10 @@ public final class JooqTables {
             "status", "secret_rotated_at", "expired_at", "remark",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
+    public static final TableRef FORM_SUBMISSION = new TableRef("sys_form_submission",
+            "id", "tenant_id", "form_definition_id", "form_code", "submitted_by",
+            "data_json", "created_at", "updated_at", "version", "deleted");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",
