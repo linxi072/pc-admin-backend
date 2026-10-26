@@ -1,7 +1,7 @@
 # M27 报表大屏（后端：运营总览 API + 时间序列趋势）
 
-> 状态：**后端四刀均已交付（feat/V1.0.4，门禁 1470 例全绿）** ｜ 日期：2026-10-26 ｜ 分支：`feat/V1.0.4`
-> 来源：用户选定「报表大屏模块」+「前端配套页」后续方向；本文件仅覆盖**后端**统计接口，前端可视化合与「前端配套页」在 `pc-admin-vue3-vite` 另行落地。
+> 状态：**后端四刀 + 前端配套页均已交付（feat/V1.0.4，后端门禁 1470 例全绿 + `check-conventions` EXIT=0；前端 `npx vite build` EXIT=0）** ｜ 日期：2026-10-26 ｜ 分支：`feat/V1.0.4`
+> 来源：用户选定「报表大屏模块」+「前端配套页」后续方向；后端统计接口（§2）在 M27 四刀交付，前端可视化合（§6）在 `pc-admin-vue3-vite` 落地，并补 V52 菜单种子（§6.1）接入侧边栏与路由守卫。
 > 第三刀（N+1 疑似跨模块可观测指标接入看板）：通过 `common` 跨模块端口范式，将 `scaffold-framework` 的 `NPlusOneSuspectRegistry` 指标零耦合接入 `DashboardOverview`，`scaffold-system` 不依赖 framework。
 > 第四刀（链路追踪指标跨模块接入看板）：沿用第三刀的 `common` 跨模块端口范式，将 `scaffold-framework` 的 `SpanRecorder` 链路追踪指标（启用状态 / 当前留存 / 累计条数 / 错误条数）零耦合接入 `DashboardOverview`；`ObservabilitySnapshot` 由 3 字段扩展为 7 字段，`scaffold-system` 仍不依赖 framework。
 
@@ -96,4 +96,33 @@
 ## 5. 后续（待办，未含于本切片）
 
 - **链路追踪指标（跨模块）**：✅ 已交付（第四刀）——沿用第三刀端口范式，`ObservabilitySnapshot` 扩展 `traceRecorderEnabled` / `traceRetained` / `traceTotal` / `traceErrorTotal` 四个字段，framework 适配器注入 `SpanRecorder.stats()`，`scaffold-system` 仍不依赖 framework；看板 `DashboardOverview` 现含 15 业务字段。
-- **前端看板页** + **租户管理页 / 脱敏策略中心前端**（用户选定的「前端配套页」）在 `pc-admin-vue3-vite` 落地。
+
+---
+
+## 6. 前端配套页（pc-admin-vue3-vite，feat/V1.0.4）
+
+> M27 后端四刀交付后，前端此前仅有 `/api/system/dashboard/*` 契约、无对应视图与菜单入口；本切片补齐看板页 + 后端 V52 菜单种子。租户管理前端页（M19 配套）一并落地（同仓，§6.2）。
+
+### 6.1 后端 V52 菜单种子
+
+`scaffold-admin/src/main/resources/db/migration/V52__dashboard_menu.sql`：在「报表管理」目录（id=1030）下挂菜单 id=1056（sort_no=40，避开已占用 1031/1053–1055），`route_path='/report/dashboard'`、`component_path='report/DashboardView'`、`permission_code='system:dashboard:read'`、`icon='DataAnalysis'`、`menu_code='system:dashboard'`；`INSERT IGNORE` + 绑定 `sys_role_menu(role_id=1)`。
+
+- 路由守卫 `beforeEach` 校验 `to.path` 是否在本用户菜单树 `routePath` 集合内 → `route_path` 必须与前端路由（report/dashboard）严格一致，否则重定向到工作台。
+- 权限码 `system:dashboard:read` 已由 `ApiResourceAutoSyncRunner` 扫描 `@PreAuthorize` 自动落库并授予 SUPER_ADMIN，此处仅补前端菜单入口。
+
+### 6.2 前端新增/修改文件
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `src/api/dashboard.js` | 新建 | `dashboardOverview()` → `GET /api/system/dashboard/overview`；`dashboardTrend(days)` → `GET /api/system/dashboard/trend?days=`（days 经后端钳制 [1,90]） |
+| `src/views/report/DashboardView.vue` | 新建 | 运营概览（8 系统计数卡）+ 可观测指标（N+1 疑似三卡 + 链路追踪四卡）+ 时间序列趋势（newUsers / newTenants / activeTenants 三折线图，7/14/30 天单选）；错误态 `el-alert`+重试、loading `el-skeleton`、空态 `el-empty`；复用全局 `.page-card`/`.stat-grid`/`.stat-card`，图表走 `BaseChart` 按需引入 |
+| `src/api/tenant.js` | 新建 | `tenantPage`/`tenantList`/`getTenant`/`createTenant`/`updateTenant`/`removeTenant`/`toggleTenant` 七函数，对应 `/api/system/tenants/*`（M19 后端 V51 配套） |
+| `src/views/system/TenantView.vue` | 新建 | 完整 CRUD 页（表格+分页+排序+对话框+校验+删除确认），mirror `PostView.vue` 范式；状态列用 `statusTag()`（ENABLED/DISABLED），过期时间 `LocalDateTime` 字符串与 `value-format=YYYY-MM-DD HH:mm:ss` 互转、空值「长期」 |
+| `src/router/index.js` | 修改 | `report/api-call` 后插入 `report/dashboard`（`reportDashboard` → `report/DashboardView`，`permission:'system:dashboard:read'`）；`system/import` 后插入 `system/tenants`（`tenant` → `system/TenantView`，`permission:'system:tenant:read'`） |
+| `src/i18n/messages.js` | 修改 | zh-CN `route.*` 增 `reportDashboard:'报表大屏'`、`tenant:'租户管理'`；en-US 增 `reportDashboard:'Report Dashboard'`、`tenant:'Tenant Management'` |
+
+### 6.3 前端自测
+
+- `npx vite build --outDir .fe-verify`（`rm -rf .fe-verify` 清理验证目录后）**EXIT=0**，产物含 `DashboardView`/`TenantView` 对应 chunk，确认两视图编译通过、路由与 i18n 入口生效。
+- 错误处理范式：`request()` 拆包 `Result{code,message,data}`，错误由拦截器统一 `ElMessage` 提示，视图层不重复 toast；两页所有请求均在 `try/catch` 中仅置错误态文本，不重复弹窗。
+- 数据契约对齐：前端读取字段（`tenantCount`/`userCount`/.../`traceErrorTotal` 与 `newUsers`/`newTenants`/`activeTenants` 三序列的 `date`/`value`）与后端 `DashboardOverview`/`DashboardTrend` 完全一致。
