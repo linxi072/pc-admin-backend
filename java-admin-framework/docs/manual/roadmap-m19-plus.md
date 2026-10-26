@@ -1,6 +1,6 @@
 # 路线图规划：M19+ 后续模块提案（java-admin-framework）
 
-> 状态：**已采纳路线（2026-10-23 确认决策；M19 P1/P2/P3 + M20–M26 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新 M20–M26 交付状态；2026-10-26 更新 M19 P1/P2 交付状态）｜ 分支：`feat/V1.0.4` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
+> 状态：**已采纳路线（2026-10-23 确认决策；M19 P1/P2/P3 + M20–M26 + M22 低代码表单(spike+正式立项提交落库) 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新 M20–M26 交付状态；2026-10-26 更新 M19 P1/P2 与 M22 正式立项交付状态）｜ 分支：`feat/V1.0.4` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
 > 方法：直接核查已交付能力（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim / M5 缓存 / M6 通知渠道 / M7–M8 已读回执 / M14 免打扰 / M15 退订令牌 / M16 故障转移+有界重试 / M17 聚合摘要 / M18 Webhook HMAC / 导入导出中心 / i18n / 限流注解化 / 敏感数据脱敏通用化 / 多段导入 #651 / 可观测中心前端 / 岗位管理 / 文件管理 / 多数据源 / 编码规范校验脚本），不凭空假设。
 > 约束：离线 Maven 仓库可用依赖优先；禁止引入需联网拉取的重型依赖（如 POI，已用零依赖 OOXML 替代）；数据访问以手写 jOOQ DSL（JooqTables + TableRef）为准；新模块须延续「模板注册 / 纯函数规则 / 条件装配 / 自动登记权限码」的既有范式。
 
@@ -19,7 +19,7 @@
 | **M19 多租户隔离（SaaS 化）** | 高（框架作为可复用基座的核心分水岭） | 大（侵入式） | ✅ 用 jOOQ DSL + TenantContext + 多数据源路由，零新依赖 | 既有表需 `tenant_id` 迁移；跨租户管理视图需独立通道；影响面全局 | **P1 基础层 + P2 租户管理域已交付（feat/V1.0.4）；P3 jOOQ 强制注入隔离已交付（feat/V1.0.4，1435 例全绿）** |
 | **M20 操作/审计增强** | 中 | 中 | ✅ 增量扩展 M1 `AuditAspect` | 读操作审计量爆炸需采样/开关 | P2 |
 | **M21 数据脱敏策略中心（可视化配置）** | 中 | 中 | ✅ 复用 `common/sensitive` + 规则表 | 运行时解析需缓存与刷新；默认安全需保留 | P2 |
-| **M22 低代码/动态表单引擎** | 高 | 大（易膨胀） | ⚠️ 渲染层需评估（零依赖 JSON Schema 渲染 or 轻量依赖） | 作用域易失控；建议先 spike | P3（后期/spike 优先） |
+| **M22 低代码/动态表单引擎** | 高 | 大（易膨胀） | ✅ spike（V47 契约+渲染原型）+ **正式立项提交落库（V53）** | 作用域易失控；已按「独立 `form_submission` 表、零运行时 DDL」收口，不侵入业务表 | P3（spike ✅ + 提交落库 ✅） |
 | **M23 流程中心增强（M4 续）** | 中 | 中 | ✅ 扩展 Flowable 7.1 监控/版本/超时 | 依赖 M4 既有 claim/transfer/complete | P3 |
 | **M24 API 开放平台 / 密钥治理** | 中 | 中 | ✅ 复用 `@RateLimit` + 密钥轮转（M 已有 `JwtKeyRotationService`） | OAuth2 客户端注册可能需 spring-security-oauth2（需离线核验） | P3 |
 | **M25 文件管理增强** | 中 | 中 | ✅ 复用既有 `system/file` + 对象存储适配 | 分片/秒传需前端配合；预览需格式库 | P3 → ✅ 已交付（2026-10-25，秒传/引用计数/统计/批量删除） |
@@ -65,10 +65,11 @@
 - **构件**：`sys_mask_strategy` 规则表（`scope`=全局/端点/字段、`target`=字段表达式、`sensitive_type`、`visible_roles`）+ `MaskStrategyService`（加载/缓存/热刷新）+ `MaskStrategyResolver`（在序列化/导出前按当前角色命中规则并委托 `SensitiveMasker`）+ 管理端点与前端表单。**默认安全**：无任何规则时回落到既有类型驱动默认掩码，未授权角色一律掩码。
 - **可行性**：✅ 复用 `common/sensitive`，零新依赖。**风险**：规则解析性能（需缓存 + 兜底）。**与 M20 协同**：审计详情脱敏可直接消费本中心策略。
 
-### 4.4 M22 低代码/动态表单引擎（建议先 spike）
+### 4.4 M22 低代码/动态表单引擎
 - **目标**：以 JSON Schema 描述表单（字段、校验、布局、数据源绑定），前端按 schema 渲染，后端按 schema 校验并落库（绑定既有表或通用 `form_submission` 表）。
-- **构件（spike 范围）**：`FormDefinition`（`code` + JSON schema + 绑定目标）+ `FormRenderController`（`/schema/{code}`）+ 前端 `DynamicForm.vue`（schema→element-plus 渲染）。**决策点**：① 绑定既有表（需动态 jOOQ/DDL）还是独立提交表；② 渲染是否引轻量 schema 库（离线核验）还是手写最小渲染器（零依赖）。
-- **可行性**：⚠️ 渲染层需评估；作用域易膨胀。**建议**：先交付 spike（仅契约 + 单字段渲染原型 + 1 个试点表单），验证后再正式立项为 M22。
+- **阶段一 · spike（V47，已交付）**：`FormDefinition`（`code` + JSON schema + 绑定目标）+ `FormRenderController`（`/schema/{code}`）+ 前端 `DynamicForm.vue`（schema→element-plus 渲染）。**决策点结论**：① 落库目标选 **独立 `form_submission` 表**（不侵入业务表、不做运行时 DDL）；② 渲染采用**零依赖手写最小渲染器**。
+- **阶段二 · 正式立项提交落库（V53，已交付 2026-10-26）**：`sys_form_submission` 表 + `FORM_SUBMISSION` TableRef 注册；`FormSubmissionDO`/`FormSubmissionView`/`FormSubmissionRules`（按 schema 校验：必填/类型/长度/选项白名单/未知字段拒绝）；`FormSubmissionService`（校验通过才 `JooqWriters.insert` 落库、分页查询）+ `FormRenderController` 增 `POST /{code}/submit` 与 `GET /{code}/submissions`（权限 `system:form-submission:create/read` 由 `ApiResourceAutoSyncRunner` 自动登记并授予 SUPER_ADMIN）；前端 `FormPilotView.vue` 增「提交」与「提交记录」页；新增 13 例单测（rules 10 + service 3），全仓 1470→**1483 例**全绿。
+- **可行性**：✅ 已按「独立提交表 + 纯函数校验 + 端口/动态 DSL 范式」收口，作用域受控、零新依赖。
 
 ---
 
@@ -89,14 +90,14 @@
 
 1. **是否以 SaaS 多租户为本期目标？** 若是 → M19 先行（阶段 A）；若否 → M19 延后，直接从 M20/M21 治理增强起步。
 2. **M19 隔离策略选「共享表 + tenant_id」还是「Schema 隔离」？** 前者迁移轻、跨租户统计易；后者隔离强、但存量与路由复杂。
-3. **M22 低代码是否本期正式立项，还是仅做 spike？** 建议先 spike。
+3. **M22 低代码是否本期正式立项，还是仅做 spike？** ✅ 已决议：先 spike（V47）验证可行性，随后正式立项提交落库（V53 `form_submission` 表 + schema 校验 + 前后端提交/记录），均已完成。
 4. **M24 API 开放平台是否本期需要？** 仅当需要对外暴露_OPEN API_ 时立项（涉及 OAuth2 离线核验）。
 5. **优先级与排期**：上述 P1/P2/P3 是否与业务方预期一致？是否需插入其他候选（如报表大屏、任务依赖编排）？
 
 > **已确认决策（2026-10-23）**：
 > 1. **M19 多租户延后**：本期不做 SaaS 隔离；隔离策略已倾向「共享表 + `tenant_id` 列」（jOOQ 拦截强制隔离），留作未来立项基线，无需本期投入。
 > 2. **本期先做治理增强（阶段 B）：M20 审计增强 → M21 脱敏策略中心**。两者协同度高（M21 复用 M1 审计落库与 `SensitiveMasker`）。
-> 3. **M22 低代码仅做 spike**：先交付契约 + 单字段渲染原型验证可行性，再正式立项。
+> 3. **M22 低代码已交付**：spike（V47 契约+渲染原型）+ 正式立项提交落库（V53 `form_submission` 独立表，按 schema 校验后落库、分页查询、前后端提交/记录页）均已完成，全仓 1470→1483 例全绿。
 > 4. **M24 API 开放平台本期需要**：涉及 OAuth2 客户端注册与密钥治理，立项前需离线核验 `spring-security-oauth2` 等依赖可用性。
 >
 > **M24 离线核验结论（2026-10-25）**：离线仓库仅有 `spring-security-oauth2-core/jose/resource-server` 6.3.3（与 Boot 3.3.4 匹配），**不含** `spring-security-oauth2-client`（`RegisteredClient`/`RegisteredClientRepository` 所在）与 `spring-security-oauth2-authorization-server`（授权服务器所在）——完整 OAuth2 授权服务器（authorization code / `/oauth2/token`）离线不可建。据此 M24 收口为**自包含的「客户端注册 + 密钥治理」**（自有领域模型 + 复用 `SecurityConfig` 的 `DelegatingPasswordEncoder` 哈希，零新增依赖），V48 `sys_openapi_client` 已落地；协议级开放（token 端点、资源服务器过滤器）待联网补齐依赖后另行立项。
@@ -108,3 +109,5 @@
 > **M26 组织数据导入导出已交付（2026-10-25）**：在既有导入导出中心「模板注册」范式（Spring Bean 自动发现、前端两中心页从 `/templates` 动态拉取、新任务零前端改动）上新增组织域四导出两导入——`UserExportTask`（10 列，翻页 PAGE_SIZE=200 × MAX_ROWS=10000 截断 + 筛选透传）/ `RoleExportTask`（6 列全量）/ `DeptExportTask`（7 列，`TreeBuilder.flatten` 深度优先父先子 + 上级回显 + 数据权限过滤占位）/ `PostExportTask`（6 列翻页 + 筛选）；`PostImportTask`（4 列无状态列，编码形态预校验，固定 ACTIVE）/ `DeptImportTask`（4 列，按上级部门编码经 `TreeBuilder.flatten` 建 code→id 映射反查父级，缺失 NOT_FOUND 且不写入，与导出闭环「先导出改完再导入」）；`TreeBuilder` 新增泛型 `flatten(roots, childrenOf)` 与 `build` 互逆；导出范围=列表页可见范围（`UserService.list`/`OrgService.tree` 的 `@DataScope` 在导出线程内同样生效）；新增 43 例单测，全仓 **1339→1382 例**全绿。至此 M19+ 已采纳路线中的 M20/M21/M22(spike)/M23/M24/M25/M26 全部交付；M19 多租户按既定决策延后，留作未来立项基线。
 >
 > 后续：将 M20 / M21 / M22(spike) / M24 拆为 `module-plan` 形式的 Mxx 任务卡（范围/契约/迁移/测试/门禁），按关注点分批在 `feat/V1.0.3` 落地；本文件已更新为「已采纳路线」。
+>
+> **M22 低代码表单 · 正式立项提交落库已交付（2026-10-26，V53）**：在 V47 spike（契约 + 渲染原型）验证可行后，正式收口「独立 `form_submission` 表、零运行时 DDL」决策——V53 迁移建 `sys_form_submission`（含 `data_json` 整段提交值序列化 + `target_type` 沿用 `FORM_SUBMISSION`）；`JooqTables.FORM_SUBMISSION` 注册；`FormSubmissionDO`/`FormSubmissionView`/`FormSubmissionRules`（按 schema 字段校验：必填/类型 INPUT·SELECT·SWITCH·TEXTAREA·DATE / 长度 min·max / 选项白名单 / 未知字段拒绝）；`FormSubmissionService`（校验通过才 `JooqWriters.insert` 落库、分页查询 mapping）+ `FormRenderController` 增 `POST /{code}/submit` 与 `GET /{code}/submissions?page=&size=`（权限 `system:form-submission:create/read`，`ApiResourceAutoSyncRunner` 自动登记并授予 SUPER_ADMIN）；前端 `FormPilotView.vue` 增「提交」按钮（校验后提交）与「提交记录」分页列表，更新 hint 为 M22 已正式立项；新增 13 例单测（rules 10 + service 3，mockStatic(JooqWriters) 离线可跑），全仓 **1470→1483 例**全绿 + check-conventions EXIT=0。M22 至此 spike 与正式立项均交付。
