@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">低代码表单试点</h2>
+    <h2 class="page-title">低代码表单</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
@@ -51,6 +51,7 @@
             />
             <div class="pilot-actions">
               <el-button type="primary" :loading="validating" @click="onValidate">校验并查看数据</el-button>
+              <el-button type="success" :loading="submitting" :disabled="!schema || submitting" @click="onSubmit">提交</el-button>
               <el-button @click="onReset">重置</el-button>
             </div>
           </div>
@@ -61,12 +62,46 @@
             <pre class="pilot-json-body">{{ schemaText }}</pre>
           </div>
         </div>
+
+        <el-divider />
+
+        <div class="submission-block">
+          <h3 class="pilot-title">
+            提交记录
+            <el-button text type="primary" :loading="submissionsLoading" @click="loadSubmissions">刷新</el-button>
+          </h3>
+          <el-table
+            v-loading="submissionsLoading"
+            :data="submissions"
+            border
+            size="small"
+            empty-text="暂无提交记录"
+          >
+            <el-table-column prop="submittedBy" label="提交人" width="140" />
+            <el-table-column label="提交内容">
+              <template #default="{ row }">
+                <pre class="submission-json">{{ pretty(row.dataJson) }}</pre>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="提交时间" width="190" />
+          </el-table>
+          <el-pagination
+            v-if="submissionTotal > submissionPageSize"
+            layout="prev, pager, next"
+            :total="submissionTotal"
+            :page-size="submissionPageSize"
+            :current-page="submissionPage"
+            style="margin-top: 12px; justify-content: flex-end"
+            @current-change="onSubmissionPageChange"
+          />
+        </div>
       </template>
 
       <div class="hint">
-        本页为 <b>M22 spike</b>：仅验证「Schema 契约 + 零依赖渲染」可行性——字段类型白名单
-        INPUT / TEXTAREA / NUMBER / SELECT / RADIO / SWITCH / DATE，SELECT/RADIO 须声明 options；
-        <b>提交落库与绑定目标</b>（绑定既有表 vs 独立 form_submission 表）为正式立项决策点，本期不实现。
+        本页为 <b>M22 正式立项</b>：Schema 契约 + 零依赖渲染 + 提交落库（绑定目标 FORM_SUBMISSION）。
+        字段类型白名单 INPUT / TEXTAREA / NUMBER / SELECT / RADIO / SWITCH / DATE；
+        提交值经后端按 schema 校验（必填 / 类型 / 长度 / 选项白名单 / 未知字段拒绝）后写入独立
+        <code>sys_form_submission</code> 表，不侵入业务表、不做运行时 DDL。
       </div>
     </el-card>
   </div>
@@ -76,7 +111,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { RefreshLeft } from '@element-plus/icons-vue'
-import { listForms, getFormSchema } from '@/api/formDefinition'
+import { listForms, getFormSchema, submitForm, listSubmissions } from '@/api/formDefinition'
 import DynamicForm from '@/components/DynamicForm.vue'
 
 const forms = ref([])
@@ -87,6 +122,13 @@ const schemaText = ref('')
 const formData = ref({})
 const dynamicFormRef = ref()
 const validating = ref(false)
+const submitting = ref(false)
+
+const submissions = ref([])
+const submissionsLoading = ref(false)
+const submissionTotal = ref(0)
+const submissionPage = ref(1)
+const submissionPageSize = ref(10)
 
 const schemaTitle = computed(() => schema.value?.title || schema.value?.formName || selectedCode.value)
 const formattedModel = computed(() => JSON.stringify(formData.value, null, 2))
@@ -110,10 +152,12 @@ async function onFormChange(code) {
   schema.value = null
   schemaText.value = ''
   formData.value = {}
+  submissionPage.value = 1
   try {
     const view = await getFormSchema(code)
     schema.value = JSON.parse(view.schemaJson)
     schemaText.value = JSON.stringify(schema.value, null, 2)
+    await loadSubmissions()
   } catch (e) {
     /* 拦截器已统一提示；停用/不存在的编码后端返回 NOT_FOUND */
   }
@@ -134,8 +178,59 @@ async function onValidate() {
   }
 }
 
+async function onSubmit() {
+  if (!dynamicFormRef.value || !selectedCode.value) return
+  const ok = await dynamicFormRef.value.validate()
+  if (!ok) {
+    ElMessage.warning('存在校验未通过的字段')
+    return
+  }
+  submitting.value = true
+  try {
+    await submitForm(selectedCode.value, formData.value)
+    ElMessage.success('提交成功，记录已保存')
+    submissionPage.value = 1
+    await loadSubmissions()
+  } catch (e) {
+    /* 拦截器已统一提示（含后端校验失败信息） */
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function loadSubmissions() {
+  if (!selectedCode.value) return
+  submissionsLoading.value = true
+  try {
+    const res = await listSubmissions(selectedCode.value, {
+      page: submissionPage.value,
+      size: submissionPageSize.value
+    })
+    submissions.value = res.records || []
+    submissionTotal.value = res.total || 0
+  } catch (e) {
+    /* 拦截器已统一提示 */
+  } finally {
+    submissionsLoading.value = false
+  }
+}
+
+function onSubmissionPageChange(p) {
+  submissionPage.value = p
+  loadSubmissions()
+}
+
 function onReset() {
   dynamicFormRef.value?.resetFields()
+}
+
+function pretty(json) {
+  if (!json) return ''
+  try {
+    return JSON.stringify(JSON.parse(json), null, 2)
+  } catch {
+    return json
+  }
 }
 
 onMounted(loadForms)
@@ -190,10 +285,29 @@ onMounted(loadForms)
   max-height: 320px;
   overflow: auto;
 }
+.submission-block {
+  margin-top: 4px;
+}
+.submission-json {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #303133;
+  max-height: 200px;
+  overflow: auto;
+}
 .hint {
   font-size: 12px;
   color: #a8abb2;
   margin-top: 8px;
   line-height: 1.6;
+}
+.hint code {
+  background: #f4f4f5;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #606266;
 }
 </style>
