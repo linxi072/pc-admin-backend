@@ -64,8 +64,11 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
         }
         Set<String> roles = split(rolesStr);
 
-        Integer tokenVersion = jwt.getClaim("tokenVersion") != null
-                ? jwt.getClaim("tokenVersion") : 1;
+        // JWT 数值声明解码后为 Long（Nimbus/Jackson 将 JSON 整数解析为 Long），
+        // 不可直接以 (Integer) 强转，否则触发 ClassCastException 使所有鉴权请求 500。
+        // 统一按 Number 取值再 intValue()，缺失或非数值回落为 1（兼容历史 token）。
+        Object tokenVersionClaim = jwt.getClaim("tokenVersion");
+        Integer tokenVersion = tokenVersionClaim instanceof Number n ? n.intValue() : 1;
         String clientId = jwt.getClaimAsString("clientId");
 
         CurrentPrincipal principal = new CurrentPrincipal(
