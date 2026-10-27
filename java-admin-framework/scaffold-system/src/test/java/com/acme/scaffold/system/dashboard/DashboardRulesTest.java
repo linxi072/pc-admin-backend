@@ -137,12 +137,38 @@ class DashboardRulesTest {
     }
 
     @Test
-    @DisplayName("buildTrend 天数越界钳制且 generatedAt 为 0 时回落")
+    @DisplayName("buildTrend 天数越界钳制且 generatedAt 为 0 时回落（六序列均补齐）")
     void buildTrendClampsAndFallback() {
         LocalDate today = LocalDate.of(2026, 10, 26);
-        DashboardTrend t = DashboardRules.buildTrend(List.of(), List.of(), List.of(), 1000, today, 0L);
+        DashboardTrend t = DashboardRules.buildTrend(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), 1000, today, 0L);
         assertEquals(DashboardRules.MAX_TREND_DAYS, t.days());
         assertEquals(DashboardRules.MAX_TREND_DAYS, t.newUsers().size());
+        assertEquals(DashboardRules.MAX_TREND_DAYS, t.newTenants().size());
+        assertEquals(DashboardRules.MAX_TREND_DAYS, t.activeTenants().size());
+        assertEquals(DashboardRules.MAX_TREND_DAYS, t.loginLogs().size());
+        assertEquals(DashboardRules.MAX_TREND_DAYS, t.operationLogs().size());
+        assertEquals(DashboardRules.MAX_TREND_DAYS, t.notifications().size());
         assertTrue(t.generatedAt() > 0);
+    }
+
+    @Test
+    @DisplayName("buildTrend 新序列（登录/操作/通知）与既有序列同样补齐为连续 0")
+    void buildTrendFillsNewSeries() {
+        LocalDate today = LocalDate.of(2026, 10, 26);
+        DashboardTrend t = DashboardRules.buildTrend(
+                List.of(new TrendPoint(LocalDate.of(2026, 10, 26), 5)),
+                List.of(), List.of(),
+                List.of(new TrendPoint(LocalDate.of(2026, 10, 25), 8)),
+                List.of(new TrendPoint(LocalDate.of(2026, 10, 24), 2)),
+                List.of(),
+                3, today, 123L);
+        assertEquals(3, t.loginLogs().size());
+        assertEquals(8, t.loginLogs().get(1).value()); // 10-25
+        assertEquals(0, t.loginLogs().get(0).value());  // 10-24 缺失
+        assertEquals(3, t.operationLogs().size());
+        assertEquals(2, t.operationLogs().get(0).value()); // 10-24
+        assertEquals(3, t.notifications().size());
+        assertEquals(123L, t.generatedAt());
     }
 }

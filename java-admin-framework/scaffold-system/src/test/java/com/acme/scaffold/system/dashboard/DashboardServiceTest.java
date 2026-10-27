@@ -27,6 +27,9 @@ class DashboardServiceTest {
                 new TrendPoint(LocalDate.of(2026, 10, 26), 5));
         List<TrendPoint> newTenants = List.of();
         List<TrendPoint> activeTenants = List.of(new TrendPoint(LocalDate.of(2026, 10, 26), 2));
+        List<TrendPoint> loginLogs = List.of(new TrendPoint(LocalDate.of(2026, 10, 26), 12));
+        List<TrendPoint> operationLogs = List.of(new TrendPoint(LocalDate.of(2026, 10, 26), 30));
+        List<TrendPoint> notifications = List.of(new TrendPoint(LocalDate.of(2026, 10, 26), 7));
 
         @Override public long countTenants() { return tenants; }
         @Override public long countUsers() { return users; }
@@ -39,6 +42,9 @@ class DashboardServiceTest {
         @Override public List<TrendPoint> dailyNewUsers(int days) { return newUsers; }
         @Override public List<TrendPoint> dailyNewTenants(int days) { return newTenants; }
         @Override public List<TrendPoint> dailyActiveTenants(int days) { return activeTenants; }
+        @Override public List<TrendPoint> dailyLoginLogs(int days) { return loginLogs; }
+        @Override public List<TrendPoint> dailyOperationLogs(int days) { return operationLogs; }
+        @Override public List<TrendPoint> dailyNotifications(int days) { return notifications; }
     }
 
     @Test
@@ -87,7 +93,7 @@ class DashboardServiceTest {
     }
 
     @Test
-    @DisplayName("trend 返回三条连续序列且长度=钳制后天数")
+    @DisplayName("trend 返回六条连续序列且长度=钳制后天数")
     void trendReturnsContinuousSeries() {
         DashboardService svc = new DashboardService(new FakeStatsPort());
         DashboardTrend t = svc.trend(30);
@@ -95,6 +101,9 @@ class DashboardServiceTest {
         assertEquals(30, t.newUsers().size());
         assertEquals(30, t.newTenants().size());
         assertEquals(30, t.activeTenants().size());
+        assertEquals(30, t.loginLogs().size());
+        assertEquals(30, t.operationLogs().size());
+        assertEquals(30, t.notifications().size());
         assertTrue(t.generatedAt() > 0);
         // 连续日期：相邻相差 1 天
         for (int i = 1; i < t.newUsers().size(); i++) {
