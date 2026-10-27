@@ -7,6 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -66,6 +68,53 @@ class MaskStrategyServiceTest {
         CreateMaskStrategyRequest req = new CreateMaskStrategyRequest(
                 "X".repeat(65), "用户手机", "sys_user.mobile", "MOBILE", "ALL", null, 0, true, null);
         assertThrows(BusinessException.class, () -> service.create(req));
+        verifyNoInteractions(dsl);
+    }
+
+    // ------------------------------------------------------------------
+    // 脱敏效果预览（#751，复用 SensitiveMasker.mask 单一数据源）
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("previewMask：按脱敏类型返回掩码结果，且不触库")
+    void previewMask_masksByType() {
+        String masked = service.previewMask("MOBILE", "13812345678");
+        assertEquals("138****5678", masked, "预览必须与运行时脱敏口径一致");
+        verifyNoInteractions(dsl);
+    }
+
+    @Test
+    @DisplayName("previewMask：脱敏类型大小写不敏感")
+    void previewMask_caseInsensitiveType() {
+        String masked = service.previewMask("mobile", "13812345678");
+        assertEquals("138****5678", masked);
+        verifyNoInteractions(dsl);
+    }
+
+    @Test
+    @DisplayName("previewMask：证件文本按键名抹除凭证值")
+    void previewMask_credentialText() {
+        String masked = service.previewMask("CREDENTIAL_TEXT",
+                "{\"password\":\"secret123\",\"mobile\":\"13812345678\"}");
+        assertTrue(masked.contains("\"password\":\"******\""), masked);
+        assertTrue(masked.contains("138****5678"), masked);
+        verifyNoInteractions(dsl);
+    }
+
+    @Test
+    @DisplayName("previewMask：空示例值原样返回（不抛异常）")
+    void previewMask_blankSampleReturnsAsIs() {
+        assertNull(service.previewMask("MOBILE", null));
+        assertEquals("", service.previewMask("MOBILE", ""));
+        verifyNoInteractions(dsl);
+    }
+
+    @Test
+    @DisplayName("previewMask：非法脱敏类型拒绝（400）且不触库")
+    void previewMask_rejectsInvalidType() {
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.previewMask("PHONE", "13812345678"));
+        assertTrue(ex.getMessage().contains("脱敏类型非法"), ex.getMessage());
         verifyNoInteractions(dsl);
     }
 }
