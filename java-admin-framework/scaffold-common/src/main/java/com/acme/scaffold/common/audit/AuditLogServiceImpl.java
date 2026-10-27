@@ -171,11 +171,12 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    public AuditLogSummary summary(AuditLogQuery query) {
+    public AuditLogSummary summary(AuditLogQuery query, boolean sensitiveVisible) {
         Condition cond = conditions(query);
         long total = JooqWriters.count(dsl, JooqTables.SYS_OPERATION_LOG, cond);
         if (total == 0) {
-            return AuditLogSummary.empty();
+            // 空区间也回传脱敏可见标识，保证前端徽标状态与列表一致
+            return new AuditLogSummary(0L, 0L, 0L, 0L, 0L, 0L, sensitiveVisible);
         }
         long successCount = JooqWriters.count(dsl, JooqTables.SYS_OPERATION_LOG,
                 DSL.and(cond, JooqTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(1)));
@@ -196,7 +197,7 @@ public class AuditLogServiceImpl implements AuditLogService {
             avg = agg.value1() == null ? 0L : agg.value1().longValue();
             max = agg.value2() == null ? 0L : agg.value2();
         }
-        return new AuditLogSummary(total, successCount, total - successCount, slowCount, avg, max);
+        return new AuditLogSummary(total, successCount, total - successCount, slowCount, avg, max, sensitiveVisible);
     }
 
     @Override

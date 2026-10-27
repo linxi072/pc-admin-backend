@@ -38,8 +38,13 @@ public interface AuditLogService {
      */
     List<AuditLogView> findByTraceId(String traceId, boolean sensitiveVisible);
 
-    /** 按条件统计摘要（总数 / 成功 / 失败 / 慢操作 / 平均与最大耗时）。 */
-    AuditLogSummary summary(AuditLogQuery query);
+    /**
+     * 按条件统计摘要（总数 / 成功 / 失败 / 慢操作 / 平均与最大耗时）。
+     *
+     * @param query            查询条件（构造期已完成时间区间等校验）
+     * @param sensitiveVisible 当前主体是否持有 {@code system:audit:sensitive} 权限，回传进摘要供前端渲染脱敏徽标
+     */
+    AuditLogSummary summary(AuditLogQuery query, boolean sensitiveVisible);
 
     /**
      * 清理发生时间早于 {@code cutoff} 的审计记录（留存清理，M20 增强）。

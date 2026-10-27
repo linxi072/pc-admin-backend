@@ -85,7 +85,7 @@ public class AuditLogController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
         AuditLogQuery query = new AuditLogQuery(1, 1, moduleCode, operationType, null, null, null, null,
                 keyword, null, startTime, endTime, null, null);
-        return Result.success(auditLogService.summary(query));
+        return Result.success(auditLogService.summary(query, sensitiveVisible()));
     }
 
     private boolean sensitiveVisible() {
