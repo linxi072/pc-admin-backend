@@ -1,6 +1,10 @@
 <template>
   <div>
-    <h2 class="page-title">操作日志</h2>
+    <h2 class="page-title">
+      操作日志
+      <el-tag v-if="summary.sensitiveVisible" type="warning" size="small" effect="plain" class="title-badge">明文可见 · system:audit:sensitive</el-tag>
+      <el-tag v-else type="info" size="small" effect="plain" class="title-badge">已脱敏</el-tag>
+    </h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
@@ -113,6 +117,18 @@
             <span class="method">{{ row.requestMethod }}</span> {{ row.requestPath }}
           </template>
         </el-table-column>
+        <el-table-column prop="requestSummary" label="请求摘要" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.requestSummary">{{ row.requestSummary }}</span>
+            <span v-else class="muted">--</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="resultSummary" label="结果摘要" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.resultSummary">{{ row.resultSummary }}</span>
+            <span v-else class="muted">--</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="resultCode" label="错误码" width="120">
           <template #default="{ row }">
             <el-tag v-if="row.resultCode" type="danger" size="small">{{ row.resultCode }}</el-tag>
@@ -120,6 +136,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="operatorName" label="操作人" width="110" sortable="custom" />
+        <el-table-column prop="ipAddress" label="IP(已掩码)" width="140" show-overflow-tooltip />
         <el-table-column prop="durationMs" label="耗时(ms)" width="100" sortable="custom" />
         <el-table-column label="TraceId" width="150">
           <template #default="{ row }">
@@ -127,6 +144,11 @@
               {{ row.traceId }}
             </el-link>
             <span v-else class="muted">--</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="80" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link size="small" @click="openDetail(row)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -144,7 +166,7 @@
         />
       </div>
       <div class="hint">
-        摘要字段按权限脱敏（持有 system:audit:sensitive 可见原文）；IP 一律掩码。点击 TraceId 查看一次请求的完整操作链路。
+        摘要字段按权限脱敏（持有 system:audit:sensitive 可见原文，页面标题处徽标显示当前为「明文」或「已脱敏」状态）；IP 一律掩码。点击 TraceId 查看一次请求的完整操作链路，点击「详情」查看单条记录完整内容。
       </div>
     </el-card>
 
@@ -161,6 +183,40 @@
           </template>
         </el-table-column>
       </el-table>
+    </el-drawer>
+
+    <!-- 单条操作日志详情抽屉 -->
+    <el-drawer v-model="detailVisible" title="操作日志详情" size="520px">
+      <el-descriptions v-if="detailRow" :column="1" border>
+        <el-descriptions-item label="时间">{{ detailRow.occurredAt }}</el-descriptions-item>
+        <el-descriptions-item label="模块">{{ detailRow.moduleCode }}</el-descriptions-item>
+        <el-descriptions-item label="类型">
+          <el-tag size="small" :type="opTagType(detailRow.operationType)">{{ detailRow.operationType }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="操作">{{ detailRow.operationName }}</el-descriptions-item>
+        <el-descriptions-item label="请求">
+          <span class="method">{{ detailRow.requestMethod }}</span> {{ detailRow.requestPath }}
+        </el-descriptions-item>
+        <el-descriptions-item label="IP(已掩码)">{{ detailRow.ipAddress }}</el-descriptions-item>
+        <el-descriptions-item label="操作人">{{ detailRow.operatorName }}</el-descriptions-item>
+        <el-descriptions-item label="耗时">{{ fmtMs(detailRow.durationMs) }}</el-descriptions-item>
+        <el-descriptions-item label="错误码">
+          <el-tag v-if="detailRow.resultCode" type="danger" size="small">{{ detailRow.resultCode }}</el-tag>
+          <span v-else class="muted">--</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="TraceId">{{ detailRow.traceId || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="请求摘要">
+          <pre class="detail-json">{{ detailRow.requestSummary || '--' }}</pre>
+        </el-descriptions-item>
+        <el-descriptions-item label="结果摘要">
+          <pre class="detail-json">{{ detailRow.resultSummary || '--' }}</pre>
+        </el-descriptions-item>
+        <el-descriptions-item label="脱敏状态">
+          <el-tag :type="summary.sensitiveVisible ? 'warning' : 'info'" size="small">
+            {{ summary.sensitiveVisible ? '明文可见' : '已脱敏' }}
+          </el-tag>
+        </el-descriptions-item>
+      </el-descriptions>
     </el-drawer>
   </div>
 </template>
@@ -194,6 +250,14 @@ const traceVisible = ref(false)
 const traceLoading = ref(false)
 const traceRows = ref([])
 const activeTraceId = ref('')
+
+const detailVisible = ref(false)
+const detailRow = ref(null)
+
+function openDetail(row) {
+  detailRow.value = row
+  detailVisible.value = true
+}
 
 function buildParams() {
   const params = {
@@ -312,5 +376,18 @@ onMounted(load)
   font-size: 12px;
   color: #a8abb2;
   margin-top: 8px;
+}
+.title-badge {
+  margin-left: 10px;
+  vertical-align: middle;
+}
+.detail-json {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  max-height: 240px;
+  overflow: auto;
 }
 </style>
