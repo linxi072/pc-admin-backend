@@ -66,6 +66,13 @@ class SecurityPublicApiTest {
     }
 
     @Test
+    @DisplayName("OAuth2 令牌与 JWKS 端点命中白名单（协议级开放平台匿名可访问）")
+    void oauth2Endpoints_permitted() throws Exception {
+        assertTrue(basePublicApi().matches(post("/oauth2/token")));
+        assertTrue(basePublicApi().matches(get("/oauth2/jwks")));
+    }
+
+    @Test
     @DisplayName("反向守护：探针/退订端点仅放行 GET，业务接口不得被误放行")
     void nonPermittedRequests_notMatched() throws Exception {
         RequestMatcher matcher = basePublicApi();
@@ -80,5 +87,10 @@ class SecurityPublicApiTest {
         // 子路径不得被前缀误伤（AntPathRequestMatcher 精确匹配语义）
         assertFalse(matcher.matches(get("/api/connectivity/ping/extra")));
         assertFalse(matcher.matches(get("/api/notification/unsubscribe/extra")));
+        // OAuth2 端点仅放行各自方法：/oauth2/token 仅 POST、/oauth2/jwks 仅 GET
+        assertFalse(matcher.matches(get("/oauth2/token")));
+        assertFalse(matcher.matches(post("/oauth2/jwks")));
+        assertFalse(matcher.matches(post("/oauth2/token/extra")));
+        assertFalse(matcher.matches(get("/oauth2/jwks/extra")));
     }
 }
