@@ -12,6 +12,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -44,6 +45,7 @@ public class AuditAspect {
         this(securityContextFacade, auditLogService, objectMapper, clientIpResolver, new AuditProperties());
     }
 
+    @Autowired
     public AuditAspect(SecurityContextFacade securityContextFacade, AuditLogService auditLogService,
                        ObjectMapper objectMapper, ClientIpResolver clientIpResolver,
                        AuditProperties auditProperties) {
