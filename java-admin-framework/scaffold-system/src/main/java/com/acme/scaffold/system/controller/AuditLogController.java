@@ -2,9 +2,12 @@ package com.acme.scaffold.system.controller;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.audit.AuditProperties;
+import com.acme.scaffold.common.audit.AuditRead;
+import com.acme.scaffold.common.audit.AuditRetentionRules;
+import com.acme.scaffold.common.audit.AuditRetentionView;
 import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 import com.acme.scaffold.common.audit.AuditLogService;
-import com.acme.scaffold.common.audit.AuditRead;
 import com.acme.scaffold.common.audit.AuditLogSummary;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -37,6 +40,7 @@ public class AuditLogController {
 
     private final AuditLogService auditLogService;
     private final SecurityContextFacade securityContextFacade;
+    private final AuditProperties auditProperties;
 
     @Operation(summary = "分页查询审计日志（支持模块/操作类型/操作人/结果/traceId/关键词/时间区间）")
     @GetMapping("/page")
@@ -86,6 +90,13 @@ public class AuditLogController {
         AuditLogQuery query = new AuditLogQuery(1, 1, moduleCode, operationType, null, null, null, null,
                 keyword, null, startTime, endTime, null, null);
         return Result.success(auditLogService.summary(query, sensitiveVisible()));
+    }
+
+    @Operation(summary = "审计日志留存策略（留存天数 / 清理截止时间）")
+    @GetMapping("/retention")
+    @PreAuthorize("hasAuthority('system:audit:read')")
+    public Result<AuditRetentionView> retention() {
+        return Result.success(AuditRetentionView.of(auditProperties.getRetentionDays()));
     }
 
     private boolean sensitiveVisible() {
