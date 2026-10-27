@@ -10,10 +10,12 @@ import org.flowable.engine.RepositoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.ProcessMigrationService;
 import org.flowable.engine.repository.Deployment;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -36,13 +38,16 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
     private final TaskService taskService;
     private final RepositoryService repositoryService;
     private final HistoryService historyService;
+    private final ObjectProvider<ProcessMigrationService> processMigrationServiceProvider;
 
     public FlowableWorkflowAdapter(RuntimeService runtimeService, TaskService taskService,
-                                   RepositoryService repositoryService, HistoryService historyService) {
+                                   RepositoryService repositoryService, HistoryService historyService,
+                                   ObjectProvider<ProcessMigrationService> processMigrationServiceProvider) {
         this.runtimeService = runtimeService;
         this.taskService = taskService;
         this.repositoryService = repositoryService;
         this.historyService = historyService;
+        this.processMigrationServiceProvider = processMigrationServiceProvider;
     }
 
     @Override
@@ -179,6 +184,64 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
                         deployTimes.containsKey(pd.getDeploymentId())
                                 ? toLocal(deployTimes.get(pd.getDeploymentId())) : null))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public ProcessDefinitionState processDefinitionState(String processDefinitionId) {
+        ProcessDefinition pd = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionId(processDefinitionId).singleResult();
+        if (pd == null) {
+            return null;
+        }
+        return new ProcessDefinitionState(pd.getId(), pd.getKey(), pd.getVersion(), pd.isSuspended(), pd.getName());
+    }
+
+    @Override
+    public void suspendDefinition(String processDefinitionId) {
+        // 仅挂起定义本身，不级联挂起在途实例：新实例无法发起，已运行的业务照常推进。
+        repositoryService.suspendProcessDefinitionById(processDefinitionId);
+    }
+
+    @Override
+    public void activateDefinition(String processDefinitionId) {
+        repositoryService.activateProcessDefinitionById(processDefinitionId);
+    }
+
+    @Override
+    public boolean isInstanceSuspended(String processInstanceId) {
+        ProcessInstance pi = runtimeService.createProcessInstanceQuery()
+                .processInstanceId(processInstanceId).singleResult();
+        return pi != null && pi.isSuspended();
+    }
+
+    @Override
+    public void suspendInstance(String processInstanceId) {
+        runtimeService.suspendProcessInstanceById(processInstanceId);
+    }
+
+    @Override
+    public void resumeInstance(String processInstanceId) {
+        runtimeService.activateProcessInstanceById(processInstanceId);
+    }
+
+    @Override
+    public String processDefinitionIdOfInstance(String processInstanceId) {
+        ProcessInstance pi = runtimeService.createProcessInstanceQuery()
+                .processInstanceId(processInstanceId).singleResult();
+        return pi == null ? null : pi.getProcessDefinitionId();
+    }
+
+    @Override
+    public void migrateInstance(String processInstanceId, String toProcessDefinitionId) {
+        ProcessMigrationService svc = processMigrationServiceProvider.getIfAvailable();
+        if (svc == null) {
+            throw new BusinessException(CommonErrorCode.INTERNAL_ERROR,
+                    "当前引擎未启用流程迁移服务（ProcessMigrationService），无法执行实例迁移");
+        }
+        // 同流程不同版本热升级：按活动 id 自动映射（无需显式活动级映射）；migrate 以实例 id 直接执行。
+        svc.createProcessInstanceMigrationBuilder()
+                .migrateToProcessDefinition(toProcessDefinitionId)
+                .migrate(processInstanceId);
     }
 
     private TaskInfo toInfo(Task task) {

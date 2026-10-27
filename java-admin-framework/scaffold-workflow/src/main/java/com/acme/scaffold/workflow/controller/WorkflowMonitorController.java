@@ -81,4 +81,22 @@ public class WorkflowMonitorController {
         monitorService.remind(taskId);
         return Result.success();
     }
+
+    @Operation(summary = "挂起流程定义（阻止新实例发起，不影响在途实例）")
+    @PostMapping("/definitions/{processDefinitionId}/suspend")
+    @PreAuthorize("hasAuthority('workflow:definition:state')")
+    @AuditOperation(module = "workflow", type = "SUSPEND_DEFINITION", name = "挂起流程定义")
+    public Result<Void> suspendDefinition(@PathVariable String processDefinitionId) {
+        monitorService.suspendDefinition(processDefinitionId);
+        return Result.success();
+    }
+
+    @Operation(summary = "激活流程定义（恢复新实例发起能力）")
+    @PostMapping("/definitions/{processDefinitionId}/activate")
+    @PreAuthorize("hasAuthority('workflow:definition:state')")
+    @AuditOperation(module = "workflow", type = "ACTIVATE_DEFINITION", name = "激活流程定义")
+    public Result<Void> activateDefinition(@PathVariable String processDefinitionId) {
+        monitorService.activateDefinition(processDefinitionId);
+        return Result.success();
+    }
 }

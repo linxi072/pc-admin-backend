@@ -20,6 +20,7 @@ import com.acme.scaffold.workflow.entity.WfApprovalRecordDO;
 import com.acme.scaffold.workflow.entity.WfInstanceExtDO;
 import com.acme.scaffold.workflow.entity.WfTaskExtDO;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
+import com.acme.scaffold.workflow.rules.WorkflowDefinitionRules;
 import com.acme.scaffold.workflow.rules.WorkflowMonitorRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -172,6 +173,41 @@ public class WorkflowMonitorService {
                         .greaterOrEqual(todayStart)),
                 countInstances(JooqTables.WF_INSTANCE_EXT.field("finished_at", LocalDateTime.class)
                         .greaterOrEqual(todayStart)));
+    }
+
+    // ------------------------------------------------------------------
+    // 写面：定义生命周期（挂起/激活）
+    // ------------------------------------------------------------------
+
+    /**
+     * 挂起流程定义：阻止新实例发起（不影响在途实例）。
+     *
+     * <p>守卫：定义不存在 → 404；已挂起 → 409（幂等拒绝）。引擎层 {@code suspendProcessDefinitionById}
+     * 默认仅挂起定义本身、不级联在途实例，符合「停用问题版本、放行在途业务」语义。</p>
+     */
+    public void suspendDefinition(String processDefinitionId) {
+        WorkflowEnginePort.ProcessDefinitionState state = engine.processDefinitionState(processDefinitionId);
+        if (state == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "流程定义不存在: " + processDefinitionId);
+        }
+        WorkflowDefinitionRules.assertTransition(
+                WorkflowDefinitionRules.evaluateSuspend(state.suspended()));
+        engine.suspendDefinition(processDefinitionId);
+    }
+
+    /**
+     * 激活流程定义：恢复新实例发起能力。
+     *
+     * <p>守卫：定义不存在 → 404；已激活 → 409（幂等拒绝）。</p>
+     */
+    public void activateDefinition(String processDefinitionId) {
+        WorkflowEnginePort.ProcessDefinitionState state = engine.processDefinitionState(processDefinitionId);
+        if (state == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "流程定义不存在: " + processDefinitionId);
+        }
+        WorkflowDefinitionRules.assertTransition(
+                WorkflowDefinitionRules.evaluateActivate(state.suspended()));
+        engine.activateDefinition(processDefinitionId);
     }
 
     // ------------------------------------------------------------------
