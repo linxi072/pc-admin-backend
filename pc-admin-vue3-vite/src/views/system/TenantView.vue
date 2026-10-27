@@ -26,6 +26,7 @@
         <div class="toolbar-actions">
           <div class="action-buttons">
             <el-button type="primary" :icon="Plus" @click="openCreate">新增租户</el-button>
+            <el-button :icon="DataAnalysis" @click="openOverview">运营总览</el-button>
           </div>
         </div>
       </div>
@@ -48,9 +49,15 @@
         </el-table-column>
         <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
         <el-table-column prop="createdAt" label="创建时间" width="170" sortable="custom" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="270" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
+            <el-button
+              link
+              type="success"
+              :icon="UserFilled"
+              @click="openProvision(row)"
+            >开通</el-button>
             <el-button
               link
               :type="row.status === 'ENABLED' ? 'warning' : 'success'"
@@ -78,6 +85,7 @@
       </div>
     </el-card>
 
+    <!-- 新增 / 编辑租户 -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑租户' : '新增租户'" width="560px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="92px">
         <el-form-item label="租户编码" prop="tenantCode">
@@ -123,19 +131,89 @@
         <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 开通租户（初始化管理员 / 角色 / 部门） -->
+    <el-dialog v-model="provisionVisible" title="开通租户" width="560px">
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        title="将为该租户初始化：默认部门 + 租户管理员角色（绑定全量菜单与接口）+ 首位管理员用户。"
+        style="margin-bottom: 16px"
+      />
+      <el-form :model="provisionForm" :rules="provisionRules" ref="provisionRef" label-width="96px">
+        <el-form-item label="目标租户">
+          <el-input :model-value="provisionTenantName" disabled />
+        </el-form-item>
+        <el-form-item label="管理员账号" prop="adminUsername">
+          <el-input v-model="provisionForm.adminUsername" placeholder="选填，默认 admin" />
+        </el-form-item>
+        <el-form-item label="登录密码" prop="adminPassword">
+          <el-input
+            v-model="provisionForm.adminPassword"
+            type="password"
+            show-password
+            placeholder="8–64 位，含大小写字母、数字、特殊字符"
+          />
+        </el-form-item>
+        <el-form-item label="显示名" prop="adminDisplayName">
+          <el-input v-model="provisionForm.adminDisplayName" placeholder="如 租户管理员" />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="provisionForm.adminMobile" placeholder="选填" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="provisionForm.adminEmail" placeholder="选填" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="provisionVisible = false">取消</el-button>
+        <el-button type="primary" :loading="provisioning" @click="onProvision">确认开通</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 跨租户运营总览 -->
+    <el-dialog v-model="overviewVisible" title="跨租户运营总览" width="820px">
+      <el-table
+        :data="overviewRows"
+        v-loading="overviewLoading"
+        border
+        stripe
+        default-expand-all
+        empty-text="暂无租户数据"
+      >
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <el-table :data="toPairs(row.tableCounts)" border size="small" style="margin: 8px 0">
+              <el-table-column prop="name" label="业务表" min-width="240" />
+              <el-table-column prop="count" label="行数" width="140" align="right" />
+            </el-table>
+          </template>
+        </el-table-column>
+        <el-table-column prop="tenantName" label="租户名称" min-width="200" />
+        <el-table-column prop="tenantId" label="租户 ID" width="120" />
+        <el-table-column prop="totalRows" label="业务数据总量" width="160" align="right" />
+      </el-table>
+      <template #footer>
+        <el-button @click="overviewVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="overviewLoading" @click="loadOverview">刷新</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, DataAnalysis, UserFilled } from '@element-plus/icons-vue'
 import {
   tenantPage,
   createTenant,
   updateTenant,
   removeTenant,
-  toggleTenant
+  toggleTenant,
+  provisionTenant,
+  tenantDataOverview
 } from '@/api/tenant'
 import { statusTag } from '@/utils/status'
 
@@ -163,6 +241,29 @@ const rules = {
   tenantCode: [{ required: true, message: '请输入租户编码', trigger: 'blur' }],
   tenantName: [{ required: true, message: '请输入租户名称', trigger: 'blur' }]
 }
+
+// 开通租户
+const provisionVisible = ref(false)
+const provisioning = ref(false)
+const provisionRef = ref()
+const provisionTenantId = ref(null)
+const provisionTenantName = ref('')
+const provisionForm = reactive({
+  adminUsername: '',
+  adminPassword: '',
+  adminDisplayName: '',
+  adminMobile: '',
+  adminEmail: ''
+})
+const provisionRules = {
+  adminPassword: [{ required: true, message: '请输入初始密码', trigger: 'blur' }],
+  adminDisplayName: [{ required: true, message: '请输入管理员显示名', trigger: 'blur' }]
+}
+
+// 跨租户运营总览
+const overviewVisible = ref(false)
+const overviewLoading = ref(false)
+const overviewRows = ref([])
 
 /** LocalDateTime 字符串（"2026-10-26T14:30:00"）→ "2026-10-26 14:30"；空值回落 '长期'。 */
 function fmtDateTime(v) {
@@ -251,6 +352,42 @@ async function onSubmit() {
   }
 }
 
+function openProvision(row) {
+  provisionTenantId.value = row.id
+  provisionTenantName.value = row.tenantName || row.tenantCode
+  Object.assign(provisionForm, {
+    adminUsername: '',
+    adminPassword: '',
+    adminDisplayName: '',
+    adminMobile: '',
+    adminEmail: ''
+  })
+  provisionVisible.value = true
+}
+
+async function onProvision() {
+  const valid = await provisionRef.value.validate().catch(() => false)
+  if (!valid) return
+  provisioning.value = true
+  try {
+    const payload = {
+      adminUsername: provisionForm.adminUsername || null,
+      adminPassword: provisionForm.adminPassword,
+      adminDisplayName: provisionForm.adminDisplayName,
+      adminMobile: provisionForm.adminMobile || null,
+      adminEmail: provisionForm.adminEmail || null
+    }
+    const view = await provisionTenant(provisionTenantId.value, payload)
+    ElMessage.success(`开通成功：管理员 ${view.adminUsername}（角色 ${view.roleCode}）`)
+    provisionVisible.value = false
+    load()
+  } catch (e) {
+    /* 拦截器已统一提示（如已开通会返回冲突错误） */
+  } finally {
+    provisioning.value = false
+  }
+}
+
 async function onToggle(row) {
   const enable = row.status === 'DISABLED'
   try {
@@ -270,6 +407,30 @@ async function onDelete(row) {
   } catch (e) {
     /* 拦截器已统一提示 */
   }
+}
+
+async function openOverview() {
+  overviewVisible.value = true
+  await loadOverview()
+}
+
+async function loadOverview() {
+  overviewLoading.value = true
+  try {
+    overviewRows.value = await tenantDataOverview()
+  } catch (e) {
+    /* 拦截器已统一提示 */
+  } finally {
+    overviewLoading.value = false
+  }
+}
+
+/** Map<String,Long> → [{ name, count }]，按行数降序，便于阅读。 */
+function toPairs(map) {
+  if (!map) return []
+  return Object.entries(map)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
 }
 
 onMounted(load)

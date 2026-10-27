@@ -143,7 +143,9 @@ export default {
       tenant: '租户管理',
       tenantIsolation: '租户隔离态势',
       realtime: '实时推送',
-      dataScope: '数据权限'
+      dataScope: '数据权限',
+      formPilot: '低代码表单',
+      openApiClient: '开放平台客户端'
     },
     error: {
       network: '网络错误',
@@ -292,7 +294,9 @@ export default {
       tenant: 'Tenant Management',
       tenantIsolation: 'Tenant Isolation Status',
       realtime: 'Realtime Push',
-      dataScope: 'Data Permission'
+      dataScope: 'Data Permission',
+      formPilot: 'Low-code Form',
+      openApiClient: 'Open Platform Clients'
     },
     error: {
       network: 'Network error',

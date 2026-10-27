@@ -47,3 +47,17 @@ export const removeTenant = (id) =>
  */
 export const toggleTenant = (id, enabled) =>
   request({ method: 'PUT', url: `/api/system/tenants/${id}/toggle`, params: { enabled } })
+
+/**
+ * POST /api/system/tenants/{id}/provision -> TenantProvisioningView
+ * 开通租户（初始化管理员 / 角色 / 部门），仅平台管理员可调用。
+ */
+export const provisionTenant = (id, data) =>
+  request({ method: 'POST', url: `/api/system/tenants/${id}/provision`, data })
+
+/**
+ * GET /api/system/tenants/data-overview -> TenantDataOverview[]
+ * 跨租户数据总览：按租户聚合各业务表行数（平台管理员跨租户旁路）。
+ */
+export const tenantDataOverview = () =>
+  request({ method: 'GET', url: '/api/system/tenants/data-overview' })
