@@ -4,6 +4,8 @@ import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.sensitive.SensitiveMasker;
+import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
@@ -88,6 +90,23 @@ public class MaskStrategyService {
     public long refreshCache() {
         activeCache.clear();
         return cacheVersion.incrementAndGet();
+    }
+
+    /**
+     * 脱敏效果预览：复用 {@link SensitiveMasker#mask} 单一数据源，避免前端重写掩码逻辑导致口径漂移。
+     *
+     * <p>纯计算、不落库、不读缓存；非法脱敏类型直接拒绝（400），由调用方（编辑弹窗）即时修正。</p>
+     *
+     * @param sensitiveType 脱敏类型（枚举名，大小写不敏感；null/非法拒绝）
+     * @param sampleValue    待脱敏示例值（可为空，空值原样返回）
+     * @return 脱敏后的示例值
+     */
+    public String previewMask(String sensitiveType, String sampleValue) {
+        SensitiveType type = MaskStrategyRules.parseSensitiveType(sensitiveType);
+        if (type == null) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "脱敏类型非法");
+        }
+        return SensitiveMasker.mask(sampleValue, type);
     }
 
     /** 当前缓存版本（便于观测与测试）。 */

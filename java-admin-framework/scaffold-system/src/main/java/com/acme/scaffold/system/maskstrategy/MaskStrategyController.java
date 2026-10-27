@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.system.maskstrategy.dto.CreateMaskStrategyRequest;
+import com.acme.scaffold.system.maskstrategy.dto.MaskPreviewRequest;
 import com.acme.scaffold.system.maskstrategy.dto.MaskStrategyView;
 import com.acme.scaffold.system.maskstrategy.dto.UpdateMaskStrategyRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -112,5 +113,12 @@ public class MaskStrategyController {
     @PreAuthorize("hasAuthority('system:mask-strategy:manage')")
     public Result<Long> refreshCache() {
         return Result.success(service.refreshCache());
+    }
+
+    @Operation(summary = "脱敏效果预览（复用 SensitiveMasker 单一数据源，编辑弹窗内联展示掩码结果）")
+    @PostMapping("/preview")
+    @PreAuthorize("hasAuthority('system:mask-strategy:read')")
+    public Result<String> preview(@Valid @RequestBody MaskPreviewRequest request) {
+        return Result.success(service.previewMask(request.sensitiveType(), request.sampleValue()));
     }
 }
