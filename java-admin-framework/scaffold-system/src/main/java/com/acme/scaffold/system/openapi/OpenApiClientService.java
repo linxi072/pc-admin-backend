@@ -198,6 +198,35 @@ public class OpenApiClientService {
                         JooqTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId))) != null;
     }
 
+    /**
+     * 客户端认证（OAuth2 授权服务器接入点）：查库 → BCrypt 校验密钥哈希 → 状态/过期校验。
+     * 失败（含不存在、停用、过期、密钥错误）统一抛 {@link CommonErrorCode#UNAUTHORIZED}，
+     * 不泄露具体失败原因，与登录链路口径一致。
+     *
+     * @return 通过认证的客户端实体（含 scopes 等签发令牌所需信息）
+     */
+    public OpenApiClientDO authenticateClient(String clientId, String secret) {
+        if (!StringUtils.hasText(clientId) || !StringUtils.hasText(secret)) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端凭证缺失");
+        }
+        OpenApiClientDO d = JooqWriters.fetchOne(dsl, JooqTables.OPENAPI_CLIENT, OpenApiClientDO.class,
+                DSL.and(JooqWriters.notDeleted(JooqTables.OPENAPI_CLIENT),
+                        JooqTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
+        if (d == null) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端不存在或已注销");
+        }
+        if (!"ENABLED".equals(d.getStatus())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已停用");
+        }
+        if (d.getExpiredAt() != null && d.getExpiredAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已过期");
+        }
+        if (!passwordEncoder.matches(secret, d.getClientSecretHash())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端密钥错误");
+        }
+        return d;
+    }
+
     /** 统一筛选条件：逻辑删除恒成立；client_id 模糊匹配/状态精确匹配按需收敛。 */
     private Condition buildCondition(String clientId, String status) {
         List<Condition> conds = new ArrayList<>();

@@ -66,6 +66,10 @@ public class SecurityConfig {
             // 收敛到 [0,10000] 防线程耗尽型滥用
             new AntPathRequestMatcher("/api/connectivity/ping", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/connectivity/slow", HttpMethod.GET.name()),
+            // OAuth2 授权服务器端点（协议级开放平台）：令牌签发与 JWKS 公钥暴露，匿名可访问；
+            // 真实安全性由端点内 client 认证（client_id/client_secret 校验）承担
+            new AntPathRequestMatcher("/oauth2/token", HttpMethod.POST.name()),
+            new AntPathRequestMatcher("/oauth2/jwks", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/error"));
 
     /** Swagger / OpenAPI 文档端点（是否公开由 {@code app.swagger.public-access} 决定）。 */

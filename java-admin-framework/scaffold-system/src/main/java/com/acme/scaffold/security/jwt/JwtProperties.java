@@ -51,6 +51,26 @@ public class JwtProperties {
     /** 上一版本密钥（Base64 编码、≥256 位）；留空表示未启用密钥轮换。 */
     private String previousJwtSecret;
 
+    // ---- OAuth2 授权服务器（协议级开放平台，RS256） ----
+
+    /** OAuth2 发行方（iss），默认与登录 JWT 相同（{@link #issuer}）。 */
+    private String oauth2Issuer;
+
+    /** OAuth2 受众（aud），默认与登录 JWT 相同（{@link #audience}）。 */
+    private String oauth2Audience;
+
+    /** OAuth2 客户端令牌有效期，默认 30 分钟。 */
+    private Duration oauth2TokenTtl = Duration.ofMinutes(30);
+
+    /** OAuth2 RS256 密钥 kid，默认 "oauth2-rs256"。 */
+    private String oauth2KeyId = "oauth2-rs256";
+
+    /**
+     * OAuth2 RS256 私钥（Base64 编码的 PKCS#8 DER）。留空则启动时生成内存临时密钥
+     * （重启后失效，JWKS kid 变化，已签发令牌无法跨重启校验）；生产必须配置固定私钥。
+     */
+    private String oauth2PrivateKey;
+
     public String getIssuer() {
         return issuer;
     }
@@ -239,6 +259,46 @@ public class JwtProperties {
 
     public void setPreviousJwtSecret(String previousJwtSecret) {
         this.previousJwtSecret = previousJwtSecret;
+    }
+
+    public String getOauth2Issuer() {
+        return StringUtils.hasText(oauth2Issuer) ? oauth2Issuer : issuer;
+    }
+
+    public void setOauth2Issuer(String oauth2Issuer) {
+        this.oauth2Issuer = oauth2Issuer;
+    }
+
+    public String getOauth2Audience() {
+        return StringUtils.hasText(oauth2Audience) ? oauth2Audience : audience;
+    }
+
+    public void setOauth2Audience(String oauth2Audience) {
+        this.oauth2Audience = oauth2Audience;
+    }
+
+    public Duration getOauth2TokenTtl() {
+        return oauth2TokenTtl;
+    }
+
+    public void setOauth2TokenTtl(Duration oauth2TokenTtl) {
+        this.oauth2TokenTtl = oauth2TokenTtl;
+    }
+
+    public String getOauth2KeyId() {
+        return oauth2KeyId;
+    }
+
+    public void setOauth2KeyId(String oauth2KeyId) {
+        this.oauth2KeyId = oauth2KeyId;
+    }
+
+    public String getOauth2PrivateKey() {
+        return oauth2PrivateKey;
+    }
+
+    public void setOauth2PrivateKey(String oauth2PrivateKey) {
+        this.oauth2PrivateKey = oauth2PrivateKey;
     }
 
     private static final Logger log = LoggerFactory.getLogger(JwtProperties.class);
