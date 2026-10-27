@@ -13,8 +13,8 @@ export const dashboardOverview = () =>
 /**
  * GET /api/system/dashboard/trend?days=30 -> DashboardTrend
  *
- * 近 N 日时间序列（新增用户 / 新增租户 / 活跃租户），缺数据日已补齐为 0，
- * 前端可直接按索引渲染。days 由后端钳制到 [1, 90]。
+ * 近 N 日时间序列（新增用户 / 新增租户 / 活跃租户 / 登录日志 / 操作日志 / 通知发送），
+ * 缺数据日已补齐为 0，前端可直接按索引渲染。days 由后端钳制到 [1, 90]。
  * @param {number} days 回溯天数
  */
 export const dashboardTrend = (days) =>

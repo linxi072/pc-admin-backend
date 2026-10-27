@@ -147,7 +147,10 @@ const traceStats = computed(() => {
 const trendMetrics = [
   { key: 'newUsers', label: '新增用户', color: BRAND },
   { key: 'newTenants', label: '新增租户', color: '#67c23a' },
-  { key: 'activeTenants', label: '活跃租户', color: '#e6a23c' }
+  { key: 'activeTenants', label: '活跃租户', color: '#e6a23c' },
+  { key: 'loginLogs', label: '登录日志', color: '#909399' },
+  { key: 'operationLogs', label: '操作日志', color: '#f56c6c' },
+  { key: 'notifications', label: '通知发送', color: '#9254de' }
 ]
 
 function trendOption(m) {
