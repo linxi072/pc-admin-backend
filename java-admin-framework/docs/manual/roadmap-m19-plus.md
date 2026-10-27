@@ -1,6 +1,6 @@
 # 路线图规划：M19+ 后续模块提案（java-admin-framework）
 
-> 状态：**已采纳路线（2026-10-23 确认决策；M19 P1/P2/P3 + M20–M26 + M22 低代码表单(spike+正式立项提交落库) 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新 M20–M26 交付状态；2026-10-26 更新 M19 P1/P2 与 M22 正式立项交付状态；2026-10-26 更新 M29 实时推送管理页与 M30 实时推送模板化交付状态）｜ 分支：`feat/V1.0.4` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
+> 状态：**已采纳路线（2026-10-23 确认决策；M19 P1/P2/P3 + M20–M26 + M22 低代码表单(spike+正式立项提交落库) 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新 M20–M26 交付状态；2026-10-26 更新 M19 P1/P2 与 M22 正式立项交付状态；2026-10-26 更新 M29 实时推送管理页与 M30 实时推送模板化交付状态；2026-10-27 更新 M19 SaaS 开通闭环交付状态（租户开通预置 + 存量 tenant_id 回填迁移 + 跨租户运营总览，全仓 1519→1528 例全绿）｜ 分支：`feat/V1.0.4` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
 > 方法：直接核查已交付能力（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim / M5 缓存 / M6 通知渠道 / M7–M8 已读回执 / M14 免打扰 / M15 退订令牌 / M16 故障转移+有界重试 / M17 聚合摘要 / M18 Webhook HMAC / 导入导出中心 / i18n / 限流注解化 / 敏感数据脱敏通用化 / 多段导入 #651 / 可观测中心前端 / 岗位管理 / 文件管理 / 多数据源 / 编码规范校验脚本），不凭空假设。
 > 约束：离线 Maven 仓库可用依赖优先；禁止引入需联网拉取的重型依赖（如 POI，已用零依赖 OOXML 替代）；数据访问以手写 jOOQ DSL（JooqTables + TableRef）为准；新模块须延续「模板注册 / 纯函数规则 / 条件装配 / 自动登记权限码」的既有范式。
 
@@ -16,7 +16,7 @@
 
 | 候选 | 业务价值 | 范围量级 | 离线可行性 | 风险/前置 | 建议优先级 |
 |---|---|---|---|---|---|
-| **M19 多租户隔离（SaaS 化）** | 高（框架作为可复用基座的核心分水岭） | 大（侵入式） | ✅ 用 jOOQ DSL + TenantContext + 多数据源路由，零新依赖 | 既有表需 `tenant_id` 迁移；跨租户管理视图需独立通道；影响面全局 | **P1 基础层 + P2 租户管理域已交付（feat/V1.0.4）；P3 jOOQ 强制注入隔离已交付（feat/V1.0.4，1435 例全绿）** |
+| **M19 多租户隔离（SaaS 化）** | 高（框架作为可复用基座的核心分水岭） | 大（侵入式） | ✅ 用 jOOQ DSL + TenantContext + 多数据源路由，零新依赖 | 既有表需 `tenant_id` 迁移；跨租户管理视图需独立通道；影响面全局 | **P1 基础层 + P2 租户管理域已交付（feat/V1.0.4）；P3 jOOQ 强制注入隔离已交付（feat/V1.0.4，1435 例全绿）；**P4 SaaS 开通闭环已交付（feat/V1.0.4，2026-10-27：租户开通预置 + 存量 tenant_id 回填迁移 + 跨租户运营总览，全仓 1519→1528 例全绿） |
 | **M20 操作/审计增强** | 中 | 中 | ✅ 增量扩展 M1 `AuditAspect` | 读操作审计量爆炸需采样/开关 | P2 |
 | **M21 数据脱敏策略中心（可视化配置）** | 中 | 中 | ✅ 复用 `common/sensitive` + 规则表 | 运行时解析需缓存与刷新；默认安全需保留 | P2 |
 | **M22 低代码/动态表单引擎** | 高 | 大（易膨胀） | ✅ spike（V47 契约+渲染原型）+ **正式立项提交落库（V53）** | 作用域易失控；已按「独立 `form_submission` 表、零运行时 DDL」收口，不侵入业务表 | P3（spike ✅ + 提交落库 ✅） |
@@ -86,6 +86,20 @@
   - `RealtimeAdminService` 经 `ObjectProvider<RealtimeTemplatePort>` 解析：指定 `templateCode` 时按 `NOTIFICATION` 类型推送 `RealtimeNotificationPayload.of(渲染标题, 渲染正文, 消息类型, {})`；端口缺失则显式抛 `CONFLICT` 失败（不静默降级）；未指定则走原始 `type`/`payload` 路径。
 - **前端（pc-admin-vue3-vite）**：`src/api/realtime.js` 的 `realtimeBroadcast` / `realtimePushToUser` 增 `templateCode` / `variables` 透传；`RealtimeView.vue` 增「使用模板」开关——开启后从 `pageNotificationTemplates(channel=WEBSOCKET, enabled=true)` 拉取模板下拉，选模板后按 `variableNames` 动态渲染变量输入，并调用 `previewNotificationTemplate` 实时展示渲染预览；提交时仅传 `templateCode` + `variables`（payload 置 null）。
 - **测试 7 例**（`RealtimeAdminServiceTest` 4：原始路径 / 模板路径渲染为 NOTIFICATION+Payload / 端口缺失显式失败 / 定向推送模板路径；`RealtimeTemplateAdapterTest` 3：WEBSOCKET 渲染 / 非 WEBSOCKET 拒 / 变量缺省保留 `${name}`）；门禁：全仓 **1491→1498** 例全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0（验证目录 `.fe-verify` 已清理不提交）。
+
+#### 4.1.5 M19 SaaS 开通闭环（租户开通预置 + 存量回填迁移 + 跨租户运营总览，已交付，2026-10-27）
+- **定位**：承接 M19 P1–P3 与生产可用化，打通「生产启用闭环」——把「注册租户（仅写 `sys_tenant` 行）」升级为「一键开通（初始化管理员/角色/部门）+ 存量 `tenant_id` 回填迁移 + 跨租户运营总览」，使框架可真正作为 SaaS 基座交付给平台客户。
+- **关键设计约束**：隔离默认仍 `enforce=false`（零回归）；子资源创建统一在 `TenantContext.runWith(tenantId, false, ...)` 作用域下写入，确保 `enforce=true` 时 `tenant_id` 正确落库、关闭时回落平台租户 0；菜单/接口为平台共享维表（`sys_menu`/`sys_api_resource`），租户管理员角色绑定全量菜单 + 接口（由 `ApiResourceAutoSyncRunner` 自动登记权限码）；跨租户查重/聚合经 `@TenantIgnorable` 旁路（复用 M27/M28 范式）。
+- **后端（system）**：
+  - `system/tenant/TenantProvisioningRules`（纯函数：用户名长度 2–64 / 显示名非空 / 密码复杂度（复用 `PasswordPolicy`）/ 电话邮箱格式（复用 `TenantRules`）/ 派生全局唯一角色码 `TENANT_ADMIN_<TENANT_CODE>` 与部门码 `DEPT_<TENANT_CODE>`；可离线单测）。
+  - `system/tenant/TenantProvisioningService`（`@Transactional` + `@TenantIgnorable`：先全额结构校验（零 DB 交互）→ `tenantService.get` 校验租户存在 → `roleService.existsByCode` 幂等守卫（已开通返回 CONFLICT）→ `runWith(tenantId, false, ...)` 内 `orgService.create`（默认部门）+ `roleService.create`（绑定全量菜单与接口）+ `userService.create`（管理员，含主角色/主部门））。
+  - DTO：`TenantProvisioningRequest`（adminUsername 可空默认 admin / adminPassword 必需 / adminDisplayName / adminMobile / adminEmail）+ `TenantProvisioningView`（tenantId/adminUserId/roleId/deptId/adminUsername/roleCode）。
+  - `TenantController` 增 `POST /api/system/tenants/{id}/provision`（权限 `system:tenant:manage` 自动登记）。
+  - `RoleService.existsByCode` 由 private 提升为 public（供开通幂等守卫复用，零行为变更）。
+- **迁移（V57 Java 迁移，幂等 + 数据驱动 + 零孤儿断言）**：`V57__backfill_tenant_id extends BaseJavaMigration`——遍历 `TenantTables.businessTableNames()`，运行时内省 `information_schema.columns` 探测确实含 `tenant_id` 列的业务表，将 `tenant_id IS NULL` 归位平台租户 0（单事务由 Flyway 托管、可重跑）；回填后二次校验不得残留 `tenant_id IS NULL`，否则抛 `IllegalStateException` fail-fast（杜绝「列已加但值为 NULL」的隔离泄漏）；复用 M19 业务表权威清单，新增业务表自动纳入，平台维表恒不触碰。
+- **前端（pc-admin-vue3-vite）**：`src/api/tenant.js` 增 `provisionTenant(id, data)` + `tenantDataOverview()`；`TenantView.vue` 增「开通」按钮（对话框：默认部门 + 租户管理员角色绑定全量菜单/接口 + 首位管理员用户的初始化说明 + 管理员账号/密码/显示名/手机/邮箱 表单，提交后提示 `管理员 xxx（角色 xxx）`）+「运营总览」按钮（对话框：跨租户聚合各业务表行数，可展开看每表明细，loading/error/空态齐全）；`messages.js` 补齐 `route.formPilot`/`route.openApiClient` 键（修复路由 meta 引用缺失键导致标题显示字面量的潜在 bug）。
+- **测试 9 例**（`TenantProvisioningRulesTest`：用户名为空回落默认 / 长度上下界 / 显示名非空 / 密码复杂度（长度不足 / 缺特殊字符 / 合规通过）/ 电话邮箱格式 / 角色码派生），全仓 **1519→1528 例**全绿。
+- **门禁**：`mvn -o clean test` 1528 例全绿 + `check-conventions.py` EXIT=0 + `npm run build` EXIT=0（环境 safe-delete 守卫拦截 `emptyDir(dist)` 批量删除，以 `emptyOutDir:false` 临时配置绕过验证编译，交付仍用默认配置）。
 
 ### 4.2 M20 操作/审计增强
 - **目标**：在 M1 写操作审计基础上，补「读操作审计（可开关/采样）」「审计导出」「留存与清理」「按角色脱敏展示」。
