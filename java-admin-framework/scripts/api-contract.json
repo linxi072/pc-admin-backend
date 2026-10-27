@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "description": "前后端联调统一契约（Single Source of Truth）。后端 ApiContractConsistencyTest 与前端 result.test.js 共同以本文件为唯一断言依据，确保前后端数据格式与业务逻辑一致。覆盖：统一响应体 Result<T> 包络字段、成功码兼容规则、9 个通用错误码（码/HTTP 状态/双语文案）、示例资源 demoItem 的字段约束与分页钳制策略、6+ 异常场景的期望。",
+  "envelope": {
+    "type": "object",
+    "required": ["code", "message", "data", "traceId", "timestamp"],
+    "fields": {
+      "code": {
+        "type": ["string", "number"],
+        "successValues": ["0", 0],
+        "note": "业务码。成功约定为 \"0\"（字符串）；契约同时允许数字 0（历史/跨语言兼容），前端拆包必须两者都识别为成功。失败为稳定的错误码，如 COMMON_404。"
+      },
+      "message": {
+        "type": "string",
+        "successValue": "OK",
+        "note": "人类可读消息；成功为 OK，失败为本地化错误文案。"
+      },
+      "data": {
+        "type": ["object", "array", "null"],
+        "note": "业务载荷；成功为业务数据（可为 null），失败可为 null。"
+      },
+      "traceId": {
+        "type": "string",
+        "note": "链路追踪 ID，恒非空（无 MDC 时回退为 \"-\"）。"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "note": "ISO-8601 时间戳（Instant 序列化），恒非空。"
+      }
+    }
+  },
+  "successCodes": ["0", 0],
+  "errorCodes": [
+    { "code": "COMMON_001", "httpStatus": 400, "messageZh": "请求参数校验失败", "messageEn": "Request validation failed" },
+    { "code": "COMMON_401", "httpStatus": 401, "messageZh": "未认证或登录已失效", "messageEn": "Unauthenticated or session expired" },
+    { "code": "COMMON_403", "httpStatus": 403, "messageZh": "无权限访问该资源", "messageEn": "Access denied" },
+    { "code": "COMMON_404", "httpStatus": 404, "messageZh": "资源不存在", "messageEn": "Resource not found" },
+    { "code": "COMMON_409", "httpStatus": 409, "messageZh": "数据冲突，请刷新后重试", "messageEn": "Data conflict, please retry after refresh" },
+    { "code": "COMMON_422", "httpStatus": 422, "messageZh": "业务处理失败", "messageEn": "Business processing failed" },
+    { "code": "COMMON_429", "httpStatus": 429, "messageZh": "请求过于频繁，请稍后再试", "messageEn": "Too many requests, please retry later" },
+    { "code": "COMMON_500", "httpStatus": 500, "messageZh": "系统内部错误", "messageEn": "Internal server error" },
+    { "code": "COMMON_504", "httpStatus": 504, "messageZh": "请求超时，请稍后重试", "messageEn": "Request timed out, please retry later" }
+  ],
+  "resources": {
+    "demoItem": {
+      "description": "示例资源：用于联调测试『数据交互正确性』的最小 CRUD 资源。后端测试以内存 Service 实现，不落库、可离线；前端以其字段形态作为拆包契约校验样本。",
+      "createRequest": {
+        "required": ["name"],
+        "fields": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 64, "note": "名称，1-64 字符；空或超长触发 COMMON_001(400)。" },
+          "remark": { "type": "string", "maxLength": 255, "optional": true, "note": "备注，可选，<=255 字符。" }
+        }
+      },
+      "view": {
+        "required": ["id", "name"],
+        "fields": {
+          "id": { "type": "string", "note": "雪花 ID 字符串化（前端精度安全，严禁以 Number 接收）。" },
+          "name": { "type": "string" },
+          "remark": { "type": ["string", "null"] },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "listResponse": {
+        "type": "object",
+        "fields": {
+          "records": { "type": "array", "items": "demoItem.view" },
+          "total": { "type": "number", "note": "满足条件的总记录数。" },
+          "page": { "type": "number", "minimum": 1 },
+          "size": { "type": "number", "minimum": 1 }
+        },
+        "paging": {
+          "defaultPage": 1,
+          "defaultSize": 10,
+          "minSize": 1,
+          "maxSize": 100,
+          "clamp": "size 超出 [1,100] 时服务端钳制：<1 -> 1，>100 -> 100；page <1 -> 1。响应中的 page/size 必须为钳制后的值。"
+        }
+      }
+    }
+  },
+  "exceptionScenarios": [
+    { "scenario": "validation",  "trigger": "参数校验失败（name 为空 / 超长 / remark 超长）", "httpStatus": 400, "code": "COMMON_001" },
+    { "scenario": "unauthorized", "trigger": "未携带或失效令牌（认证异常）",           "httpStatus": 401, "code": "COMMON_401" },
+    { "scenario": "forbidden",    "trigger": "无权限访问（授权异常）",                 "httpStatus": 403, "code": "COMMON_403" },
+    { "scenario": "notFound",     "trigger": "查询不存在的资源",                       "httpStatus": 404, "code": "COMMON_404" },
+    { "scenario": "conflict",     "trigger": "唯一键冲突（DataIntegrityViolation）",    "httpStatus": 409, "code": "COMMON_409" },
+    { "scenario": "business",     "trigger": "业务规则拒绝（BusinessException）",       "httpStatus": 422, "code": "COMMON_422" },
+    { "scenario": "rateLimited",  "trigger": "触发限流（COMMON_429，由限流切面直接返回）", "httpStatus": 429, "code": "COMMON_429", "note": "无专用 HTTP 异常处理器映射，仅校验码/状态/双语文案与契约一致，不走 MockMvc 异常链路。" },
+    { "scenario": "internal",     "trigger": "未预期异常（RuntimeException）",          "httpStatus": 500, "code": "COMMON_500" },
+    { "scenario": "timeout",      "trigger": "下游超时（TimeoutException）",           "httpStatus": 504, "code": "COMMON_504" }
+  ]
+}
