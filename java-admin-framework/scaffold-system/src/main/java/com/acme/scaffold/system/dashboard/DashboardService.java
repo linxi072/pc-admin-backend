@@ -69,6 +69,9 @@ public class DashboardService {
                 statsPort.dailyNewUsers(days),
                 statsPort.dailyNewTenants(days),
                 statsPort.dailyActiveTenants(days),
+                statsPort.dailyLoginLogs(days),
+                statsPort.dailyOperationLogs(days),
+                statsPort.dailyNotifications(days),
                 days,
                 today,
                 System.currentTimeMillis());

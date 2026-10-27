@@ -114,17 +114,21 @@ public final class DashboardRules {
     }
 
     /**
-     * 构建趋势快照：对三序列分别补齐连续日期，{@code days} 与 {@code generatedAt} 做归一。
+     * 构建趋势快照：对六序列分别补齐连续日期，{@code days} 与 {@code generatedAt} 做归一。
      *
-     * @param newUsers      每日新增用户（稀疏，可空）
-     * @param newTenants    每日新增租户（稀疏，可空）
-     * @param activeTenants 每日活跃租户（稀疏，可空）
-     * @param days          回溯天数（会被钳制）
-     * @param today         基准日
-     * @param generatedAt   生成时刻（epoch 毫秒，<=0 时回落当前时刻）
+     * @param newUsers       每日新增用户（稀疏，可空）
+     * @param newTenants     每日新增租户（稀疏，可空）
+     * @param activeTenants  每日活跃租户（稀疏，可空）
+     * @param loginLogs      每日登录日志数（稀疏，可空）
+     * @param operationLogs  每日操作日志数（稀疏，可空）
+     * @param notifications  每日通知发送数（稀疏，可空）
+     * @param days           回溯天数（会被钳制）
+     * @param today          基准日
+     * @param generatedAt    生成时刻（epoch 毫秒，<=0 时回落当前时刻）
      */
     public static DashboardTrend buildTrend(
             List<TrendPoint> newUsers, List<TrendPoint> newTenants, List<TrendPoint> activeTenants,
+            List<TrendPoint> loginLogs, List<TrendPoint> operationLogs, List<TrendPoint> notifications,
             int days, LocalDate today, long generatedAt) {
         int n = clampDays(days);
         long ts = (generatedAt > 0) ? generatedAt : System.currentTimeMillis();
@@ -133,12 +137,16 @@ public final class DashboardRules {
                 fillDailyGaps(newUsers, n, today),
                 fillDailyGaps(newTenants, n, today),
                 fillDailyGaps(activeTenants, n, today),
+                fillDailyGaps(loginLogs, n, today),
+                fillDailyGaps(operationLogs, n, today),
+                fillDailyGaps(notifications, n, today),
                 ts);
     }
 
     /** 全零趋势兜底（无数据时）。 */
     public static DashboardTrend defaultTrend(int days, LocalDate today) {
-        return buildTrend(List.of(), List.of(), List.of(), days, today, System.currentTimeMillis());
+        return buildTrend(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                days, today, System.currentTimeMillis());
     }
 
     /** 快照字段展示顺序（前端看板渲染用，保证稳定）。 */

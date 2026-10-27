@@ -43,4 +43,13 @@ public interface SystemStatsPort {
 
     /** 近 days 日每日活跃租户数（按 occurred_at 去重 tenant_id 按天聚合，仅含有数据的日期）。 */
     List<TrendPoint> dailyActiveTenants(int days);
+
+    /** 近 days 日每日登录日志数（按 occurred_at 按天聚合，仅含有数据的日期）。 */
+    List<TrendPoint> dailyLoginLogs(int days);
+
+    /** 近 days 日每日操作日志（审计）数（按 occurred_at 按天聚合，仅含有数据的日期）。 */
+    List<TrendPoint> dailyOperationLogs(int days);
+
+    /** 近 days 日每日通知发送数（按 sent_at 按天聚合，仅含有数据的日期）。 */
+    List<TrendPoint> dailyNotifications(int days);
 }

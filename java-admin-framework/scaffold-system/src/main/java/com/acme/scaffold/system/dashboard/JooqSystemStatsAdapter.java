@@ -127,6 +127,54 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
         });
     }
 
+    @Override
+    public List<TrendPoint> dailyLoginLogs(int days) {
+        return safeList(() -> {
+            LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
+            Field<Timestamp> ts = JooqTables.SYS_LOGIN_LOG.field("occurred_at", Timestamp.class);
+            Field<LocalDate> day = dateField(ts);
+            return dsl.select(day, DSL.count())
+                    .from(JooqTables.SYS_LOGIN_LOG.table())
+                    .where(ts.ge(Timestamp.valueOf(start.atStartOfDay())))
+                    .groupBy(day)
+                    .orderBy(day)
+                    .fetch()
+                    .map(r -> new TrendPoint(r.value1(), toLong(r.value2())));
+        });
+    }
+
+    @Override
+    public List<TrendPoint> dailyOperationLogs(int days) {
+        return safeList(() -> {
+            LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
+            Field<Timestamp> ts = JooqTables.SYS_OPERATION_LOG.field("occurred_at", Timestamp.class);
+            Field<LocalDate> day = dateField(ts);
+            return dsl.select(day, DSL.count())
+                    .from(JooqTables.SYS_OPERATION_LOG.table())
+                    .where(ts.ge(Timestamp.valueOf(start.atStartOfDay())))
+                    .groupBy(day)
+                    .orderBy(day)
+                    .fetch()
+                    .map(r -> new TrendPoint(r.value1(), toLong(r.value2())));
+        });
+    }
+
+    @Override
+    public List<TrendPoint> dailyNotifications(int days) {
+        return safeList(() -> {
+            LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
+            Field<Timestamp> ts = JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", Timestamp.class);
+            Field<LocalDate> day = dateField(ts);
+            return dsl.select(day, DSL.count())
+                    .from(JooqTables.SYS_NOTIFICATION_RECORD.table())
+                    .where(ts.ge(Timestamp.valueOf(start.atStartOfDay())))
+                    .groupBy(day)
+                    .orderBy(day)
+                    .fetch()
+                    .map(r -> new TrendPoint(r.value1(), toLong(r.value2())));
+        });
+    }
+
     /** 按天截断的时间字段：MySQL {@code DATE(expr)}。 */
     private static Field<LocalDate> dateField(Field<Timestamp> ts) {
         return DSL.field("DATE({0})", LocalDate.class, ts);
