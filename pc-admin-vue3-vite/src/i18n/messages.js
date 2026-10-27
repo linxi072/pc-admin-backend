@@ -142,7 +142,8 @@ export default {
       reportDashboard: '报表大屏',
       tenant: '租户管理',
       tenantIsolation: '租户隔离态势',
-      realtime: '实时推送'
+      realtime: '实时推送',
+      dataScope: '数据权限'
     },
     error: {
       network: '网络错误',
@@ -290,7 +291,8 @@ export default {
       reportDashboard: 'Report Dashboard',
       tenant: 'Tenant Management',
       tenantIsolation: 'Tenant Isolation Status',
-      realtime: 'Realtime Push'
+      realtime: 'Realtime Push',
+      dataScope: 'Data Permission'
     },
     error: {
       network: 'Network error',

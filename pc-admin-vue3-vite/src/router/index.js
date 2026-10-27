@@ -292,6 +292,15 @@ const routes = [
         meta: { title: 'route.realtime', permission: 'system:realtime:read' }
       },
       {
+        // 数据权限配置（M31）：角色 × 资源的数据范围可视化配置面，资源清单由后端
+        // DataScopeResourceRegistry 自动扫描 @DataScope 得到；菜单与权限由后端驱动
+        // （menu_code=system:data-scope, permission=system:data-scope:read；保存另需 system:role:update）
+        path: 'system/data-scope',
+        name: 'dataScope',
+        component: () => import('@/views/system/DataScopeView.vue'),
+        meta: { title: 'route.dataScope', permission: 'system:data-scope:read' }
+      },
+      {
         // 低代码表单试点（V47 / M22 spike）：Schema 契约 + 零依赖渲染验证，提交落库与绑定目标
         // 为正式立项决策点；菜单与权限由后端驱动（menu_code=system:form-pilot,
         // permission=system:form-definition:read）
