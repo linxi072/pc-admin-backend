@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -106,5 +108,56 @@ class WorkflowMonitorServiceTest {
         assertEquals(0L, result.total());
         assertTrue(result.records().isEmpty());
         verifyNoInteractions(dsl);
+    }
+
+    // ------------------------------------------------------------------
+    // 定义生命周期：挂起/激活
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("suspendDefinition：定义不存在 → 404，零引擎写")
+    void suspendDefinition_rejectsMissing() {
+        when(engine.processDefinitionState("pd-x")).thenReturn(null);
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.suspendDefinition("pd-x"));
+        assertEquals(CommonErrorCode.NOT_FOUND, ex.getErrorCode());
+        verify(engine, never()).suspendDefinition(any());
+    }
+
+    @Test
+    @DisplayName("suspendDefinition：已挂起 → 409，零引擎写")
+    void suspendDefinition_rejectsAlreadySuspended() {
+        when(engine.processDefinitionState("pd-1")).thenReturn(
+                new WorkflowEnginePort.ProcessDefinitionState("pd-1", "leave", 3, true, "请假"));
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.suspendDefinition("pd-1"));
+        assertEquals(CommonErrorCode.CONFLICT, ex.getErrorCode());
+        verify(engine, never()).suspendDefinition(any());
+    }
+
+    @Test
+    @DisplayName("suspendDefinition：激活态 → 调用引擎 suspendDefinition")
+    void suspendDefinition_callsEngineWhenActive() {
+        when(engine.processDefinitionState("pd-1")).thenReturn(
+                new WorkflowEnginePort.ProcessDefinitionState("pd-1", "leave", 3, false, "请假"));
+        service.suspendDefinition("pd-1");
+        verify(engine).suspendDefinition("pd-1");
+    }
+
+    @Test
+    @DisplayName("activateDefinition：已激活 → 409，零引擎写")
+    void activateDefinition_rejectsAlreadyActive() {
+        when(engine.processDefinitionState("pd-1")).thenReturn(
+                new WorkflowEnginePort.ProcessDefinitionState("pd-1", "leave", 3, false, "请假"));
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.activateDefinition("pd-1"));
+        assertEquals(CommonErrorCode.CONFLICT, ex.getErrorCode());
+        verify(engine, never()).activateDefinition(any());
+    }
+
+    @Test
+    @DisplayName("activateDefinition：挂起态 → 调用引擎 activateDefinition")
+    void activateDefinition_callsEngineWhenSuspended() {
+        when(engine.processDefinitionState("pd-1")).thenReturn(
+                new WorkflowEnginePort.ProcessDefinitionState("pd-1", "leave", 3, true, "请假"));
+        service.activateDefinition("pd-1");
+        verify(engine).activateDefinition("pd-1");
     }
 }
