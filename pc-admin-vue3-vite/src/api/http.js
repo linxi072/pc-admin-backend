@@ -4,6 +4,7 @@ import { API_BASE } from './config'
 import { clearAuth } from '../store/auth'
 import { closeRealtime } from './realtime'
 import { backendLocale } from '../i18n'
+import { isSuccessResult, ResultError } from './result'
 
 const realAxios = axios.create({ baseURL: API_BASE, timeout: 15000 })
 
@@ -61,14 +62,14 @@ function handleHttpError(err) {
 // 请求拦截：注入 JWT 与设备标识
 realAxios.interceptors.request.use(injectAuthHeaders)
 
-// 响应拦截：统一拆包 Result<T>{code,message,data}，code!=='0' 视为业务错误
+// 响应拦截：统一拆包 Result<T>{code,message,data}，兼容成功码 "0" 与 0（见 result.js）
 realAxios.interceptors.response.use(
   (resp) => {
     const body = resp.data
-    if (body && body.code === '0') return body.data
+    if (isSuccessResult(body)) return body.data
     const msg = body?.message || '请求失败'
     ElMessage.error(msg)
-    return Promise.reject(Object.assign(new Error(msg), { code: body?.code }))
+    return Promise.reject(new ResultError(msg, body?.code, body?.data))
   },
   handleHttpError
 )
