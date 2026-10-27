@@ -33,8 +33,9 @@ import java.util.Map;
  * <p><b>密钥治理</b>：创建时生成明文密钥（一次性返回，仅哈希落库）；轮换重新生成并刷新
  * {@code secret_rotated_at}；停用/启用经 toggle；过期时间仅记录，协议级拦截待授权服务器落地。</p>
  *
- * <p><b>离线约束</b>：授权服务器所需依赖（spring-security-oauth2-client /
- * authorization-server）不在离线仓库，本期只做自包含的注册与治理，不提供 token 端点。</p>
+ * <p><b>协议级开放</b>：密钥治理与令牌签发职责分离——本服务仅负责客户端注册与密钥治理，
+ * 令牌签发由 {@code OAuth2TokenEndpoint}（client_credentials + RS256）承担；授权服务器侧以自包含方式
+ * 手搓 RS256，无需离线仓库缺失的 authorization-server 依赖。</p>
  */
 @Slf4j
 @Service

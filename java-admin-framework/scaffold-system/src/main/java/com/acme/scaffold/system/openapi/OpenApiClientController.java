@@ -34,9 +34,12 @@ import java.util.List;
  * <p><b>密钥一次性语义</b>：创建与轮换返回的 {@link ClientSecretView#plainSecret()} 仅此一次可见，
  * 服务端只存哈希；任何查询端点不回放明文。</p>
  *
- * <p><b>离线约束</b>：授权服务器依赖不在离线仓库，本接口只覆盖「客户端注册 + 密钥治理」，
- * 不提供 token 端点；协议级开放待联网补齐依赖后另行立项。</p>
- */
+     * <p><b>协议级开放</b>：密钥治理与令牌签发职责分离——客户端令牌签发由独立的
+     * {@code OAuth2TokenEndpoint}（{@code POST /oauth2/token}，client_credentials 模式，RS256 签名）承担。
+     * 授权服务器侧已以自包含方式手搓 RS256（不依赖离线仓库缺失的
+     * spring-security-oauth2-authorization-server），资源服务器经复合解码器（HS256 + RS256）共存校验，
+     * 协议开放已可用。</p>
+     */
 @Tag(name = "开放平台客户端")
 @RestController
 @RequestMapping("/api/system/openapi-clients")
