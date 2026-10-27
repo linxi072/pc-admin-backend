@@ -58,8 +58,34 @@
           <div class="action-buttons">
             <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+            <el-divider direction="vertical" />
+            <el-button
+              type="success"
+              :icon="Download"
+              :loading="exporting === 'CSV'"
+              @click="onExport('CSV')"
+            >导出 CSV</el-button>
+            <el-button
+              type="success"
+              plain
+              :icon="Download"
+              :loading="exporting === 'XLSX'"
+              @click="onExport('XLSX')"
+            >导出 XLSX</el-button>
           </div>
         </div>
+      </div>
+
+      <!-- 留存策略提示（随系统配置联动；留存天数 ≤0 表示禁用自动清理） -->
+      <div class="retention-hint">
+        <el-icon><InfoFilled /></el-icon>
+        <span v-if="retention && retention.retentionDays > 0">
+          审计日志留存 <b>{{ retention.retentionDays }}</b> 天，到期（{{ retention.cutoff || '—' }} 之前）由系统自动清理；导出为脱敏归档文件，IP 一律掩码。
+        </span>
+        <span v-else-if="retention">
+          审计日志自动清理已禁用（长期保留）；导出为脱敏归档文件，IP 一律掩码。
+        </span>
+        <span v-else>正在加载留存策略…</span>
       </div>
 
       <!-- 统计摘要（随筛选联动） -->
@@ -223,8 +249,11 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Search, RefreshLeft } from '@element-plus/icons-vue'
-import { pageAuditLogs, auditLogSummary, auditLogTrace } from '@/api/audit'
+import { Search, RefreshLeft, Download, InfoFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { pageAuditLogs, auditLogSummary, auditLogTrace, auditLogRetention } from '@/api/audit'
+import { downloadExport } from '@/api/export'
+import { saveBlobFromResponse } from '@/utils/download'
 
 const loading = ref(false)
 const rows = ref([])
@@ -253,6 +282,10 @@ const activeTraceId = ref('')
 
 const detailVisible = ref(false)
 const detailRow = ref(null)
+
+// 留存策略（页头展示）与导出态
+const retention = ref(null)
+const exporting = ref(null)
 
 function openDetail(row) {
   detailRow.value = row
@@ -342,7 +375,53 @@ async function openTrace(traceId) {
 
 const fmtMs = (v) => (v === null || v === undefined ? '--' : `${v} ms`)
 
-onMounted(load)
+/** 加载留存策略（仅读取配置，与筛选无关）。 */
+async function loadRetention() {
+  try {
+    retention.value = await auditLogRetention()
+  } catch (e) {
+    // 响应拦截器已弹错误提示
+  }
+}
+
+/**
+ * 按当前筛选条件导出审计日志（复用导出中心 audit-logs 模板，脱敏归档）。
+ * 仅透传后端 AuditLogExportTask 实际消费的筛选参数；导出文件即便持敏感权限也一律脱敏。
+ */
+async function onExport(format = 'CSV') {
+  exporting.value = format
+  try {
+    const params = {
+      code: 'audit-logs',
+      format,
+      moduleCode: query.moduleCode || undefined,
+      operationType: query.operationType || undefined,
+      operatorName: query.operatorName || undefined,
+      keyword: query.keyword || undefined
+    }
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.startTime = dateRange.value[0]
+      params.endTime = dateRange.value[1]
+    }
+    const resp = await downloadExport(params)
+    const ok = await saveBlobFromResponse(
+      resp,
+      'audit-log',
+      format === 'XLSX' ? 'xlsx' : 'csv',
+      '审计日志导出失败'
+    )
+    if (ok) ElMessage.success('导出成功')
+  } catch (e) {
+    // 响应拦截器已弹错误提示
+  } finally {
+    exporting.value = null
+  }
+}
+
+onMounted(() => {
+  load()
+  loadRetention()
+})
 </script>
 
 <style scoped>
@@ -376,6 +455,23 @@ onMounted(load)
   font-size: 12px;
   color: #a8abb2;
   margin-top: 8px;
+}
+.retention-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #909399;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #f4f4f5;
+  border-radius: 6px;
+}
+.retention-hint .el-icon {
+  color: var(--brand, #409eff);
+}
+.retention-hint b {
+  color: #303133;
 }
 .title-badge {
   margin-left: 10px;
