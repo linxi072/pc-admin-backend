@@ -29,6 +29,7 @@
             <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
             <el-button type="success" :icon="Plus" @click="openCreate">注册客户端</el-button>
+            <el-button :icon="Key" @click="openTokenTest()">测试令牌签发</el-button>
           </div>
         </div>
       </div>
@@ -87,7 +88,7 @@
       </div>
       <div class="hint">
         客户端密钥仅以哈希落库，<b>明文仅在注册/轮换成功时展示一次</b>，请立即保存；丢失只能轮换（旧密钥立即失效）。
-        授权服务器所需依赖不在离线仓库，当前仅提供「客户端注册 + 密钥治理」，token 端点待联网补齐依赖后另行立项。
+        协议级令牌签发已由独立端点 <code>POST /oauth2/token</code>（client_credentials + RS256）提供，可点「测试令牌签发」自测。
       </div>
     </el-card>
 
@@ -175,19 +176,56 @@
         <el-button type="primary" @click="secretVisible = false">我已保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 令牌签发自测弹窗（协议级 OAuth2 client_credentials 验证） -->
+    <el-dialog v-model="tokenTestVisible" title="令牌签发自测 (client_credentials)" width="600px" @closed="resetTokenTest">
+      <el-form :model="tokenForm" label-width="92px">
+        <el-form-item label="客户端ID">
+          <el-input v-model="tokenForm.clientId" placeholder="与列表中的客户端ID一致" />
+        </el-form-item>
+        <el-form-item label="客户端密钥">
+          <el-input v-model="tokenForm.clientSecret" type="password" show-password placeholder="注册/轮换时展示的明文密钥" />
+        </el-form-item>
+      </el-form>
+      <el-alert v-if="tokenResult" type="success" :closable="false" show-icon title="令牌签发成功">
+        <div class="token-result">
+          <div class="token-row">
+            <span class="token-label">access_token</span>
+            <el-input :model-value="tokenResult.access_token" readonly type="textarea" :rows="3" class="token-value" />
+          </div>
+          <div class="token-row">
+            <span class="token-label">token_type</span>
+            <span class="token-text">{{ tokenResult.token_type }}</span>
+          </div>
+          <div class="token-row">
+            <span class="token-label">expires_in</span>
+            <span class="token-text">{{ tokenResult.expires_in }} 秒</span>
+          </div>
+          <div class="token-row">
+            <span class="token-label">scope</span>
+            <span class="token-text">{{ tokenResult.scope || '（默认）' }}</span>
+          </div>
+        </div>
+      </el-alert>
+      <template #footer>
+        <el-button @click="tokenTestVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="tokenTesting" @click="onIssueToken">签发令牌</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Edit, Search, RefreshLeft, Refresh, CopyDocument } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Search, RefreshLeft, Refresh, CopyDocument, Key } from '@element-plus/icons-vue'
 import {
   pageOpenApiClients,
   createOpenApiClient,
   updateOpenApiClient,
   deleteOpenApiClient,
-  rotateOpenApiClientSecret
+  rotateOpenApiClientSecret,
+  issueClientToken
 } from '@/api/openApiClient'
 
 const loading = ref(false)
@@ -418,6 +456,44 @@ async function onCopySecret() {
   }
 }
 
+// ---- 令牌签发自测（协议级 OAuth2 client_credentials） ----
+const tokenTestVisible = ref(false)
+const tokenTesting = ref(false)
+const tokenForm = reactive({ clientId: '', clientSecret: '' })
+const tokenResult = ref(null)
+
+function openTokenTest(row) {
+  tokenForm.clientId = row?.clientId || ''
+  tokenForm.clientSecret = ''
+  tokenResult.value = null
+  tokenTestVisible.value = true
+}
+
+function resetTokenTest() {
+  tokenForm.clientId = ''
+  tokenForm.clientSecret = ''
+  tokenResult.value = null
+}
+
+async function onIssueToken() {
+  if (!tokenForm.clientId || !tokenForm.clientSecret) {
+    ElMessage.warning('请填写客户端ID与密钥')
+    return
+  }
+  tokenTesting.value = true
+  tokenResult.value = null
+  try {
+    // issueClientToken 经 requestRaw 返回原始 OAuth2 响应包络 { access_token, token_type, expires_in, scope }
+    const resp = await issueClientToken(tokenForm.clientId, tokenForm.clientSecret)
+    tokenResult.value = resp.data
+    ElMessage.success('令牌签发成功')
+  } catch (e) {
+    /* handleHttpError 已统一提示（如「客户端认证失败」） */
+  } finally {
+    tokenTesting.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -445,5 +521,36 @@ onMounted(load)
   color: #a8abb2;
   margin-top: 8px;
   line-height: 1.6;
+}
+.hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #f4f4f5;
+  color: #409eff;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.token-result {
+  margin-top: 4px;
+}
+.token-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 6px 0;
+}
+.token-label {
+  flex: 0 0 96px;
+  font-weight: 600;
+  color: #606266;
+  font-size: 13px;
+  line-height: 28px;
+}
+.token-value {
+  flex: 1;
+}
+.token-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #303133;
 }
 </style>
