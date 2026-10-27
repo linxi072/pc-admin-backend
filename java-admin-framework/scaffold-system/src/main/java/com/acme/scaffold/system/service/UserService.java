@@ -218,7 +218,7 @@ public class UserService {
      * <p>越权与「不存在」统一抛出 {@code NOT_FOUND}：不区分两种失败，
      * 避免攻击者据响应差异枚举出真实存在的用户 ID。</p>
      */
-    @DataScope(resourceCode = UserQuery.RESOURCE_CODE)
+    @DataScope(resourceCode = UserQuery.RESOURCE_CODE, name = "用户管理")
     public UserView getView(Long id) {
         SysUserDO user = getScoped(id);
         return toView(user, loadUserRoles(List.of(user)), loadUserOrgs(List.of(user)),
@@ -243,7 +243,7 @@ public class UserService {
         return user;
     }
 
-    @DataScope(resourceCode = UserQuery.RESOURCE_CODE)
+    @DataScope(resourceCode = UserQuery.RESOURCE_CODE, name = "用户管理")
     public PageResult<UserView> list(UserQuery query) {
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(JooqTables.SYS_USER));

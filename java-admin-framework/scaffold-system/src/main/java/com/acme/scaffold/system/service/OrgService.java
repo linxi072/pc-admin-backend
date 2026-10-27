@@ -59,7 +59,7 @@ public class OrgService {
      * 写入路径（create/update/delete）统一整缓存驱逐；{@link DataScopeAspect} 已置为最外层，
      * 保证缓存键计算时 {@link DataScopeContext} 已就绪。命中缓存时跳过打库与 {@link DataScopeConditions} 取条件。
      */
-    @DataScope(resourceCode = RESOURCE_CODE)
+    @DataScope(resourceCode = RESOURCE_CODE, name = "部门管理")
     @Cacheable(cacheNames = ORG_TREE_CACHE, key = "#root.target.orgScopeKey()")
     public List<OrgTreeVO> tree() {
         List<SysOrgDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,

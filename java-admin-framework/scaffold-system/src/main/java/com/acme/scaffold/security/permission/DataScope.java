@@ -15,4 +15,7 @@ public @interface DataScope {
 
     /** 资源编码，例如 system:user。 */
     String resourceCode();
+
+    /** 资源展示名，用于数据权限配置页展示；为空时回退为 {@link #resourceCode()}。 */
+    String name() default "";
 }
