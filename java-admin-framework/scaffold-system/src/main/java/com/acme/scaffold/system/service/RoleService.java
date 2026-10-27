@@ -154,7 +154,8 @@ public class RoleService {
         }
     }
 
-    private boolean existsByCode(String code) {
+    /** 角色编码是否已存在（全局唯一，含逻辑删除过滤）。开通流程用于幂等查重。 */
+    public boolean existsByCode(String code) {
         return JooqWriters.count(dsl, JooqTables.SYS_ROLE,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ROLE),
                         JooqTables.SYS_ROLE.field("role_code", String.class).eq(code))) > 0;

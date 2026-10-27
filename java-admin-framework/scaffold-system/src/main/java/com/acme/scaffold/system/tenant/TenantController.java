@@ -4,6 +4,8 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.system.tenant.dto.CreateTenantRequest;
+import com.acme.scaffold.system.tenant.dto.TenantProvisioningRequest;
+import com.acme.scaffold.system.tenant.dto.TenantProvisioningView;
 import com.acme.scaffold.system.tenant.dto.TenantView;
 import com.acme.scaffold.system.tenant.dto.UpdateTenantRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +42,7 @@ import java.util.List;
 public class TenantController {
 
     private final TenantService service;
+    private final TenantProvisioningService provisioningService;
 
     @Operation(summary = "分页查询租户（支持 tenantCode 精确 / status 筛选）")
     @GetMapping("/page")
@@ -102,5 +105,14 @@ public class TenantController {
     public Result<Void> toggle(@PathVariable Long id, @RequestParam boolean enabled) {
         service.toggle(id, enabled);
         return Result.success();
+    }
+
+    @Operation(summary = "开通租户（初始化管理员/角色/部门）")
+    @PostMapping("/{id}/provision")
+    @PreAuthorize("hasAuthority('system:tenant:manage')")
+    @AuditOperation(module = "system", type = "CREATE", name = "开通租户")
+    public Result<TenantProvisioningView> provision(@PathVariable Long id,
+                                                   @Valid @RequestBody TenantProvisioningRequest request) {
+        return Result.success(provisioningService.provision(id, request));
     }
 }
