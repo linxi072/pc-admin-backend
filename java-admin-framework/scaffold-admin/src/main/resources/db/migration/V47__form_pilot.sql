@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS sys_form_definition (
     created_by VARCHAR(64) NULL,
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_by VARCHAR(64) NULL,
-    updated_at DATETIME(3) NOT NULL CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     PRIMARY KEY (id),
     UNIQUE KEY uk_tenant_code (tenant_id, form_code),
     KEY idx_tenant_enabled (tenant_id, enabled)
