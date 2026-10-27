@@ -145,6 +145,7 @@ export default {
       realtime: '实时推送',
       dataScope: '数据权限',
       formPilot: '低代码表单',
+      formDefinition: '表单定义管理',
       openApiClient: '开放平台客户端'
     },
     error: {
@@ -296,6 +297,7 @@ export default {
       realtime: 'Realtime Push',
       dataScope: 'Data Permission',
       formPilot: 'Low-code Form',
+      formDefinition: 'Form Definition',
       openApiClient: 'Open Platform Clients'
     },
     error: {

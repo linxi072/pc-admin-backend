@@ -310,6 +310,15 @@ const routes = [
         meta: { title: 'route.formPilot', permission: 'system:form-definition:read' }
       },
       {
+        // 表单定义管理（M22 深化）：表单定义 CRUD + JSON-Schema 可视化编辑 + 实时预览；
+        // 后端接口前缀 /api/system/form-definitions，读权限复用 system:form-definition:read，
+        // 写权限 system:form-definition:create/update/delete（自动登记 SUPER_ADMIN）
+        path: 'system/form-definition',
+        name: 'formDefinition',
+        component: () => import('@/views/system/FormDefinitionView.vue'),
+        meta: { title: 'route.formDefinition', permission: 'system:form-definition:read' }
+      },
+      {
         // 开放平台客户端（V48 / M24）：客户端注册 + 密钥治理（明文一次性展示/哈希落库/轮换/停用），
         // 授权服务器依赖不在离线仓库暂无 token 端点；菜单与权限由后端驱动
         // （menu_code=system:openapi-client, permission=system:openapi-client:read）

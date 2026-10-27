@@ -20,3 +20,27 @@ export const submitForm = (code, values) =>
 /** 表单提交记录分页查询。params: { page, size }；返回 PageResult { page, size, total, records }。 */
 export const listSubmissions = (code, params = {}) =>
   request({ method: 'GET', url: `/api/system/forms/${code}/submissions`, params })
+
+// ---- 表单定义管理（M22 深化）：后端 base-path /api/system/form-definitions ----
+// 权限：列表/详情 system:form-definition:read；创建 system:form-definition:create；
+// 更新 system:form-definition:update；删除 system:form-definition:delete（均自动登记 SUPER_ADMIN）。
+
+/** 表单定义列表（含停用）。 */
+export const listFormDefinitions = () =>
+  request({ method: 'GET', url: '/api/system/form-definitions' })
+
+/** 表单定义详情。 */
+export const getFormDefinition = (id) =>
+  request({ method: 'GET', url: `/api/system/form-definitions/${id}` })
+
+/** 创建表单定义。payload: { formCode, formName, schemaJson, targetType, enabled, remark }。 */
+export const createFormDefinition = (payload) =>
+  request({ method: 'POST', url: '/api/system/form-definitions', data: payload })
+
+/** 更新表单定义。payload 同创建。 */
+export const updateFormDefinition = (id, payload) =>
+  request({ method: 'PUT', url: `/api/system/form-definitions/${id}`, data: payload })
+
+/** 删除表单定义（逻辑删除）。 */
+export const deleteFormDefinition = (id) =>
+  request({ method: 'DELETE', url: `/api/system/form-definitions/${id}` })
