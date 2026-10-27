@@ -129,6 +129,27 @@
             <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="效果预览" v-if="form.sensitiveType">
+          <div class="preview-box">
+            <el-input
+              v-model="previewSample"
+              placeholder="输入示例值，实时预览脱敏效果"
+              style="width: 100%"
+              @keyup.enter="runPreview"
+            >
+              <template #prepend>示例值</template>
+              <template #append>
+                <el-button :loading="previewing" :icon="View" @click="runPreview">预览</el-button>
+              </template>
+            </el-input>
+            <div v-if="previewSample !== '' || previewResult !== '' || previewing" class="preview-result">
+              <code class="preview-origin">{{ previewSample === '' ? '（空）' : previewSample }}</code>
+              <el-icon class="preview-arrow"><Right /></el-icon>
+              <code class="preview-masked">{{ previewResult === '' ? '（无结果）' : previewResult }}</code>
+            </div>
+            <div class="preview-tip">预览复用后端 SensitiveMasker 单一数据源，与运行时实际脱敏口径一致。</div>
+          </div>
+        </el-form-item>
         <el-form-item label="作用范围" prop="applyScope">
           <el-select v-model="form.applyScope" style="width: 100%">
             <el-option
@@ -165,16 +186,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Edit, Search, RefreshLeft, Refresh } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Search, RefreshLeft, Refresh, View, Right } from '@element-plus/icons-vue'
 import {
   pageMaskStrategies,
   createMaskStrategy,
   updateMaskStrategy,
   deleteMaskStrategy,
   toggleMaskStrategy,
-  refreshMaskStrategyCache
+  refreshMaskStrategyCache,
+  previewMask
 } from '@/api/maskStrategy'
 
 // 与后端 SensitiveType 枚举一致（NONE 为显式放行标志，不在可选之列）
@@ -351,8 +373,34 @@ function resetForm() {
     enabled: true,
     remark: ''
   })
+  previewSample.value = ''
+  previewResult.value = ''
   formRef.value?.clearValidate()
 }
+
+// ---- 脱敏效果预览（#752，复用后端 preview 端点） ----
+const previewSample = ref('')
+const previewResult = ref('')
+const previewing = ref(false)
+
+async function runPreview() {
+  if (!form.sensitiveType) return
+  previewing.value = true
+  try {
+    previewResult.value = await previewMask(form.sensitiveType, previewSample.value)
+  } catch (e) {
+    previewResult.value = ''
+  } finally {
+    previewing.value = false
+  }
+}
+
+// 类型或示例值变化时自动预览（轻量防抖，避免每次按键都打接口）
+let previewTimer = null
+watch([() => form.sensitiveType, previewSample], () => {
+  if (previewTimer) clearTimeout(previewTimer)
+  previewTimer = setTimeout(runPreview, 300)
+})
 
 function openCreate() {
   editingId.value = null
@@ -418,5 +466,34 @@ onMounted(load)
   padding: 0 4px;
   border-radius: 3px;
   color: #409eff;
+}
+.preview-box {
+  width: 100%;
+}
+.preview-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #f4f4f5;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.preview-origin {
+  color: #909399;
+}
+.preview-arrow {
+  color: #c0c4cc;
+}
+.preview-masked {
+  color: #f56c6c;
+  font-weight: 600;
+  word-break: break-all;
+}
+.preview-tip {
+  font-size: 12px;
+  color: #a8abb2;
+  margin-top: 6px;
 }
 </style>

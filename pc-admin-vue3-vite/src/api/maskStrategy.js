@@ -41,3 +41,16 @@ export const toggleMaskStrategy = (id, enabled) =>
 /** 刷新解析缓存（全量失效，下次命中重新加载）；返回被失效的缓存条目数。 */
 export const refreshMaskStrategyCache = () =>
   request({ method: 'POST', url: '/api/system/mask-strategies/refresh-cache' })
+
+/**
+ * 脱敏效果预览：复用后端 SensitiveMasker.mask 单一数据源。
+ * @param {string} sensitiveType 脱敏类型（枚举名，大小写不敏感）
+ * @param {string} sampleValue 待脱敏示例值
+ * @returns {Promise<string>} 脱敏后的示例值
+ */
+export const previewMask = (sensitiveType, sampleValue) =>
+  request({
+    method: 'POST',
+    url: '/api/system/mask-strategies/preview',
+    data: { sensitiveType, sampleValue }
+  })
