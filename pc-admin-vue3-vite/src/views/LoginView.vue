@@ -1,10 +1,25 @@
 <template>
-  <div class="login-wrap">
+    <div class="login-wrap">
     <el-card class="login-card">
       <div class="brand">
         <!-- 品牌色统一走全局 --brand 变量 -->
         <el-icon size="28" color="var(--brand)"><Setting /></el-icon>
         <h2>{{ t('login.title') }}</h2>
+        <!-- 登录页语言切换：访问首页时即可选择语言，使国际化在登录前即生效
+             （此前切换入口仅在登录后的顶栏，未登录用户无法触发 i18n）。 -->
+        <el-select
+          :model-value="i18n.locale"
+          size="small"
+          class="locale-select"
+          @change="onLocaleChange"
+        >
+          <el-option
+            v-for="opt in availableLocales"
+            :key="opt.code"
+            :label="opt.label"
+            :value="opt.code"
+          />
+        </el-select>
       </div>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent>
         <el-form-item :label="t('login.username')" prop="username">
@@ -126,13 +141,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { User, Lock, Key, Refresh, Iphone, Message } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { login, getCaptcha, changePassword, forgotPassword } from '@/api/auth'
 import { setAuth } from '@/store/auth'
-import { t } from '@/i18n'
+import { i18n, t, setLocale, availableLocales } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -141,11 +156,19 @@ const loading = ref(false)
 const form = reactive({ username: '', password: '', captchaAnswer: '' })
 const captcha = reactive({ token: '', question: '' })
 
-const rules = {
+// 语言切换：写入响应式状态 + localStorage（i18n.setLocale 内部处理 <html lang> 与持久化），
+// 同时经 http 层 ?lang= 上报后端，使登录失败等后端消息也按所选语言返回。
+function onLocaleChange(code) {
+  setLocale(code)
+}
+
+// 校验规则用 computed 包裹：语言切换时 t() 重新求值，使校验提示随语言切换，
+// 避免一次性求值后固定为旧语言（此前 rules 在 setup 时求值一次，切换语言后提示仍是旧语言）。
+const rules = computed(() => ({
   username: [{ required: true, message: t('login.pleaseEnterUsername'), trigger: 'blur' }],
   password: [{ required: true, message: t('login.pleaseEnterPassword'), trigger: 'blur' }],
   captchaAnswer: [{ required: true, message: t('login.pleaseEnterCaptcha'), trigger: 'blur' }]
-}
+}))
 
 // ---------- 修改密码弹窗 ----------
 const changeFormRef = ref()
@@ -155,7 +178,7 @@ const changeDlg = reactive({
   form: { username: '', oldPassword: '', newPassword: '', confirmPassword: '' }
 })
 
-const changeRules = {
+const changeRules = computed(() => ({
   username: [{ required: true, message: t('login.pleaseEnterUsername'), trigger: 'blur' }],
   oldPassword: [{ required: true, message: t('login.pleaseEnterOldPassword'), trigger: 'blur' }],
   newPassword: [
@@ -163,7 +186,7 @@ const changeRules = {
     { min: 8, max: 64, message: t('login.pwdLength'), trigger: 'blur' }
   ],
   confirmPassword: [{ required: true, message: t('login.pleaseEnterConfirmPwd'), trigger: 'blur' }]
-}
+}))
 
 function openChange() {
   // 预填登录页已输入的用户名，减少重复输入
@@ -208,14 +231,14 @@ const forgotDlg = reactive({
   form: { username: '', mobile: '', email: '', newPassword: '', confirmPassword: '' }
 })
 
-const forgotRules = {
+const forgotRules = computed(() => ({
   username: [{ required: true, message: t('login.pleaseEnterUsername'), trigger: 'blur' }],
   newPassword: [
     { required: true, message: t('login.pleaseEnterNewPassword'), trigger: 'blur' },
     { min: 8, max: 64, message: t('login.pwdLength'), trigger: 'blur' }
   ],
   confirmPassword: [{ required: true, message: t('login.pleaseEnterConfirmPwd'), trigger: 'blur' }]
-}
+}))
 
 function openForgot() {
   forgotDlg.form.username = form.username || ''
@@ -307,6 +330,23 @@ onMounted(fetchCaptcha)
 </script>
 
 <style scoped>
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.brand h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+/* 语言选择器推到标题右侧，与登录后顶栏风格一致 */
+.locale-select {
+  margin-left: auto;
+  width: 112px;
+}
 .captcha-row {
   display: flex;
   align-items: center;
