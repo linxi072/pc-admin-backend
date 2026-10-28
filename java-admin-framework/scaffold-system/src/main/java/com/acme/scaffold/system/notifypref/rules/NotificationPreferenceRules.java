@@ -117,7 +117,7 @@ public final class NotificationPreferenceRules {
             case IN_APP -> "notify_site_message";
             case EMAIL -> "notify_email";
             case SMS -> "notify_mobile";
-            case WEBSOCKET, WEBHOOK -> null;
+            case WEBSOCKET, WEBHOOK, WECOM, DINGTALK -> null;
         };
     }
 

@@ -140,6 +140,24 @@ app:
       # 读超时 / 连接超时（毫秒）
       timeout-ms: 5000
       connect-timeout-ms: 2000
+    # M35 机器人渠道：企业微信 / 钉钉。默认关闭，启用并配置地址后才外发。
+    # 机器人地址统一复用消息 webhookUrl 字段；此处 default 仅作兜底。
+    wecom:
+      # 是否允许企业微信机器人外发（默认 false，缺省关闭避免误发）
+      enabled: false
+      # 兜底机器人地址（含 key 参数）；消息显式带 webhookUrl 时优先用消息自带地址
+      webhook-url:
+      # 加签密钥：生产经环境变量 NOTIFICATION_WECOM_SECRET 注入，不写入仓库；
+      # 配置后对报文按企业微信算法加签并注入 X-Wechat-Signature 头；留空不签名
+      secret: ${NOTIFICATION_WECOM_SECRET:}
+    dingtalk:
+      # 是否允许钉钉机器人外发（默认 false，缺省关闭避免误发）
+      enabled: false
+      # 兜底机器人地址；消息显式带 webhookUrl 时优先用消息自带地址
+      webhook-url:
+      # 加签密钥：生产经环境变量 NOTIFICATION_DINGTALK_SECRET 注入，不写入仓库；
+      # 配置后对地址追加 timestamp/secret/signature query 参数；留空不签名
+      secret: ${NOTIFICATION_DINGTALK_SECRET:}
     email:
       # 是否允许邮件发送（默认 false，缺省关闭避免误发与启动依赖 SMTP）
       enabled: false

@@ -228,7 +228,7 @@ public final class NotificationRecordRules {
             case SMS -> maskMobiles(msg.mobiles());
             case EMAIL -> maskEmails(msg.emails());
             case IN_APP -> inAppSummary(msg);
-            case WEBHOOK -> maskWebhookUrl(msg.webhookUrl());
+            case WEBHOOK, WECOM, DINGTALK -> maskWebhookUrl(msg.webhookUrl());
             case WEBSOCKET -> idsSummary(msg.receiverIds()).isEmpty()
                     ? "广播" : "用户:" + idsSummary(msg.receiverIds());
         };
@@ -251,7 +251,7 @@ public final class NotificationRecordRules {
             case SMS -> msg.mobiles() == null ? 0 : msg.mobiles().size();
             case EMAIL -> msg.emails() == null ? 0 : msg.emails().size();
             case IN_APP, WEBSOCKET -> msg.receiverIds() == null ? 0 : msg.receiverIds().size();
-            case WEBHOOK -> 1;
+            case WEBHOOK, WECOM, DINGTALK -> 1;
         };
     }
 

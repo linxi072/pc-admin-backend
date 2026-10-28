@@ -248,7 +248,7 @@ public class NotificationDigestService {
             case SMS -> new NotificationMessage(channel, title, content,
                     NotificationDigestRules.DIGEST_MSG_TYPE, null, null, null, null, null,
                     null, List.of(address));
-            case WEBHOOK -> null; // 不可达：WEBHOOK 不建聚合行，防御性返回
+            case WEBHOOK, WECOM, DINGTALK -> null; // 不可达：机器人渠道不建聚合行，防御性返回
         };
     }
 
