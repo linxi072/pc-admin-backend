@@ -27,14 +27,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final int MAX_PER_WINDOW = 10;
     private static final int WINDOW_SECONDS = 60;
 
-    private final RateLimiter limiter = new RateLimiter();
-
+    private final RateLimiter rateLimiter;
     private final ClientIpResolver clientIpResolver;
 
     /**
+     * @param rateLimiter    共享限流器（默认 Redis 分布式，不可用时 fail-open 回落本地），
+     *                       与 {@link RateLimitAspect} 共用同一计数后端
      * @param clientIpResolver 全局 IP 解析器（与审计/方法级限流同一可信代理口径）
      */
-    public RateLimitFilter(ClientIpResolver clientIpResolver) {
+    public RateLimitFilter(RateLimiter rateLimiter, ClientIpResolver clientIpResolver) {
+        this.rateLimiter = rateLimiter;
         this.clientIpResolver = clientIpResolver;
     }
 
@@ -49,7 +51,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 || ("/api/auth/forgot-password".equals(uri) && "POST".equals(method));
         if (authEndpoint) {
             String ip = clientIp(request);
-            if (!limiter.tryAcquire("login:" + ip, MAX_PER_WINDOW, WINDOW_SECONDS)) {
+            if (!rateLimiter.tryAcquire("login:" + ip, MAX_PER_WINDOW, WINDOW_SECONDS)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write("{\"code\":\"AUTH_010\",\"message\":\"请求过于频繁，请稍后再试\"}");
