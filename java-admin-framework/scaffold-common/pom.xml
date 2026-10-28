@@ -154,8 +154,8 @@
                                     <arguments>
                                         <argument>src/main/resources/jooq-codegen.xml</argument>
                                     </arguments>
-                                    <!-- 仅使用上面的插件依赖（jooq-codegen 等）作为运行 classpath -->
-                                    <includePlugins>true</includePlugins>
+                                    <!-- 仅使用上面的插件依赖（jooq-codegen 等）作为运行 classpath；
+                                         不含项目依赖，避免与运行期 jOOQ 版本冲突 -->
                                     <includeProjectDependencies>false</includeProjectDependencies>
                                 </configuration>
                             </execution>
