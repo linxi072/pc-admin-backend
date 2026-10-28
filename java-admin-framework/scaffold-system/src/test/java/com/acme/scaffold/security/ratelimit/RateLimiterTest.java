@@ -10,7 +10,7 @@ class RateLimiterTest {
 
     @Test
     void withinWindow_allowsUpToMax() {
-        RateLimiter limiter = new RateLimiter();
+        RateLimiter limiter = new InMemoryRateLimiter();
         long now = 1_000_000L;
         int max = 3;
         assertTrue(limiter.tryAcquire("ip:1", max, 60, now));
@@ -23,7 +23,7 @@ class RateLimiterTest {
 
     @Test
     void differentKeysIndependent() {
-        RateLimiter limiter = new RateLimiter();
+        RateLimiter limiter = new InMemoryRateLimiter();
         long now = 2_000_000L;
         assertTrue(limiter.tryAcquire("ip:a", 1, 60, now));
         assertFalse(limiter.tryAcquire("ip:a", 1, 60, now));
@@ -33,7 +33,7 @@ class RateLimiterTest {
 
     @Test
     void newWindowResets() {
-        RateLimiter limiter = new RateLimiter();
+        RateLimiter limiter = new InMemoryRateLimiter();
         long window = 60_000L;
         long w0 = window; // 对齐到窗口起点
         assertTrue(limiter.tryAcquire("ip:x", 1, 60, w0));
