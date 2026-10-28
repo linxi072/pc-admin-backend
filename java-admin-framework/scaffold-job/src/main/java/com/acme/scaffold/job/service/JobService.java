@@ -4,6 +4,7 @@ import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.job.domain.JobDagRules;
 import com.acme.scaffold.job.domain.JobHandler;
 import com.acme.scaffold.job.domain.JobIntervalUnit;
 import com.acme.scaffold.job.domain.JobNextFire;
@@ -19,6 +20,7 @@ import com.acme.scaffold.job.dto.JobVO;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.job.port.JobSchedulerPort;
+import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +35,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 定时任务管理服务：任务配置、启动、暂停、列表与实时状态、执行日志。
@@ -64,24 +68,27 @@ public class JobService {
     private final DSLContext dsl;
     private final JobSchedulerPort schedulerPort;
     private final JobHandlerRegistry handlerRegistry;
+    private final JobDagService dagService;
 
     // ------------------------------------------------------------------
     // 查询
     // ------------------------------------------------------------------
 
-    /** 分页查询任务列表，{@code nextFireTime} 为实时计算值。 */
+    /** 分页查询任务列表，{@code nextFireTime} 为实时计算值；依赖/下游关系批量加载避免 N+1。 */
     public PageResult<JobVO> page(JobQuery query) {
         Condition cond = buildCondition(query);
         PageQuery pq = PageQuery.of(query.page(), query.size());
         PageResult<SysJobDO> raw = JooqWriters.page(dsl, JooqTables.SYS_JOB, SysJobDO.class, cond, pq,
                 JooqTables.SYS_JOB.field("id", Long.class).desc());
-        List<JobVO> records = raw.records().stream().map(this::toVO).toList();
+        Set<Long> ids = raw.records().stream().map(SysJobDO::getId).collect(Collectors.toSet());
+        Map<Long, List<Long>> dependentsMap = dagService.dependentsMap(ids);
+        List<JobVO> records = raw.records().stream().map(j -> toVO(j, dependentsMap)).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), records);
     }
 
     /** 任务详情。 */
     public JobVO detail(Long id) {
-        return toVO(require(id));
+        return toVO(require(id), null);
     }
 
     /** 任务执行日志（按触发时间倒序）。 */
@@ -126,17 +133,21 @@ public class JobService {
         JobValidator.validate(dto.jobName(), dto.taskKey(), type, dto.cronExpression(),
                 dto.intervalValue(), unit, oneTime, dto.jobParams(), now);
         requireHandler(dto.taskKey());
+        // 依赖编排：存在性 + 环检测（自依赖由 JobDagRules 内部拦截）
+        dagService.validateDependencyEdit(null, JobDagRules.dedupe(dto.dependsOn()));
 
         SysJobDO job = new SysJobDO();
         applyEditableFields(job, dto.jobName(), dto.jobGroup(), dto.taskKey(), type,
                 dto.cronExpression(), dto.intervalValue(), unit, dto.oneTimeAt(),
                 dto.jobParams(), dto.remark());
+        job.setDependsOn(JobDagRules.serializeDependsOn(JobDagRules.dedupe(dto.dependsOn())));
         job.setStatus(JobStatus.PAUSED.name());
         job.setTotalRuns(0L);
         job.setSuccessRuns(0L);
         job.setFailureRuns(0L);
         JooqWriters.insert(dsl, JooqTables.SYS_JOB, job);
-        log.info("新建定时任务 id={} name={} type={}（默认暂停，未调度）", job.getId(), job.getJobName(), type);
+        log.info("新建定时任务 id={} name={} type={}（默认暂停，未调度；依赖={}）",
+                job.getId(), job.getJobName(), type, job.getDependsOn());
         return job.getId();
     }
 
@@ -150,6 +161,9 @@ public class JobService {
         JobValidator.validate(dto.jobName(), dto.taskKey(), type, dto.cronExpression(),
                 dto.intervalValue(), unit, oneTime, dto.jobParams(), now);
         requireHandler(dto.taskKey());
+        // 依赖编排：存在性 + 环检测（自依赖由 JobDagRules 内部拦截）
+        List<Long> deps = JobDagRules.dedupe(dto.dependsOn());
+        dagService.validateDependencyEdit(id, deps);
 
         boolean wasRunning = JobStatus.RUNNING.name().equals(existing.getStatus());
         if (wasRunning) {
@@ -172,8 +186,16 @@ public class JobService {
         if (blankToNull(dto.remark()) == null) {
             nullColumns.add("remark");
         }
+        // 依赖列：空依赖 → 显式置空；非空 → 写入 JSON 数组
+        if (deps.isEmpty()) {
+            patch.setDependsOn(null);
+            nullColumns.add("depends_on");
+        } else {
+            patch.setDependsOn(JobDagRules.serializeDependsOn(deps));
+        }
         JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_JOB, id, patch, nullColumns);
-        log.info("更新定时任务 id={} name={} type={}（原运行中={}）", id, dto.jobName(), type, wasRunning);
+        log.info("更新定时任务 id={} name={} type={}（原运行中={}；依赖={}）",
+                id, dto.jobName(), type, wasRunning, patch.getDependsOn());
 
         if (wasRunning) {
             // 按新配置重启，保证「即时生效」
@@ -186,6 +208,16 @@ public class JobService {
         SysJobDO job = require(id);
         JobTriggerType type = requireTriggerType(job.getTriggerType());
         requireHandler(job.getTaskKey());
+
+        // 依赖编排：存在未满足的前置依赖时，进入 WAITING 挂起态（不注册调度），
+        // 待上游成功事件由 JobDagService 即时触发。已满足依赖则按常规路径注册。
+        List<Long> deps = JobDagRules.parseDependsOn(job.getDependsOn());
+        if (!deps.isEmpty() && !dagService.isReady(id)) {
+            dagService.setWaiting(id);
+            log.info("任务存在未满足依赖，置为 WAITING 挂起 id={} name={} deps={}", id, job.getJobName(), deps);
+            return;
+        }
+
         if (!schedulerPort.available()) {
             throw new BusinessException(CommonErrorCode.BUSINESS_ERROR, "调度引擎不可用，暂无法启动任务");
         }
@@ -246,9 +278,11 @@ public class JobService {
         log.info("暂停定时任务 id={} name={}", id, job.getJobName());
     }
 
-    /** 删除任务（逻辑删除）：运行中先取消调度。执行日志保留以便追溯。 */
+    /** 删除任务（逻辑删除）：运行中先取消调度。执行日志保留以便追溯。被其他任务依赖时拒绝删除。 */
     public void remove(Long id) {
         SysJobDO job = require(id);
+        // 依赖编排删除守卫：存在下游依赖时拒绝，避免悬空依赖边
+        dagService.assertNoDependents(id);
         cancelSchedule(job);
         JooqWriters.delete(dsl, JooqTables.SYS_JOB, id, true);
         log.info("删除定时任务 id={} name={}", id, job.getJobName());
@@ -315,13 +349,19 @@ public class JobService {
         };
     }
 
-    private JobVO toVO(SysJobDO job) {
+    private JobVO toVO(SysJobDO job, Map<Long, List<Long>> dependentsMap) {
         JobTriggerType type = triggerTypeOrNull(job.getTriggerType());
         JobStatus status = JobStatus.parse(job.getStatus());
         JobIntervalUnit unit = intervalUnitOrNull(job.getIntervalUnit());
         String handlerName = handlerRegistry.find(job.getTaskKey())
                 .map(JobHandler::name)
                 .orElse(job.getTaskKey());
+        // 下游依赖：批量预加载（page）传入 dependentsMap；详情（null）退化为单条查询
+        List<Long> dependents = dependentsMap != null
+                ? dependentsMap.getOrDefault(job.getId(), List.of())
+                : dagService.dependentsOf(job.getId());
+        // 等待依赖：当前处于 WAITING 即表示正在等待前置依赖满足
+        boolean waitForDeps = JobStatus.WAITING.name().equals(job.getStatus());
         return new JobVO(
                 job.getId(), job.getJobName(), job.getJobGroup(), job.getTaskKey(), handlerName,
                 job.getTriggerType(), type == null ? null : type.getLabel(),
@@ -332,7 +372,11 @@ public class JobService {
                 job.getLastFireTime(), liveNextFire(job),
                 nz(job.getTotalRuns()), nz(job.getSuccessRuns()), nz(job.getFailureRuns()),
                 job.getLastStatus(), job.getLastError(), job.getLastDurationMs(),
-                job.getRemark(), job.getCreatedAt(), job.getUpdatedAt());
+                job.getRemark(),
+                JobDagRules.parseDependsOn(job.getDependsOn()),
+                dependents,
+                waitForDeps,
+                job.getCreatedAt(), job.getUpdatedAt());
     }
 
     /** 实时计算下次执行时间（仅运行中任务展示；暂停/完成返回 null）。 */

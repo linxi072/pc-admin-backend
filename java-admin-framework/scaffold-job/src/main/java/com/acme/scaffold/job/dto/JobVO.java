@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 定时任务列表/详情视图。
@@ -36,6 +37,9 @@ import java.time.LocalDateTime;
  * @param lastError       最近失败信息
  * @param lastDurationMs  最近执行耗时（毫秒）
  * @param remark          备注
+ * @param dependsOn       前置依赖的任务 ID 列表（JSON 数组反序列化；为空表示无依赖）
+ * @param dependents      依赖本任务（下游）的任务 ID 列表
+ * @param waitForDeps     是否正在等待前置依赖满足（即当前处于 {@code WAITING} 态）
  * @param createdAt       创建时间
  * @param updatedAt       更新时间
  */
@@ -64,6 +68,9 @@ public record JobVO(
         String lastError,
         Long lastDurationMs,
         String remark,
+        List<Long> dependsOn,
+        @JsonSerialize(contentUsing = ToStringSerializer.class) List<Long> dependents,
+        boolean waitForDeps,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }

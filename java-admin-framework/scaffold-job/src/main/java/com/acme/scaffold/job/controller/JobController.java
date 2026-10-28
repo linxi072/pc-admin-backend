@@ -10,6 +10,7 @@ import com.acme.scaffold.job.dto.JobLogVO;
 import com.acme.scaffold.job.dto.JobQuery;
 import com.acme.scaffold.job.dto.JobUpdateDTO;
 import com.acme.scaffold.job.dto.JobVO;
+import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.job.service.JobService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +45,7 @@ import java.util.Map;
 public class JobController {
 
     private final JobService jobService;
+    private final JobDagService jobDagService;
 
     @Operation(summary = "任务元信息（调度引擎可用性 / 最小间隔秒数）")
     @GetMapping("/meta")
@@ -135,5 +137,14 @@ public class JobController {
     public Result<Void> remove(@PathVariable Long id) {
         jobService.remove(id);
         return Result.success();
+    }
+
+    @Operation(summary = "触发下游依赖（立即驱动所有依赖本任务且已就绪的 WAITING 任务）")
+    @PostMapping("/{id}/trigger-downstream")
+    @PreAuthorize("hasAuthority('job:manage')")
+    @AuditOperation(module = "job", type = "UPDATE", name = "触发下游依赖")
+    public Result<Integer> triggerDownstream(@PathVariable Long id) {
+        int count = jobDagService.triggerDownstream(id);
+        return Result.success(count);
     }
 }

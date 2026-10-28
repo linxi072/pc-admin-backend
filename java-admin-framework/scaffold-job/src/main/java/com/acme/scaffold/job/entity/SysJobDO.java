@@ -47,8 +47,11 @@ public class SysJobDO {
     /** 任务参数（JSON 字符串，透传给处理器）。 */
     private String jobParams;
 
-    /** 调度状态：PAUSED / RUNNING / COMPLETED。 */
+    /** 调度状态：PAUSED / RUNNING / WAITING / COMPLETED。 */
     private String status = JobStatus.PAUSED.name();
+
+    /** 依赖的任务 ID 列表（JSON 数组，如 [101, 102]）；为空表示无依赖。零新增表，复用本列表达 DAG 边。 */
+    private String dependsOn;
 
     /** 调度器引用：recurring job id 或一次性 Job 的 UUID 字符串。 */
     private String schedulerRef;

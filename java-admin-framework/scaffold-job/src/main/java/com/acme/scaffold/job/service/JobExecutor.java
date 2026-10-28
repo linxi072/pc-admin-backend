@@ -5,6 +5,7 @@ import com.acme.scaffold.job.domain.JobHandler;
 import com.acme.scaffold.job.domain.JobNextFire;
 import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.domain.JobTriggerType;
+import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.job.port.JobInvoker;
@@ -44,6 +45,7 @@ public class JobExecutor implements JobInvoker {
 
     private final DSLContext dsl;
     private final JobHandlerRegistry handlerRegistry;
+    private final JobDagService jobDagService;
 
     /** 供调度器回调的入口（JobRunr 通过 JobActivator 反查本 Bean）。 */
     public void run(Long jobId) {
@@ -56,9 +58,11 @@ public class JobExecutor implements JobInvoker {
             log.warn("定时任务触发但任务不存在或已删除：jobId={}", jobId);
             return;
         }
-        // 复核调度状态：「暂停」前已入队的下一次触发仍会到达，若不校验就会出现「暂停后仍跑一次」
-        if (!JobStatus.RUNNING.name().equals(job.getStatus())) {
-            log.info("定时任务已非运行中，跳过本次触发：jobId={}, status={}", jobId, job.getStatus());
+        // 复核调度状态：「暂停」前已入队的下一次触发仍会到达，若不校验就会出现「暂停后仍跑一次」。
+        // 允许 RUNNING（常规调度）与 WAITING（依赖编排由上游成功事件即时触发的下游）两种执行态。
+        String status = job.getStatus();
+        if (!JobStatus.RUNNING.name().equals(status) && !JobStatus.WAITING.name().equals(status)) {
+            log.info("定时任务已非运行中/等待依赖，跳过本次触发：jobId={}, status={}", jobId, status);
             return;
         }
 
@@ -89,6 +93,16 @@ public class JobExecutor implements JobInvoker {
         long cost = System.currentTimeMillis() - start;
         LocalDateTime finishedTime = LocalDateTime.now();
         recordResult(job, fireTime, finishedTime, cost, success, error, fireInstant);
+
+        // 依赖编排：成功执行后驱动就绪的下游任务（失败不影响本次结果）。onJobSuccess 内部已做幂等与异常隔离，
+        // 此处再包一层 try/catch 确保 DAG 编排异常绝不回滚或掩盖本次任务执行结果。
+        if (success) {
+            try {
+                jobDagService.onJobSuccess(jobId);
+            } catch (Exception e) {
+                log.error("任务成功后驱动下游依赖失败（不影响本次执行结果）jobId={}", jobId, e);
+            }
+        }
     }
 
     private void recordResult(SysJobDO job, LocalDateTime fireTime, LocalDateTime finishedTime,

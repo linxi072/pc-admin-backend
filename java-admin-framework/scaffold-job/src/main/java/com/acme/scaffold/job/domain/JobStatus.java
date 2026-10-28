@@ -7,6 +7,8 @@ import java.util.Arrays;
  * <ul>
  *   <li>{@link #PAUSED}：已暂停，未向调度器注册（新建任务默认此态，避免误触发）；</li>
  *   <li>{@link #RUNNING}：已启动，已注册到调度器并会按触发规则执行；</li>
+ *   <li>{@link #WAITING}：依赖编排挂起态——存在未满足的前置依赖，暂不注册调度，
+ *       待上游任务成功事件驱动后由 {@code JobDagService} 即时触发；</li>
  *   <li>{@link #COMPLETED}：一次性任务执行完成后的终态（周期任务不会进入此态）。</li>
  * </ul>
  */
@@ -14,6 +16,7 @@ public enum JobStatus {
 
     PAUSED("已暂停"),
     RUNNING("运行中"),
+    WAITING("等待依赖"),
     COMPLETED("已完成");
 
     private final String label;

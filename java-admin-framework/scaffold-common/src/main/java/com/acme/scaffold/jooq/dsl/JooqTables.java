@@ -199,7 +199,7 @@ public final class JooqTables {
     /** 定时任务配置表（列名与 V21__job_management.sql 严格一致）。 */
     public static final TableRef SYS_JOB = new TableRef("sys_job",
             "id", "tenant_id", "job_name", "job_group", "task_key", "trigger_type", "cron_expression",
-            "interval_value", "interval_unit", "one_time_at", "job_params", "status", "scheduler_ref",
+            "interval_value", "interval_unit", "one_time_at", "job_params", "status", "depends_on", "scheduler_ref",
             "last_fire_time", "next_fire_time", "total_runs", "success_runs", "failure_runs",
             "last_status", "last_error", "last_duration_ms", "remark",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
