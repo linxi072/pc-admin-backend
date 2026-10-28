@@ -22,6 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 机构（组织）管理接口。
+ *
+ * <p>提供机构树的查询与机构的增删改；机构是用户、角色等实体的
+ * 数据权限维度基础（部门级数据隔离）。</p>
+ */
 @Tag(name = "机构管理")
 @RestController
 @RequestMapping("/api/system/orgs")

@@ -18,6 +18,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 认证授权控制器（系统安全入口）。
+ *
+ * <p>暴露登录、刷新令牌、登出、会话无关改密与找回密码等认证端点；
+ * 所有端点统一经 {@code GlobalExceptionHandler} 包络为 {@link Result}，
+ * 由 {@link AuthService} 承载实际的凭证校验与会话管理。
+ */
 @Tag(name = "认证授权", description = "登录、刷新、登出")
 @RestController
 @RequestMapping("/api/auth")

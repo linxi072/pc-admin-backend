@@ -16,6 +16,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 用户管理接口（RBAC 末端主体）。
+ *
+ * <p>提供用户分页查询、详情、增删改与密码重置；用户挂接机构与角色，
+ * 是权限与数据范围的最终归属主体。</p>
+ */
 @Tag(name = "用户管理")
 @RestController
 @RequestMapping("/api/system/users")

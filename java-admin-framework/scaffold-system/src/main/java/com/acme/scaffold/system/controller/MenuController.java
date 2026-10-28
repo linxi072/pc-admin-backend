@@ -17,6 +17,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 菜单管理接口（系统管理 → 菜单管理）。
+ *
+ * <p>提供菜单树的查询、当前登录用户可见菜单（按角色过滤）以及菜单的
+ * 增删改与排序；菜单同时驱动前端路由与侧边栏可见性。</p>
+ */
 @Tag(name = "菜单管理")
 @RestController
 @RequestMapping("/api/system/menus")

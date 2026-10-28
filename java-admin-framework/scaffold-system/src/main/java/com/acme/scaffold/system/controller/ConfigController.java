@@ -18,6 +18,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 系统参数配置接口（动态配置中心）。
+ *
+ * <p>提供配置项的增删改查与按配置键动态读取；配置支持运行时生效，
+ * 供各业务模块读取开关、阈值等可配置参数。</p>
+ */
 @Tag(name = "系统变量（参数配置）")
 @RestController
 @RequestMapping("/api/system/configs")

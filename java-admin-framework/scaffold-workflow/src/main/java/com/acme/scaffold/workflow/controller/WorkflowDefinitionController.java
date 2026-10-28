@@ -16,6 +16,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 工作流定义（可视化设计器）接口。
+ *
+ * <p>提供工作流草稿的新建、全量保存（节点与连线覆盖）、列表与详情，
+ * 供流程设计器持久化；属于设计态，区别于运行态的 {@code InstanceController}。</p>
+ */
 @Tag(name = "工作流定义")
 @RestController
 @RequestMapping("/api/workflow/definitions")

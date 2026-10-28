@@ -16,6 +16,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 工作流实例接口（运行态）。
+ *
+ * <p>提供审批流程的发起、我发起的实例查询、审批记录查看与详情；
+ * 由 {@code WorkflowService} 承载 Flowable 流程实例编排。区别于设计态的
+ * {@code WorkflowDefinitionController}。</p>
+ */
 @Tag(name = "工作流实例")
 @RestController
 @RequestMapping("/api/workflow/instances")

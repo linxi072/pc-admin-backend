@@ -15,6 +15,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 字典数据管理接口。
+ *
+ * <p>提供字典数据项的增删改查（按字典类型筛选），与 {@code DictTypeController}
+ * 配合构成系统字典体系：类型为分类，数据挂接于类型之下。</p>
+ */
 @Tag(name = "字典数据管理")
 @RestController
 @RequestMapping("/api/system/dict-data")

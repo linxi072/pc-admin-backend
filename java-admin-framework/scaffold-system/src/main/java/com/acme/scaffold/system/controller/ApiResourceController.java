@@ -17,6 +17,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 接口资源管理接口（系统管理 → 接口资源）。
+ *
+ * <p>提供接口资源的查询、注册与删除，以及启动期自动同步结果的查看；
+ * 权限码（{@code system:api:*}）由 {@code ApiResourceAutoSyncRunner} 按 {@code @PreAuthorize}
+ * 扫描自动登记并授予 SUPER_ADMIN，无需手工种子。</p>
+ */
 @Tag(name = "接口资源管理")
 @RestController
 @RequestMapping("/api/system/api-resources")

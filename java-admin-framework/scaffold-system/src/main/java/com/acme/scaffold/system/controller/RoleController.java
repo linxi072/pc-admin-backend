@@ -17,6 +17,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 角色管理接口（RBAC 核心）。
+ *
+ * <p>提供角色的增删改查与详情（含菜单/接口权限），并暴露角色与
+ * 数据权限规则（{@code DataScope}）的绑定保存；角色是权限授予的中间载体。</p>
+ */
 @Tag(name = "角色管理")
 @RestController
 @RequestMapping("/api/system/roles")

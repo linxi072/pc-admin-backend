@@ -15,6 +15,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 工作流任务接口（运行态）。
+ *
+ * <p>提供待办任务查询、审批/驳回（{@code complete}）与转办（{@code transfer}）；
+ * 权限按 {@code workflow:task:*} 分层，由 {@code WorkflowService} 调用 Flowable task API。</p>
+ */
 @Tag(name = "工作流任务")
 @RestController
 @RequestMapping("/api/workflow/tasks")
