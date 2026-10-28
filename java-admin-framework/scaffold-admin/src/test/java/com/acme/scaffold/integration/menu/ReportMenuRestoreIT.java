@@ -26,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>场景：
  * <ul>
- *   <li>menus/mine：报表管理为一级目录且仅含 3 个统计页（顺序：任务执行 → 登录 → 接口调用），
- *       权限码与路由 path 均保持不变；</li>
+ *   <li>menus/mine：报表管理为一级目录且含 3 个历史统计页（任务执行 → 登录 → 接口调用）+ M27 报表大屏
+ *       （system:dashboard，V52 种子挂在 1030 下，路由 /report/dashboard），共 4 个子项，权限码与路由 path 保持不变；</li>
  *   <li>menus/mine：运维管理不再包含报表统计，仅保留功能菜单（V31 时 7 个，
  *       V33 文件管理模块迁入后为 8 个）；</li>
  *   <li>sys_menu 结构：1030 复活为一级 CATALOG（sort 45，接排个人中心与运维管理之间），
@@ -51,27 +51,33 @@ class ReportMenuRestoreIT extends AbstractHttpIntegrationTest {
 
     // ---------------- 1. 菜单树（用户可见视角） ----------------
 
-    /** 报表管理为一级目录，且仅含 3 个统计页，顺序为任务执行 → 登录 → 接口调用。 */
+    /**
+     * 报表管理为一级目录，含 3 个历史统计页（任务执行 → 登录 → 接口调用）+ M27 报表大屏
+     * （system:dashboard，V52 种子挂在 1030 下），共 4 个子项；权限码与路由 path 保持不变。
+     */
     @Test
-    void mine_reportMenuTopLevelWithThreeStatChildren() {
+    void mine_reportMenuTopLevelWithReportPagesAndDashboard() {
         List<Map<String, Object>> tree = menusMine();
 
         Map<String, Object> report = topLevel(tree, "报表管理");
         assertNotNull(report, "应存在一级菜单「报表管理」，实际一级菜单: " + topLevelNames(tree));
 
         List<Map<String, Object>> children = childrenOf(report);
-        assertEquals(3, children.size(), "报表管理应仅含 3 个统计页，实际: " + codes(children));
+        assertEquals(4, children.size(), "报表管理应含 3 个历史统计页 + M27 报表大屏，实际: " + codes(children));
         assertEquals("report-job-exec", children.get(0).get("menuCode"));
         assertEquals("report-login", children.get(1).get("menuCode"));
         assertEquals("report-api-call", children.get(2).get("menuCode"));
+        assertEquals("system:dashboard", children.get(3).get("menuCode"));
 
-        // 权限码与路由保持不变（授权与业务不变性）
-        for (Map<String, Object> c : children) {
-            assertEquals("report:read", c.get("permissionCode"), "权限码应仍为 report:read");
+        // 3 个历史统计页权限码与路由保持不变（授权与业务不变性）
+        for (Map<String, Object> c : children.subList(0, 3)) {
+            assertEquals("report:read", c.get("permissionCode"), "历史统计页权限码应仍为 report:read");
         }
+        assertEquals("system:dashboard:read", children.get(3).get("permissionCode"), "报表大屏权限码应为 system:dashboard:read");
         assertEquals("/report/job-exec", children.get(0).get("routePath"));
         assertEquals("/report/login", children.get(1).get("routePath"));
         assertEquals("/report/api-call", children.get(2).get("routePath"));
+        assertEquals("/report/dashboard", children.get(3).get("routePath"));
     }
 
     /**
