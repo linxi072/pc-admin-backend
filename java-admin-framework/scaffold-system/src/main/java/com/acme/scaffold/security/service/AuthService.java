@@ -29,6 +29,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,17 +66,32 @@ public class AuthService {
     private final OnlineUserService onlineUserService;
 
     /**
-     * 账号密码登录。
+     * 自注入代理：用于在本 Bean 内部以 {@code self.xxx()} 方式调用带 {@link Transactional} 的内部方法，
+     * 使其经由 Spring 代理从而真正开启事务（直接调用 this 的内部方法会绕过代理、事务注解失效）。
+     * 标注 {@link Lazy} 以打破「authService 依赖自身」导致的循环依赖（bean 尚在创建中即被请求）。
+     */
+    @Autowired
+    @Lazy
+    private AuthService self;
+
+    /**
+     * 账号密码登录（事务边界已收窄）。
+     *
+     * <p><b>性能优化要点</b>：本方法本身<b>不持有数据库事务</b>。仅执行「无连接开销」的校验与
+     * CPU 密集运算——验证码校验、账号读取、<b>{@code bcrypt} 口令比对（~300ms 纯计算）</b>、
+     * 临时限制 / 多端限制读取、权限聚合、JWT 签发。这些步骤不占用 Hikari 连接池连接。
+     * 真正的 DB 写入（失败计数 / 多端挤占 / 刷新令牌签发 / 在线会话登记 / 审计日志）被拆分到
+     * {@link #commitLoginSuccess} 与 {@link #recordLoginFailure} 两个<b>短事务</b>方法内，
+     * 通过 {@code self} 代理进入事务，使连接仅在「写入瞬间」被占用（数十毫秒级），而非被
+     * bcrypt 长时间空占，从而把登录并发拐点从「连接池上限」量级显著提升。</p>
      *
      * <p><b>{@code noRollbackFor = BusinessException} 是刻意为之</b>：登录失败路径唯一的写操作是
-     * {@link #handleLoginFailure(SysUserDO)}（累计失败次数 / 置 LOCKED），而它执行后必然抛出
-     * BusinessException 告知调用方失败。默认回滚规则会让这笔写入随异常一并撤销，导致
-     * 「失败 N 次锁定账号」与渐进式锁定（设计文档 §5.3）<b>完全失效</b>。成功路径不抛
-     * BusinessException，提交语义不受影响。</p>
+     * {@link #recordLoginFailure(SysUserDO, String, String)}（累计失败次数 / 置 LOCKED），它执行后
+     * 必然抛出 BusinessException 告知调用方失败。默认回滚规则会让这笔写入随异常一并撤销，导致
+     * 「失败 N 次锁定账号」与渐进式锁定（设计文档 §5.3）<b>完全失效</b>。故该写操作以独立事务提交。</p>
      */
-    @Transactional(noRollbackFor = BusinessException.class)
     public TokenView login(LoginCommand command, String ip, String userAgent, String deviceId) {
-        // 验证码校验优先于密码校验：避免在验证码缺失/错误时消耗登录失败计数导致误锁账号
+        // 验证码校验优先于密码校验：避免在验证码缺失/错误时消耗登录失败计数导致误锁账号（无 DB）
         if (captchaProperties.isEnabled()) {
             if (command.captchaToken() == null || command.captchaAnswer() == null) {
                 throw loginFailure(command.username(), null, SecurityErrorCode.CAPTCHA_REQUIRED,
@@ -85,6 +102,7 @@ public class AuthService {
                         "验证码错误或已失效", ip, userAgent);
             }
         }
+        // 读取账号（自动提交短连接，读后即归还，不在事务内占用连接）
         SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
                 DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
                         JooqTables.SYS_USER.field("username", String.class).eq(command.username())));
@@ -100,44 +118,59 @@ public class AuthService {
             throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_DISABLED,
                     "账号已禁用", ip, userAgent);
         }
+        // CPU 密集：bcrypt 口令比对（~300ms，纯计算，无需 DB 连接 —— 必须在事务外完成）
         if (!passwordEncoder.matches(command.password(), user.getPasswordHash())) {
-            handleLoginFailure(user);
-            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.BAD_CREDENTIALS,
-                    "用户名或密码错误", ip, userAgent);
+            self.recordLoginFailure(user, ip, userAgent);
+            throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
         }
         // 设计文档 §5.3：被标记为「需改密」(password_expired=1) 的用户必须先改密再登录
         if (user.getPasswordExpired() != null && user.getPasswordExpired() == 1) {
             throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.MUST_CHANGE_PASSWORD,
                     "请修改初始/重置密码后再登录", ip, userAgent);
         }
-        // V27 在线用户管理：临时登录限制校验。置于密码校验之后——
+        // V27 在线用户管理：临时登录限制校验（DB 读，自动提交短连接）。置于密码校验之后——
         // 已认证方才有权得知「被限制」及其解除时间，未认证方只能得到通用错误，防账号状态探测。
         SysLoginRestrictionDO restriction = onlineUserService.findActiveRestriction(user.getId());
         if (restriction != null) {
             throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_RESTRICTED,
                     restrictionMessage(restriction), ip, userAgent);
         }
-        resetLoginFailure(user);
 
-        // 多端登录限制：控制同一账号同时在线设备数（每个活跃刷新令牌即一个在线设备）
+        // 多端登录限制：控制同一账号同时在线设备数（每个活跃刷新令牌即一个在线设备，读阶段在事务外）
         int maxSessions = jwtProperties.getMaxConcurrentSessions();
+        SessionLimitRules.Decision decision = SessionLimitRules.Decision.ALLOW;
         if (maxSessions > 0) {
             int active = refreshTokenService.countActiveSessions(user.getId());
             SessionLimitRules.Strategy strategy = "evict_oldest".equalsIgnoreCase(jwtProperties.getSessionEvictionStrategy())
                     ? SessionLimitRules.Strategy.EVICT_OLDEST
                     : SessionLimitRules.Strategy.REJECT;
-            SessionLimitRules.Decision decision = SessionLimitRules.evaluate(active, maxSessions, strategy);
+            decision = SessionLimitRules.evaluate(active, maxSessions, strategy);
             if (decision == SessionLimitRules.Decision.REJECT) {
                 throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.TOO_MANY_SESSIONS,
                         "同一账号同时登录设备数已达上限 " + maxSessions, ip, userAgent);
-            } else if (decision == SessionLimitRules.Decision.EVICT_OLDEST) {
-                // 保留 maxSessions-1 个最新会话，其余（含本次将签发的）总计不超过上限
-                refreshTokenService.revokeOldestSessions(user.getId(), maxSessions - 1);
             }
         }
 
+        // 权限聚合 + JWT 签发（DB 读 + CPU，事务外），缩减后续短事务持连接时长
         CurrentPrincipal principal = buildPrincipal(user);
         String accessToken = jwtProvider.generateAccessToken(principal);
+        // 进入短事务完成全部 DB 写入
+        return self.commitLoginSuccess(user, accessToken, deviceId, ip, userAgent, decision);
+    }
+
+    /**
+     * 登录成功短事务：仅包含 DB 写入（失败计数清零 + 多端挤占 + 刷新令牌签发 + 在线会话登记 + 审计日志）。
+     * 通过 {@code self} 代理进入事务，使连接仅在写入瞬间被占用，避免被 bcrypt 等 CPU 运算空占。
+     */
+    @Transactional(noRollbackFor = BusinessException.class)
+    public TokenView commitLoginSuccess(SysUserDO user, String accessToken, String deviceId,
+                                        String ip, String userAgent, SessionLimitRules.Decision decision) {
+        resetLoginFailure(user);
+        int maxSessions = jwtProperties.getMaxConcurrentSessions();
+        if (maxSessions > 0 && decision == SessionLimitRules.Decision.EVICT_OLDEST) {
+            // 保留 maxSessions-1 个最新会话，其余（含本次将签发的）总计不超过上限
+            refreshTokenService.revokeOldestSessions(user.getId(), maxSessions - 1);
+        }
         String refreshToken = refreshTokenService.issue(user.getId(), "web", deviceId, userAgent, ip);
         // V27 在线用户管理：登记在线会话（upsert，供列表跟踪 / 强制下线 / 心跳）
         onlineUserService.registerSession(user.getId(), user.getUsername(), user.getDisplayName(),
@@ -145,6 +178,16 @@ public class AuthService {
         // 登录成功落审计日志（REQUIRES_NEW 独立事务，供「报表管理 - 登录统计」取数）
         loginLogRecorder.record(user.getUsername(), user.getId(), true, null, ip, userAgent);
         return new TokenView(accessToken, refreshToken, jwtProperties.getAccessTokenTtl().getSeconds());
+    }
+
+    /**
+     * 登录失败短事务：累计失败次数 / 渐进式锁定（写入后即便抛异常也提交，避免锁定机制失效）。
+     * 通过 {@code self} 代理进入事务。
+     */
+    @Transactional(noRollbackFor = BusinessException.class)
+    public void recordLoginFailure(SysUserDO user, String ip, String userAgent) {
+        handleLoginFailure(user);
+        loginLogRecorder.record(user.getUsername(), user.getId(), false, SecurityErrorCode.BAD_CREDENTIALS.code(), ip, userAgent);
     }
 
     /** 限制登录的面向用户提示：长期限制提示联系管理员，限时限制附带预计解除时间。 */

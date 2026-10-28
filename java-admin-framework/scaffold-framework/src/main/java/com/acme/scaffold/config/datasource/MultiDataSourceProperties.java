@@ -103,8 +103,8 @@ public class MultiDataSourceProperties {
 
     public static class Pool {
 
-        private int minimumIdle = 5;
-        private int maximumPoolSize = 20;
+        private int minimumIdle = 10;
+        private int maximumPoolSize = 50;
         private long connectionTimeout = 3000;
         private long validationTimeout = 1000;
         private long idleTimeout = 600000;
