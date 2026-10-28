@@ -7,6 +7,7 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.system.notification.config.WecomRobotProperties;
 import com.acme.scaffold.system.notification.port.WebhookClient;
 import com.acme.scaffold.system.notification.rules.RobotSigningRules;
+import com.acme.scaffold.system.service.ConfigService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.verify;
 class WecomRobotAdapterTest {
 
     private final WebhookClient client = mock(WebhookClient.class);
+    private final ConfigService configService = mock(ConfigService.class);
 
     private WecomRobotProperties props(boolean enabled, String url, String secret) {
         WecomRobotProperties p = new WecomRobotProperties();
@@ -38,7 +40,7 @@ class WecomRobotAdapterTest {
     }
 
     private WecomRobotAdapter adapter(WecomRobotProperties p) {
-        return new WecomRobotAdapter(client, p);
+        return new WecomRobotAdapter(client, p, configService);
     }
 
     @Test

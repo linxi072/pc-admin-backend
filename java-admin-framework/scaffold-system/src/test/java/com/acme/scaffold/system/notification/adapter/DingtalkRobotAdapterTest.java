@@ -7,6 +7,7 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.system.notification.config.DingtalkRobotProperties;
 import com.acme.scaffold.system.notification.port.WebhookClient;
 import com.acme.scaffold.system.notification.rules.RobotSigningRules;
+import com.acme.scaffold.system.service.ConfigService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.verify;
 class DingtalkRobotAdapterTest {
 
     private final WebhookClient client = mock(WebhookClient.class);
+    private final ConfigService configService = mock(ConfigService.class);
 
     private DingtalkRobotProperties props(boolean enabled, String url, String secret) {
         DingtalkRobotProperties p = new DingtalkRobotProperties();
@@ -40,7 +42,7 @@ class DingtalkRobotAdapterTest {
     }
 
     private DingtalkRobotAdapter adapter(DingtalkRobotProperties p) {
-        return new DingtalkRobotAdapter(client, p);
+        return new DingtalkRobotAdapter(client, p, configService);
     }
 
     @Test
