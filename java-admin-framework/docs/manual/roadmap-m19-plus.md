@@ -32,6 +32,7 @@
 | **M31 可配置数据权限（M19+ 收口，feat/V1.0.4）** | 中（治理） | 小（注解 + 注册表 + 只读清单端点 + 前端配置页） | ✅ 复用「角色×资源」数据权限基础，`DataScope` 注解增 `name()` 展示名 + `DataScopeResourceRegistry`（`BeanPostProcessor`）启动自动扫描 `@DataScope` 方法生成受控资源清单（新增受控资源零前端硬编码即出现在配置页）；`DataScopeResourceView` 置于 `security.permission` 包解开 H1 包级环依赖；`DataScopeController` 暴露只读 `GET /api/system/data-scope/resources`（`system:data-scope:read` 自动登记） | 新增受控资源须零前端硬编码即可被发现；前端 `DataScopeView.vue` 复用 `RoleController` 的 `data-scopes` 保存端点（CUSTOM 须至少选一部门） | P3 → ✅ 已交付（feat/V1.0.4）：全仓 **1498→1519 例**全绿 + `check-conventions` EXIT=0；V56 菜单种子 id=1127 挂系统管理目录 |
 | **前后端联调契约测试基建（feat/V1.0.4）** | 中（质量基建） | 小（单份契约源驱前后端双测） | ✅ 零依赖：单份 `scripts/api-contract.json` 同时驱动后端 `ApiContractConsistencyTest`（scaffold-common，14 例，standalone MockMvc + 真实 `GlobalExceptionHandler` + `I18nService` + 内存 `DemoItem` 闭环）与前端 `src/api/__tests__/result.test.js`（node:test 10 例）；前端抽 `src/api/result.js`（`isSuccessResult` 兼容 `"0"`/`0` + `ResultError` + `unwrapResult`），`http.js` 改用统一判定，修复仅 `code==='0'` 不兼容数字 code 的真实契约违规 | 从构造上消除前后端 drift；UTF-8 字节读取防乱码；9 错误码 zh+en 文案覆盖 | P3 → ✅ 已交付（feat/V1.0.4）：全仓 **1519→1591 例** + 前端 `npm test` 10/10 + `check-conventions` EXIT=0 + `vite build` EXIT=0 |
 | **M32 运营大屏数据导出（导出中心接入，feat/V1.0.4）** | 中（运维提效） | 小（单 `@Component` 接入导出中心，零迁移零前端） | ✅ 复用 M27 报表大屏 `DashboardService.overview()/trend(days)` 与既有「`ExportTask` 模板注册」范式：新增 `DashboardExportTask`（`code="dashboard"`，多段结构——CSV 扁平化为「数据段/标签/值」三列、XLSX 7 Sheet（总览 + 新增用户/新增租户/活跃租户/登录日志/操作日志/通知发送趋势））；标 `@TenantIgnorable` 产出跨租户全局数据；`csv()/xlsxSheets()` 内显式校验 `system:dashboard:read` 防止「持导出权限但无数据权限」的权限放大 | 看板为平台级全局统计，须 `@TenantIgnorable` 旁路 + 权限兜底双保险；`days` 经 `DashboardRules.clampDays` 钳制 [1,90]、默认 30，非法/缺省回落默认 | P3 → ✅ 已交付（2026-10-28）：新增 `DashboardExportTaskTest` 7 例（元数据声明/带权限产出 CSV+Sheet/无权限 FORBIDDEN/无主体 FORBIDDEN/非法 days 回落），全仓 **1591→1610 例（0 失败 0 错误）** + `check-conventions` EXIT=0 |
+| **M33 任务依赖编排 DAG（M19+ 收口，feat/V1.0.4）** | 中（调度编排） | 中（纯函数规则 + 端口 + 适配器 + 前端编排页，零新表） | ✅ 复用既有 `sys_job`（V59 仅加 `depends_on VARCHAR(1024)` 列，information_schema 探测幂等 ALTER）+ JobRunr 双层调度（`JobSchedulerPort`）。纯函数 `JobDagRules`（解析/校验/环检测/拓扑排序）+ 防腐层端口 `JobDagPort`/`JooqJobDagAdapter` + 编排 `JobDagService`（上游成功后即时触发就绪 WAITING 下游）+ 新增 `JobStatus.WAITING` 挂起态 + 前端依赖多选/WAITING 标签/依赖编排列/触发下游按钮 | 依赖「至少成功一次」语义（`COMPLETED` 或 `success_runs>0`）；上游已删除视为满足（防悬空边永久阻塞）；编辑时环检测 + 存在性 + 自依赖校验；删除守卫（有下游依赖拒删）；复用既有 job 菜单（id=1031）不新种子 | P3 → ✅ 已交付（feat/V1.0.4）：新增 `JobDagRules`（6 方法纯函数）+ `JobDagPort`/`JooqJobDagAdapter` + `JobDagService`（onJobSuccess/triggerDownstream/dependentsMap/assertNoDependents/isReady/validateDependencyEdit/setWaiting）+ `JobExecutor` 成功钩子 + `JobService` 改造（page/detail/create/update/start[WAITING 分支]/remove[守卫]/toVO[三新字段]）+ `JobVO`/`JobCreateDTO`/`JobUpdateDTO` 加 `dependsOn` + `JobController` 加 `POST /api/jobs/{id}/trigger-downstream`；新增 34 例单测（`JobDagRulesTest` 17 + `JobDagServiceTest` 17），全仓 **1610→1644 例**全绿 + `check-conventions` EXIT=0；前端 `JobListView.vue` 加依赖编排列（依赖/下游）/WAITING 标签/依赖多选/触发下游按钮 + `job.js` 加 `jobTriggerDownstream`；`npx vite build` EXIT=0 |
 
 > 说明：表中 M19–M22 为本轮重点细化候选（与既定规划方向一致）；M23–M25 列入观察清单，待前序模块稳定后再排期。
 
@@ -116,6 +117,25 @@
 - **测试 7 例**（`DashboardExportTaskTest`：元数据声明断言 / 带 `system:dashboard:read` 产出 CSV（含总览段+六趋势段三列结构）/ 无 `system:dashboard:read` 抛 FORBIDDEN 且 `dashboardService` 零调用 / 无主体 FORBIDDEN / 非法 days 回落默认 30 / 带权限产出 7 Sheet（总览 16 行 + 各趋势 2 行）/ 无权限 XLSX 亦 FORBIDDEN）；门禁：全仓 **1591→1610 例（0 失败 0 错误）** + `check-conventions.py` EXIT=0。
 - **未登记项说明**：M31 可配置数据权限（1498→1519）、前后端联调契约测试基建（1519→1591）均已先于本模块落地且全量门禁全绿，本文档此前未回写，特此补记于 §2 矩阵。
 
+#### 4.1.7 M33 任务依赖编排 DAG（已交付，feat/V1.0.4，2026-10-28）
+- **定位**：在既有定时任务（JobRunr 双层调度：`sys_job`/`sys_job_log` 自管 + `JobSchedulerPort` 调度）基础上，新增「任务依赖编排」能力——任务 A 可声明「依赖 B」，仅当 B 至少成功执行一次后，A 才被自动触发；依赖未满足时 A 进入 `WAITING` 挂起态、不向调度器注册，避免无效轮询与空跑。本质是有向无环图（DAG）的「完成事件驱动即时触发」，而非经典 cron 级联。零新表（仅 `sys_job` 增 `depends_on` 列）、零新依赖、复用既有 job 菜单（id=1031）。
+- **核心语义**：
+  - 依赖「至少成功一次」：上游 `COMPLETED` 终态或 `success_runs > 0` 即视为满足（周期任务首次成功即可驱动下游，无需等待结束）。
+  - 上游已删除 → 视为满足（避免悬空边永久阻塞下游）。
+  - 下游仅对 `WAITING` 态触发，已运行/暂停者不重复调度，幂等。
+  - 触发复用上游任务自身触发类型注册：CRON/SIMPLE 注册周期，ONE_TIME 注册「now+2s」一次性（即时触发）。
+- **后端（scaffold-job）**：
+  - `JobStatus.WAITING("等待依赖")` 新增枚举值（置于 RUNNING 与 COMPLETED 之间）。
+  - `JobDagRules`（纯函数，`static`、抛 `BusinessException.badRequest`、显式传参，与 `JobValidator` 同范式）：`parseDependsOn`/`serializeDependsOn`（JSON 数组文本 ↔ 列表，去重保序、容错）/ `validateDependencies`（自依赖 + 存在性）/ `hasCycle`（DFS 回边）/ `topologicalOrder`（Kahn）/ `dedupe`。
+  - `JobDagPort`（端口接口）+ `JooqJobDagAdapter`（`@Component`，每次调用全量 `JooqWriters.fetchList(notDeleted)` 加载 `sys_job` 至内存、构建反向依赖索引；`setRunning`/`setStatus` 仅写目标列避免默认值污染）：隔离 `sys_job` 读取与状态写回，防腐层。
+  - `JobDagService`（`@Service`）：`onJobSuccess(jobId)`（查下游 → 过滤 WAITING && isReady → 即时触发，被 `JobExecutor` 成功路径钩子调用）、`triggerDownstream(id)`（手动触发，返回实际触发数）、`dependentsOf`/`dependentsMap`（批量，供列表避免 N+1）、`assertNoDependents`（删除守卫）、`isReady`、`validateDependencyEdit`（存在性 + 环检测）、`setWaiting`。
+  - `JobExecutor`：`recordResult` 成功后 `try/catch` 调 `jobDagService.onJobSuccess(jobId)`（失败仅告警、不影响本次执行结果）；状态门控允许 `WAITING`（依赖下游即时触发态）。
+  - `JobService` 改造：`page` 经 `dependentsMap` 批量填充；`create/update` 调 `validateDependencyEdit` 并序列化 `dependsOn`；`start` 新增 WAITING 分支（依赖未就绪则 `setWaiting` 不注册调度）；`remove` 经 `assertNoDependents` 守卫；`toVO` 增 `dependsOn`/`dependents`/`waitForDeps`（雪花 ID 字符串化防精度丢失）。
+  - `JobVO`/`JobCreateDTO`/`JobUpdateDTO` 加 `dependsOn`（`JobVO.dependents` 用 `ToStringSerializer` 防前端精度丢失）；`JobController` 加 `POST /api/jobs/{id}/trigger-downstream`（权限 `job:manage` 自动登记）。
+  - 迁移 `V59__job_dependency.sql`：`information_schema.columns` 探测 `depends_on` 列是否已存在，不存在才 `ALTER TABLE sys_job ADD depends_on VARCHAR(1024)`（幂等）；`JooqTables.SYS_JOB` 与 `SysJobDO.dependsOn` 同步（#777 先行落地）。
+- **前端（pc-admin-vue3-vite）**：`src/api/job.js` 加 `jobTriggerDownstream(id)` 并更新 `jobCreate`/`jobUpdate` JSDoc（`dependsOn`）；`src/views/JobListView.vue` 加：①「依赖编排」列（依赖/下游以名称标签展示，ID→名称经 `jobPage` 全量清单反查）；② `WAITING` 状态标签（后端 `statusLabel` 已为「等待依赖」）；③ 新建/编辑对话框「前置依赖」多选（排除自身防自依赖）；④ 操作列「触发下游」按钮（下游存在时显示，手动驱动就绪 WAITING 任务，提示触发数量）。复用既有 job 菜单（route=/job/list），不新种子。
+- **测试 34 例**（`JobDagRulesTest` 17：解析/序列化/校验/环检测/拓扑/去重容错；`JobDagServiceTest` 17：Mockito 模拟 `JobDagPort`+`JobSchedulerPort`，覆盖 onJobSuccess 触发/不触发 RUNNING、不触发未就绪、无下游空操作、triggerDownstream 仅计就绪、删除守卫、isReady 四态、编辑环检测拒绝/接受、dependentsMap 聚合）；门禁：全仓 **1610→1644 例**全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0。
+
 ### 4.2 M20 操作/审计增强
 - **目标**：在 M1 写操作审计基础上，补「读操作审计（可开关/采样）」「审计导出」「留存与清理」「按角色脱敏展示」。
 - **构件**：`AuditAspect` 增 `auditReads` 开关 + 采样率；复用既有 `system/export` 注册 `AuditExportTask`（零迁移、零前端，自动进 `/templates`）；`AuditRetentionJob`（按 `app.audit.retention-days` 清理，复用 `IdempotencyCleanupJob` 范式）；审计详情展示经 `SensitiveMasker` 按角色决定明文/掩码。
@@ -153,7 +173,7 @@
 2. **M19 隔离策略选「共享表 + tenant_id」还是「Schema 隔离」？** 前者迁移轻、跨租户统计易；后者隔离强、但存量与路由复杂。
 3. **M22 低代码是否本期正式立项，还是仅做 spike？** ✅ 已决议：先 spike（V47）验证可行性，随后正式立项提交落库（V53 `form_submission` 表 + schema 校验 + 前后端提交/记录），均已完成。
 4. **M24 API 开放平台是否本期需要？** 仅当需要对外暴露_OPEN API_ 时立项（涉及 OAuth2 离线核验）。
-5. **优先级与排期**：上述 P1/P2/P3 是否与业务方预期一致？是否需插入其他候选（如报表大屏、任务依赖编排）？
+5. **优先级与排期**：上述 P1/P2/P3 是否与业务方预期一致？是否需插入其他候选（如报表大屏、任务依赖编排）？ ✅ 已决议：报表大屏（M27）与任务依赖编排（M33）均已插入并交付——M33 任务依赖编排 DAG 已于 2026-10-28 在 feat/V1.0.4 落地（详见 §4.1.7），全仓 **1610→1644 例**全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0。
 
 > **已确认决策（2026-10-23）**：
 > 1. **M19 多租户延后**：本期不做 SaaS 隔离；隔离策略已倾向「共享表 + `tenant_id` 列」（jOOQ 拦截强制隔离），留作未来立项基线，无需本期投入。
