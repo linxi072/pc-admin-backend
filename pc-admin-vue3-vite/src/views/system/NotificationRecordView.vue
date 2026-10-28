@@ -14,6 +14,8 @@
               <el-option label="WebSocket" value="WEBSOCKET" />
               <el-option label="邮件" value="EMAIL" />
               <el-option label="短信" value="SMS" />
+              <el-option label="企业微信机器人" value="WECOM" />
+              <el-option label="钉钉机器人" value="DINGTALK" />
             </el-select>
           </div>
           <div class="filter-group">
@@ -184,7 +186,9 @@ const CHANNEL_META = {
   WEBHOOK: { label: 'Webhook', type: 'warning' },
   WEBSOCKET: { label: 'WebSocket', type: 'success' },
   EMAIL: { label: '邮件', type: 'info' },
-  SMS: { label: '短信', type: 'danger' }
+  SMS: { label: '短信', type: 'danger' },
+  WECOM: { label: '企业微信机器人', type: 'success' },
+  DINGTALK: { label: '钉钉机器人', type: 'primary' }
 }
 const channelLabel = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].label : c || '--')
 const channelTagType = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].type : 'info')

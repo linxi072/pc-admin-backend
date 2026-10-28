@@ -220,7 +220,7 @@
           <el-form-item v-if="sendNeedField('mobiles')" label="接收手机号" :required="sendNeedField('mobiles')">
             <el-input v-model="sendForm.mobiles" type="textarea" :rows="2" placeholder="多个用逗号分隔" />
           </el-form-item>
-          <el-form-item v-if="sendRow.channel === 'WEBHOOK'" label="Webhook 地址">
+          <el-form-item v-if="channelUsesWebhookUrl(sendRow.channel)" label="机器人 Webhook 地址">
             <el-input v-model="sendForm.webhookUrl" placeholder="留空走配置默认地址" />
           </el-form-item>
         </el-form>
@@ -248,13 +248,15 @@ import {
 } from '@/api/notificationTemplate'
 import { sendWithTemplateNotification } from '@/api/notification'
 
-// 与后端 Channel 枚举一致
+// 与后端 Channel 枚举一致（M35 新增企业微信/钉钉机器人渠道）
 const channelOptions = [
   { value: 'IN_APP', label: '站内信' },
   { value: 'EMAIL', label: '邮件' },
   { value: 'SMS', label: '短信' },
   { value: 'WEBHOOK', label: 'Webhook' },
-  { value: 'WEBSOCKET', label: 'WebSocket' }
+  { value: 'WEBSOCKET', label: 'WebSocket' },
+  { value: 'WECOM', label: '企业微信机器人' },
+  { value: 'DINGTALK', label: '钉钉机器人' }
 ]
 const channelTag = (ch) => {
   const map = {
@@ -262,10 +264,14 @@ const channelTag = (ch) => {
     EMAIL: { type: 'primary', label: '邮件' },
     SMS: { type: 'success', label: '短信' },
     WEBHOOK: { type: 'warning', label: 'Webhook' },
-    WEBSOCKET: { type: 'danger', label: 'WebSocket' }
+    WEBSOCKET: { type: 'danger', label: 'WebSocket' },
+    WECOM: { type: 'success', label: '企业微信机器人' },
+    DINGTALK: { type: 'primary', label: '钉钉机器人' }
   }
   return map[ch] || { type: 'info', label: ch || '--' }
 }
+// 机器人与 Webhook 共用 webhookUrl 字段（消息自带地址优先，否则走配置默认）
+const channelUsesWebhookUrl = (ch) => ch === 'WEBHOOK' || ch === 'WECOM' || ch === 'DINGTALK'
 
 const loading = ref(false)
 const rows = ref([])
@@ -548,7 +554,7 @@ async function onSend() {
     if (sendNeedField('receiverIds') && sendForm.receiverIds) body.receiverIds = splitCsvIds(sendForm.receiverIds)
     if (sendNeedField('emails') && sendForm.emails) body.emails = splitCsv(sendForm.emails)
     if (sendNeedField('mobiles') && sendForm.mobiles) body.mobiles = splitCsv(sendForm.mobiles)
-    if (sendRow.value.channel === 'WEBHOOK' && sendForm.webhookUrl) body.webhookUrl = sendForm.webhookUrl
+    if (channelUsesWebhookUrl(sendRow.value.channel) && sendForm.webhookUrl) body.webhookUrl = sendForm.webhookUrl
     const res = await sendWithTemplateNotification(body)
     ElMessage.success(`已发送，投递 ${res?.delivered ?? 0} 个单元`)
     sendVisible.value = false
