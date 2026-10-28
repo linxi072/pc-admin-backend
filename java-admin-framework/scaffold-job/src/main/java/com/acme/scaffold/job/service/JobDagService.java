@@ -9,8 +9,8 @@ import com.acme.scaffold.job.domain.JobTriggerType;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.port.JobDagPort;
 import com.acme.scaffold.job.port.JobSchedulerPort;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -41,13 +41,26 @@ import java.util.function.Function;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class JobDagService {
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
 
     private final JobDagPort dagPort;
     private final JobSchedulerPort schedulerPort;
+
+    /**
+     * 构造器注入。
+     *
+     * <p><b>循环依赖打破点</b>：本服务与 {@code JobRunrSchedulerPort} 存在构造期环
+     * （{@code JobRunrSchedulerPort → JobExecutor(JobInvoker) → JobDagService → JobSchedulerPort(=JobRunrSchedulerPort)}）。
+     * {@code schedulerPort} 仅在运行期（{@link #onJobSuccess}/{@link #triggerDownstream} → {@code triggerReady}）调用，
+     * 构造期内不触碰，故对其标注 {@link Lazy} 注入代理即可安全解环，无需启用
+     * {@code spring.main.allow-circular-references}。
+     */
+    public JobDagService(JobDagPort dagPort, @Lazy JobSchedulerPort schedulerPort) {
+        this.dagPort = dagPort;
+        this.schedulerPort = schedulerPort;
+    }
 
     /**
      * 某任务成功执行后，驱动其就绪的依赖方（下游）即时触发。
