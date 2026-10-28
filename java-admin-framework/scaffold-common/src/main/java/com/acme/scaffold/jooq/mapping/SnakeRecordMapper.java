@@ -60,7 +60,7 @@ public class SnakeRecordMapper<E> implements RecordMapper<Record, E> {
     }
 
     @SuppressWarnings("unchecked")
-    private static Object convert(Object value, Class<?> targetType) {
+    static Object convert(Object value, Class<?> targetType) {
         if (value == null) {
             return null;
         }
@@ -105,6 +105,25 @@ public class SnakeRecordMapper<E> implements RecordMapper<Record, E> {
             }
             if (targetType == Boolean.class || targetType == boolean.class) {
                 return n.intValue() != 0;
+            }
+        }
+        // Boolean → 数值/Boolean：MySQL TINYINT(1) 被 jOOQ 默认读为 Boolean，兼容 Integer/Long 等 DO 字段
+        // （如 sys_tenant.deleted TINYINT(1) 映射到 SysTenantDO.deleted Integer）。
+        if (value instanceof Boolean b) {
+            if (targetType == Boolean.class || targetType == boolean.class) {
+                return b;
+            }
+            if (targetType == Integer.class || targetType == int.class) {
+                return b ? 1 : 0;
+            }
+            if (targetType == Long.class || targetType == long.class) {
+                return b ? 1L : 0L;
+            }
+            if (targetType == Short.class || targetType == short.class) {
+                return (short) (b ? 1 : 0);
+            }
+            if (targetType == Byte.class || targetType == byte.class) {
+                return (byte) (b ? 1 : 0);
             }
         }
         if (targetType == Boolean.class || targetType == boolean.class) {
