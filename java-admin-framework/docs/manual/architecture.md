@@ -313,7 +313,7 @@ java-admin-framework/
         ├── main/resources/
         │   ├── application.yml / application-{local,test,prod}.yml
         │   ├── logback-spring.xml
-        │   └── db/migration/        # Flyway 迁移 V32~V39
+        │   └── db/migration/        # Flyway 迁移 V32~V59（V57 为 Java 类迁移）
         └── test/java/com/acme/scaffold/   # 集成测试 + 跨模块一致性守护测试
 ```
 

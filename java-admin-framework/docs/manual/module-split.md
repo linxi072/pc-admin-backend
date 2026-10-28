@@ -172,7 +172,7 @@ java-admin-framework/                       # 工程根 = 父 POM 所在目录
         └── resources/
             ├── application.yml / application-local.yml / application-prod.yml
             ├── logback-spring.xml
-            └── db/migration/ (V32~V39) + db/reference/（DDL/DML 分类参考件）
+            └── db/migration/ (V32~V59，V57 为 Java 类迁移) + db/reference/（DDL/DML 分类参考件 + by-module 模块化参考）
     └── src/test/java/com/acme/scaffold/
         ├── BaseIntegrationTest.java        # 集成测试基类（@SpringBootTest）
         ├── e2e/                            # 7 个端到端测试（*E2eTest）
@@ -221,7 +221,7 @@ java-admin-framework/                       # 工程根 = 父 POM 所在目录
 | 资源 | 归属模块 | 说明 |
 |---|---|---|
 | `i18n/messages*`、`i18n/validation*` | scaffold-common | `I18nConfig` 以 `classpath:i18n/...` 声明，消息束须与配置同模块；运行期经 jar 合入最终 classpath |
-| `db/migration/V32~V39` | scaffold-admin | Flyway 在启动模块执行，`spring.flyway.locations=classpath:db/migration` |
+| `db/migration/V32~V59` | scaffold-admin | Flyway 在启动模块执行，`spring.flyway.locations=classpath:db/migration`（其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`） |
 | `db/reference/*` | scaffold-admin | 参考 DDL/DML（非迁移；V1.0.3 拆分后位于 `scaffold-admin/src/main/resources/db/reference/`） |
 | `db/codegen/*`、`jooq-codegen.xml` | scaffold-common | `-Pjooq-codegen` 生成 `com.acme.scaffold.jooqgen` 至 common |
 | `application*.yml`、`logback-spring.xml` | scaffold-admin | 运行期配置与日志 |

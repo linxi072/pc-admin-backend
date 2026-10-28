@@ -77,7 +77,7 @@
 | Maven | `/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn` | 仓库内**无 `mvnw`**；离线环境统一加 `-o` |
 | Spring Boot | 3.3.4（父 POM `spring-boot-starter-parent`） | **多 Maven 模块**（V1.0.3 拆分，见《模块拆分指南》），包名统一 `com.acme.scaffold` |
 | 数据库 | MySQL 8.x，库名 **`scaffold`** | `jdbc:mysql://localhost:3306/scaffold`；Flyway 自动建表 |
-| 迁移链 | `scaffold-admin/src/main/resources/db/migration/` `V32`~`V39`，schema 版本 **39** | `validate-on-migrate: true` |
+| 迁移链 | `scaffold-admin/src/main/resources/db/migration/` `V32`~`V59`（其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`），schema 版本 **59** | `validate-on-migrate: true` |
 | Redis | `127.0.0.1:6379`（local） | 缓存 / Token 黑名单 / 在线会话 |
 | 应用端口 | **8080** | `server.port`（API / Swagger / WebSocket），见下方端口说明 |
 | Actuator | `management.server.port` = **9090** | 独立管理端口，`/actuator/health`、`/actuator/prometheus` |
@@ -2218,7 +2218,7 @@ npm run preview  # 预览构建产物
    - **坑 1：`SERVER__PORT` 环境变量劫持**。后台任务环境会注入 `SERVER__PORT=<随机5位>`（联动 `CODEBUDDY_SERVICE_PROXY_URL`），Spring Boot relaxed binding 将双下划线映射为 `server.port`，**覆盖 yml 的 8080**，表现为每次启动随机高位端口（实测 50280/50860）。对策：`env -u SERVER__PORT -u SERVER__HOST` + 显式 `--server.port=8080`。
    - **坑 2：JobRunr Dashboard 8000 端口冲突**。重启前必须先 `lsof -ti :8080/:9090/:8000` 杀残留实例，否则新实例 `BindException: Address already in use` 启动失败。
    - **坑 3：沙箱代理**。访问 localhost 必须 `curl --noproxy '*'` 或 `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY no_proxy="*"`（沙箱注入 `http_proxy=http://127.0.0.1:50910`）。
-3. 启动验证：`Started FrameworkApplication in ~15s`；V32~V39 迁移全 green 应用（此前库仅到 V38）；`/livez`、`/readyz` UP。
+3. 启动验证：`Started FrameworkApplication in ~15s`；V32~V59 迁移全 green 应用（此前库仅到 V38）；`/livez`、`/readyz` UP。
 
 #### 6.2 真实环境暴露并修复的 2 个 P0
 

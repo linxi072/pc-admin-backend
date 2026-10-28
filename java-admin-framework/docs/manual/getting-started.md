@@ -144,7 +144,7 @@ mysql -u root -p -e "SHOW DATABASES LIKE 'scaffold';"
 
 期望输出：`scaffold` 一行。
 
-> **说明**：本项目的表结构（`sys_*` / `wf_*` 共 20 张）由 Flyway 在应用**首次启动时**自动创建并灌入种子数据（迁移链 `V32`~`V39`）；`ACT_*`（Flowable）与 `jobrunr_*`（JobRunr）表由对应组件自动创建。**你不需要手工执行任何 DDL。**
+> **说明**：本项目的表结构（`sys_*` / `wf_*` 共 20 张）由 Flyway 在应用**首次启动时**自动创建并灌入种子数据（迁移链 `V32`~`V59`，其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`）；`ACT_*`（Flowable）与 `jobrunr_*`（JobRunr）表由对应组件自动创建。**你不需要手工执行任何 DDL。**
 
 ### 2.2 Redis：启动与核对
 
@@ -195,7 +195,7 @@ git checkout feat/V1.0.3         # 当前活跃开发分支（多 Maven 模块�
 │   │       ├── application.yml      # 主配置（端口/数据源/Flyway/JobRunr/Flowable…）
 │   │       ├── application-local.yml    # 本地 profile（默认激活）
 │   │       ├── application-prod.yml     # 生产 profile（凭据全部走环境变量）
-│   │       └── db/migration/        # Flyway 迁移链 V32~V39（schema 版本 39）
+│   │       └── db/migration/        # Flyway 迁移链 V32~V59（schema 版本 59；V57 为 Java 类迁移）
 │   ├── scaffold-common/             # 基础件（上下文/工具/脱敏/导出导入…）
 │   ├── scaffold-system/             # 安全 + 系统管理（RBAC/菜单/字典…）
 │   ├── scaffold-workflow/           # 工作流审批（Flowable 7.1.0）
@@ -510,7 +510,7 @@ curl -fsS http://localhost:8080/livez
 curl -fsS http://localhost:8080/readyz
 curl -fsS http://localhost:9090/actuator/health
 
-# 4) 数据库状态核对（应见 V32~V39 全部 success=1）
+# 4) 数据库状态核对（应见 V32~V59 全部 success=1，其中 V57 为 Java 类迁移）
 mysql -u root -p scaffold -e "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
 
 # 5) 种子核对（默认管理员/角色/菜单/字典应在）

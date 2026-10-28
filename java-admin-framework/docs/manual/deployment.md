@@ -203,9 +203,9 @@ VALUES (32, '32', 'consolidated schema', 'SQL', 'V32__consolidated_schema.sql', 
 ### 34.6 影响与注意事项
 
 - **手工重建路径变化**：原 `db/scaffold_full_init.sql`（幂等手工全量初始化）已并入 V32，手工重建改为「全新库 + 执行 V32」；V32 非幂等，仅在空库或已按 §34.4 处理历史的库上执行。
-- **代码生成层不受影响**：`scaffold-admin/src/main/resources/db/codegen/` 保留，`jooq-codegen.xml` 引用路径不变。
+- **代码生成层不受影响**：`scaffold-common/src/main/resources/db/codegen/` 保留，`jooq-codegen.xml` 引用路径不变。
 - **生产环境（prod）** 若为既有库，升级时同样需按 §34.4 替换历史记录；全新库直接执行 V32。
-- **后续新增迁移** 从 `V40` 起编号，继续走 `scaffold-admin/src/main/resources/db/migration/`；当前已至 `V39`（`V33` 文件管理 / `V34` 导出中心 / `V35` 岗位管理 / `V36` 导入中心 / `V37` 短信记录 / `V38` 系统参数 / `V39` 可观测中心）。
+- **后续新增迁移** 继续走 `scaffold-admin/src/main/resources/db/migration/`；当前已至 `V59`（`V40` 公告已读回执 / `V41`~`V45` 通知体系 / `V46` 脱敏策略 / `V47`+`V53`+`V58` 表单中心 / `V48` 开放平台 / `V49` 工作流监控 / `V50` 文件去重 / `V51`+`V54` 租户 / `V52` 报表大屏 / `V55` 实时推送 / `V56` 数据权限 / `V59` 任务依赖编排；其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`），完整清单见 `db/migration/README.md`。
 - **已应用脚本不得再改**（包括注释）：checksum 按整个文件字节计算，改动会导致启动校验失败；处理办法见附录 O.1。
 
 ### 34.7 复现方式（历史归档）
@@ -219,7 +219,7 @@ VALUES (32, '32', 'consolidated schema', 'SQL', 'V32__consolidated_schema.sql', 
 # python3 scripts/build_reference.py  # 重建分类参考件（原件已删时自动从 V32 还原）
 ```
 
-> 结构 / 数据参考现以迁移链自身为权威：`scaffold-admin/src/main/resources/db/migration/`（V32~V39，schema 版本 39）。全新环境初始化（建库 → 迁移 → 种子核对 → 健康检查）请使用初始化脚本套件 `scripts/init/`（详见其 README 与《新手开发部署教程》§4.6）。
+> 结构 / 数据参考现以迁移链自身为权威：`scaffold-admin/src/main/resources/db/migration/`（V32~V59，schema 版本 59；其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`）。全新环境初始化（建库 → 迁移 → 种子核对 → 健康检查）请使用初始化脚本套件 `scripts/init/`（详见其 README 与《新手开发部署教程》§4.6）。
 
 > 目标：形成一个可直接创建、可本地启动、可作为后续业务系统脚手架的企业级 Java 后端基础框架。设计优先级依次为：安全正确、模块边界清晰、运维可见、低成本起步、可平滑拆分。
 
@@ -321,7 +321,7 @@ curl -i -X POST http://localhost:8080/api/auth/login \
 首次启动流程：
 
 1. 手工创建 `scaffold` 数据库（`CREATE DATABASE IF NOT EXISTS scaffold CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;`）；无 `xxl_job` 库（调度已为 JobRunr，随应用建 `jobrunr_*` 表）。
-2. Flyway 依次执行 `scaffold-admin/src/main/resources/db/migration/` 迁移链（当前 `V32`~`V39`，schema 版本 **39**）创建框架表与种子数据。
+2. Flyway 依次执行 `scaffold-admin/src/main/resources/db/migration/` 迁移链（当前 `V32`~`V59`，schema 版本 **59**；其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`）创建框架表与种子数据。
 3. 超级管理员由 `V32__consolidated_schema.sql` 内置：`admin` / `SUPER_ADMIN`，口令见 §3「默认账号」（bcrypt，`{bcrypt}` 前缀）；非环境变量生成的一次性账号。
 4. 首次登录建议立即改密（登录验证码默认开启，见 `auth.captcha.enabled`）。
 5. Flowable 由应用自动建表：`flowable.database-schema-update: true`（非 Flyway 导入、非 `false`），`async-executor-activate: true`，`history-level: audit`。
