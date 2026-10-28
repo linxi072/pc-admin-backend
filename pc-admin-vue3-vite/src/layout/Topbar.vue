@@ -32,21 +32,6 @@
     <div v-else class="notice-placeholder" aria-hidden="true" />
 
     <div class="right">
-      <!-- 语言切换：持久化到 localStorage，随请求经 ?lang= 上报后端（见 src/api/http.js），
-           同时驱动 Element Plus 语言包（App.vue 的 el-config-provider）。 -->
-      <el-select
-        :model-value="i18n.locale"
-        size="small"
-        class="locale-select"
-        @change="onLocaleChange"
-      >
-        <el-option
-          v-for="opt in availableLocales"
-          :key="opt.code"
-          :label="opt.label"
-          :value="opt.code"
-        />
-      </el-select>
       <NotificationBell />
       <el-tooltip :content="t('topbar.accountSettings')" placement="bottom">
         <el-button text class="icon-btn" @click="onCmd('settings')">
@@ -94,7 +79,7 @@ import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { closeRealtime } from '@/api/realtime'
-import { i18n, t, setLocale, availableLocales } from '@/i18n'
+import { t } from '@/i18n'
 import NotificationBell from '@/components/NotificationBell.vue'
 
 defineProps({ collapsed: Boolean })
@@ -112,11 +97,6 @@ const current = ref(null)
 const overflowing = ref(false)
 let offset = 0
 let raf = null
-
-// 语言切换：写入响应式状态 + localStorage（i18n.setLocale 内部处理 <html lang> 与持久化）
-function onLocaleChange(code) {
-  setLocale(code)
-}
 
 const trackStyle = computed(() => ({
   // 仅在溢出且未暂停时位移；否则回到起点
@@ -296,13 +276,6 @@ onUnmounted(() => {
   gap: 8px;
   flex-shrink: 0;
 }
-.locale-select {
-  width: 104px;
-  /* Element Plus 选择器在深色顶栏下的可读性适配 */
-  --el-fill-color-blank: rgba(255, 255, 255, 0.12);
-  --el-text-color-regular: #e6e8eb;
-  --el-border-color: rgba(255, 255, 255, 0.25);
-}
 .icon-btn {
   display: flex;
   align-items: center;
@@ -369,9 +342,6 @@ onUnmounted(() => {
   }
   .right {
     gap: 2px;
-  }
-  .locale-select {
-    width: 84px;
   }
 }
 /* 超窄屏：隐藏设置按钮，优先保证公告与铃铛可用 */

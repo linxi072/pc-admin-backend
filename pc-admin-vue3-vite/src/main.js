@@ -16,7 +16,7 @@ for (const [name, comp] of Object.entries(ElementPlusIconsVue)) {
 }
 
 // 注册全局 $t，便于任意模板在不显式 import 的情况下使用翻译；
-// 组件内也可直接从 '@/i18n' 导入 t / setLocale / availableLocales。
+// 组件内也可直接从 '@/i18n' 导入 t / backendLocale / elLocale。
 app.config.globalProperties.$t = t
 
 app.use(router)
