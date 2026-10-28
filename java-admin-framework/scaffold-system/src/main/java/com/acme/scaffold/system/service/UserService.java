@@ -6,6 +6,10 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.common.sensitive.SensitiveType;
+import com.acme.scaffold.security.permission.ColumnField;
+import com.acme.scaffold.security.permission.ColumnPermission;
+import com.acme.scaffold.security.permission.ColumnStrategy;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.security.password.PasswordHistoryService;
@@ -219,6 +223,13 @@ public class UserService {
      * 避免攻击者据响应差异枚举出真实存在的用户 ID。</p>
      */
     @DataScope(resourceCode = UserQuery.RESOURCE_CODE, name = "用户管理")
+    @ColumnPermission(resourceCode = UserQuery.RESOURCE_CODE, name = "用户管理",
+            fields = {
+                @ColumnField(name = "mobile", label = "手机号", strategy = ColumnStrategy.MASK,
+                        sensitiveType = SensitiveType.MOBILE),
+                @ColumnField(name = "email", label = "邮箱", strategy = ColumnStrategy.MASK,
+                        sensitiveType = SensitiveType.EMAIL)
+            })
     public UserView getView(Long id) {
         SysUserDO user = getScoped(id);
         return toView(user, loadUserRoles(List.of(user)), loadUserOrgs(List.of(user)),
@@ -244,6 +255,13 @@ public class UserService {
     }
 
     @DataScope(resourceCode = UserQuery.RESOURCE_CODE, name = "用户管理")
+    @ColumnPermission(resourceCode = UserQuery.RESOURCE_CODE, name = "用户管理",
+            fields = {
+                @ColumnField(name = "mobile", label = "手机号", strategy = ColumnStrategy.MASK,
+                        sensitiveType = SensitiveType.MOBILE),
+                @ColumnField(name = "email", label = "邮箱", strategy = ColumnStrategy.MASK,
+                        sensitiveType = SensitiveType.EMAIL)
+            })
     public PageResult<UserView> list(UserQuery query) {
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(JooqTables.SYS_USER));
