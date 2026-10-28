@@ -1,51 +1,29 @@
--- =====================================================================================
---  data_dml.sql —— 全量数据操作（DML）分类汇总
--- =====================================================================================
---  生成工具：build_reference.py（语句级分类，字符串 / 注释感知）
---  来源文件：db/migration V1__baseline.sql ~ V31__report_menu_restore.sql（31 个）
---            + permission-schema.sql（仓库根，权限模块独立建表脚本）
---  排列顺序：源文件版本序 + 文件内原始顺序；每条语句前带 [源文件 L行号] 来源注释；
---            PREPARE 动态 SQL 块（SET @ddl + PREPARE + EXECUTE + DEALLOCATE）
---            按内部动态语句类型整体归类，保持为一个执行单元。
---  会话语句：各源文件中的 SET NAMES 等会话指令归一为文件头单条。
---
---  ⚠️ 本文件为「分类参考件」，不可直接当作数据库迁移执行！
---     跨版本依赖例证：V6 删除 sys_user_role / sys_user_org 后，V15 又重建两表并
---     从 sys_user.role_id 回填数据，随后 V15 删除 role_id / org_id / primary_org_id 列。
---     若把 DDL 与 DML 拆成两份先后执行，DML 中的回填语句会撞上已被删除的列，
---     直接抛 ERROR 1054 Unknown column 'role_id'，任何新库都建不起来。
---     可执行的全量迁移请使用：db/migration/V32__consolidated_schema.sql（保持原始交错顺序）。
--- =====================================================================================
+-- ============================================================
+-- 分类参考件（DDL / DML），由 scripts/build_reference_modular.py 从
+-- db/migration/ 迁移链（V32~V59）自动派生，仅供阅读与追溯。
+-- 权威可执行来源：db/migration/ 迁移链（V57 为 Java 类迁移）。
+-- 不可当迁移执行；Flyway 只扫描 db/migration/。
+-- 重新生成：python3 scripts/build_reference_modular.py
+-- ============================================================
 
-SET NAMES utf8mb4;
-
-
-
--- =====================================================================================
--- 来源：V1__baseline.sql
--- =====================================================================================
-
-
--- [V1__baseline.sql L183-184]
+-- [from V32__consolidated_schema.sql]
 -- 初始超级管理员与角色
 INSERT IGNORE INTO sys_role (id, tenant_id, role_code, role_name, role_type, status, sort_no, created_at, updated_at)
 VALUES (1, 0, 'SUPER_ADMIN', '超级管理员', 'SYSTEM', 'ACTIVE', 1, NOW(3), NOW(3));
 
--- [V1__baseline.sql L186-187]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_user (id, tenant_id, username, password_hash, display_name, status, token_version, version, created_at, updated_at)
 VALUES (1, 0, 'admin', '{bcrypt}$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96wNz/9H1P4F1q0qU3eZ0q7e2m', '超级管理员', 'ACTIVE', 1, 0, NOW(3), NOW(3));
 
--- [V1__baseline.sql L189-190]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_user_role (id, tenant_id, user_id, role_id, scope_org_id, created_at)
 VALUES (1, 0, 1, 1, 0, NOW(3));
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V4__fix_admin_password.sql
+-- 来源迁移：V4__fix_admin_password.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V4__fix_admin_password.sql L6-10]
 -- V4 修正超级管理员初始口令。
 -- 原 V1 中 admin 的 password_hash 为占位 hash（{bcrypt}$2a$10$EixZaYVK...），
 -- 该 hash 无对应明文（实测 password/admin/123456/ChangeMe123! 等均不匹配），
@@ -57,13 +35,7 @@ SET password_hash = '{bcrypt}$2a$10$HXuNze85xFb7XsvExix/mO/s49oO6K7L7NbFDKGqdXhG
 WHERE username = 'admin'
   AND password_hash = '{bcrypt}$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96wNz/9H1P4F1q0qU3eZ0q7e2m';
 
-
--- =====================================================================================
--- 来源：V5__system_modules.sql
--- =====================================================================================
-
-
--- [V5__system_modules.sql L64-68]
+-- [from V32__consolidated_schema.sql]
 -- 种子数据：常用字典与系统参数（幂等，重复执行安全）
 INSERT IGNORE INTO sys_dict_type (id, tenant_id, dict_code, dict_name, status, sort_no, remark, created_at, updated_at)
 VALUES
@@ -71,7 +43,7 @@ VALUES
     (2, 0, 'sys_user_sex', '用户性别', 'ACTIVE', 2, '性别字典', NOW(3), NOW(3)),
     (3, 0, 'sys_yes_no', '是否标识', 'ACTIVE', 3, '是否字典', NOW(3), NOW(3));
 
--- [V5__system_modules.sql L70-77]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_dict_data (id, tenant_id, dict_type_code, dict_label, dict_value, dict_sort, status, remark, created_at, updated_at)
 VALUES
     (1, 0, 'sys_normal_disable', '正常', '0', 1, 'ACTIVE', NULL, NOW(3), NOW(3)),
@@ -81,92 +53,22 @@ VALUES
     (5, 0, 'sys_yes_no', '是', 'Y', 1, 'ACTIVE', NULL, NOW(3), NOW(3)),
     (6, 0, 'sys_yes_no', '否', 'N', 2, 'ACTIVE', NULL, NOW(3), NOW(3));
 
--- [V5__system_modules.sql L79-83]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_config (id, tenant_id, config_key, config_name, config_value, config_type, remark, status, created_at, updated_at)
 VALUES
     (1, 0, 'sys.title', '系统标题', '管理框架', 'STRING', '前端展示标题', 'ACTIVE', NOW(3), NOW(3)),
     (2, 0, 'sys.max.login.fail', '最大登录失败次数', '5', 'INT', '超过则锁定账户', 'ACTIVE', NOW(3), NOW(3)),
     (3, 0, 'sys.captcha.enabled', '是否启用验证码', 'true', 'BOOLEAN', '登录验证码开关', 'ACTIVE', NOW(3), NOW(3));
 
-
--- =====================================================================================
--- 来源：V6__user_single_role_org.sql
--- =====================================================================================
-
-
--- [V6__user_single_role_org.sql L62-89]
--- 2) 数据回填：多角色时取「数据范围最小(最严格)」的一条，保证降级后不放大权限。
---    优先级：自定义(CUSTOM) > 本部门及子部门(DEPT_AND_CHILD) > 本部门(DEPT/SELF) > 全部(ALL)。
---    仅当该角色在 sys_role_data_scope 上存在对应 resource_code 规则时才参与排序；
---    无规则的视为不限制(ALL)，排在最后。
---    仅当旧关联表 sys_user_role 仍在时才执行；且只填补 role_id 为空的行，避免覆盖既有绑定。
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0,
-        'UPDATE sys_user u
-         LEFT JOIN (
-             SELECT ur.user_id,
-                    ur.role_id,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY ur.user_id
-                        ORDER BY FIELD(
-                            COALESCE((
-                                SELECT MIN(r.scope_type)
-                                FROM sys_role_data_scope r
-                                WHERE r.role_id = ur.role_id
-                                  AND r.resource_code = ''system:user''
-                            ), ''ALL''),
-                            ''CUSTOM'', ''DEPT_AND_CHILD'', ''DEPT'', ''SELF'', ''ALL''
-                        ),
-                        ur.role_id
-                    ) AS rn
-             FROM sys_user_role ur
-         ) picked ON picked.user_id = u.id AND picked.rn = 1
-         SET u.role_id = picked.role_id
-         WHERE u.role_id IS NULL',
-        'DO 0')
-    FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user_role'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- [V6__user_single_role_org.sql L93-111]
--- 3) 部门回填：多部门时取 is_primary 优先，其次取最小 org_id，保证确定性。
---    仅当旧关联表 sys_user_org 仍在时才执行；只填补 org_id 为空的行。
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0,
-        'UPDATE sys_user u
-         LEFT JOIN (
-             SELECT uo.user_id,
-                    uo.org_id,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY uo.user_id
-                        ORDER BY uo.is_primary DESC, uo.org_id ASC
-                    ) AS rn
-             FROM sys_user_org uo
-         ) picked ON picked.user_id = u.id AND picked.rn = 1
-         SET u.org_id = picked.org_id
-         WHERE u.org_id IS NULL',
-        'DO 0')
-    FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user_org'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- [V6__user_single_role_org.sql L114]
+-- [from V32__consolidated_schema.sql]
 -- 4) 兼容期保留 primary_org_id：与 org_id 保持一致，供尚未切换的旧代码读取。
 UPDATE sys_user SET primary_org_id = org_id WHERE org_id IS NOT NULL AND primary_org_id <=> org_id = 0;
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V11__api_resource_seed.sql
+-- 来源迁移：V11__api_resource_seed.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V11__api_resource_seed.sql L22]
 -- =============================================================================
 -- V11: 接口资源自动登记种子数据 + 超级管理员全量授权
 -- =============================================================================
@@ -184,192 +86,193 @@ UPDATE sys_user SET primary_org_id = org_id WHERE org_id IS NOT NULL AND primary
 --   全部语句走 INSERT IGNORE / INSERT ... SELECT NOT EXISTS，重复执行结果一致。
 --   sys_api_resource 依赖主键幂等，sys_role_api 依赖 (role_id, api_id) 查重。
 -- =============================================================================
+
 -- -----------------------------------------------------------------------------
 -- 1) 接口资源种子数据
 -- -----------------------------------------------------------------------------
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000001, 0, '新建公告（初始为草稿）', 'system:announcement:create', 'POST', '/api/system/announcements', 'AnnouncementController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L23]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000002, 0, '分页查询公告（支持标题/内容关键词搜索）', 'system:announcement:read', 'GET', '/api/system/announcements/page', 'AnnouncementController#page', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L24]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000003, 0, '删除公告（逻辑删除）', 'system:announcement:delete', 'DELETE', '/api/system/announcements/{id}', 'AnnouncementController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L25]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000004, 0, '公告详情（累加浏览次数）', 'system:announcement:read', 'GET', '/api/system/announcements/{id}', 'AnnouncementController#get', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L26]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000005, 0, '编辑公告（仅草稿/已下线可编辑）', 'system:announcement:update', 'PUT', '/api/system/announcements/{id}', 'AnnouncementController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L27]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000006, 0, '下线公告', 'system:announcement:publish', 'POST', '/api/system/announcements/{id}/offline', 'AnnouncementController#offline', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L28]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000007, 0, '发布公告（支持定时生效：publishAt 为空则立即生效）', 'system:announcement:publish', 'POST', '/api/system/announcements/{id}/publish', 'AnnouncementController#publish', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L29]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000008, 0, '切换置顶', 'system:announcement:update', 'POST', '/api/system/announcements/{id}/toggle-top', 'AnnouncementController#toggleTop', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L30]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000009, 0, '接口资源列表', 'system:api:read', 'GET', '/api/system/api-resources', 'ApiResourceController#list', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L31]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000010, 0, '注册接口资源', 'system:api:create', 'POST', '/api/system/api-resources', 'ApiResourceController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L32]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000011, 0, '扫描接口资源并预览差异（不写库）', 'system:api:read', 'GET', '/api/system/api-resources/scan', 'ApiResourceController#scanPreview', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L33]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000012, 0, '执行接口资源扫描同步（写库）', 'system:api:sync', 'POST', '/api/system/api-resources/scan/sync', 'ApiResourceController#sync', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L34]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000013, 0, '删除接口资源', 'system:api:delete', 'DELETE', '/api/system/api-resources/{id}', 'ApiResourceController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L35]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000014, 0, '更新接口资源', 'system:api:update', 'PUT', '/api/system/api-resources/{id}', 'ApiResourceController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L36]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000015, 0, '配置列表', 'system:config:read', 'GET', '/api/system/configs', 'ConfigController#list', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L37]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000016, 0, '创建配置', 'system:config:create', 'POST', '/api/system/configs', 'ConfigController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L38]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000017, 0, '按配置键动态读取', 'system:config:read', 'GET', '/api/system/configs/key/{key}', 'ConfigController#getByKey', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L39]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000018, 0, '删除配置', 'system:config:delete', 'DELETE', '/api/system/configs/{id}', 'ConfigController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L40]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000019, 0, '更新配置', 'system:config:update', 'PUT', '/api/system/configs/{id}', 'ConfigController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L41]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000020, 0, '字典数据列表（按字典类型筛选）', 'system:dict:read', 'GET', '/api/system/dict-data', 'DictDataController#list', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L42]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000021, 0, '创建字典数据', 'system:dict:create', 'POST', '/api/system/dict-data', 'DictDataController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L43]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000022, 0, '删除字典数据', 'system:dict:delete', 'DELETE', '/api/system/dict-data/{id}', 'DictDataController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L44]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000023, 0, '更新字典数据', 'system:dict:update', 'PUT', '/api/system/dict-data/{id}', 'DictDataController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L45]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000024, 0, '字典类型列表', 'system:dict:read', 'GET', '/api/system/dict-types', 'DictTypeController#list', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L46]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000025, 0, '创建字典类型', 'system:dict:create', 'POST', '/api/system/dict-types', 'DictTypeController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L47]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000026, 0, '删除字典类型（存在字典数据时拒绝）', 'system:dict:delete', 'DELETE', '/api/system/dict-types/{id}', 'DictTypeController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L48]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000027, 0, '更新字典类型', 'system:dict:update', 'PUT', '/api/system/dict-types/{id}', 'DictTypeController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L49]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000028, 0, '创建菜单', 'system:menu:create', 'POST', '/api/system/menus', 'MenuController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L50]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000029, 0, '菜单树', 'system:menu:read', 'GET', '/api/system/menus/tree', 'MenuController#tree', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L51]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000030, 0, '删除菜单', 'system:menu:delete', 'DELETE', '/api/system/menus/{id}', 'MenuController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L52]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000031, 0, '更新菜单', 'system:menu:update', 'PUT', '/api/system/menus/{id}', 'MenuController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L53]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000032, 0, '发送站内信（单条指定接收人，或按角色/部门批量发送）', 'system:message:send', 'POST', '/api/system/messages/send', 'MessageController#send', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L54]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000033, 0, '我发出的消息分页（含已读统计）', 'system:message:read', 'GET', '/api/system/messages/sent', 'MessageController#sent', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L55]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000034, 0, '异常日志分页（按时间范围查询关键接口/任务失败记录）', 'system:monitor:read', 'GET', '/api/system/monitor/error-logs', 'MonitorController#errorLogs', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L56]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000035, 0, '异常日志按模块/错误码聚合', 'system:monitor:read', 'GET', '/api/system/monitor/error-summary', 'MonitorController#errorSummary', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L57]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000036, 0, '实时运行指标（CPU/内存/磁盘/JVM）', 'system:monitor:read', 'GET', '/api/system/monitor/metrics', 'MonitorController#metrics', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L58]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000037, 0, '在线会话明细（可按用户名/姓名筛选）', 'system:monitor:read', 'GET', '/api/system/monitor/online-sessions', 'MonitorController#onlineSessions', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L59]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000038, 0, '在线用户与会话汇总', 'system:monitor:read', 'GET', '/api/system/monitor/online-summary', 'MonitorController#onlineSummary', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L60]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000039, 0, '手动触发一次采样（供前端刷新按钮使用）', 'system:monitor:read', 'POST', '/api/system/monitor/sample', 'MonitorController#sample', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L61]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000040, 0, '历史采样趋势（按时间范围）', 'system:monitor:read', 'GET', '/api/system/monitor/samples', 'MonitorController#samples', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L62]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000041, 0, '创建机构', 'system:org:create', 'POST', '/api/system/orgs', 'OrgController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L63]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000042, 0, '机构树', 'system:org:read', 'GET', '/api/system/orgs/tree', 'OrgController#tree', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L64]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000043, 0, '删除机构（存在子机构时拒绝）', 'system:org:delete', 'DELETE', '/api/system/orgs/{id}', 'OrgController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L65]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000044, 0, '更新机构（支持调整上级与层级移动）', 'system:org:update', 'PUT', '/api/system/orgs/{id}', 'OrgController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L66]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000045, 0, '角色列表', 'system:role:read', 'GET', '/api/system/roles', 'RoleController#list', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L67]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000046, 0, '创建角色', 'system:role:create', 'POST', '/api/system/roles', 'RoleController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L68]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000047, 0, '删除角色', 'system:role:delete', 'DELETE', '/api/system/roles/{id}', 'RoleController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L69]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000048, 0, '角色详情（含菜单/接口权限）', 'system:role:read', 'GET', '/api/system/roles/{id}', 'RoleController#get', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L70]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000049, 0, '更新角色', 'system:role:update', 'PUT', '/api/system/roles/{id}', 'RoleController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L71]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000050, 0, '创建用户', 'system:user:create', 'POST', '/api/system/users', 'UserController#create', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L72]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000051, 0, '分页查询用户', 'system:user:read', 'GET', '/api/system/users/page', 'UserController#page', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L73]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000052, 0, '删除用户（物理删除/硬删除）', 'system:user:delete', 'DELETE', '/api/system/users/{id}', 'UserController#delete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L74]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000053, 0, '用户详情', 'system:user:read', 'GET', '/api/system/users/{id}', 'UserController#get', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L75]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000054, 0, '更新用户', 'system:user:update', 'PUT', '/api/system/users/{id}', 'UserController#update', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L76]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000055, 0, '重置密码', 'system:user:update', 'POST', '/api/system/users/{id}/reset-password', 'UserController#resetPassword', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L77]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000056, 0, '我发起的流程', 'workflow:instance:read', 'GET', '/api/workflow/instances/mine', 'InstanceController#mine', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L78]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000057, 0, '发起审批流程', 'workflow:instance:start', 'POST', '/api/workflow/instances/start', 'InstanceController#start', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L79]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000058, 0, '流程审批记录', 'workflow:instance:read', 'GET', '/api/workflow/instances/{processInstanceId}/records', 'InstanceController#records', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L80]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000059, 0, '审批/驳回任务', 'workflow:task:approve', 'POST', '/api/workflow/tasks/complete', 'TaskController#complete', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L81]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000060, 0, '我的待办任务', 'workflow:task:read', 'GET', '/api/workflow/tasks/mine', 'TaskController#mine', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L82]
+-- [from V32__consolidated_schema.sql]
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level) VALUES (900000000061, 0, '转办任务', 'workflow:task:transfer', 'POST', '/api/workflow/tasks/transfer', 'TaskController#transfer', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V11__api_resource_seed.sql L88-96]
+-- [from V32__consolidated_schema.sql]
 -- -----------------------------------------------------------------------------
 -- 2) 超级管理员全量授权（解开「要同步需权限、要有权限得先同步」的死锁）
 --    仅对 SUPER_ADMIN 生效；其他角色的授权仍由「角色管理」页面显式勾选。
@@ -384,13 +287,11 @@ WHERE r.role_code = 'SUPER_ADMIN'
                   WHERE ra.role_id = r.id
                     AND ra.api_id = a.id);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V12__role_data_scope_api.sql
+-- 来源迁移：V12__role_data_scope_api.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V12__role_data_scope_api.sql L22-26]
 -- =============================================================================
 -- V12: 角色数据权限配置接口资源登记
 -- =============================================================================
@@ -410,6 +311,7 @@ WHERE r.role_code = 'SUPER_ADMIN'
 --   走 INSERT IGNORE（依赖主键幂等），重复执行结果一致。
 --   同时补齐 sys_role_api 授权，保证 SUPER_ADMIN 拿到新权限码。
 -- =============================================================================
+
 -- 1) 接口资源登记
 INSERT IGNORE INTO sys_api_resource
     (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method,
@@ -417,14 +319,14 @@ INSERT IGNORE INTO sys_api_resource
 VALUES (900000000062, 0, '角色数据权限列表', 'system:role:read', 'GET',
         '/api/system/roles/{id}/data-scopes', 'RoleController#listDataScopes', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V12__role_data_scope_api.sql L28-32]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_api_resource
     (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method,
      auth_mode, status, risk_level)
 VALUES (900000000063, 0, '保存角色数据权限（覆盖式）', 'system:role:update', 'PUT',
         '/api/system/roles/{id}/data-scopes', 'RoleController#saveDataScope', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V12__role_data_scope_api.sql L35-44]
+-- [from V32__consolidated_schema.sql]
 -- 2) 补齐 SUPER_ADMIN 授权（V11 的全量授权语句只覆盖当时已存在的资源）
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, r.id, a.id, CURRENT_TIMESTAMP(3)
@@ -437,13 +339,11 @@ WHERE r.role_code = 'SUPER_ADMIN'
                   WHERE ra.role_id = r.id
                     AND ra.api_id = a.id);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V14__workflow_definition_resource.sql
+-- 来源迁移：V14__workflow_definition_resource.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V14__workflow_definition_resource.sql L3-13]
 -- V14 自定义工作流定义接口资源与权限码（供 @PreAuthorize("hasAuthority(...)") 与 JWT 鉴权使用）。
 -- 全部语句幂等，重复执行结果一致。
 INSERT INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level)
@@ -458,47 +358,11 @@ VALUES
     (900000000408, 0, '查看工作流 BPMN', 'workflow:definition:read', 'GET', '/api/workflow/definitions/{id}/bpmn', 'WorkflowDefinitionController#bpmn', 'REQUIRED', 'ACTIVE', 'NORMAL')
 ON DUPLICATE KEY UPDATE resource_name = VALUES(resource_name), permission_code = VALUES(permission_code);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V15__user_role_org_many_to_many.sql
--- =====================================================================================
-
-
--- [V15__user_role_org_many_to_many.sql L52-60]
--- 3) 数据回填：把 V6 单列绑定写入关联表（标记 is_primary=1）。
---    仅在 sys_user 仍存在 role_id / org_id 列时执行；INSERT IGNORE 保证重复执行不报错。
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0,
-        'INSERT IGNORE INTO sys_user_role (tenant_id, user_id, role_id, is_primary, created_at)
-         SELECT 0, id, role_id, 1, NOW(3) FROM sys_user WHERE role_id IS NOT NULL',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'role_id'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- [V15__user_role_org_many_to_many.sql L62-70]
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0,
-        'INSERT IGNORE INTO sys_user_org (tenant_id, user_id, org_id, is_primary, created_at)
-         SELECT 0, id, org_id, 1, NOW(3) FROM sys_user WHERE org_id IS NOT NULL',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'org_id'
-);
-PREPARE stmt FROM @ddl;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-
--- =====================================================================================
--- 来源：V17__menu_role_seed.sql
+-- 来源迁移：V17__menu_role_seed.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V17__menu_role_seed.sql L9-26]
 -- =============================================================
 -- V17 菜单与角色-菜单绑定种子
 -- 目的：使「按角色动态加载菜单」开箱即可演示——
@@ -506,6 +370,7 @@ DEALLOCATE PREPARE stmt;
 -- 说明：菜单 route_path 与前端路由（pc-admin-vue3-vite/src/router/index.js）保持一致；
 --       菜单数据仅作为角色配置的初始值，后续可在「菜单管理 / 角色管理」界面灵活调整，前端不硬编码。
 -- =============================================================
+
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
 VALUES
   (1001, 0, 0, 'dashboard',       '工作台',     'MENU',   '/dashboard',         NULL, NULL,                          'Odometer',     1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
@@ -525,18 +390,16 @@ VALUES
   (1021, 0, 1003, 'workflow:instance',  '我发起的流程',   'MENU', '/workflow/instance',  NULL, 'workflow:instance:read',  'Document',      1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
   (1022, 0, 1003, 'workflow:definition', '工作流设计',     'MENU', '/workflow/definition',NULL, 'workflow:definition:read','Edit',          1, 0, 30, 'ACTIVE', NOW(3), NOW(3));
 
--- [V17__menu_role_seed.sql L29-30]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定全部种子菜单（tenant_id, role_id, menu_id 为主键）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, id FROM sys_menu WHERE id BETWEEN 1001 AND 1022;
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V18__workflow_role_seed.sql
+-- 来源迁移：V18__workflow_role_seed.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V18__workflow_role_seed.sql L10-12]
 -- V18 内置工作流引用角色种子
 -- 背景：内置审批流（leaveApproval / expense）的审批节点使用 ROLE=FINANCE（财务角色）作为受让人，
 --       运行期 INITIATOR_MANAGER 节点还需 MANAGER 角色解析主管。基线（V1）仅播种 SUPER_ADMIN，
@@ -545,23 +408,22 @@ SELECT 0, 1, id FROM sys_menu WHERE id BETWEEN 1001 AND 1022;
 -- 此处补齐 FINANCE / MANAGER 角色并绑定超级管理员，使内置流程可发布且运行期可解析出审批人
 -- （本地演示直接用 admin 作为审批人；生产环境请按实际组织将角色分配给对应人员）。
 -- 幂等：INSERT IGNORE 保证重复执行不报错；sys_role.id 非自增需显式指定，sys_user_role.id 自增省略。
+
 INSERT IGNORE INTO sys_role (id, tenant_id, role_code, role_name, role_type, status, sort_no, created_at, updated_at)
 VALUES (2, 0, 'FINANCE', '财务', 'BUSINESS', 'ACTIVE', 2, NOW(3), NOW(3)),
        (3, 0, 'MANAGER', '主管', 'BUSINESS', 'ACTIVE', 3, NOW(3), NOW(3));
 
--- [V18__workflow_role_seed.sql L15-17]
+-- [from V32__consolidated_schema.sql]
 -- 绑定到超级管理员（user_id=1）；生产环境按需分配给真实财务/主管人员
 INSERT IGNORE INTO sys_user_role (tenant_id, user_id, role_id, is_primary, created_at)
 VALUES (0, 1, 2, 0, NOW(3)),
        (0, 1, 3, 0, NOW(3));
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V19__usage_report_menu.sql
+-- 来源迁移：V19__usage_report_menu.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V19__usage_report_menu.sql L13-15]
 -- =============================================================
 -- V19 使用报表菜单与接口资源种子
 -- 目的：使「使用报表」作为独立页面出现在侧边栏，并授予 SUPER_ADMIN 访问权限，
@@ -573,31 +435,30 @@ VALUES (0, 1, 2, 0, NOW(3)),
 --     sys_role_menu / sys_role_api 绑定到 SUPER_ADMIN(role_id=1)。
 --   - 全部走 INSERT IGNORE / NOT EXISTS，重复执行结果一致（幂等）。
 -- =============================================================
+
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
 VALUES
   (1030, 0, 0, 'report-usage', '使用报表', 'MENU', '/report/usage', NULL, 'report:usage:read', 'DataAnalysis', 1, 0, 50, 'ACTIVE', NOW(3), NOW(3));
 
--- [V19__usage_report_menu.sql L17-19]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level)
 VALUES
   (900000000101, 0, '使用报表（访问量 / 功能使用频次 / 活跃用户数）', 'report:usage:read', 'GET', '/api/workbench/report', 'UsageReportController#report', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V19__usage_report_menu.sql L22-23]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定「使用报表」菜单与接口资源（tenant_id, role_id, menu_id / api_id 为主键或唯一键）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, id FROM sys_menu WHERE id = 1030;
 
--- [V19__usage_report_menu.sql L25-26]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, 1, id, CURRENT_TIMESTAMP(3) FROM sys_api_resource WHERE id = 900000000101;
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V20__report_management_rename_fix.sql
+-- 来源迁移：V20__report_management_rename_fix.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V20__report_management_rename_fix.sql L14-21]
 -- =============================================================
 -- V20 报表管理重命名修正（兼容已执行过 V19 的历史库）
 -- 目的：在「使用报表 → 报表管理」重命名中，保证已部署数据库的功能逻辑一致，
@@ -610,6 +471,7 @@ SELECT 0, 1, id, CURRENT_TIMESTAMP(3) FROM sys_api_resource WHERE id = 900000000
 --     且 UPDATE 为幂等（重复执行结果不变），不会破坏既有数据。
 --   - 角色绑定（sys_role_menu / sys_role_api）基于 id 关联，本脚本不改动，保持 SUPER_ADMIN 可见可用。
 -- =============================================================
+
 UPDATE sys_menu
 SET menu_code      = 'report-management',
     menu_name      = '报表管理',
@@ -619,7 +481,7 @@ SET menu_code      = 'report-management',
     updated_at     = NOW(3)
 WHERE id = 1030;
 
--- [V20__report_management_rename_fix.sql L23-29]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_api_resource
 SET resource_name   = '报表管理（使用统计 / 类别统计 / 状态统计）',
     permission_code = 'report:read',
@@ -628,13 +490,7 @@ SET resource_name   = '报表管理（使用统计 / 类别统计 / 状态统计
     updated_at     = NOW(3)
 WHERE id = 900000000101;
 
-
--- =====================================================================================
--- 来源：V21__job_management.sql
--- =====================================================================================
-
-
--- [V21__job_management.sql L75-77]
+-- [from V32__consolidated_schema.sql]
 -- -----------------------------------------------------------------------------
 -- 3) 菜单种子：一级菜单「定时任务」(route=/job/list，与前端路由一致)
 -- -----------------------------------------------------------------------------
@@ -642,7 +498,7 @@ INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, men
 VALUES
   (1031, 0, 0, 'job-management', '定时任务', 'MENU', '/job/list', NULL, 'job:read', 'Timer', 1, 0, 55, 'ACTIVE', NOW(3), NOW(3));
 
--- [V21__job_management.sql L83-94]
+-- [from V32__consolidated_schema.sql]
 -- -----------------------------------------------------------------------------
 -- 4) 接口资源种子（逐端点登记，与 ApiResourceScanner 扫描结果一致，避免「扫描对比」出现漂移）
 --    id 段：900000000102 ~ 900000000111
@@ -660,7 +516,7 @@ VALUES
   (900000000110, 0, '暂停定时任务', 'job:manage', 'POST', '/api/jobs/{id}/pause', 'JobController#pause', 'REQUIRED', 'ACTIVE', 'NORMAL'),
   (900000000111, 0, '删除定时任务', 'job:manage', 'DELETE', '/api/jobs/{id}', 'JobController#remove', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V21__job_management.sql L99-102]
+-- [from V32__consolidated_schema.sql]
 -- -----------------------------------------------------------------------------
 -- 5) SUPER_ADMIN 绑定菜单与接口资源（与 V17/V19 一致，role_id = 1）
 -- -----------------------------------------------------------------------------
@@ -669,19 +525,17 @@ SELECT 0, 1, m.id FROM sys_menu m
 WHERE m.id = 1031
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.id);
 
--- [V21__job_management.sql L104-107]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, 1, a.id, CURRENT_TIMESTAMP(3) FROM sys_api_resource a
 WHERE a.id BETWEEN 900000000102 AND 900000000111
   AND NOT EXISTS (SELECT 1 FROM sys_role_api ra WHERE ra.role_id = 1 AND ra.api_id = a.id);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V22__codegen_menu.sql
+-- 来源迁移：V22__codegen_menu.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V22__codegen_menu.sql L12-14]
 -- =============================================================
 -- V22 代码生成器菜单与接口资源种子
 -- 目的：使「代码生成」作为开发工具页出现在侧边栏，并授予 SUPER_ADMIN 访问权限，
@@ -692,11 +546,12 @@ WHERE a.id BETWEEN 900000000102 AND 900000000111
 --     菜单可见性由 sys_menu.permission_code=codegen:read 驱动；
 --   - 全部走 INSERT IGNORE / NOT EXISTS，重复执行结果一致（幂等）。
 -- =============================================================
+
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
 VALUES
   (1040, 0, 0, 'dev-codegen', '代码生成', 'MENU', '/dev/codegen', NULL, 'codegen:read', 'MagicStick', 1, 0, 60, 'ACTIVE', NOW(3), NOW(3));
 
--- [V22__codegen_menu.sql L16-21]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level)
 VALUES
   (900000000201, 0, '代码生成（表清单 / 字段元信息 / 生成预览）', 'codegen:read', 'GET', '/api/codegen/tables', 'CodeGenController#tables', 'REQUIRED', 'ACTIVE', 'NORMAL'),
@@ -704,22 +559,20 @@ VALUES
   (900000000203, 0, '代码生成（生成预览）', 'codegen:read', 'POST', '/api/codegen/preview', 'CodeGenController#preview', 'REQUIRED', 'ACTIVE', 'NORMAL'),
   (900000000204, 0, '代码生成（zip 打包下载）', 'codegen:download', 'POST', '/api/codegen/download', 'CodeGenController#download', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V22__codegen_menu.sql L24-25]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定「代码生成」菜单与接口资源
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, id FROM sys_menu WHERE id = 1040;
 
--- [V22__codegen_menu.sql L27-28]
+-- [from V32__consolidated_schema.sql]
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, 1, id, CURRENT_TIMESTAMP(3) FROM sys_api_resource WHERE id IN (900000000201, 900000000202, 900000000203, 900000000204);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V24__report_menu_split.sql
+-- 来源迁移：V24__report_menu_split.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V24__report_menu_split.sql L17-23]
 -- =============================================================
 -- V24 报表管理页签拆分：每个报表视角独立为子菜单
 -- 目的：原「报表管理」单页内 6 个报表类型 Tab（使用/类别/状态/定时任务执行/登录/接口调用）
@@ -734,6 +587,7 @@ SELECT 0, 1, id, CURRENT_TIMESTAMP(3) FROM sys_api_resource WHERE id IN (9000000
 --   - 旧路由 /report/management 在前端保留重定向至 /report/usage，历史书签/外部链接不失效；
 --   - 全部走 UPDATE / INSERT IGNORE，重复执行结果一致（幂等）。
 -- =============================================================
+
 -- 1) 父菜单目录化：报表管理（叶子页 → 分组目录）
 UPDATE sys_menu
 SET menu_type      = 'CATALOG',
@@ -743,7 +597,7 @@ SET menu_type      = 'CATALOG',
     updated_at     = NOW(3)
 WHERE id = 1030;
 
--- [V24__report_menu_split.sql L26-33]
+-- [from V32__consolidated_schema.sql]
 -- 2) 6 个报表子菜单（每个原页签一个独立入口）
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
 VALUES
@@ -754,18 +608,16 @@ VALUES
   (1054, 0, 1030, 'report-login',     '登录统计',         'MENU', '/report/login',     NULL, 'report:read', 'User',        1, 0, 50, 'ACTIVE', NOW(3), NOW(3)),
   (1055, 0, 1030, 'report-api-call',  '接口调用统计',     'MENU', '/report/api-call',  NULL, 'report:read', 'Connection',  1, 0, 60, 'ACTIVE', NOW(3), NOW(3));
 
--- [V24__report_menu_split.sql L36-37]
+-- [from V32__consolidated_schema.sql]
 -- 3) SUPER_ADMIN 绑定 6 个报表子菜单（父菜单 1030 的既有绑定保留，目录可见性不受影响）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, id FROM sys_menu WHERE id BETWEEN 1050 AND 1055;
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V25__menu_sort_api.sql
+-- 来源迁移：V25__menu_sort_api.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V25__menu_sort_api.sql L11-12]
 -- =============================================================
 -- V25 菜单排序接口登记：PUT /api/system/menus/sort
 -- 目的：菜单拖拽排序 / 上移下移的批量持久化端点，登记接口资源并绑定 SUPER_ADMIN。
@@ -775,23 +627,22 @@ SELECT 0, 1, id FROM sys_menu WHERE id BETWEEN 1050 AND 1055;
 --   - id 段 900000000409（接 V21 的 900000000108~111 与 V22/V24 之后的 408）；
 --   - INSERT IGNORE 幂等，重复执行结果一致；与 ApiResourceScanner 扫描结果一致，避免漂移。
 -- =============================================================
+
 INSERT IGNORE INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level)
 VALUES (900000000409, 0, '批量调整菜单排序（拖拽/上下移动）', 'system:menu:update', 'PUT', '/api/system/menus/sort', 'MenuController#reorder', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V25__menu_sort_api.sql L15-18]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定（与 V17/V19/V21/V22 一致，role_id = 1）
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, 1, r.id, CURRENT_TIMESTAMP(3) FROM sys_api_resource r
 WHERE r.id = 900000000409
   AND NOT EXISTS (SELECT 1 FROM sys_role_api ra WHERE ra.role_id = 1 AND ra.api_id = r.id);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V26__org_seed.sql
+-- 来源迁移：V26__org_seed.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V26__org_seed.sql L17-18]
 -- =============================================================
 -- V26 组织/用户种子：部门总部 + admin 主部门关联 + 测试用户 zhangsan
 -- 目的：修复「干净库（CI 从零 Flyway）缺组织种子」导致的链路断裂：
@@ -806,42 +657,37 @@ WHERE r.id = 900000000409
 --   - 全部 INSERT IGNORE（按主键/唯一键幂等），重复执行结果一致；
 --   - 已存在组织数据的库（如本机 local 库）不受影响。
 -- =============================================================
+
 -- 1) 部门种子：总部（id=1，org_code 租户内唯一）
 INSERT IGNORE INTO sys_org (id, tenant_id, parent_id, ancestors, org_code, org_name, org_type, sort_no, status)
 VALUES (1, 0, 0, '0', 'HQ', '总部', 'COMPANY', 1, 'ACTIVE');
 
--- [V26__org_seed.sql L22-23]
+-- [from V32__consolidated_schema.sql]
 -- 2) admin（id=1）主部门关联：使 INITIATOR_MANAGER 解析可拿到部门，
 --    且 admin 已绑定 MANAGER/FINANCE 角色（sys_user_role 种子），部门内主管解析非空
 INSERT IGNORE INTO sys_user_org (tenant_id, user_id, org_id, is_primary)
 VALUES (0, 1, 1, 1);
 
--- [V26__org_seed.sql L27-28]
+-- [from V32__consolidated_schema.sql]
 -- 3) 测试用户 zhangsan（id=2）：满足「至少 2 个用户」的消息/审批场景；
 --    password_hash 复制 admin（同库 SELECT，登录密码与 admin 相同）
 INSERT IGNORE INTO sys_user (id, username, password_hash, display_name)
 SELECT 2, 'zhangsan', password_hash, '张三' FROM sys_user WHERE id = 1;
 
-
--- =====================================================================================
--- 来源：V27__online_user_management.sql
--- =====================================================================================
-
-
--- [V27__online_user_management.sql L70-71]
+-- [from V32__consolidated_schema.sql]
 -- -------------------------------------------------------------
 -- 菜单：「在线用户管理」挂在「系统管理」(id=1002) 下，接在系统监控(90)之后
 -- -------------------------------------------------------------
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
 VALUES (1060, 0, 1002, 'system:online', '在线用户管理', 'MENU', '/system/online', NULL, 'system:online:read', 'Monitor', 1, 0, 95, 'ACTIVE', NOW(3), NOW(3));
 
--- [V27__online_user_management.sql L74-76]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定新菜单（与 V17 种子一致，role_id = 1）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, 1060
 WHERE NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = 1060);
 
--- [V27__online_user_management.sql L83-89]
+-- [from V32__consolidated_schema.sql]
 -- -------------------------------------------------------------
 -- 接口资源种子（与 OnlineUserController 的 @PreAuthorize 一致，
 -- 亦与 ApiResourceScanner 扫描结果一致，避免授权漂移）
@@ -855,20 +701,18 @@ VALUES
   (900000000413, 0, '设置临时限制登录（限时+原因，到期自动解除）', 'system:online:restrict', 'POST', '/api/system/online-users/users/{userId}/restrict', 'OnlineUserController#restrict', 'REQUIRED', 'ACTIVE', 'HIGH'),
   (900000000414, 0, '手动解除登录限制', 'system:online:restrict', 'POST', '/api/system/online-users/users/{userId}/release', 'OnlineUserController#release', 'REQUIRED', 'ACTIVE', 'HIGH');
 
--- [V27__online_user_management.sql L92-95]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定（与 V17/V19/V21/V22/V24/V25 一致，role_id = 1）
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, 1, r.id, CURRENT_TIMESTAMP(3) FROM sys_api_resource r
 WHERE r.id BETWEEN 900000000410 AND 900000000414
   AND NOT EXISTS (SELECT 1 FROM sys_role_api ra WHERE ra.role_id = 1 AND ra.api_id = r.id);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V28__grant_missing_api_to_super_admin.sql
+-- 来源迁移：V28__grant_missing_api_to_super_admin.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V28__grant_missing_api_to_super_admin.sql L20-36]
 -- =============================================================================
 -- V28: 补授 V11 之后新增接口的 SUPER_ADMIN 授权（D-5 数据修复）
 -- =============================================================================
@@ -887,6 +731,7 @@ WHERE r.id BETWEEN 900000000410 AND 900000000414
 --
 -- 幂等性：INSERT IGNORE + NOT EXISTS 双重去重，重复执行结果一致。
 -- =============================================================================
+
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, r.id, a.id, CURRENT_TIMESTAMP(3)
 FROM sys_role r
@@ -905,13 +750,11 @@ WHERE r.role_code = 'SUPER_ADMIN'
                   WHERE ra.role_id = r.id
                     AND ra.api_id = a.id);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V29__monitor_log_menus.sql
+-- 来源迁移：V29__monitor_log_menus.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V29__monitor_log_menus.sql L21-26]
 -- =============================================================
 -- V29 系统管理新增四个子菜单：缓存监控 / 连接池监控 / 登录日志 / 操作日志
 -- 目的：
@@ -928,6 +771,7 @@ WHERE r.role_code = 'SUPER_ADMIN'
 -- 图标口径：Element Plus 图标名，与既有菜单风格一致（Box=缓存容器 / Link=连接 /
 --   Key=登录凭证 / Document=日志单据），均未被系统管理下现有菜单占用。
 -- =============================================================
+
 -- -------------------------------------------------------------
 -- 菜单种子（父菜单「系统管理」id=1002，接在线用户管理 95 之后）
 -- -------------------------------------------------------------
@@ -938,7 +782,7 @@ VALUES
   (1063, 0, 1002, 'system:login-log', '登录日志', 'MENU', '/system/login-log', NULL, 'system:login-log:read', 'Key', 1, 0, 120, 'ACTIVE', NOW(3), NOW(3)),
   (1064, 0, 1002, 'system:operation-log', '操作日志', 'MENU', '/system/operation-log', NULL, 'system:audit:read', 'Document', 1, 0, 130, 'ACTIVE', NOW(3), NOW(3));
 
--- [V29__monitor_log_menus.sql L29-33]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定新菜单（与 V17 种子一致，role_id = 1）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, m.id
@@ -946,7 +790,7 @@ FROM sys_menu m
 WHERE m.id IN (1061, 1062, 1063, 1064)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.id);
 
--- [V29__monitor_log_menus.sql L40-46]
+-- [from V32__consolidated_schema.sql]
 -- -------------------------------------------------------------
 -- 接口资源种子（与 MonitorController / LoginLogController 的 @PreAuthorize 一致，
 -- 亦与 ApiResourceAutoSyncRunner 启动扫描结果一致，避免授权漂移）
@@ -960,20 +804,18 @@ VALUES
   (900000000418, 0, '分页查询登录日志', 'system:login-log:read', 'GET', '/api/system/login-logs/page', 'LoginLogController#page', 'REQUIRED', 'ACTIVE', 'NORMAL'),
   (900000000419, 0, '登录日志统计摘要', 'system:login-log:read', 'GET', '/api/system/login-logs/summary', 'LoginLogController#summary', 'REQUIRED', 'ACTIVE', 'NORMAL');
 
--- [V29__monitor_log_menus.sql L49-52]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定（与 V17/V19/V21/V22/V24/V25/V27 一致，role_id = 1）
 INSERT IGNORE INTO sys_role_api (tenant_id, role_id, api_id, created_at)
 SELECT 0, 1, r.id, CURRENT_TIMESTAMP(3) FROM sys_api_resource r
 WHERE r.id BETWEEN 900000000415 AND 900000000419
   AND NOT EXISTS (SELECT 1 FROM sys_role_api ra WHERE ra.role_id = 1 AND ra.api_id = r.id);
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V30__ops_menu_restructure.sql
+-- 来源迁移：V30__ops_menu_restructure.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V30__ops_menu_restructure.sql L21-22]
 -- =============================================================
 -- V30 菜单重组：移除报表公共统计页，新增「运维管理」一级菜单
 -- 目的：
@@ -990,18 +832,19 @@ WHERE r.id BETWEEN 900000000415 AND 900000000419
 --     侧边栏由后端菜单树驱动，parent 变更后自动归组。
 -- 幂等性：删除/更新均带原值 WHERE 条件，INSERT IGNORE + 固定 id，重复执行结果一致。
 -- =============================================================
+
 -- -------------------------------------------------------------
 -- 1) 新增「运维管理」一级目录（接手 sort_no=50，图标 Tools）
 -- -------------------------------------------------------------
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
 VALUES (1070, 0, 0, 'ops', '运维管理', 'CATALOG', NULL, NULL, NULL, 'Tools', 1, 0, 50, 'ACTIVE', NOW(3), NOW(3));
 
--- [V30__ops_menu_restructure.sql L25-26]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 绑定新目录（与 V17/V29 种子一致，role_id = 1）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, m.id FROM sys_menu m WHERE m.id = 1070;
 
--- [V30__ops_menu_restructure.sql L32-33]
+-- [from V32__consolidated_schema.sql]
 -- -------------------------------------------------------------
 -- 2) 软删 3 个公共统计页 + 「报表管理」目录容器，并清理角色-菜单关联
 --    （MenuService.delete 同类问题：N:N 关联表无外键，须显式清理防孤儿行）
@@ -1009,17 +852,17 @@ SELECT 0, 1, m.id FROM sys_menu m WHERE m.id = 1070;
 UPDATE sys_menu SET deleted = 1, updated_at = NOW(3)
 WHERE id IN (1050, 1051, 1052) AND deleted = 0;
 
--- [V30__ops_menu_restructure.sql L34]
+-- [from V32__consolidated_schema.sql]
 DELETE FROM sys_role_menu WHERE menu_id IN (1050, 1051, 1052);
 
--- [V30__ops_menu_restructure.sql L36-37]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET deleted = 1, updated_at = NOW(3)
 WHERE id = 1030 AND deleted = 0;
 
--- [V30__ops_menu_restructure.sql L38]
+-- [from V32__consolidated_schema.sql]
 DELETE FROM sys_role_menu WHERE menu_id = 1030;
 
--- [V30__ops_menu_restructure.sql L45-46]
+-- [from V32__consolidated_schema.sql]
 -- -------------------------------------------------------------
 -- 3) 7 个功能菜单迁入运维管理，sort_no 按需求顺序重排
 --    接口资源管理 10 / 代码生成 20 / 系统监控 30 / 缓存监控 40 /
@@ -1028,31 +871,31 @@ DELETE FROM sys_role_menu WHERE menu_id = 1030;
 UPDATE sys_menu SET parent_id = 1070, sort_no = 10, updated_at = NOW(3)
 WHERE id = 1014 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L47-48]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 20, updated_at = NOW(3)
 WHERE id = 1040 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L49-50]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 30, updated_at = NOW(3)
 WHERE id = 1018 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L51-52]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 40, updated_at = NOW(3)
 WHERE id = 1061 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L53-54]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 50, updated_at = NOW(3)
 WHERE id = 1062 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L55-56]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 60, updated_at = NOW(3)
 WHERE id = 1063 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L57-58]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 70, updated_at = NOW(3)
 WHERE id = 1064 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L64-65]
+-- [from V32__consolidated_schema.sql]
 -- -------------------------------------------------------------
 -- 4) 保留的 3 个运维向统计页挂到运维管理（原父目录 1030 已软删）
 --    定时任务执行统计 80 / 登录统计 90 / 接口调用统计 100
@@ -1060,21 +903,19 @@ WHERE id = 1064 AND parent_id <> 1070;
 UPDATE sys_menu SET parent_id = 1070, sort_no = 80, updated_at = NOW(3)
 WHERE id = 1053 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L66-67]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 90, updated_at = NOW(3)
 WHERE id = 1054 AND parent_id <> 1070;
 
--- [V30__ops_menu_restructure.sql L68-69]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1070, sort_no = 100, updated_at = NOW(3)
 WHERE id = 1055 AND parent_id <> 1070;
 
-
+-- [from V32__consolidated_schema.sql]
 -- =====================================================================================
--- 来源：V31__report_menu_restore.sql
+-- 来源迁移：V31__report_menu_restore.sql（原样保留，含原始注释）
 -- =====================================================================================
 
-
--- [V31__report_menu_restore.sql L18-20]
 -- =============================================================
 -- V31 恢复「报表管理」一级菜单：定时任务执行 / 登录 / 接口调用统计迁入
 -- 目的：
@@ -1086,6 +927,7 @@ WHERE id = 1055 AND parent_id <> 1070;
 --   3. 「运维管理」(1070) 保留其余 7 个功能菜单，sort_no 不变。
 -- 幂等性：复活带 deleted=1 原值 WHERE 条件，INSERT IGNORE + NOT EXISTS，重复执行结果一致。
 -- =============================================================
+
 -- -------------------------------------------------------------
 -- 1) 复活「报表管理」一级目录（V30 软删，menu_code=report-management）
 --    CATALOG 形态由 V24 置好（route_path / permission_code 均为 NULL），
@@ -1095,7 +937,7 @@ UPDATE sys_menu
 SET deleted = 0, parent_id = 0, sort_no = 45, updated_at = NOW(3)
 WHERE id = 1030 AND deleted = 1;
 
--- [V31__report_menu_restore.sql L23-27]
+-- [from V32__consolidated_schema.sql]
 -- SUPER_ADMIN 重新绑定目录（V30 清理过该绑定，与 V17/V29 种子一致，role_id = 1）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, m.id
@@ -1103,7 +945,7 @@ FROM sys_menu m
 WHERE m.id = 1030
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.id);
 
--- [V31__report_menu_restore.sql L34-35]
+-- [from V32__consolidated_schema.sql]
 -- -------------------------------------------------------------
 -- 2) 3 个统计页从「运维管理」迁回「报表管理」，sort_no 按 10/20/30 重排
 --    定时任务执行统计(1053) / 登录统计(1054) / 接口调用统计(1055)
@@ -1112,94 +954,406 @@ WHERE m.id = 1030
 UPDATE sys_menu SET parent_id = 1030, sort_no = 10, updated_at = NOW(3)
 WHERE id = 1053 AND parent_id <> 1030;
 
--- [V31__report_menu_restore.sql L36-37]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1030, sort_no = 20, updated_at = NOW(3)
 WHERE id = 1054 AND parent_id <> 1030;
 
--- [V31__report_menu_restore.sql L38-39]
+-- [from V32__consolidated_schema.sql]
 UPDATE sys_menu SET parent_id = 1030, sort_no = 30, updated_at = NOW(3)
 WHERE id = 1055 AND parent_id <> 1030;
 
+-- [from V33__file_management.sql]
+-- 2) 菜单：文件管理（挂在「运维管理」1070 下，sort_no=110 置于末尾）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1080, 0, 1070, 'file-management', '文件管理', 'MENU', '/system/file', 'system/FileManagement', 'system:file:read', 'Document', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
 
--- =====================================================================================
--- 来源：permission-schema.sql
--- =====================================================================================
+-- [from V33__file_management.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1080;
 
+-- [from V34__csv_export_center.sql]
+-- V34 CSV 导出中心（系统管理 → 导出中心）
+-- 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
+-- 接口资源（system:export:read）不在此手工登记，
+-- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
 
--- [permission-schema.sql L139-161]
--- ============================================================
--- 8. 菜单初始化数据（典型权限管理菜单树）
---    menu_type: 1=目录 2=菜单 3=按钮
---    visible=0 的按钮级菜单不在左侧导航展示，仅用于权限校验
--- ============================================================
-INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, menu_type, path, component, icon, permission, sort_no, visible, status) VALUES
--- 顶级：系统管理（目录）
-(1, 0,  '系统管理', 'system',        1, '/system',       'Layout',          'setting', '',                1, 1, 1),
--- 用户管理（菜单）
-(2, 1,  '用户管理', 'system:user',   2, '/system/user',  'system/user/index', 'user', 'system:user:read',   1, 1, 1),
-(3, 2,  '用户新增', 'system:user:create', 3, '', '', '', 'system:user:create', 1, 0, 1),
-(4, 2,  '用户编辑', 'system:user:update', 3, '', '', '', 'system:user:update', 2, 0, 1),
-(5, 2,  '用户删除', 'system:user:delete', 3, '', '', '', 'system:user:delete', 3, 0, 1),
--- 角色管理（菜单）
-(6, 1,  '角色管理', 'system:role',   2, '/system/role',  'system/role/index', 'role', 'system:role:read',   2, 1, 1),
-(7, 6,  '角色新增', 'system:role:create', 3, '', '', '', 'system:role:create', 1, 0, 1),
-(8, 6,  '角色编辑', 'system:role:update', 3, '', '', '', 'system:role:update', 2, 0, 1),
-(9, 6,  '角色删除', 'system:role:delete', 3, '', '', '', 'system:role:delete', 3, 0, 1),
--- 部门管理（菜单）
-(10, 1, '部门管理', 'system:dept',   2, '/system/dept',  'system/dept/index', 'tree', 'system:dept:read',   3, 1, 1),
-(11, 10, '部门新增', 'system:dept:create', 3, '', '', '', 'system:dept:create', 1, 0, 1),
-(12, 10, '部门编辑', 'system:dept:update', 3, '', '', '', 'system:dept:update', 2, 0, 1),
-(13, 10, '部门删除', 'system:dept:delete', 3, '', '', '', 'system:dept:delete', 3, 0, 1),
--- 菜单管理（菜单）
-(14, 1, '菜单管理', 'system:menu',   2, '/system/menu',  'system/menu/index', 'menu', 'system:menu:read',   4, 1, 1),
-(15, 14, '菜单新增', 'system:menu:create', 3, '', '', '', 'system:menu:create', 1, 0, 1),
-(16, 14, '菜单编辑', 'system:menu:update', 3, '', '', '', 'system:menu:update', 2, 0, 1),
-(17, 14, '菜单删除', 'system:menu:delete', 3, '', '', '', 'system:menu:delete', 3, 0, 1);
+-- 1) 菜单：导出中心（挂在「系统管理」1002 下，sort_no=100 置于末尾）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1090, 0, 1002, 'system:export', '导出中心', 'MENU', '/system/export', 'system/ExportCenter', 'system:export:read', 'Download', 1, 0, 100, 'ACTIVE', NOW(3), NOW(3));
 
--- [permission-schema.sql L171-172]
--- ============================================================
--- 9. 种子数据：超级管理员（SUPER_ADMIN）
---    包含：角色(1) + 用户(1) + 用户-角色关联 + 角色-菜单全量关联
---    说明：username=admin，密码密文为 BCrypt 对 "123456" 的加密结果
---          （Spring Security BCryptPasswordEncoder，可直接登录）
--- ============================================================
--- 9.1 角色：SUPER_ADMIN（内置系统角色，拥有全部菜单权限）
-INSERT INTO sys_role (id, role_code, role_name, role_type, description, status, sort_no) VALUES
-(1, 'SUPER_ADMIN', '超级管理员', 'SYSTEM', '系统内置超级管理员，拥有全部菜单与操作权限', 1, 1);
+-- [from V34__csv_export_center.sql]
+-- 2) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1090;
 
--- [permission-schema.sql L175-176]
--- 9.2 用户：超级管理员账号
-INSERT INTO sys_user (id, username, password, display_name, email, mobile, status) VALUES
-(1, 'admin', '$2a$10$7JB720yubVSZaMOBA1tOJ.9LGGzX1L7j2T/uuI.k/gote1Yq8syi8.', '超级管理员', 'admin@example.com', '13800000000', 1);
+-- [from V35__post_management.sql]
+-- 3) 菜单：岗位管理（挂在「系统管理」1002 下，sort_no=110 承接导出中心 100 之后）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1091, 0, 1002, 'system:post', '岗位管理', 'MENU', '/system/post', 'system/PostView', 'system:post:read', 'Position', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
 
--- [permission-schema.sql L179-180]
--- 9.3 用户-角色关联：admin 绑定 SUPER_ADMIN
-INSERT INTO sys_user_role (user_id, role_id) VALUES
-(1, 1);
+-- [from V35__post_management.sql]
+-- 4) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1091;
 
--- [permission-schema.sql L183-187]
--- 9.4 角色-菜单关联：SUPER_ADMIN 拥有全部菜单（含目录/菜单/按钮级）
-INSERT INTO sys_role_menu (role_id, menu_id) VALUES
-(1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
-(1, 6), (1, 7), (1, 8), (1, 9),
-(1, 10), (1, 11), (1, 12), (1, 13),
-(1, 14), (1, 15), (1, 16), (1, 17);
+-- [from V36__import_center.sql]
+-- V36 导入中心（系统管理 → 导入中心），与 V34 导出中心对称。
+-- 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
+-- 接口资源（system:import:read / system:import:write）不在此手工登记，
+-- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
 
--- [permission-schema.sql L195-199]
--- ============================================================
--- 10. 部门种子 + 用户-部门（多部门归属）种子
---     演示：一个用户可属于多个部门，并以 is_primary 标记主部门
--- ============================================================
--- 10.1 部门表（树形）：总公司 → 技术部 / 财务部 / 人力资源部
-INSERT INTO sys_department (id, parent_id, dept_code, dept_name, ancestors, leader, sort_no, status) VALUES
-(1, 0, 'HQ',   '总公司',     '0',      '王总',   1, 1),
-(2, 1, 'TECH', '技术部',     '0,1',    '李工',   1, 1),
-(3, 1, 'FIN',  '财务部',     '0,1',    '赵财务', 2, 1),
-(4, 1, 'HR',   '人力资源部', '0,1',    '钱经理', 3, 1);
+-- 1) 菜单：导入中心（挂在「系统管理」1002 下，sort_no=101 紧随导出中心）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1091, 0, 1002, 'system:import', '导入中心', 'MENU', '/system/import', 'system/ImportCenter', 'system:import:read', 'Upload', 1, 0, 101, 'ACTIVE', NOW(3), NOW(3));
 
--- [permission-schema.sql L202-204]
--- 10.2 用户-部门关联：admin(1) 主部门为技术部，同时兼任财务部
-INSERT INTO sys_user_department (user_id, dept_id, is_primary) VALUES
-(1, 2, 1),
-(1, 3, 0);
+-- [from V36__import_center.sql]
+-- 2) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1091;
 
+-- [from V37__sms_record.sql]
+-- 2) 菜单：短信记录（挂在「系统管理」1002 下，sort_no=102 紧随导入中心）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1092, 0, 1002, 'system:sms-record', '短信记录', 'MENU', '/system/sms-record', 'system/SmsLog', 'system:sms-record:read', 'Message', 1, 0, 102, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V37__sms_record.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1092;
+
+-- [from V38__system_parameters.sql]
+-- -------------------------------------------------------------------------------------
+-- 3) 种子数据：将原硬编码配置值写入参数表
+--    列序：id, tenant_id, config_key(参数编码), config_name(参数名称),
+--          config_value(参数值), default_value(默认值), config_type, remark(描述),
+--          editable(是否可编辑), status, created_at, updated_at
+--    editable=0 的参数属身份/算法/密钥源等结构性配置，不建议运行时随意修改。
+-- -------------------------------------------------------------------------------------
+INSERT IGNORE INTO sys_config (id, tenant_id, config_key, config_name, config_value, default_value, config_type, remark, editable, status, created_at, updated_at)
+VALUES
+    -- ===== 安全 / JWT =====
+    (4, 0, 'security.jwt.issuer', 'JWT 签发者(iss)', 'java-admin-framework', 'java-admin-framework', 'STRING', 'JWT issuer 声明，身份标识，通常不改', 0, 'ACTIVE', NOW(3), NOW(3)),
+    (5, 0, 'security.jwt.audience', 'JWT 受众(aud)', 'admin-api', 'admin-api', 'STRING', 'JWT audience 声明，身份标识，通常不改', 0, 'ACTIVE', NOW(3), NOW(3)),
+    (6, 0, 'security.jwt.access-token-ttl', '访问令牌有效期', '30m', '30m', 'STRING', 'access_token 过期时长，建议 15~60m', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (7, 0, 'security.jwt.refresh-token-ttl', '刷新令牌有效期', '30d', '30d', 'STRING', 'refresh_token 过期时长', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (8, 0, 'security.jwt.max-login-failures', '最大登录失败次数', '5', '5', 'INT', '超过则锁定账户', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (9, 0, 'security.jwt.lock-duration', '账户锁定时长', '15m', '15m', 'STRING', '渐进式锁定起算时长', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (10, 0, 'security.jwt.lock-duration-max', '锁定封顶时长', '24h', '24h', 'STRING', '渐进式锁定时长上限', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (11, 0, 'security.jwt.password-history-limit', '密码历史保留条数', '5', '5', 'INT', '禁止复用最近 N 次密码', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (12, 0, 'security.jwt.max-concurrent-sessions', '最大并发会话数', '3', '3', 'INT', '同账号最大在线设备/会话，0=不限制', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (13, 0, 'security.jwt.session-eviction-strategy', '会话挤占策略', 'evict_oldest', 'evict_oldest', 'STRING', 'reject=拒绝新登录; evict_oldest=淘汰最早会话', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (14, 0, 'security.jwt.session-max-inactive', '会话最大空闲时长', '30m', '30m', 'STRING', '刷新令牌空闲超此值被回收', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (15, 0, 'security.jwt.session-cleanup-enabled', '会话空闲回收开关', 'true', 'true', 'BOOLEAN', '是否启用空闲回收定时任务', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (16, 0, 'security.jwt.session-cleanup-interval-ms', '会话回收间隔(ms)', '300000', '300000', 'INT', '空闲回收定时任务执行间隔', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (17, 0, 'security.jwt.online-session-idle-threshold', '在线会话空闲阈值', '15m', '15m', 'STRING', '超过标记为「空闲」(仅展示)', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (18, 0, 'security.jwt.online-session-heartbeat-interval', '会话心跳间隔', '60s', '60s', 'STRING', '心跳写库节流间隔', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (19, 0, 'security.jwt.online-session-restriction-scan-interval-ms', '登录限制扫描间隔(ms)', '60000', '60000', 'INT', '锁定到期自动解除扫描间隔', 1, 'ACTIVE', NOW(3), NOW(3)),
+
+    -- ===== 缓存 =====
+    (20, 0, 'cache.ttl', '缓存默认 TTL', '30m', '30m', 'STRING', '@Cacheable 未显式指定时生效', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (21, 0, 'cache.key-prefix', '缓存 Key 前缀', 'acme:cache:', 'acme:cache:', 'STRING', 'Redis key 前缀，便于运维排查与批量清理', 1, 'ACTIVE', NOW(3), NOW(3)),
+
+    -- ===== 导入 / 导出 =====
+    (22, 0, 'export.max-rows', '单次导出最大行数', '100000', '100000', 'INT', '不含表头，超出则拒绝', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (23, 0, 'import.max-rows', '单次导入最大行数', '5000', '5000', 'INT', '不含表头，超出则拒绝', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (24, 0, 'import.max-errors', '导入回传最大错误数', '200', '200', 'INT', '超出的失败行仅计入统计不回传明细', 1, 'ACTIVE', NOW(3), NOW(3)),
+
+    -- ===== 通知渠道 =====
+    (25, 0, 'notification.sms.enabled', '短信渠道开关', 'false', 'false', 'BOOLEAN', '缺省关闭避免误发与费用', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (26, 0, 'notification.sms.provider', '短信网关实现', 'LOG', 'LOG', 'STRING', 'LOG=仅记录脱敏日志; HTTP=通用网关', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (27, 0, 'notification.sms.timeout-ms', '短信读写超时(ms)', '5000', '5000', 'INT', 'HTTP 模式读写超时', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (28, 0, 'notification.sms.connect-timeout-ms', '短信连接超时(ms)', '2000', '2000', 'INT', 'HTTP 模式连接超时', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (29, 0, 'notification.email.enabled', '邮件渠道开关', 'false', 'false', 'BOOLEAN', '缺省关闭避免误发', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (30, 0, 'notification.email.host', 'SMTP 主机', 'localhost', 'localhost', 'STRING', 'SMTP 服务器地址', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (31, 0, 'notification.email.port', 'SMTP 端口', '25', '25', 'INT', '25/465/587 依服务商', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (32, 0, 'notification.email.starttls', 'SMTP 启用 STARTTLS', 'false', 'false', 'BOOLEAN', '587 通常为 true', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (33, 0, 'notification.email.timeout-ms', '邮件读写超时(ms)', '5000', '5000', 'INT', '读写超时', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (34, 0, 'notification.webhook.enabled', 'Webhook 渠道开关', 'false', 'false', 'BOOLEAN', '缺省关闭避免误发', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (35, 0, 'notification.webhook.timeout-ms', 'Webhook 超时(ms)', '5000', '5000', 'INT', '读写超时', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (36, 0, 'notification.webhook.connect-timeout-ms', 'Webhook 连接超时(ms)', '2000', '2000', 'INT', '连接超时', 1, 'ACTIVE', NOW(3), NOW(3)),
+
+    -- ===== 验证码 / 防重放 / 客户端 IP =====
+    (37, 0, 'captcha.expire-seconds', '验证码有效期(s)', '120', '120', 'INT', '验证码超时时长', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (38, 0, 'captcha.max-number', '加减法操作数上界', '20', '20', 'INT', '加法/减法操作数 a,b ∈ [1,maxNumber]', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (39, 0, 'captcha.mul-max-number', '乘除法操作数上界', '10', '10', 'INT', '乘法因子/除法除数与商上界', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (40, 0, 'antireplay.max-clock-skew-ms', '防重放时钟偏差(ms)', '5000', '5000', 'INT', '允许的服务端/客户端时钟偏差上限', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (41, 0, 'antireplay.nonce-ttl-seconds', '防重放 nonce 存活(s)', '60', '60', 'INT', '超时后允许同 nonce 再次使用', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (42, 0, 'antireplay.max-nonce-cache-size', '防重放 nonce 缓存上限', '100000', '100000', 'INT', '超出后按过期时间惰性清理', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (43, 0, 'client-ip.trusted-proxy-count', '可信代理跳数', '1', '1', 'INT', '解析 X-Forwarded-For 跳数，0=直连公网', 1, 'ACTIVE', NOW(3), NOW(3)),
+
+    -- ===== 可观测性 / 密钥源 =====
+    (44, 0, 'observability.otlp.enabled', 'OTLP 导出开关', 'false', 'false', 'BOOLEAN', '需配置 Collector 后开启', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (45, 0, 'observability.otlp.endpoint', 'OTLP traces 端点', 'http://localhost:4318/v1/traces', 'http://localhost:4318/v1/traces', 'STRING', 'Collector 接收地址', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (46, 0, 'observability.otlp.timeout-ms', 'OTLP 导出超时(ms)', '2000', '2000', 'INT', '导出 HTTP 超时', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (47, 0, 'secret.provider', '密钥源类型', 'local', 'local', 'STRING', 'local=环境变量/随机临时; vault=HashiCorp Vault', 0, 'ACTIVE', NOW(3), NOW(3)),
+    (48, 0, 'secret.vault.address', 'Vault 地址', 'http://localhost:8200', 'http://localhost:8200', 'STRING', 'Vault 服务地址', 0, 'ACTIVE', NOW(3), NOW(3)),
+
+    -- ===== 限流默认 =====
+    (49, 0, 'ratelimit.window-seconds', '限流时间窗(s)', '60', '60', 'INT', '默认限流窗口', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (50, 0, 'ratelimit.config-update.max', '配置更新限流上限', '10', '10', 'INT', '配置更新接口每分钟上限', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (51, 0, 'ratelimit.file.max', '文件接口限流上限', '20', '20', 'INT', '文件接口每分钟上限', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (52, 0, 'ratelimit.import.max', '导入接口限流上限', '10', '10', 'INT', '导入接口每分钟上限', 1, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V39__observability_center.sql]
+-- V39 可观测中心菜单种子 + 导入中心菜单 ID 碰撞修复。
+-- 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
+-- 接口资源（system:observability:read / system:kafka:read / system:idempotency:read 等）
+-- 不在此手工登记，由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
+
+-- =============================================================
+-- 1) 历史缺陷修复：V35 与 V36 菜单 ID 碰撞（1091）
+--
+-- V35__post_management.sql 以 id=1091 插入「岗位管理」（menu_code='system:post'），
+-- V36__import_center.sql 同样以 id=1091 插入「导入中心」（menu_code='system:import'）。
+-- sys_menu 主键为 id，两条迁移均用 INSERT IGNORE：Flyway 顺序执行下 V36 的插入
+-- 因主键冲突被静默丢弃——全新部署中「导入中心」菜单及其 SUPER_ADMIN 绑定缺失，
+-- 路由守卫按菜单树鉴权会将 /system/import 重定向到工作台，页面不可达。
+--
+-- 已应用的迁移不可修改（Flyway checksum 校验会失败），故在本迁移中修复：
+-- 以未占用的新 id=1093 重新播种「导入中心」。uk_tenant_menu_code (tenant_id, menu_code)
+-- 唯一键保证幂等：若目标环境已手工补过该菜单，INSERT IGNORE 自然跳过，不会产生重复行。
+-- =============================================================
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1093, 0, 1002, 'system:import', '导入中心', 'MENU', '/system/import', 'system/ImportCenter', 'system:import:read', 'Upload', 1, 0, 101, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V39__observability_center.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, id FROM sys_menu WHERE menu_code = 'system:import';
+
+-- [from V39__observability_center.sql]
+-- =============================================================
+-- 2) 新增：可观测中心（运维面统一入口，前端 ObservabilityCenterView 五 Tab）
+--
+-- 路由 /system/observability；页面级权限取 system:monitor:read（监控域基础权限，
+-- 与「系统监控」同权，覆盖 N+1 疑似与告警收件箱两个 Tab）；链路追踪 / Kafka 监控 /
+-- 幂等记录三个 Tab 由后端按 system:observability:read / system:kafka:read /
+-- system:idempotency:read 独立鉴权，前端对 403 展示降级空态（最小授权，不越权放行）。
+-- =============================================================
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1094, 0, 1002, 'system:observability-center', '可观测中心', 'MENU', '/system/observability', 'system/ObservabilityCenter', 'system:monitor:read', 'DataLine', 1, 0, 103, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V39__observability_center.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1094;
+
+-- [from V41__notification_template.sql]
+-- 2) 菜单：通知模板（挂在「系统管理」1002 下，sort_no=104 紧随可观测中心）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1095, 0, 1002, 'system:notification-template', '通知模板', 'MENU', '/system/notification-templates', 'system/NotificationTemplate', 'system:notification-template:read', 'Bell', 1, 0, 104, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V41__notification_template.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1095;
+
+-- [from V42__notification_record.sql]
+-- 2) 菜单：通知记录（挂在「系统管理」1002 下，sort_no=105 紧随通知模板）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1096, 0, 1002, 'system:notification-record', '通知记录', 'MENU', '/system/notification-records', 'system/NotificationRecord', 'system:notification-record:read', 'Tickets', 1, 0, 105, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V42__notification_record.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1096;
+
+-- [from V46__mask_strategy_center.sql]
+-- 2) 菜单：脱敏策略中心（挂在「系统管理」1002 下，sort_no=110 紧随可观测/导出/导入中心之后）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1120, 0, 1002, 'system:mask-strategy', '脱敏策略中心', 'MENU', '/system/mask-strategies', 'system/MaskStrategy', 'system:mask-strategy:read', 'Lock', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V46__mask_strategy_center.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1120;
+
+-- [from V47__form_pilot.sql]
+-- 2) 试点表单：contact-feedback（联系反馈）——覆盖 INPUT/TEXTAREA/SELECT/SWITCH/DATE 五类控件渲染
+INSERT IGNORE INTO sys_form_definition (id, tenant_id, form_code, form_name, schema_json, target_type, enabled, remark, version, deleted, created_at, updated_at)
+VALUES (1, 0, 'contact-feedback', '联系反馈',
+        JSON_OBJECT(
+            'version', 1,
+            'title', '联系反馈',
+            'fields', JSON_ARRAY(
+                JSON_OBJECT('key', 'name', 'label', '姓名', 'type', 'INPUT', 'required', true, 'maxLength', 32, 'placeholder', '请输入姓名'),
+                JSON_OBJECT('key', 'mobile', 'label', '手机号', 'type', 'INPUT', 'required', true, 'maxLength', 11, 'placeholder', '11 位手机号'),
+                JSON_OBJECT('key', 'channel', 'label', '反馈渠道', 'type', 'SELECT', 'required', true,
+                            'options', JSON_ARRAY(
+                                JSON_OBJECT('label', '电话', 'value', 'PHONE'),
+                                JSON_OBJECT('label', '邮件', 'value', 'EMAIL'),
+                                JSON_OBJECT('label', '在线客服', 'value', 'IM'))),
+                JSON_OBJECT('key', 'urgent', 'label', '是否紧急', 'type', 'SWITCH'),
+                JSON_OBJECT('key', 'content', 'label', '反馈内容', 'type', 'TEXTAREA', 'required', true,
+                            'minLength', 10, 'maxLength', 500, 'rows', 4, 'placeholder', '请详细描述您的问题（至少 10 字）'),
+                JSON_OBJECT('key', 'followUpAt', 'label', '期望回访日期', 'type', 'DATE')
+            )
+        ),
+        'NONE', 1, 'M22 spike 试点表单：契约 + 渲染验证，不含提交落库（绑定目标决策点待定）', 0, 0, NOW(3), NOW(3));
+
+-- [from V47__form_pilot.sql]
+-- 3) 菜单：低代码表单试点（挂在「系统管理」1002 下，sort_no=111 紧随脱敏策略中心之后）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1121, 0, 1002, 'system:form-pilot', '低代码表单试点', 'MENU', '/system/form-pilot', 'system/FormPilot', 'system:form-definition:read', 'EditPen', 1, 0, 111, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V47__form_pilot.sql]
+-- 4) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1121;
+
+-- [from V48__openapi_client.sql]
+-- 2) 菜单：开放平台客户端（挂在「系统管理」1002 下，sort_no=112 紧随低代码表单试点之后）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1122, 0, 1002, 'system:openapi-client', '开放平台客户端', 'MENU', '/system/openapi-clients', 'system/OpenApiClient', 'system:openapi-client:read', 'Key', 1, 0, 112, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V48__openapi_client.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1122;
+
+-- [from V49__workflow_monitor.sql]
+-- V49 流程监控菜单（M23）：零表结构变更——监控数据来自既有 wf_instance_ext / wf_task_ext /
+-- wf_approval_record 与 Flowable 引擎查询，本迁移仅播种「流程监控」菜单并绑定 SUPER_ADMIN。
+--
+-- 设计要点：
+--   1) 监控能力（M23，M4 续）：运行实例分页 / 超时任务分页 / 定义版本链 / 统计摘要（只读）
+--      + 任务催办（唯一写操作，实时推送 + 最小间隔防轰炸，催办记录复用 wf_approval_record
+--      的 action=REMIND，零新表）。
+--   2) 菜单挂「工作流」目录（id=1003，来自 data_dml.sql 基础菜单），sort_no=40 紧随工作流设计（30）之后。
+--   3) 接口资源（workflow:monitor:read / workflow:task:remind）不在此手工登记，
+--      由 ApiResourceAutoSyncRunner 启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
+--   4) 催办最小间隔经 app.workflow.monitor.remind-min-interval-minutes 配置（默认 30 分钟）。
+
+-- 1) 菜单：流程监控
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1123, 0, 1003, 'workflow:monitor', '流程监控', 'MENU', '/workflow/monitor', 'workflow/Monitor', 'workflow:monitor:read', 'DataLine', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V49__workflow_monitor.sql]
+-- 2) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1123;
+
+-- [from V51__tenant_management.sql]
+-- 2) 菜单：租户管理（挂在「系统管理」1002 下，sort_no=113 紧随开放平台客户端 112 之后）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1124, 0, 1002, 'system:tenant', '租户管理', 'MENU', '/system/tenants', 'system/TenantView', 'system:tenant:read', 'OfficeBuilding', 1, 0, 113, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V51__tenant_management.sql]
+-- 3) 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1124;
+
+-- [from V52__dashboard_menu.sql]
+-- V52 报表大屏菜单（M27 前端配套页）：把「运营总览 + 时间序列趋势」页接入侧边栏与路由守卫。
+--
+-- 设计要点：
+--   1) 后端 /api/system/dashboard/overview 与 /trend 已在 M27 四刀交付，权限 system:dashboard:read
+--      由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，此处仅补前端菜单入口。
+--   2) 挂在「报表管理」目录(1030)下，sort_no=40 紧随 定时任务执行(10)/登录(20)/接口调用(30) 之后。
+--   3) route_path 必须与前端路由（report/dashboard）严格一致，否则路由守卫会重定向到工作台。
+--   4) 依赖：V32（报表管理目录 id=1030）、M27（dashboard 接口）。幂等：INSERT IGNORE + NOT EXISTS。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1056, 0, 1030, 'system:dashboard', '报表大屏', 'MENU', '/report/dashboard', 'report/DashboardView', 'system:dashboard:read', 'DataAnalysis', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V52__dashboard_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1056;
+
+-- [from V53__form_submission.sql]
+-- 2) 试点表单绑定目标落库：contact-feedback 由 NONE → FORM_SUBMISSION（幂等 UPDATE）
+UPDATE sys_form_definition
+SET target_type = 'FORM_SUBMISSION'
+WHERE form_code = 'contact-feedback'
+  AND target_type = 'NONE';
+
+-- [from V54__tenant_isolation_menu.sql]
+-- V54 租户隔离态势菜单（M28 只读运维诊断页）：把「多租户隔离配置态/运行态/当前作用域/配置校验」诊断页
+-- 接入侧边栏与路由守卫。
+--
+-- 设计要点：
+--   1) 后端 GET /api/system/tenant-isolation/status 已在 M28 交付，权限 system:tenant-isolation:read
+--      由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，此处仅补前端菜单入口。
+--   2) 挂在「系统管理」目录(1002)下，sort_no=114 紧随 租户管理(113) 之后。
+--   3) route_path 必须与前端路由（system/tenant-isolation）严格一致，否则路由守卫会重定向到工作台。
+--   4) 依赖：V32（系统管理目录 id=1002）、M19 P3（隔离核心 TenantEnforcement/TenantContext）、M28（诊断接口）。
+--   5) 幂等：INSERT IGNORE + NOT EXISTS（menu_code 唯一），可重复执行。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1125, 0, 1002, 'system:tenant-isolation', '租户隔离态势', 'MENU', '/system/tenant-isolation', 'system/TenantIsolationView', 'system:tenant-isolation:read', 'Connection', 1, 0, 114, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V54__tenant_isolation_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1125;
+
+-- [from V55__realtime_menu.sql]
+-- V55 实时推送管理菜单（M29 只读 + 手动推送运维页）：把后端已交付的 RealtimeController
+-- （/api/realtime：sessions / online-count / push/broadcast / push/user）接入侧边栏与路由守卫。
+--
+-- 设计要点：
+--   1) 后端 GET /api/realtime/sessions、/api/realtime/online-count 权限 system:realtime:read；
+--      POST /api/realtime/push/broadcast、/api/realtime/push/user 权限 system:realtime:push。
+--      权限码由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，
+--      此处仅补前端菜单入口（基础 read 权限），与 MonitorView 用 system:monitor:read 覆盖多子权限一致。
+--   2) 挂在「系统管理」目录(1002)下，sort_no=115 紧随 租户隔离态势(1125 / 114) 之后。
+--   3) route_path 必须与前端路由（system/realtime）严格一致，否则路由守卫会重定向到工作台。
+--   4) 依赖：V32（系统管理目录 id=1002）、realtime 模块 RealtimeController（已交付）。
+--   5) 幂等：INSERT IGNORE + NOT EXISTS（menu_code 唯一），可重复执行。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1126, 0, 1002, 'system:realtime', '实时推送', 'MENU', '/system/realtime', 'system/RealtimeView', 'system:realtime:read', 'Bell', 1, 0, 115, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V55__realtime_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+-- （push 权限由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1126;
+
+-- [from V56__data_scope_menu.sql]
+-- V56 数据权限配置菜单（M31）：把后端 DataScopeResourceRegistry 自动发现的可配置资源，
+-- 通过本页以「角色 × 资源」矩阵形式可视化配置。后端仅新增只读发现端点
+-- GET /api/system/data-scope/resources（权限 system:data-scope:read，由 ApiResourceAutoSyncRunner
+-- 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN）；保存仍复用 RoleController 的
+-- PUT /api/system/roles/{id}/data-scopes（权限 system:role:update）。
+--
+-- 设计要点：
+--   1) 资源清单由后端启动时扫描 @DataScope 自动得到，新增受控资源无需改前端常量即出现在本页。
+--   2) 挂在「系统管理」目录(1002)下，sort_no=116 紧随 实时推送(1126 / 115) 之后。
+--   3) route_path 必须与前端路由（system/data-scope）严格一致，否则路由守卫会重定向到工作台。
+--   4) 依赖：V32（系统管理目录 id=1002）、DataScopeResourceRegistry（新增）。
+--   5) 幂等：INSERT IGNORE + NOT EXISTS（menu_code 唯一），可重复执行。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1127, 0, 1002, 'system:data-scope', '数据权限', 'MENU', '/system/data-scope', 'system/DataScopeView', 'system:data-scope:read', 'Lock', 1, 0, 116, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V56__data_scope_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+-- （read 权限由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1127;
+
+-- [from V58__form_definition_menu.sql]
+-- V58 表单定义管理菜单（M22 深化）：在「系统管理」(1002) 下新增「表单定义管理」入口，
+-- 承载表单定义 CRUD + JSON-Schema 可视化编辑 + 实时预览（复用前端 DynamicForm 组件）。
+-- 与既有「低代码表单试点」(id=1121) 互补：本页负责定义生命周期管理，试点页负责运行时
+-- 渲染 / 提交 / 提交记录查看。
+--
+-- 设计要点：
+--   1) 后端接口前缀 /api/system/form-definitions；读权限复用 system:form-definition:read
+--      （由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN）；
+--      写权限 system:form-definition:create / update / delete 同样自动登记。
+--   2) route_path 必须与前端路由（system/form-definition）严格一致，否则路由守卫会重定向到工作台。
+--   3) 依赖：V47（sys_form_definition、低代码表单试点菜单 1121）、V53（提交落库）。
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1），可重复执行。
+--   5) sort_no=117 紧随数据权限(1127/116) 之后，置于系统管理目录末尾。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1128, 0, 1002, 'system:form-definition', '表单定义管理', 'MENU', '/system/form-definition', 'system/FormDefinitionView', 'system:form-definition:read', 'Document', 1, 0, 117, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V58__form_definition_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+-- （read 权限由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1128;
