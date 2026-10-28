@@ -5,6 +5,7 @@ import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.security.ratelimit.RateLimit;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.system.dto.ConfigGroupVO;
 import com.acme.scaffold.system.dto.ConfigVO;
 import com.acme.scaffold.system.dto.CreateConfigRequest;
 import com.acme.scaffold.system.dto.UpdateConfigRequest;
@@ -37,6 +38,22 @@ public class ConfigController {
     @PreAuthorize("hasAuthority('system:config:read')")
     public Result<List<ConfigVO>> list() {
         return Result.success(configService.list());
+    }
+
+    @Operation(summary = "配置分组列表（按 key 命名空间前缀聚合）")
+    @GetMapping("/groups")
+    @PreAuthorize("hasAuthority('system:config:read')")
+    public Result<List<ConfigGroupVO>> listGrouped() {
+        return Result.success(configService.listGrouped());
+    }
+
+    @Operation(summary = "刷新配置缓存（热更新：直改库或参数中心界面调整后无需重启即生效）")
+    @PostMapping("/refresh")
+    @PreAuthorize("hasAuthority('system:config:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "刷新系统配置缓存")
+    public Result<Void> refresh() {
+        configService.forceRefresh();
+        return Result.success();
     }
 
     @Operation(summary = "按配置键动态读取")
