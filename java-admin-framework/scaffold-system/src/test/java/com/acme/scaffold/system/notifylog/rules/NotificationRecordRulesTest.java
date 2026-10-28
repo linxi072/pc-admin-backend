@@ -29,7 +29,11 @@ class NotificationRecordRulesTest {
     void normalizeChannel() {
         assertEquals("EMAIL", NotificationRecordRules.normalizeChannel("email"));
         assertEquals("IN_APP", NotificationRecordRules.normalizeChannel(" In_App "));
-        assertNull(NotificationRecordRules.normalizeChannel("DINGTALK"));
+        // M35 新增机器人渠道同样按枚举名归一（大小写不敏感）
+        assertEquals("WECOM", NotificationRecordRules.normalizeChannel("wecom"));
+        assertEquals("DINGTALK", NotificationRecordRules.normalizeChannel("DingTalk"));
+        // 真·未知渠道返回 null（调用方忽略该筛选条件）
+        assertNull(NotificationRecordRules.normalizeChannel("WECHAT"));
         assertNull(NotificationRecordRules.normalizeChannel("  "));
         assertNull(NotificationRecordRules.normalizeChannel(null));
     }
