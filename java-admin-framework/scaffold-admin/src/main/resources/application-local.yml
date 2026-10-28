@@ -5,10 +5,10 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD:}
 
-# 本地开启 JobRunr 内嵌 Dashboard，便于观察任务执行情况
-# 端口可用 JOBRUNR_DASHBOARD_PORT 覆盖（默认 8000）。
-# 注意：Dashboard 为固定端口绑定，若启动报 java.net.BindException: Address already in use，
-# 说明已有实例（旧进程）占用该端口——需先停止旧实例，或换端口启动新实例。
+# 本地 JobRunr 内嵌 Dashboard 默认【关闭】，避免端口被上一实例占用导致整个应用启动失败
+# （踩坑记录：local 默认开启 dashboard 绑定 8000，旧 IDE 实例未退出时会 BindException 炸掉整个应用）。
+# 需要本地观察任务执行情况时，以环境变量 JOBRUNR_DASHBOARD_ENABLED=true 启动即可开启。
+# 端口仍可用 JOBRUNR_DASHBOARD_PORT 覆盖（默认 8001，已避开常见的 8000 冲突）。
 app:
   datasources:
     entries:
@@ -30,8 +30,8 @@ org:
     background-job-server:
       enabled: true
     dashboard:
-      enabled: true
-      port: ${JOBRUNR_DASHBOARD_PORT:8000}
+      enabled: ${JOBRUNR_DASHBOARD_ENABLED:false}
+      port: ${JOBRUNR_DASHBOARD_PORT:8001}
 
 # 本地开启文档与全部端点（仅本机）
 springdoc:
