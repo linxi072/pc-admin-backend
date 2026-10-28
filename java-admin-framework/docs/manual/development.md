@@ -205,7 +205,41 @@ JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
 JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 ```
 
-若后续希望获得编译期强类型（生成 `Tables.SYS_USER` 等），可引入 `jooq-codegen-maven` 插件并基于迁移脚本离线生成；届时仅需替换 `JooqTables` 的引用方式，业务代码结构不变。
+### 8.1 可选强类型查询层（jOOQ codegen 并行层）
+
+除手写动态 DSL 外，仓库内置一套**并行代码生成层**：基于 Flyway 迁移脚本（归一化后的 H2 兼容 DDL，`scaffold-common/src/main/resources/db/codegen/V1~V16`）离线反向工程，生成到独立包 `com.acme.scaffold.jooqgen`（含 `Tables` / `Records` / `POJOs` / `DAOs` / `Interfaces`）。
+
+> **定位**：并行层 **不替换** 手写 DSL（`com.acme.scaffold.jooq` / `JooqTables` / `JooqWriters` 仍是生产数据访问主线）。仅当需要编译期强类型列引用（如 `Tables.SYS_USER.STATUS`）时，可在局部查询中选用生成类，业务代码结构不变。两者并存、互不覆盖。
+
+**生成命令**（需能直连 Maven Central 的环境）：
+
+```bash
+# 联网拉取 jooq-codegen 等生成期构件（profile 已声明 repo-central 仓库源）
+mvn -Pjooq-codegen generate-sources
+# 生成物落入 src/main/java/com/acme/scaffold/jooqgen/ 并纳入版本控制；
+# 常规离线构建（mvn -o compile）直接使用已提交的生成代码，无需重跑。
+```
+
+⚠️ **本地镜像注意事项**：若本机 `~/.m2/settings.xml` 配置了 `mirrorOf=*` 的镜像（如腾讯云镜像）且该镜像未收录 `org.jooq:jooq-codegen` / `jooq-meta` / `jooq-meta-extensions`，则 `repo-central` 仓库源会被该镜像拦截导致 `Failed to read artifact descriptor for org.jooq:jooq-codegen` 解析失败。解决办法：为镜像收窄匹配范围（如 `mirrorOf=external:*`，使 `repo-central` 直连生效），或将所需 jOOQ 生成构件预置进本地仓库。
+
+**等价写法示例**（手写 DSL ↔ 生成层）：
+
+```java
+// —— 手写动态 DSL（主线）——
+List<SysUserDO> a = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
+        JooqTables.SYS_USER.field("status", String.class).eq("ACTIVE"),
+        JooqTables.SYS_USER.field("id", Long.class).desc());
+
+// —— 生成层（可选，编译期类型安全）——
+import com.acme.scaffold.jooqgen.tables.SysUser;
+List<SysUserRecord> b = dsl.selectFrom(SysUser.SYS_USER)
+        .where(SysUser.SYS_USER.STATUS.eq("ACTIVE"))
+        .orderBy(SysUser.SYS_USER.ID.desc())
+        .fetch();
+```
+
+新增迁移后，再次执行上述生成命令即可刷新并行层，无需改动业务代码。
+
 
 基于 Spring Boot 的**模块化单体**企业后台基础框架，作为后续业务系统的脚手架。覆盖：RBAC 权限、认证授权与刷新令牌、性能监控、工作流审批、统一响应/异常/分页、操作审计与脱敏追溯、写接口幂等、Token 版本失效、数据权限扩展点。
 
