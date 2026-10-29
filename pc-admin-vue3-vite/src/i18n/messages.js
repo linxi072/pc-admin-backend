@@ -252,6 +252,11 @@ export default {
       detailTitle: '提交详情',
       close: '关闭'
     },
+    templateCenter: {
+      title: '模板中心',
+      tabExport: '导出模板',
+      tabImport: '导入模板'
+    },
     error: {
       network: '网络错误',
       unauthorized: '未授权，请重新登录',
@@ -507,6 +512,11 @@ export default {
       exportedHint: 'Export triggered',
       detailTitle: 'Submission Detail',
       close: 'Close'
+    },
+    templateCenter: {
+      title: 'Template Center',
+      tabExport: 'Export Templates',
+      tabImport: 'Import Templates'
     },
     error: {
       network: 'Network error',

@@ -243,20 +243,19 @@ const routes = [
         meta: { title: 'route.file', permission: 'system:file:read' }
       },
       {
-        // 导出中心（V34）：可复用 CSV 导出中心，模板由后端 ExportTask 自动发现，
-        // 菜单与权限由后端驱动（menu_code=system:export, permission=system:export:read）
+        // 导出中心（V34）+ 导入中心（V36）已合并为「模板中心」统一页（TemplateCenterView，双 Tab）。
+        // 两条路由保留以兼容后端菜单 routePath（menu_code=system:export / system:import），
+        // 均指向同一组件，由 meta.defaultTab 决定默认激活的 Tab；后端接口与权限不变。
         path: 'system/export',
         name: 'exportCenter',
-        component: () => import('@/views/system/ExportCenterView.vue'),
-        meta: { title: 'route.exportCenter', permission: 'system:export:read' }
+        component: () => import('@/views/system/TemplateCenterView.vue'),
+        meta: { title: 'route.exportCenter', permission: 'system:export:read', defaultTab: 'export' }
       },
       {
-        // 导入中心（V36）：模板由后端 ImportTask 自动发现，支持 CSV / XLSX 上传与预检，
-        // 菜单与权限由后端驱动（menu_code=system:import, permission=system:import:read）
         path: 'system/import',
         name: 'importCenter',
-        component: () => import('@/views/system/ImportCenterView.vue'),
-        meta: { title: 'route.importCenter', permission: 'system:import:read' }
+        component: () => import('@/views/system/TemplateCenterView.vue'),
+        meta: { title: 'route.importCenter', permission: 'system:import:read', defaultTab: 'import' }
       },
       {
         // 租户管理（V51 / M19 P2）：租户注册表 CRUD + 启停，菜单与权限由后端驱动
