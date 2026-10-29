@@ -128,6 +128,53 @@
           show-icon
         />
       </el-card>
+
+      <el-card class="page-card section" header="存量隔离自检（安全开启 enforce 预检）">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px">
+          <el-button :icon="Refresh" :loading="auditLoading" @click="loadAudit">重新自检</el-button>
+          <span class="filter-label">扫描全部业务表 tenant_id 归属，判定可否安全开启强制隔离</span>
+        </div>
+        <el-alert
+          v-if="audit"
+          :type="audit.safeToEnable ? 'success' : 'warning'"
+          :closable="false"
+          :title="audit.message"
+          show-icon
+          style="margin-bottom: 12px"
+        />
+        <div v-if="audit" class="stat-grid">
+          <div class="stat-card">
+            <div class="label">业务表总数</div>
+            <div class="value">{{ audit.totalBusinessTables }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">问题表数</div>
+            <div class="value">
+              <el-tag :type="audit.violatedTables > 0 ? 'danger' : 'success'" size="small">
+                {{ audit.violatedTables }}
+              </el-tag>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="label">未归属行数</div>
+            <div class="value">{{ audit.totalViolatedRows }}</div>
+          </div>
+        </div>
+        <el-table
+          v-if="audit && audit.byTable && audit.byTable.length"
+          :data="audit.byTable"
+          size="small"
+          style="margin-top: 12px"
+        >
+          <el-table-column prop="tableName" label="业务表" min-width="220" />
+          <el-table-column label="未归属行数" width="160">
+            <template #default="{ row }">
+              <el-tag v-if="row.violatedRows < 0" type="warning" size="small">检查失败</el-tag>
+              <span v-else>{{ row.violatedRows }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </template>
 
     <el-card v-else-if="!loading" class="page-card section">
@@ -139,11 +186,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
-import { getTenantIsolationStatus } from '@/api/tenantIsolation'
+import { getTenantIsolationStatus, auditTenantIsolation } from '@/api/tenantIsolation'
 
 const loading = ref(false)
 const error = ref('')
 const status = ref(null)
+
+const audit = ref(null)
+const auditLoading = ref(false)
 
 async function load() {
   loading.value = true
@@ -154,6 +204,19 @@ async function load() {
     error.value = e?.message || '加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadAudit() {
+  auditLoading.value = true
+  try {
+    audit.value = await auditTenantIsolation()
+  } catch (e) {
+    // 自检失败不影响配置态势展示，仅清空上一次结果
+    audit.value = null
+    console.error('存量隔离自检失败', e)
+  } finally {
+    auditLoading.value = false
   }
 }
 
@@ -176,5 +239,8 @@ function alertType(s) {
   return 'info'
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadAudit()
+})
 </script>

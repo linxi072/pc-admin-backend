@@ -24,3 +24,20 @@ import { request } from './http'
  */
 export const getTenantIsolationStatus = () =>
   request({ method: 'GET', url: '/api/system/tenant-isolation/status' })
+
+/**
+ * GET /api/system/tenant-isolation/audit -> TenantIsolationAuditReport
+ *
+ * 存量隔离自检（M45 安全开启 enforce 预检）：扫描全部业务表 tenant_id 归属情况，
+ * 给出「可否安全开启强制隔离」的判定，供运维在开启多租户 enforce 前只读预检。
+ *
+ * 字段说明：
+ *   totalBusinessTables 纳入检查的业务表总数
+ *   violatedTables      存在未归属数据的表数量（含检查失败的表）
+ *   totalViolatedRows   未归属行数合计（检查失败的表不计入合计）
+ *   safeToEnable       是否可安全开启 enforce
+ *   byTable            各表违规明细（tableName / violatedRows；-1 表示检查失败）
+ *   message            面向运维的判定说明
+ */
+export const auditTenantIsolation = () =>
+  request({ method: 'GET', url: '/api/system/tenant-isolation/audit' })
