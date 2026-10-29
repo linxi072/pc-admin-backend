@@ -210,6 +210,22 @@
               </div>
               <div class="stat-label">未归属行数</div>
             </div>
+            <div class="stat">
+              <div class="stat-num">{{ overview.totalUserCount }}</div>
+              <div class="stat-label">总用户数</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num" :class="{ danger: overview.expiringSoonCount > 0 }">
+                {{ overview.expiringSoonCount }}
+              </div>
+              <div class="stat-label">即将过期</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num" :class="{ danger: overview.disabledTenantCount > 0 }">
+                {{ overview.disabledTenantCount }}
+              </div>
+              <div class="stat-label">停用租户</div>
+            </div>
           </div>
 
           <!-- 存量隔离自检结论（M45） -->
@@ -259,6 +275,13 @@
             </el-table-column>
             <el-table-column label="过期时间" width="160">
               <template #default="{ row }">{{ fmtDateTime(row.expireAt) }}</template>
+            </el-table-column>
+            <el-table-column prop="userCount" label="用户数" width="110" align="right" />
+            <el-table-column label="预警" width="100">
+              <template #default="{ row }">
+                <el-tag v-if="row.expiringSoon" type="warning" size="small">即将过期</el-tag>
+                <span v-else>—</span>
+              </template>
             </el-table-column>
             <el-table-column prop="totalRows" label="业务数据总量" width="160" align="right" />
           </el-table>
