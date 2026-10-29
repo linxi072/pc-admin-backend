@@ -355,6 +355,15 @@ const routes = [
         name: 'health',
         component: () => import('@/views/system/HealthView.vue'),
         meta: { title: 'route.health', permission: 'system:monitor:read' }
+      },
+      {
+        // OAuth2 令牌管理（M43）：活动令牌分页查询 + 即时吊销治理面，
+        // 后端 OAuth2TokenController（/api/system/oauth2-tokens），权限由后端驱动
+        // （menu_code=system:oauth2-token, permission=system:oauth2-token:read；吊销另需 system:oauth2-token:revoke）
+        path: 'system/oauth2-tokens',
+        name: 'oauth2Token',
+        component: () => import('@/views/system/TokenManagerView.vue'),
+        meta: { title: 'route.oauth2Token', permission: 'system:oauth2-token:read' }
       }
     ]
   },

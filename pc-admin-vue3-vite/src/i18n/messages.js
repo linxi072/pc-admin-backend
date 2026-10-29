@@ -148,7 +148,8 @@ export default {
       formPilot: '低代码表单',
       formDefinition: '表单定义管理',
       openApiClient: '开放平台客户端',
-      health: '健康探针'
+      health: '健康探针',
+      oauth2Token: 'OAuth2 令牌管理'
     },
     health: {
       scope: '存活探针（liveness）仅依赖 JVM，就绪探针（readiness）检查数据库等必需依赖。两者均为 k8s 风格根路径端点，实时反映实例健康态，仅供运维只读诊断。',
@@ -162,6 +163,28 @@ export default {
       unreachable: '探针不可达',
       unreachableHint: '存活与就绪探针均不可达，请确认后端已启动且 vite 代理已转发 /livez、/readyz。',
       format: '探针返回格式异常（请确认 vite 代理已转发 /livez、/readyz）'
+    },
+    oauth2Token: {
+      scope: '本页列出当前有效的 OAuth2 访问令牌（客户端凭证与用户令牌）。吊销后，持有该令牌的客户端在下一次请求时即被拒绝。令牌由授权服务器签发，仅供治理与排障。',
+      refresh: '刷新',
+      clientId: '客户端ID',
+      userId: '用户ID',
+      reset: '重置',
+      jti: '令牌标识 (JTI)',
+      username: '用户名',
+      scopes: '授权范围',
+      type: '令牌类型',
+      typeClient: '客户端凭证',
+      typeUser: '用户令牌',
+      issuedAt: '签发时间',
+      expiresAt: '过期时间',
+      status: '状态',
+      active: '有效',
+      revoked: '已吊销',
+      revoke: '吊销',
+      revokeConfirm: '确认吊销该令牌？吊销后持有者下一次请求将被拒绝。',
+      revokedHint: '吊销已提交，持有该令牌的客户端在下次请求时即被拒绝。',
+      empty: '当前没有有效的 OAuth2 令牌。'
     },
     error: {
       network: '网络错误',
@@ -315,7 +338,8 @@ export default {
       formPilot: 'Low-code Form',
       formDefinition: 'Form Definition',
       openApiClient: 'Open Platform Clients',
-      health: 'Health Probe'
+      health: 'Health Probe',
+      oauth2Token: 'OAuth2 Token Management'
     },
     health: {
       scope: 'Liveness depends only on the JVM; readiness checks required dependencies such as the database. Both are k8s-style root endpoints reflecting real-time instance health, read-only for ops diagnostics.',
@@ -329,6 +353,28 @@ export default {
       unreachable: 'Probe unreachable',
       unreachableHint: 'Both liveness and readiness probes are unreachable. Ensure the backend is up and vite proxies /livez and /readyz.',
       format: 'Unexpected probe response format (ensure vite proxies /livez and /readyz)'
+    },
+    oauth2Token: {
+      scope: 'This page lists currently active OAuth2 access tokens (client-credentials and user tokens). Once revoked, the holder is rejected on its next request. Tokens are issued by the authorization server for governance and troubleshooting only.',
+      refresh: 'Refresh',
+      clientId: 'Client ID',
+      userId: 'User ID',
+      reset: 'Reset',
+      jti: 'Token ID (JTI)',
+      username: 'Username',
+      scopes: 'Scopes',
+      type: 'Token Type',
+      typeClient: 'Client Credentials',
+      typeUser: 'User Token',
+      issuedAt: 'Issued At',
+      expiresAt: 'Expires At',
+      status: 'Status',
+      active: 'Active',
+      revoked: 'Revoked',
+      revoke: 'Revoke',
+      revokeConfirm: 'Revoke this token? The holder will be rejected on its next request.',
+      revokedHint: 'Revocation submitted; the holder is rejected on its next request.',
+      empty: 'No active OAuth2 tokens at the moment.'
     },
     error: {
       network: 'Network error',
