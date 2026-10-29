@@ -328,6 +328,15 @@ const routes = [
         meta: { title: 'route.formDefinition', permission: 'system:form-definition:read' }
       },
       {
+        // 表单提交管理（M47 跨表单统一提交管理）：跨表单检索/统计/详情/逻辑删除 + 导出中心内置模板；
+        // 后端 FormSubmissionAdminController（/api/system/form-submissions），权限由后端驱动
+        // （menu_code=system:form-submission, permission=system:form-submission:read；删除另需 system:form-submission:delete）
+        path: 'system/form-submissions',
+        name: 'formSubmissionManage',
+        component: () => import('@/views/system/FormSubmissionManageView.vue'),
+        meta: { title: 'route.formSubmission', permission: 'system:form-submission:read' }
+      },
+      {
         // 开放平台客户端（V48 / M24）：客户端注册 + 密钥治理（明文一次性展示/哈希落库/轮换/停用），
         // 授权服务器依赖不在离线仓库暂无 token 端点；菜单与权限由后端驱动
         // （menu_code=system:openapi-client, permission=system:openapi-client:read）
