@@ -5,6 +5,7 @@ import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.system.openapi.OpenApiClientService;
 import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
 import com.acme.scaffold.system.openapi.rules.OpenApiClientRules;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +16,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +44,7 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/oauth2")
+@Slf4j
 public class OAuth2TokenEndpoint {
 
     private final OpenApiClientService clientService;
@@ -48,17 +52,20 @@ public class OAuth2TokenEndpoint {
     private final JwtProperties properties;
     private final OAuth2UserAuthenticator userAuthenticator;
     private final OAuth2AuthorizationCodeService codeService;
+    private final OAuth2TokenRegistry tokenRegistry;
 
     public OAuth2TokenEndpoint(OpenApiClientService clientService,
                                OAuth2TokenProvider tokenProvider,
                                JwtProperties properties,
                                OAuth2UserAuthenticator userAuthenticator,
-                               OAuth2AuthorizationCodeService codeService) {
+                               OAuth2AuthorizationCodeService codeService,
+                               OAuth2TokenRegistry tokenRegistry) {
         this.clientService = clientService;
         this.tokenProvider = tokenProvider;
         this.properties = properties;
         this.userAuthenticator = userAuthenticator;
         this.codeService = codeService;
+        this.tokenRegistry = tokenRegistry;
     }
 
     @PostMapping(value = "/token", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -121,8 +128,10 @@ public class OAuth2TokenEndpoint {
 
     private ResponseEntity<Map<String, Object>> clientCredentialsGrant(OpenApiClientDO client, long ttlSeconds) {
         Set<String> scopes = OpenApiClientRules.parseScopes(client.getScopes());
-        String accessToken = tokenProvider.issueClientCredentialsToken(client.getClientId(), scopes);
+        String jti = UUID.randomUUID().toString();
+        String accessToken = tokenProvider.issueClientCredentialsToken(client.getClientId(), scopes, jti);
         String scopeStr = scopes.isEmpty() ? "" : scopes.stream().sorted().collect(Collectors.joining(" "));
+        recordIssuance(jti, client.getClientId(), null, null, scopes, "CLIENT", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);
     }
 
@@ -130,9 +139,11 @@ public class OAuth2TokenEndpoint {
                                                              String password, String scope, long ttlSeconds) {
         OAuth2UserAuthenticator.AuthenticatedUser user = userAuthenticator.authenticate(username, password);
         Set<String> granted = resolveScopes(client.getScopes(), scope);
+        String jti = UUID.randomUUID().toString();
         String accessToken = tokenProvider.issueUserToken(client.getClientId(), user.userId(), user.username(),
-                user.tokenVersion(), granted, user.authorities());
+                user.tokenVersion(), granted, user.authorities(), jti);
         String scopeStr = granted.isEmpty() ? "" : granted.stream().sorted().collect(Collectors.joining(" "));
+        recordIssuance(jti, client.getClientId(), user.userId(), user.username(), granted, "USER", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);
     }
 
@@ -142,10 +153,26 @@ public class OAuth2TokenEndpoint {
         Set<String> granted = (ctx.scope() == null || ctx.scope().isBlank())
                 ? OpenApiClientRules.parseScopes(client.getScopes())
                 : OpenApiClientRules.parseScopes(ctx.scope());
+        String jti = UUID.randomUUID().toString();
         String accessToken = tokenProvider.issueUserToken(client.getClientId(), ctx.userId(), ctx.username(),
-                ctx.tokenVersion(), granted, ctx.authorities());
+                ctx.tokenVersion(), granted, ctx.authorities(), jti);
         String scopeStr = granted.isEmpty() ? "" : granted.stream().sorted().collect(Collectors.joining(" "));
+        recordIssuance(jti, client.getClientId(), ctx.userId(), ctx.username(), granted, "USER", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);
+    }
+
+    /**
+     * 签发后落库注册表（M43 令牌治理）。失败仅记录告警并降级放行——注册表不可用不应阻断令牌签发，
+     * 代价是丢失该令牌的可观测与可吊销能力，但令牌本身依然有效（与「基础设施故障不应导致全站不可用」一致）。
+     */
+    private void recordIssuance(String jti, String clientId, Long userId, String username,
+                               Set<String> scopes, String tokenType, long ttlSeconds) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            tokenRegistry.recordIssuance(jti, clientId, userId, username, scopes, tokenType, now, now.plusSeconds(ttlSeconds));
+        } catch (Exception e) {
+            log.warn("OAuth2 令牌签发落库失败（已降级放行）jti={} clientId={}", jti, clientId, e);
+        }
     }
 
     /** 请求的 scope 与客户端授权范围取交集；未请求 scope 时回落为客户端全量授权范围。 */

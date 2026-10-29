@@ -89,4 +89,61 @@ public class OAuth2TokenProvider {
                 .signWith(key, Jwts.SIG.RS256)
                 .compact();
     }
+
+    /**
+     * 签发客户端令牌（jti 由调用方透传，便于 {@code OAuth2TokenEndpoint} 落库注册表）。
+     * 其余语义与 {@link #issueClientCredentialsToken(String, Set)} 一致。
+     */
+    public String issueClientCredentialsToken(String clientId, Set<String> scopes, String jti) {
+        RSAPrivateKey key = keys.getPrivateKey();
+        Date now = new Date();
+        long ttlMillis = properties.getOauth2TokenTtl().toMillis();
+        Date exp = new Date(now.getTime() + ttlMillis);
+        String scope = (scopes == null || scopes.isEmpty())
+                ? "read" : scopes.stream().sorted().collect(Collectors.joining(" "));
+        return Jwts.builder()
+                .setHeaderParam("kid", keys.getKeyId())
+                .subject(clientId)
+                .issuer(properties.getOauth2Issuer())
+                .claim("aud", properties.getOauth2Audience())
+                .issuedAt(now)
+                .expiration(exp)
+                .claim("client_id", clientId)
+                .claim("scope", scope)
+                .claim("tokenVersion", 1)
+                .id(jti)
+                .signWith(key, Jwts.SIG.RS256)
+                .compact();
+    }
+
+    /**
+     * 签发代表资源拥有者的 OAuth2 令牌（jti 由调用方透传，便于 {@code OAuth2TokenEndpoint} 落库注册表）。
+     * 其余语义与 {@link #issueUserToken(String, Long, String, int, Set, Set)} 一致。
+     */
+    public String issueUserToken(String clientId, Long userId, String username, int tokenVersion,
+                                 Set<String> scopes, Set<String> authorities, String jti) {
+        RSAPrivateKey key = keys.getPrivateKey();
+        Date now = new Date();
+        long ttlMillis = properties.getOauth2TokenTtl().toMillis();
+        Date exp = new Date(now.getTime() + ttlMillis);
+        String scope = (scopes == null || scopes.isEmpty())
+                ? "read" : scopes.stream().sorted().collect(Collectors.joining(" "));
+        String auth = (authorities == null || authorities.isEmpty())
+                ? "" : authorities.stream().sorted().collect(Collectors.joining(","));
+        return Jwts.builder()
+                .setHeaderParam("kid", keys.getKeyId())
+                .subject(String.valueOf(userId))
+                .issuer(properties.getOauth2Issuer())
+                .claim("aud", properties.getOauth2Audience())
+                .issuedAt(now)
+                .expiration(exp)
+                .claim("client_id", clientId)
+                .claim("scope", scope)
+                .claim("authorities", auth)
+                .claim("username", username)
+                .claim("tokenVersion", tokenVersion)
+                .id(jti)
+                .signWith(key, Jwts.SIG.RS256)
+                .compact();
+    }
 }

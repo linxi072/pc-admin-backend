@@ -5,7 +5,10 @@ import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.captcha.CaptchaProperties;
 import com.acme.scaffold.security.antireplay.AntiReplayProperties;
 import com.acme.scaffold.security.online.OnlineSessionFilter;
+import com.acme.scaffold.security.oauth2.OAuth2TokenRevocationFilter;
+import com.acme.scaffold.security.oauth2.OAuth2TokenRegistry;
 import com.acme.scaffold.security.token.TokenVersionVerifier;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -99,7 +102,8 @@ public class SecurityConfig {
     public SecurityFilterChain apiSecurity(HttpSecurity http, JwtAuthConverter jwtAuthConverter,
                                           org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder,
                                           TokenVersionVerifier tokenVersionVerifier,
-                                          OnlineSessionFilter onlineSessionFilter) throws Exception {
+                                          OnlineSessionFilter onlineSessionFilter,
+                                          OAuth2TokenRevocationFilter oauth2TokenRevocationFilter) throws Exception {
         // 文档端点是否公开由 app.swagger.public-access 决定（默认需鉴权）
         RequestMatcher publicApi = swaggerProperties.isPublicAccess()
                 ? new OrRequestMatcher(BASE_PUBLIC_API, SWAGGER_API)
@@ -122,7 +126,9 @@ public class SecurityConfig {
                         org.springframework.security.oauth2.server.resource.web.authentication
                                 .BearerTokenAuthenticationFilter.class)
                 // 在线会话校验 + 心跳（V27）：强制下线/登出/限制后设备侧下一个请求即 401
-                .addFilterAfter(onlineSessionFilter, TokenVersionVerifier.class);
+                .addFilterAfter(onlineSessionFilter, TokenVersionVerifier.class)
+                // OAuth2 令牌吊销校验（M43）：仅对携 client_id 声明的 OAuth2 令牌生效，已吊销即 401
+                .addFilterAfter(oauth2TokenRevocationFilter, OnlineSessionFilter.class);
         return http.build();
     }
 
@@ -149,6 +155,31 @@ public class SecurityConfig {
     public FilterRegistrationBean<OnlineSessionFilter> onlineSessionFilterRegistration(
             OnlineSessionFilter filter) {
         FilterRegistrationBean<OnlineSessionFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    /**
+     * OAuth2 令牌吊销校验过滤器（M43）。声明为 Bean 仅由 {@link #apiSecurity} 在 Security 链内串接，
+     * 并经 {@link #oauth2TokenRevocationFilterRegistration} 关闭 Servlet 容器自动注册，
+     * 避免在排除本配置的 @WebMvcTest 中被误当作全局 Servlet 过滤器重复生效。
+     */
+    @Bean
+    public OAuth2TokenRevocationFilter oauth2TokenRevocationFilter(
+            org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder,
+            OAuth2TokenRegistry tokenRegistry,
+            ObjectMapper objectMapper) {
+        return new OAuth2TokenRevocationFilter(jwtDecoder, tokenRegistry, objectMapper);
+    }
+
+    /**
+     * 关闭 {@link OAuth2TokenRevocationFilter} 的 Servlet 容器自动注册（原因同上）：
+     * 只在 Security 链内在线会话校验之后生效，保证认证主体与 OAuth2 令牌声明已就绪。
+     */
+    @Bean
+    public FilterRegistrationBean<OAuth2TokenRevocationFilter> oauth2TokenRevocationFilterRegistration(
+            OAuth2TokenRevocationFilter filter) {
+        FilterRegistrationBean<OAuth2TokenRevocationFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
     }
