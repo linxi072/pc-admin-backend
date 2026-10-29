@@ -21,6 +21,26 @@ class ColumnPermissionRulesTest {
     }
 
     @Test
+    void parseCode_roundTripsValidCode() {
+        ColumnPermissionRules.ColumnCode parsed =
+                ColumnPermissionRules.parseCode("system:user:column:mobile");
+        assertEquals("system:user", parsed.resourceCode());
+        assertEquals("mobile", parsed.field());
+        // 派生与解析互逆
+        assertEquals("system:user:column:mobile",
+                ColumnPermissionRules.columnPermissionCode(parsed.resourceCode(), parsed.field()));
+    }
+
+    @Test
+    void parseCode_rejectsMalformed() {
+        assertTrue(ColumnPermissionRules.parseCode(null) == null);
+        assertTrue(ColumnPermissionRules.parseCode("") == null);
+        assertTrue(ColumnPermissionRules.parseCode("system:user") == null);          // 缺 :column: 分隔
+        assertTrue(ColumnPermissionRules.parseCode(":column:mobile") == null);        // 空资源
+        assertTrue(ColumnPermissionRules.parseCode("system:user:column:") == null);   // 空字段
+    }
+
+    @Test
     void mergeFields_dedupByNameKeepsFirst() {
         List<ColumnPermissionFieldView> merged = ColumnPermissionRules.mergeFields(List.of(
                 columnField("mobile", "手机号", ColumnStrategy.MASK, SensitiveType.MOBILE),

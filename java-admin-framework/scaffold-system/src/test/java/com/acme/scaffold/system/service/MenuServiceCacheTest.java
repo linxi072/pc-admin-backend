@@ -1,7 +1,9 @@
 package com.acme.scaffold.system.service;
 
+import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.password.PasswordHistoryService;
+import com.acme.scaffold.security.permission.ColumnPermissionResourceRegistry;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
@@ -89,7 +91,8 @@ class MenuServiceCacheTest {
         UserService userService() {
             return new UserService(mock(DSLContext.class), mock(PasswordEncoder.class),
                     mock(TokenVersionService.class), mock(PasswordHistoryService.class),
-                    mock(PostService.class));
+                    mock(PostService.class), mock(RoleColumnPermissionService.class),
+                    mock(ColumnPermissionResourceRegistry.class), mock(SecurityContextFacade.class));
         }
     }
 
