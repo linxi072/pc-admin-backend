@@ -7,11 +7,13 @@ import com.acme.scaffold.system.tenant.domain.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,6 +106,29 @@ public class TenantGovernanceService {
             affected += n;
         }
         return affected;
+    }
+
+    /**
+     * 跨租户用户数统计：按 {@code tenant_id} 聚合 {@code sys_user} 行数（仅未删除）。
+     *
+     * <p>供运营总览展示每个租户的用户规模。本方法在跨租户旁路作用域内执行，
+     * 与 {@link #dataOverview()} 同源，不依赖 {@code enforce} 开关。</p>
+     *
+     * @return key=租户 ID，value=用户数；表无 {@code tenant_id} 或异常时返回空 Map
+     */
+    public Map<Long, Long> userCountByTenant() {
+        if (!JooqTables.SYS_USER.has("tenant_id")) {
+            return Map.of();
+        }
+        Field<Long> tenantId = JooqTables.SYS_USER.field("tenant_id", Long.class);
+        Field<Long> cnt = DSL.field("COUNT(*)", Long.class);
+        Map<Long, Long> map = new HashMap<>();
+        dsl.select(tenantId, cnt)
+                .from(JooqTables.SYS_USER.table())
+                .where(JooqWriters.notDeleted(JooqTables.SYS_USER))
+                .groupBy(tenantId)
+                .forEach(r -> map.put(r.get(tenantId), r.get(cnt)));
+        return map;
     }
 
     private static long sum(Map<String, Long> counts) {

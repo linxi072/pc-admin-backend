@@ -52,20 +52,37 @@ public class TenantOverviewService {
         for (TenantDataOverview d : safe(() -> governanceService.dataOverview(), List.<TenantDataOverview>of())) {
             dataByTenant.put(d.tenantId(), d);
         }
-        // 3) 存量隔离自检（M45 报告）
+        // 3) 每租户用户数（sys_user 按 tenant_id 聚合，fail-open 并防 null 回落）
+        Map<Long, Long> rawUserCounts = safe(() -> governanceService.userCountByTenant(), Map.<Long, Long>of());
+        Map<Long, Long> userCountByTenant = rawUserCounts == null ? Map.of() : rawUserCounts;
+        // 4) 存量隔离自检（M45 报告）
         TenantIsolationAuditReport audit = safe(() ->
                 TenantIsolationAuditRules.audit(
                         isolationAuditService.scanViolations(),
                         TenantTables.businessTableNames().size()),
                 null);
 
-        // 4) 组装每租户摘要
+        // 5) 组装每租户摘要 + 全局汇总
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiringBoundary = now.plusDays(30);
         List<TenantOverviewItem> items = new ArrayList<>();
+        long totalUserCount = 0L;
+        int expiringSoonCount = 0;
+        int disabledTenantCount = 0;
         for (TenantView t : tenants) {
             TenantDataOverview d = dataByTenant.get(t.id());
+            long userCount = userCountByTenant.getOrDefault(t.id(), 0L);
+            boolean expiringSoon = t.expireAt() != null && !t.expireAt().isAfter(expiringBoundary);
+            if ("DISABLED".equals(t.status())) {
+                disabledTenantCount++;
+            }
+            if (expiringSoon) {
+                expiringSoonCount++;
+            }
+            totalUserCount += userCount;
             items.add(new TenantOverviewItem(
                     t.id(), t.tenantCode(), t.tenantName(), t.status(), t.expireAt(),
-                    d == null ? 0L : d.totalRows(),
+                    d == null ? 0L : d.totalRows(), userCount, expiringSoon,
                     d == null ? Map.of() : d.tableCounts()));
         }
 
@@ -75,9 +92,12 @@ public class TenantOverviewService {
                 tenants.size(),
                 (int) enabled,
                 TenantTables.businessTableNames().size(),
+                totalUserCount,
+                expiringSoonCount,
+                disabledTenantCount,
                 audit,
                 items,
-                LocalDateTime.now());
+                now);
     }
 
     /**

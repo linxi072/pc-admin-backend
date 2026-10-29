@@ -21,8 +21,11 @@ import java.util.List;
  * @param tenantCount          租户总数（含停用）
  * @param enabledTenantCount   启用（ENABLED）租户数
  * @param businessTableCount   纳入隔离检查的业务表总数
+ * @param totalUserCount       跨租户用户总数（所有租户用户数合计）
+ * @param expiringSoonCount    即将过期（30 天内）租户数
+ * @param disabledTenantCount  停用（DISABLED）租户数
  * @param isolationAudit       存量隔离自检报告（M45），不可用时为 null
- * @param tenants              各租户摘要（元数据 + 数据量）
+ * @param tenants              各租户摘要（元数据 + 数据量 + 用户数 + 过期预警）
  * @param generatedAt          快照生成时间
  */
 public record TenantOverviewView(
@@ -30,6 +33,9 @@ public record TenantOverviewView(
         int tenantCount,
         int enabledTenantCount,
         int businessTableCount,
+        long totalUserCount,
+        int expiringSoonCount,
+        int disabledTenantCount,
         TenantIsolationAuditReport isolationAudit,
         List<TenantOverviewItem> tenants,
         LocalDateTime generatedAt) {
