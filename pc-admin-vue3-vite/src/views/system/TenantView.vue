@@ -173,27 +173,97 @@
     </el-dialog>
 
     <!-- 跨租户运营总览 -->
-    <el-dialog v-model="overviewVisible" title="跨租户运营总览" width="820px">
-      <el-table
-        :data="overviewRows"
-        v-loading="overviewLoading"
-        border
-        stripe
-        default-expand-all
-        empty-text="暂无租户数据"
-      >
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <el-table :data="toPairs(row.tableCounts)" border size="small" style="margin: 8px 0">
-              <el-table-column prop="name" label="业务表" min-width="240" />
-              <el-table-column prop="count" label="行数" width="140" align="right" />
-            </el-table>
-          </template>
-        </el-table-column>
-        <el-table-column prop="tenantName" label="租户名称" min-width="200" />
-        <el-table-column prop="tenantId" label="租户 ID" width="120" />
-        <el-table-column prop="totalRows" label="业务数据总量" width="160" align="right" />
-      </el-table>
+    <el-dialog v-model="overviewVisible" title="跨租户运营总览" width="900px">
+      <div v-loading="overviewLoading">
+        <template v-if="overview">
+          <!-- enforce 开关状态 -->
+          <el-alert
+            :type="overview.enforce ? 'success' : 'info'"
+            :closable="false"
+            show-icon
+            :title="overview.enforce ? '多租户强制隔离已开启（enforce=true）' : '多租户强制隔离未开启（enforce=false，灰度关闭）'"
+          />
+
+          <!-- 聚合统计卡 -->
+          <div class="overview-stats">
+            <div class="stat">
+              <div class="stat-num">{{ overview.tenantCount }}</div>
+              <div class="stat-label">租户总数</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num">{{ overview.enabledTenantCount }}</div>
+              <div class="stat-label">启用租户</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num">{{ overview.businessTableCount }}</div>
+              <div class="stat-label">业务表数</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num" :class="{ danger: overview.isolationAudit && overview.isolationAudit.violatedTables > 0 }">
+                {{ overview.isolationAudit ? overview.isolationAudit.violatedTables : '—' }}
+              </div>
+              <div class="stat-label">问题表数</div>
+            </div>
+            <div class="stat">
+              <div class="stat-num" :class="{ danger: overview.isolationAudit && overview.isolationAudit.totalViolatedRows > 0 }">
+                {{ overview.isolationAudit ? overview.isolationAudit.totalViolatedRows : '—' }}
+              </div>
+              <div class="stat-label">未归属行数</div>
+            </div>
+          </div>
+
+          <!-- 存量隔离自检结论（M45） -->
+          <el-alert
+            v-if="overview.isolationAudit"
+            class="mt-12"
+            :type="overview.isolationAudit.safeToEnable ? 'success' : 'warning'"
+            :closable="false"
+            show-icon
+            :title="overview.isolationAudit.safeToEnable ? '存量隔离自检通过：可安全开启 enforce' : '存量隔离自检存在风险：开启 enforce 前需处理未归属数据'"
+            :description="overview.isolationAudit.message"
+          />
+          <el-alert
+            v-else
+            class="mt-12"
+            type="info"
+            :closable="false"
+            show-icon
+            title="隔离自检暂不可用（请检查数据库连通性）"
+          />
+
+          <!-- 租户明细 -->
+          <el-table
+            :data="overview.tenants"
+            class="mt-12"
+            border
+            stripe
+            default-expand-all
+            empty-text="暂无租户数据"
+          >
+            <el-table-column type="expand">
+              <template #default="{ row }">
+                <el-table :data="toPairs(row.tableCounts)" border size="small" style="margin: 8px 0">
+                  <el-table-column prop="name" label="业务表" min-width="240" />
+                  <el-table-column prop="count" label="行数" width="140" align="right" />
+                </el-table>
+              </template>
+            </el-table-column>
+            <el-table-column prop="tenantName" label="租户名称" min-width="200" />
+            <el-table-column prop="tenantId" label="租户 ID" width="120" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">
+                  {{ row.status === 'ENABLED' ? '启用' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="过期时间" width="160">
+              <template #default="{ row }">{{ fmtDateTime(row.expireAt) }}</template>
+            </el-table-column>
+            <el-table-column prop="totalRows" label="业务数据总量" width="160" align="right" />
+          </el-table>
+        </template>
+      </div>
       <template #footer>
         <el-button @click="overviewVisible = false">关闭</el-button>
         <el-button type="primary" :loading="overviewLoading" @click="loadOverview">刷新</el-button>
@@ -212,9 +282,9 @@ import {
   updateTenant,
   removeTenant,
   toggleTenant,
-  provisionTenant,
-  tenantDataOverview
+  provisionTenant
 } from '@/api/tenant'
+import { getTenantOverview } from '@/api/tenantOverview'
 import { statusTag } from '@/utils/status'
 
 const loading = ref(false)
@@ -263,7 +333,7 @@ const provisionRules = {
 // 跨租户运营总览
 const overviewVisible = ref(false)
 const overviewLoading = ref(false)
-const overviewRows = ref([])
+const overview = ref(null)
 
 /** LocalDateTime 字符串（"2026-10-26T14:30:00"）→ "2026-10-26 14:30"；空值回落 '长期'。 */
 function fmtDateTime(v) {
@@ -417,7 +487,7 @@ async function openOverview() {
 async function loadOverview() {
   overviewLoading.value = true
   try {
-    overviewRows.value = await tenantDataOverview()
+    overview.value = await getTenantOverview()
   } catch (e) {
     /* 拦截器已统一提示 */
   } finally {
@@ -435,3 +505,37 @@ function toPairs(map) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.overview-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.stat {
+  flex: 1 1 120px;
+  min-width: 120px;
+  text-align: center;
+  padding: 14px 8px;
+  background: var(--el-fill-color-light, #f5f7fa);
+  border-radius: 8px;
+}
+.stat-num {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+  line-height: 1.2;
+}
+.stat-num.danger {
+  color: var(--el-color-danger, #f56c6c);
+}
+.stat-label {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+}
+.mt-12 {
+  margin-top: 12px;
+}
+</style>
