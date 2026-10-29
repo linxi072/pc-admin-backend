@@ -6,6 +6,8 @@ import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.DataScopeRuleView;
 import com.acme.scaffold.system.dto.RoleView;
 import com.acme.scaffold.system.dto.SaveDataScopeRequest;
+import com.acme.scaffold.system.dto.SaveRoleColumnPermissionRequest;
+import com.acme.scaffold.system.service.RoleColumnPermissionService;
 import com.acme.scaffold.system.service.RoleDataScopeService;
 import com.acme.scaffold.system.service.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 角色管理接口（RBAC 核心）。
@@ -31,6 +34,7 @@ public class RoleController {
 
     private final RoleService roleService;
     private final RoleDataScopeService roleDataScopeService;
+    private final RoleColumnPermissionService roleColumnPermissionService;
 
     @Operation(summary = "角色列表")
     @GetMapping
@@ -86,6 +90,23 @@ public class RoleController {
     public Result<Void> saveDataScope(@PathVariable Long id,
                                        @Valid @RequestBody SaveDataScopeRequest request) {
         roleDataScopeService.save(id, request);
+        return Result.success();
+    }
+
+    @Operation(summary = "角色字段权限码列表")
+    @GetMapping("/{id}/column-permissions")
+    @PreAuthorize("hasAuthority('system:role:read')")
+    public Result<Set<String>> listColumnPermissions(@PathVariable Long id) {
+        return Result.success(roleColumnPermissionService.codes(id));
+    }
+
+    @Operation(summary = "保存角色字段权限（覆盖式）")
+    @PutMapping("/{id}/column-permissions")
+    @PreAuthorize("hasAuthority('system:role:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "保存角色字段权限")
+    public Result<Void> saveColumnPermissions(@PathVariable Long id,
+                                             @Valid @RequestBody SaveRoleColumnPermissionRequest request) {
+        roleColumnPermissionService.save(id, request.codes());
         return Result.success();
     }
 }

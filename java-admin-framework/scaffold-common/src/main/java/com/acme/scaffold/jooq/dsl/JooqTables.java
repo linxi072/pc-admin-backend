@@ -69,6 +69,10 @@ public final class JooqTables {
     public static final TableRef SYS_ROLE_DATA_SCOPE_ORG = new TableRef("sys_role_data_scope_org",
             "tenant_id", "rule_id", "org_id");
 
+    /** 字段级（列级）数据权限分配：角色 × 资源 × 字段 的明文可见权（M41）。 */
+    public static final TableRef SYS_ROLE_COLUMN_PERMISSION = new TableRef("sys_role_column_permission",
+            "id", "tenant_id", "role_id", "resource_code", "field", "created_at", "updated_at");
+
     /** 用户-角色关联（多对多，回退 V6 收敛）。is_primary 标记主角色。无 deleted 列，物理删除。 */
     public static final TableRef SYS_USER_ROLE = new TableRef("sys_user_role",
             "tenant_id", "user_id", "role_id", "is_primary", "created_at");

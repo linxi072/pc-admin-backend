@@ -1,14 +1,19 @@
 package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.sensitive.SensitiveMasker;
+import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.security.permission.ColumnField;
 import com.acme.scaffold.security.permission.ColumnPermission;
+import com.acme.scaffold.security.permission.ColumnPermissionFieldView;
+import com.acme.scaffold.security.permission.ColumnPermissionResourceRegistry;
+import com.acme.scaffold.security.permission.ColumnPermissionRules;
 import com.acme.scaffold.security.permission.ColumnStrategy;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
@@ -25,10 +30,12 @@ import com.acme.scaffold.system.entity.SysRoleDO;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.entity.SysUserOrgDO;
 import com.acme.scaffold.system.entity.SysUserRoleDO;
+import com.acme.scaffold.system.service.RoleColumnPermissionService;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -67,6 +74,17 @@ public class UserService {
     private final TokenVersionService tokenVersionService;
     private final PasswordHistoryService passwordHistoryService;
     private final PostService postService;
+    private final RoleColumnPermissionService roleColumnPermissionService;
+    private final ColumnPermissionResourceRegistry columnRegistry;
+    private final SecurityContextFacade securityContextFacade;
+
+    /**
+     * 字段级（列级）数据权限运行时脱敏总开关，默认关闭（同 M19 enforce 默认关闭策略）：
+     * 关闭时不产生任何脱敏行为、不触发额外查询，零线上回归；开启后按角色分配的字段权限码
+     * 对 {@code system:user} 的 mobile/email 等敏感字段施加脱敏/隐藏。
+     */
+    @Value("${column-permission.enforce:false}")
+    private boolean columnPermissionEnforce;
 
     @Transactional
     public Long create(CreateUserRequest request) {
@@ -233,7 +251,7 @@ public class UserService {
     public UserView getView(Long id) {
         SysUserDO user = getScoped(id);
         return toView(user, loadUserRoles(List.of(user)), loadUserOrgs(List.of(user)),
-                postService.loadPostNamesByUserIds(List.of(user.getId())));
+                postService.loadPostNamesByUserIds(List.of(user.getId())), currentGrantedColumnCodes());
     }
 
     /**
@@ -301,7 +319,7 @@ public class UserService {
         Map<Long, Map<Long, String>> postMap = postService.loadPostNamesByUserIds(
                 page.records().stream().map(SysUserDO::getId).toList());
         List<UserView> records = page.records().stream()
-                .map(u -> toView(u, roleMap, orgMap, postMap))
+                .map(u -> toView(u, roleMap, orgMap, postMap, currentGrantedColumnCodes()))
                 .collect(Collectors.toList());
         return new PageResult<>(page.page(), page.size(), page.total(), records);
     }
@@ -359,12 +377,16 @@ public class UserService {
     }
 
     private UserView toView(SysUserDO user, Map<Long, List<RoleInfo>> roleMap, Map<Long, List<OrgInfo>> orgMap,
-                            Map<Long, Map<Long, String>> postMap) {
+                            Map<Long, Map<Long, String>> postMap, Set<String> grantedColumnCodes) {
         List<RoleInfo> roles = roleMap.getOrDefault(user.getId(), List.of());
         List<OrgInfo> orgs = orgMap.getOrDefault(user.getId(), List.of());
         Map<Long, String> posts = postMap.getOrDefault(user.getId(), Map.of());
+        // 字段级（列级）数据权限：构造前脱敏（UserView 为 record，反射式 applier 不可达）。
+        // enforce 默认关闭 → grantedColumnCodes 为空、applyColumnMask 原样返回，零线上回归。
+        String mobile = applyColumnMask(user.getMobile(), UserQuery.RESOURCE_CODE, "mobile", grantedColumnCodes);
+        String email = applyColumnMask(user.getEmail(), UserQuery.RESOURCE_CODE, "email", grantedColumnCodes);
         return UserView.from(
-                user.getId(), user.getUsername(), user.getDisplayName(), user.getMobile(), user.getEmail(),
+                user.getId(), user.getUsername(), user.getDisplayName(), mobile, email,
                 roles.stream().map(RoleInfo::id).toList(),
                 roles.stream().map(RoleInfo::name).toList(),
                 roles.stream().map(RoleInfo::code).toList(),
@@ -373,6 +395,48 @@ public class UserService {
                 List.copyOf(posts.keySet()),
                 List.copyOf(posts.values()),
                 user.getStatus(), user.getCreatedAt());
+    }
+
+    /**
+     * 按字段级数据权限对单字段脱敏/隐藏（构造前脱敏，record 安全）。
+     *
+     * <p>当前主体拥有该字段明文权限码（{@code resourceCode:column:field}）时原样返回；
+     * 否则按 {@code @ColumnPermission} 声明驱动 {@link SensitiveMasker}（未声明敏感类型回落通用掩码），
+     * 空值直接返回。开关关闭或缺失主体时由调用方传入空集合，这里等同不脱敏。</p>
+     */
+    private String applyColumnMask(String value, String resourceCode, String field, Set<String> grantedColumnCodes) {
+        if (!columnPermissionEnforce || value == null) {
+            return value;
+        }
+        if (grantedColumnCodes.contains(ColumnPermissionRules.columnPermissionCode(resourceCode, field))) {
+            return value;
+        }
+        SensitiveType type = columnRegistry.fieldsOf(resourceCode).stream()
+                .filter(f -> f.field().equals(field))
+                .map(ColumnPermissionFieldView::sensitiveType)
+                .findFirst().orElse(null);
+        return SensitiveMasker.mask(value, type);
+    }
+
+    /**
+     * 解析当前登录主体所属角色的字段权限码集合（多角色取并集）。
+     * 开关关闭或无主体时返回空集，避免无谓查询。
+     */
+    private Set<String> currentGrantedColumnCodes() {
+        if (!columnPermissionEnforce) {
+            return Set.of();
+        }
+        return securityContextFacade.getCurrentPrincipal()
+                .map(p -> {
+                    if (p.userId() == null) {
+                        return Set.<String>of();
+                    }
+                    Set<Long> roleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
+                                    JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(p.userId())).stream()
+                            .map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
+                    return roleColumnPermissionService.grantedCodes(roleIds);
+                })
+                .orElse(Set.of());
     }
 
     /** 批量装载用户角色信息（id/名称/编码），避免列表查询 N+1。 */

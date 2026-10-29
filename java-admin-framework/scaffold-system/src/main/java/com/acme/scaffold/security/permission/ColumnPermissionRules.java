@@ -27,6 +27,32 @@ public final class ColumnPermissionRules {
         return resourceCode + CODE_PREFIX + field;
     }
 
+    /**
+     * 解析完整列权限码（{@code <resourceCode>:column:<field>}）为结构化对象。
+     *
+     * <p>用于把前端提交的权限码集合反序列化为 (资源, 字段) 二元组再落库；非法码（缺分隔符、段为空）
+     * 返回 {@code null}，由调用方剔除，避免脏数据写入。</p>
+     */
+    public static ColumnCode parseCode(String code) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        int idx = code.indexOf(CODE_PREFIX);
+        if (idx <= 0 || idx + CODE_PREFIX.length() >= code.length()) {
+            return null;
+        }
+        String resourceCode = code.substring(0, idx);
+        String field = code.substring(idx + CODE_PREFIX.length());
+        if (resourceCode.isBlank() || field.isBlank()) {
+            return null;
+        }
+        return new ColumnCode(resourceCode, field);
+    }
+
+    /** 解析后的列权限码结构。 */
+    public record ColumnCode(String resourceCode, String field) {
+    }
+
     /** 资源展示名回退：空则回退为 resourceCode。 */
     public static String resolveName(String resourceCode, String name) {
         return (name == null || name.isBlank()) ? resourceCode : name;
