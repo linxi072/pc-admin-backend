@@ -176,12 +176,12 @@
 5. **优先级与排期**：上述 P1/P2/P3 是否与业务方预期一致？是否需插入其他候选（如报表大屏、任务依赖编排）？ ✅ 已决议：报表大屏（M27）与任务依赖编排（M33）均已插入并交付——M33 任务依赖编排 DAG 已于 2026-10-28 在 feat/V1.0.4 落地（详见 §4.1.7），全仓 **1610→1644 例**全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0。
 
 > **已确认决策（2026-10-23）**：
-> 1. **M19 多租户延后**：本期不做 SaaS 隔离；隔离策略已倾向「共享表 + `tenant_id` 列」（jOOQ 拦截强制隔离），留作未来立项基线，无需本期投入。
+> 1. **M19 多租户隔离**：决策已从「本期延后」改为**已交付**——P1/P2/P3 强制注入隔离 + P4 SaaS 开通闭环（租户开通预置 + 存量 `tenant_id` 回填迁移 + 跨租户运营总览）均于 `feat/V1.0.4` 落地（见 §4.1.1–§4.1.5）；`enforce` 默认关闭、配置开启，线上零回归。
 > 2. **本期先做治理增强（阶段 B）：M20 审计增强 → M21 脱敏策略中心**。两者协同度高（M21 复用 M1 审计落库与 `SensitiveMasker`）。
 > 3. **M22 低代码已交付**：spike（V47 契约+渲染原型）+ 正式立项提交落库（V53 `form_submission` 独立表，按 schema 校验后落库、分页查询、前后端提交/记录页）均已完成，全仓 1470→1483 例全绿。
 > 4. **M24 API 开放平台本期需要**：涉及 OAuth2 客户端注册与密钥治理，立项前需离线核验 `spring-security-oauth2` 等依赖可用性。
 >
-> **M24 离线核验结论（2026-10-25）**：离线仓库仅有 `spring-security-oauth2-core/jose/resource-server` 6.3.3（与 Boot 3.3.4 匹配），**不含** `spring-security-oauth2-client`（`RegisteredClient`/`RegisteredClientRepository` 所在）与 `spring-security-oauth2-authorization-server`（授权服务器所在）——完整 OAuth2 授权服务器（authorization code / `/oauth2/token`）离线不可建。据此 M24 收口为**自包含的「客户端注册 + 密钥治理」**（自有领域模型 + 复用 `SecurityConfig` 的 `DelegatingPasswordEncoder` 哈希，零新增依赖），V48 `sys_openapi_client` 已落地；协议级开放（token 端点、资源服务器过滤器）待联网补齐依赖后另行立项。
+> **M24 离线核验结论（2026-10-25）**：离线仓库仅有 `spring-security-oauth2-core/jose/resource-server` 6.3.3（与 Boot 3.3.4 匹配），**不含** `spring-security-oauth2-client`（`RegisteredClient`/`RegisteredClientRepository` 所在）与 `spring-security-oauth2-authorization-server`（授权服务器所在）——完整 OAuth2 授权服务器（authorization code / `/oauth2/token`）离线不可建。据此 M24 收口为**自包含的「客户端注册 + 密钥治理」**（自有领域模型 + 复用 `SecurityConfig` 的 `DelegatingPasswordEncoder` 哈希，零新增依赖），V48 `sys_openapi_client` 已落地；**协议级开放（RS256 令牌端点 `/oauth2/token` client_credentials + `/oauth2/jwks` + 复合 JWT 解码器 + 资源服务器接线）随后亦于 `cce7f58` 在离线约束内完整交付**（仅靠 `oauth2-jose`/`oauth2-resource-server` 即可签发 RS256 与验证，无需 `spring-security-oauth2-authorization-server`）；授权码流程（authorization_code，需浏览器登录+授权确认）列为后续可选方向。
 >
 > **M23 流程中心增强已交付（2026-10-25）**：随 M20/M21/M22/M24 之后落地——V49 迁移零表结构变更（仅播种菜单 id=1123），`WorkflowEnginePort` 扩展超时任务分页与定义版本链查询，`WorkflowMonitorService` 提供运行实例/超时任务/统计摘要只读面 + 催办唯一写操作（实时推送 + 最小间隔防轰炸，催办记录复用 `wf_approval_record`），前端 `MonitorView.vue` 三 Tab。
 >
@@ -192,3 +192,5 @@
 > 后续：将 M20 / M21 / M22(spike) / M24 拆为 `module-plan` 形式的 Mxx 任务卡（范围/契约/迁移/测试/门禁），按关注点分批在 `feat/V1.0.3` 落地；本文件已更新为「已采纳路线」。
 >
 > **M22 低代码表单 · 正式立项提交落库已交付（2026-10-26，V53）**：在 V47 spike（契约 + 渲染原型）验证可行后，正式收口「独立 `form_submission` 表、零运行时 DDL」决策——V53 迁移建 `sys_form_submission`（含 `data_json` 整段提交值序列化 + `target_type` 沿用 `FORM_SUBMISSION`）；`JooqTables.FORM_SUBMISSION` 注册；`FormSubmissionDO`/`FormSubmissionView`/`FormSubmissionRules`（按 schema 字段校验：必填/类型 INPUT·SELECT·SWITCH·TEXTAREA·DATE / 长度 min·max / 选项白名单 / 未知字段拒绝）；`FormSubmissionService`（校验通过才 `JooqWriters.insert` 落库、分页查询 mapping）+ `FormRenderController` 增 `POST /{code}/submit` 与 `GET /{code}/submissions?page=&size=`（权限 `system:form-submission:create/read`，`ApiResourceAutoSyncRunner` 自动登记并授予 SUPER_ADMIN）；前端 `FormPilotView.vue` 增「提交」按钮（校验后提交）与「提交记录」分页列表，更新 hint 为 M22 已正式立项；新增 13 例单测（rules 10 + service 3，mockStatic(JooqWriters) 离线可跑），全仓 **1470→1483 例**全绿 + check-conventions EXIT=0。M22 至此 spike 与正式立项均交付。
+
+> **规划收口（2026-10-28 续）**：用户于本期额外选定的 4 个「规划外候选方向」亦已全部交付——**M34 字段级数据权限**（#808，注解+注册表+脱敏执行器+发现接口）、**M35 通知渠道扩展**（企业微信/钉钉机器人，复用 `WebhookClient` 与签名规则）、**M36 参数中心增强**（按 config_key 前缀动态分组 + 进程内热更新 + 机器人开关/默认地址接入参数中心）、**M37 OAuth2 资源服务器核对+补强**（端到端授权契约测试 + 使用说明，核心 RS256 令牌端点/JWKS/复合解码器/资源服务器接线已由 M24 提供）。至此本文件所述 M19+ 路线（M19–M33）与用户追加的 M34–M37 **全部交付**，仓库无既定未实现功能；后续新方向（如 OAuth2 授权码流程、password 模式、RFC7662 令牌自省、前端字段级/数据权限统一配置页）需作为新提案另行立项。
