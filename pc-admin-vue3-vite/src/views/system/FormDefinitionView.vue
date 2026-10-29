@@ -86,8 +86,21 @@
             <el-form-item label="备注">
               <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="可选" />
             </el-form-item>
-            <el-form-item label="Schema">
-              <div class="schema-editor-head">
+          </el-form>
+
+          <div class="schema-section">
+            <div class="schema-editor-head">
+              <span class="schema-editor-tip">表单 Schema（version + fields[]）</span>
+              <el-radio-group v-model="designMode" size="small">
+                <el-radio-button value="design">{{ $t('formDesigner.visualDesign') }}</el-radio-button>
+                <el-radio-button value="json">{{ $t('formDesigner.jsonSource') }}</el-radio-button>
+              </el-radio-group>
+            </div>
+
+            <FormDesigner v-if="designMode === 'design'" v-model="form.schemaJson" />
+
+            <template v-else>
+              <div class="schema-editor-head" style="margin-top: 8px">
                 <span class="schema-editor-tip">JSON Schema（version + fields[]）</span>
                 <el-button link type="primary" :icon="MagicStick" @click="formatSchema">格式化</el-button>
               </div>
@@ -107,8 +120,8 @@
                 <el-icon><CircleCheckFilled /></el-icon>
                 <span>Schema 可解析，右侧为实时预览</span>
               </div>
-            </el-form-item>
-          </el-form>
+            </template>
+          </div>
         </el-col>
 
         <!-- 右：实时预览 -->
@@ -146,6 +159,7 @@ import {
   deleteFormDefinition
 } from '@/api/formDefinition'
 import DynamicForm from '@/components/DynamicForm.vue'
+import FormDesigner from '@/components/FormDesigner.vue'
 
 const definitions = ref([])
 const loading = ref(false)
@@ -155,6 +169,7 @@ const isEdit = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
 const previewFormRef = ref()
+const designMode = ref('design')
 
 const form = reactive({
   formCode: '',
@@ -213,6 +228,7 @@ function resetForm() {
     schemaJson: ''
   })
   previewModel.value = {}
+  designMode.value = 'design'
 }
 
 function openCreate() {
