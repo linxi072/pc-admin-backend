@@ -23,6 +23,8 @@ import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,6 +44,8 @@ class OAuth2TokenEndpointTest {
     private OAuth2UserAuthenticator userAuthenticator;
     @Mock
     private OAuth2AuthorizationCodeService codeService;
+    @Mock
+    private OAuth2TokenRegistry tokenRegistry;
 
     @InjectMocks
     private OAuth2TokenEndpoint endpoint;
@@ -60,7 +64,7 @@ class OAuth2TokenEndpointTest {
         client.setClientId("client-1");
         client.setScopes("read write");
         when(clientService.authenticateClient("client-1", "secret")).thenReturn(client);
-        when(tokenProvider.issueClientCredentialsToken(eq("client-1"), eq(Set.of("read", "write"))))
+        when(tokenProvider.issueClientCredentialsToken(eq("client-1"), eq(Set.of("read", "write")), any()))
                 .thenReturn("tok-abc");
         when(properties.getOauth2TokenTtl()).thenReturn(Duration.ofSeconds(1800));
 
@@ -74,6 +78,9 @@ class OAuth2TokenEndpointTest {
                 .andExpect(jsonPath("$.token_type").value("Bearer"))
                 .andExpect(jsonPath("$.expires_in").value(1800))
                 .andExpect(jsonPath("$.scope").value("read write"));
+
+        // M43：签发时须落库注册表（client_credentials 记为 CLIENT 类型）
+        verify(tokenRegistry).recordIssuance(any(), eq("client-1"), isNull(), isNull(), any(), eq("CLIENT"), any(), any());
     }
 
     @Test
@@ -83,7 +90,7 @@ class OAuth2TokenEndpointTest {
         client.setClientId("client-2");
         client.setScopes("read");
         when(clientService.authenticateClient("client-2", "pw")).thenReturn(client);
-        when(tokenProvider.issueClientCredentialsToken(eq("client-2"), eq(Set.of("read"))))
+        when(tokenProvider.issueClientCredentialsToken(eq("client-2"), eq(Set.of("read")), any()))
                 .thenReturn("tok-2");
         when(properties.getOauth2TokenTtl()).thenReturn(Duration.ofSeconds(600));
 
@@ -132,7 +139,7 @@ class OAuth2TokenEndpointTest {
         OAuth2UserAuthenticator.AuthenticatedUser u = new OAuth2UserAuthenticator.AuthenticatedUser(
                 42L, "alice", "Alice", 0L, 1, Set.of("system:user:read"), Set.of("ADMIN"));
         when(userAuthenticator.authenticate("alice", "pw")).thenReturn(u);
-        when(tokenProvider.issueUserToken(eq("c1"), eq(42L), eq("alice"), eq(1), any(), eq(Set.of("system:user:read"))))
+        when(tokenProvider.issueUserToken(eq("c1"), eq(42L), eq("alice"), eq(1), any(), eq(Set.of("system:user:read")), any()))
                 .thenReturn("tok-u");
         when(properties.getOauth2TokenTtl()).thenReturn(Duration.ofSeconds(1800));
 
@@ -178,7 +185,7 @@ class OAuth2TokenEndpointTest {
         OAuth2AuthorizationCodeService.CodeContext ctx = new OAuth2AuthorizationCodeService.CodeContext(
                 42L, "alice", 1, Set.of("system:user:read"), Set.of("ADMIN"), "c1", "read", null);
         when(codeService.consume("thecode", "c1", null)).thenReturn(ctx);
-        when(tokenProvider.issueUserToken(eq("c1"), eq(42L), eq("alice"), eq(1), any(), eq(Set.of("system:user:read"))))
+        when(tokenProvider.issueUserToken(eq("c1"), eq(42L), eq("alice"), eq(1), any(), eq(Set.of("system:user:read")), any()))
                 .thenReturn("tok-ac");
         when(properties.getOauth2TokenTtl()).thenReturn(Duration.ofSeconds(1800));
 
