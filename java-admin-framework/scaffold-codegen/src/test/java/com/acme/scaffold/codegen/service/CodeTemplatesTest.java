@@ -142,7 +142,7 @@ class CodeTemplatesTest {
     @Test
     void controllerSource_permissionsAndRoutes() {
         GeneratedFileVO f = fileOf(META, OPTION, "UserController.java");
-        assertTrue(f.content().contains("@RequestMapping(\"/api/user\")"), f.content());
+        assertTrue(f.content().contains("@RequestMapping(\"/api/system/user\")"), f.content());
         assertTrue(f.content().contains("hasAuthority('user:read')"), f.content());
         assertTrue(f.content().contains("hasAuthority('user:manage')"), f.content());
         assertTrue(f.content().contains("Result<PageResult<UserVO>> page(UserQuery query)"), f.content());
@@ -155,8 +155,24 @@ class CodeTemplatesTest {
         assertTrue(f.content().contains("setId(IdGenerator.nextId())"), f.content());
         assertTrue(f.content().contains("JooqWriters.insert(dsl, JooqTables.SYS_USER, user);"), f.content());
         assertTrue(f.content().contains("JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);"), f.content());
-        assertTrue(f.content().contains("JooqWriters.delete(dsl, JooqTables.SYS_USER, id, false);"), f.content());
+        // 删除默认走框架逻辑删除（deleted=1）
+        assertTrue(f.content().contains("JooqWriters.delete(dsl, JooqTables.SYS_USER, id, true);"), f.content());
         assertTrue(f.content().contains("JooqWriters.fetchById(dsl, JooqTables.SYS_USER, UserDO.class, id);"), f.content());
+        // 生成即用骨架：toVO 必须真实映射，不得保留占位异常
+        assertFalse(f.content().contains("UnsupportedOperationException"), "生成骨架不应保留占位异常");
+        assertTrue(f.content().contains("private UserVO toVO("), f.content());
+        assertTrue(f.content().contains("new UserVO("), "应生成真实 DO→VO 映射");
+        assertTrue(f.content().contains("private Condition buildCondition("), f.content());
+    }
+
+    @Test
+    void querySource_includesAllNonMetaFilterFields() {
+        // sys_user：username / amount / created_at 三列，其中 created_at 为元数据列应被排除
+        GeneratedFileVO f = fileOf(META, OPTION, "UserQuery.java");
+        assertTrue(f.content().contains("String username"), "Query 应包含 username 字段");
+        assertTrue(f.content().contains("BigDecimal amount"), "Query 应包含 amount 字段");
+        assertFalse(f.content().contains("createdAt"), "Query 应排除元数据列 createdAt");
+        assertFalse(f.content().contains("tenantId"), "Query 应排除租户隔离列 tenantId");
     }
 
     @Test
@@ -184,9 +200,9 @@ class CodeTemplatesTest {
         GeneratedFileVO f = fileOf(META,
                 new GenOption("sys_user", "user", "用户管理", null, null, true), "user.js");
         assertTrue(f.content().contains("export const userPage = (params) =>"), f.content());
-        assertTrue(f.content().contains("method: 'GET', url: '/api/user', params"), f.content());
-        assertTrue(f.content().contains("method: 'POST', url: '/api/user', data"), f.content());
-        assertTrue(f.content().contains("method: 'DELETE', url: '/api/user/' + id"), f.content());
+        assertTrue(f.content().contains("method: 'GET', url: '/api/system/user', params"), f.content());
+        assertTrue(f.content().contains("method: 'POST', url: '/api/system/user', data"), f.content());
+        assertTrue(f.content().contains("method: 'DELETE', url: '/api/system/user/' + id"), f.content());
     }
 
     @Test
