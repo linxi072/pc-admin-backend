@@ -174,22 +174,33 @@ public final class CodeTemplates {
     // 后端：Query
     // ------------------------------------------------------------------
 
+    /** 分页查询入参中排除的元数据列（与框架约定一致：逻辑删除 / 时间审计 / 租户隔离 / 备注）。 */
+    private static final java.util.Set<String> QUERY_EXCLUDE = java.util.Set.of(
+            "deleted", "create_time", "created_at", "update_time", "updated_at",
+            "create_by", "update_by", "tenant_id", "remark");
+
     private static String querySource(Ctx c) {
-        ColumnMetaVO firstField = c.fields.isEmpty() ? null : c.fields.get(0);
-        StringBuilder sb = new StringBuilder();
-        sb.append(header(c, "分页查询入参（示例以首字段模糊匹配，其余字段按需扩充）"));
-        sb.append("""
-                public record %1$sQuery(%2$sint page, int size) {
+        StringBuilder params = new StringBuilder();
+        for (ColumnMetaVO col : c.fields) {
+            String f = col.javaField().toLowerCase();
+            String cn = col.columnName().toLowerCase();
+            if (QUERY_EXCLUDE.contains(f) || QUERY_EXCLUDE.contains(cn)) {
+                continue;
+            }
+            params.append("        ").append(col.javaType()).append(' ').append(col.javaField()).append(",\n");
+        }
+        params.append("        int page, int size");
+        return header(c, "分页查询入参（按字段可选等值/模糊匹配，组合条件）")
+                + """
+                public record %1$sQuery(
+                %2$s) {
 
                     public %1$sQuery {
                         page = Math.max(page, 1);
                         size = Math.min(Math.max(size, 1), 100);
                     }
                 }
-                """.formatted(
-                c.cls,
-                firstField == null ? "" : "String " + firstField.javaField() + ", "));
-        return sb.toString();
+                """.formatted(c.cls, params);
     }
 
     // ------------------------------------------------------------------
@@ -197,7 +208,7 @@ public final class CodeTemplates {
     // ------------------------------------------------------------------
 
     private static String controllerSource(Ctx c) {
-        String api = "/api/" + c.pathSeg;
+        String api = "/api/system/" + c.pathSeg;
         String permRead = c.perm + ":read";
         String permManage = c.perm + ":manage";
         return header(c, "接口")
@@ -311,6 +322,8 @@ public final class CodeTemplates {
     // ------------------------------------------------------------------
 
     private static String serviceImplSource(Ctx c) {
+        String conditionBody = buildConditionBody(c);
+        String voArgs = toVoBody(c);
         return header(c, "服务实现（CRUD 骨架；业务校验以 TODO 标注，按需补齐）")
                 + """
                 import com.acme.scaffold.common.IdGenerator;
@@ -339,8 +352,8 @@ public final class CodeTemplates {
 
                     @Override
                     public PageResult<%2$sVO> page(%2$sQuery query) {
-                        // TODO 按 query 字段拼装 Condition（模糊/精确），示例见既有 JobService#buildCondition
-                        Condition cond = JooqWriters.notDeleted(%3$s);
+                        // TODO 复杂组合条件可在 buildCondition 基础上扩展；当前按字段可选等值/模糊匹配
+                        Condition cond = buildCondition(query);
                         PageQuery pq = PageQuery.of(query.page(), query.size());
                         PageResult<%2$sDO> raw = JooqWriters.page(dsl, %3$s, %2$sDO.class, cond, pq,
                                 %3$s.field("id", Long.class).desc());
@@ -373,8 +386,8 @@ public final class CodeTemplates {
 
                     @Override
                     public void delete(%4$s id) {
-                        // 物理删除；如需逻辑删除将最后一个参数改 true
-                        JooqWriters.delete(dsl, %3$s, id, false);
+                        // 逻辑删除（框架默认 deleted=1）；如确需物理删除将最后一个参数改为 false
+                        JooqWriters.delete(dsl, %3$s, id, true);
                     }
 
                     @Override
@@ -383,12 +396,21 @@ public final class CodeTemplates {
                                 .stream().map(this::toVO).toList();
                     }
 
-                    private %2$sVO toVO(%2$sDO %5$s) {
-                        // TODO 字段映射（DO → VO）；枚举编码可在此转中文标签
-                        throw new UnsupportedOperationException("待补齐 DO → VO 映射");
+                    private Condition buildCondition(%2$sQuery q) {
+                        Condition cond = JooqWriters.notDeleted(%3$s);
+                %6$s
+                        return cond;
+                    }
+
+                    private %2$sVO toVO(%2$sDO d) {
+                        if (d == null) {
+                            return null;
+                        }
+                        // DO → VO 字段一一映射（与表列顺序一致）；枚举/字典转义等在此补齐
+                        return new %2$sVO(%7$s);
                     }
                 }
-                """.formatted(c.basePkg(), c.cls, c.tableRef(), c.pkJavaType(), c.var);
+                """.formatted(c.basePkg(), c.cls, c.tableRef(), c.pkJavaType(), c.var, conditionBody, voArgs);
     }
 
     // ------------------------------------------------------------------
@@ -611,29 +633,29 @@ public final class CodeTemplates {
 
                 // %1$s（%2$s）：CRUD 接口封装
 
-                // GET /api/%3$s -> PageResult<%4$sVO>
+                // GET /api/system/%3$s -> PageResult<%4$sVO>
                 export const %4$sPage = (params) =>
-                  request({ method: 'GET', url: '/api/%3$s', params })
+                  request({ method: 'GET', url: '/api/system/%3$s', params })
 
                 // GET /api/%4$s/all -> %4$sVO[]
                 export const %4$sAll = () =>
-                  request({ method: 'GET', url: '/api/%3$s/all' })
+                  request({ method: 'GET', url: '/api/system/%3$s/all' })
 
-                // GET /api/%3$s/{id} -> %4$sVO
+                // GET /api/system/%3$s/{id} -> %4$sVO
                 export const %4$sDetail = (id) =>
-                  request({ method: 'GET', url: '/api/%3$s/' + id })
+                  request({ method: 'GET', url: '/api/system/%3$s/' + id })
 
-                // POST /api/%3$s
+                // POST /api/system/%3$s
                 export const %4$sCreate = (data) =>
-                  request({ method: 'POST', url: '/api/%3$s', data })
+                  request({ method: 'POST', url: '/api/system/%3$s', data })
 
-                // PUT /api/%3$s/{id}
+                // PUT /api/system/%3$s/{id}
                 export const %4$sUpdate = (id, data) =>
-                  request({ method: 'PUT', url: '/api/%3$s/' + id, data })
+                  request({ method: 'PUT', url: '/api/system/%3$s/' + id, data })
 
-                // DELETE /api/%3$s/{id}
+                // DELETE /api/system/%3$s/{id}
                 export const %4$sRemove = (id) =>
-                  request({ method: 'DELETE', url: '/api/%3$s/' + id })
+                  request({ method: 'DELETE', url: '/api/system/%3$s/' + id })
                 """.formatted(c.functionName, c.meta.tableName(), c.pathSeg, var));
     }
 
@@ -678,6 +700,63 @@ public final class CodeTemplates {
 
     private static String commentOf(ColumnMetaVO col) {
         return (col.comment() == null || col.comment().isBlank()) ? col.columnName() : col.comment();
+    }
+
+    /** 生成 buildCondition 的条件行（按字段可选等值/模糊匹配，字符串走 contains、其余走 eq）。 */
+    private static String buildConditionBody(Ctx c) {
+        StringBuilder sb = new StringBuilder();
+        for (ColumnMetaVO col : c.fields) {
+            String f = col.javaField().toLowerCase();
+            String cn = col.columnName().toLowerCase();
+            if (QUERY_EXCLUDE.contains(f) || QUERY_EXCLUDE.contains(cn)) {
+                continue;
+            }
+            String fieldRef = c.tableRef() + ".field(\"" + col.columnName() + "\", " + classLiteral(col.javaType()) + ".class)";
+            if ("String".equals(col.javaType())) {
+                sb.append("                if (q.").append(col.javaField()).append("() != null && !q.")
+                        .append(col.javaField()).append("().isBlank()) {\n");
+                sb.append("                    cond = cond.and(").append(fieldRef).append(".contains(q.")
+                        .append(col.javaField()).append("()));\n");
+                sb.append("                }\n");
+            } else {
+                sb.append("                if (q.").append(col.javaField()).append("() != null) {\n");
+                sb.append("                    cond = cond.and(").append(fieldRef).append(".eq(q.")
+                        .append(col.javaField()).append("()));\n");
+                sb.append("                }\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    /** DO → VO 字段映射参数（与表列顺序一致）。 */
+    private static String toVoBody(Ctx c) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < c.meta.columns().size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append("d.").append(getterOf(c.meta.columns().get(i)));
+        }
+        return sb.toString();
+    }
+
+    private static String getterOf(ColumnMetaVO col) {
+        String f = col.javaField();
+        return "get" + Character.toUpperCase(f.charAt(0)) + f.substring(1) + "()";
+    }
+
+    private static String classLiteral(String javaType) {
+        return switch (javaType) {
+            case "String" -> "String";
+            case "Long" -> "Long";
+            case "Integer" -> "Integer";
+            case "BigDecimal" -> "BigDecimal";
+            case "LocalDate" -> "LocalDate";
+            case "LocalDateTime" -> "LocalDateTime";
+            case "LocalTime" -> "LocalTime";
+            case "Boolean" -> "Boolean";
+            default -> "String";
+        };
     }
 
     private static String toUpperSnake(String tableName) {
