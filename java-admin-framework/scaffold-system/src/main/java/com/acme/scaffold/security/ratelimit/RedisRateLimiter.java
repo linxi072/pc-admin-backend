@@ -61,7 +61,11 @@ public class RedisRateLimiter implements RateLimiter {
         long windowStart = nowMillis - (nowMillis % windowMillis);
         String redisKey = properties.getKeyPrefix() + ":" + key + ":" + windowStart;
         try {
-            Long count = redisTemplate.execute(FIXED_WINDOW_SCRIPT, List.of(redisKey), windowMillis);
+            // 注意：redisTemplate 是 StringRedisTemplate，其 args 序列化器为 StringRedisSerializer，
+            // 仅接受 String。windowMillis 虽为 Long，但 Lua 脚本把它当作字符串数字（pexpire 的毫秒数）
+            // 使用，故此处转成 String 传入，避免 DefaultScriptExecutor 用 StringRedisSerializer
+            // 序列化 Long 触发 ClassCastException（java.lang.Long cannot be cast to java.lang.String）。
+            Long count = redisTemplate.execute(FIXED_WINDOW_SCRIPT, List.of(redisKey), String.valueOf(windowMillis));
             if (count == null) {
                 log.warn("Redis 限流计数返回空（key={}），回落本地计数", redisKey);
                 return fallback.tryAcquire(key, max, windowSeconds, nowMillis);
