@@ -54,6 +54,7 @@ class TenantOverviewServiceTest {
         when(governanceService.dataOverview()).thenReturn(List.of(
                 new TenantDataOverview(1L, "租户一", 10L, Map.of("sys_user", 10L)),
                 new TenantDataOverview(2L, "租户二", 5L, Map.of("sys_user", 5L))));
+        when(governanceService.userCountByTenant()).thenReturn(Map.of(1L, 3L, 2L, 1L));
         when(isolationAuditService.scanViolations()).thenReturn(
                 List.of(new TenantIsolationTableViolation("sys_user", 0L)));
 
@@ -69,12 +70,19 @@ class TenantOverviewServiceTest {
         assertTrue(v.isolationAudit().safeToEnable());
         assertEquals(2, v.tenants().size());
 
+        // 运营指标增强：跨租户用户总数 / 停用数 / 即将过期数
+        assertEquals(4L, v.totalUserCount());
+        assertEquals(1, v.disabledTenantCount());
+        assertEquals(0, v.expiringSoonCount());
+
         TenantOverviewItem t1 = v.tenants().stream()
                 .filter(t -> t.tenantId() == 1L).findFirst().orElseThrow();
         assertEquals("租户一", t1.tenantName());
         assertEquals("ENABLED", t1.status());
         assertEquals(10L, t1.totalRows());
         assertEquals(10L, t1.tableCounts().get("sys_user"));
+        assertEquals(3L, t1.userCount());
+        assertFalse(t1.expiringSoon());
     }
 
     @Test

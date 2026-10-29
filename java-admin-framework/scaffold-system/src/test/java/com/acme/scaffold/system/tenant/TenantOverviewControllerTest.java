@@ -21,7 +21,7 @@ class TenantOverviewControllerTest {
     void overviewReturnsAggregatedView() {
         TenantOverviewService service = mock(TenantOverviewService.class);
         TenantOverviewView view = new TenantOverviewView(
-                false, 1, 1, 5, null, List.of(), LocalDateTime.now());
+                false, 1, 1, 5, 0L, 0, 0, null, List.of(), LocalDateTime.now());
         when(service.buildOverview()).thenReturn(view);
 
         TenantOverviewController controller = new TenantOverviewController(service);
