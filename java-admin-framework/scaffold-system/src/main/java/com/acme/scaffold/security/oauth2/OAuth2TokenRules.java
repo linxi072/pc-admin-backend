@@ -14,13 +14,16 @@ import java.util.Map;
 public final class OAuth2TokenRules {
 
     public static final String GRANT_CLIENT_CREDENTIALS = "client_credentials";
-    public static final List<String> SUPPORTED_GRANTS = List.of(GRANT_CLIENT_CREDENTIALS);
+    public static final String GRANT_PASSWORD = "password";
+    public static final String GRANT_AUTHORIZATION_CODE = "authorization_code";
+    public static final List<String> SUPPORTED_GRANTS =
+            List.of(GRANT_CLIENT_CREDENTIALS, GRANT_PASSWORD, GRANT_AUTHORIZATION_CODE);
 
     private OAuth2TokenRules() {
     }
 
     /**
-     * 校验令牌请求基本形态（grant_type 受支持且 client_id / client_secret 齐备）。
+     * 校验 {@code client_credentials} 授权请求基本形态（grant_type 受支持且 client_id / client_secret 齐备）。
      *
      * @return 错误列表，空列表表示通过；首个错误即对应 OAuth2 错误码 {@code invalid_request}。
      */
@@ -36,6 +39,37 @@ public final class OAuth2TokenRules {
         }
         if (clientSecret == null || clientSecret.isBlank()) {
             errors.add("client_secret 必填");
+        }
+        return errors;
+    }
+
+    /**
+     * 校验 {@code password} 授权请求形态（在 client_credentials 基础上要求 username / password）。
+     */
+    public static List<String> validatePasswordGrant(String grantType, String clientId, String clientSecret,
+                                                     String username, String password) {
+        List<String> errors = validateGrant(grantType, clientId, clientSecret);
+        if (errors.isEmpty()) {
+            if (username == null || username.isBlank()) {
+                errors.add("username 必填");
+            }
+            if (password == null || password.isBlank()) {
+                errors.add("password 必填");
+            }
+        }
+        return errors;
+    }
+
+    /**
+     * 校验 {@code authorization_code} 授权请求形态（在 client_credentials 基础上要求 code）。
+     */
+    public static List<String> validateAuthorizationCodeGrant(String grantType, String clientId, String clientSecret,
+                                                              String code, String redirectUri) {
+        List<String> errors = validateGrant(grantType, clientId, clientSecret);
+        if (errors.isEmpty()) {
+            if (code == null || code.isBlank()) {
+                errors.add("code 必填");
+            }
         }
         return errors;
     }

@@ -70,6 +70,8 @@ public class SecurityConfig {
             // 真实安全性由端点内 client 认证（client_id/client_secret 校验）承担
             new AntPathRequestMatcher("/oauth2/token", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/oauth2/jwks", HttpMethod.GET.name()),
+            // 令牌自省端点（RFC 7662）：匿名可到达，由端点内部校验调用方凭证（Bearer 或 client Basic）
+            new AntPathRequestMatcher("/oauth2/introspect", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/error"));
 
     /** Swagger / OpenAPI 文档端点（是否公开由 {@code app.swagger.public-access} 决定）。 */

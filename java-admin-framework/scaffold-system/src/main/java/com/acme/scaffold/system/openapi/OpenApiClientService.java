@@ -228,6 +228,30 @@ public class OpenApiClientService {
         return d;
     }
 
+    /**
+     * 仅按 client_id 取「启用中」的客户端（不校验密钥），供授权端点校验客户端合法性与授权范围。
+     *
+     * @throws BusinessException 客户端不存在 / 已注销 / 已停用 / 已过期
+     */
+    public OpenApiClientDO getActiveClient(String clientId) {
+        if (!StringUtils.hasText(clientId)) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端标识缺失");
+        }
+        OpenApiClientDO d = JooqWriters.fetchOne(dsl, JooqTables.OPENAPI_CLIENT, OpenApiClientDO.class,
+                DSL.and(JooqWriters.notDeleted(JooqTables.OPENAPI_CLIENT),
+                        JooqTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
+        if (d == null) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端不存在或已注销");
+        }
+        if (!"ENABLED".equals(d.getStatus())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已停用");
+        }
+        if (d.getExpiredAt() != null && d.getExpiredAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已过期");
+        }
+        return d;
+    }
+
     /** 统一筛选条件：逻辑删除恒成立；client_id 模糊匹配/状态精确匹配按需收敛。 */
     private Condition buildCondition(String clientId, String status) {
         List<Condition> conds = new ArrayList<>();
