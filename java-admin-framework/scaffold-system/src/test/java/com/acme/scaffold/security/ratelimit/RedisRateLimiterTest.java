@@ -101,4 +101,36 @@ class RedisRateLimiterTest {
         verify(redisTemplate).execute(any(), keysCaptor.capture(), any());
         assertEquals("rl:ip:k:600000", keysCaptor.getValue().get(0));
     }
+
+    /**
+     * 回归测试：复现「首页登录异常」根因（StringRedisTemplate 的 args 序列化器为
+     * StringRedisSerializer，只接受 String）。脚本参数（窗口毫秒数）必须以 String 形式传入，
+     * 否则 DefaultScriptExecutor 用 StringRedisSerializer 序列化 Long 会抛出
+     * ClassCastException: java.lang.Long cannot be cast to java.lang.String。
+     *
+     * <p>该用例通过 Answer 拦截实际传入 execute 的实参并断言其类型，在修复前会因
+     * 参数为 Long 而失败，修复后（String.valueOf(windowMillis)）通过。
+     */
+    @Test
+    void scriptArgsMustBeString_forStringRedisTemplate() {
+        InMemoryRateLimiter fallback = new InMemoryRateLimiter();
+        RedisRateLimiter limiter = new RedisRateLimiter(redisTemplate, fallback, new RateLimitProperties());
+
+        when(redisTemplate.execute(any(), anyList(), any())).thenAnswer(invocation -> {
+            Object[] allArgs = invocation.getArguments();
+            // 签名：execute(RedisScript, List<K> keys, Object... args) -> varargs 展开为独立实参
+            // allArgs[0]=script, allArgs[1]=keys, allArgs[2..]=脚本 ARGV
+            assertTrue(allArgs.length >= 3, "应至少传入 1 个脚本参数（窗口毫秒数）");
+            for (int i = 2; i < allArgs.length; i++) {
+                assertTrue(allArgs[i] instanceof String,
+                        "StringRedisTemplate 的脚本参数必须是 String，但第 " + (i - 1)
+                                + " 个参数为 " + (allArgs[i] == null ? "null" : allArgs[i].getClass()));
+            }
+            return 1L;
+        });
+
+        // 故意使用 windowSeconds 使 windowMillis 为较大 Long，回归真正的类型场景
+        assertTrue(limiter.tryAcquire("ip:arg", 3, 60, 1_000_000L));
+        verify(redisTemplate, times(1)).execute(any(), anyList(), any());
+    }
 }
