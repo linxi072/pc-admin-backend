@@ -144,6 +144,7 @@ export default {
       tenantIsolation: '租户隔离态势',
       realtime: '实时推送',
       dataScope: '数据权限',
+      permissionPolicy: '字段数据权限',
       formPilot: '低代码表单',
       formDefinition: '表单定义管理',
       openApiClient: '开放平台客户端'
@@ -296,6 +297,7 @@ export default {
       tenantIsolation: 'Tenant Isolation Status',
       realtime: 'Realtime Push',
       dataScope: 'Data Permission',
+      permissionPolicy: 'Column & Data Permission',
       formPilot: 'Low-code Form',
       formDefinition: 'Form Definition',
       openApiClient: 'Open Platform Clients'

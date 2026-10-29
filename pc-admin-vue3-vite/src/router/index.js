@@ -301,6 +301,15 @@ const routes = [
         meta: { title: 'route.dataScope', permission: 'system:data-scope:read' }
       },
       {
+        // 字段/数据权限统一配置（M41）：同一页面内以 Tab 同时配置「行级数据范围」与「列级字段明文可见权」，
+        // 资源清单分别由后端 DataScopeResourceRegistry / ColumnPermissionResourceRegistry 自动扫描得到；
+        // 菜单与权限由后端驱动（menu_code=system:permission-policy, permission=system:column-permission:read；保存另需 system:role:update）
+        path: 'system/permission-policy',
+        name: 'permissionPolicy',
+        component: () => import('@/views/system/PermissionPolicyView.vue'),
+        meta: { title: 'route.permissionPolicy', permission: 'system:column-permission:read' }
+      },
+      {
         // 低代码表单试点（V47 / M22 spike）：Schema 契约 + 零依赖渲染验证，提交落库与绑定目标
         // 为正式立项决策点；菜单与权限由后端驱动（menu_code=system:form-pilot,
         // permission=system:form-definition:read）
