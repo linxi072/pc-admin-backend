@@ -24,6 +24,17 @@ export default defineConfig({
         target: 'http://127.0.0.1:8080',
         ws: true,
         changeOrigin: true
+      },
+      // 健康探针（k8s 风格根路径 /livez、/readyz，permitAll，无 /api 前缀）：
+      // 前端健康页直接消费这两个端点，dev 下需与 /api、/ws 一同代理到本地 8080；
+      // 生产由同源后端直接处理根路径探针。
+      '/livez': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true
+      },
+      '/readyz': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true
       }
     }
   }

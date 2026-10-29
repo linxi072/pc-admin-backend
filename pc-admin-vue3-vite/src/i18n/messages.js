@@ -147,7 +147,21 @@ export default {
       permissionPolicy: '字段数据权限',
       formPilot: '低代码表单',
       formDefinition: '表单定义管理',
-      openApiClient: '开放平台客户端'
+      openApiClient: '开放平台客户端',
+      health: '健康探针'
+    },
+    health: {
+      scope: '存活探针（liveness）仅依赖 JVM，就绪探针（readiness）检查数据库等必需依赖。两者均为 k8s 风格根路径端点，实时反映实例健康态，仅供运维只读诊断。',
+      refresh: '刷新',
+      autoRefresh: '自动刷新（10s）',
+      lastRefresh: '最近刷新',
+      liveness: '存活探针',
+      readiness: '就绪探针',
+      up: '健康',
+      down: '异常',
+      unreachable: '探针不可达',
+      unreachableHint: '存活与就绪探针均不可达，请确认后端已启动且 vite 代理已转发 /livez、/readyz。',
+      format: '探针返回格式异常（请确认 vite 代理已转发 /livez、/readyz）'
     },
     error: {
       network: '网络错误',
@@ -300,7 +314,21 @@ export default {
       permissionPolicy: 'Column & Data Permission',
       formPilot: 'Low-code Form',
       formDefinition: 'Form Definition',
-      openApiClient: 'Open Platform Clients'
+      openApiClient: 'Open Platform Clients',
+      health: 'Health Probe'
+    },
+    health: {
+      scope: 'Liveness depends only on the JVM; readiness checks required dependencies such as the database. Both are k8s-style root endpoints reflecting real-time instance health, read-only for ops diagnostics.',
+      refresh: 'Refresh',
+      autoRefresh: 'Auto refresh (10s)',
+      lastRefresh: 'Last refresh',
+      liveness: 'Liveness',
+      readiness: 'Readiness',
+      up: 'Healthy',
+      down: 'Down',
+      unreachable: 'Probe unreachable',
+      unreachableHint: 'Both liveness and readiness probes are unreachable. Ensure the backend is up and vite proxies /livez and /readyz.',
+      format: 'Unexpected probe response format (ensure vite proxies /livez and /readyz)'
     },
     error: {
       network: 'Network error',

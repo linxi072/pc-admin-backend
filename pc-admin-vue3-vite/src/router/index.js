@@ -345,6 +345,16 @@ const routes = [
         name: 'observabilityCenter',
         component: () => import('@/views/monitor/ObservabilityCenterView.vue'),
         meta: { title: 'route.observabilityCenter', permission: 'system:monitor:read' }
+      },
+      {
+        // 健康探针（M42）：可视化 /livez、/readyz 两个 k8s 风格根路径探针的存活/就绪状态与明细，
+        // 后端 ProbeController（scaffold-monitor）已提供，permitAll；读权限复用监控域基础权限
+        // system:monitor:read（与「系统监控」「缓存监控」同权），菜单与权限由后端驱动
+        // （menu_code=system:health, permission=system:monitor:read）
+        path: 'system/health',
+        name: 'health',
+        component: () => import('@/views/system/HealthView.vue'),
+        meta: { title: 'route.health', permission: 'system:monitor:read' }
       }
     ]
   },
