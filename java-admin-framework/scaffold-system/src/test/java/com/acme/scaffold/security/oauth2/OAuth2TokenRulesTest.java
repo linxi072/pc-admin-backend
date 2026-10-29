@@ -25,7 +25,7 @@ class OAuth2TokenRulesTest {
     @DisplayName("缺少参数或不受支持的 grant 均报错")
     void validateGrant_invalid() {
         assertFalse(OAuth2TokenRules.validateGrant(null, "id", "pw").isEmpty());
-        assertFalse(OAuth2TokenRules.validateGrant("password", "id", "pw").isEmpty());
+        assertFalse(OAuth2TokenRules.validateGrant("refresh_token", "id", "pw").isEmpty());
         assertFalse(OAuth2TokenRules.validateGrant("client_credentials", null, "pw").isEmpty());
         assertFalse(OAuth2TokenRules.validateGrant("client_credentials", "id", null).isEmpty());
     }
