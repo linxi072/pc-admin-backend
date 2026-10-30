@@ -4,6 +4,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.ConfigGroupVO;
 import com.acme.scaffold.system.dto.ConfigVO;
 import com.acme.scaffold.system.dto.CreateConfigRequest;
@@ -38,10 +39,13 @@ public class ConfigService {
     private final DSLContext dsl;
     private final Map<String, ConfigVO> cache = new ConcurrentHashMap<>();
 
+    /** 桥接自代码生成层 {@code Tables.SYS_CONFIG} 的类型安全表引用（B14）。 */
+    private static final JooqTables.TableRef CONFIG = JooqTables.toTableRef(Tables.SYS_CONFIG);
+
     public List<ConfigVO> list() {
-        List<SysConfigDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_CONFIG, SysConfigDO.class,
-                JooqWriters.notDeleted(JooqTables.SYS_CONFIG),
-                JooqTables.SYS_CONFIG.field("config_key", String.class).asc());
+        List<SysConfigDO> all = JooqWriters.fetchList(dsl, CONFIG, SysConfigDO.class,
+                JooqWriters.notDeleted(CONFIG),
+                Tables.SYS_CONFIG.CONFIG_KEY.asc());
         return all.stream().map(this::toVO).collect(Collectors.toList());
     }
 
@@ -86,9 +90,9 @@ public class ConfigService {
         if (cached != null) {
             return cached;
         }
-        SysConfigDO c = JooqWriters.fetchOne(dsl, JooqTables.SYS_CONFIG, SysConfigDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_CONFIG),
-                        JooqTables.SYS_CONFIG.field("config_key", String.class).eq(key)));
+        SysConfigDO c = JooqWriters.fetchOne(dsl, CONFIG, SysConfigDO.class,
+                DSL.and(JooqWriters.notDeleted(CONFIG),
+                        Tables.SYS_CONFIG.CONFIG_KEY.eq(key)));
         if (c == null) {
             return null;
         }
@@ -111,14 +115,14 @@ public class ConfigService {
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? 1 : req.editable());
         c.setStatus(req.status() == null ? "ACTIVE" : req.status());
-        JooqWriters.insert(dsl, JooqTables.SYS_CONFIG, c);
+        JooqWriters.insert(dsl, CONFIG, c);
         cache.put(req.configKey(), toVO(c));
         return c.getId();
     }
 
     @Transactional
     public void update(Long id, UpdateConfigRequest req) {
-        SysConfigDO existing = JooqWriters.fetchById(dsl, JooqTables.SYS_CONFIG, SysConfigDO.class, id);
+        SysConfigDO existing = JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id);
         if (existing == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "配置不存在");
         }
@@ -135,18 +139,18 @@ public class ConfigService {
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? existing.getEditable() : req.editable());
         c.setStatus(req.status() == null ? existing.getStatus() : req.status());
-        JooqWriters.updateById(dsl, JooqTables.SYS_CONFIG, id, c);
+        JooqWriters.updateById(dsl, CONFIG, id, c);
         cache.remove(oldKey);
         cache.put(req.configKey(), toVO(c));
     }
 
     @Transactional
     public void delete(Long id) {
-        SysConfigDO existing = JooqWriters.fetchById(dsl, JooqTables.SYS_CONFIG, SysConfigDO.class, id);
+        SysConfigDO existing = JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id);
         if (existing == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "配置不存在");
         }
-        JooqWriters.delete(dsl, JooqTables.SYS_CONFIG, id, true);
+        JooqWriters.delete(dsl, CONFIG, id, true);
         cache.remove(existing.getConfigKey());
     }
 
@@ -156,8 +160,8 @@ public class ConfigService {
     }
 
     private boolean existsByKey(String key) {
-        return JooqWriters.count(dsl, JooqTables.SYS_CONFIG,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_CONFIG),
-                        JooqTables.SYS_CONFIG.field("config_key", String.class).eq(key))) > 0;
+        return JooqWriters.count(dsl, CONFIG,
+                DSL.and(JooqWriters.notDeleted(CONFIG),
+                        Tables.SYS_CONFIG.CONFIG_KEY.eq(key))) > 0;
     }
 }
