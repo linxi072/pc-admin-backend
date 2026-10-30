@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.openapi.rules;
+package com.acme.scaffold.common.oauth2;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;

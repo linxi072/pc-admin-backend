@@ -1,8 +1,6 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
-import com.acme.scaffold.system.openapi.OpenApiClientService;
-import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OAuth2AuthorizeEndpointTest {
 
     @Mock
-    private OpenApiClientService clientService;
+    private OAuth2ClientDataPort clientPort;
     @Mock
     private OAuth2AuthorizationCodeService codeService;
 
@@ -64,10 +62,7 @@ class OAuth2AuthorizeEndpointTest {
     @Test
     @DisplayName("已认证资源拥有者 + 合法客户端 → 返回授权码")
     void authorize_success() throws Exception {
-        OpenApiClientDO client = new OpenApiClientDO();
-        client.setClientId("c1");
-        client.setScopes("read");
-        when(clientService.getActiveClient("c1")).thenReturn(client);
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
         withPrincipal();
         when(codeService.issue(eq("c1"), any(), any())).thenReturn("thecode");
 
@@ -81,10 +76,7 @@ class OAuth2AuthorizeEndpointTest {
     @Test
     @DisplayName("资源拥有者未认证 → 401 login_required")
     void authorize_requiresLogin() throws Exception {
-        OpenApiClientDO client = new OpenApiClientDO();
-        client.setClientId("c1");
-        client.setScopes("read");
-        when(clientService.getActiveClient("c1")).thenReturn(client);
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
 
         mockMvc.perform(get("/oauth2/authorize")
                         .param("response_type", "code")
@@ -96,10 +88,7 @@ class OAuth2AuthorizeEndpointTest {
     @Test
     @DisplayName("请求 scope 超出客户端授权范围 → 400 invalid_scope")
     void authorize_invalidScope() throws Exception {
-        OpenApiClientDO client = new OpenApiClientDO();
-        client.setClientId("c1");
-        client.setScopes("read");
-        when(clientService.getActiveClient("c1")).thenReturn(client);
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
         withPrincipal();
 
         mockMvc.perform(get("/oauth2/authorize")

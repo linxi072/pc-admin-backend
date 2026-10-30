@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 /**
  * 创建开放平台客户端请求。
  *
- * <p>结构校验由 {@link com.acme.scaffold.system.openapi.rules.OpenApiClientRules#validate} 兜底；
+ * <p>结构校验由 {@link com.acme.scaffold.common.oauth2.OpenApiClientRules#validate} 兜底；
  * 此处以 Bean Validation 做入参层面的快速失败（非空与长度上限）。scopes 逗号分隔（如 {@code read,write}），
  * 空值回落默认 {@code read}。</p>
  */

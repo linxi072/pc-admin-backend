@@ -1,7 +1,7 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.system.openapi.OpenApiClientService;
+import com.acme.scaffold.security.oauth2.OAuth2ClientDataPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,11 +35,11 @@ import java.util.Map;
 public class OAuth2IntrospectionEndpoint {
 
     private final JwtDecoder decoder;
-    private final OpenApiClientService clientService;
+    private final OAuth2ClientDataPort clientPort;
 
-    public OAuth2IntrospectionEndpoint(JwtDecoder decoder, OpenApiClientService clientService) {
+    public OAuth2IntrospectionEndpoint(JwtDecoder decoder, OAuth2ClientDataPort clientPort) {
         this.decoder = decoder;
-        this.clientService = clientService;
+        this.clientPort = clientPort;
     }
 
     @PostMapping(value = "/introspect", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -89,7 +89,7 @@ public class OAuth2IntrospectionEndpoint {
                 return false;
             }
             try {
-                clientService.authenticateClient(decoded.substring(0, idx), decoded.substring(idx + 1));
+                clientPort.authenticate(decoded.substring(0, idx), decoded.substring(idx + 1));
                 return true;
             } catch (BusinessException e) {
                 return false;
