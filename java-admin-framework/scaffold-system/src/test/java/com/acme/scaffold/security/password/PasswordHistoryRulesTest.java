@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.password;
 
-import com.acme.scaffold.system.entity.SysPasswordHistoryDO;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -47,7 +46,7 @@ class PasswordHistoryRulesTest {
 
     @Test
     void idsToPrune_keepsMostRecentLimit() {
-        List<SysPasswordHistoryDO> all = List.of(
+        List<PasswordHistoryRecord> all = List.of(
                 h(1L, LocalDateTime.of(2024, 1, 1, 0, 0)),
                 h(2L, LocalDateTime.of(2024, 1, 2, 0, 0)),
                 h(3L, LocalDateTime.of(2024, 1, 3, 0, 0)),
@@ -55,23 +54,20 @@ class PasswordHistoryRulesTest {
                 h(5L, LocalDateTime.of(2024, 1, 5, 0, 0)),
                 h(6L, LocalDateTime.of(2024, 1, 6, 0, 0)),
                 h(7L, LocalDateTime.of(2024, 1, 7, 0, 0)));
-        // limit=5：保留最近 5 条（3,4,5,6,7），删除最旧的 1,2
+        // limit=5：保留最近 5 条（3,4,5,6,7），删除最旧的 1,2（按时间降序，自旧到新返回）
         assertEquals(List.of(2L, 1L), PasswordHistoryRules.idsToPrune(all, 5));
     }
 
     @Test
     void idsToPrune_noPruneWhenWithinLimit() {
-        List<SysPasswordHistoryDO> all = List.of(
+        List<PasswordHistoryRecord> all = List.of(
                 h(1L, LocalDateTime.of(2024, 1, 1, 0, 0)),
                 h(2L, LocalDateTime.of(2024, 1, 2, 0, 0)));
         assertEquals(List.of(), PasswordHistoryRules.idsToPrune(all, 5));
         assertEquals(List.of(), PasswordHistoryRules.idsToPrune(null, 5));
     }
 
-    private static SysPasswordHistoryDO h(Long id, LocalDateTime t) {
-        SysPasswordHistoryDO d = new SysPasswordHistoryDO();
-        d.setId(id);
-        d.setCreatedAt(t);
-        return d;
+    private static PasswordHistoryRecord h(Long id, LocalDateTime t) {
+        return new PasswordHistoryRecord(id, t);
     }
 }

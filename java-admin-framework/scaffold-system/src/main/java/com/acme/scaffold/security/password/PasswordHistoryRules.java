@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.password;
 
-import com.acme.scaffold.system.entity.SysPasswordHistoryDO;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
@@ -12,6 +11,7 @@ import java.util.List;
  *
  * <p>设计文档 §5.3：「保留最近 5 次密码哈希，禁止重复使用」。
  * 判定与历史裁剪均为无副作用函数，仅以参数注入必要的 {@link PasswordEncoder}（仅用于哈希匹配）。
+ * 裁剪所需的轻量快照使用 {@link PasswordHistoryRecord}，不再依赖 system.entity。</p>
  */
 public final class PasswordHistoryRules {
 
@@ -42,20 +42,20 @@ public final class PasswordHistoryRules {
      * 计算超出保留上限、需物理删除的历史记录 id。
      * 按 {@code createdAt} 降序保留最近 {@code limit} 条，其余返回待删除 id（从旧到新）。
      *
-     * @param all   该用户的全部历史记录（无序）
+     * @param all   该用户的全部历史记录（无序，轻量快照）
      * @param limit 保留条数上限（设计文档约定 5）
      * @return 需要删除的记录主键列表
      */
-    public static List<Long> idsToPrune(List<SysPasswordHistoryDO> all, int limit) {
+    public static List<Long> idsToPrune(List<PasswordHistoryRecord> all, int limit) {
         if (all == null || all.size() <= limit) {
             return List.of();
         }
-        List<SysPasswordHistoryDO> sorted = new ArrayList<>(all);
-        sorted.sort(Comparator.comparing(SysPasswordHistoryDO::getCreatedAt,
+        List<PasswordHistoryRecord> sorted = new ArrayList<>(all);
+        sorted.sort(Comparator.comparing(PasswordHistoryRecord::createdAt,
                 Comparator.nullsLast(Comparator.reverseOrder())));
         List<Long> prune = new ArrayList<>();
         for (int i = limit; i < sorted.size(); i++) {
-            prune.add(sorted.get(i).getId());
+            prune.add(sorted.get(i).id());
         }
         return prune;
     }
