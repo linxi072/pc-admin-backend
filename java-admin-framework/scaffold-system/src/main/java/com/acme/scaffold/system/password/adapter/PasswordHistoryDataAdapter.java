@@ -2,6 +2,7 @@ package com.acme.scaffold.system.password.adapter;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.password.PasswordHistoryDataPort;
 import com.acme.scaffold.security.password.PasswordHistoryRecord;
 import com.acme.scaffold.system.entity.SysPasswordHistoryDO;
@@ -24,6 +25,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PasswordHistoryDataAdapter implements PasswordHistoryDataPort {
 
+    private static final JooqTables.TableRef PH = JooqTables.toTableRef(Tables.SYS_PASSWORD_HISTORY);
+
     private final DSLContext dsl;
 
     @Override
@@ -32,28 +35,28 @@ public class PasswordHistoryDataAdapter implements PasswordHistoryDataPort {
         entity.setUserId(userId);
         entity.setPasswordHash(encodedHash);
         entity.setCreatedAt(createdAt);
-        JooqWriters.insert(dsl, JooqTables.SYS_PASSWORD_HISTORY, entity);
+        JooqWriters.insert(dsl, PH, entity);
     }
 
     @Override
     public List<String> recentHashes(Long userId, int limit) {
-        List<SysPasswordHistoryDO> recent = JooqWriters.fetchList(dsl, JooqTables.SYS_PASSWORD_HISTORY,
+        List<SysPasswordHistoryDO> recent = JooqWriters.fetchList(dsl, PH,
                 SysPasswordHistoryDO.class,
-                JooqTables.SYS_PASSWORD_HISTORY.field("user_id", Long.class).eq(userId),
-                JooqTables.SYS_PASSWORD_HISTORY.field("created_at", LocalDateTime.class).desc());
+                Tables.SYS_PASSWORD_HISTORY.USER_ID.eq(userId),
+                Tables.SYS_PASSWORD_HISTORY.CREATED_AT.desc());
         return recent.stream().limit(limit).map(SysPasswordHistoryDO::getPasswordHash).collect(Collectors.toList());
     }
 
     @Override
     public List<PasswordHistoryRecord> allRecords(Long userId) {
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_PASSWORD_HISTORY, SysPasswordHistoryDO.class,
-                        JooqTables.SYS_PASSWORD_HISTORY.field("user_id", Long.class).eq(userId)).stream()
+        return JooqWriters.fetchList(dsl, PH, SysPasswordHistoryDO.class,
+                        Tables.SYS_PASSWORD_HISTORY.USER_ID.eq(userId)).stream()
                 .map(d -> new PasswordHistoryRecord(d.getId(), d.getCreatedAt()))
                 .collect(Collectors.toList());
     }
 
     @Override
     public void delete(Long id) {
-        JooqWriters.delete(dsl, JooqTables.SYS_PASSWORD_HISTORY, id, false);
+        JooqWriters.delete(dsl, PH, id, false);
     }
 }
