@@ -5,6 +5,7 @@ import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
+import com.acme.scaffold.workbench.report.stats.ReportStats;
 import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
 import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
 import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
@@ -33,7 +34,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -58,9 +58,9 @@ import java.util.Optional;
  *   <li><b>连续序列补零</b>：趋势按天/小时分桶后，对窗口内所有桶位（含无数据的桶）统一补零，
  *       前端可直接渲染折线/面积图，无需二次补点；</li>
  *   <li><b>关键字筛选</b>：JOB_EXEC→任务名、LOGIN→用户名、API_CALL→请求路径，含 SQL 通配符转义；</li>
- *   <li><b>纯函数可测</b>：时间窗解析见 {@link ReportRange}，连续补零见 {@code fillHourly/fillDaily}，
- *       分布换算见 {@code toDistribution}，P95 见 {@link #p95Of(List)}，关键字条件见 {@link #keywordCondition}，
- *       均以静态方法暴露，便于离线单测；</li>
+ *   <li><b>纯函数可测</b>：时间窗解析见 {@link ReportRange}；统计纯函数（连续补零 {@code fillHourly/fillDaily}、
+ *       分布换算 {@code toDistribution}、P95 {@code p95Of}）已抽离至 {@link ReportStats}，便于离线单测；
+ *       关键字条件见 {@link #keywordCondition}；</li>
  *   <li><b>P95 策略</b>：样本量 ≤ {@value #P95_MEMORY_LIMIT} 时内存精确计算（最近秩法），
  *       超过则退化为最大值，避免大窗口全量排序拖垮数据库；</li>
  *   <li><b>单租户口径</b>：当前 scaffold 为单租户，统一按 {@code tenant_id = 0} 收敛。</li>
@@ -72,9 +72,7 @@ public class ReportService {
 
     private final DSLContext dsl;
 
-    /** 趋势序列空桶占位（[主指标, 次指标]；第三元素失败数缺省为 0）。 */
-    private static final long[] ZERO = {0L, 0L};
-    private static final DateTimeFormatter DAY_FMT = DateTimeFormatter.ofPattern("MM-dd");
+    /** 趋势序列空桶占位转由 {@link ReportStats} 承载（见 {@code ReportStats#ZERO}）。 */
     private static final DateTimeFormatter WINDOW_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DETAIL_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -83,13 +81,9 @@ public class ReportService {
     /** P95 内存精确计算的最大样本量（超过则退化为 max，避免大窗口全量排序）。 */
     private static final int P95_MEMORY_LIMIT = 5000;
     /**
-     * 耗时分布分桶标签（与 {@link #durationCounts} 聚合顺序严格一致）。
-     *
-     * <p>SQL 侧按「NULL 桶优先」聚合（见 {@code durationCounts}），故此处首元素必须是「无耗时记录」，
-     * 否则整体标签错位一位（历史缺陷：标签曾按「<100ms 打头」排列，导致 NULL 桶被标成 <100ms）。</p>
+     * 耗时分布分桶标签（与持久层 {@code durationCounts} SQL 聚合顺序严格一致）已迁移至
+     * {@link ReportStats#DURATION_LABELS}，本类不再持有常量。
      */
-    private static final String[] DURATION_LABELS =
-            {"无耗时记录", "<100ms", "100-500ms", "500ms-1s", "1s-5s", ">5s"};
     /** 定时任务日志状态：成功。 */
     private static final String JOB_STATUS_SUCCESS = "SUCCESS";
     /** 定时任务日志状态：失败。 */
@@ -528,7 +522,7 @@ public class ReportService {
     // 耗时分布 / 平均 / 最大 / P95
     // ------------------------------------------------------------------
 
-    /** 耗时分布：SQL 侧 CASE 聚合（避免大窗口全量拉取），标签见 {@link #DURATION_LABELS}。 */
+    /** 耗时分布：SQL 侧 CASE 聚合（避免大窗口全量拉取），标签见 {@link ReportStats#DURATION_LABELS}。 */
     private List<ReportDistributionVO> durationDistribution(Condition cond, TableRef t, long total) {
         return toDistribution(durationCounts(cond, t));
     }
@@ -554,20 +548,12 @@ public class ReportService {
     }
 
     /**
-     * 分布换算（纯函数）：计数 → 标签 + 占比（保留 1 位小数，总量 0 时全记 0.0）。
+     * 分布换算：委托 {@link ReportStats#toDistribution}（纯函数已抽离至 {@code report.stats}）。
      *
-     * @param counts 与 {@link #DURATION_LABELS} 顺序一致的 6 个分桶计数
+     * @param counts 与 {@link ReportStats#DURATION_LABELS} 顺序一致的 6 个分桶计数
      */
     static List<ReportDistributionVO> toDistribution(long[] counts) {
-        long total = 0L;
-        for (long c : counts) {
-            total += c;
-        }
-        List<ReportDistributionVO> out = new ArrayList<>(counts.length);
-        for (int i = 0; i < counts.length; i++) {
-            out.add(new ReportDistributionVO(DURATION_LABELS[i], counts[i], ratio(counts[i], total)));
-        }
-        return out;
+        return ReportStats.toDistribution(counts);
     }
 
     private long avgDuration(Condition cond, TableRef t) {
@@ -602,31 +588,10 @@ public class ReportService {
     }
 
     /**
-     * P95 计算（纯函数，最近秩法）：第 {@code ceil(0.95*n)} 个最小值（1-based）。
-     * 忽略 null 样本；空样本返回 0。
+     * P95 计算：委托 {@link ReportStats#p95Of}（纯函数已抽离至 {@code report.stats}）。
      */
     static long p95Of(List<Long> durations) {
-        if (durations == null || durations.isEmpty()) {
-            return 0L;
-        }
-        List<Long> sorted = new ArrayList<>(durations.size());
-        for (Long d : durations) {
-            if (d != null) {
-                sorted.add(d);
-            }
-        }
-        if (sorted.isEmpty()) {
-            return 0L;
-        }
-        Collections.sort(sorted);
-        int idx = (int) Math.ceil(0.95 * sorted.size()) - 1;
-        if (idx < 0) {
-            idx = 0;
-        }
-        if (idx >= sorted.size()) {
-            idx = sorted.size() - 1;
-        }
-        return sorted.get(idx);
+        return ReportStats.p95Of(durations);
     }
 
     // ==================================================================
@@ -698,26 +663,14 @@ public class ReportService {
     // 连续序列补零（纯函数）
     // ==================================================================
 
-    /** 按 0–23 整点补零生成连续序列（纯函数，便于单测）。失败数取第三元素，缺省 0。 */
+    /** 按 0–23 整点补零生成连续序列：委托 {@link ReportStats#fillHourly}。 */
     static List<ReportSeriesPointVO> fillHourly(Map<Integer, long[]> agg) {
-        List<ReportSeriesPointVO> out = new ArrayList<>(24);
-        for (int h = 0; h < 24; h++) {
-            long[] v = agg.getOrDefault(h, ZERO);
-            long failed = v.length > 2 ? v[2] : 0L;
-            out.add(new ReportSeriesPointVO(String.format("%02d:00", h), v[0], v[1], failed));
-        }
-        return out;
+        return ReportStats.fillHourly(agg);
     }
 
-    /** 按 [from, to] 连续日期补零生成序列（纯函数，便于单测）。失败数取第三元素，缺省 0。 */
+    /** 按 [from, to] 连续日期补零生成序列：委托 {@link ReportStats#fillDaily}。 */
     static List<ReportSeriesPointVO> fillDaily(LocalDate from, LocalDate to, Map<LocalDate, long[]> agg) {
-        List<ReportSeriesPointVO> out = new ArrayList<>();
-        for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
-            long[] v = agg.getOrDefault(d, ZERO);
-            long failed = v.length > 2 ? v[2] : 0L;
-            out.add(new ReportSeriesPointVO(d.format(DAY_FMT), v[0], v[1], failed));
-        }
-        return out;
+        return ReportStats.fillDaily(from, to, agg);
     }
 
     // ==================================================================
@@ -742,10 +695,6 @@ public class ReportService {
 
     private static ReportDetailTableVO.Column col(String key, String label) {
         return new ReportDetailTableVO.Column(key, label);
-    }
-
-    private static double ratio(long count, long total) {
-        return total == 0 ? 0.0 : Math.round(count * 1000.0 / total) / 10.0;
     }
 
     private static double ratio(Number count, long total) {
