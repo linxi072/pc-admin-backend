@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-framework：框架装配层（全局 Spring 配置 + 可观测性基建 + jOOQ 监听探针）。
+
+  内容：
+  - config.datasource（多数据源路由）/ config.jooq / config.web（CORS、TraceId、
+    WebSocket 端点注册、SpringDoc）/ config.cache / config.redis / config.observability；
+  - observability.*：指标注册、链路追踪、Span 导出（OTLP 桥接）与查询端点；
+  - monitor.detection：N+1 检测与慢查询监听（jOOQ ExecuteListener，由 config.datasource/jooq 装配）。
+
+  依赖方向：framework → {common, realtime}。注意 config.jobrunr 已随周期任务
+  注册逻辑移入 scaffold-job（job.config.JobRunrConfig），避免 framework → job 成环。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-framework</artifactId>
+    <name>scaffold-framework</name>
+    <description>框架装配层：全局配置（数据源/Web/缓存/Redis/可观测）、指标与链路追踪、N+1 与慢查询探针</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-realtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

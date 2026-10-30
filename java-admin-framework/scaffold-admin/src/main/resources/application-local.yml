@@ -1,0 +1,64 @@
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+
+# 本地 JobRunr 内嵌 Dashboard 默认【关闭】，避免端口被上一实例占用导致整个应用启动失败
+# （踩坑记录：local 默认开启 dashboard 绑定 8000，旧 IDE 实例未退出时会 BindException 炸掉整个应用）。
+# 需要本地观察任务执行情况时，以环境变量 JOBRUNR_DASHBOARD_ENABLED=true 启动即可开启。
+# 端口仍可用 JOBRUNR_DASHBOARD_PORT 覆盖（默认 8001，已避开常见的 8000 冲突）。
+app:
+  datasources:
+    entries:
+      primary:
+        url: ${DB_PRIMARY_URL:jdbc:mysql://localhost:3306/scaffold?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+        username: ${DB_PRIMARY_USERNAME:root}
+        password: ${DB_PRIMARY_PASSWORD:root}
+  # 本地联调放开 Swagger 文档匿名访问（生产默认需鉴权）
+  swagger:
+    public-access: true
+      # 第二个数据源示例（按需启用，凭据走环境变量，不硬编码）：
+      # report:
+      #   url: ${DB_REPORT_URL}
+      #   username: ${DB_REPORT_USERNAME}
+      #   password: ${DB_REPORT_PASSWORD}
+
+org:
+  jobrunr:
+    background-job-server:
+      enabled: true
+    dashboard:
+      enabled: ${JOBRUNR_DASHBOARD_ENABLED:false}
+      port: ${JOBRUNR_DASHBOARD_PORT:8001}
+
+# 本地开启文档与全部端点（仅本机）
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+# 登录验证码：开启后 /api/auth/login 必须携带 GET /api/auth/captcha 下发的 token 与答案
+auth:
+  captcha:
+    enabled: true
+    expire-seconds: 120
+    max-number: 20
+    # 乘 / 除操作数上界；运算类型默认四则全集，可收窄为 operators: ADD,SUB
+    mul-max-number: 10
+    operators: ADD,SUB,MUL,DIV
+  # 请求级防重放（opt-in）：默认关闭，避免未携带时间戳/nonce 头的既有登录链路（含前端、InstanceIntegrationIT）被阻断。
+  # 启用后前端需为每个 /api/auth/login、/api/auth/refresh 请求附带 X-Request-Timestamp 与 X-Request-Nonce 头。
+  anti-replay:
+    enabled: false
+    max-clock-skew-millis: 5000
+    nonce-ttl-seconds: 60
+    max-nonce-cache-size: 100000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,threaddump,heapdump,loggers

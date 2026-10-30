@@ -95,7 +95,7 @@ $MVN -o clean package -DskipTests
 
 | 表                                                     | 创建方式                                                   |
 | ----------------------------------------------------- | ------------------------------------------------------ |
-| `sys_*` / `wf_*`（20 张，V1~V4）                          | Flyway：`src/main/resources/db/migration/V32__consolidated_schema.sql`         |
+| `sys_*` / `wf_*`（20 张，V1~V4）                          | Flyway：`scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`         |
 | `sys_dict_type` / `sys_dict_data` / `sys_config`（3 张） | Flyway：`V32__consolidated_schema.sql`（字典分类/字典数据/系统变量，含种子数据；原 V5 段）  |
 | `sys_user_role` / `sys_user_org`（2 张，纯 N:N 中间表）     | Flyway：`V32__consolidated_schema.sql`（原 V15 段，回退 V6 单列收敛） |
 | `ACT_*`（Flowable）                                     | Flowable 自动建表（`flowable.database-schema-update: true`） |
@@ -113,7 +113,7 @@ $MVN -o clean package -DskipTests
 - **数据权限联动**：`DefaultDataScopeProvider`、`DataScopeConditions` 的部门过滤与 `orgOfUser` 改走 `sys_user_org`（`is_primary=1`）子查询；`AssigneeResolver`、站内信收件解析（`MessageService.resolveReceivers`）同步基于关联表。
 - **改动面**：`JooqTables`（注册 `SYS_USER_ROLE` / `SYS_USER_ORG`、移除 `SYS_USER` 三列）、`SysUserDO`、`PermissionService`、`DefaultDataScopeProvider`、`AssigneeResolver`、`MessageService`、`DataScopeConditions`、`ProfileView` / `ProfileService`、`UserView` / `UserService` 及 `CreateUserRequest` / `UpdateUserRequest` DTO。
 
-> 部门树 + 用户多部门归属 + `SUPER_ADMIN` 角色/菜单关联的种子原见仓库根 `permission-schema.sql`（第 9–10 节）；该脚本已并入分类参考件 `db/reference/schema_ddl.sql`（逐语句带来源注释），其种子内容仍与 V32 中的 V15 段互补。
+> 部门树 + 用户多部门归属 + `SUPER_ADMIN` 角色/菜单关联的种子原见仓库根 `permission-schema.sql`（第 9–10 节）；该脚本已并入分类参考件 `scaffold-admin/src/main/resources/db/reference/schema_ddl.sql`（逐语句带来源注释），其种子内容仍与 V32 中的 V15 段互补。
 
 基于 Spring Boot 的**模块化单体**企业后台基础框架，作为后续业务系统的脚手架。覆盖：RBAC 权限、认证授权与刷新令牌、性能监控、工作流审批、统一响应/异常/分页、操作审计与脱敏追溯、写接口幂等、Token 版本失效、数据权限扩展点。
 
@@ -128,11 +128,11 @@ $MVN -o clean package -DskipTests
 
 | 类别 | 文件 | 说明 |
 | --- | --- | --- |
-| 新增（可执行） | `db/migration/V32__consolidated_schema.sql`（1882 行 / 125206 字节） | V1~V31 逐版本**原样拼接**（语句级保持原始交错顺序），供 Flyway 在全新环境一次性建库 |
-| 新增（参考件） | `db/reference/schema_ddl.sql`（1311 行）、`db/reference/data_dml.sql`（1205 行） | 全部 DDL / DML 按类型分类汇总，逐语句带 `[源文件 L行号]` 来源注释 |
-| 新增（工具） | `scripts/build_v32.py`、`scripts/build_reference.py` | 生成与校验脚本，可复现（原件删除后自动从 V32 还原重跑） |
+| 新增（可执行） | `scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`（1882 行 / 125206 字节） | V1~V31 逐版本**原样拼接**（语句级保持原始交错顺序），供 Flyway 在全新环境一次性建库 |
+| 新增（参考件） | `scaffold-admin/src/main/resources/db/reference/schema_ddl.sql`、`data_dml.sql` | 全部 DDL / DML 按类型分类汇总，逐语句带 `[源文件 L行号]` 来源注释（V1.0.3 模块拆分后随 scaffold-admin 交付；**不可直接当迁移执行**） |
+| 新增（工具，已归档） | `scripts/build_v32.py`、`scripts/build_reference.py` | 生成与校验脚本；输入 V1~V31 原件已按「原件删除」策略移除，脚本不可重跑，保留以供追溯生成方式与等价性口径（脚本头部有归档说明） |
 | 删除 | 34 个：V1~V31 共 31 个迁移 + `db/scaffold_full_init.sql` + `sql/schema.sql` + 仓库根 `permission-schema.sql` | 内容已完整并入 V32 与分类参考件 |
-| **保留** | `db/codegen/`（16 个 SQL + README） | **不是重复副本**：是 jOOQ 代码生成并行层的 H2 归一化 DDL 输入，被 `src/main/resources/jooq-codegen.xml` 的 `<scripts>` 显式引用（见 §15），删除会破坏 `mvn -Pjooq-codegen generate-sources` |
+| **保留** | `scaffold-common/src/main/resources/db/codegen/`（16 个 SQL + README） | **不是重复副本**：是 jOOQ 代码生成并行层的 H2 归一化 DDL 输入，被 `scaffold-common/src/main/resources/jooq-codegen.xml` 的 `<scripts>` 显式引用（见 §15），删除会破坏 `mvn -Pjooq-codegen generate-sources` |
 
 ### 34.2 关键约束：分类文件不能直接当迁移执行
 
@@ -177,7 +177,7 @@ VALUES (32, '32', 'consolidated schema', 'SQL', 'V32__consolidated_schema.sql', 
 
 > **checksum 取真实值**：不能手算（Java CRC32 与文件裸字节 CRC32 并不一致）。正确做法是在一个临时库上让 Flyway 真正执行一次 V32，再从该库的 `flyway_schema_history` 读出 checksum：
 > ```bash
-> mkdir -p /tmp/v32only && cp src/main/resources/db/migration/V32__consolidated_schema.sql /tmp/v32only/
+> mkdir -p /tmp/v32only && cp scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql /tmp/v32only/
 > jshell --class-path "<flyway-core>:<flyway-mysql>:<mysql-connector-j>:<gson>:<jackson-*>" /tmp/v32_flyway.jsh
 > mysql -e "SELECT checksum FROM <tmp_db>.flyway_schema_history WHERE version='32';"
 > ```
@@ -203,17 +203,23 @@ VALUES (32, '32', 'consolidated schema', 'SQL', 'V32__consolidated_schema.sql', 
 ### 34.6 影响与注意事项
 
 - **手工重建路径变化**：原 `db/scaffold_full_init.sql`（幂等手工全量初始化）已并入 V32，手工重建改为「全新库 + 执行 V32」；V32 非幂等，仅在空库或已按 §34.4 处理历史的库上执行。
-- **代码生成层不受影响**：`db/codegen/` 保留，`jooq-codegen.xml` 引用路径不变。
+- **代码生成层不受影响**：`scaffold-common/src/main/resources/db/codegen/` 保留，`jooq-codegen.xml` 引用路径不变。
 - **生产环境（prod）** 若为既有库，升级时同样需按 §34.4 替换历史记录；全新库直接执行 V32。
-- **后续新增迁移** 从 `V33` 起编号，继续走 `db/migration/`；当前已至 `V36`（`V33` 文件管理 / `V34` 导出中心 / `V35` 岗位管理 / `V36` 导入中心）。
+- **后续新增迁移** 继续走 `scaffold-admin/src/main/resources/db/migration/`；当前已至 `V59`（`V40` 公告已读回执 / `V41`~`V45` 通知体系 / `V46` 脱敏策略 / `V47`+`V53`+`V58` 表单中心 / `V48` 开放平台 / `V49` 工作流监控 / `V50` 文件去重 / `V51`+`V54` 租户 / `V52` 报表大屏 / `V55` 实时推送 / `V56` 数据权限 / `V59` 任务依赖编排；其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`），完整清单见 `db/migration/README.md`。
 - **已应用脚本不得再改**（包括注释）：checksum 按整个文件字节计算，改动会导致启动校验失败；处理办法见附录 O.1。
 
-### 34.7 复现方式
+### 34.7 复现方式（历史归档）
 
 ```bash
-python3 scripts/build_v32.py        # 重建 V32 并做字节级等价校验
-python3 scripts/build_reference.py  # 重建分类参考件（原件已删时自动从 V32 还原）
+# ⚠️ 归档说明：以下脚本为 V32 合并迁移（2026-10-15）的历史生成工具，其输入
+# V1~V31 原件已按「原件删除」策略移除，且迁移目录已随 V1.0.3 模块拆分移至
+# scaffold-admin/src/main/resources/db/migration/，脚本不可直接重跑；
+# 保留以供追溯 V32 的生成方式与等价性校验口径（见脚本头部归档说明）。
+# python3 scripts/build_v32.py        # 重建 V32 并做字节级等价校验
+# python3 scripts/build_reference.py  # 重建分类参考件（原件已删时自动从 V32 还原）
 ```
+
+> 结构 / 数据参考现以迁移链自身为权威：`scaffold-admin/src/main/resources/db/migration/`（V32~V59，schema 版本 59；其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`）。全新环境初始化（建库 → 迁移 → 种子核对 → 健康检查）请使用初始化脚本套件 `scripts/init/`（详见其 README 与《新手开发部署教程》§4.6）。
 
 > 目标：形成一个可直接创建、可本地启动、可作为后续业务系统脚手架的企业级 Java 后端基础框架。设计优先级依次为：安全正确、模块边界清晰、运维可见、低成本起步、可平滑拆分。
 
@@ -283,14 +289,18 @@ volumes:
 brew services start mysql
 brew services start redis
 
-# 2) 构建并运行（JDK 21 + 本地 Maven，离线）
+# 2) 构建并运行（JDK 21 + 本地 Maven，离线；V1.0.3 起为多 Maven 模块）
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 export SPRING_PROFILES_ACTIVE=local
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o clean package -DskipTests
+java -jar scaffold-admin/target/scaffold-admin-1.0.0.jar
+# 开发态调试亦可 reactor 根直接跑（指定可部署模块，随改随启）：
+/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o -pl scaffold-admin -am spring-boot:run
+# 需要带全量测试/门禁的构建时用 verify（IT 需本机 MySQL）：
 /Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o clean verify
-/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -o spring-boot:run
 ```
 
-> 工程为**单 Maven 模块**（非 `scaffold-bootstrap` 多模块），包名为 `com.acme.scaffold`；仓库内**无 `mvnw`**，请使用上文绝对路径的 Maven。
+> 工程为**多 Maven 模块**结构（11 个 `scaffold-*` 模块，映射见《模块拆分指南》），包名为 `com.acme.scaffold`；唯一可部署模块为 `scaffold-admin`，产物 jar 为 `scaffold-admin/target/scaffold-admin-1.0.0.jar`。仓库内**无 `mvnw`**，请使用上文绝对路径的 Maven。
 
 ### 13.3 冒烟检查
 
@@ -311,7 +321,7 @@ curl -i -X POST http://localhost:8080/api/auth/login \
 首次启动流程：
 
 1. 手工创建 `scaffold` 数据库（`CREATE DATABASE IF NOT EXISTS scaffold CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;`）；无 `xxl_job` 库（调度已为 JobRunr，随应用建 `jobrunr_*` 表）。
-2. Flyway 依次执行 `db/migration/` 迁移链（当前 `V32`~`V36`，schema 版本 **36**）创建框架表与种子数据。
+2. Flyway 依次执行 `scaffold-admin/src/main/resources/db/migration/` 迁移链（当前 `V32`~`V59`，schema 版本 **59**；其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`）创建框架表与种子数据。
 3. 超级管理员由 `V32__consolidated_schema.sql` 内置：`admin` / `SUPER_ADMIN`，口令见 §3「默认账号」（bcrypt，`{bcrypt}` 前缀）；非环境变量生成的一次性账号。
 4. 首次登录建议立即改密（登录验证码默认开启，见 `auth.captcha.enabled`）。
 5. Flowable 由应用自动建表：`flowable.database-schema-update: true`（非 Flyway 导入、非 `false`），`async-executor-activate: true`，`history-level: audit`。

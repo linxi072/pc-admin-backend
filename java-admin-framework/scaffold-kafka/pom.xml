@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-kafka：Kafka 顺序消费与分区键约定（海量数据有序消费场景）。
+
+  内容：kafka.rules（纯函数保序规则）、kafka.domain / kafka.port（防腐层）、
+  kafka.adapter（原生 KafkaConsumer + SmartLifecycle 薄封装，不引入 spring-kafka）、
+  kafka.service / kafka.controller / kafka.config（条件装配）。
+
+  依赖方向：kafka → common only。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-kafka</artifactId>
+    <name>scaffold-kafka</name>
+    <description>Kafka 顺序消费：保序规则、原生消费者薄封装、监控查询端点</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+        </dependency>
+        <!-- zstd 压缩原生库：kafka-clients 以 optional 声明，网关启用 compression.type=zstd 时需显式引入 -->
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <version>1.5.5-11</version>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

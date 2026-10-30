@@ -64,7 +64,22 @@
           <template #default="{ row }">{{ row.expireAt || '长期有效' }}</template>
         </el-table-column>
         <el-table-column prop="viewCount" label="浏览" width="80" />
-        <el-table-column label="操作" width="290" fixed="right">
+        <el-table-column label="已读进度" width="150">
+          <template #default="{ row }">
+            <!-- audienceCount 为发布时活跃用户快照（已读率分母）；0 表示 V40 前存量公告，无分母不展示 -->
+            <template v-if="row.audienceCount > 0">
+              <el-progress
+                :percentage="readPercent(row)"
+                :stroke-width="8"
+                :text-inside="true"
+                style="margin-bottom: 2px"
+              />
+              <span class="receipt-count">{{ row.readCount ?? 0 }}/{{ row.audienceCount }} 人</span>
+            </template>
+            <span v-else class="receipt-count">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="380" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.status !== 'PUBLISHED'"
@@ -84,6 +99,7 @@
             <el-button link type="warning" :icon="Top" @click="onToggleTop(row)">
               {{ row.isTop === 1 ? '取消置顶' : '置顶' }}
             </el-button>
+            <el-button link type="info" :icon="Reading" @click="openReceipts(row)">已读回执</el-button>
             <el-popconfirm title="确认删除该公告？" @confirm="onDelete(row)">
               <template #reference>
                 <el-button link type="danger" :icon="Delete">删除</el-button>
@@ -184,13 +200,79 @@
       <el-divider />
       <div class="detail-content">{{ current?.content }}</div>
     </el-dialog>
+
+    <!-- 已读回执中心（V40）：统计 + 回执分页 + 催办未读 -->
+    <el-dialog v-model="receiptVisible" title="已读回执" width="680px">
+      <div v-if="receiptStats" class="receipt-summary">
+        <el-progress
+          :percentage="receiptStats.readRate ?? 0"
+          :stroke-width="14"
+          :text-inside="true"
+          style="flex: 1"
+        />
+        <span class="receipt-figures">
+          已读 {{ receiptStats.readCount ?? 0 }} / 未读 {{ receiptStats.unreadCount ?? 0 }} /
+          受众 {{ receiptStats.audienceCount ?? 0 }} 人
+        </span>
+      </div>
+      <div v-else class="receipt-figures">统计加载中…</div>
+
+      <div class="toolbar receipt-toolbar">
+        <div class="toolbar-filters">
+          <div class="filter-group">
+            <span class="filter-label">阅读人</span>
+            <el-input
+              v-model="receiptQuery.keyword"
+              placeholder="按姓名/账号搜索"
+              clearable
+              style="width: 200px"
+              @keyup.enter="loadReceipts"
+            />
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="action-buttons">
+            <el-button :icon="Search" @click="loadReceipts">查询</el-button>
+            <el-popconfirm
+              title="将给未读用户发送站内信催办，确认继续？"
+              @confirm="onRemindUnread"
+            >
+              <template #reference>
+                <el-button type="warning" :icon="Bell" :loading="reminding">催办未读</el-button>
+              </template>
+            </el-popconfirm>
+          </div>
+        </div>
+      </div>
+
+      <el-table :data="receipts" v-loading="receiptLoading" border stripe max-height="360">
+        <el-table-column label="阅读人" min-width="160">
+          <template #default="{ row }">
+            {{ row.displayName || ('用户#' + row.userId) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="readAt" label="已读时间" min-width="180" />
+      </el-table>
+
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="receiptQuery.page"
+          v-model:page-size="receiptQuery.size"
+          :total="receiptTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="loadReceipts"
+          @size-change="onReceiptSizeChange"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Edit, Delete, Search, Promotion, VideoPause, Top } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Search, Promotion, VideoPause, Top, Reading, Bell } from '@element-plus/icons-vue'
 import {
   pageAnnouncements,
   createAnnouncement,
@@ -199,7 +281,11 @@ import {
   offlineAnnouncement,
   toggleAnnouncementTop,
   deleteAnnouncement,
-  getAnnouncement
+  getAnnouncement,
+  markAnnouncementRead,
+  pageAnnouncementReceipts,
+  getAnnouncementReadStats,
+  remindAnnouncementUnread
 } from '@/api/announcement'
 // 状态标签映射统一到全局（替换此前页面内的三元判断）
 import { statusTag } from '@/utils/status'
@@ -227,6 +313,16 @@ const publishForm = reactive({ publishAt: null, expireAt: null })
 
 const detailVisible = ref(false)
 const current = ref(null)
+
+// ---- 已读回执中心（V40）----
+const receiptVisible = ref(false)
+const receiptTarget = ref(null)
+const receiptStats = ref(null)
+const receipts = ref([])
+const receiptTotal = ref(0)
+const receiptLoading = ref(false)
+const reminding = ref(false)
+const receiptQuery = reactive({ page: 1, size: 10, keyword: '' })
 
 const rules = {
   title: [{ required: true, message: '请输入公告标题', trigger: 'blur' }],
@@ -374,10 +470,82 @@ async function onDelete(row) {
   }
 }
 
+/** 已读率百分比（列表列展示用）：无分母（存量公告）返回 0，由模板走「—」分支。 */
+function readPercent(row) {
+  if (!row.audienceCount || row.audienceCount <= 0) return 0
+  const read = Math.min(Math.max(row.readCount ?? 0, 0), row.audienceCount)
+  return Math.round((read * 1000) / row.audienceCount) / 10
+}
+
+// ---- 已读回执中心 ----
+
+/** 打开回执对话框：拉统计 + 第一页回执。 */
+async function openReceipts(row) {
+  receiptTarget.value = row
+  receiptStats.value = null
+  receiptQuery.keyword = ''
+  receiptQuery.page = 1
+  receiptVisible.value = true
+  try {
+    receiptStats.value = await getAnnouncementReadStats(row.id)
+  } catch (e) {
+    // 拦截器已提示；统计缺失时对话框按「统计加载中…」降级
+  }
+  loadReceipts()
+}
+
+async function loadReceipts() {
+  if (!receiptTarget.value) return
+  receiptLoading.value = true
+  try {
+    const data = await pageAnnouncementReceipts(receiptTarget.value.id, {
+      page: receiptQuery.page,
+      size: receiptQuery.size,
+      keyword: receiptQuery.keyword || undefined
+    })
+    receipts.value = data.records || []
+    receiptTotal.value = data.total || 0
+  } catch (e) {
+    receipts.value = []
+    receiptTotal.value = 0
+  } finally {
+    receiptLoading.value = false
+  }
+}
+
+function onReceiptSizeChange(size) {
+  receiptQuery.size = size
+  receiptQuery.page = 1
+  loadReceipts()
+}
+
+async function onRemindUnread() {
+  if (!receiptTarget.value) return
+  reminding.value = true
+  try {
+    const res = await remindAnnouncementUnread(receiptTarget.value.id)
+    const count = res?.reminded ?? res?.data?.reminded ?? 0
+    ElMessage.success(`已向 ${count} 位未读用户发送催办`)
+  } catch (e) {
+    // 拦截器已提示（如「当前没有未读用户」）
+  } finally {
+    reminding.value = false
+  }
+}
+
 async function openDetail(row) {
   try {
     current.value = await getAnnouncement(row.id)
     detailVisible.value = true
+    // 详情即阅读：已发布公告自动落已读回执（懒插入模型）。失败静默——
+    // 回执是统计增强，不应阻断用户查看公告本体
+    if (current.value?.status === 'PUBLISHED') {
+      try {
+        await markAnnouncementRead(row.id)
+      } catch (e) {
+        // 已读上报失败不影响详情展示
+      }
+    }
   } catch (e) {
     // 详情拉取失败不打开弹窗，避免展示上一条公告内容
   }
@@ -406,5 +574,23 @@ onMounted(load)
   white-space: pre-wrap;
   line-height: 1.7;
   color: #303133;
+}
+.receipt-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.receipt-figures {
+  color: #606266;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.receipt-count {
+  color: #909399;
+  font-size: 12px;
+}
+.receipt-toolbar {
+  margin-bottom: 12px;
 }
 </style>

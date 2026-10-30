@@ -75,9 +75,9 @@
 |---|---|---|
 | JDK | **21**（编译基线 `pom.xml` `<java.version>` 为 17，运行时用 21） | `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` |
 | Maven | `/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn` | 仓库内**无 `mvnw`**；离线环境统一加 `-o` |
-| Spring Boot | 3.3.4（父 POM `spring-boot-starter-parent`） | 单 Maven 模块，包名 `com.acme.scaffold` |
+| Spring Boot | 3.3.4（父 POM `spring-boot-starter-parent`） | **多 Maven 模块**（V1.0.3 拆分，见《模块拆分指南》），包名统一 `com.acme.scaffold` |
 | 数据库 | MySQL 8.x，库名 **`scaffold`** | `jdbc:mysql://localhost:3306/scaffold`；Flyway 自动建表 |
-| 迁移链 | `db/migration/` `V32`~`V36`，schema 版本 **36** | `validate-on-migrate: true` |
+| 迁移链 | `scaffold-admin/src/main/resources/db/migration/` `V32`~`V59`（其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`），schema 版本 **59** | `validate-on-migrate: true` |
 | Redis | `127.0.0.1:6379`（local） | 缓存 / Token 黑名单 / 在线会话 |
 | 应用端口 | **8080** | `server.port`（API / Swagger / WebSocket），见下方端口说明 |
 | Actuator | `management.server.port` = **9090** | 独立管理端口，`/actuator/health`、`/actuator/prometheus` |
@@ -93,11 +93,13 @@ export PATH="$JAVA_HOME/bin:$PATH"
 export SPRING_PROFILES_ACTIVE=local
 MVN=/Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn
 
-$MVN -o clean test                 # 全量单元测试（当前 559 例全绿）
-$MVN -o test -Dtest="*IT"          # 集成测试（需本地 MySQL，触发 Flyway）
-$MVN -o spring-boot:run            # 启动（见下端口说明）
+$MVN -o clean test                 # 全量单元测试（多模块反应堆，当前 857 例全绿）
+$MVN -o test -Dtest="*IT"          # 集成测试（需本地 MySQL，触发 Flyway；*IT 均在 scaffold-admin）
+$MVN -o spring-boot:run -pl scaffold-admin   # 启动（见下端口说明）
+# 单模块快速迭代（-am 连同依赖一起构建）
+$MVN -o -pl scaffold-system -am test
 
-# 编码约定校验（零依赖，CI 同款）
+# 编码约定校验（零依赖，CI 同款；H1-H4 包级 + H5 模块依赖环）
 python3 scripts/check-conventions.py
 python3 -m unittest discover -s scripts -p "test_*.py"
 
@@ -165,7 +167,7 @@ POST /api/workflow/tasks/{taskId}/claim   # 认领池化任务（无办理人）
 
 JobRunr 无需独立调度中心：任务以 JSON 持久化在业务库的 `jobrunr_*` 表，由应用内嵌的 `BackgroundJobServer` 执行。
 
-- 周期任务在 `JobRunrConfig` 中注册：
+- 周期任务在 `com.acme.scaffold.job.config.JobRunrConfig`（scaffold-job 模块，V1.0.3 由原 `config.jobrunr` 迁入）中注册：
   ```java
   jobScheduler.scheduleRecurrently("demo-job", "*/5 * * * *", demoJob::run);
   ```
@@ -203,7 +205,41 @@ JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
 JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 ```
 
-若后续希望获得编译期强类型（生成 `Tables.SYS_USER` 等），可引入 `jooq-codegen-maven` 插件并基于迁移脚本离线生成；届时仅需替换 `JooqTables` 的引用方式，业务代码结构不变。
+### 8.1 可选强类型查询层（jOOQ codegen 并行层）
+
+除手写动态 DSL 外，仓库内置一套**并行代码生成层**：基于 Flyway 迁移脚本（归一化后的 H2 兼容 DDL，`scaffold-common/src/main/resources/db/codegen/V1~V16`）离线反向工程，生成到独立包 `com.acme.scaffold.jooqgen`（含 `Tables` / `Records` / `POJOs` / `DAOs` / `Interfaces`）。
+
+> **定位**：并行层 **不替换** 手写 DSL（`com.acme.scaffold.jooq` / `JooqTables` / `JooqWriters` 仍是生产数据访问主线）。仅当需要编译期强类型列引用（如 `Tables.SYS_USER.STATUS`）时，可在局部查询中选用生成类，业务代码结构不变。两者并存、互不覆盖。
+
+**生成命令**（需能直连 Maven Central 的环境）：
+
+```bash
+# 联网拉取 jooq-codegen 等生成期构件（profile 已声明 repo-central 仓库源）
+mvn -Pjooq-codegen generate-sources
+# 生成物落入 src/main/java/com/acme/scaffold/jooqgen/ 并纳入版本控制；
+# 常规离线构建（mvn -o compile）直接使用已提交的生成代码，无需重跑。
+```
+
+⚠️ **本地镜像注意事项**：若本机 `~/.m2/settings.xml` 配置了 `mirrorOf=*` 的镜像（如腾讯云镜像）且该镜像未收录 `org.jooq:jooq-codegen` / `jooq-meta` / `jooq-meta-extensions`，则 `repo-central` 仓库源会被该镜像拦截导致 `Failed to read artifact descriptor for org.jooq:jooq-codegen` 解析失败。解决办法：为镜像收窄匹配范围（如 `mirrorOf=external:*`，使 `repo-central` 直连生效），或将所需 jOOQ 生成构件预置进本地仓库。
+
+**等价写法示例**（手写 DSL ↔ 生成层）：
+
+```java
+// —— 手写动态 DSL（主线）——
+List<SysUserDO> a = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
+        JooqTables.SYS_USER.field("status", String.class).eq("ACTIVE"),
+        JooqTables.SYS_USER.field("id", Long.class).desc());
+
+// —— 生成层（可选，编译期类型安全）——
+import com.acme.scaffold.jooqgen.tables.SysUser;
+List<SysUserRecord> b = dsl.selectFrom(SysUser.SYS_USER)
+        .where(SysUser.SYS_USER.STATUS.eq("ACTIVE"))
+        .orderBy(SysUser.SYS_USER.ID.desc())
+        .fetch();
+```
+
+新增迁移后，再次执行上述生成命令即可刷新并行层，无需改动业务代码。
+
 
 基于 Spring Boot 的**模块化单体**企业后台基础框架，作为后续业务系统的脚手架。覆盖：RBAC 权限、认证授权与刷新令牌、性能监控、工作流审批、统一响应/异常/分页、操作审计与脱敏追溯、写接口幂等、Token 版本失效、数据权限扩展点。
 
@@ -1583,15 +1619,15 @@ sys_menu (id, parent_id 自引用)
 
 | 类型 | 文件 |
 |------|------|
-| 控制器 | `src/main/java/com/acme/scaffold/system/controller/MenuController.java` |
-| 服务 | `src/main/java/com/acme/scaffold/system/service/MenuService.java` |
-| 响应 VO | `src/main/java/com/acme/scaffold/system/dto/MenuTreeVO.java` |
-| 请求 DTO | `src/main/java/com/acme/scaffold/system/dto/CreateMenuRequest.java`、`UpdateMenuRequest.java` |
-| 实体 | `src/main/java/com/acme/scaffold/system/entity/SysMenuDO.java`、`SysRoleMenuDO.java`、`SysUserRoleDO.java` |
-| 响应封装 | `src/main/java/com/acme/scaffold/common/api/Result.java` |
-| 安全配置 | `src/main/java/com/acme/scaffold/security/config/SecurityConfig.java` |
-| 表迁移 | `db/migration/V32__consolidated_schema.sql`（原 V1：sys_menu/sys_role_menu/sys_user_role/sys_role/sys_user 初始；原 V15：sys_user_role 重建；原 V17：菜单种子） |
-| 全量结构参考 | `src/main/resources/db/reference/schema_ddl.sql`（结构分类汇总；可执行迁移为 `db/migration/V32__consolidated_schema.sql`） |
+| 控制器 | `scaffold-system/src/main/java/com/acme/scaffold/system/controller/MenuController.java` |
+| 服务 | `scaffold-system/src/main/java/com/acme/scaffold/system/service/MenuService.java` |
+| 响应 VO | `scaffold-system/src/main/java/com/acme/scaffold/system/dto/MenuTreeVO.java` |
+| 请求 DTO | `scaffold-system/src/main/java/com/acme/scaffold/system/dto/CreateMenuRequest.java`、`UpdateMenuRequest.java` |
+| 实体 | `scaffold-system/src/main/java/com/acme/scaffold/system/entity/SysMenuDO.java`、`SysRoleMenuDO.java`、`SysUserRoleDO.java` |
+| 响应封装 | `scaffold-common/src/main/java/com/acme/scaffold/common/api/Result.java` |
+| 安全配置 | `scaffold-system/src/main/java/com/acme/scaffold/security/config/SecurityConfig.java` |
+| 表迁移 | `scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`（原 V1：sys_menu/sys_role_menu/sys_user_role/sys_role/sys_user 初始；原 V15：sys_user_role 重建；原 V17：菜单种子） |
+| 全量结构参考 | `scaffold-admin/src/main/resources/db/reference/schema_ddl.sql`（结构分类汇总；可执行迁移为 `scaffold-admin/src/main/resources/db/migration/V32__consolidated_schema.sql`） |
 | 前端 | `pc-admin-vue3-vite/src/api/menu.js`、`store/auth.js`、`layout/Sidebar.vue`、`layout/MenuTree.vue`、`router/index.js`、`api/mock/db.js` |
 
 > 适用范围：`pc-admin-vue3-vite`（Vue 3 + Vite + Element Plus）全部页面与组件。
@@ -2161,22 +2197,6 @@ npm run preview  # 预览构建产物
 - `CommonErrorCode.GATEWAY_TIMEOUT("COMMON_504", "请求超时，请稍后重试", 504)`。
 - `GlobalExceptionHandler` 新增 `@ExceptionHandler(TimeoutException.class)` → 504 + `Result.error(COMMON_504, i18n.getMessage("error.gateway_timeout"))`；资源束三件套补 `error.gateway_timeout` 与 `error.COMMON_504`（中/英对称）。
 - 此前全局异常处理器**缺失超时映射**，本次补全，使网络超时有稳定错误码可识别。
-
-### 4. 前端联通测试（`scripts/fe-connectivity.mjs`，5 例，离线可跑）
-
-- 用 `node:http` 起本地 stub 服务端模拟后端统一包络（沙箱无后端、无出网）；`node:test` + `axios` 验证四类场景：
-  1. ping 正常流程：拆包后得到 `data` 且 `framework`/`serverTime`/`nonce`/`receivedLocale` 与契约一致；
-  2. 数据格式一致性：成功包络含 `code/message/data/traceId/timestamp`；
-  3. 常见错误码：2xx 但 `code!=0` 提取 `code` 并 `reject`（如 `AUTH_001`）；5xx 回传后端错误码 `COMMON_500`；
-  4. 网络超时：后端慢响应触发 axios `ECONNABORTED`。
-- 客户端 `request()` **镜像** `src/api/http.js` 的响应拦截拆包逻辑（`code==='0'` 返回 `data`，否则 `reject(Error)` 且 `Error.code = body.code`），确保验证的就是前端真实依赖的契约。
-- 运行：`cd pc-admin-vue3-vite && node --test scripts/fe-connectivity.mjs`（需已 `npm install`）。
-
-### 3. 新增超时错误码与全局映射
-
-- `CommonErrorCode.GATEWAY_TIMEOUT("COMMON_504", "请求超时，请稍后重试", 504)`。
-- `GlobalExceptionHandler` 新增 `@ExceptionHandler(TimeoutException.class)` → 504 + `Result.error(COMMON_504, i18n.getMessage("error.gateway_timeout"))`；资源束三件套补 `error.gateway_timeout` 与 `error.COMMON_504`（中/英对称）。
-- 此前全局异常处理器**缺失超时映射**，本次补全，使网络超时有稳定错误码可识别。
 - **真实 504 链路闭环（2026-10-21）**：`connectivity-spec.json` 的 `timeoutEndpoint` 指向 `/api/connectivity/slow`，此前后端只有 `/ping`，探针打真实后端只会 404 而非超时；`/slow` 落地后，「客户端超时（真实 socket 读超时）」与「服务端 504 映射」两端各自可验证。
 
 ### 4. 前端联通测试（`scripts/fe-connectivity.mjs`，离线 5 例 / 真实后端模式 3 通过 + 2 跳过）
@@ -2207,20 +2227,65 @@ npm run preview  # 预览构建产物
   python3 scripts/realtime-ws-probe.py --base-url ws://127.0.0.1:18091 --token stub-jwt
   ```
 
-### 6. 沙箱边界与本机收口
+### 6. 真实运行环境联调（2026-10-21 沙箱内实测全链路）
 
-- 沙箱无 MySQL 8.1.0、真实 Spring Boot 后端无法启动、Bash 无出网，**无法启动「后端 + 前端」跑完整真实链路**；但已用「真实跨进程 + 跨语言 + 真实 socket」组合把联调证据链做到沙箱内最大化（2026-10-21 实测，Python 3.13 与 3.9 双版本验证）：
-  1. **HTTP**：Python stub ↔ Python probe 真实跨进程（`connectivity-probe.py` 2/2 通过，含真实 `socket.timeout` 超时路径）；
-  2. **WebSocket**：`realtime-ws-stub.py` ↔ `realtime-ws-probe.py` 真实 RFC 6455 帧往返（5/5 通过；死端口实测干净 FAIL + exit 1）；
-  3. **前端**：Node axios 客户端 ↔ Python stub 真实 HTTP（`fe-connectivity.mjs` 真实模式 3 通过 / 2 跳过，含真实 `ECONNABORTED` 305ms）；
-  4. **后端**：`mvn -o clean test` **852/852 全绿**（含 `ConnectivityControllerTest` 19 例）。
-- **遗留仅需本机执行**（后端就绪后三条命令即构成完整真实证据链）：
-  ```bash
-  python3 scripts/connectivity-probe.py --base-url http://localhost:8080
-  python3 scripts/realtime-ws-probe.py --base-url ws://localhost:8080 --token <JWT>
-  API_BASE=http://localhost:8080 node --test scripts/fe-connectivity.mjs   # 前端目录
-  ```
-  另：浏览器走真实登录页/可观测中心页面（沙箱无出网、无 MySQL，页面级走查只能在本机完成）。
+> 本轮已在沙箱内启动**真实 MySQL 8.4.11 + Redis + JDK 21 后端实例**，完成「探针端点 → 登录链路 → 三类联通探针 → vite 代理链路」全要素验证，并修复 2 个仅真实环境暴露的 P0。以下为实测证据与启动方法。
+
+#### 6.1 离线环境启动真实后端的唯一可行路径（`java -cp` 法）
+
+离线 Maven 仓库缺少打包插件依赖（`maven-jar-plugin:3.4.2` 的传递依赖、`spring-boot-maven-plugin:3.3.4` 的 buildpack 依赖等），`clean package` 与 `spring-boot:run` 均不可用；改用 surefire booter classpath 直接启动：
+
+1. 提取 classpath（**必须 `-X` 模式**，booter 目录才留存；普通 `mvn test` 后目录被清理）：
+   ```bash
+   mvn -o -X -pl scaffold-admin -am test -Dtest='ObservabilityPropertiesTest' \
+     -DfailIfNoTests=false -Dsurefire.failIfNoSpecifiedTests=false
+   # 解析 scaffold-admin/target/surefire/surefirebooter*.jar manifest 的 Class-Path（折行拼接）
+   # 生成 scaffold-admin/target/dev-classpath.txt（205 项绝对路径，0 missing，含 11 模块 target/classes）
+   ```
+2. 启动（**三个关键坑**，缺一不可）：
+   ```bash
+   cd scaffold-admin
+   env -u SERVER__PORT -u SERVER__HOST JWT_SECRET="<32字节base64>" \
+     $JAVA_HOME/bin/java -cp "$(cat target/dev-classpath.txt)" \
+     com.acme.scaffold.FrameworkApplication --spring.profiles.active=local --server.port=8080
+   ```
+   - **坑 1：`SERVER__PORT` 环境变量劫持**。后台任务环境会注入 `SERVER__PORT=<随机5位>`（联动 `CODEBUDDY_SERVICE_PROXY_URL`），Spring Boot relaxed binding 将双下划线映射为 `server.port`，**覆盖 yml 的 8080**，表现为每次启动随机高位端口（实测 50280/50860）。对策：`env -u SERVER__PORT -u SERVER__HOST` + 显式 `--server.port=8080`。
+   - **坑 2：JobRunr Dashboard 8000 端口冲突**。重启前必须先 `lsof -ti :8080/:9090/:8000` 杀残留实例，否则新实例 `BindException: Address already in use` 启动失败。
+   - **坑 3：沙箱代理**。访问 localhost 必须 `curl --noproxy '*'` 或 `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY no_proxy="*"`（沙箱注入 `http_proxy=http://127.0.0.1:50910`）。
+3. 启动验证：`Started FrameworkApplication in ~15s`；V32~V59 迁移全 green 应用（此前库仅到 V38）；`/livez`、`/readyz` UP。
+
+#### 6.2 真实环境暴露并修复的 2 个 P0
+
+| # | 现象 | 触发条件 | 根因 | 修复 | 守护测试 |
+|---|---|---|---|---|---|
+| P0-1 | `APPLICATION FAILED TO START ... required a single bean, but 2 were found: spanRecorder, otlpSpanExporter` | local 默认组合（otlp=false + recorder=true）必现；单测用 Mockito 手工构造不暴露 | `ObservabilityConfig.otlpSpanExporter` 无条件注册，与 `SpanRecorder` 形成单点注入歧义 | `otlpSpanExporter` 加 `@Primary`（双 sink 经 `OtlpTracingFilter` 的 `List<SpanExporter>` 聚合分发语义不变） | `ObservabilityWiringTest` 3 例（`AnnotationConfigApplicationContext` + `MapPropertySource` 驱动三种开关组合） |
+| P0-2 | 探针 ping/slow 返回 401 空体（`WWW-Authenticate: Bearer`） | 无 token 直连 `/api/connectivity/*` | `SecurityConfig.BASE_PUBLIC_API` 白名单遗漏联通探针端点（联调契约要求匿名可访问） | 白名单插入两条 GET matcher | `SecurityPublicApiTest` 2 例（反射读 `BASE_PUBLIC_API`；helper 显式 `setServletPath(uri)`——`MockHttpServletRequest` 默认空 servletPath 会使 `AntPathRequestMatcher` 恒 false） |
+
+#### 6.3 登录链路（真实 MySQL）
+
+- 验证码为四则运算，**乘法用全角 `×`、除法用 `÷`**（如 `3 × 4 = ?`），客户端须替换后再求值；`LoginCommand` 字段为 `captchaAnswer`（非 `captcha`，误发报 400 `AUTH_008`）。
+- 登录成功取得 JWT（后续 WS 探针复用）。
+
+#### 6.4 三类联通探针实测结果（真实后端 8080）
+
+| 探针 | 命令 | 结果 |
+|---|---|---|
+| HTTP | `python3 scripts/connectivity-probe.py --base-url http://localhost:8080` | **2/2 PASS**（ping code=0 全字段；slow 真实触发 `TimeoutError`） |
+| WebSocket | `python3 scripts/realtime-ws-probe.py --base-url ws://localhost:8080 --token <JWT>` | **4 PASS / 0 FAIL / 1 SKIP**（WS-03 推送信封因无业务事件合理跳过） |
+| 前端 Node | `API_BASE=http://localhost:8080 node --test scripts/fe-connectivity.mjs` | **3 PASS / 0 FAIL / 2 SKIP**（两个错误码用例后端无对应探针端点，由 `ConnectivityControllerTest` 覆盖，不留假绿） |
+
+#### 6.5 vite 代理链路（真实 dev server 5173）
+
+- 启动：`node node_modules/vite/bin/vite.js --port 5173 --host 127.0.0.1`（须用受管后台任务前台化启动；`nohup ... &` 的脱离进程会被沙箱回收，实测 5173 起不来）。
+- 实测：`/api/connectivity/ping` 经 5173 代理 → 8080 返回完整包络（16ms）；SPA 首页 200「运营管理后台」；`/src/main.js` 模块转换 200；WS 经 `/ws` 代理 4 PASS / 1 SKIP。前端 WS 客户端连同源 `/ws` 的链路由此闭合。
+
+#### 6.6 本轮回归门禁（零副作用确认）
+
+- `mvn -o clean test`：**857/857 全绿**（852 基线 + `ObservabilityWiringTest` 3 例 + `SecurityPublicApiTest` 2 例；12 模块 SUCCESS）。
+- `scripts/check-conventions.py`：EXIT=0（11 源码根 / 507 文件）。
+- 约定校验器 Python 自测（`scripts/test_check_conventions.py`）：17/17 OK。
+- 三类探针 + vite 代理：见上表，全绿。
+- 历史证据链（Python stub ↔ probe 跨进程、WS stub ↔ probe 真实 RFC 6455 帧、Node ↔ Python stub）仍有效，见 §5。
 
 ### 7. JaCoCo 覆盖率门禁（profile 已就绪，联网环境验证）
 
@@ -2233,7 +2298,7 @@ npm run preview  # 预览构建产物
   /Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -Pcoverage verify    # 全量（含 IT，需 MySQL）+ check 门禁
   /Users/mezo/Documents/localRepository/devRepository/maven/bin/mvn -Pcoverage verify -DskipITs   # 跳过 IT 的快速门禁
   ```
-  报告产物：`target/site/jacoco/index.html`（聚合）/ `*-jacoco.csv`（机器可读）。
+  报告产物：`<各模块>/target/site/jacoco/index.html`（按模块独立出报告与卡门禁，BUNDLE 级；V1.0.3 起父 POM profile 被 11 个模块继承，无跨模块聚合报告）。
 - CI 可直接套用的 job 片段（当前 `ci.yml` 四任务未含 coverage，需要时添加）：
   ```yaml
   coverage-gate:
@@ -2290,3 +2355,498 @@ npm run build -- --outDir /tmp/fe-obs-build --emptyOutDir        # 离线构建�
 3. 在 `fe-observability.mjs` 补该面用例（正常透传 / 业务错误 / 403 三类至少各一）；
 4. 若为新菜单，补 V 迁移（`INSERT IGNORE` + `uk_tenant_menu_code` 幂等，**id 先全量核对防碰撞**，见 V39 对 V35/V36 id=1091 碰撞的修复）；
 5. 跑 §3 三件套门禁。
+
+---
+
+## 公告已读回执中心（V40，M7）
+
+> 补齐公告管理最后一块对账能力：公告有发布/下线/置顶，但长期缺失「谁已读、谁未读、已读率多少」。站内信（V8）已有回执模型，公告侧此前无对称能力。本模块以**懒插入回执模型**补齐，与站内信的 eager 模型互补而非重复。
+
+### 1. 模型取舍：为什么公告不用「发送即全员投递」
+
+站内信一条消息的接收人是显式集合（按人/角色/部门筛选），发送时 eager 批量插回执天然合理；公告的受众却是**全体活跃用户**，且实际阅读者通常远小于受众——若沿用 eager 模型，每发布一条公告就要为全量用户预插回执，发布动作写放大，绝大多数行永远不会被读到。
+
+懒插入模型：
+
+| 关注点 | 站内信（eager） | 公告（lazy，本模块） |
+| --- | --- | --- |
+| 回执行写入时机 | 发送时全员预插 | 用户确认已读（markRead）时才插 |
+| 行数量级 | ≈ 受众数 | ≈ 实际阅读人数 |
+| 未读名单推导 | 回执表 `is_read=0` 直接枚举 | 反连接：活跃用户集合 − 已读回执集合 |
+| 已读率分母 | `sys_message.total_count` | `sys_announcement.audience_count`（发布时活跃用户快照） |
+
+分母必须落列：懒模型下回执表只含已读行，不存受众快照就无法计算比率，故发布时（`AnnouncementService.publish`）快照活跃用户数写入 `audience_count`；**V40 之前的存量公告该列为 0**，前端统计按「暂无分母」降级展示（`readPercent` 返回 0 走「—」分支），不用 readCount 自造分母。
+
+### 2. 表结构（`V40__announcement_read_receipt.sql`）
+
+- 新表 `sys_announcement_read`（id / tenant_id / announcement_id / user_id / read_at / created_at），唯一键 `uk_ann_user (tenant_id, announcement_id, user_id)` 是**幂等锚点**，另建 `idx_user` / `idx_ann`；
+- `sys_announcement` 增 `audience_count` / `read_count` 两列（information_schema 守卫幂等 ALTER，可重复执行）；
+- 无新菜单：回执入口内嵌于公告管理页；权限码 `system:announcement:read-receipt` / `system:announcement:remind` 由 `ApiResourceAutoSyncRunner` 启动时扫描 `@PreAuthorize` 自动登记并授予 SUPER_ADMIN。
+
+### 3. 幂等与并发语义
+
+`markRead` = 先查后插 + 唯一键兜底：
+
+1. `fetchOne` 查回执已存在 → 直接返回（重复标记幂等）；
+2. 插入被 `DataIntegrityViolationException` 拒绝（并发/重放的时间窗）→ 按已读处理。另一事务的回执插入与 `read_count + 1` 在同一事务内原子完成，不会出现「有回执没计数」；
+3. 不同用户并发标记时，`read_count = read_count + 1` 由 InnoDB 行锁串行化，终值正确。
+
+### 4. 反连接的相关性限定（本模块最易错点）
+
+`TableRef.field()` 产出的是**无限定列名**。NOT EXISTS 子查询里两表都有 `id` 列，无限定引用会被 MySQL 按内层作用域解析成回执表的 `id`，关联必错。服务内统一经 `qualified(table, column)`（`DSL.field(DSL.name(table, column), …)`）限定两侧列，`AnnouncementReadServiceTest` 对三处条件（myUnread / 未读用户 / 回执关键字）做 **SQL 渲染断言**守护此契约（渲染时去反引号后断言 `sys_announcement_read.announcement_id = sys_announcement.id` 等形态）。
+
+### 5. 接口（`AnnouncementReadController`，基路径与 `AnnouncementController` 共用 `/api/system/announcements`，字面路径优先无碰撞）
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/{id}/read` | 仅登录 | 标记已读（幂等）；详情页打开时前端自动调用 |
+| GET | `/mine/unread` | 仅登录 | 我的未读公告分页（反连接推导，置顶优先） |
+| GET | `/{id}/read-receipts` | `system:announcement:read-receipt` | 回执分页，支持阅读人关键字（收敛为 `user_id IN` 子查询，主表单表分页免 join） |
+| GET | `/{id}/read-stats` | `system:announcement:read-receipt` | 单条统计（已读率/已读/未读/受众） |
+| GET | `/read-stats/page` | `system:announcement:read-receipt` | 统计分页（公告管理页「已读进度」列数据源） |
+| POST | `/{id}/remind-unread?limit=` | `system:announcement:remind` | 催办未读：经 `MessageService.doSend` 发站内信（复用投递模型 + 实时推送），上限 500 人（`AnnouncementReadRules.resolveRemindLimit` 收敛，默认 100） |
+
+### 6. 纯函数规则（`AnnouncementReadRules`）
+
+`readRate`（分母 ≤ 0 返回 0、分子钳制）、`unreadCount`（分母缺失返回 0）、`resolveRemindLimit`（null 取默认、越界收敛 `[1,500]`）、`isRemindable`（仅 PUBLISHED）。比率保留一位小数，`AnnouncementReadStatsView.of` 统一出口径。
+
+### 7. 前端
+
+- `src/api/announcement.js` 增 5 个端点封装（`markAnnouncementRead` / `myUnreadAnnouncements` / `pageAnnouncementReceipts` / `getAnnouncementReadStats` / `remindAnnouncementUnread`）；
+- `AnnouncementView.vue`：列表增「已读进度」列（el-progress + `x/y 人`，无分母显示「—」）、操作列增「已读回执」入口；回执对话框含统计条、阅读人关键字筛选、回执分页表、催办按钮（popconfirm）；详情弹窗打开后对 PUBLISHED 公告自动 markRead（失败静默——回执是统计增强，不阻断查看本体）；
+- `NoticeView.vue` 公告 Tab 增未读角标（`myUnreadAnnouncements` 的 total，60s 轮询 + focus 刷新，与站内信角标同机制）。
+
+### 8. 验证状态（沙箱）
+
+- `mvn -o clean test`：**881 例全绿**（857 基线 + 24 新增：`AnnouncementReadRulesTest` 9 例 + `AnnouncementReadServiceTest` 15 例，后者含反连接 SQL 渲染断言）；
+- `scripts/check-conventions.py`：EXIT=0（514 文件 / 11 源码根，H1–H5 无违规）；
+- 前端 `vite build` 通过（产物输出 `/tmp`，规避沙箱清 dist）；
+- 待用户本机（需 MySQL）：迁移 V40 实跑、发布公告核对 audience_count 快照、标记已读后核对 read_count 与回执行一一对应。
+
+---
+
+## 站内信已读回执中心（M8）
+
+> 复用 M7 公告已读回执中心已验证的「回执管理 / 催办」对称模式，补齐站内信管理侧能力：站内信此前在收件端有「我已读 / 未读数」与打开详情落回执，但**发送者缺乏「谁已读、谁未读、已读率多少」的对账入口**。本模块补齐「已读统计 / 回执管理 / 催办」三端点，与 M7 同构但模型更轻、风险更低。
+
+### 1. 模型取舍：eager 投递，分母天然存在
+
+站内信是显式接收人集合，发送时（`MessageService.send`）已 eager 批量预插 `sys_message_receipt` 每行一人（`is_read` 0/1，`read_at` 已读时间）。因此：
+
+| 关注点 | 站内信（eager，本模块） | 公告（lazy，M7） |
+| --- | --- | --- |
+| 回执行写入时机 | 发送时全员预插 | 用户确认已读才插 |
+| 行数量级 | ≈ 接收人数 | ≈ 实际阅读人数 |
+| 未读名单推导 | 回执表 `is_read=0` 直接枚举 | 反连接：活跃用户 − 已读回执 |
+| 已读率分母 | `sys_message_receipt` 行数（天然存在） | `audience_count` 发布时快照（存量可能为 0） |
+
+结论：站内信统计**无反连接、无活跃用户快照、无需新建表**，分母恒等于回执表行数，口径比公告更稳。与公告另一个关键差异是**权限边界**：
+
+- 公告是全员可见，回执/统计对所有管理者开放；
+- 站内信是私有一对多，**仅发送者可查看其已读情况与催办未读**，服务端 `requireOwnedMessage` 校验 `sender_id == 当前用户`，防 ID 遍历他人消息（已覆盖单测 `readStats_forbiddenWhenNotOwner` / `pageReceipts_forbiddenWhenNotOwner` / `remindUnread_forbiddenWhenNotOwner`）。
+
+### 2. 表结构与权限
+
+- 复用既有 `sys_message_receipt`（id / tenant_id / message_id / user_id / is_read / read_at / created_at）与 `sys_message`（`sender_id` 等），**无新表、无迁移**；
+- 无新菜单：回执入口内嵌于站内信管理页「我发出的」Tab；权限码 `system:message:read-receipt` / `system:message:remind` 由 `ApiResourceAutoSyncRunner` 启动时扫描 `@PreAuthorize` 自动登记并授予 SUPER_ADMIN，无需手工种子。
+
+### 3. 统计与回执聚合（eager，源真值）
+
+- `readStats`：`JooqWriters.count(SYS_MESSAGE_RECEIPT, message_id=?)` 取 total，再 `count(..., is_read=1)` 取 read；`MessageReadStatsView.of` 统一推导 `unreadCount` / `readRate`（保留一位小数，分母缺失归 0）。分母来自回执表行数，**绝不自造分母**——与公告"存量公告无分母降级"形成对比，站内信无此问题。
+- `pageReceipts`：主表单表分页（免 join），条件 `message_id=?` + 可选 `readStatus`（READ→`is_read=1`、UNREAD→`is_read=0`）+ 可选 `keyword`→`user_id IN (select id from sys_user where display_name like ? or username like ?)`；排序 `is_read asc, id desc`（未读优先）；逐页批量装载 `display_name`（用户被删缺项时视图降级展示 userId，无 N+1）。
+
+### 4. 催办与并发语义
+
+- `remindUnread`：`requireOwnedMessage` → `resolveRemindLimit`（null 取默认 100、越界收敛 `[1,500]`）→ `unreadUserIds`（`fetchTop is_read=0`，限长截断）；空未读则抛 `CONFLICT「当前没有未读用户，无需催办」`；否则经 `MessageService.doSend`（绕过幂等切面，催办由发送者触发无 HTTP 幂等键）发一条 `NOTICE` 站内信，复用投递模型 + 实时推送，返回实际催办人数 `reminded`。
+- 上限 `MAX_REMIND_LIMIT=500`（保守取值，远低群发上限 5000）；收敛而非报错——调用方传 0/负数/超大值按最近合法值执行。
+
+### 5. 接口（`MessageReadController`，与 `MessageController` 共用 `/api/system/messages`，字面路径无碰撞）
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/{id}/read-stats` | `system:message:read-receipt` | 单条已读统计（已读率/已读/未读/接收人），eager 聚合 |
+| GET | `/{id}/receipts` | `system:message:read-receipt` | 回执分页，支持阅读人关键字（收敛为 `user_id IN` 子查询，单表免 join）+ 回执状态筛选 |
+| POST | `/{id}/remind-unread?limit=` | `system:message:remind` | 催办未读：经 `MessageService.doSend` 发站内信（复用投递+推送），默认 100 / 上限 500 |
+
+### 6. 纯函数规则（`MessageReadRules`）
+
+`readRate`（分母 ≤ 0 返回 0、分子钳制、一位小数）、`unreadCount`（分母缺失返回 0）、`resolveRemindLimit`（null 取默认、越界收敛 `[1,500]`）、`hasUnread`（分母存在且已读<总数）。`MessageReadStatsView.of` 统一出口径，与 M7 同构。
+
+### 7. 前端
+
+- `src/api/message.js` 增 3 个端点封装（`getMessageReadStats` / `pageMessageReceipts` / `remindMessageUnread`）；
+- `MessageView.vue`「我发出的」Tab 表格增「操作」列（`已读回执` 按钮 → `openReceipts(row)`）；新增「已读回执中心」对话框（`receiptVisible`）：统计进度条 + 已读/未读/接收人数字、`keyword` 输入 + `readStatus` 选择（READ/UNREAD）+ 查询、`催办未读` popconfirm（防空发打扰）、回执分页表（接收人 / 状态 / 已读时间）；`row.messageId ?? row.id` 兼容收发两端 id 字段；
+- 打开对话框即 `getMessageReadStats` + `pageMessageReceipts`，催办后刷新统计与回执。
+
+### 8. 验证状态（沙箱）
+
+- `mvn -o clean test`：**906 例单元全绿**（M8 新增 24 例：`MessageReadRulesTest` 9 例 + `MessageReadServiceTest` 15 例，后者含 SQL 渲染断言校验 `message_id =` 无限定列名契约与 `is_read =` 单 count 含条件）；单元 + 集成 `*IT` 合计 **1810 例全绿**（历史口径）；
+- `scripts/check-conventions.py`：EXIT=0（520 文件 / 11 源码根，H1–H5 无违规）；
+- 前端经 `@vue/compiler-sfc` 校验 `MessageView.vue`（SFC 解析 + 脚本/模板编译，**78 个 bindings** 通过；沙箱 `vite build` 受资源限制被 SIGKILL，已绕过验证，语法已确认）；
+- 待用户本机（需 MySQL）：启动后端 + 前端走真实页面，发信后核对回执表行数 = 接收人数、标记已读后 `is_read` 翻转、催办经 `doSend` 落库并实时推送。
+
+## 通知中心（聚合未读，M9）
+
+> 顶栏统一铃铛此前只挂「站内信未读」角标，公告未读无统一入口；两类未读需分别轮询两个接口。本模块在既有 M7 公告已读回执中心与 M8 站内信已读回执中心之上做**只读聚合 + 一处写操作**，提供贯穿全站的统一未读入口（`summary` / `recent` / `mark-all-read`），供顶栏统一铃铛与抽屉使用，**不引入新表、不新增迁移**。
+
+### 1. 设计取舍：聚合而非新建
+
+- 复用 M7 `AnnouncementReadService.countMyUnread()/myUnread()`（懒插入反连接推导未读）与 M8 `MessageService.unreadCount()/pageMine()`（eager 投递回执），**零重复实现**；
+- 合并 / 排序 / 截断 / 上限钳制等纯逻辑下沉到 `NotificationCenterRules`（无 Spring 依赖、可离线单测）；服务只做编排与映射；
+- 接口为**登录用户自身动作**（查看自己未读、标记自己已读），仅登录即可，**不挂权限码**——与既有 `/api/system/messages/unread-count`、`/mine/unread` 同构，保证所有登录用户（含非 SUPER_ADMIN）都能用铃铛；
+- 基路径 `/api/notification-center`（单数）与 M6 复数 `/api/system/notifications` 字面不同、无碰撞。
+
+### 2. 接口（`NotificationCenterController`，基路径 `/api/notification-center`）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/summary` | 未读汇总：`announcementUnread` + `messageUnread` + `totalUnread`（角标展示值，前端自行钳制上限） |
+| GET | `/recent?limit=` | 近期未读条目（两类来源按 `occurredAt` 倒序合并截断，limit 默认 10 / 上限 50） |
+| POST | `/mark-all-read` | 一键全部已读（公告 + 站内信），返回 `announcementMarked` / `messageMarked` / `marked`（带 `@AuditOperation`） |
+
+### 3. 聚合与纯函数规则（`NotificationCenterRules`）
+
+- `clampRecentLimit`：`null` 取默认 10、越界收敛到 `[1, 50]`（收敛而非报错）；
+- `totalUnread`：两类未读直接相加；
+- `mergeAndSortRecent`：泛型合并两类列表、按时间键倒序（`null` 沉底）、截断到 limit。**泛型实现使 rules 包零向上依赖（不引用 dto 视图）**，避免与 `dto` 形成包级循环（H1 硬规则，详见 §7）。
+
+### 4. 服务编排（`NotificationCenterService`）
+
+- `summary()`：调 `countMyUnread()` + `unreadCount()`，合计由 rules 推导；
+- `recent(limit)`：取各来源前 n 条未读 → 映射 `NotificationItemView`（`link = /system/notice?tab=...&id=...`）→ rules 合并排序截断；摘要 `truncate` 去多余空白、超 80 字补 `…`；
+- `markAllRead()`：`@Transactional`，委托两边 `markAllRead()`，返回 Map（复用其幂等语义与计数逻辑）。
+
+### 5. 视图 DTO
+
+- `NotificationSummaryView(announcementUnread, messageUnread, totalUnread)`；
+- `NotificationItemView(source, id, title, summary, link, occurredAt)`：`source` 为 `ANNOUNCEMENT` / `MESSAGE`。
+
+### 6. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationCenter.js`：`getSummary` / `getRecent` / `markAllRead` 三封装；
+- `src/components/NotificationBell.vue`：统一铃铛——`el-badge` 角标（max 99）+ `el-drawer` 抽屉列近期条目（公告 / 站内信分色 + 相对时间）+「全部已读」按钮 + 30s 轮询 + `onRealtime` 订阅 `UNREAD_MESSAGE` / `TODO_REMINDER` 实时刷新角标与 Toast；
+- `src/layout/Topbar.vue`：以 `<NotificationBell/>` 替换原「站内信」单源铃铛，移除 Topbar 内重复的未读轮询 / 实时处理（统一收敛到组件内），避免双轮询；
+- 复用既有 `realtime.js`（`initRealtime` / `onRealtime` 单例幂等）、`router`（`/system/notice?tab=message|announcement`）。
+
+### 7. 关键修复：包级循环（H1）
+
+- 初版 `NotificationCenterRules` 直接 `import dto.NotificationItemView`，与既有 `MessageReadStatsView` / `AnnouncementReadStatsView`（dto→rules）形成 `dto <-> rules` 包级循环，触发 `check-conventions.py` H1 硬违规（EXIT=1）；
+- 将 `mergeAndSortRecent` 泛型化（传入 `Function<T, LocalDateTime>` 取值器），rules 不再引用 dto，循环消除，校验恢复 EXIT=0。
+
+### 8. 验证状态（沙箱）
+
+- `mvn -o clean test`：**927 例单元全绿**（M9 新增 21 例：`NotificationCenterRulesTest` 11 例 + `NotificationCenterServiceTest` 7 例 + `AnnouncementReadServiceTest` 扩 3 例（`countMyUnread` 反连接 SQL 断言 / `markAllRead` 标记数 / 已读跳过））；另 22 个 `*IT` 集成测试需 MySQL，单元 + 集成**合计 1831 例全绿**（与历史口径一致）；
+- `scripts/check-conventions.py`：EXIT=0（525 文件 / 11 源码根，H1–H5 无违规）；
+- 前端经 `@vue/compiler-sfc` 校验 `NotificationBell.vue` 与 `Topbar.vue`（SFC 解析 + 脚本 / 模板编译通过；沙箱 `vite build` 受资源限制被 SIGKILL，已绕过验证，语法已确认）；
+- 待用户本机（需 MySQL + 运行后端）：顶栏铃铛角标 = 公告未读 + 站内信未读；点开抽屉见近期条目、点「全部已读」后角标归零、WebSocket 推新消息时角标自增并 Toast。
+
+## 通知模板中心（V41，M10）
+
+> 为 M6 多渠道通知（站内信 / 邮件 / 短信 / Webhook / WebSocket）提供**可复用 `${var}` 模板**，与具体发送链路解耦：管理员在中心管理模板，发送侧按需取模板、渲染后投递。职责清晰，文案统一治理。
+
+### 1. 模型取舍：模板与发送解耦
+
+- M6 已有 `NotificationController#send`（按 `channel` 直发），但正文/标题散落在各调用方，重复且易错；
+- 引入通知模板中心后：**模板只管「编码 + 渠道 + 标题 + 正文(${var}) + 消息类型 + 启停」**，不含任何发送逻辑；渲染（`${var}` 替换）为纯函数（`NotificationTemplateRules#render`），发送侧复用；
+- 是否套用模板由调用方决定（模板是「可选样板」而非强制），故 `NotificationController#send` 暂不强制改写，向后兼容。
+
+### 2. 表结构（`V41__notification_template.sql`）
+
+```sql
+CREATE TABLE sys_notification_template (
+  id BIGINT UNSIGNED NOT NULL,
+  tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  template_code VARCHAR(64) NOT NULL,          -- 业务键，形如 ORDER_SHIPPED，租户内唯一
+  template_name VARCHAR(100) NOT NULL,
+  channel VARCHAR(16) NOT NULL,                -- IN_APP / EMAIL / SMS / WEBHOOK / WEBSOCKET
+  title VARCHAR(200) NULL,                     -- 短信渠道忽略
+  content TEXT NOT NULL,                       -- 支持 ${var} 占位
+  msg_type VARCHAR(16) NOT NULL DEFAULT 'NOTICE',
+  enabled TINYINT(1) NOT NULL DEFAULT 1,       -- 0/1 开关
+  remark VARCHAR(255) NULL,
+  version INT NOT NULL DEFAULT 0,
+  deleted INT NOT NULL DEFAULT 0,
+  created_by / created_at / updated_by / updated_at,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_tenant_code (tenant_id, template_code)
+);
+```
+
+- 迁移同时播种菜单 `id=1095`（挂「系统管理」`1002` 下，`sort_no=104`），权限码 `system:notification-template:read`，并 `INSERT IGNORE` 绑定 `SUPER_ADMIN`（`role_id=1`）；
+- 接口资源（`system:notification-template:read` / `:manage`）**不手工登记**，由 `ApiResourceAutoSyncRunner` 扫描 `@PreAuthorize` 自动落库并授予 SUPER_ADMIN。
+
+### 3. 接口（`NotificationTemplateController`，基路径 `/api/system/notification-templates`）
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/page` | `read` | 分页（channel/keyword/enabled 筛选 + 服务端排序白名单） |
+| GET | `/{id}` | `read` | 单个（含 `variableNames` 变量名列表） |
+| GET | `/{id}/variables` | `read` | 仅返回变量名列表（供前端渲染输入表单） |
+| POST | `/{id}/preview` | `read` | 渲染预览：`{variables:{name:value}}` → `rendered/requiredVariables/missingVariables` |
+| POST | `/` | `manage` | 创建（结构校验 + 编码唯一性） |
+| PUT | `/{id}` | `manage` | 更新（部分更新，仅非空字段参与） |
+| DELETE | `/{id}` | `manage` | 逻辑删除 |
+| PUT | `/{id}/toggle?enabled=` | `manage` | 启停 |
+
+### 4. 纯函数规则（`NotificationTemplateRules`）
+
+- `normalizeChannel(channel)`：大小写不敏感匹配 `Channel` 枚举，非法返回 `null`（入库前归一为大写枚举名）；
+- `extractVariables(content)`：提取 `${var}` 去重保序变量名列表；`countVariables` 计数；
+- `render(content, vars)`：`Matcher.quoteReplacement` 防注入，未知变量保持 `${name}` 原样（保证可回退、不丢占位）；
+- `validate(code, name, channel, content)`：编码 `^[A-Z][A-Z0-9_]{1,63}$`、名称/正文非空、渠道合法，返回错误字符串列表（空 = 通过）。
+
+### 5. 服务编排（`NotificationTemplateService`）
+
+- `page(...)`：`JooqWriters.page` + 视图映射（含 `extractVariables`）；排序走 `JooqSorts.whitelist`（白名单外忽略，防 ORDER BY 注入，末位补 `created_at/id`）；
+- `create`：先 `validate`（失败抛 `VALIDATION_ERROR`）→ `existsByCode` 唯一性（冲突抛 `CONFLICT`）→ `JooqWriters.insert`；
+- `update`：以「合并后的完整值」再 `validate`，编码变更再做唯一性，构造 patch DO 后 `updateById`；
+- `remove`：`delete(..., true)` 逻辑删除；`toggle`：`updateById` 仅置 `enabled` 列（0/1）；
+- `preview`/`variables`/`get`：委托 `extractVariables` + `render`，`requireById` 缺失抛 `NOT_FOUND`。
+
+> **字段类型约定**：DO 的 `enabled` 为 `Integer`（库列 `TINYINT`），服务层与 API 统一以 `Integer 0/1` 落库、以布尔对外；`Create/UpdateRequest.enabled` 为 `Boolean`（缺省默认启用）。
+
+### 6. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationTemplate.js`：8 个 API 封装（page / get / variables / preview / create / update / delete / toggle），均经 `request` 调 `/api/system/notification-templates`；
+- `src/views/system/NotificationTemplate.vue`：列表（渠道/状态/关键字筛选 + 服务端排序 + 启停开关）+ 新建/编辑 `el-dialog`（含 `${var}` 提示）+ 渲染预览 `el-dialog`（按 `variables` 接口生成变量输入，点「渲染预览」调 preview 接口，展示结果并提示缺失变量）；
+- `src/router/index.js`：增 `system/notification-templates` 懒加载条目，`meta.permission = 'system:notification-template:read'`，菜单由后端 V41 驱动（无需前端手工加菜单）；
+- 与发送链路解耦：本页只管模板，**不触碰 `sendNotification`**（M6 发送端点）。
+
+### 7. 验证状态（沙箱）
+
+- `scripts/check-conventions.py`：EXIT=0（533 文件 / 11 源码根，H1–H5 无违规）；
+- M10 单测 **14 例全绿**：`NotificationTemplateRulesTest` 4 例（normalizeChannel / extractVariables / render / validate）+ `NotificationTemplateServiceTest` 10 例（page / create 唯一性 / VALIDATION_ERROR / update / remove / toggle / preview / variables / get NOT_FOUND / 复用 `mockStatic(JooqWriters, CALLS_REAL_METHODS)` 打库替身，void 方法 `updateById`/`delete` 以 `thenAnswer(inv -> null)` 桩掉避免 mock(DSLContext) 返回 null 的 NPE）；
+- 前端 `NotificationTemplate.vue` 经 `@vue/compiler-sfc` 解析 + 脚本/模板编译通过；`notificationTemplate.js` 与既有 `notification.js` 同 ESM 风格；
+- 待用户本机（需 MySQL + 运行后端）：菜单「通知模板」可见（超管）， CRUD 与启停即时生效，预览按变量渲染且缺失变量被明确提示。
+
+## 通知发送模板化（send-with-template，M11）
+
+> M10 交付了模板中心，但发送侧仍是「调用方自带 title/content」的原始直发——模板成了孤岛。M11 闭合这一环：新增 `POST /api/system/notifications/send-with-template`，**模板成为标题/正文/渠道/消息类型的唯一事实来源**，发送侧只提供接收人与变量取值，取启用中模板、渲染 `${var}` 后复用既有渠道链路投递。
+
+### 1. 设计取舍：并存而非替换，模板是可选样板
+
+- 原始 `POST /send`（`SendNotificationRequest`，自带 title/content）**原样保留**，是否套用模板由调用方决定，向后兼容、互不影响；
+- 模板缺失抛 `NOT_FOUND`、停用抛 `CONFLICT`（`requireEnabledByCode` 判定）、渠道无适配器抛 `VALIDATION_ERROR`（`NotificationRouter`）——**发送必须显式失败，绝不静默降级**到空正文或停用模板；
+- 编排放 `NotificationService.sendWithTemplate`（与 `dispatch` 同层），而非 Controller：保持控制器薄，且服务→服务依赖是既有范式（如 `AnnouncementReadService` → `MessageService`）。
+
+### 2. 契约
+
+- **请求** `SendWithTemplateNotificationRequest`：`templateCode`（@NotBlank，≤64）+ `variables`（Map，可空）+ 按渠道的接收字段（`receiverIds`/`roleIds`/`orgIds`/`emails`/`mobiles`/`webhookUrl`）；
+- **响应**：`Result<{delivered: 单元数}>`，与 `/send` 一致；
+- **权限**：复用 `system:message:send`（不新增权限码，`ApiResourceAutoSyncRunner` 自动登记幂等 scope `system:notification:send-with-template`）；
+- **无迁移**：不新增表/菜单/权限，纯编排层扩展（V41 模板表复用）。
+
+### 3. 关键实现点
+
+- `NotificationTemplateService.requireEnabledByCode(code)`：按编码取未删除模板（抽出 `fetchByCode` 私有助手，`existsByCode` 复用），启用校验 `enabled != 1 → CONFLICT`；
+- `NotificationService.sendWithTemplate`：`normalizeChannel(tpl.channel)` 得 `String` 后 `Channel.valueOf(...)`（**注意 normalizeChannel 返回 String 而非枚举**），null 兜底抛 `VALIDATION_ERROR`；`title` 允许为 null（短信渠道），`content` 走 `render`（防注入、未知变量保持 `${name}`）；
+- `NotificationService` 构造器新增 `NotificationTemplateService` 依赖（Spring DI，无循环：模板服务不反向依赖通知服务）。
+
+### 4. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notification.js` 增 `sendWithTemplateNotification(body)`（与 `sendNotification` 同基路径 `/api/system/notifications`）；
+- `NotificationTemplate.vue` 行内增「发送」按钮 + 发送弹窗：按渠道动态展示接收字段（IN_APP/WEBSOCKET→接收人ID、EMAIL→邮箱、SMS→手机号、WEBHOOK→地址），变量输入复用 `getTemplateVariables`，**仅提交非空变量**（空值不入参，渲染时保持 `${name}` 原样），逗号分隔解析（兼容中英文逗号），成功后 Toast 展示 `delivered`。
+
+### 5. 验证状态（沙箱）
+
+- `mvn -o clean test`：**BUILD SUCCESS**（12 模块）；M11 定向 **21 例全绿**：`NotificationServiceTest` 4 例（渲染投递 / 缺变量保持 / 模板异常传播 / 渠道无适配器显式失败）+ `NotificationTemplateServiceTest` 扩至 13 例（+`requireEnabledByCode` 命中/缺失/停用）+ `NotificationTemplateRulesTest` 4 例；
+- 新增校验键 `validation.templateCode.notBlank` 已补 `validation{_zh_CN,_en_US}.properties` 三件套（守护 `ValidationMessageBundleConsistencyTest`）；
+- `scripts/check-conventions.py`：EXIT=0（system 主源码 197 文件 / 11 源码根，H1–H5 无违规）；
+- 前端 `NotificationTemplate.vue` 经 `@vue/compiler-sfc` 编译通过，`notification.js`/`notificationTemplate.js` 经 `node --check` ESM 校验通过；
+- 待用户本机（需 MySQL + 运行后端）：在「通知模板」页对启用模板点「发送」→ 填变量与接收人 → 收到按模板渲染的消息；对停用/不存在模板发送返回 409/404。
+
+## 通知发送记录中心（V42，M12）
+
+> M10/M11 让「按模板发送」成为闭环，但运维侧仍缺一块拼图：IN_APP / WEBHOOK / WEBSOCKET / EMAIL 四路发送**无任何留痕**（仅 SMS 有 `sys_sms_record` 对账面），「通知发出去了吗、失败为什么、是不是模板渲染错了」无从回答。M12 在 `NotificationService.dispatch` 这一唯一漏斗挂记录器，落 `sys_notification_record`（V42），提供全五渠道统一审计面 + 「通知记录」页。
+
+### 1. 挂点设计：dispatch 是全部发送路径的唯一漏斗
+
+- `dispatch(message)` 的调用方只有两个：原始 `POST /send`（`NotificationController` 直调）与 `sendWithTemplate`（M11 内部复用）——在 dispatch 外包一层记录器即**全覆盖**，无需改任何适配器；
+- `dispatch(message)` 委托 `dispatch(message, null)`；`sendWithTemplate` 改调 `dispatch(msg, request.templateCode())`，把 **templateCode 透传进记录**（provenance：这条通知是哪个模板发出来的）；
+- **不改 `NotificationMessage`**（scaffold-common 共享模型）：模板来源经重载参数透传，避免为审计诉求污染领域载体。
+
+### 2. 语义与口径（与 sys_sms_record 的分工）
+
+| 维度 | `sys_notification_record`（M12） | `sys_sms_record`（V37） |
+| --- | --- | --- |
+| 记录时机 | 每次 dispatch **尝试**（含被拒与失败） | 仅校验通过后**实际尝试**的网关投递 |
+| 渠道覆盖 | 全五渠道（统一审计面） | 仅 SMS（网关对账面） |
+| 短信一次发送 | 双写本表 | 双写对账表 |
+
+双写是刻意设计：审计面回答「有没有发、成没成、为什么失败」，对账面回答「网关视角的批次与计费」。
+
+### 3. 实现清单（`system/notifylog`，镜像 `system/smslog` 范式）
+
+- **`SysNotificationRecordDO`**（`@Data`）：channel / templateCode / msgType / 标题摘要 / 正文摘要 / 接收方摘要 / receiverCount / delivered / status / errorMessage / 操作人 / traceId / sentAt；
+- **`NotificationRecordRules`**（纯函数）：`normalizeChannel`/`normalizeStatus`（白名单归一，非法忽略）；`summarizeTitle`/`summarizeContent`（CR/LF/TAB 折叠 + 截断加省略号）；`summarizeExtra`（WEBHOOK 无正文时以 `{k=v}` 兜底）；`receiverSummary`/`receiverCount` **按渠道推导**——SMS/EMAIL 掩码列表、IN_APP `用户/角色/机构` 维度拼接、WEBHOOK 抹除 URL query（机器人 key/token 均在 query 上）、WEBSOCKET 区分定向/广播；
+- **`NotificationRecordRecorder`**（REQUIRES_NEW + 失败 warn 不阻断）：MDC traceId、`SecurityContextFacade` 操作人（内部触发留空）、`JooqWriters.insert`；**失败路径的留痕依赖 REQUIRES_NEW**——否则主流程抛异常回滚会把记录一并带走；
+- **`NotificationRecordService`**（只读）：page + summary，筛选 channel/status/关键字（八列 LIKE）/ 时间区间（默认 7 天），排序白名单 7 列，`buildSummary` 纯函数；
+- **`NotificationRecordController`**：`/api/system/notification-records` 的 `GET /page` + `GET /summary`，权限 `system:notification-record:read`（`ApiResourceAutoSyncRunner` 自动登记）；
+- **`NotificationRecordView`**：record 直出（入库前已脱敏摘要，无「查看原文」入口）；
+- **`JooqTables.SYS_NOTIFICATION_RECORD`**：16 列与 V42 DDL 严格一致；无 deleted 列（记录即审计，永久留存）。
+
+### 4. 迁移 V42 与菜单
+
+- `V42__notification_record.sql`：建表（`idx_tenant_time` / `idx_channel_time` / `idx_status_time` 三索引）+ 菜单 id=**1096**（挂「系统管理」1002，sort_no=**105**，route `/system/notification-records`，component `system/NotificationRecord`，icon `Tickets`）+ SUPER_ADMIN 绑定；
+- 权限码不手工登记 `sys_api_resource`，由 `ApiResourceAutoSyncRunner` 启动扫描 `@PreAuthorize` 落库。
+
+### 5. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationRecord.js`：`pageNotificationRecords` / `notificationRecordSummary`；
+- `src/views/system/NotificationRecordView.vue`：镜像 SmsLogView——渠道筛选（五渠道标签配色）+ 结果筛选 + 时间范围 + 关键字 + 摘要统计卡（总数/成功/失败/失败率/最近发送）+ 服务端白名单排序 + 分页；
+- `src/router/index.js`：`system/notification-records` 懒加载条目（permission `system:notification-record:read`）。
+
+### 6. 验证状态（沙箱）
+
+- `mvn -o clean test-compile`：**BUILD SUCCESS**（12 模块）；
+- M12 定向单测：`NotificationRecordRulesTest` 12 例（渠道归一/摘要/掩码/按渠道接收方与计数/null 防御）+ `NotificationRecordServiceTest` 3 例（buildSummary 比率口径）+ `NotificationServiceTest` 扩至 **8 例**（+dispatch 成功记录/失败记录并重抛/templateCode 透传/失败带模板码）；
+- `scripts/check-conventions.py`：EXIT=0；
+- 前端 SFC 经 `@vue/compiler-sfc` 编译通过，api/router 经 ESM 校验通过；
+- 待用户本机（需 MySQL + 运行后端）：V42 自动迁移后进「通知记录」页，从消息中心发一条各渠道通知（含一次失败，如未启用短信渠道），核对记录的状态/投递数/失败原因/traceId。
+
+## 通知偏好中心（V43，M13）
+
+> M10～M12 闭合了「模板 → 发送 → 留痕」，但通知域仍缺「谁想收什么」这一面：`sys_user` 的 `notify_site_message`/`notify_email`/`notify_mobile` 三个渠道总开关，全仓唯一读取方是个人中心自身（`ProfileService`），**发送链路从不读取**——用户在「通知与隐私」关掉站内信通知，站内信照收，是确凿的「死开关」缺陷。M13 建 `sys_notification_preference`（V43）细分偏好表，在 `NotificationService.dispatch` 路由前按偏好过滤，并提供「个人中心 → 通知订阅」矩阵自服务页。
+
+### 1. 两级生效模型
+
+```
+effective(渠道, 类型) = 渠道总开关(sys_user.notify_*) && (细分偏好行 != null ? 行值 : true)
+```
+
+- **渠道总开关**：IN_APP→`notify_site_message`、EMAIL→`notify_email`、SMS→`notify_mobile`；关闭时该渠道一切消息均不投递（行值被短路）；
+- **细分偏好**：本表行，**无行 = 默认开通**（与「设过又还原」同构——还原即物理删行）；WEBSOCKET 无 sys_user 列，总开关恒开、仅由行裁决；
+- **WEBHOOK 拒绝建行**：webhookUrl 是外部系统地址，无个人偏好语义（`supportsPreference` 白名单外）。
+
+### 2. 表结构（`V43__notification_preference.sql`）与契约
+
+- `sys_notification_preference`：(id, tenant_id=0, user_id, channel, msg_type, enabled, create/update time)，唯一键 `uk_user_channel_type`（幂等 + 并发兜底）；
+- 可设渠道白名单 `IN_APP/EMAIL/SMS/WEBSOCKET`（有序，决定前端矩阵行序）；消息类型白名单 `NOTICE/ALERT/SYSTEM/CC`（有序，列序；空归一 NOTICE，与 `MessageService` 直发默认一致）；
+- `GET/PUT /api/notification-preferences/mine`：无权限码、无菜单的自服务范式（镜像 `/api/profile`，userId 一律服务端从安全上下文取）；`GET` 返回 4×4 矩阵，每格带 `enabled` + `source`（`CHANNEL` 总开关关闭强制关 / `PREFERENCE` 显式设置 / `DEFAULT` 无行默认开）；`PUT` 局部批量更新，`enabled` 三态（0/1/null，null=删行恢复默认），返回更新后完整矩阵省一次回查。
+
+### 3. 实现清单（`system/notifypref`）
+
+- **`NotificationPreferenceRules`**（纯函数，矩阵域模型同源）：`normalizeChannel`/`normalizeMsgType`/`filterKey`（发送侧键：白名单外非空值原样透传，避免误判退订）；`channelColumn`/`channelSwitch`/`channelDefault`（sys_user 列映射，null 按列默认兜底）；`isEnabled`/`filterReceivers`/`filterAddresses`（保序过滤，外部地址默认放行）；`buildMatrix`（16 格 + 来源标注，嵌嵌套 record `ChannelMatrix`/`PreferenceCell`/`NotificationPreferenceMatrix`）；
+- **`NotificationPreferenceService`**：`mine`/`update`（先全额校验再落库，避免半成品；jOOQ 动态 DSL 无 upsert，走「查现存 → updateById 或 insert」，删行表达恢复默认）；`applyPreferences` 挂点过滤（IN_APP/WEBSOCKET 按 receiverIds、EMAIL/SMS 按地址反查 sys_user；广播与 WEBHOOK 不过滤；**全部定向接收者退订返回 null**）；
+- **`NotificationPreferenceController`**：上述两端点 + `@AuditOperation` 审计；
+- **`UpdateNotificationPreferenceRequest`/`PreferenceItemRequest`**：`@Size(max=16)` 收敛到矩阵格子总数；校验键复用 `validation.channel.notBlank`/`validation.preference.switch.range`，新增 `validation.preference.items.notEmpty`/`.size`（三件套同步）。
+
+### 4. dispatch 挂点与 SKIPPED 状态（M12 记录中心扩展）
+
+- `NotificationService` 构造器扩第 4 参 `NotificationPreferenceService`；`dispatch` 在路由前调 `applyPreferences`：返回 null（全退订）→ 记 **`SKIPPED`**（`NotificationRecordRecorder.skip`，原因「全部接收者已退订该类型通知」）+ 返回 0 **静默跳过，不调 port、不报错**；
+- `NotificationRecordRules` 增 `STATUS_SKIPPED` 且 `normalizeStatus` 接受；`buildSummary` 改签名 `(total, success, skipped, lastSentAt)`，`failure = total - success - skipped`——**退订不是故障，不计入失败率**；
+- 前端记录页：结果筛选加「已跳过」、摘要卡加「已跳过」、结果标签三态、`errorMessage` 列更名「失败/跳过原因」。
+
+### 5. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationPreference.js`：`getMyNotificationPreference`/`updateMyNotificationPreference`；
+- `src/views/profile/components/NotificationPreferencePanel.vue`：渠道 × 类型矩阵表（el-switch 逐格 + 单格/整行「恢复默认」），总开关关闭的渠道置灰并标注「需先绑定邮箱/手机号」或「总开关已关闭」；保存仅提交变化格子（diff 快照），PUT 返回矩阵直接刷新；镜像 PreferencePanel 的 skeleton/alert/保存态范式；
+- `src/views/profile/ProfileView.vue`：新增「通知订阅」Tab（`#subscription` 可直达）；
+- `src/views/system/NotificationRecordView.vue`：见上。
+
+### 6. 验证状态（沙箱）
+
+- `mvn -o clean test`：**990 单元全绿**（较 M12 基线 967 +23；12 模块 SUCCESS）；
+- M13 定向单测：`NotificationPreferenceRulesTest` 14 例（归一/总开关映射/生效判定/分区过滤/矩阵 16 格来源）+ `NotificationPreferenceServiceTest` 4 例（校验拒绝路径：渠道/类型白名单、空 items，先校验后落库）+ `NotificationServiceTest` 扩至 **12 例**（+偏好过滤生效 / 全退订 SKIPPED 不调 port 且不落 FAILED / 广播不过滤 / WEBHOOK 不过滤）+ `NotificationRecordRulesTest`/`NotificationRecordServiceTest` 适配 SKIPPED；
+- `scripts/check-conventions.py`：EXIT=0；
+- 前端 `npm run build` 通过（ProfileView 分块 24.81 kB）；
+- 待用户本机（需 MySQL + 运行后端）：V43 自动迁移后进「个人中心 → 通知订阅」，关闭「站内信 × 告警」后由消息中心发一条 ALERT 站内信给自己——应收不到且「通知记录」出现一条 SKIPPED；恢复默认后再发应收到的。
+
+## 通知免打扰时段（V44，M14）
+
+### 1. 选题与模型取舍
+
+- M13 偏好中心闭合接收侧的「谁想收什么」（渠道 × 消息类型），本模块补齐最后一维「**什么时候收**」；
+- **时间维总闸**：免打扰先于偏好过滤生效（dispatch 内两道挂点串联，免打扰在前）；
+- **按接收者维度、不按渠道**（镜像 M13）：一名用户至多一行——时间窗不区分渠道，与「渠道 × 类型」矩阵正交；
+- **懒行模型**：无行 = 无免打扰（与 M13「无行默认开通」互为镜像）；关停免打扰保留配置行（`enabled=0`），无「恢复默认」删行语义，故无 `deleted` 列；
+- **半开区间 `[start, end)` + 跨午夜**：`start < end` 为当日窗口，`start > end` 表达跨午夜（默认 22:00–08:00）；`start == end` 为退化窗口，服务端拒绝；
+- **服务器本地时间**（`LocalTime.now()`）：免随时区换算，属文档化限制（与「验证码过期」等既有本地时间口径一致）；
+- **告警穿透**：`ALERT` 且 `alert_breakthrough=1` 时免打扰不生效——故障告警不应被时间窗吞掉；其余类型（NOTICE/SYSTEM/CC/未知）一律受抑制；
+- **广播与 WEBHOOK 不过滤**：角色/机构广播受众规模不定、WEBHOOK 地址属外部系统，均无个人作息语义，属文档化限制。
+
+### 2. 表结构（`V44__notification_quiet_hours.sql`）与契约
+
+- `sys_notification_quiet_hours`：`id` / `tenant_id` / `user_id` / `enabled` / `start_time` TIME / `end_time` TIME / `alert_breakthrough` / `created_at` / `updated_at`；唯一键 `uk_user(user_id)`（同一用户至多一行，兜底幂等，写入走「查现存 → 更新或插入」）+ `idx_tenant_user`；
+- 契约：`GET|PUT /api/notification-quiet-hours/mine`（自服务，无权限码、无菜单，userId 一律服务端取自安全上下文）；视图字段 `enabled` / `startTime` / `endTime`（`HH:mm` 字符串）/ `alertBreakthrough` / `quietNow`（仅展示的当前状态提示，不参与发送裁决）；
+- 请求体 `UpdateQuietHoursRequest`：`@NotNull enabled/alertBreakthrough` + `@NotBlank startTime/endTime`；格式与窗口合法性由服务端二次校验（Bean Validation 只管非空）；
+- 新增校验键三件套：`validation.quietHours.switch.notNull` / `validation.quietHours.time.notBlank`。
+
+### 3. 实现清单（`system/notifyquiet`，镜像 `notifypref` 范式）
+
+- `domain/SysNotificationQuietHoursDO`：`LocalTime` 时间列（jOOQ 动态 DSL 直接绑定，`SnakeRecordMapper` 透传）；
+- `rules/NotificationQuietHoursRules`（纯函数）：`parseTime`（`HH:mm` 严格格式）/ `isValidWindow` / `isQuiet`（半开区间 + 跨午夜，退化输入防御）/ `isAlert` / `suppresses`（穿透决策）/ `isSuppressed` / `filterReceivers`（保序过滤，null 元素剔除）+ 内嵌 `QuietSetting` record（H4 不命中 Matrix/Cell 命名）；
+- `NotificationQuietHoursView`：top-level record（镜像 M12 View 放置），`defaults()` 兜底未配置用户；
+- `dto/UpdateQuietHoursRequest` + `NotificationQuietHoursService`（`mine` / `update` 先全额校验再 upsert / `applyQuietHours` 按接收者过滤返 null=抑制）+ `NotificationQuietHoursController`；
+- EMAIL/SMS 的地址 → userId 反查与偏好服务同口径（email 小写归一、soft-deleted 除外、外部地址默认放行），两处挂点过滤结论相互独立，暂不抽公共层。
+
+### 4. dispatch 挂点与 SKIPPED 原因区分（M12/M13 链路扩展）
+
+- `NotificationService` 构造器扩第 5 参 `NotificationQuietHoursService`；`dispatch` 先 `applyQuietHours`（null → 记 **`SKIPPED`**，原因「免打扰时段内已抑制」）再 `applyPreferences`（null → 原因「全部接收者已退订该类型通知」）——两道过滤串联，免打扰为总闸；
+- 抑制/退订均**静默返回 0**：不抛异常（正常业务结果而非故障）、不调适配器（没有该投递的对象）；记录仍以原始消息为审计对象，抑制差异由 SKIPPED 状态与原因表达；
+- SKIPPED 不计失败率（M12 口径不变）；通知记录页的「已跳过」筛选与「失败/跳过原因」列自动兼容新原因文案，无需改动。
+
+### 5. 前端（`pc-admin-vue3-vite`）
+
+- `src/api/notificationQuietHours.js`：`getMyQuietHours` / `updateMyQuietHours`；
+- `src/views/profile/components/NotificationQuietHoursPanel.vue`：启用开关 + 起止时间（`el-time-picker`，`HH:mm`）+ 告警穿透开关；`quietNow` 状态提示（「当前处于免打扰中」）、跨午夜提示（`end < start` 字符串字典序判定）；与服务端同口径的起止相同前置校验；PUT 返回视图直接刷新快照省回查；镜像 M13 面板的 skeleton/alert/保存态范式；
+- `src/views/profile/ProfileView.vue`：新增「免打扰」Tab（`#quietHours` 可直达）。
+
+### 6. 验证状态（沙箱）
+
+- `mvn -o clean test`：**1017 单元全绿**（较 M13 基线 990 +27；12 模块 SUCCESS）；
+- M14 定向单测：`NotificationQuietHoursRulesTest` **14 例**（时间解析/半开区间边界/跨午夜/退化防御/穿透决策/保序过滤）+ `NotificationQuietHoursServiceTest` **8 例**（格式与退化窗口拒绝且零库交互/跨午夜合法/四类零库放行路径）+ `NotificationServiceTest` 扩至 **17 例**（+全抑制 SKIPPED 不调 port 且不落 FAILED / 总闸短路不再查偏好 / 放行后才进偏好且记录以原始消息为对象 / 免打扰查询异常 FAILED / 模板发送同过免打扰）；
+- `scripts/check-conventions.py`：EXIT=0；
+- 前端 `npm run build` 通过；
+- 待用户本机（需 MySQL + 运行后端）：V44 自动迁移后进「个人中心 → 免打扰」设置 22:00–08:00（保持当前时刻在窗口内即可验证），发一条 NOTICE 给自己——通知记录出现一条 SKIPPED（原因「免打扰时段内已抑制」）；改发 ALERT（告警穿透开启）则应正常收到；关闭开关后再发恢复投递。
+
+---
+
+## 35. 通知子系统收尾：退订令牌 / 故障转移+有界重试 / 聚合摘要 / Webhook 外发 HMAC（M15–M18）
+
+> 承接 M9–M14（通知中心 / 模板 / 发送模板化 / 发送记录 / 偏好中心 / 免打扰时段），本轮补齐接收侧与发送侧的「安全退订、韧性投递、频次合并、外发鉴权」四块能力，dispatch 管线顺序固定为：**免打扰过滤（M14）→ 偏好过滤（M13）→ digest 挂点（M17）→ 路由 `NotificationRouter` → 有界重试 / 故障转移（M16）→ `NotificationRecordRecorder` 留痕（M12）**。
+
+### 35.1 退订令牌（M15，2026-10-23）
+
+- **背景**：邮件/短信退订需「免登录、防伪造、链接不可关联」，且密钥不得落库。
+- **能力**：`UnsubscribeTokenRules.mint/verify` 铸造 `v1.<base64url(payload)>.<base64url(HmacSHA256(secret, v1.<payload>))>`；payload = `userId|channel|msgType|expMillis|nonce`（base64url 编码，不含点号与令牌分隔符冲突）；`nonce` 8 字符随机（同用户多次铸造互不相等，链接不可关联）；`expMillis` 短 TTL（默认 72h，`unsubscribe.ttl-hours`）；恒定时间比较防时序侧信道；`secret` 经 `NOTIFICATION_UNSUBSCRIBE_SECRET` 注入，缺失即安全失败（任何令牌都无效）。
+- **关键文件**：`notification/unsubscribe/{NotificationUnsubscribeService,NotificationUnsubscribeController,NotificationUnsubscribeProperties,rules/UnsubscribeTokenRules}`；`NotificationService`/邮件·短信 `Adapter` 在正文注入退订链接（`unsubscribe.base-url` + token）。
+- **端点**：`GET /api/notification/unsubscribe?token=...` 公开，验签且未过期即退订该 `userId+channel+msgType`。
+- **验证**：`UnsubscribeTokenRulesTest`（铸造/验签/过期/篡改/密钥错/nonce 唯一）。
+
+### 35.2 渠道故障转移 + 有界重试（M16，2026-10-23）
+
+- **背景**：网关瞬时故障（IO/超时）不应直接判失败；主适配器彻底失败时需可切换同渠道备用。
+- **能力**：
+  - **有界重试**：`NotificationRetryProperties`（`enabled`/`max-attempts` 默认 3/`backoff-ms` 默认 200），`DeliveryRetryRules` 计算第 n 次重试前等待 `n × backoff-ms`，总等待有硬上界；仅对「非 `BusinessException` 的运行时异常（如网关 IO 失败）」重试，业务确定性拒绝（渠道未启用/报文非法）不重试。
+  - **故障转移**：`NotificationFailoverProperties`（`enabled` 默认 **false**），主适配器抛异常时切换同渠道备用适配器；至少一次语义（主「已投递但响应丢失」时会重复投递，故默认关闭，显式开启需评估重复容忍度）。
+- **关键文件**：`notification/{rules/DeliveryRetryRules,config/NotificationRetryProperties,config/NotificationFailoverProperties}`；由 `NotificationService.dispatch` 在路由（`NotificationRouter`）**之后**编排。
+- **验证**：`NotificationServiceTest` 覆盖重试耗尽记 FAILED / failover 切换备用 / 业务拒绝不重试 / 重试不重复写失败记录。
+
+### 35.3 通知聚合摘要 digest（M17，2026-10-23）
+
+- **背景**：命中类型的定向高频通知（如「订单已发货」「优惠券到账」）应合并为一条摘要，降低打扰、减少投递次数。
+- **挂点位置**：`NotificationService.dispatch` 在免打扰（M14）与偏好（M13）过滤**之后**、路由投递**之前**调用 `digestService.enqueue(effective)`——只聚合「本来会投递」的消息，已退订/免打扰抑制的不进摘要。
+- **聚合范围**（`shouldDigest` 纯预检、不触库）：类型命中 `digest.msg-types`（默认 `NOTICE`）；IN_APP/WEBSOCKET 有 `receiverIds`（广播无个人投递箱不聚合）；EMAIL/SMS 有 `emails`/`mobiles`（**全映射才聚合**：经 `fetchAddressUserIds` 反查 `sys_user`，任一外部地址即整体放弃、走正常投递，防部分丢消息）；WEBHOOK 不聚合（与 M13/M14 广播不过滤口径一致）。
+- **合并写入**（`enqueue`）：逐用户「查现存 → 更新或插入」（`JooqWriters`，动态 DSL 无 upsert，`uk_user_channel_type` 兜底并发），`item_count` 累加、`items_json` 保留最近 `maxItems`、`last_at` 前推；达 `threshold` 的聚合行随结果返回，由 `dispatch` 内立即刷新投递（先到先投，防囤积）。
+- **兜底刷新**：`NotificationDigestJob`（`@Scheduled(fixedDelay=scan-interval-ms)`）`findDue` 扫描 `last_at` 超 `max-wait-minutes` 的聚合行强制刷新，防低流量用户「永远差一条」。
+- **一次性投递语义**：摘要行无论 SUCCESS/SKIPPED/FAILED 均物理删（聚合行是待投递缓冲非档案，审计由 M12 承担）；投递编排由 Job 经 `NotificationService.dispatch` 递归，包依赖图保持 DAG（Job 置于 `notifydigest.job` 子包，H1 合规）。
+- **防递归挂起**：摘要消息 `msgType=DIGEST`（不在 `digest.msg-types` 内→不再挂起；不在 M13 白名单→默认开通，仅受渠道总开关约束）。
+- **M12 状态语义**：`STATUS_DIGEST_PENDING` + `Recorder.pending(message, templateCode, reason)` + `buildSummary(total, success, skipped, digestPending, lastSentAt)`，`failure = total − success − skipped − digestPending`（SKIPPED 与 DIGEST_PENDING 均不计失败率）；前端通知记录页新增「聚合中」态（`NotificationRecordView.vue` 筛选/统计卡/`STATUS_META`/`DIGEST_PENDING`）。
+- **关键文件**：`notifydigest/{SysNotificationDigestDO,NotificationDigestRules,NotificationDigestProperties,NotificationDigestService,job/NotificationDigestJob}`、`V45__notification_digest.sql`（`uk_user_channel_type`，无 status/逻辑删除列）、`notification/config/NotificationDigestProperties`、`notifylog` M12 契约扩展。
+- **验证**：`NotificationDigestServiceTest` 9 分支（disabled/null/类型未命中/WEBHOOK/IN_APP 广播/IN_APP 有 receiverIds/EMAIL 无地址/EMAIL 有地址/SMS 有 mobiles，均 `verifyNoInteractions(dsl,preferenceService,objectMapper)`）+ `NotificationDigestRulesTest` 6 例 + `NotificationServiceTest` 5 例（挂点编排/pending 记录/阈值刷新递归/失败仍删行/直通）+ `NotificationRecordServiceTest`/`RulesTest` 适配 `DIGEST_PENDING` + 前端 `NotificationRecordView.vue`。
+
+### 35.4 Webhook 外发 HMAC 签名（M18，2026-10-23）
+
+- **背景**：原 `app.notifications.webhook.secret` 明文透传报文不安全；改为 HMAC 签名 + 时间戳 + nonce 防篡改与重放。
+- **能力**：`WebhookProperties.signingKey` 配置即启用（经 `NOTIFICATION_WEBHOOK_SIGNING_KEY` 注入，不落库）；`WebhookSignatureRules.sign(key, ts, nonce, rawBody)` 对**实际发出的原始 JSON 报文**做 HMAC-SHA256（base64url），签名覆盖 `ts + "." + nonce + "." + rawBody`（与接收方原始 body 逐字节一致，规避 JSON 重排/空格差异导致验签不一致）；注入三头 `X-Webhook-Signature=sha256=<sig>` / `X-Webhook-Timestamp` / `X-Webhook-Nonce`；`verify(...)` 恒定时间比较 + 时间戳新鲜度窗口（默认建议 5min）+ 5s 正向漂移容错；nonce 由接收方去重表彻底防重放（发送侧不维护全局态，符合本仓「不引入额外依赖」约束）。
+- **关键文件**：`notification/rules/WebhookSignatureRules`、`notification/adapter/RestTemplateWebhookClient`（注入 `ObjectMapper` 序列化→签名→`HttpEntity<String>` 发送）、`notification/config/WebhookProperties`（增 `signingKey`；原 `secret` 标记 legacy 废弃）、`application.yml` webhook 段增 `signing-key`。
+- **验证**：`WebhookSignatureRulesTest` 11 例（确定性/命中/篡改/错密钥/过期/缺参/未来漂移/nonce 唯一）+ `RestTemplateWebhookClientTest` 2 例（签名头存在且可经 `verify` 用捕获原始报文还原验签通过）。
+
+### 35.5 验证状态（沙箱，2026-10-23）
+
+- `mvn -o clean test`：**全仓 11 模块 BUILD SUCCESS**；`scaffold-system` **564 例全绿**（较 M13 基线 +13：M17 新增 17 例 + M18 新增 13 例）。
+- `scripts/check-conventions.py`：EXIT=0（H1 包级循环 / H5 模块环等无违例；`notifydigest` 与 `notification.service` 经 `notifydigest.job` 维持 DAG）。
+- 待用户本机（需 MySQL + 运行后端）：邮件/短信退订链接点击即解退订；Webhook 接收方按三头验签；digest 阈值合并投递、低流量用户超时兜底刷新。
+
+

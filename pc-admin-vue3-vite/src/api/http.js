@@ -3,6 +3,8 @@ import { ElMessage } from 'element-plus'
 import { API_BASE } from './config'
 import { clearAuth } from '../store/auth'
 import { closeRealtime } from './realtime'
+import { backendLocale } from '../i18n'
+import { isSuccessResult, ResultError } from './result'
 
 const realAxios = axios.create({ baseURL: API_BASE, timeout: 15000 })
 
@@ -26,6 +28,10 @@ function injectAuthHeaders(cfg) {
   const token = localStorage.getItem('pc_admin_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
   if (!cfg.headers['X-Device-Id']) cfg.headers['X-Device-Id'] = getDeviceId()
+  // 本地化：把当前语言随每个请求经 ?lang= 上报，后端 LocaleChangeInterceptor 据此切换语言，
+  // 使后端异常 / 业务错误消息按用户语言返回（与 GlobalExceptionHandler 本地化对齐）。
+  // 合并调用方已有的 params，避免覆盖（如分页 size/page）。
+  cfg.params = { ...(cfg.params || {}), lang: backendLocale() }
   return cfg
 }
 
@@ -56,14 +62,14 @@ function handleHttpError(err) {
 // 请求拦截：注入 JWT 与设备标识
 realAxios.interceptors.request.use(injectAuthHeaders)
 
-// 响应拦截：统一拆包 Result<T>{code,message,data}，code!=='0' 视为业务错误
+// 响应拦截：统一拆包 Result<T>{code,message,data}，兼容成功码 "0" 与 0（见 result.js）
 realAxios.interceptors.response.use(
   (resp) => {
     const body = resp.data
-    if (body && body.code === '0') return body.data
+    if (isSuccessResult(body)) return body.data
     const msg = body?.message || '请求失败'
     ElMessage.error(msg)
-    return Promise.reject(Object.assign(new Error(msg), { code: body?.code }))
+    return Promise.reject(new ResultError(msg, body?.code, body?.data))
   },
   handleHttpError
 )

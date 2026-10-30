@@ -62,3 +62,25 @@ export const unpublishDefinition = (id) =>
 // GET /api/workflow/definitions/{id}/bpmn -> { processKey, bpmnXml }
 export const getDefinitionBpmn = (id) =>
   request({ method: 'GET', url: `/api/workflow/definitions/${id}/bpmn` })
+
+// ---------------- 流程监控（M23） ----------------
+
+// GET /api/workflow/monitor/running-instances -> PageResult<RunningInstanceView>
+export const runningInstances = (params) =>
+  request({ method: 'GET', url: '/api/workflow/monitor/running-instances', params })
+
+// GET /api/workflow/monitor/overdue-tasks -> PageResult<OverdueTaskView>
+export const overdueTasks = (params) =>
+  request({ method: 'GET', url: '/api/workflow/monitor/overdue-tasks', params })
+
+// GET /api/workflow/monitor/definition-versions/{processKey} -> List<DefinitionVersionView>
+export const definitionVersions = (processKey) =>
+  request({ method: 'GET', url: `/api/workflow/monitor/definition-versions/${processKey}` })
+
+// GET /api/workflow/monitor/stats -> MonitorStatsView
+export const monitorStats = () =>
+  request({ method: 'GET', url: '/api/workflow/monitor/stats' })
+
+// POST /api/workflow/monitor/tasks/{taskId}/remind -> void
+export const remindTask = (taskId) =>
+  request({ method: 'POST', url: `/api/workflow/monitor/tasks/${taskId}/remind` })

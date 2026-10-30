@@ -1,7 +1,9 @@
 import { request, requestRaw } from './http'
 
-// GET /api/system/import/templates -> 拆包后直接是 [{code, displayName, headers}]
+// GET /api/system/import/templates -> 拆包后直接是
+// [{code, displayName, headers, multiSegment, segments:[{name, headers}]}]
 // 模板由后端 ImportTask 实现类自动收集，前端无需维护清单。
+// 多段模板（multiSegment=true）仅支持 XLSX 下载（含多工作表），CSV 不可用。
 export const listImportTemplates = () =>
   request({ method: 'GET', url: '/api/system/import/templates' })
 

@@ -1,0 +1,90 @@
+package com.acme.scaffold.system.controller;
+
+import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.dto.CreateUserRequest;
+import com.acme.scaffold.system.dto.ResetPasswordRequest;
+import com.acme.scaffold.system.dto.UpdateUserRequest;
+import com.acme.scaffold.system.dto.UserQuery;
+import com.acme.scaffold.system.dto.UserView;
+import com.acme.scaffold.system.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 用户管理接口（RBAC 末端主体）。
+ *
+ * <p>提供用户分页查询、详情、增删改与密码重置；用户挂接机构与角色，
+ * 是权限与数据范围的最终归属主体。</p>
+ */
+@Tag(name = "用户管理")
+@RestController
+@RequestMapping("/api/system/users")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+
+    @Operation(summary = "分页查询用户")
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('system:user:read')")
+    @AuditOperation(module = "system", type = "QUERY", name = "查询用户列表")
+    public Result<PageResult<UserView>> page(@RequestParam(defaultValue = "1") int page,
+                                            @RequestParam(defaultValue = "20") int size,
+                                            @RequestParam(required = false) String username,
+                                            @RequestParam(required = false) String status,
+                                            @RequestParam(required = false) Long orgId,
+                                            @RequestParam(required = false) Long roleId,
+                                            @RequestParam(required = false) String sortField,
+                                            @RequestParam(required = false) String sortDirection) {
+        return Result.success(userService.list(
+                new UserQuery(page, size, username, status, orgId, roleId, sortField, sortDirection)));
+    }
+
+    @Operation(summary = "用户详情")
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:user:read')")
+    public Result<UserView> get(@PathVariable Long id) {
+        return Result.success(userService.getView(id));
+    }
+
+    @Operation(summary = "创建用户")
+    @PostMapping
+    @PreAuthorize("hasAuthority('system:user:create')")
+    @AuditOperation(module = "system", type = "CREATE", name = "创建用户")
+    public Result<String> create(@Valid @RequestBody CreateUserRequest request) {
+        return Result.success(String.valueOf(userService.create(request)));
+    }
+
+    @Operation(summary = "更新用户")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:user:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "更新用户")
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
+        userService.update(id, request);
+        return Result.success();
+    }
+
+    @Operation(summary = "重置密码")
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize("hasAuthority('system:user:update')")
+    @AuditOperation(module = "system", type = "UPDATE", name = "重置用户密码")
+    public Result<Void> resetPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest request) {
+        userService.resetPassword(id, request.password());
+        return Result.success();
+    }
+
+    @Operation(summary = "删除用户（物理删除/硬删除）")
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:user:delete')")
+    @AuditOperation(module = "system", type = "DELETE", name = "物理删除用户")
+    public Result<Void> delete(@PathVariable Long id) {
+        userService.delete(id);
+        return Result.success();
+    }
+}

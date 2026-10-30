@@ -29,36 +29,47 @@
       <div class="toolbar">
         <span class="card-title">参数配置列表</span>
         <span class="spacer" />
+        <el-button :icon="Refresh" :loading="refreshing" @click="onRefresh">刷新配置缓存</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate">新增配置</el-button>
       </div>
 
-      <el-table :data="list" v-loading="loading" border stripe>
-        <el-table-column prop="configKey" label="配置键" min-width="160" />
-        <el-table-column prop="configName" label="配置名称" min-width="120" />
-        <el-table-column prop="configValue" label="配置值" min-width="160" show-overflow-tooltip />
-        <el-table-column label="类型" width="100">
-          <template #default="{ row }">
-            <el-tag size="small">{{ row.configType }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <!-- 状态标签统一走 utils/status 映射 -->
-            <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="170" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-popconfirm title="确认删除该配置？" @confirm="onDelete(row)">
-              <template #reference>
-                <el-button link type="danger" :icon="Delete">删除</el-button>
+      <el-collapse v-if="groups.length" class="config-groups">
+        <el-collapse-item
+          v-for="g in groups"
+          :key="g.group"
+          :name="g.group"
+          :title="`${g.label}（${g.items.length}）`"
+        >
+          <el-table :data="g.items" v-loading="loading" border stripe>
+            <el-table-column prop="configKey" label="配置键" min-width="160" />
+            <el-table-column prop="configName" label="配置名称" min-width="120" />
+            <el-table-column prop="configValue" label="配置值" min-width="160" show-overflow-tooltip />
+            <el-table-column label="类型" width="100">
+              <template #default="{ row }">
+                <el-tag size="small">{{ row.configType }}</el-tag>
               </template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <!-- 状态标签统一走 utils/status 映射 -->
+                <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="170" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
+                <el-popconfirm title="确认删除该配置？" @confirm="onDelete(row)">
+                  <template #reference>
+                    <el-button link type="danger" :icon="Delete">删除</el-button>
+                  </template>
+                </el-popconfirm>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-collapse-item>
+      </el-collapse>
+      <el-empty v-else description="暂无配置" />
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editingId !== null ? '编辑配置' : '新增配置'" width="560px">
@@ -101,14 +112,15 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Search, Edit } from '@element-plus/icons-vue'
-import { listConfigs, getConfigByKey, createConfig, updateConfig, deleteConfig } from '@/api/sysConfig'
+import { Plus, Delete, Search, Edit, Refresh } from '@element-plus/icons-vue'
+import { listConfigGroups, getConfigByKey, createConfig, updateConfig, deleteConfig, refreshConfigs } from '@/api/sysConfig'
 // 状态标签映射统一到 utils
 import { statusTag } from '@/utils/status'
 
 const loading = ref(false)
 const saving = ref(false)
-const list = ref([])
+const refreshing = ref(false)
+const groups = ref([])
 
 const dialogVisible = ref(false)
 const editingId = ref(null)
@@ -147,9 +159,20 @@ async function onRead() {
 async function load() {
   loading.value = true
   try {
-    list.value = await listConfigs()
+    groups.value = await listConfigGroups()
   } finally {
     loading.value = false
+  }
+}
+
+async function onRefresh() {
+  refreshing.value = true
+  try {
+    await refreshConfigs()
+    ElMessage.success('配置缓存已刷新')
+    await load()
+  } finally {
+    refreshing.value = false
   }
 }
 

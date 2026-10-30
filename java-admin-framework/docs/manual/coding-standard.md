@@ -45,7 +45,7 @@ com.acme.scaffold
 
 ### 2.2 层子包（二级，按职责）
 
-特性模块内推荐按下表拆子包。**已按层子包组织**的模块（2026-10-17 由 `check-conventions.py` W2 概览核实）：`codegen`、`common`、`job`、`kafka`、`monitor`、`realtime`、`security`、`system`、`workbench`、`workflow`；仍为**平铺**的是三个通用包 `config`（23 类）/ `jooq`（7 类）/ `observability`（12 类）。
+特性模块内推荐按下表拆子包。**已按层子包组织**的模块（2026-10-23 由 `check-conventions.py` W2 概览核实）：`codegen`、`common`、`job`、`kafka`、`monitor`、`observability`、`realtime`、`security`、`system`、`workbench`、`workflow`；仍为**平铺**的是两个通用包 `config`（25 类）/ `jooq`（7 类）。
 
 > 平铺的通用包允许**按关注点**拆子包而不带层名——如 `config.web` / `config.jooq` / `config.redis` / `config.cache` / `config.datasource` / `config.jobrunr` / `config.observability`、`jooq.dsl` / `jooq.mapping` / `jooq.paging`。这类子包**不是层**，因此：
 > - H3 依赖方向判定只认包路径**最后一段**是否落在 `TIER` 表内（domain/entity/model 为 0 层，config 为 1，service 为 2，controller/web 为 3），最后一段非层 token 的按 neutral 跳过；
@@ -78,6 +78,28 @@ controller  ──▶  service  ──▶  domain / port
 - `service` / `application`：**不得**依赖 `controller` / `web`。
 - `config`：**不得**依赖 `controller` / `web`（可依赖 `service`/`domain` 以装配 Bean）。
 - 全局 **禁止包级循环依赖**（见 §5 校验）。
+
+### 2.4 Maven 模块与顶层包的映射（V1.0.3 起）
+
+工程为**多 Maven 模块**结构（参照 RuoYi-Vue 模块化单体思路）。**包名保持 `com.acme.scaffold.*` 不变**，模块边界由 Maven 依赖强制：同一顶层包可被模块内任意层子包引用而无需 import 改动，Spring 根包扫描天然汇聚全部 Bean。完整拆分方案（职责边界、依赖矩阵、迁移步骤）见 [`module-split.md`](module-split.md)。
+
+| Maven 模块（artifactId） | 承载顶层包 | 说明 |
+|---|---|---|
+| `scaffold-admin` | （根包启动类 `FrameworkApplication`） | 唯一可部署模块，依赖其余全部；不得被任何模块依赖 |
+| `scaffold-common` | `common`、`jooq` | 基础层：零 Spring Security 装配、零业务规则 |
+| `scaffold-realtime` | `realtime` | 通信层：握手鉴权经 `realtime.port` 端口由 system 注入实现（依赖倒置） |
+| `scaffold-kafka` | `kafka` | 通信层：保序规则与消费者薄封装 |
+| `scaffold-codegen` | `codegen` | 工具层：表元数据与 CRUD 骨架生成 |
+| `scaffold-framework` | `config`、`observability`、`monitor.detection` | 框架装配层：全局配置、指标链路、N+1/慢查询监听探针 |
+| `scaffold-system` | `security`、`system` | 业务层：RBAC + 认证授权 + 系统管理 |
+| `scaffold-monitor` | `monitor`（除 `detection`） | 业务层：告警收件箱、健康探针、监控查询 |
+| `scaffold-job` | `job` | 业务层：任务管理与周期任务注册（`job.config.JobRunrConfig`） |
+| `scaffold-workbench` | `workbench` | 业务层：工作台与报表 |
+| `scaffold-workflow` | `workflow` | 业务层：Flowable 对接 |
+
+> `monitor` 包按「框架级检测机制（`monitor.detection`，属框架装配）」与「业务运维面（告警/探针/查询，属业务）」跨 `scaffold-framework` / `scaffold-monitor` 两模块拆分，由 Maven 依赖 `monitor → framework` 保证方向。
+>
+> 模块依赖 DAG 由校验脚本 **H5** 强制（解析各模块 POM + Tarjan SCC），任何模块不得依赖 `scaffold-admin`。
 
 ---
 
@@ -167,18 +189,19 @@ controller  ──▶  service  ──▶  domain / port
 | H2 | 硬（失败） | 重复的全限定类名 |
 | H3 | 硬（失败） | 依赖方向不变量（见 §2.3 禁止项） |
 | H4 | 硬（失败） | 数据类放置（对应脚本 `DATA_CLASS_RULES`）：`*DO` / `*PO` / `*Entity` 应在 `domain`/`entity`/`model`/`po` 子包，`*Model` 应在 `domain`/`entity`/`model` 子包；`*DTO` / `*VO` / `*Request` / `*Response` / `*Command` / `*Query` 应在 `dto`/`vo`/`domain`/`entity`/`model` 子包；**包路径任意一段命中即合规**（如 `workflow.dto.design` 不误报）。后缀匹配取最长优先，且类名须长于后缀本身（避免 `DO`、`Entity` 这类同名误伤） |
+| H5 | 硬（失败） | 模块级循环依赖（解析各 `scaffold-*` 模块 POM 的 `<dependencies>`，Tarjan SCC 检测模块 DAG 无环）；另含两条模块命名硬约束：artifactId 须 `scaffold-` 前缀（W4 警告级）、任何模块不得依赖 `scaffold-admin`（W3 警告级） |
 | W1 | 警告 | 疑似错层放置（类名层承载后缀 `LAYER_BEARING` 与包末段层 `TIER` **均为显式层且冲突**时才报，如 `*Controller` 落在 `*service` 包；`*Config` 类在包路径含 `config` 段时豁免；`*Filter`/`*Aspect`/`*Properties` 等无 tier 后缀不误报） |
-| W2 | 警告 | 模块分层概览（已分层 vs 平铺，供人工参考，不强制）。当前实际输出：已分层 `codegen(13) / common(58) / job(28) / kafka(13) / monitor(30) / realtime(6) / security(85) / system(154) / workbench(26) / workflow(37)`；平铺 `config(23) / jooq(7) / observability(12)` |
+| W2 | 警告 | 模块分层概览（已分层 vs 平铺，供人工参考，不强制）。当前实际输出：已分层 `codegen(13) / common(72) / job(29) / kafka(18) / monitor(42) / observability(20) / realtime(14) / security(85) / system(170) / workbench(26) / workflow(37)`；平铺 `config(25) / jooq(7)` |
 
-退出码：`0` 仅含 W* 或无问题；`1` 存在任何 H* 硬违规。当前基线：扫描 447 个 Java 文件，H1–H4 全部通过，仅 W2 概览输出。
+退出码：`0` 仅含 W* 或无问题；`1` 存在任何 H* 硬违规。当前基线：自动发现 **11 个源码根**（各 `scaffold-*` 模块）、扫描 507 个 Java 文件，H1–H5 全部通过（模块 DAG 无环），仅 W2 概览输出；校验器行为测试 17 例全过。
 
 ### 5.2 使用
 
 ```bash
-# 项目根目录
-python3 scripts/check-conventions.py                 # 默认扫描 src/main/java
-python3 scripts/check-conventions.py --src src/main/java
-python3 -m unittest discover -s scripts -p "test_*.py"  # 校验器行为测试（12 例）
+# 项目根目录（自动发现全部 scaffold-* 模块源码根）
+python3 scripts/check-conventions.py                 # 默认扫描全部模块 src/main/java
+python3 scripts/check-conventions.py --src scaffold-system/src/main/java  # 单模块模式（跳过 H5）
+python3 -m unittest discover -s scripts -p "test_*.py"  # 校验器行为测试（17 例）
 ```
 
 ### 5.3 CI 集成
@@ -195,7 +218,7 @@ convention-check:
     - name: 编码约定校验
       run: |
         if ! python3 scripts/check-conventions.py; then
-          echo "::error::编码约定校验未通过（硬违规即阻断合并）。H1=包级循环依赖；H2=重复 FQN；H3=依赖方向；H4=数据类放置。请按上方输出逐项修复。"
+          echo "::error::编码约定校验未通过（硬违规即阻断合并）。H1=包级循环依赖；H2=重复 FQN；H3=依赖方向；H4=数据类放置；H5=模块级循环依赖。请按上方输出逐项修复。"
           exit 1
         fi
 ```
@@ -216,10 +239,12 @@ convention-check:
 ## 7. 例外与演进
 
 - 个别历史类命名未套标准后缀（如 `Alert`、`Vault`、`Captcha`、`ClaimRules` 等语义化名称），属有意保留，不强制改名；新增代码须遵循 §3。
-- 平铺模块当前仅剩通用包 `config` / `jooq` / `observability`，属允许状态：它们按**关注点**而非按层拆子包（见 §2.2）。特性模块（`monitor` / `job` / `workbench` / `codegen` / `security` / `system` / `workflow` / `common` / `kafka` / `realtime`）均已完成层子包拆分；当某平铺模块类数超 ~15 且出现多职责混杂时，应依 §2.2 拆层子包。
+- 平铺模块当前仅剩两个通用包 `config` / `jooq`（均位于 `scaffold-framework` / `scaffold-common`），属允许状态：它们按**关注点**而非按层拆子包（见 §2.2）。特性模块（`monitor` / `job` / `workbench` / `codegen` / `security` / `system` / `workflow` / `common` / `kafka` / `realtime` / `observability`）均已完成层子包拆分；当某平铺模块类数超 ~15 且出现多职责混杂时，应依 §2.2 拆层子包。
 - 数据类放置已升级为硬规则 **H4**（原 W3 警告级）：`common.api` / `common.audit` / `common.idempotency` / `security.token` / `security.log` / `system.file` / `system.notification` 等处的 9 个历史放置类已于 V1.0.2 第二轮拆分全部归位至 `dto` / `domain` 子包，具备硬规则条件；新增数据类未按 §2.2 放置时将直接阻断合并。
 - 本约定随评审演进；任何修改须同步更新本文档与 `check-conventions.py` 的 `TIER` / `FORBIDDEN` / `LAYER_BEARING` / `DATA_CLASS_RULES` 四张表。
 
 ---
 
 > 更新日期：2026-10-17（本轮按 `scripts/check-conventions.py` 实际规则与运行输出核对：修正「平铺模块」清单为 `config`/`jooq`/`observability` 三通用包，并补充「通用包可按关注点拆子包、不带层名」及其在 H3/W1/W2 下的判定口径；H4 描述补齐 `*PO` 与后缀最长匹配/长度门槛；补入顶层包 `kafka` 及 `common` 的新增子职责；标注当前基线 447 文件、H* 全通过、校验器自测 12 例）
+>
+> 更新日期：2026-10-23（V1.0.3 多 Maven 模块拆分：新增 §2.4 模块与顶层包映射；校验项新增 **H5 模块级循环依赖**（解析 `scaffold-*` POM + Tarjan SCC）及模块命名约束 W3/W4；§5.2 默认模式改为自动发现 11 个模块源码根；基线刷新为 507 文件 / 11 源码根 / H1–H5 全通过 / 校验器自测 17 例；`observability` 已归入已分层清单）

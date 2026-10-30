@@ -36,11 +36,18 @@ export const jobLogs = (id, params) => request({ method: 'GET', url: `/api/jobs/
 
 /**
  * POST /api/jobs -> id
- * @param {Object} data 任务配置（jobName/taskKey/triggerType/cronExpression/intervalValue/intervalUnit/oneTimeAt/jobParams/remark）
+ * @param {Object} data 任务配置
+ *   jobName/taskKey/triggerType/cronExpression/intervalValue/intervalUnit/oneTimeAt/jobParams/remark
+ *   dependsOn?: number[]  前置依赖的任务 ID 列表（依赖编排 DAG；为空表示无依赖）
  */
 export const jobCreate = (data) => request({ method: 'POST', url: '/api/jobs', data })
 
-/** PUT /api/jobs/{id}（运行中会先暂停并按新配置重启） */
+/** POST /api/jobs/{id}/trigger-downstream -> 实际触发的就绪下游数量 */
+export const jobTriggerDownstream = (id) => request({ method: 'POST', url: `/api/jobs/${id}/trigger-downstream` })
+
+/** PUT /api/jobs/{id}（运行中会先暂停并按新配置重启）
+ *  @param {Object} data 同 jobCreate；编辑时亦支持更新 dependsOn（依赖编排）
+ */
 export const jobUpdate = (id, data) => request({ method: 'PUT', url: `/api/jobs/${id}`, data })
 
 /** POST /api/jobs/{id}/start（立即注册到调度器） */

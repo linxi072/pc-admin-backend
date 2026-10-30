@@ -32,3 +32,17 @@ export const downloadFile = (id) =>
 // DELETE /api/system/files/{id} -> void
 export const deleteFile = (id) =>
   request({ method: 'DELETE', url: '/api/system/files/' + encodeURIComponent(id) })
+
+// GET /api/system/files/dedup-check?hash=<sha256hex> -> DedupCheckView
+// 秒传预检（V50）：上传前由前端计算内容 SHA-256 回传，命中则提示可秒传（不重复落盘）
+export const checkDedup = (hash) =>
+  request({ method: 'GET', url: '/api/system/files/dedup-check', params: { hash } })
+
+// GET /api/system/files/stats -> FileStatsView（总量 / 占用空间 / 按来源模块拆分）
+export const fileStats = () =>
+  request({ method: 'GET', url: '/api/system/files/stats' })
+
+// POST /api/system/files/batch-delete  body: [id, ...] -> BatchDeleteView
+// 批量删除（V50，部分成功语义）：单项失败不影响其余，返回成功数与失败明细
+export const batchDeleteFiles = (ids) =>
+  request({ method: 'POST', url: '/api/system/files/batch-delete', data: ids })

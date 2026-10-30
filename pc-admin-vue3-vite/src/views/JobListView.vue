@@ -85,6 +85,24 @@
               <span class="rule-text">{{ ruleText(row) }}</span>
             </template>
           </el-table-column>
+          <el-table-column label="依赖编排" min-width="200">
+            <template #default="{ row }">
+              <div class="dag-line">
+                <span class="dag-label">依赖</span>
+                <template v-if="row.dependsOn && row.dependsOn.length">
+                  <el-tag v-for="d in row.dependsOn" :key="'up'+d" size="small" type="info" effect="plain" class="mr-4">{{ jobNameOf(d) }}</el-tag>
+                </template>
+                <span v-else class="cell-sub">无</span>
+              </div>
+              <div class="dag-line">
+                <span class="dag-label">下游</span>
+                <template v-if="row.dependents && row.dependents.length">
+                  <el-tag v-for="d in row.dependents" :key="'down'+d" size="small" type="success" effect="plain" class="mr-4">{{ jobNameOf(d) }}</el-tag>
+                </template>
+                <span v-else class="cell-sub">无</span>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="参数" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <span class="mono">{{ row.jobParams || '—' }}</span>
@@ -134,6 +152,13 @@
                 @click="onPause(row)"
               >暂停</el-button>
               <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+              <el-button
+                v-if="row.dependents && row.dependents.length"
+                link
+                type="warning"
+                size="small"
+                @click="onTriggerDownstream(row)"
+              >触发下游</el-button>
               <el-button link type="info" size="small" @click="openLogs(row)">日志</el-button>
               <el-popconfirm title="确认删除该任务？" @confirm="onDelete(row)">
                 <template #reference>
@@ -173,6 +198,23 @@
           <el-select v-model="form.taskKey" placeholder="请选择任务处理器" style="width: 100%">
             <el-option v-for="h in handlers" :key="h.key" :label="`${h.name}（${h.key}）`" :value="h.key" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="前置依赖">
+          <el-select
+            v-model="form.dependsOn"
+            multiple
+            filterable
+            placeholder="可选：所依赖的上游任务（依赖满足后自动触发本任务）"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="j in dependencyOptions"
+              :key="j.id"
+              :label="j.jobName"
+              :value="Number(j.id)"
+            />
+          </el-select>
+          <div class="hint">配置后本任务进入「等待依赖」状态，待上游任务成功执行后才被自动触发；可留空。</div>
         </el-form-item>
         <el-form-item label="触发类型" required>
           <el-radio-group v-model="form.triggerType">
@@ -276,7 +318,8 @@ import { ElMessage } from 'element-plus'
 import BaseChart from '@/components/BaseChart.vue'
 import {
   jobMeta, jobHandlers, jobPage,
-  jobCreate, jobUpdate, jobStart, jobPause, jobDelete, jobLogs
+  jobCreate, jobUpdate, jobStart, jobPause, jobDelete, jobLogs,
+  jobTriggerDownstream
 } from '@/api/job'
 
 const loading = ref(false)
@@ -285,6 +328,18 @@ const total = ref(0)
 const handlers = ref([])
 const metaLoaded = ref(false)
 const meta = reactive({ schedulerAvailable: true, smallestIntervalSeconds: 5 })
+
+// 依赖编排：全部任务清单（用于依赖选择器与 ID→名称反查）
+const allJobs = ref([])
+const jobNameMap = ref({}) // { [id:string]: jobName }
+const selfId = ref(null) // 编辑时的当前任务 ID（依赖选择器排除自身，防自依赖）
+const dependencyOptions = computed(() =>
+  allJobs.value.filter((j) => String(j.id) !== String(selfId.value))
+)
+// 依赖 ID → 名称（dependsOn 来自后端是 number，row.id 为字符串，统一按字符串键查）
+function jobNameOf(id) {
+  return jobNameMap.value[String(id)] || ('#' + id)
+}
 
 const query = reactive({
   jobName: '',
@@ -309,6 +364,7 @@ function fmtTime(v) {
 }
 function statusTagType(status) {
   if (status === 'RUNNING') return 'success'
+  if (status === 'WAITING') return 'warning'
   if (status === 'COMPLETED') return 'warning'
   return 'info'
 }
@@ -337,6 +393,21 @@ async function loadHandlers() {
     handlers.value = (await jobHandlers()) || []
   } catch (e) {
     handlers.value = []
+  }
+}
+
+// 加载全部任务（依赖编排：选择器选项 + ID→名称反查）。失败时降级为空，不阻塞主列表。
+async function loadAllJobs() {
+  try {
+    const res = await jobPage({ page: 1, size: 1000 })
+    const list = res?.records || []
+    allJobs.value = list
+    const map = {}
+    for (const j of list) map[String(j.id)] = j.jobName
+    jobNameMap.value = map
+  } catch (e) {
+    allJobs.value = []
+    jobNameMap.value = {}
   }
 }
 
@@ -410,7 +481,8 @@ const form = reactive({
   intervalUnit: 'MINUTES',
   oneTimeAt: '',
   jobParams: '',
-  remark: ''
+  remark: '',
+  dependsOn: []
 })
 
 function resetForm() {
@@ -424,6 +496,8 @@ function resetForm() {
   form.oneTimeAt = ''
   form.jobParams = ''
   form.remark = ''
+  form.dependsOn = []
+  selfId.value = null
 }
 
 function openCreate() {
@@ -451,6 +525,8 @@ function openEdit(row) {
   form.oneTimeAt = toPickerValue(row.oneTimeAt)
   form.jobParams = row.jobParams || ''
   form.remark = row.remark || ''
+  form.dependsOn = row.dependsOn ? [...row.dependsOn] : []
+  selfId.value = row.id
   dialog.mode = 'edit'
   dialog.id = row.id
   dialog.visible = true
@@ -493,7 +569,8 @@ async function onSubmit() {
     intervalUnit: form.triggerType === 'SIMPLE' ? form.intervalUnit : null,
     oneTimeAt: form.triggerType === 'ONE_TIME' ? form.oneTimeAt : null,
     jobParams: form.jobParams && form.jobParams.trim() ? form.jobParams : null,
-    remark: form.remark || null
+    remark: form.remark || null,
+    dependsOn: form.dependsOn && form.dependsOn.length ? form.dependsOn : null
   }
   dialog.saving = true
   try {
@@ -545,6 +622,21 @@ async function onDelete(row) {
   }
 }
 
+// 手动触发下游：立即驱动所有依赖本任务且已就绪的 WAITING 任务
+async function onTriggerDownstream(row) {
+  try {
+    const count = await jobTriggerDownstream(row.id)
+    if (count && count > 0) {
+      ElMessage.success(`已触发 ${count} 个就绪下游任务`)
+    } else {
+      ElMessage.info('没有就绪的下游任务（需上游先成功执行且下游处于等待依赖态）')
+    }
+    load()
+  } catch (e) {
+    // 拦截器已提示
+  }
+}
+
 // ---------------- 执行日志 ----------------
 const logDialog = reactive({ visible: false, loading: false, jobName: '', rows: [] })
 
@@ -587,7 +679,7 @@ const logChartOption = computed(() => {
 })
 
 onMounted(async () => {
-  await Promise.all([loadMeta(), loadHandlers()])
+  await Promise.all([loadMeta(), loadHandlers(), loadAllJobs()])
   load()
 })
 onBeforeUnmount(stopTimer)
@@ -600,6 +692,9 @@ onBeforeUnmount(stopTimer)
 .mt-12 { margin-top: 12px; }
 .mb-12 { margin-bottom: 12px; }
 .mr-6 { margin-right: 6px; }
+.mr-4 { margin-right: 4px; }
+.dag-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
+.dag-label { color: #a8abb2; font-size: 12px; margin-right: 6px; flex: none; }
 .cell-name { font-weight: 500; color: #303133; }
 .cell-sub { color: #a8abb2; font-size: 12px; margin-top: 2px; }
 .rule-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }

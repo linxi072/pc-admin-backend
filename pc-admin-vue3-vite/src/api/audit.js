@@ -20,3 +20,11 @@ export const auditLogSummary = (params) =>
  */
 export const auditLogTrace = (traceId) =>
   request({ method: 'GET', url: `/api/system/audit-logs/trace/${encodeURIComponent(traceId)}` })
+
+/**
+ * GET /api/system/audit-logs/retention -> AuditRetentionView（留存天数 / 清理截止时间）
+ *
+ * 留存天数 ≤0 表示禁用自动清理（cutoff 为 null）。前端据此在页头展示「当前留存 N 天」。
+ */
+export const auditLogRetention = () =>
+  request({ method: 'GET', url: '/api/system/audit-logs/retention' })

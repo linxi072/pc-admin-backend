@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-common：全项目公共基础层（零内部模块依赖，被所有模块依赖）。
+
+  内容：
+  - common.api / common.error / common.exception：统一响应 Result/PageResult、错误码 ErrorCode、
+    业务异常与全局异常处理（GlobalExceptionHandler）；
+  - common.i18n / common.validation：多语言消息源与 Bean Validation 校验消息键化；
+  - common.context：安全上下文端口（SecurityContextFacade / CurrentPrincipal），
+    实现在 scaffold-system（依赖倒置，避免 common → system 成环）；
+  - common.web：客户端真实 IP 解析（审计/限流/登录日志共用）；
+  - common.audit / common.idempotency：操作审计切面、写接口幂等切面；
+  - common.export / common.importer：导出中心（CSV/XLSX）与导入中心；
+  - common.sensitive / common.tree / common.id / common.notification：脱敏、树构建、ID 生成、通知抽象；
+  - jooq.*：手写动态 DSL（JooqTables / TableRef / JooqSorts）与 Record 映射、分页助手；
+  - 资源：i18n 消息束（messages*/validation*）、jOOQ 代码生成输入（db/codegen、jooq-codegen.xml）。
+
+  注意：jOOQ 依赖在本模块声明，其余模块经传递依赖使用（版本由父 POM 统一收敛）。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-common</artifactId>
+    <name>scaffold-common</name>
+    <description>公共基础层：统一响应/异常/错误码、i18n、校验、审计、幂等、导出/导入、脱敏、jOOQ 动态 DSL</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jooq</artifactId>
+        </dependency>
+        <!--
+          spring-security-core：GlobalExceptionHandler 需将认证/授权异常
+          （AuthenticationException / AccessDeniedException）映射为 401/403 响应，
+          幂等记录控制器的 @PreAuthorize 注解亦在此定义。仅引 core（不引入
+          starter 的 Web/Config 装配），方法级鉴权启用位于 scaffold-system 的 SecurityConfig。
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+        </dependency>
+    </dependencies>
+
+    <!--
+      jOOQ 代码生成 profile（设计 §15）：作为「并行层」探索，不替换手写动态 DSL。
+      常规离线构建不需要此 profile；仅当数据库表结构（Flyway 迁移）变更后，
+      联网执行 `mvn -Pjooq-codegen generate-sources` 重新生成实体/DAO/查询接口，
+      落入独立包 com.acme.scaffold.jooqgen（与手写 DSL com.acme.scaffold.jooq 并行共存）。
+      全量替换手写 DSL 属高风险改造，需真实库验证 + 风险评审，当前暂缓。
+      输入脚本位于本模块 src/main/resources/db/codegen/（V1~V16 归一化 DDL），
+      生成物写入本模块 src/main/java/com/acme/scaffold/jooqgen/ 并纳入版本控制。
+    -->
+    <profiles>
+        <profile>
+            <id>jooq-codegen</id>
+            <!--
+              代码生成期需联网拉取 jooq-codegen 等构件。本机 maven 的 tencent 镜像
+              (mirrorOf=central) 未收录 jooq-codegen-maven-plugin，故在此追加一个
+              id 非 central 的仓库直连 Maven Central（镜像按仓库 ID 匹配，repo-central
+              不会被 tencent 镜像拦截），用于解析代码生成器及其依赖。
+            -->
+            <repositories>
+                <repository>
+                    <id>repo-central</id>
+                    <name>Maven Central (codegen)</name>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>repo-central</id>
+                    <name>Maven Central (codegen plugins)</name>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <dependencies>
+                            <!-- 代码生成器本体：提供 org.jooq.codegen.GenerationTool 主类 -->
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-codegen</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <!-- 运行时 jOOQ（含 meta 模块，GenerationTool 依赖） -->
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-meta</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <!-- DDLDatabase：从 SQL 脚本反向工程，无需活库 / Docker -->
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-meta-extensions</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                            <!-- DDLDatabase 内部使用的内存库（仅代码生成期） -->
+                            <dependency>
+                                <groupId>com.h2database</groupId>
+                                <artifactId>h2</artifactId>
+                                <version>2.2.224</version>
+                            </dependency>
+                        </dependencies>
+                        <executions>
+                            <execution>
+                                <id>generate-jooq-sources</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>org.jooq.codegen.GenerationTool</mainClass>
+                                    <arguments>
+                                        <argument>src/main/resources/jooq-codegen.xml</argument>
+                                    </arguments>
+                                    <!-- 仅使用上面的插件依赖（jooq-codegen 等）作为运行 classpath；
+                                         不含项目依赖，避免与运行期 jOOQ 版本冲突 -->
+                                    <includeProjectDependencies>false</includeProjectDependencies>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

@@ -1,125 +1,125 @@
 <template>
-  <div class="login-wrap">
+    <div class="login-wrap">
     <el-card class="login-card">
       <div class="brand">
         <!-- 品牌色统一走全局 --brand 变量 -->
         <el-icon size="28" color="var(--brand)"><Setting /></el-icon>
-        <h2>运营管理后台</h2>
+        <h2>{{ t('login.title') }}</h2>
       </div>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent>
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" :prefix-icon="User" />
+        <el-form-item :label="t('login.username')" prop="username">
+          <el-input v-model="form.username" :placeholder="t('login.pleaseEnterUsername')" :prefix-icon="User" />
         </el-form-item>
-        <el-form-item label="密码" prop="password">
+        <el-form-item :label="t('login.password')" prop="password">
           <el-input
             v-model="form.password"
             type="password"
             show-password
-            placeholder="请输入密码"
+            :placeholder="t('login.pleaseEnterPassword')"
             :prefix-icon="Lock"
             @keyup.enter="onSubmit"
           />
         </el-form-item>
-        <el-form-item label="验证码" prop="captchaAnswer">
+        <el-form-item :label="t('login.captcha')" prop="captchaAnswer">
           <div class="captcha-row">
             <el-input
               v-model="form.captchaAnswer"
-              placeholder="请输入计算结果"
+              :placeholder="t('login.captchaPlaceholder')"
               :prefix-icon="Key"
               @keyup.enter="onSubmit"
             />
-            <div class="captcha-box" @click="fetchCaptcha" title="点击刷新验证码">
+            <div class="captcha-box" @click="fetchCaptcha" :title="t('login.captchaRefresh')">
               <span class="captcha-question">{{ captcha.question || '—' }}</span>
               <el-icon class="captcha-refresh"><Refresh /></el-icon>
             </div>
           </div>
         </el-form-item>
-        <el-button type="primary" :loading="loading" class="submit" @click="onSubmit">登 录</el-button>
+        <el-button type="primary" :loading="loading" class="submit" @click="onSubmit">{{ t('login.submit') }}</el-button>
         <div class="login-extra">
-          <el-link type="primary" :underline="false" @click="openForgot">忘记密码</el-link>
-          <el-link type="info" :underline="false" @click="openChange">修改密码</el-link>
+          <el-link type="primary" :underline="false" @click="openForgot">{{ t('login.forgotPassword') }}</el-link>
+          <el-link type="info" :underline="false" @click="openChange">{{ t('login.changePassword') }}</el-link>
         </div>
       </el-form>
     </el-card>
 
     <!-- 修改密码：知道原密码时的自助改密（会话无关，登录被 AUTH_014 拦截时自动弹出） -->
-    <el-dialog v-model="changeDlg.visible" title="修改密码" width="420px" @closed="resetChangeDlg">
+    <el-dialog v-model="changeDlg.visible" :title="t('login.changePassword')" width="420px" @closed="resetChangeDlg">
       <el-form :model="changeDlg.form" :rules="changeRules" ref="changeFormRef" label-position="top">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="changeDlg.form.username" placeholder="请输入用户名" :prefix-icon="User" />
+        <el-form-item :label="t('login.username')" prop="username">
+          <el-input v-model="changeDlg.form.username" :placeholder="t('login.pleaseEnterUsername')" :prefix-icon="User" />
         </el-form-item>
-        <el-form-item label="原密码" prop="oldPassword">
+        <el-form-item :label="t('login.oldPassword')" prop="oldPassword">
           <el-input
             v-model="changeDlg.form.oldPassword"
             type="password"
             show-password
-            placeholder="请输入原密码"
+            :placeholder="t('login.pleaseEnterOldPassword')"
             :prefix-icon="Lock"
           />
         </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
+        <el-form-item :label="t('login.newPassword')" prop="newPassword">
           <el-input
             v-model="changeDlg.form.newPassword"
             type="password"
             show-password
-            placeholder="8~64 位，至少包含字母和数字"
+            :placeholder="t('login.newPwdPlaceholder')"
             :prefix-icon="Lock"
           />
         </el-form-item>
-        <el-form-item label="确认新密码" prop="confirmPassword">
+        <el-form-item :label="t('login.confirmNewPassword')" prop="confirmPassword">
           <el-input
             v-model="changeDlg.form.confirmPassword"
             type="password"
             show-password
-            placeholder="请再次输入新密码"
+            :placeholder="t('login.pleaseEnterConfirmPwd')"
             :prefix-icon="Lock"
             @keyup.enter="submitChange"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="changeDlg.visible = false">取 消</el-button>
-        <el-button type="primary" :loading="changeDlg.loading" @click="submitChange">确 定</el-button>
+        <el-button @click="changeDlg.visible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="changeDlg.loading" @click="submitChange">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 忘记密码：忘记原密码时凭手机号/邮箱核验自助重置 -->
-    <el-dialog v-model="forgotDlg.visible" title="忘记密码" width="420px" @closed="resetForgotDlg">
+    <el-dialog v-model="forgotDlg.visible" :title="t('login.forgotPassword')" width="420px" @closed="resetForgotDlg">
       <el-alert type="info" :closable="false" show-icon
-        title="请填写账号登记的手机号或邮箱（二选一）完成身份核验，核验通过后可重置密码。" />
+        :title="t('login.forgotDesc')" />
       <el-form :model="forgotDlg.form" :rules="forgotRules" ref="forgotFormRef" label-position="top" style="margin-top: 12px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="forgotDlg.form.username" placeholder="请输入用户名" :prefix-icon="User" />
+        <el-form-item :label="t('login.username')" prop="username">
+          <el-input v-model="forgotDlg.form.username" :placeholder="t('login.pleaseEnterUsername')" :prefix-icon="User" />
         </el-form-item>
-        <el-form-item label="手机号" prop="mobile">
-          <el-input v-model="forgotDlg.form.mobile" placeholder="账号登记的手机号（与邮箱二选一）" :prefix-icon="Iphone" />
+        <el-form-item :label="t('login.mobile')" prop="mobile">
+          <el-input v-model="forgotDlg.form.mobile" :placeholder="t('login.mobilePlaceholder')" :prefix-icon="Iphone" />
         </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="forgotDlg.form.email" placeholder="账号登记的邮箱（与手机号二选一）" :prefix-icon="Message" />
+        <el-form-item :label="t('login.email')" prop="email">
+          <el-input v-model="forgotDlg.form.email" :placeholder="t('login.emailPlaceholder')" :prefix-icon="Message" />
         </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
+        <el-form-item :label="t('login.newPassword')" prop="newPassword">
           <el-input
             v-model="forgotDlg.form.newPassword"
             type="password"
             show-password
-            placeholder="8~64 位，至少包含字母和数字"
+            :placeholder="t('login.newPwdPlaceholder')"
             :prefix-icon="Lock"
           />
         </el-form-item>
-        <el-form-item label="确认新密码" prop="confirmPassword">
+        <el-form-item :label="t('login.confirmNewPassword')" prop="confirmPassword">
           <el-input
             v-model="forgotDlg.form.confirmPassword"
             type="password"
             show-password
-            placeholder="请再次输入新密码"
+            :placeholder="t('login.pleaseEnterConfirmPwd')"
             :prefix-icon="Lock"
             @keyup.enter="submitForgot"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="forgotDlg.visible = false">取 消</el-button>
-        <el-button type="primary" :loading="forgotDlg.loading" @click="submitForgot">重 置</el-button>
+        <el-button @click="forgotDlg.visible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="forgotDlg.loading" @click="submitForgot">{{ t('login.reset') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -132,6 +132,7 @@ import { User, Lock, Key, Refresh, Iphone, Message } from '@element-plus/icons-v
 import { ElMessage } from 'element-plus'
 import { login, getCaptcha, changePassword, forgotPassword } from '@/api/auth'
 import { setAuth } from '@/store/auth'
+import { t } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -140,10 +141,12 @@ const loading = ref(false)
 const form = reactive({ username: '', password: '', captchaAnswer: '' })
 const captcha = reactive({ token: '', question: '' })
 
+// 语言在应用启动时已按浏览器/系统语言自动选定（见 src/i18n），登录页无需手动切换；
+// 校验提示文案直接由 t() 按当前语言解析。
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-  captchaAnswer: [{ required: true, message: '请输入验证码结果', trigger: 'blur' }]
+  username: [{ required: true, message: t('login.pleaseEnterUsername'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.pleaseEnterPassword'), trigger: 'blur' }],
+  captchaAnswer: [{ required: true, message: t('login.pleaseEnterCaptcha'), trigger: 'blur' }]
 }
 
 // ---------- 修改密码弹窗 ----------
@@ -155,13 +158,13 @@ const changeDlg = reactive({
 })
 
 const changeRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  oldPassword: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
+  username: [{ required: true, message: t('login.pleaseEnterUsername'), trigger: 'blur' }],
+  oldPassword: [{ required: true, message: t('login.pleaseEnterOldPassword'), trigger: 'blur' }],
   newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, max: 64, message: '密码长度需为 8~64 位', trigger: 'blur' }
+    { required: true, message: t('login.pleaseEnterNewPassword'), trigger: 'blur' },
+    { min: 8, max: 64, message: t('login.pwdLength'), trigger: 'blur' }
   ],
-  confirmPassword: [{ required: true, message: '请再次输入新密码', trigger: 'blur' }]
+  confirmPassword: [{ required: true, message: t('login.pleaseEnterConfirmPwd'), trigger: 'blur' }]
 }
 
 function openChange() {
@@ -179,13 +182,13 @@ async function submitChange() {
   const valid = await changeFormRef.value.validate().catch(() => false)
   if (!valid) return
   if (changeDlg.form.newPassword !== changeDlg.form.confirmPassword) {
-    ElMessage.warning('两次输入的新密码不一致')
+    ElMessage.warning(t('login.pwdMismatch'))
     return
   }
   changeDlg.loading = true
   try {
     await changePassword(changeDlg.form.username, changeDlg.form.oldPassword, changeDlg.form.newPassword)
-    ElMessage.success('密码修改成功，请使用新密码登录')
+    ElMessage.success(t('login.changePwdSuccess'))
     changeDlg.visible = false
     // 旧口令已失效：同步刷新登录页状态，引导用新密码重新登录
     form.password = ''
@@ -208,12 +211,12 @@ const forgotDlg = reactive({
 })
 
 const forgotRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [{ required: true, message: t('login.pleaseEnterUsername'), trigger: 'blur' }],
   newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, max: 64, message: '密码长度需为 8~64 位', trigger: 'blur' }
+    { required: true, message: t('login.pleaseEnterNewPassword'), trigger: 'blur' },
+    { min: 8, max: 64, message: t('login.pwdLength'), trigger: 'blur' }
   ],
-  confirmPassword: [{ required: true, message: '请再次输入新密码', trigger: 'blur' }]
+  confirmPassword: [{ required: true, message: t('login.pleaseEnterConfirmPwd'), trigger: 'blur' }]
 }
 
 function openForgot() {
@@ -231,11 +234,11 @@ async function submitForgot() {
   if (!valid) return
   // 手机号/邮箱二选一：与后端 ForgotPasswordRules.hasVerifier 同效（服务端为权威）
   if (!forgotDlg.form.mobile.trim() && !forgotDlg.form.email.trim()) {
-    ElMessage.warning('请填写手机号或邮箱中的至少一个用于身份核验')
+    ElMessage.warning(t('login.pleaseEnterVerifier'))
     return
   }
   if (forgotDlg.form.newPassword !== forgotDlg.form.confirmPassword) {
-    ElMessage.warning('两次输入的新密码不一致')
+    ElMessage.warning(t('login.pwdMismatch'))
     return
   }
   forgotDlg.loading = true
@@ -246,7 +249,7 @@ async function submitForgot() {
       forgotDlg.form.mobile.trim() || undefined,
       forgotDlg.form.email.trim() || undefined
     )
-    ElMessage.success('密码重置成功，请使用新密码登录')
+    ElMessage.success(t('login.resetPwdSuccess'))
     forgotDlg.visible = false
     form.password = ''
     form.captchaAnswer = ''
@@ -276,7 +279,7 @@ async function onSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   if (!captcha.token) {
-    ElMessage.warning('验证码加载失败，请稍后重试')
+    ElMessage.warning(t('login.captchaLoadFailed'))
     await fetchCaptcha()
     return
   }
@@ -284,7 +287,7 @@ async function onSubmit() {
   try {
     const tokenView = await login(form.username, form.password, captcha.token, form.captchaAnswer)
     setAuth(tokenView.accessToken, form.username)
-    ElMessage.success('登录成功')
+    ElMessage.success(t('login.loginSuccess'))
     router.replace(route.query.redirect || '/dashboard')
   } catch (e) {
     // 登录失败（含验证码错误/过期）后刷新验证码，原 token 已单次失效需重置

@@ -19,3 +19,11 @@ export const updateConfig = (id, data) =>
 // DELETE /api/system/configs/{id}
 export const deleteConfig = (id) =>
   request({ method: 'DELETE', url: `/api/system/configs/${id}` })
+
+// GET /api/system/configs/groups -> List<ConfigGroupVO>（M36 按 key 命名空间前缀聚合）
+export const listConfigGroups = () =>
+  request({ method: 'GET', url: '/api/system/configs/groups' })
+
+// POST /api/system/configs/refresh -> Void（M36 热更新：直改库/参数中心界面调整后无需重启即生效）
+export const refreshConfigs = () =>
+  request({ method: 'POST', url: '/api/system/configs/refresh' })

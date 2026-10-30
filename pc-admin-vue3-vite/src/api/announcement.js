@@ -31,3 +31,23 @@ export const toggleAnnouncementTop = (id) =>
 // DELETE /api/system/announcements/{id} -> void
 export const deleteAnnouncement = (id) =>
   request({ method: 'DELETE', url: `/api/system/announcements/${id}` })
+
+// POST /api/system/announcements/{id}/read -> void（标记已读，幂等；详情页打开时调用）
+export const markAnnouncementRead = (id) =>
+  request({ method: 'POST', url: `/api/system/announcements/${id}/read` })
+
+// GET /api/system/announcements/mine/unread?page&size -> PageResult<AnnouncementView>
+export const myUnreadAnnouncements = (query) =>
+  request({ method: 'GET', url: '/api/system/announcements/mine/unread', params: query })
+
+// GET /api/system/announcements/{id}/read-receipts?page&size&keyword -> PageResult<AnnouncementReceiptView>
+export const pageAnnouncementReceipts = (id, query) =>
+  request({ method: 'GET', url: `/api/system/announcements/${id}/read-receipts`, params: query })
+
+// GET /api/system/announcements/{id}/read-stats -> AnnouncementReadStatsView
+export const getAnnouncementReadStats = (id) =>
+  request({ method: 'GET', url: `/api/system/announcements/${id}/read-stats` })
+
+// POST /api/system/announcements/{id}/remind-unread?limit -> { reminded: n }
+export const remindAnnouncementUnread = (id, params) =>
+  request({ method: 'POST', url: `/api/system/announcements/${id}/remind-unread`, params })

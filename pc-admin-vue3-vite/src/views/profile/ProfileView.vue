@@ -43,6 +43,20 @@
               </template>
               <PreferencePanel :profile="profile" />
             </el-tab-pane>
+
+            <el-tab-pane name="subscription">
+              <template #label>
+                <span class="tab-label"><el-icon><Bell /></el-icon>通知订阅</span>
+              </template>
+              <NotificationPreferencePanel :profile="profile" />
+            </el-tab-pane>
+
+            <el-tab-pane name="quietHours">
+              <template #label>
+                <span class="tab-label"><el-icon><Moon /></el-icon>免打扰</span>
+              </template>
+              <NotificationQuietHoursPanel />
+            </el-tab-pane>
           </el-tabs>
         </el-card>
       </el-col>
@@ -59,13 +73,15 @@ import PasswordPanel from './components/PasswordPanel.vue'
 import ContactPanel from './components/ContactPanel.vue'
 import DevicePanel from './components/DevicePanel.vue'
 import PreferencePanel from './components/PreferencePanel.vue'
+import NotificationPreferencePanel from './components/NotificationPreferencePanel.vue'
+import NotificationQuietHoursPanel from './components/NotificationQuietHoursPanel.vue'
 import { getProfile } from '@/api/profile'
 import { clearAuth } from '@/store/auth'
 
 const router = useRouter()
 const route = useRoute()
 // 支持从顶栏「账号设置」以 /profile#security 直达对应 Tab
-const HASH_TAB = { '#security': 'security', '#device': 'device', '#preference': 'preference' }
+const HASH_TAB = { '#security': 'security', '#device': 'device', '#preference': 'preference', '#subscription': 'subscription', '#quietHours': 'quietHours' }
 const activeTab = ref(HASH_TAB[route.hash] || 'security')
 
 // 资料为整页共享数据：左卡片展示，右各面板也依赖绑定状态

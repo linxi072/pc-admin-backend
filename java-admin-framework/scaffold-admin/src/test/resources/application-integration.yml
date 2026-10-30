@@ -1,0 +1,62 @@
+spring:
+  # jOOQ SQL 方言（与主配置一致，显式声明防默认值漂移）
+  jooq:
+    sql-dialect: MYSQL
+  # IT 关闭 Spring Cache 注解处理（app.cache.enabled=false）：@Cacheable 整体失效，
+  # 机构树/菜单树等缓存方法每次直连数据库，避免两类测试污染——
+  #   ① Redis 序列化丢泛型（List<VO> 反序列化为 LinkedHashMap，调用方强转 CCE）；
+  #   ② @Transactional 回滚后缓存残留旧数据，跨用例/跨类脏读（上下文跨类共享）。
+  # 兜底声明 simple：万一其他路径仍触发缓存装配，也只走进程内实现，不连 Redis。
+  cache:
+    type: simple
+  # Flyway 在应用启动时自动建表/迁移，无需手工初始化。
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: false
+    locations: classpath:db/migration
+
+app:
+  # 关闭缓存注解（生产默认 true，见 CacheConfig matchIfMissing）
+  cache:
+    enabled: false
+  # ===== IT 专用数据源 =====
+  # 自数据源外部化改造（V1.0.2）起，连接属性统一由 app.datasources 多数据源配置接管
+  # （application.yml 已排除 DataSourceAutoConfiguration，旧 spring.datasource.* 为失效配置，
+  #  曾导致 IT 上下文加载失败：primary=primary 在 entries 中无对应项）。
+  # 本 profile 必须显式提供 entries.primary：默认连本机 MySQL 的 IT 库 java_admin
+  # （root/root，可用环境变量覆盖，不使用容器）。
+  # createDatabaseIfNotExist=true 使 java_admin 在不存在时自动创建，便于本地直接跑集成测试。
+  # 覆盖优先级：TEST_DB_* > SPRING_DATASOURCE_*（CI workflow 仍按旧名单数据源名传值，
+  # 而 @ActiveProfiles("integration") 优先于 SPRING_PROFILES_ACTIVE，CI 的 ci profile
+  # 实际不生效；此处嵌套默认值使 CI 无需改 workflow 即可命中其 MySQL 服务容器凭据）
+  # > 本地默认 root/root。
+  datasources:
+    entries:
+      primary:
+        url: ${TEST_DB_URL:${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8&createDatabaseIfNotExist=true}}
+        username: ${TEST_DB_USER:${SPRING_DATASOURCE_USERNAME:root}}
+        password: ${TEST_DB_PASSWORD:${SPRING_DATASOURCE_PASSWORD:root}}
+
+org:
+  jobrunr:
+    job-scheduler:
+      enabled: true
+    # 集成测试不需要真正调度任务，关掉后台执行器与面板，避免额外线程/端口。
+    background-job-server:
+      enabled: false
+    dashboard:
+      enabled: false
+
+management:
+  # 本机可能未启动 Redis，关闭其健康探针以免整体 health 变 DOWN（不影响应用启动）。
+  health:
+    redis:
+      enabled: false
+
+# 说明（不覆盖 flowable.database-schema-update，继承主配置的 true）：
+# 本机 MySQL 同一实例上 local 库（scaffold）已建 Flowable schema，而 Flowable 的
+# isTablePresent 使用 DatabaseMetaData.getTables 且不限定库名，会误判「schema 已存在」，
+# 导致 IT 库（java_admin）走 upgrade 路径并在读不到版本号时以 FlowableWrongDbException 失败。
+# 本机修复：已在 java_admin 预建 Flowable schema（common/engine/history 三脚本 + 版本行）。
+# CI 为全新 MySQL 实例，无跨库干扰，true 模式的标准 create 路径可直接建表，无需任何覆盖。

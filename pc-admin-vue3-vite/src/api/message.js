@@ -24,3 +24,15 @@ export const markAllMessagesRead = () =>
 // GET /api/system/messages/sent?page&size -> PageResult<SysMessageDO>
 export const pageSentMessages = (query) =>
   request({ method: 'GET', url: '/api/system/messages/sent', params: query })
+
+// GET /api/system/messages/{id}/read-stats -> MessageReadStatsView（eager 聚合：totalCount/readCount/unreadCount/readRate）
+export const getMessageReadStats = (id) =>
+  request({ method: 'GET', url: `/api/system/messages/${id}/read-stats` })
+
+// GET /api/system/messages/{id}/receipts?page&size&keyword&readStatus -> PageResult<MessageReceiptView>
+export const pageMessageReceipts = (id, query) =>
+  request({ method: 'GET', url: `/api/system/messages/${id}/receipts`, params: query })
+
+// POST /api/system/messages/{id}/remind-unread?limit -> { reminded: n }
+export const remindMessageUnread = (id, params) =>
+  request({ method: 'POST', url: `/api/system/messages/${id}/remind-unread`, params })

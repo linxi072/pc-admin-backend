@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  java-admin-framework 父 POM（V1.0.3 模块化拆分）。
+
+  拆分方式参照 RuoYi-Vue 的模块化单体思路：公共件与框架装配下沉为基础模块，
+  业务能力（系统/工作流/调度/监控/工作台/代码生成/消息/实时）各为独立模块，
+  启动装配收敛到 scaffold-admin。模块依赖必须成 DAG（由 scripts/check-conventions.py
+  的 H5 模块环检测守护），拆分方案与迁移步骤见 docs/manual/module-split.md。
+
+  坐标约定：groupId 与包根一致（com.acme.scaffold），artifactId 统一 scaffold- 前缀；
+  各模块版本与父 POM 对齐（1.0.0），Java 包名保持 com.acme.scaffold.* 不变
+  （模块边界由 Maven 依赖强制，不做包名重排，最小化迁移风险）。
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -11,11 +23,31 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.acme</groupId>
+    <groupId>com.acme.scaffold</groupId>
     <artifactId>java-admin-framework</artifactId>
     <version>1.0.0</version>
+    <packaging>pom</packaging>
     <name>java-admin-framework</name>
-    <description>可落地、可扩展的 Java 后端基础管理框架脚手架（RBAC + 可观测性 + 工作流审批），持久层 jOOQ，调度 JobRunr</description>
+    <description>可落地、可扩展的 Java 后端基础管理框架脚手架（RBAC + 可观测性 + 工作流审批），持久层 jOOQ，调度 JobRunr。V1.0.3 起按功能维度拆分为多 Maven 模块。</description>
+
+    <modules>
+        <!-- 基础层：无内部依赖 -->
+        <module>scaffold-common</module>
+        <!-- 通信层：仅依赖 common -->
+        <module>scaffold-realtime</module>
+        <module>scaffold-kafka</module>
+        <module>scaffold-codegen</module>
+        <!-- 框架装配层：config/observability/monitor.detection + realtime 的 WebSocket 端点注册 -->
+        <module>scaffold-framework</module>
+        <!-- 业务层 -->
+        <module>scaffold-system</module>
+        <module>scaffold-monitor</module>
+        <module>scaffold-job</module>
+        <module>scaffold-workbench</module>
+        <module>scaffold-workflow</module>
+        <!-- 启动装配层：依赖全部模块，产出可执行 jar -->
+        <module>scaffold-admin</module>
+    </modules>
 
     <properties>
         <java.version>17</java.version>
@@ -32,166 +64,32 @@
         <spring-framework.version>6.1.15</spring-framework.version>
         <jakarta-mail.version>2.1.3</jakarta-mail.version>
         <angus-mail.version>2.0.3</angus-mail.version>
-        <!-- 集成测试默认跳过：本地 mvn test/verify 不触发 *IT；CI 通过 -DskipITs=false + MySQL 服务容器开启 -->
+        <!-- 集成测试默认跳过：本地 mvn test/verify 不触发 *IT；CI 通过 -DskipITs=false + MySQL 服务容器开启。
+             集成测试全部位于 scaffold-admin（需完整 Spring 上下文），其余模块不产生 *IT。 -->
         <skipITs>true</skipITs>
         <!-- OTel SDK 版本（仅 -Potel 激活时使用；默认离线构建不涉及，故不影响 mvn -o） -->
         <otel.version>1.43.0</otel.version>
         <otel.instrumentation.version>2.9.0</otel.instrumentation.version>
     </properties>
 
+    <!-- 全模块通用依赖（子模块自动继承） -->
     <dependencies>
-        <!-- Web / Security / Validation / Actuator -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
-
-        <!-- 实时通信：原生 WebSocket（站内信/待办实时推送），前端用浏览器原生 API，零额外依赖 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-websocket</artifactId>
-        </dependency>
-
-        <!--
-          消息通信：Kafka 客户端（海量数据有序消费）。
-          版本钉定 3.9.2，与本机 Kafka broker 发行版（devRepository/kafka，3.9.2）的
-          libs/kafka-clients-3.9.2.jar 对齐；该 jar 已手动安装至本地 Maven 仓库
-          （org/apache/kafka/kafka-clients/3.9.2），离线 mvn -o 可直接解析。
-          其他环境首次构建需联网从中央仓库解析（slf4j-api 由 spring-boot 提供，
-          zstd/lz4/snappy 压缩编解码器为 optional，缺失时自动降级为不压缩）。
-          采用原生 KafkaConsumer + SmartLifecycle 薄封装（不引入 spring-kafka），
-          核心保序逻辑见 com.acme.scaffold.kafka.rules.OrderingRules（纯函数 + 单测）。
-        -->
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka-clients</artifactId>
-            <version>3.9.2</version>
-        </dependency>
-
-        <!-- ORM: jOOQ（替代 MyBatis-Plus）。版本钉定为 3.19.11，与代码生成器保持一致 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jooq</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jooq</groupId>
-            <artifactId>jooq</artifactId>
-            <version>${jooq.version}</version>
-        </dependency>
-
-        <!-- 关系型数据库 -->
-        <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-mysql</artifactId>
-        </dependency>
-
-        <!-- 缓存（可选，刷新令牌已入库，Redis 留作扩展） -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
-
-        <!--
-          通知渠道：邮件（EMAIL）。spring-context-support 提供 JavaMailSender/MimeMessageHelper；
-          jakarta.mail-api 为规范接口，angus-mail 为参考实现（Boot 3.3.4 不再随 starter-mail 传递，
-          此处显式引入并钉定版本；三者均已在本地 Maven 仓库，离线 mvn -o 可解析）。
-          默认关闭（app.notifications.email.enabled=false），未配置 SMTP 时不发送也不启动失败。
-        -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-context-support</artifactId>
-            <version>${spring-framework.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.mail</groupId>
-            <artifactId>jakarta.mail-api</artifactId>
-            <version>${jakarta-mail.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.angus</groupId>
-            <artifactId>angus-mail</artifactId>
-            <version>${angus-mail.version}</version>
-        </dependency>
-
-        <!-- JWT（自签发令牌） -->
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>${jjwt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- 工作流 -->
-        <dependency>
-            <groupId>org.flowable</groupId>
-            <artifactId>flowable-spring-boot-starter-process</artifactId>
-            <version>${flowable.version}</version>
-        </dependency>
-
-        <!-- 调度：JobRunr（替代 XXL-JOB），使用 SQL 存储，无需 Redis / Docker -->
-        <dependency>
-            <groupId>org.jobrunr</groupId>
-            <artifactId>jobrunr-spring-boot-3-starter</artifactId>
-            <version>${jobrunr.version}</version>
-        </dependency>
-
-        <!-- 可观测性 -->
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
-        </dependency>
-
-        <!-- API 文档（local/dev 环境） -->
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>${springdoc.version}</version>
-        </dependency>
-
-        <!-- Lombok -->
+        <!-- Lombok：可选依赖，不向使用方传递 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-
-        <!-- 测试 -->
+        <!--
+          OpenAPI 注解：各模块的 @RestController 均使用 @Tag/@Operation 描述接口，
+          统一在父 POM 继承，避免每个模块重复声明（运行期 OpenAPI 文档装配在
+          scaffold-framework 的 config.web.SpringDocConfig）。
+        -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <!-- 测试基座：所有模块均可写单元测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -204,23 +102,111 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
+    <!-- 非 Spring Boot BOM 管理的第三方依赖：版本在此统一收敛，子模块声明时省略 version -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq</artifactId>
+                <version>${jooq.version}</version>
+            </dependency>
             <!--
-              集成测试（*IT / *IntegrationIT）由 failsafe 在 verify 阶段执行。
+              JWT（自签发令牌）：jjwt-api 编译期；impl/jackson 运行期。
+            -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <!-- 工作流 -->
+            <dependency>
+                <groupId>org.flowable</groupId>
+                <artifactId>flowable-spring-boot-starter-process</artifactId>
+                <version>${flowable.version}</version>
+            </dependency>
+            <!-- 调度：JobRunr（替代 XXL-JOB），使用 SQL 存储，无需 Redis / Docker -->
+            <dependency>
+                <groupId>org.jobrunr</groupId>
+                <artifactId>jobrunr-spring-boot-3-starter</artifactId>
+                <version>${jobrunr.version}</version>
+            </dependency>
+            <!--
+              消息通信：Kafka 客户端（海量数据有序消费）。
+              版本钉定 3.9.2，与本机 Kafka broker 发行版（devRepository/kafka，3.9.2）的
+              libs/kafka-clients-3.9.2.jar 对齐；该 jar 已手动安装至本地 Maven 仓库
+              （org/apache/kafka/kafka-clients/3.9.2），离线 mvn -o 可直接解析。
+              其他环境首次构建需联网从中央仓库解析（slf4j-api 由 spring-boot 提供，
+              zstd/lz4/snappy 压缩编解码器为 optional，缺失时自动降级为不压缩）。
+            -->
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>3.9.2</version>
+            </dependency>
+            <!--
+              通知渠道：邮件（EMAIL）。spring-context-support 提供 JavaMailSender/MimeMessageHelper；
+              jakarta.mail-api 为规范接口，angus-mail 为参考实现（Boot 3.3.4 不再随 starter-mail 传递，
+              此处显式引入并钉定版本；三者均已在本地 Maven 仓库，离线 mvn -o 可解析）。
+            -->
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-context-support</artifactId>
+                <version>${spring-framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>jakarta.mail</groupId>
+                <artifactId>jakarta.mail-api</artifactId>
+                <version>${jakarta-mail.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.angus</groupId>
+                <artifactId>angus-mail</artifactId>
+                <version>${angus-mail.version}</version>
+            </dependency>
+            <!-- API 文档（local/dev 环境） -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- 可执行 jar 仅在 scaffold-admin 启用 repackage -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <!--
+              集成测试（*IT）由 failsafe 在 verify 阶段执行。
               默认 skipITs=true，本地 mvn test/verify 不触发；CI 以 -DskipITs=false 配合 MySQL 服务容器开启。
+              *IT 全部位于 scaffold-admin（需完整 Spring 上下文），其余模块无 *IT，插件为空转。
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -242,20 +228,18 @@
     </build>
 
     <!--
-      jOOQ 代码生成 profile（设计 §15）：作为「并行层」探索，不替换手写动态 DSL。
-      常规离线构建不需要此 profile；仅当数据库表结构（Flyway 迁移）变更后，
-      联网执行 `mvn -Pjooq-codegen generate-sources` 重新生成实体/DAO/查询接口，
-      落入独立包 com.acme.scaffold.jooqgen（与手写 DSL com.acme.scaffold.jooq 并行共存）。
-      全量替换手写 DSL 属高风险改造，需真实库验证 + 风险评审，当前暂缓。
+      jOOQ 代码生成 profile 位于 scaffold-common/pom.xml（生成物落 com.acme.scaffold.jooqgen，
+      与手写 DSL 的 com.acme.scaffold.jooq 并存）；父 POM 仅保留跨模块生效的 profile。
     -->
     <profiles>
         <!--
           JaCoCo 覆盖率门禁（N+1 告警 + 覆盖率质检的一部分）。
-          默认不激活：jacoco-maven-plugin 未在本地离线仓库缓存，且常规离线构建（mvn -o）不应
-          因解析不到插件而失败。在 CI 或已联网解析过插件的环境中用 -Pcoverage 激活：
-            mvn -Pcoverage test        # 挂载探针 + 生成报告
+          默认不激活：常规离线构建（mvn -o）不挂载探针、不跑 check，避免无谓开销；jacoco-maven-plugin
+          已在本地离线仓库缓存，离线亦可跑。在需要覆盖率报告/门禁时用 -Pcoverage 激活：
+            mvn -Pcoverage test        # 挂载探针 + 生成报告（按模块分别产出）
             mvn -Pcoverage verify      # 额外执行 check 门禁（行/分支覆盖率低于下限则构建失败）
           阈值（0.10 行 / 0.05 分支）为保守起步线，应随测试完善逐步收紧（如 0.70 行 / 0.60 分支）。
+          多模块下门禁按模块独立判定，可防止"总量达标、单模块零覆盖"的掩象。
         -->
         <profile>
             <id>coverage</id>
@@ -344,99 +328,6 @@
                     <version>${otel.instrumentation.version}</version>
                 </dependency>
             </dependencies>
-        </profile>
-        <profile>
-            <id>jooq-codegen</id>
-            <!--
-              代码生成期需联网拉取 jooq-codegen 等构件。本机 maven 的 tencent 镜像
-              (mirrorOf=central) 未收录 jooq-codegen-maven-plugin，故在此追加一个
-              id 非 central 的仓库直连 Maven Central（镜像按仓库 ID 匹配，repo-central
-              不会被 tencent 镜像拦截），用于解析代码生成器及其依赖。
-            -->
-            <repositories>
-                <repository>
-                    <id>repo-central</id>
-                    <name>Maven Central (codegen)</name>
-                    <url>https://repo1.maven.org/maven2</url>
-                    <releases>
-                        <enabled>true</enabled>
-                    </releases>
-                    <snapshots>
-                        <enabled>false</enabled>
-                    </snapshots>
-                </repository>
-            </repositories>
-            <pluginRepositories>
-                <pluginRepository>
-                    <id>repo-central</id>
-                    <name>Maven Central (codegen plugins)</name>
-                    <url>https://repo1.maven.org/maven2</url>
-                    <releases>
-                        <enabled>true</enabled>
-                    </releases>
-                    <snapshots>
-                        <enabled>false</enabled>
-                    </snapshots>
-                </pluginRepository>
-            </pluginRepositories>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>3.1.0</version>
-                        <dependencies>
-                            <!-- 代码生成器本体：提供 org.jooq.codegen.GenerationTool 主类 -->
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq-codegen</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <!-- 运行时 jOOQ（含 meta 模块，GenerationTool 依赖） -->
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq-meta</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <!-- DDLDatabase：从 SQL 脚本反向工程，无需活库/ Docker -->
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq-meta-extensions</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <!-- DDLDatabase 内部使用的内存库（仅代码生成期） -->
-                            <dependency>
-                                <groupId>com.h2database</groupId>
-                                <artifactId>h2</artifactId>
-                                <version>2.2.224</version>
-                            </dependency>
-                        </dependencies>
-                        <executions>
-                            <execution>
-                                <id>generate-jooq-sources</id>
-                                <phase>generate-sources</phase>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                                <configuration>
-                                    <mainClass>org.jooq.codegen.GenerationTool</mainClass>
-                                    <arguments>
-                                        <argument>src/main/resources/jooq-codegen.xml</argument>
-                                    </arguments>
-                                    <!-- 仅使用上面的插件依赖（jooq-codegen 等）作为运行 classpath -->
-                                    <includePlugins>true</includePlugins>
-                                    <includeProjectDependencies>false</includeProjectDependencies>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>

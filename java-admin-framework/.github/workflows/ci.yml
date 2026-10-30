@@ -28,10 +28,10 @@ jobs:
         # 失败时输出 ::error:: 注解，明确失败原因与修复指引
         run: |
           if ! python3 scripts/check-conventions.py; then
-            echo "::error::编码约定校验未通过（硬违规即阻断合并）。H1=包级循环依赖（特性包间依赖须成 DAG）；H2=重复的全限定类名；H3=依赖方向不变量（低层包不得依赖高层包：domain->service->controller）；H4=数据类放置（*DTO/*VO/*Request/*Command/*Query/*Response 应在 dto/vo 子包，*DO/*Entity/*Model 应在 domain/entity/model 子包，包路径任意一段命中即合规）。请按上方输出逐项修复。"
+            echo "::error::编码约定校验未通过（硬违规即阻断合并）。H1=包级循环依赖（特性包间依赖须成 DAG）；H2=重复的全限定类名；H3=依赖方向不变量（低层包不得依赖高层包：domain->service->controller）；H4=数据类放置（*DTO/*VO/*Request/*Command/*Query/*Response 应在 dto/vo 子包，*DO/*Entity/*Model 应在 domain/entity/model 子包，包路径任意一段命中即合规）；H5=模块级循环依赖（scaffold-* 模块依赖图须成 DAG，仅 scaffold-admin 可依赖全部模块）。请按上方输出逐项修复。"
             exit 1
           fi
-          echo "::notice::编码约定校验通过（H1-H4 零硬违规，W* 警告不阻断）"
+          echo "::notice::编码约定校验通过（H1-H5 零硬违规，W* 警告不阻断）"
 
   build-and-unit-test:
     name: Build & Unit Tests
@@ -103,4 +103,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dependency-check-report
-          path: target/dependency-check-report.html
+          # 多模块工程：各模块 target/ 下均有报告，glob 全量上传
+          path: "**/target/dependency-check-report.html"

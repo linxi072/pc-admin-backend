@@ -5,8 +5,8 @@
         <el-icon size="20"><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
       </el-button>
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
-        <el-breadcrumb-item>{{ currentTitle }}</el-breadcrumb-item>
+        <el-breadcrumb-item :to="{ path: '/dashboard' }">{{ t('topbar.home') }}</el-breadcrumb-item>
+        <el-breadcrumb-item>{{ t(currentTitle) }}</el-breadcrumb-item>
       </el-breadcrumb>
     </div>
 
@@ -18,7 +18,7 @@
       @mouseleave="paused = false"
     >
       <el-icon class="notice-icon"><Bell /></el-icon>
-      <el-tag v-if="notice.isTop" size="small" type="danger" effect="dark" class="top-tag">置顶</el-tag>
+      <el-tag v-if="notice.isTop" size="small" type="danger" effect="dark" class="top-tag">{{ t('topbar.pinned') }}</el-tag>
       <div class="notice-viewport">
         <div class="notice-track" :style="trackStyle">
           <!-- 仅在内容超出可视区时才滚动，否则静态展示，避免无意义位移 -->
@@ -27,19 +27,13 @@
           </span>
         </div>
       </div>
-      <el-button text class="notice-more" @click="goNotice('announcement')">详情</el-button>
+      <el-button text class="notice-more" @click="goNotice('announcement')">{{ t('common.detail') }}</el-button>
     </div>
     <div v-else class="notice-placeholder" aria-hidden="true" />
 
     <div class="right">
-      <el-tooltip content="站内信" placement="bottom">
-        <el-badge :value="unread" :hidden="unread === 0" type="danger" class="icon-btn">
-          <el-button text class="bell" @click="goNotice('message')">
-            <el-icon size="18"><Bell /></el-icon>
-          </el-button>
-        </el-badge>
-      </el-tooltip>
-      <el-tooltip content="账号设置" placement="bottom">
+      <NotificationBell />
+      <el-tooltip :content="t('topbar.accountSettings')" placement="bottom">
         <el-button text class="icon-btn" @click="onCmd('settings')">
           <el-icon size="18"><Setting /></el-icon>
         </el-button>
@@ -52,26 +46,26 @@
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-            <el-dropdown-item command="settings">账号设置</el-dropdown-item>
-            <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+            <el-dropdown-item command="profile">{{ t('topbar.profile') }}</el-dropdown-item>
+            <el-dropdown-item command="settings">{{ t('topbar.accountSettings') }}</el-dropdown-item>
+            <el-dropdown-item command="logout" divided>{{ t('topbar.logout') }}</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
     </div>
 
     <!-- 点击公告查看详情 -->
-    <el-dialog v-model="detailVisible" title="公告详情" width="680px">
+    <el-dialog v-model="detailVisible" :title="t('topbar.announcementDetail')" width="680px">
       <h3 class="detail-title">{{ current?.title }}</h3>
       <div class="detail-meta">
-        <span class="meta-item">生效：{{ current?.publishAt || '立即' }}</span>
-        <span class="meta-item">有效期至：{{ current?.expireAt || '长期有效' }}</span>
-        <span class="meta-item">浏览：{{ current?.viewCount ?? 0 }}</span>
+        <span class="meta-item">{{ t('topbar.effective') }}{{ current?.publishAt || t('common.all') }}</span>
+        <span class="meta-item">{{ t('topbar.expireAt') }}{{ current?.expireAt || t('topbar.longTerm') }}</span>
+        <span class="meta-item">{{ t('topbar.views') }}{{ current?.viewCount ?? 0 }}</span>
       </div>
       <div class="detail-content">{{ current?.content }}</div>
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-        <el-button type="primary" @click="goNotice('announcement')">查看全部公告</el-button>
+        <el-button @click="detailVisible = false">{{ t('common.close') }}</el-button>
+        <el-button type="primary" @click="goNotice('announcement')">{{ t('topbar.viewAllAnnouncements') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -84,8 +78,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
-import { getUnreadCount } from '@/api/message'
-import { initRealtime, onRealtime, closeRealtime } from '@/api/realtime'
+import { closeRealtime } from '@/api/realtime'
+import { t } from '@/i18n'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 defineProps({ collapsed: Boolean })
 defineEmits(['toggle'])
@@ -96,15 +91,12 @@ const username = computed(() => authState.username || 'admin')
 const currentTitle = computed(() => route.meta.title || '')
 
 const notice = ref(null)
-const unread = ref(0)
 const paused = ref(false)
 const detailVisible = ref(false)
 const current = ref(null)
 const overflowing = ref(false)
-let timer = null
 let offset = 0
 let raf = null
-let offRealtime = null
 
 const trackStyle = computed(() => ({
   // 仅在溢出且未暂停时位移；否则回到起点
@@ -144,21 +136,6 @@ async function loadNotice() {
   }
 }
 
-async function loadUnread() {
-  try {
-    const res = await getUnreadCount()
-    unread.value = res?.data?.unread ?? res?.unread ?? 0
-  } catch (e) {
-    // 轮询失败静默处理，保留上一次计数
-  }
-}
-
-/** 实时消息处理：未读/待办事件触发角标刷新，始终以后端接口返回的权威值为准。 */
-function handleRealtime(msg) {
-  if (!msg || (msg.type !== 'UNREAD_MESSAGE' && msg.type !== 'TODO_REMINDER')) return
-  loadUnread()
-}
-
 async function openAnnouncement() {
   if (!notice.value) return
   try {
@@ -166,7 +143,7 @@ async function openAnnouncement() {
     current.value = res?.data ?? res
     detailVisible.value = true
   } catch (e) {
-    ElMessage.error('公告详情加载失败')
+    ElMessage.error(t('topbar.noticeLoadFailed'))
   }
 }
 
@@ -183,9 +160,9 @@ async function onCmd(cmd) {
   } else if (cmd === 'logout') {
     // 二次确认：避免误触直接退出
     try {
-      await ElMessageBox.confirm('退出后需要重新登录才能继续使用，确认退出吗？', '退出登录', {
-        confirmButtonText: '确认退出',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm(t('topbar.exitConfirm'), t('topbar.exitConfirmTitle'), {
+        confirmButtonText: t('topbar.confirmExit'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       })
     } catch (e) {
@@ -200,28 +177,20 @@ async function onCmd(cmd) {
     // 关闭实时通道并复位 started 标志：否则重新登录后 initRealtime() 直接 early-return，
     // WebSocket 永不重连（未读角标只能靠 60s 轮询兜底）
     closeRealtime()
-    ElMessage.success('已退出登录')
+    ElMessage.success(t('topbar.exitSuccess'))
     router.replace('/login')
   } else {
-    ElMessage.info('演示环境暂未实现该页面')
+    ElMessage.info(t('topbar.demoNotImpl'))
   }
 }
 
 onMounted(async () => {
   await loadNotice()
-  loadUnread()
   raf = requestAnimationFrame(step)
-  // 实时消息：连接后端 WebSocket，未读/待办事件实时刷新角标
-  initRealtime()
-  offRealtime = onRealtime(handleRealtime)
-  // 未读轮询兜底：WebSocket 不可用时仍保证角标与后端一致
-  timer = setInterval(loadUnread, 60000)
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
   if (raf) cancelAnimationFrame(raf)
-  if (offRealtime) offRealtime()
 })
 </script>
 
@@ -310,13 +279,6 @@ onUnmounted(() => {
 .icon-btn {
   display: flex;
   align-items: center;
-}
-.bell {
-  color: #ffd04b;
-}
-:deep(.icon-btn .el-button),
-:deep(.hamburger) {
-  color: #c0c4cc;
 }
 .user {
   display: flex;

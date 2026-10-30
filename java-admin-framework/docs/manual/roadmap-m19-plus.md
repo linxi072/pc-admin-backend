@@ -1,0 +1,196 @@
+# 路线图规划：M19+ 后续模块提案（java-admin-framework）
+
+> 状态：**已采纳路线（2026-10-23 确认决策；M19 P1/P2/P3 + M20–M26 + M22 低代码表单(spike+正式立项提交落库) 已全部交付）** ｜ 日期：2026-10-23（2026-10-25 更新 M20–M26 交付状态；2026-10-26 更新 M19 P1/P2 与 M22 正式立项交付状态；2026-10-26 更新 M29 实时推送管理页与 M30 实时推送模板化交付状态；2026-10-27 更新 M19 SaaS 开通闭环交付状态（租户开通预置 + 存量 tenant_id 回填迁移 + 跨租户运营总览，全仓 1519→1528 例全绿）｜ 分支：`feat/V1.0.4` ｜ 视角：在 M1–M18 与既有增强项基础上，梳理下一阶段（M19+）可承载的能力模块，供评审与排期决策。
+> 方法：直接核查已交付能力（M1 审计 / M2 幂等 / M3 Token 版本 / M4 工作流 claim / M5 缓存 / M6 通知渠道 / M7–M8 已读回执 / M14 免打扰 / M15 退订令牌 / M16 故障转移+有界重试 / M17 聚合摘要 / M18 Webhook HMAC / 导入导出中心 / i18n / 限流注解化 / 敏感数据脱敏通用化 / 多段导入 #651 / 可观测中心前端 / 岗位管理 / 文件管理 / 多数据源 / 编码规范校验脚本），不凭空假设。
+> 约束：离线 Maven 仓库可用依赖优先；禁止引入需联网拉取的重型依赖（如 POI，已用零依赖 OOXML 替代）；数据访问以手写 jOOQ DSL（JooqTables + TableRef）为准；新模块须延续「模板注册 / 纯函数规则 / 条件装配 / 自动登记权限码」的既有范式。
+
+---
+
+## 1. 当前能力边界（一句话盘点）
+
+框架已具备：**认证授权 + 数据权限 + 审计 + 幂等 + 多数据源 + 文件管理 + 缓存分键 + 通知五渠道 + 工作流 + 实时推送 + 导入导出中心（含多段结构）+ i18n + 限流 + 脱敏通用化 + 可观测前端 + 岗位/字典/参数等系统模块**。缺口集中在「**多租户隔离、读操作/留存级审计增强、脱敏策略可视化、动态表单/低代码、开放平台/密钥治理**」等增强型基础能力。
+
+---
+
+## 2. M19+ 候选模块矩阵
+
+| 候选 | 业务价值 | 范围量级 | 离线可行性 | 风险/前置 | 建议优先级 |
+|---|---|---|---|---|---|
+| **M19 多租户隔离（SaaS 化）** | 高（框架作为可复用基座的核心分水岭） | 大（侵入式） | ✅ 用 jOOQ DSL + TenantContext + 多数据源路由，零新依赖 | 既有表需 `tenant_id` 迁移；跨租户管理视图需独立通道；影响面全局 | **P1 基础层 + P2 租户管理域已交付（feat/V1.0.4）；P3 jOOQ 强制注入隔离已交付（feat/V1.0.4，1435 例全绿）；**P4 SaaS 开通闭环已交付（feat/V1.0.4，2026-10-27：租户开通预置 + 存量 tenant_id 回填迁移 + 跨租户运营总览，全仓 1519→1528 例全绿） |
+| **M20 操作/审计增强** | 中 | 中 | ✅ 增量扩展 M1 `AuditAspect` | 读操作审计量爆炸需采样/开关 | P2 |
+| **M21 数据脱敏策略中心（可视化配置）** | 中 | 中 | ✅ 复用 `common/sensitive` + 规则表 | 运行时解析需缓存与刷新；默认安全需保留 | P2 |
+| **M22 低代码/动态表单引擎** | 高 | 大（易膨胀） | ✅ spike（V47 契约+渲染原型）+ **正式立项提交落库（V53）** | 作用域易失控；已按「独立 `form_submission` 表、零运行时 DDL」收口，不侵入业务表 | P3（spike ✅ + 提交落库 ✅） |
+| **M23 流程中心增强（M4 续）** | 中 | 中 | ✅ 扩展 Flowable 7.1 监控/版本/超时 | 依赖 M4 既有 claim/transfer/complete | P3 |
+| **M24 API 开放平台 / 密钥治理** | 中 | 中 | ✅ 复用 `@RateLimit` + 密钥轮转（M 已有 `JwtKeyRotationService`） | OAuth2 客户端注册可能需 spring-security-oauth2（需离线核验） | P3 |
+| **M25 文件管理增强** | 中 | 中 | ✅ 复用既有 `system/file` + 对象存储适配 | 分片/秒传需前端配合；预览需格式库 | P3 → ✅ 已交付（2026-10-25，秒传/引用计数/统计/批量删除） |
+| **M26 组织数据导入导出** | 中 | 中 | ✅ 复用导入导出中心模板注册范式（零迁移/零前端） | 导出范围受数据权限约束；部门导入按编码反查父级需树完整 | P3 → ✅ 已交付（2026-10-25，用户/角色/部门/岗位导出 + 岗位/部门导入） |
+| **M27 报表大屏（后端四刀 + 前端配套页）** | 高 | 中 | ✅ 手写 jOOQ DSL 聚合系统表计数 + 近 N 日时间序列趋势（零新依赖）；第三刀经 common 跨模块端口范式接入 framework 的 N+1 疑似指标，第四刀同一范式接入 `SpanRecorder` 链路追踪指标（启用/留存/累计/错误），system 始终不依赖 framework | 链路追踪指标已随第四刀交付（端口范式可继续扩展更多维度）；前端配套页（看板页 + M19 租户页）属独立前端仓 | P2 → ✅ 后端四刀已交付（2026-10-26，第一刀运营总览 `/overview` + 第二刀趋势 `/trend?days=` + 第三刀 N+1 疑似指标接入看板 + 第四刀链路追踪指标跨模块接入看板；M27 累计新增 14 例单测（ObservabilitySnapshotTest 5 例 + 第三刀 9 例），全仓 1465→1470 例全绿）；✅ **前端配套页已交付（2026-10-26，pc-admin-vue3-vite）**：看板页 `DashboardView.vue` + 后端 V52 菜单种子（id=1056 挂报表目录 1030，`system:dashboard:read`）+ 路由/i18n 接入；M19 租户前端页 `TenantView.vue` 一并落地（七函数 `tenant.js` + 路由 `system/tenants` + i18n），`npx vite build` EXIT=0 |
+| **M28 租户隔离态势诊断页（M19 P3 延伸）** | 中（运维可观测） | 小（只读聚合） | ✅ 复用 M19 P3 的 `TenantEnforcement`/`TenantProperties`/`TenantContext` 静态/配置态，纯函数 `TenantIsolationRules.buildStatus` 聚合，零新依赖 | 仅只读诊断，不写库/不触发隔离逻辑，风险极低 | P3 → ✅ 已交付（2026-10-26）：后端 GET `/api/system/tenant-isolation/status`（权限 `system:tenant-isolation:read` 由 `ApiResourceAutoSyncRunner` 自动登记）+ V54 菜单种子（id=1125 挂系统管理 1002，`system:tenant-isolation:read`）+ 前端诊断页 `TenantIsolationView.vue` + `tenantIsolation.js` + 路由 `system/tenant-isolation` + i18n；新增 8 例单测（common `TenantIsolationRulesTest` 6 + system `TenantIsolationStatusControllerTest` 2），全仓 1483→**1491** 例全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0 |
+| **M29 实时推送管理页（realtime 模块延伸）** | 中（运维工具） | 小（只读 + 手动推送前端页） | ✅ 复用后端已交付 `RealtimeController`（`/api/realtime`：sessions / online-count / push/broadcast / push/user）+ `RealtimePushService` 类型常量（UNREAD_MESSAGE / TODO_REMINDER / NOTIFICATION / PONG），纯前端管理页 + 菜单种子，零新后端依赖 | 推送需 `system:realtime:push` 权限（菜单仅挂 read，沿用 MonitorView 同权范式）；实时网关禁用时在线数为 0、推送触达 0（与离线语义一致） | P3 → ✅ 已交付（2026-10-26）：后端 V55 菜单种子（id=1126 挂系统管理 1002，`system:realtime:read`）+ 前端 `RealtimeView.vue`（在线总览卡 + 在线会话表 + 广播/定向推送表单，loading/error/空态齐全）+ `realtime.js`（4 个 REST 函数）+ 路由 `system/realtime` + i18n；门禁保持（无新增后端单测，纯 SQL 种子），`check-conventions` EXIT=0 + `npx vite build` EXIT=0 |
+
+| **M30 实时推送模板化（M29 延伸，realtime 复用 M10 通知模板）** | 中（运维提效） | 小（端口 + 适配器 + 前端模板下拉/变量输入） | ✅ 复用 M10 通知模板中心（`NotificationTemplateService.requireEnabledByCode` + `NotificationTemplateRules.render`）经 realtime 端口防腐层（`RealtimeTemplatePort`/`RealtimeTemplateRenderResult`）零耦合接入；system 提供 `@Component` 适配器（`RealtimeTemplateAdapter`，与 `JwtHandshakeAuthenticator` 同源模式）；前端复用 `pageNotificationTemplates(channel=WEBSOCKET)` 拉取模板 + 动态变量输入 + 服务端预览 | 仅接受启用中 WEBSOCKET 渠道模板；realtime 模块不依赖 system（端口倒置避免成环）；端口缺失时显式失败不静默降级 | P3 → ✅ 已交付（2026-10-26）：后端新增 `realtime.port.RealtimeTemplatePort`/`RealtimeTemplateRenderResult` + DTO 增 `templateCode`/`variables` + `RealtimeAdminService` 解析分支；system 新增 `RealtimeTemplateAdapter`（`Channel.WEBSOCKET` 校验 + 渲染）；新增 7 例单测（`RealtimeAdminServiceTest` 4 + `RealtimeTemplateAdapterTest` 3），全仓 **1491→1498** 例全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0；前端 `realtime.js` 增透传 + `RealtimeView.vue` 增「使用模板」开关（模板下拉 + 动态变量输入 + 渲染预览） |
+| **M31 可配置数据权限（M19+ 收口，feat/V1.0.4）** | 中（治理） | 小（注解 + 注册表 + 只读清单端点 + 前端配置页） | ✅ 复用「角色×资源」数据权限基础，`DataScope` 注解增 `name()` 展示名 + `DataScopeResourceRegistry`（`BeanPostProcessor`）启动自动扫描 `@DataScope` 方法生成受控资源清单（新增受控资源零前端硬编码即出现在配置页）；`DataScopeResourceView` 置于 `security.permission` 包解开 H1 包级环依赖；`DataScopeController` 暴露只读 `GET /api/system/data-scope/resources`（`system:data-scope:read` 自动登记） | 新增受控资源须零前端硬编码即可被发现；前端 `DataScopeView.vue` 复用 `RoleController` 的 `data-scopes` 保存端点（CUSTOM 须至少选一部门） | P3 → ✅ 已交付（feat/V1.0.4）：全仓 **1498→1519 例**全绿 + `check-conventions` EXIT=0；V56 菜单种子 id=1127 挂系统管理目录 |
+| **前后端联调契约测试基建（feat/V1.0.4）** | 中（质量基建） | 小（单份契约源驱前后端双测） | ✅ 零依赖：单份 `scripts/api-contract.json` 同时驱动后端 `ApiContractConsistencyTest`（scaffold-common，14 例，standalone MockMvc + 真实 `GlobalExceptionHandler` + `I18nService` + 内存 `DemoItem` 闭环）与前端 `src/api/__tests__/result.test.js`（node:test 10 例）；前端抽 `src/api/result.js`（`isSuccessResult` 兼容 `"0"`/`0` + `ResultError` + `unwrapResult`），`http.js` 改用统一判定，修复仅 `code==='0'` 不兼容数字 code 的真实契约违规 | 从构造上消除前后端 drift；UTF-8 字节读取防乱码；9 错误码 zh+en 文案覆盖 | P3 → ✅ 已交付（feat/V1.0.4）：全仓 **1519→1591 例** + 前端 `npm test` 10/10 + `check-conventions` EXIT=0 + `vite build` EXIT=0 |
+| **M32 运营大屏数据导出（导出中心接入，feat/V1.0.4）** | 中（运维提效） | 小（单 `@Component` 接入导出中心，零迁移零前端） | ✅ 复用 M27 报表大屏 `DashboardService.overview()/trend(days)` 与既有「`ExportTask` 模板注册」范式：新增 `DashboardExportTask`（`code="dashboard"`，多段结构——CSV 扁平化为「数据段/标签/值」三列、XLSX 7 Sheet（总览 + 新增用户/新增租户/活跃租户/登录日志/操作日志/通知发送趋势））；标 `@TenantIgnorable` 产出跨租户全局数据；`csv()/xlsxSheets()` 内显式校验 `system:dashboard:read` 防止「持导出权限但无数据权限」的权限放大 | 看板为平台级全局统计，须 `@TenantIgnorable` 旁路 + 权限兜底双保险；`days` 经 `DashboardRules.clampDays` 钳制 [1,90]、默认 30，非法/缺省回落默认 | P3 → ✅ 已交付（2026-10-28）：新增 `DashboardExportTaskTest` 7 例（元数据声明/带权限产出 CSV+Sheet/无权限 FORBIDDEN/无主体 FORBIDDEN/非法 days 回落），全仓 **1591→1610 例（0 失败 0 错误）** + `check-conventions` EXIT=0 |
+| **M33 任务依赖编排 DAG（M19+ 收口，feat/V1.0.4）** | 中（调度编排） | 中（纯函数规则 + 端口 + 适配器 + 前端编排页，零新表） | ✅ 复用既有 `sys_job`（V59 仅加 `depends_on VARCHAR(1024)` 列，information_schema 探测幂等 ALTER）+ JobRunr 双层调度（`JobSchedulerPort`）。纯函数 `JobDagRules`（解析/校验/环检测/拓扑排序）+ 防腐层端口 `JobDagPort`/`JooqJobDagAdapter` + 编排 `JobDagService`（上游成功后即时触发就绪 WAITING 下游）+ 新增 `JobStatus.WAITING` 挂起态 + 前端依赖多选/WAITING 标签/依赖编排列/触发下游按钮 | 依赖「至少成功一次」语义（`COMPLETED` 或 `success_runs>0`）；上游已删除视为满足（防悬空边永久阻塞）；编辑时环检测 + 存在性 + 自依赖校验；删除守卫（有下游依赖拒删）；复用既有 job 菜单（id=1031）不新种子 | P3 → ✅ 已交付（feat/V1.0.4）：新增 `JobDagRules`（6 方法纯函数）+ `JobDagPort`/`JooqJobDagAdapter` + `JobDagService`（onJobSuccess/triggerDownstream/dependentsMap/assertNoDependents/isReady/validateDependencyEdit/setWaiting）+ `JobExecutor` 成功钩子 + `JobService` 改造（page/detail/create/update/start[WAITING 分支]/remove[守卫]/toVO[三新字段]）+ `JobVO`/`JobCreateDTO`/`JobUpdateDTO` 加 `dependsOn` + `JobController` 加 `POST /api/jobs/{id}/trigger-downstream`；新增 34 例单测（`JobDagRulesTest` 17 + `JobDagServiceTest` 17），全仓 **1610→1644 例**全绿 + `check-conventions` EXIT=0；前端 `JobListView.vue` 加依赖编排列（依赖/下游）/WAITING 标签/依赖多选/触发下游按钮 + `job.js` 加 `jobTriggerDownstream`；`npx vite build` EXIT=0 |
+
+> 说明：表中 M19–M22 为本轮重点细化候选（与既定规划方向一致）；M23–M25 列入观察清单，待前序模块稳定后再排期。
+
+---
+
+## 3. 推荐落地路线
+
+- **阶段 A（奠基，若 SaaS 为目标）**：M19 多租户隔离。因其侵入全局，应作为独立先行阶段，配套迁移脚本与「平台管理员」跨租户通道。若本期**不**做 SaaS，则将 M19 延后，直接进入阶段 B。
+- **阶段 B（治理增强）**：M20 审计增强 → M21 脱敏策略中心。两者共享「审计/脱敏」主题，且 M21 可直接复用 M1 审计落库与 `SensitiveMasker`，协同度高。
+- **阶段 C（体验/扩展）**：M23 流程中心增强、M25 文件管理增强（复用既有模块，风险低）。
+- **阶段 D（探索）**：M22 低代码表单先以 **spike**（仅契约 + 最小渲染原型）验证可行性，再决定是否正式立项；M24 视是否需要对外_OPEN API_ 决定。
+
+---
+
+## 4. 重点候选细化设计摘要
+
+### 4.1 M19 多租户隔离
+- **目标**：同一套部署服务多租户，数据按租户隔离，平台方（super admin）可跨租户治理。
+- **隔离策略（二选一，待定）**：
+  1. **共享表 + `tenant_id` 列**（推荐起步）：所有业务表加 `tenant_id`；`TenantContext`（ThreadLocal）由登录态/请求头解析；jOOQ `VisitListener` 或统一查询构造器自动追加 `tenant_id = :current` 且禁止 `null` 越权查询；主键策略改为 `(tenant_id, id)` 或全局唯一 ID。
+  2. **Schema/库 隔离**：每租户独立 schema，经 `AbstractRoutingDataSource` 按 `TenantContext` 路由（复用既有多数据源 `app.datasources.entries.*` 机制）。
+- **关键构件**：`TenantResolver`（从 JWT claims / `X-Tenant-Id` 解析，缺失即拒绝或默认平台租户）、`TenantInterceptor`、`TenantAwareJooqConfig`、`V4x__add_tenant_id.sql`（存量表回填默认租户）、`sys_tenant` 租户表 + 租户管理端点。
+- **可行性**：✅ 零新依赖（jOOQ + Spring 原生）。**风险**：既有 ~50+ 表迁移、跨租户统计/报表需显式绕过隔离（平台通道）。**建议**：阶段 A 先行，且先交付「写入路径强制隔离 + 平台跨租户通道」最小闭环。
+
+#### 4.1.1 M19 落地进度（feat/V1.0.4）
+- **P1 基础层（已交付）**：`common.tenant` 包——`TenantContext`（ThreadLocal：tenantId + platformAdmin 标志）、`TenantProperties`（enabled / defaultTenantId / platformAdminRoleCode / headerName / claimName）、`TenantResolver`（JWT claim `tid` / 请求头 `X-Tenant-Id` / 默认租户解析，纯函数化）、`TenantRules`（租户 ID 解析归一、编码/名称/状态/联系人格式校验，纯函数）；配套 17 例单测全绿。
+- **P2 租户管理域（已交付）**：V51 迁移建 `sys_tenant`（tenant_code 唯一 + 状态机 ENABLED/DISABLED + 可选过期）+ 菜单播种（id=1124 挂系统管理 1002 并绑定 SUPER_ADMIN）；`JooqTables.SYS_TENANT`；`SysTenantDO` + `CreateTenantRequest`/`UpdateTenantRequest`/`TenantView`（tenant_code 创建后不可变更）；`TenantService`（CRUD + 整表缓存写失效 + 结构校验同源 `TenantRules` + tenant_code 唯一性裁决）；`TenantController`（`/api/system/tenants`，读 `system:tenant:read` / 写 `system:tenant:manage` 由 `ApiResourceAutoSyncRunner` 自动登记）；配套 13 例单测全绿。全仓 **1399→1412 例**。**前端配套页 `TenantView.vue` 已于 2026-10-26 在 `pc-admin-vue3-vite` 落地**（七函数 `tenant.js` + 路由 `system/tenants` 挂 `system:tenant:read` + i18n），与 M27 看板页同批交付，`npx vite build` EXIT=0。
+- **P3 jOOQ 强制注入隔离（已交付）**：采用「`enforce` 默认关闭、配置开启」设计，确保基线 1412 例与线上行为零回归。`TenantInterceptor`（请求级注入 `TenantContext`）+ `TenantBypassAspect`（拦截 `@TenantIgnorable` 置位跨租户旁路）+ `TenantEnforcement`（静态单点裁决）。**架构 pivot**：放弃 jOOQ `VisitListener`（3.19 API 不兼容：接口为空、无 `getTable()`/`addConditions`、SelectQuery 层无 `getFrom()`，AST 注入不可行），改为在 `JooqWriters`（动态 DSL 唯一 CRUD 入口）内经 `TenantEnforcement` 注入——所有读写路径经私有 `withTenant(table, cond)` 装饰，insert/batchInsert 写入 `tenant_id`；`enforce=false` 时行为与原基线完全一致。`JooqConfig.dslContext` 启动时调 `TenantEnforcement.configure(props)`。`sys_tenant`/`sys_menu`/`sys_dict_type`/`sys_dict_data`/`sys_config`/`sys_api_resource` 等平台维表（`platformTables`）豁免隔离；非请求线程/未设作用域/旁路均不强制。配套 15 例单测（TenantContext 旁路 2 + TenantBypassAspect 2 + TenantInterceptor 5 + TenantEnforcement 决策 6），全仓 **1412→1427 例**。
+- **P3 生产可用化（已交付，2026-10-26）**：M19 多租户在 schema（V32 起全表 `tenant_id`）与代码层（`JooqWriters` 注入 / `TenantInterceptor` 解析 / `enforce` 门控 / 41 个 `TableRef` 声明）均已就绪；本轮补齐「安全开启护栏 + 上线指引」，不改变默认行为（`enforce` 仍默认 false，零回归）。`TenantEnforcement.validateConfiguration()`（common）在 `enforce=true` 时校验 `defaultTenantId` 合法、`platform-tables` 非空，否则抛中文 `IllegalStateException`；`TenantEnforcementValidator`（framework，`CommandLineRunner`）启动期调用，配置非法则 fail-fast 中止启动（WARN/INFO 日志区分）。新增 `TenantEnforcementTest` 校验用例 4 + `TenantEnforcementValidatorTest` 3 = 7 例，全仓 **1435→1442 例**；`docs/manual/m19-production-enablement.md` 上线指引。门禁：`clean test` 1442 例全绿 + `check-conventions` EXIT=0。
+
+#### 4.1.2 M28 租户隔离态势诊断页（已交付，2026-10-26）
+- **定位**：延伸 M19 P3，补齐「运维只读诊断」能力——把隔离的「配置态 + 运行态 + 当前执行作用域 + 配置校验结果」聚合成单一只读端点，供诊断页展示。**只读、零新依赖、不写库、不触发任何隔离逻辑**，仅做聚合，不复制任何裁决逻辑（唯一事实来源仍是 M19 P3 的 `TenantEnforcement`/`TenantProperties`/`TenantContext`）。
+- **后端（common + system）**：
+  - `common/tenant/TenantIsolationStatusView`（不可变 record：isolationEnabled/enforceEnabled/configured/defaultTenantId/platformAdminRoleCode/headerName/claimName/platformTables/scopeSet/currentTenantId/currentPlatformAdmin/currentBypass/validationStatus/validationMessage）。
+  - `common/tenant/TenantIsolationRules`（纯函数 `buildStatus(props)`：聚合配置态（`TenantProperties`）+ 运行态（`TenantEnforcement.isEnabled()`/`isConfigured()`）+ 当前执行作用域（`TenantContext`）+ 配置校验（包裹 `validateConfiguration()` 得 OK/INVALID/DISABLED 三态，INVALID 含中文修正建议），可离线单测）。
+  - `system/tenant/TenantIsolationStatusController`（`GET /api/system/tenant-isolation/status`，`@PreAuthorize system:tenant-isolation:read`；直接实例化可测、无 DB 依赖；权限码由 `ApiResourceAutoSyncRunner` 自动登记）。
+- **后端迁移（V54）**：菜单种子 id=1125 挂系统管理 1002、`route_path=/system/tenant-isolation`、`component_path=system/TenantIsolationView`、`permission=system:tenant-isolation:read`、`icon=Connection`、sort_no=114（紧随 1124 的 113）；`INSERT IGNORE` + 绑定 `sys_role_menu(role_id=1)`。纯 SQL 种子，不增后端单测（门禁保持）。
+- **前端（pc-admin-vue3-vite）**：`src/views/system/TenantIsolationView.vue`（四区诊断卡：隔离总览 / 配置态 / 当前执行作用域 / 配置校验，复用 `.page-card`/`.stat-grid`/`.stat-card` + `el-tag`/`el-alert`，loading/error/空态齐全）+ `src/api/tenantIsolation.js`（`getTenantIsolationStatus`）+ 路由 `system/tenant-isolation` + i18n（zh-CN `租户隔离态势`/en-US `Tenant Isolation Status`）。
+- **测试 8 例**（TenantIsolationRulesTest 6 + TenantIsolationStatusControllerTest 2）；门禁：全仓 **1483→1491** 例全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0（验证目录 `.fe-verify` 已清理不提交）。
+
+#### 4.1.3 M29 实时推送管理页（realtime 模块延伸，已交付，2026-10-26）
+- **定位**：补齐 realtime 模块的**前端管理入口**——后端 `RealtimeController`（`/api/realtime`：sessions / online-count / push/broadcast / push/user）早已交付，但前端无对应路由/视图，属真实缺口（运维无法从后台查看在线会话或手动推送）。本模块仅新增前端页 + 菜单种子，**零后端 Java 改动**，风险极低。
+- **后端（仅迁移种子 V55）**：菜单种子 id=1126 挂系统管理 1002、`route_path=/system/realtime`、`component_path=system/RealtimeView`、`permission=system:realtime:read`、`icon=Bell`、sort_no=115（紧随 1125 的 114）；`INSERT IGNORE` + 绑定 `sys_role_menu(role_id=1)`。推送权限 `system:realtime:push` 由 `ApiResourceAutoSyncRunner` 扫描 `@PreAuthorize` 自动登记并授予 SUPER_ADMIN，菜单仅挂基础 read（与 MonitorView 用 `system:monitor:read` 覆盖多子权限同范式）。
+- **前端（pc-admin-vue3-vite）**：`src/views/system/RealtimeView.vue`（在线总览卡「在线会话总数/在线用户数」+ 在线会话表 `userId/sessionCount` + 广播推送表单 + 定向推送表单，复用 `.page-card`/`.stat-grid`/`.stat-card` + `el-table`/`el-form`/`el-select`/`el-input`/`el-tag`/`el-alert`，loading/error/空态齐全；网关禁用时提示在线数为 0、推送触达 0 属正常）+ `src/api/realtime.js` 追加 4 个 REST 函数（`listRealtimeSessions` / `realtimeOnlineCount` / `realtimeBroadcast` / `realtimePushToUser`，复用既有 `request()` 拆包 + 全局错误拦截）+ 路由 `system/realtime`（permission `system:realtime:read`）+ i18n（zh-CN `实时推送` / en-US `Realtime Push`）。
+- **推送类型**：复用 `RealtimePushService` 常量 `UNREAD_MESSAGE` / `TODO_REMINDER` / `NOTIFICATION` / `PONG`，前端的 select 选项与契约对齐；payload 透传（纯文本或 JSON，空串回落 null 仅推类型通知）。
+- **门禁**：无新增后端单测（纯 SQL 种子，门禁保持），`check-conventions` EXIT=0 + `npx vite build` EXIT=0（验证目录 `.fe-verify` 已清理不提交）。
+
+#### 4.1.4 M30 实时推送模板化（M29 延伸，已交付，2026-10-26）
+- **定位**：在 M29 实时推送管理页基础上，复用 M10 通知模板中心（V41），让运维在后台广播/定向推送时「选模板 + 填变量」即可下发格式化通知，省去手填 JSON payload、保证文案统一治理。后端零新表、零新迁移，仅扩展既有推送 DTO 与编排逻辑。
+- **架构（端口 + 适配器，零耦合）**：`scaffold-realtime` 仅依赖 `scaffold-common`、不依赖 `scaffold-system`；为保持该单向依赖（避免与 system 成环），沿用 `HandshakeTokenAuthenticator` 同源的「防腐层端口」模式——
+  - `realtime.port.RealtimeTemplatePort`（接口）+ `RealtimeTemplateRenderResult`（标题/正文/消息类型归一 record）定义在 realtime 模块；
+  - `system.notification.adapter.RealtimeTemplateAdapter`（`@Component`，实现该端口）在 system 模块装配，内部调 `NotificationTemplateService.requireEnabledByCode` + `NotificationTemplateRules.render`，并强制 `Channel.WEBSOCKET`（实时推送经 WebSocket 下行，非 WEBSOCKET 渠道模板语义不符即拒）。
+- **后端改动**：
+  - `RealtimeBroadcastRequest` / `RealtimeUserPushRequest` 增 `templateCode` / `variables`（可选，向后兼容 M29 既有 `type`/`payload` 路径）；
+  - `RealtimeAdminService` 经 `ObjectProvider<RealtimeTemplatePort>` 解析：指定 `templateCode` 时按 `NOTIFICATION` 类型推送 `RealtimeNotificationPayload.of(渲染标题, 渲染正文, 消息类型, {})`；端口缺失则显式抛 `CONFLICT` 失败（不静默降级）；未指定则走原始 `type`/`payload` 路径。
+- **前端（pc-admin-vue3-vite）**：`src/api/realtime.js` 的 `realtimeBroadcast` / `realtimePushToUser` 增 `templateCode` / `variables` 透传；`RealtimeView.vue` 增「使用模板」开关——开启后从 `pageNotificationTemplates(channel=WEBSOCKET, enabled=true)` 拉取模板下拉，选模板后按 `variableNames` 动态渲染变量输入，并调用 `previewNotificationTemplate` 实时展示渲染预览；提交时仅传 `templateCode` + `variables`（payload 置 null）。
+- **测试 7 例**（`RealtimeAdminServiceTest` 4：原始路径 / 模板路径渲染为 NOTIFICATION+Payload / 端口缺失显式失败 / 定向推送模板路径；`RealtimeTemplateAdapterTest` 3：WEBSOCKET 渲染 / 非 WEBSOCKET 拒 / 变量缺省保留 `${name}`）；门禁：全仓 **1491→1498** 例全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0（验证目录 `.fe-verify` 已清理不提交）。
+
+#### 4.1.5 M19 SaaS 开通闭环（租户开通预置 + 存量回填迁移 + 跨租户运营总览，已交付，2026-10-27）
+- **定位**：承接 M19 P1–P3 与生产可用化，打通「生产启用闭环」——把「注册租户（仅写 `sys_tenant` 行）」升级为「一键开通（初始化管理员/角色/部门）+ 存量 `tenant_id` 回填迁移 + 跨租户运营总览」，使框架可真正作为 SaaS 基座交付给平台客户。
+- **关键设计约束**：隔离默认仍 `enforce=false`（零回归）；子资源创建统一在 `TenantContext.runWith(tenantId, false, ...)` 作用域下写入，确保 `enforce=true` 时 `tenant_id` 正确落库、关闭时回落平台租户 0；菜单/接口为平台共享维表（`sys_menu`/`sys_api_resource`），租户管理员角色绑定全量菜单 + 接口（由 `ApiResourceAutoSyncRunner` 自动登记权限码）；跨租户查重/聚合经 `@TenantIgnorable` 旁路（复用 M27/M28 范式）。
+- **后端（system）**：
+  - `system/tenant/TenantProvisioningRules`（纯函数：用户名长度 2–64 / 显示名非空 / 密码复杂度（复用 `PasswordPolicy`）/ 电话邮箱格式（复用 `TenantRules`）/ 派生全局唯一角色码 `TENANT_ADMIN_<TENANT_CODE>` 与部门码 `DEPT_<TENANT_CODE>`；可离线单测）。
+  - `system/tenant/TenantProvisioningService`（`@Transactional` + `@TenantIgnorable`：先全额结构校验（零 DB 交互）→ `tenantService.get` 校验租户存在 → `roleService.existsByCode` 幂等守卫（已开通返回 CONFLICT）→ `runWith(tenantId, false, ...)` 内 `orgService.create`（默认部门）+ `roleService.create`（绑定全量菜单与接口）+ `userService.create`（管理员，含主角色/主部门））。
+  - DTO：`TenantProvisioningRequest`（adminUsername 可空默认 admin / adminPassword 必需 / adminDisplayName / adminMobile / adminEmail）+ `TenantProvisioningView`（tenantId/adminUserId/roleId/deptId/adminUsername/roleCode）。
+  - `TenantController` 增 `POST /api/system/tenants/{id}/provision`（权限 `system:tenant:manage` 自动登记）。
+  - `RoleService.existsByCode` 由 private 提升为 public（供开通幂等守卫复用，零行为变更）。
+- **迁移（V57 Java 迁移，幂等 + 数据驱动 + 零孤儿断言）**：`V57__backfill_tenant_id extends BaseJavaMigration`——遍历 `TenantTables.businessTableNames()`，运行时内省 `information_schema.columns` 探测确实含 `tenant_id` 列的业务表，将 `tenant_id IS NULL` 归位平台租户 0（单事务由 Flyway 托管、可重跑）；回填后二次校验不得残留 `tenant_id IS NULL`，否则抛 `IllegalStateException` fail-fast（杜绝「列已加但值为 NULL」的隔离泄漏）；复用 M19 业务表权威清单，新增业务表自动纳入，平台维表恒不触碰。
+- **前端（pc-admin-vue3-vite）**：`src/api/tenant.js` 增 `provisionTenant(id, data)` + `tenantDataOverview()`；`TenantView.vue` 增「开通」按钮（对话框：默认部门 + 租户管理员角色绑定全量菜单/接口 + 首位管理员用户的初始化说明 + 管理员账号/密码/显示名/手机/邮箱 表单，提交后提示 `管理员 xxx（角色 xxx）`）+「运营总览」按钮（对话框：跨租户聚合各业务表行数，可展开看每表明细，loading/error/空态齐全）；`messages.js` 补齐 `route.formPilot`/`route.openApiClient` 键（修复路由 meta 引用缺失键导致标题显示字面量的潜在 bug）。
+- **测试 9 例**（`TenantProvisioningRulesTest`：用户名为空回落默认 / 长度上下界 / 显示名非空 / 密码复杂度（长度不足 / 缺特殊字符 / 合规通过）/ 电话邮箱格式 / 角色码派生），全仓 **1519→1528 例**全绿。
+- **门禁**：`mvn -o clean test` 1528 例全绿 + `check-conventions.py` EXIT=0 + `npm run build` EXIT=0（环境 safe-delete 守卫拦截 `emptyDir(dist)` 批量删除，以 `emptyOutDir:false` 临时配置绕过验证编译，交付仍用默认配置）。
+
+#### 4.1.6 M32 运营大屏数据导出（导出中心接入，已交付，2026-10-28）
+- **定位**：M27 报表大屏已交付「看板页 + `/overview` + `/trend` 端点」，但运营数据无法导出归档/二次分析。本模块复用既有「`ExportTask` 模板注册」范式（`List<ExportTask>` 由 Spring 自动发现，`/templates` 自动列举，零迁移、零前端、自动进导出中心），把看板运营总览与时间序列趋势导出为 CSV/XLSX。
+- **后端（system）**：`system/dashboard/DashboardExportTask implements ExportTask`，`@Component`：
+  - `code()="dashboard"`、`displayName()="运营大屏数据导出"`、`fileName()="dashboard-export"`；
+  - 多段结构：`headers()/rows()` 返回空列表、`supportsXlsx()=true`、`csv()` 自产 UTF-8 BOM 字节、`xlsxSheets()` 返回 7 个 `XlsxSheet`；
+  - 总览段 16 项指标（经 `DashboardOverview` 字段按 `DashboardRules.metricOrder()` 展示顺序展开为「指标名,值」）；趋势段 6 序列（新增用户/新增租户/活跃租户/登录日志/操作日志/通知发送）各为「日期,数值」单趋势 Sheet；
+  - `days` 经 `DashboardRules.clampDays` 钳制 [1,90]、默认 30，非法/缺省回落默认（与 `DashboardController` 语义一致）；
+  - 标 `@TenantIgnorable("平台级全局统计，跨租户聚合")`，产出跨租户全局数据（与 `DashboardController` 同语义）；
+  - **权限兜底（防权限放大）**：导出中心端点仅校验 `system:export:read`，但看板数据专属权限为 `system:dashboard:read`；故在 `csv()/xlsxSheets()` 内显式调用 `requireDashboardRead()` 校验当前主体 `hasPermission("system:dashboard:read")`，缺失即抛 `FORBIDDEN`，防止「持导出权限但无数据权限」的角色绕过放大（同 `ReportExportTask` 范式）。
+- **测试 7 例**（`DashboardExportTaskTest`：元数据声明断言 / 带 `system:dashboard:read` 产出 CSV（含总览段+六趋势段三列结构）/ 无 `system:dashboard:read` 抛 FORBIDDEN 且 `dashboardService` 零调用 / 无主体 FORBIDDEN / 非法 days 回落默认 30 / 带权限产出 7 Sheet（总览 16 行 + 各趋势 2 行）/ 无权限 XLSX 亦 FORBIDDEN）；门禁：全仓 **1591→1610 例（0 失败 0 错误）** + `check-conventions.py` EXIT=0。
+- **未登记项说明**：M31 可配置数据权限（1498→1519）、前后端联调契约测试基建（1519→1591）均已先于本模块落地且全量门禁全绿，本文档此前未回写，特此补记于 §2 矩阵。
+
+#### 4.1.7 M33 任务依赖编排 DAG（已交付，feat/V1.0.4，2026-10-28）
+- **定位**：在既有定时任务（JobRunr 双层调度：`sys_job`/`sys_job_log` 自管 + `JobSchedulerPort` 调度）基础上，新增「任务依赖编排」能力——任务 A 可声明「依赖 B」，仅当 B 至少成功执行一次后，A 才被自动触发；依赖未满足时 A 进入 `WAITING` 挂起态、不向调度器注册，避免无效轮询与空跑。本质是有向无环图（DAG）的「完成事件驱动即时触发」，而非经典 cron 级联。零新表（仅 `sys_job` 增 `depends_on` 列）、零新依赖、复用既有 job 菜单（id=1031）。
+- **核心语义**：
+  - 依赖「至少成功一次」：上游 `COMPLETED` 终态或 `success_runs > 0` 即视为满足（周期任务首次成功即可驱动下游，无需等待结束）。
+  - 上游已删除 → 视为满足（避免悬空边永久阻塞下游）。
+  - 下游仅对 `WAITING` 态触发，已运行/暂停者不重复调度，幂等。
+  - 触发复用上游任务自身触发类型注册：CRON/SIMPLE 注册周期，ONE_TIME 注册「now+2s」一次性（即时触发）。
+- **后端（scaffold-job）**：
+  - `JobStatus.WAITING("等待依赖")` 新增枚举值（置于 RUNNING 与 COMPLETED 之间）。
+  - `JobDagRules`（纯函数，`static`、抛 `BusinessException.badRequest`、显式传参，与 `JobValidator` 同范式）：`parseDependsOn`/`serializeDependsOn`（JSON 数组文本 ↔ 列表，去重保序、容错）/ `validateDependencies`（自依赖 + 存在性）/ `hasCycle`（DFS 回边）/ `topologicalOrder`（Kahn）/ `dedupe`。
+  - `JobDagPort`（端口接口）+ `JooqJobDagAdapter`（`@Component`，每次调用全量 `JooqWriters.fetchList(notDeleted)` 加载 `sys_job` 至内存、构建反向依赖索引；`setRunning`/`setStatus` 仅写目标列避免默认值污染）：隔离 `sys_job` 读取与状态写回，防腐层。
+  - `JobDagService`（`@Service`）：`onJobSuccess(jobId)`（查下游 → 过滤 WAITING && isReady → 即时触发，被 `JobExecutor` 成功路径钩子调用）、`triggerDownstream(id)`（手动触发，返回实际触发数）、`dependentsOf`/`dependentsMap`（批量，供列表避免 N+1）、`assertNoDependents`（删除守卫）、`isReady`、`validateDependencyEdit`（存在性 + 环检测）、`setWaiting`。
+  - `JobExecutor`：`recordResult` 成功后 `try/catch` 调 `jobDagService.onJobSuccess(jobId)`（失败仅告警、不影响本次执行结果）；状态门控允许 `WAITING`（依赖下游即时触发态）。
+  - `JobService` 改造：`page` 经 `dependentsMap` 批量填充；`create/update` 调 `validateDependencyEdit` 并序列化 `dependsOn`；`start` 新增 WAITING 分支（依赖未就绪则 `setWaiting` 不注册调度）；`remove` 经 `assertNoDependents` 守卫；`toVO` 增 `dependsOn`/`dependents`/`waitForDeps`（雪花 ID 字符串化防精度丢失）。
+  - `JobVO`/`JobCreateDTO`/`JobUpdateDTO` 加 `dependsOn`（`JobVO.dependents` 用 `ToStringSerializer` 防前端精度丢失）；`JobController` 加 `POST /api/jobs/{id}/trigger-downstream`（权限 `job:manage` 自动登记）。
+  - 迁移 `V59__job_dependency.sql`：`information_schema.columns` 探测 `depends_on` 列是否已存在，不存在才 `ALTER TABLE sys_job ADD depends_on VARCHAR(1024)`（幂等）；`JooqTables.SYS_JOB` 与 `SysJobDO.dependsOn` 同步（#777 先行落地）。
+- **前端（pc-admin-vue3-vite）**：`src/api/job.js` 加 `jobTriggerDownstream(id)` 并更新 `jobCreate`/`jobUpdate` JSDoc（`dependsOn`）；`src/views/JobListView.vue` 加：①「依赖编排」列（依赖/下游以名称标签展示，ID→名称经 `jobPage` 全量清单反查）；② `WAITING` 状态标签（后端 `statusLabel` 已为「等待依赖」）；③ 新建/编辑对话框「前置依赖」多选（排除自身防自依赖）；④ 操作列「触发下游」按钮（下游存在时显示，手动驱动就绪 WAITING 任务，提示触发数量）。复用既有 job 菜单（route=/job/list），不新种子。
+- **测试 34 例**（`JobDagRulesTest` 17：解析/序列化/校验/环检测/拓扑/去重容错；`JobDagServiceTest` 17：Mockito 模拟 `JobDagPort`+`JobSchedulerPort`，覆盖 onJobSuccess 触发/不触发 RUNNING、不触发未就绪、无下游空操作、triggerDownstream 仅计就绪、删除守卫、isReady 四态、编辑环检测拒绝/接受、dependentsMap 聚合）；门禁：全仓 **1610→1644 例**全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0。
+
+### 4.2 M20 操作/审计增强
+- **目标**：在 M1 写操作审计基础上，补「读操作审计（可开关/采样）」「审计导出」「留存与清理」「按角色脱敏展示」。
+- **构件**：`AuditAspect` 增 `auditReads` 开关 + 采样率；复用既有 `system/export` 注册 `AuditExportTask`（零迁移、零前端，自动进 `/templates`）；`AuditRetentionJob`（按 `app.audit.retention-days` 清理，复用 `IdempotencyCleanupJob` 范式）；审计详情展示经 `SensitiveMasker` 按角色决定明文/掩码。
+- **可行性**：✅ 高，主要增量。**风险**：读审计量需采样避免写放大。
+
+### 4.3 M21 数据脱敏策略中心（可视化配置）
+- **目标**：将当前「代码驱动 + 安全默认掩码」升级为「运行时可配置脱敏策略」——按 字段/端点/角色 组合决定脱敏类型与可见范围，DB 存规则，管理 UI 配置。
+- **构件**：`sys_mask_strategy` 规则表（`scope`=全局/端点/字段、`target`=字段表达式、`sensitive_type`、`visible_roles`）+ `MaskStrategyService`（加载/缓存/热刷新）+ `MaskStrategyResolver`（在序列化/导出前按当前角色命中规则并委托 `SensitiveMasker`）+ 管理端点与前端表单。**默认安全**：无任何规则时回落到既有类型驱动默认掩码，未授权角色一律掩码。
+- **可行性**：✅ 复用 `common/sensitive`，零新依赖。**风险**：规则解析性能（需缓存 + 兜底）。**与 M20 协同**：审计详情脱敏可直接消费本中心策略。
+
+### 4.4 M22 低代码/动态表单引擎
+- **目标**：以 JSON Schema 描述表单（字段、校验、布局、数据源绑定），前端按 schema 渲染，后端按 schema 校验并落库（绑定既有表或通用 `form_submission` 表）。
+- **阶段一 · spike（V47，已交付）**：`FormDefinition`（`code` + JSON schema + 绑定目标）+ `FormRenderController`（`/schema/{code}`）+ 前端 `DynamicForm.vue`（schema→element-plus 渲染）。**决策点结论**：① 落库目标选 **独立 `form_submission` 表**（不侵入业务表、不做运行时 DDL）；② 渲染采用**零依赖手写最小渲染器**。
+- **阶段二 · 正式立项提交落库（V53，已交付 2026-10-26）**：`sys_form_submission` 表 + `FORM_SUBMISSION` TableRef 注册；`FormSubmissionDO`/`FormSubmissionView`/`FormSubmissionRules`（按 schema 校验：必填/类型/长度/选项白名单/未知字段拒绝）；`FormSubmissionService`（校验通过才 `JooqWriters.insert` 落库、分页查询）+ `FormRenderController` 增 `POST /{code}/submit` 与 `GET /{code}/submissions`（权限 `system:form-submission:create/read` 由 `ApiResourceAutoSyncRunner` 自动登记并授予 SUPER_ADMIN）；前端 `FormPilotView.vue` 增「提交」与「提交记录」页；新增 13 例单测（rules 10 + service 3），全仓 1470→**1483 例**全绿。
+- **可行性**：✅ 已按「独立提交表 + 纯函数校验 + 端口/动态 DSL 范式」收口，作用域受控、零新依赖。
+
+---
+
+## 5. 横切约束（所有 M19+ 须遵守）
+
+1. **离线优先**：仅用离线仓库已缓存依赖；需联网引入的（OAuth2、schema 渲染库等）先在本机/联网环境核验再立项。
+2. **数据访问范式**：手写 jOOQ DSL（`JooqTables` + `TableRef`），不引 ORM；多租户隔离亦走 jOOQ 拦截，不破坏既有 DSL。
+3. **纯函数规则**：校验/策略/转换逻辑沉淀到 `*Rules` 纯函数类（如 `MaskStrategyRules`、`TenantRules`），单测覆盖，与 M1–M18 一致。
+4. **条件装配 + 权限自动登记**：新端点经 `@ConditionalOnProperty` 可控开启；权限码由 `ApiResourceAutoSyncRunner` 自动登记（参照 M7/M8/幂等记录）。
+5. **零迁移/零前端膨胀优先**：能复用「模板注册 / 自动列举」模式（导入导出中心、导出任务）的，不新增页面与迁移。
+6. **测试门禁**：每模块落地须配单测（规则纯函数 + 服务 + E2E 桩），保持 `mvn -o clean test` 全绿、`scripts/check-conventions.py` EXIT=0；新模块纳入 JaCoCo `-Pcoverage` 门禁。
+
+---
+
+## 6. 开放问题 / 待确认决策
+
+请在评审时确认以下决策点（将决定 M19+ 的起始模块与顺序）：
+
+1. **是否以 SaaS 多租户为本期目标？** 若是 → M19 先行（阶段 A）；若否 → M19 延后，直接从 M20/M21 治理增强起步。
+2. **M19 隔离策略选「共享表 + tenant_id」还是「Schema 隔离」？** 前者迁移轻、跨租户统计易；后者隔离强、但存量与路由复杂。
+3. **M22 低代码是否本期正式立项，还是仅做 spike？** ✅ 已决议：先 spike（V47）验证可行性，随后正式立项提交落库（V53 `form_submission` 表 + schema 校验 + 前后端提交/记录），均已完成。
+4. **M24 API 开放平台是否本期需要？** 仅当需要对外暴露_OPEN API_ 时立项（涉及 OAuth2 离线核验）。
+5. **优先级与排期**：上述 P1/P2/P3 是否与业务方预期一致？是否需插入其他候选（如报表大屏、任务依赖编排）？ ✅ 已决议：报表大屏（M27）与任务依赖编排（M33）均已插入并交付——M33 任务依赖编排 DAG 已于 2026-10-28 在 feat/V1.0.4 落地（详见 §4.1.7），全仓 **1610→1644 例**全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0。
+
+> **已确认决策（2026-10-23）**：
+> 1. **M19 多租户隔离**：决策已从「本期延后」改为**已交付**——P1/P2/P3 强制注入隔离 + P4 SaaS 开通闭环（租户开通预置 + 存量 `tenant_id` 回填迁移 + 跨租户运营总览）均于 `feat/V1.0.4` 落地（见 §4.1.1–§4.1.5）；`enforce` 默认关闭、配置开启，线上零回归。
+> 2. **本期先做治理增强（阶段 B）：M20 审计增强 → M21 脱敏策略中心**。两者协同度高（M21 复用 M1 审计落库与 `SensitiveMasker`）。
+> 3. **M22 低代码已交付**：spike（V47 契约+渲染原型）+ 正式立项提交落库（V53 `form_submission` 独立表，按 schema 校验后落库、分页查询、前后端提交/记录页）均已完成，全仓 1470→1483 例全绿。
+> 4. **M24 API 开放平台本期需要**：涉及 OAuth2 客户端注册与密钥治理，立项前需离线核验 `spring-security-oauth2` 等依赖可用性。
+>
+> **M24 离线核验结论（2026-10-25）**：离线仓库仅有 `spring-security-oauth2-core/jose/resource-server` 6.3.3（与 Boot 3.3.4 匹配），**不含** `spring-security-oauth2-client`（`RegisteredClient`/`RegisteredClientRepository` 所在）与 `spring-security-oauth2-authorization-server`（授权服务器所在）——完整 OAuth2 授权服务器（authorization code / `/oauth2/token`）离线不可建。据此 M24 收口为**自包含的「客户端注册 + 密钥治理」**（自有领域模型 + 复用 `SecurityConfig` 的 `DelegatingPasswordEncoder` 哈希，零新增依赖），V48 `sys_openapi_client` 已落地；**协议级开放（RS256 令牌端点 `/oauth2/token` client_credentials + `/oauth2/jwks` + 复合 JWT 解码器 + 资源服务器接线）随后亦于 `cce7f58` 在离线约束内完整交付**（仅靠 `oauth2-jose`/`oauth2-resource-server` 即可签发 RS256 与验证，无需 `spring-security-oauth2-authorization-server`）；授权码流程（authorization_code，需浏览器登录+授权确认）列为后续可选方向。
+>
+> **M23 流程中心增强已交付（2026-10-25）**：随 M20/M21/M22/M24 之后落地——V49 迁移零表结构变更（仅播种菜单 id=1123），`WorkflowEnginePort` 扩展超时任务分页与定义版本链查询，`WorkflowMonitorService` 提供运行实例/超时任务/统计摘要只读面 + 催办唯一写操作（实时推送 + 最小间隔防轰炸，催办记录复用 `wf_approval_record`），前端 `MonitorView.vue` 三 Tab。
+>
+> **M25 文件管理增强已交付（2026-10-25）**：观察清单最后一项候选落地，复用既有 `system/file` 零新页面膨胀——V50 迁移为 `sys_file` 幂等增加 `content_hash CHAR(64)` + `idx_content_hash`（存量行 hash 为 NULL 不参与去重，不设默认值避免全表回填）；`FileDedupRules` 纯函数（SHA-256 十六进制计算与 64 位十六进制归一、id 保序去重、引用计数删物理判定 `refCount<=1`）+ `FileService` 扩展：上传第三流算 contentHash，命中且物理文件仍在则复用 `stored_name` 不落盘（二次校验 `FileStorageService.exists`，孤儿记录回退正常落盘），删除前 `COUNT(*) WHERE stored_name=? AND deleted=0`（含自身）>1 时仅逻辑删记录、保留物理文件防误删共享文件，`stats()` 按 `source_module` groupBy 聚合（空表自然零值），`batchDelete` 100 上限 + 部分成功语义（私有 `deleteOne` 规避 Spring 自调用不走代理，@Transactional 内单项失败不传播即不回滚）；`FileController` 增 `GET /dedup-check`、`GET /stats`、`POST /batch-delete`（复用既有权限码不新增）；`FileView.deduplicated` 双重语义（上传响应=本次命中秒传 / 列表行=物理文件共享组，由一次 `GROUP BY stored_name IN (本页名集合)` 标记）；前端 `FileManagementView.vue` 增存储统计卡、批量删除、秒传列与 Web Crypto 上传预检（`crypto.subtle` 仅安全上下文可用，非安全上下文静默降级不阻断）；新增 21 例单测，全仓 **1318→1339 例**全绿。
+>
+> **M26 组织数据导入导出已交付（2026-10-25）**：在既有导入导出中心「模板注册」范式（Spring Bean 自动发现、前端两中心页从 `/templates` 动态拉取、新任务零前端改动）上新增组织域四导出两导入——`UserExportTask`（10 列，翻页 PAGE_SIZE=200 × MAX_ROWS=10000 截断 + 筛选透传）/ `RoleExportTask`（6 列全量）/ `DeptExportTask`（7 列，`TreeBuilder.flatten` 深度优先父先子 + 上级回显 + 数据权限过滤占位）/ `PostExportTask`（6 列翻页 + 筛选）；`PostImportTask`（4 列无状态列，编码形态预校验，固定 ACTIVE）/ `DeptImportTask`（4 列，按上级部门编码经 `TreeBuilder.flatten` 建 code→id 映射反查父级，缺失 NOT_FOUND 且不写入，与导出闭环「先导出改完再导入」）；`TreeBuilder` 新增泛型 `flatten(roots, childrenOf)` 与 `build` 互逆；导出范围=列表页可见范围（`UserService.list`/`OrgService.tree` 的 `@DataScope` 在导出线程内同样生效）；新增 43 例单测，全仓 **1339→1382 例**全绿。至此 M19+ 已采纳路线中的 M20/M21/M22(spike)/M23/M24/M25/M26 全部交付；M19 多租户按既定决策延后，留作未来立项基线。
+>
+> 后续：将 M20 / M21 / M22(spike) / M24 拆为 `module-plan` 形式的 Mxx 任务卡（范围/契约/迁移/测试/门禁），按关注点分批在 `feat/V1.0.3` 落地；本文件已更新为「已采纳路线」。
+>
+> **M22 低代码表单 · 正式立项提交落库已交付（2026-10-26，V53）**：在 V47 spike（契约 + 渲染原型）验证可行后，正式收口「独立 `form_submission` 表、零运行时 DDL」决策——V53 迁移建 `sys_form_submission`（含 `data_json` 整段提交值序列化 + `target_type` 沿用 `FORM_SUBMISSION`）；`JooqTables.FORM_SUBMISSION` 注册；`FormSubmissionDO`/`FormSubmissionView`/`FormSubmissionRules`（按 schema 字段校验：必填/类型 INPUT·SELECT·SWITCH·TEXTAREA·DATE / 长度 min·max / 选项白名单 / 未知字段拒绝）；`FormSubmissionService`（校验通过才 `JooqWriters.insert` 落库、分页查询 mapping）+ `FormRenderController` 增 `POST /{code}/submit` 与 `GET /{code}/submissions?page=&size=`（权限 `system:form-submission:create/read`，`ApiResourceAutoSyncRunner` 自动登记并授予 SUPER_ADMIN）；前端 `FormPilotView.vue` 增「提交」按钮（校验后提交）与「提交记录」分页列表，更新 hint 为 M22 已正式立项；新增 13 例单测（rules 10 + service 3，mockStatic(JooqWriters) 离线可跑），全仓 **1470→1483 例**全绿 + check-conventions EXIT=0。M22 至此 spike 与正式立项均交付。
+
+> **规划收口（2026-10-28 续）**：用户于本期额外选定的 4 个「规划外候选方向」亦已全部交付——**M34 字段级数据权限**（#808，注解+注册表+脱敏执行器+发现接口）、**M35 通知渠道扩展**（企业微信/钉钉机器人，复用 `WebhookClient` 与签名规则）、**M36 参数中心增强**（按 config_key 前缀动态分组 + 进程内热更新 + 机器人开关/默认地址接入参数中心）、**M37 OAuth2 资源服务器核对+补强**（端到端授权契约测试 + 使用说明，核心 RS256 令牌端点/JWKS/复合解码器/资源服务器接线已由 M24 提供）。至此本文件所述 M19+ 路线（M19–M33）与用户追加的 M34–M37 **全部交付**，仓库无既定未实现功能；后续新方向（如 OAuth2 授权码流程、password 模式、RFC7662 令牌自省、前端字段级/数据权限统一配置页）需作为新提案另行立项。

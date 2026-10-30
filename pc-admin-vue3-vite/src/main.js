@@ -6,6 +6,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 import './styles.css'
+import { t } from './i18n'
 
 const app = createApp(App)
 
@@ -13,6 +14,10 @@ const app = createApp(App)
 for (const [name, comp] of Object.entries(ElementPlusIconsVue)) {
   app.component(name, comp)
 }
+
+// 注册全局 $t，便于任意模板在不显式 import 的情况下使用翻译；
+// 组件内也可直接从 '@/i18n' 导入 t / backendLocale / elLocale。
+app.config.globalProperties.$t = t
 
 app.use(router)
 app.use(ElementPlus)
