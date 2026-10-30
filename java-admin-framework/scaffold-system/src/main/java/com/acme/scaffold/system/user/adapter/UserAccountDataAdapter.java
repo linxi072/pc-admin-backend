@@ -4,6 +4,7 @@ import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
+import com.acme.scaffold.security.user.UserAccountPatch;
 import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -49,5 +50,23 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         return new UserAccount(u.getId(), u.getUsername(), u.getDisplayName(), u.getTenantId(),
                 u.getStatus(), u.getPasswordHash(), u.getTokenVersion(), u.getPasswordExpired(),
                 u.getMobile(), u.getEmail(), u.getLockedUntil(), u.getFailedLoginCount(), u.getLastLoginAt());
+    }
+
+    @Override
+    public void updateById(Long id, UserAccountPatch patch) {
+        if (id == null || patch == null) {
+            return;
+        }
+        // 仅非空字段参与更新（JooqWriters.updateById 跳过 null），与 AuthService 的部分补丁语义一致
+        SysUserDO p = new SysUserDO();
+        p.setPasswordHash(patch.passwordHash());
+        p.setPasswordChangedAt(patch.passwordChangedAt());
+        p.setPasswordExpired(patch.passwordExpired());
+        p.setFailedLoginCount(patch.failedLoginCount());
+        p.setLockedUntil(patch.lockedUntil());
+        p.setTokenVersion(patch.tokenVersion());
+        p.setLastLoginAt(patch.lastLoginAt());
+        p.setStatus(patch.status());
+        JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, p);
     }
 }

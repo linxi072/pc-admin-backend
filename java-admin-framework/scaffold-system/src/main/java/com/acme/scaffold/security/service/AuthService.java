@@ -2,9 +2,6 @@ package com.acme.scaffold.security.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.security.captcha.CaptchaProperties;
@@ -12,23 +9,25 @@ import com.acme.scaffold.security.captcha.CaptchaService;
 import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.jwt.JwtProvider;
 import com.acme.scaffold.security.log.LoginLogRecorder;
+import com.acme.scaffold.security.online.LoginRestriction;
+import com.acme.scaffold.security.online.LoginRestrictionDataPort;
+import com.acme.scaffold.security.online.OnlineSessionDataPort;
 import com.acme.scaffold.security.password.ForgotPasswordRules;
 import com.acme.scaffold.security.password.LockoutRules;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.permission.PermissionService;
-import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.token.rules.SessionLimitRules;
+import com.acme.scaffold.security.token.service.RefreshTokenService;
+import com.acme.scaffold.security.user.UserAccount;
+import com.acme.scaffold.security.user.UserAccountDataPort;
+import com.acme.scaffold.security.user.UserAccountPatch;
 import com.acme.scaffold.security.vo.TokenView;
-import com.acme.scaffold.system.entity.SysLoginRestrictionDO;
-import com.acme.scaffold.system.entity.SysUserDO;
-import com.acme.scaffold.system.service.OnlineUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,7 +41,9 @@ import java.util.Set;
 
 /**
  * 认证应用服务：登录、刷新、登出，负责密码校验、账号锁定、令牌签发与轮换。
- * 持久层由 MyBatis-Plus 迁移为 jOOQ。
+ * 持久层经由防腐层端口（{@link UserAccountDataPort} / {@link LoginRestrictionDataPort} /
+ * {@link OnlineSessionDataPort}）访问，security 不再直连 {@code system.entity} 或
+ * {@code system.service}（B1/B5 同款模块边界约束）。
  */
 @Slf4j
 @Service
@@ -52,7 +53,7 @@ public class AuthService {
     /** 限制解除时间展示格式（yyyy-MM-dd HH:mm）。 */
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    private final DSLContext dsl;
+    private final UserAccountDataPort accountPort;
     private final PermissionService permissionService;
     private final JwtProvider jwtProvider;
     private final RefreshTokenService refreshTokenService;
@@ -63,7 +64,8 @@ public class AuthService {
     private final CaptchaProperties captchaProperties;
     private final PasswordHistoryService passwordHistoryService;
     private final LoginLogRecorder loginLogRecorder;
-    private final OnlineUserService onlineUserService;
+    private final LoginRestrictionDataPort restrictionPort;
+    private final OnlineSessionDataPort onlineSessionPort;
 
     /**
      * 自注入代理：用于在本 Bean 内部以 {@code self.xxx()} 方式调用带 {@link Transactional} 的内部方法，
@@ -86,7 +88,7 @@ public class AuthService {
      * bcrypt 长时间空占，从而把登录并发拐点从「连接池上限」量级显著提升。</p>
      *
      * <p><b>{@code noRollbackFor = BusinessException} 是刻意为之</b>：登录失败路径唯一的写操作是
-     * {@link #recordLoginFailure(SysUserDO, String, String)}（累计失败次数 / 置 LOCKED），它执行后
+     * {@link #recordLoginFailure(UserAccount, String, String)}（累计失败次数 / 置 LOCKED），它执行后
      * 必然抛出 BusinessException 告知调用方失败。默认回滚规则会让这笔写入随异常一并撤销，导致
      * 「失败 N 次锁定账号」与渐进式锁定（设计文档 §5.3）<b>完全失效</b>。故该写操作以独立事务提交。</p>
      */
@@ -103,36 +105,34 @@ public class AuthService {
             }
         }
         // 读取账号（自动提交短连接，读后即归还，不在事务内占用连接）
-        SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("username", String.class).eq(command.username())));
+        UserAccount user = accountPort.loadByUsername(command.username());
         if (user == null) {
             throw loginFailure(command.username(), null, SecurityErrorCode.BAD_CREDENTIALS,
                     "用户名或密码错误", ip, userAgent);
         }
         if (isLocked(user)) {
-            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_LOCKED,
+            throw loginFailure(user.username(), user.id(), SecurityErrorCode.ACCOUNT_LOCKED,
                     "账号已锁定，请稍后再试", ip, userAgent);
         }
-        if ("DISABLED".equals(user.getStatus())) {
-            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_DISABLED,
+        if ("DISABLED".equals(user.status())) {
+            throw loginFailure(user.username(), user.id(), SecurityErrorCode.ACCOUNT_DISABLED,
                     "账号已禁用", ip, userAgent);
         }
         // CPU 密集：bcrypt 口令比对（~300ms，纯计算，无需 DB 连接 —— 必须在事务外完成）
-        if (!passwordEncoder.matches(command.password(), user.getPasswordHash())) {
+        if (!passwordEncoder.matches(command.password(), user.passwordHash())) {
             self.recordLoginFailure(user, ip, userAgent);
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
         }
         // 设计文档 §5.3：被标记为「需改密」(password_expired=1) 的用户必须先改密再登录
-        if (user.getPasswordExpired() != null && user.getPasswordExpired() == 1) {
-            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.MUST_CHANGE_PASSWORD,
+        if (user.passwordExpired() != null && user.passwordExpired() == 1) {
+            throw loginFailure(user.username(), user.id(), SecurityErrorCode.MUST_CHANGE_PASSWORD,
                     "请修改初始/重置密码后再登录", ip, userAgent);
         }
         // V27 在线用户管理：临时登录限制校验（DB 读，自动提交短连接）。置于密码校验之后——
         // 已认证方才有权得知「被限制」及其解除时间，未认证方只能得到通用错误，防账号状态探测。
-        SysLoginRestrictionDO restriction = onlineUserService.findActiveRestriction(user.getId());
+        LoginRestriction restriction = restrictionPort.findActive(user.id());
         if (restriction != null) {
-            throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.ACCOUNT_RESTRICTED,
+            throw loginFailure(user.username(), user.id(), SecurityErrorCode.ACCOUNT_RESTRICTED,
                     restrictionMessage(restriction), ip, userAgent);
         }
 
@@ -140,13 +140,13 @@ public class AuthService {
         int maxSessions = jwtProperties.getMaxConcurrentSessions();
         SessionLimitRules.Decision decision = SessionLimitRules.Decision.ALLOW;
         if (maxSessions > 0) {
-            int active = refreshTokenService.countActiveSessions(user.getId());
+            int active = refreshTokenService.countActiveSessions(user.id());
             SessionLimitRules.Strategy strategy = "evict_oldest".equalsIgnoreCase(jwtProperties.getSessionEvictionStrategy())
                     ? SessionLimitRules.Strategy.EVICT_OLDEST
                     : SessionLimitRules.Strategy.REJECT;
             decision = SessionLimitRules.evaluate(active, maxSessions, strategy);
             if (decision == SessionLimitRules.Decision.REJECT) {
-                throw loginFailure(user.getUsername(), user.getId(), SecurityErrorCode.TOO_MANY_SESSIONS,
+                throw loginFailure(user.username(), user.id(), SecurityErrorCode.TOO_MANY_SESSIONS,
                         "同一账号同时登录设备数已达上限 " + maxSessions, ip, userAgent);
             }
         }
@@ -163,20 +163,20 @@ public class AuthService {
      * 通过 {@code self} 代理进入事务，使连接仅在写入瞬间被占用，避免被 bcrypt 等 CPU 运算空占。
      */
     @Transactional(noRollbackFor = BusinessException.class)
-    public TokenView commitLoginSuccess(SysUserDO user, String accessToken, String deviceId,
+    public TokenView commitLoginSuccess(UserAccount user, String accessToken, String deviceId,
                                         String ip, String userAgent, SessionLimitRules.Decision decision) {
         resetLoginFailure(user);
         int maxSessions = jwtProperties.getMaxConcurrentSessions();
         if (maxSessions > 0 && decision == SessionLimitRules.Decision.EVICT_OLDEST) {
             // 保留 maxSessions-1 个最新会话，其余（含本次将签发的）总计不超过上限
-            refreshTokenService.revokeOldestSessions(user.getId(), maxSessions - 1);
+            refreshTokenService.revokeOldestSessions(user.id(), maxSessions - 1);
         }
-        String refreshToken = refreshTokenService.issue(user.getId(), "web", deviceId, userAgent, ip);
+        String refreshToken = refreshTokenService.issue(user.id(), "web", deviceId, userAgent, ip);
         // V27 在线用户管理：登记在线会话（upsert，供列表跟踪 / 强制下线 / 心跳）
-        onlineUserService.registerSession(user.getId(), user.getUsername(), user.getDisplayName(),
+        onlineSessionPort.registerSession(user.id(), user.username(), user.displayName(),
                 deviceId, "web", ip, userAgent);
         // 登录成功落审计日志（REQUIRES_NEW 独立事务，供「报表管理 - 登录统计」取数）
-        loginLogRecorder.record(user.getUsername(), user.getId(), true, null, ip, userAgent);
+        loginLogRecorder.record(user.username(), user.id(), true, null, ip, userAgent);
         return new TokenView(accessToken, refreshToken, jwtProperties.getAccessTokenTtl().getSeconds());
     }
 
@@ -185,18 +185,18 @@ public class AuthService {
      * 通过 {@code self} 代理进入事务。
      */
     @Transactional(noRollbackFor = BusinessException.class)
-    public void recordLoginFailure(SysUserDO user, String ip, String userAgent) {
+    public void recordLoginFailure(UserAccount user, String ip, String userAgent) {
         handleLoginFailure(user);
-        loginLogRecorder.record(user.getUsername(), user.getId(), false, SecurityErrorCode.BAD_CREDENTIALS.code(), ip, userAgent);
+        loginLogRecorder.record(user.username(), user.id(), false, SecurityErrorCode.BAD_CREDENTIALS.code(), ip, userAgent);
     }
 
     /** 限制登录的面向用户提示：长期限制提示联系管理员，限时限制附带预计解除时间。 */
-    private String restrictionMessage(SysLoginRestrictionDO restriction) {
-        if (restriction.getExpireAt() == null) {
+    private String restrictionMessage(LoginRestriction restriction) {
+        if (restriction.expireAt() == null) {
             return SecurityErrorCode.ACCOUNT_RESTRICTED.message() + "（长期，请联系管理员）";
         }
         return SecurityErrorCode.ACCOUNT_RESTRICTED.message() + "，预计 "
-                + restriction.getExpireAt().format(DATE_TIME_FORMATTER) + " 解除";
+                + restriction.expireAt().format(DATE_TIME_FORMATTER) + " 解除";
     }
 
     /**
@@ -223,8 +223,8 @@ public class AuthService {
     @Transactional
     public TokenView refresh(RefreshCommand command) {
         Long userId = refreshTokenService.verify(command.refreshToken());
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
-        if (user == null || "DISABLED".equals(user.getStatus())) {
+        UserAccount user = accountPort.loadById(userId);
+        if (user == null || "DISABLED".equals(user.status())) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_DISABLED, "账号已禁用");
         }
         // 刷新令牌最长可达 30 天，若不复用登录期的账号状态校验，被锁定 / 标记需改密 / 临时受限的账号
@@ -241,7 +241,7 @@ public class AuthService {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
         refreshTokenService.revokeByUser(userId);
         // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
-        onlineUserService.markOfflineByUser(userId, OnlineUserService.REASON_LOGOUT);
+        onlineSessionPort.markOfflineByUser(userId, OnlineSessionDataPort.REASON_LOGOUT);
     }
 
     /**
@@ -256,38 +256,31 @@ public class AuthService {
      */
     @Transactional
     public void changePassword(String username, String oldPassword, String newPassword) {
-        SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("username", String.class).eq(username)));
+        UserAccount user = accountPort.loadByUsername(username);
         // 统一返回 BAD_CREDENTIALS，防止账号枚举（不区分「用户不存在」与「原密码错误」）
-        if (user == null || !passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+        if (user == null || !passwordEncoder.matches(oldPassword, user.passwordHash())) {
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
         }
-        if ("LOCKED".equals(user.getStatus())) {
+        if ("LOCKED".equals(user.status())) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
         }
         // 设计文档 §5.3：禁止复用最近 5 次密码
-        if (passwordHistoryService.isReused(user.getId(), newPassword)) {
+        if (passwordHistoryService.isReused(user.id(), newPassword)) {
             throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "不能与最近使用的密码相同");
         }
         PasswordPolicy.validate(newPassword);
 
         String encoded = passwordEncoder.encode(newPassword);
-        SysUserDO patch = new SysUserDO();
-        patch.setPasswordHash(encoded);
-        patch.setPasswordChangedAt(LocalDateTime.now());
-        patch.setPasswordExpired(0);
-        patch.setFailedLoginCount(0);
-        patch.setLockedUntil(null);
-        patch.setTokenVersion((user.getTokenVersion() == null ? 1 : user.getTokenVersion()) + 1);
-        JooqWriters.updateById(dsl, JooqTables.SYS_USER, user.getId(), patch);
+        int nextVersion = (user.tokenVersion() == null ? 1 : user.tokenVersion()) + 1;
+        accountPort.updateById(user.id(), new UserAccountPatch(encoded, LocalDateTime.now(), 0, 0, null,
+                nextVersion, null, null));
 
         // 记录本次改密后的口令到密码历史，纳入「禁止复用最近 5 次」基线
-        passwordHistoryService.record(user.getId(), encoded);
+        passwordHistoryService.record(user.id(), encoded);
         // 改密后吊销全部刷新令牌，强制使用新口令重新登录
-        refreshTokenService.revokeByUser(user.getId());
+        refreshTokenService.revokeByUser(user.id());
         // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
-        onlineUserService.markOfflineByUser(user.getId(), OnlineUserService.REASON_PASSWORD_CHANGED);
+        onlineSessionPort.markOfflineByUser(user.id(), OnlineSessionDataPort.REASON_PASSWORD_CHANGED);
     }
 
     /**
@@ -295,16 +288,7 @@ public class AuthService {
      *
      * <p>与 {@link #changePassword} 的分工：后者面向「知道原密码」的主动改密；
      * 本方法面向「忘记原密码」的自助找回。两者成功后的状态收敛完全一致
-     * （新口令生效 + password_expired 清零 + 密码历史留痕 + 旧凭证全部失效）。
-     *
-     * <p>安全约定：
-     * <ul>
-     *   <li><b>防账号枚举</b>：「用户不存在」与「验证信息不匹配」返回同一错误
-     *       （{@code AUTH_001 用户名或验证信息不匹配}），攻击者无法通过差异提示枚举有效账号；</li>
-     *   <li><b>接口限流</b>：{@code /api/auth/forgot-password} 与 login 同阈值限流
-     *       （见 {@code RateLimitFilter}），防撞库；</li>
-     *   <li><b>强度与历史</b>：与改密链路共用 {@link PasswordPolicy} 与「禁止复用最近 5 次」。</li>
-     * </ul>
+     * （新口令生效 + password_expired 清零 + 密码历史留痕 + 旧凭证全部失效）。</p>
      *
      * @param username    用户名
      * @param newPassword 新密码
@@ -320,48 +304,40 @@ public class AuthService {
         // 密码强度策略：忘记密码重置同样要求合规
         PasswordPolicy.validate(newPassword);
 
-        SysUserDO user = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("username", String.class).eq(username)));
+        UserAccount user = accountPort.loadByUsername(username);
         // 统一返回 BAD_CREDENTIALS，防止账号枚举（不区分「用户不存在」与「验证信息不匹配」）
-        if (user == null || !ForgotPasswordRules.verified(user.getMobile(), user.getEmail(), mobile, email)) {
+        if (user == null || !ForgotPasswordRules.verified(user.mobile(), user.email(), mobile, email)) {
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或验证信息不匹配");
         }
-        if ("LOCKED".equals(user.getStatus())) {
+        if ("LOCKED".equals(user.status())) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
         }
-        if ("DISABLED".equals(user.getStatus())) {
+        if ("DISABLED".equals(user.status())) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_DISABLED, "账号已禁用");
         }
         // 设计文档 §5.3：禁止复用最近 5 次密码
-        if (passwordHistoryService.isReused(user.getId(), newPassword)) {
+        if (passwordHistoryService.isReused(user.id(), newPassword)) {
             throw new BusinessException(SecurityErrorCode.PASSWORD_REUSED, "不能与最近使用的密码相同");
         }
 
         String encoded = passwordEncoder.encode(newPassword);
-        SysUserDO patch = new SysUserDO();
-        patch.setPasswordHash(encoded);
-        patch.setPasswordChangedAt(LocalDateTime.now());
-        // 重置即赋予可用口令：清除「需改密」标记（与 UserService.resetPassword 语义一致）
-        patch.setPasswordExpired(0);
-        patch.setFailedLoginCount(0);
-        patch.setLockedUntil(null);
-        patch.setTokenVersion((user.getTokenVersion() == null ? 1 : user.getTokenVersion()) + 1);
-        JooqWriters.updateById(dsl, JooqTables.SYS_USER, user.getId(), patch);
+        int nextVersion = (user.tokenVersion() == null ? 1 : user.tokenVersion()) + 1;
+        accountPort.updateById(user.id(), new UserAccountPatch(encoded, LocalDateTime.now(), 0, 0, null,
+                nextVersion, null, null));
 
         // 记录本次重置后的口令到密码历史，纳入「禁止复用最近 5 次」基线
-        passwordHistoryService.record(user.getId(), encoded);
+        passwordHistoryService.record(user.id(), encoded);
         // 重置后吊销全部刷新令牌，旧设备全部下线
-        refreshTokenService.revokeByUser(user.getId());
+        refreshTokenService.revokeByUser(user.id());
         // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
-        onlineUserService.markOfflineByUser(user.getId(), OnlineUserService.REASON_PASSWORD_CHANGED);
+        onlineSessionPort.markOfflineByUser(user.id(), OnlineSessionDataPort.REASON_PASSWORD_CHANGED);
     }
 
-    private CurrentPrincipal buildPrincipal(SysUserDO user) {
-        Set<String> permissions = permissionService.getPermissions(user.getId());
-        Set<String> roles = permissionService.getRoleCodes(user.getId());
-        return new CurrentPrincipal(user.getId(), user.getUsername(), user.getDisplayName(),
-                user.getTenantId(), "web", user.getTokenVersion(), roles, permissions);
+    private CurrentPrincipal buildPrincipal(UserAccount user) {
+        Set<String> permissions = permissionService.getPermissions(user.id());
+        Set<String> roles = permissionService.getRoleCodes(user.id());
+        return new CurrentPrincipal(user.id(), user.username(), user.displayName(),
+                user.tenantId(), "web", user.tokenVersion(), roles, permissions);
     }
 
     /**
@@ -373,44 +349,47 @@ public class AuthService {
      * @param user 目标账号
      * @throws BusinessException 账号已锁定 / 需改密 / 处于临时登录限制中
      */
-    private void assertUsableForTokenIssue(SysUserDO user) {
+    private void assertUsableForTokenIssue(UserAccount user) {
         if (isLocked(user)) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
         }
-        if (user.getPasswordExpired() != null && user.getPasswordExpired() == 1) {
+        if (user.passwordExpired() != null && user.passwordExpired() == 1) {
             throw new BusinessException(SecurityErrorCode.MUST_CHANGE_PASSWORD, "请修改初始/重置密码后再登录");
         }
-        SysLoginRestrictionDO restriction = onlineUserService.findActiveRestriction(user.getId());
+        LoginRestriction restriction = restrictionPort.findActive(user.id());
         if (restriction != null) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_RESTRICTED, restrictionMessage(restriction));
         }
     }
 
-    private boolean isLocked(SysUserDO user) {
-        return "LOCKED".equals(user.getStatus())
-                || (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now()));
+    private boolean isLocked(UserAccount user) {
+        return "LOCKED".equals(user.status())
+                || (user.lockedUntil() != null && user.lockedUntil().isAfter(LocalDateTime.now()));
     }
 
-    private void handleLoginFailure(SysUserDO user) {
-        int failed = (user.getFailedLoginCount() == null ? 0 : user.getFailedLoginCount()) + 1;
-        user.setFailedLoginCount(failed);
+    private void handleLoginFailure(UserAccount user) {
+        int failed = (user.failedLoginCount() == null ? 0 : user.failedLoginCount()) + 1;
         // 设计文档 §5.3：渐进式锁定——达到阈值后锁定时长随失败次数递增，封顶 lockDurationMax
+        String status = user.status();
+        LocalDateTime lockedUntil = user.lockedUntil();
         if (LockoutRules.shouldLock(failed, jwtProperties.getMaxLoginFailures())) {
             Duration dur = LockoutRules.computeDuration(failed, jwtProperties.getMaxLoginFailures(),
                     jwtProperties.getLockDuration(), jwtProperties.getLockDurationMax());
-            user.setStatus("LOCKED");
-            user.setLockedUntil(LocalDateTime.now().plus(dur));
-            log.warn("账号锁定 username={} 失败次数={} 时长={}", user.getUsername(), failed, dur);
+            status = "LOCKED";
+            lockedUntil = LocalDateTime.now().plus(dur);
+            log.warn("账号锁定 username={} 失败次数={} 时长={}", user.username(), failed, dur);
         }
-        JooqWriters.updateById(dsl, JooqTables.SYS_USER, user.getId(), user);
+        accountPort.updateById(user.id(), new UserAccountPatch(null, null, null, failed, lockedUntil,
+                null, null, status));
     }
 
-    private void resetLoginFailure(SysUserDO user) {
-        if (user.getFailedLoginCount() != null && user.getFailedLoginCount() > 0) {
-            user.setFailedLoginCount(0);
-            user.setLockedUntil(null);
+    private void resetLoginFailure(UserAccount user) {
+        if (user.failedLoginCount() != null && user.failedLoginCount() > 0) {
+            accountPort.updateById(user.id(), new UserAccountPatch(null, null, null, 0, null, null,
+                    LocalDateTime.now(), null));
+        } else {
+            accountPort.updateById(user.id(), new UserAccountPatch(null, null, null, null, null, null,
+                    LocalDateTime.now(), null));
         }
-        user.setLastLoginAt(LocalDateTime.now());
-        JooqWriters.updateById(dsl, JooqTables.SYS_USER, user.getId(), user);
     }
 }

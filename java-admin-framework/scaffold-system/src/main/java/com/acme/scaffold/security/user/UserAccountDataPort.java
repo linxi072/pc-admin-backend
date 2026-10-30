@@ -14,4 +14,7 @@ public interface UserAccountDataPort {
 
     /** 按主键加载账号；不存在返回 {@code null}。 */
     UserAccount loadById(Long id);
+
+    /** 按主键部分更新账号；仅 {@link UserAccountPatch} 中的非空字段参与写入。 */
+    void updateById(Long id, UserAccountPatch patch);
 }
