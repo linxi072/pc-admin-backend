@@ -22,11 +22,28 @@ CREATE INDEX sys_login_log_idx_ip_time ON sys_login_log (ip_address, occurred_at
 
 CREATE INDEX sys_login_log_idx_result_time ON sys_login_log (result, occurred_at);
 
-CREATE TABLE IF NOT EXISTS sys_operation_log (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, module_code VARCHAR(64) NOT NULL, operation_type VARCHAR(64) NOT NULL, operation_name VARCHAR(128) NOT NULL, operator_id BIGINT NULL, operator_name VARCHAR(100) NULL, request_method VARCHAR(16) NULL, request_path VARCHAR(500) NULL, request_summary VARCHAR(4000) NULL, result_summary VARCHAR(4000) NULL, result_code VARCHAR(64) NULL, duration_ms BIGINT NOT NULL DEFAULT 0, ip_address VARCHAR(64) NULL, trace_id VARCHAR(64) NULL, success TINYINT NOT NULL, occurred_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_operation_log" (
+    "id" BIGINT NOT NULL,
+    "tenant_id" BIGINT NOT NULL DEFAULT 0,
+    "module_code" VARCHAR(64) NOT NULL,
+    "operation_type" VARCHAR(64) NOT NULL,
+    "operation_name" VARCHAR(128) NOT NULL,
+    "operator_id" BIGINT NULL,
+    "operator_name" VARCHAR(100) NULL,
+    "request_method" VARCHAR(16) NULL,
+    "request_path" VARCHAR(500) NULL,
+    "request_summary" VARCHAR(4000) NULL,
+    "result_summary" VARCHAR(4000) NULL,
+    "result_code" VARCHAR(64) NULL,
+    "duration_ms" BIGINT NOT NULL DEFAULT 0,
+    "ip_address" VARCHAR(64) NULL,
+    "trace_id" VARCHAR(64) NULL,
+    "success" TINYINT NOT NULL,
+    "occurred_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY ("id")
+);
 
-CREATE INDEX sys_operation_log_idx_module_time ON sys_operation_log (tenant_id, module_code, occurred_at);
-
-CREATE INDEX sys_operation_log_idx_operator_time ON sys_operation_log (tenant_id, operator_id, occurred_at);
-
-CREATE INDEX sys_operation_log_idx_trace_id ON sys_operation_log (trace_id);
+CREATE INDEX "sys_operation_log_idx_module_time" ON "sys_operation_log" ("tenant_id", "module_code", "occurred_at");
+CREATE INDEX "sys_operation_log_idx_operator_time" ON "sys_operation_log" ("tenant_id", "operator_id", "occurred_at");
+CREATE INDEX "sys_operation_log_idx_trace_id" ON "sys_operation_log" ("trace_id");
 
