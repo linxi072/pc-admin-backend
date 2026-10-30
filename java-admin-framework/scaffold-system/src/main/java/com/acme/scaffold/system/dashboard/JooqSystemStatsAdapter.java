@@ -29,6 +29,8 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class JooqSystemStatsAdapter implements SystemStatsPort {
 
+    private static final JooqTables.TableRef OS = JooqTables.toTableRef(Tables.SYS_ONLINE_SESSION);
+
     private final DSLContext dsl;
 
     @Override
@@ -54,9 +56,9 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
 
     @Override
     public long countOnlineSessions() {
-        Condition online = JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+        Condition online = OS.field("status", String.class)
                 .eq(SysOnlineSessionDO.STATUS_ONLINE);
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_ONLINE_SESSION.table(), online));
+        return safe(() -> dsl.fetchCount(OS.table(), online));
     }
 
     @Override

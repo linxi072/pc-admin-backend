@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 public class LoginRestrictionService {
 
     private static final JooqTables.TableRef LR = JooqTables.toTableRef(Tables.SYS_LOGIN_RESTRICTION);
+    private static final JooqTables.TableRef OS = JooqTables.toTableRef(Tables.SYS_ONLINE_SESSION);
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -126,13 +127,13 @@ public class LoginRestrictionService {
 
         // 连带强制下线：按用户全量吊销刷新令牌 + 全部在线会话置离线
         refreshTokenService.revokeByUser(userId);
-        int offline = dsl.update(JooqTables.SYS_ONLINE_SESSION.table())
-                .set(JooqTables.SYS_ONLINE_SESSION.field("status", String.class),
+        int offline = dsl.update(OS.table())
+                .set(OS.field("status", String.class),
                         SysOnlineSessionDO.STATUS_OFFLINE)
-                .set(JooqTables.SYS_ONLINE_SESSION.field("offline_reason", String.class),
+                .set(OS.field("offline_reason", String.class),
                         OnlineUserService.REASON_RESTRICTED)
-                .where(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+                .where(OS.field("user_id", Long.class).eq(userId)
+                        .and(OS.field("status", String.class)
                                 .eq(SysOnlineSessionDO.STATUS_ONLINE)))
                 .execute();
         return restriction.getId();
