@@ -1,6 +1,6 @@
 package com.acme.scaffold.workflow.adapter.step;
 
-import com.acme.scaffold.system.service.MessageService;
+import com.acme.scaffold.common.notification.StepNotifyPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.flowable.engine.delegate.DelegateExecution;
@@ -24,7 +24,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GenericStepDelegate implements JavaDelegate {
 
-    private final MessageService messageService;
+    private final StepNotifyPort stepNotifyPort;
 
     @Override
     public void execute(DelegateExecution execution) {
@@ -38,7 +38,7 @@ public class GenericStepDelegate implements JavaDelegate {
         List<Long> watchers = StepUserIds.parseUserIds(execution.getVariable("node_" + nodeId + "_assignees"));
         if (!watchers.isEmpty()) {
             try {
-                int sent = messageService.sendCcNotification(watchers,
+                int sent = stepNotifyPort.sendCc(watchers,
                         "执行步骤已完成",
                         "流程执行步骤「" + nodeId + "」已完成，流程实例ID：" + processInstanceId);
                 log.info("[工作流执行步骤] 已通知 {} 名关注人 节点={} processInstanceId={}",
