@@ -30,9 +30,12 @@ class OnlineUserServiceTest {
     private SecurityContextFacade securityContextFacade;
     @Mock
     private JwtProperties jwtProperties;
+    @Mock
+    private LoginRestrictionService loginRestrictionService;
 
     private OnlineUserService newService() {
-        return new OnlineUserService(dsl, refreshTokenService, securityContextFacade, jwtProperties);
+        return new OnlineUserService(dsl, refreshTokenService, securityContextFacade, jwtProperties,
+                loginRestrictionService);
     }
 
     // ---------- touch 心跳守卫 ----------
