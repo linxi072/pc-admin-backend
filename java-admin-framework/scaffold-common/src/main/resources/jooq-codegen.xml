@@ -13,8 +13,10 @@
 
   触发方式（需联网拉取 jooq-codegen / jooq-meta-extensions / h2，离线仓库未收录）：
       mvn -Pjooq-codegen generate-sources
-  生成结果写入 src/main/java/com/acme/scaffold/jooqgen/ 并纳入版本控制，
-  因此常规离线构建（mvn -o compile）可直接使用已提交生成代码，无需联网重跑。
+  生成结果写入 target/generated-sources/jooq/com/acme/scaffold/jooqgen/
+  （标准 Maven 生成源码目录，属构建产物、被 .gitignore 忽略、不纳入版本控制、
+   亦不被 check-conventions 扫描）。因此常规离线构建不会引用本生成代码；
+  如需刷新生成结果，再次执行上述命令即可。
 
   表/列/类型与迁移脚本严格一致；新增迁移后再次执行上述命令即可刷新。
 -->
@@ -68,8 +70,9 @@
 
         <target>
             <packageName>com.acme.scaffold.jooqgen</packageName>
-            <!-- 生成进独立包，纳入版本控制，支持离线编译；与手写 DSL（com.acme.scaffold.jooq）并行共存 -->
-            <directory>src/main/java</directory>
+            <!-- 生成进标准 Maven 构建产物目录：不被版本控制、不被 check-conventions 扫描；
+                 与手写 DSL（com.acme.scaffold.jooq）并行共存，仅作探索层 -->
+            <directory>target/generated-sources/jooq</directory>
         </target>
     </generator>
 </configuration>
