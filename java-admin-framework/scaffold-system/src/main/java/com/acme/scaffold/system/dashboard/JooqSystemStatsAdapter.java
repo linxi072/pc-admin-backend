@@ -61,12 +61,12 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
 
     @Override
     public long countIdempotencyRecords() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_IDEMPOTENCY_RECORD.table()));
+        return safe(() -> dsl.fetchCount(Tables.SYS_IDEMPOTENCY_RECORD));
     }
 
     @Override
     public long countOperationLogs() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_OPERATION_LOG.table()));
+        return safe(() -> dsl.fetchCount(Tables.SYS_OPERATION_LOG));
     }
 
     @Override
@@ -148,10 +148,10 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyOperationLogs(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_OPERATION_LOG.field("occurred_at", Timestamp.class);
+            Field<Timestamp> ts = Tables.SYS_OPERATION_LOG.OCCURRED_AT.cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
-                    .from(JooqTables.SYS_OPERATION_LOG.table())
+                    .from(Tables.SYS_OPERATION_LOG)
                     .where(ts.ge(Timestamp.valueOf(start.atStartOfDay())))
                     .groupBy(day)
                     .orderBy(day)
