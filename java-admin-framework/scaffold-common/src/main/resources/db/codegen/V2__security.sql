@@ -10,9 +10,9 @@ CREATE INDEX sys_refresh_token_idx_user_expiry ON sys_refresh_token (tenant_id, 
 
 CREATE INDEX sys_refresh_token_idx_family ON sys_refresh_token (tenant_id, family_id);
 
-CREATE TABLE IF NOT EXISTS sys_password_history (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL, password_hash VARCHAR(255) NOT NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_password_history" ("id" BIGINT NOT NULL, "tenant_id" BIGINT NOT NULL DEFAULT 0, "user_id" BIGINT NOT NULL, "password_hash" VARCHAR(255) NOT NULL, "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY ("id"));
 
-CREATE INDEX sys_password_history_idx_user_time ON sys_password_history (tenant_id, user_id, created_at);
+CREATE INDEX "sys_password_history_idx_user_time" ON "sys_password_history" ("tenant_id", "user_id", "created_at");
 
 CREATE TABLE IF NOT EXISTS sys_login_log (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NULL, username VARCHAR(64) NULL, login_type VARCHAR(32) NOT NULL, result VARCHAR(20) NOT NULL, failure_code VARCHAR(64) NULL, ip_address VARCHAR(64) NULL, user_agent VARCHAR(500) NULL, trace_id VARCHAR(64) NULL, occurred_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
 
