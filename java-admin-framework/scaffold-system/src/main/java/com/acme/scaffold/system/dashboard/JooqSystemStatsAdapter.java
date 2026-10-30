@@ -2,6 +2,7 @@ package com.acme.scaffold.system.dashboard;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.entity.SysOnlineSessionDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
@@ -163,10 +164,10 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyNotifications(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", Timestamp.class);
+            Field<Timestamp> ts = Tables.SYS_NOTIFICATION_RECORD.SENT_AT.cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
-                    .from(JooqTables.SYS_NOTIFICATION_RECORD.table())
+                    .from(Tables.SYS_NOTIFICATION_RECORD)
                     .where(ts.ge(Timestamp.valueOf(start.atStartOfDay())))
                     .groupBy(day)
                     .orderBy(day)

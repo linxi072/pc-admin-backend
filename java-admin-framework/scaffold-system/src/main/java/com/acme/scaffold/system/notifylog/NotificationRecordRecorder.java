@@ -4,6 +4,7 @@ import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.notifylog.domain.SysNotificationRecordDO;
 import com.acme.scaffold.system.notifylog.rules.NotificationRecordRules;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,10 @@ import java.time.LocalDateTime;
 @Component
 @RequiredArgsConstructor
 public class NotificationRecordRecorder {
+
+    /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_RECORD} 的类型安全表引用（B24）。 */
+    private static final JooqTables.TableRef RECORD =
+            JooqTables.toTableRef(Tables.SYS_NOTIFICATION_RECORD);
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -108,7 +113,7 @@ public class NotificationRecordRecorder {
             });
             row.setTraceId(MDC.get("traceId"));
             row.setSentAt(LocalDateTime.now());
-            JooqWriters.insert(dsl, JooqTables.SYS_NOTIFICATION_RECORD, row);
+            JooqWriters.insert(dsl, RECORD, row);
         } catch (Exception e) {
             // 通知记录属审计旁路，写入失败不阻断发送主流程（消息已真实投递，记录缺失可补）
             log.warn("通知发送记录写入失败 channel={} status={} err={}",
