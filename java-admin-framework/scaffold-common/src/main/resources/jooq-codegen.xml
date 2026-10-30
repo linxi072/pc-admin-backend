@@ -28,8 +28,10 @@
                 <property>
                     <key>scripts</key>
                     <!-- 指向归一化后的 H2 兼容 DDL（由 scripts/normalize-ddl-for-codegen.py 从 db/migration 生成）。
-                         使用相对项目根的完整路径，便于 DDLDatabase 以文件方式定位。 -->
-                    <value>src/main/resources/db/codegen/V1__baseline.sql,src/main/resources/db/codegen/V2__security.sql,src/main/resources/db/codegen/V3__workflow.sql,src/main/resources/db/codegen/V4__fix_admin_password.sql,src/main/resources/db/codegen/V5__system_modules.sql,src/main/resources/db/codegen/V6__user_single_role_org.sql,src/main/resources/db/codegen/V7__announcement.sql,src/main/resources/db/codegen/V8__message.sql,src/main/resources/db/codegen/V9__monitor_sample.sql,src/main/resources/db/codegen/V10__user_profile.sql,src/main/resources/db/codegen/V11__api_resource_seed.sql,src/main/resources/db/codegen/V12__role_data_scope_api.sql,src/main/resources/db/codegen/V13__workflow_design.sql,src/main/resources/db/codegen/V14__workflow_definition_resource.sql,src/main/resources/db/codegen/V15__user_role_org_many_to_many.sql,src/main/resources/db/codegen/V16__idempotency_record.sql</value>
+                         路径为相对模块 basedir 的相对路径（DDLDatabase 以模块目录为基准解析），支持 ant 通配符；
+                         须从模块目录执行 `mvn -Pjooq-codegen generate-sources`（或 `mvn -f scaffold-common/pom.xml` 时
+                         路径须相对仓库根），勿用 file:/classpath: 前缀。 -->
+                    <value>src/main/resources/db/codegen/*.sql</value>
                 </property>
                 <!-- 按文件名语义排序（V1 < V2 < ... < V16），保证外键/依赖顺序正确 -->
                 <property>

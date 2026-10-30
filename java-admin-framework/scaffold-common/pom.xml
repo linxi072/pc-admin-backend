@@ -107,35 +107,24 @@
             </pluginRepositories>
             <build>
                 <plugins>
+                    <!--
+                      官方代码生成插件（替代原 exec:java 方案，修复 ClassNotFoundException）。
+                      原 exec:java 仅以「项目依赖」构建运行 classpath，插件自身 <dependencies>
+                      （jooq-codegen 等）不进入该 classpath，导致 org.jooq.codegen.GenerationTool
+                      找不到。jooq-codegen-maven 将生成器纳入插件自身 realm，并支持
+                      <configurationFile> 直接复用 jooq-codegen.xml，classpath 问题天然规避。
+                    -->
                     <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>3.1.0</version>
+                        <groupId>org.jooq</groupId>
+                        <artifactId>jooq-codegen-maven</artifactId>
+                        <version>${jooq.version}</version>
+                        <!-- DDLDatabase 解析 SQL 反向工程所需：jOOQ meta 扩展 + 内存库（仅生成期） -->
                         <dependencies>
-                            <!-- 代码生成器本体：提供 org.jooq.codegen.GenerationTool 主类 -->
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq-codegen</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <!-- 运行时 jOOQ（含 meta 模块，GenerationTool 依赖） -->
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq-meta</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <!-- DDLDatabase：从 SQL 脚本反向工程，无需活库 / Docker -->
                             <dependency>
                                 <groupId>org.jooq</groupId>
                                 <artifactId>jooq-meta-extensions</artifactId>
                                 <version>${jooq.version}</version>
                             </dependency>
-                            <!-- DDLDatabase 内部使用的内存库（仅代码生成期） -->
                             <dependency>
                                 <groupId>com.h2database</groupId>
                                 <artifactId>h2</artifactId>
@@ -147,16 +136,10 @@
                                 <id>generate-jooq-sources</id>
                                 <phase>generate-sources</phase>
                                 <goals>
-                                    <goal>java</goal>
+                                    <goal>generate</goal>
                                 </goals>
                                 <configuration>
-                                    <mainClass>org.jooq.codegen.GenerationTool</mainClass>
-                                    <arguments>
-                                        <argument>src/main/resources/jooq-codegen.xml</argument>
-                                    </arguments>
-                                    <!-- 仅使用上面的插件依赖（jooq-codegen 等）作为运行 classpath；
-                                         不含项目依赖，避免与运行期 jOOQ 版本冲突 -->
-                                    <includeProjectDependencies>false</includeProjectDependencies>
+                                    <configurationFile>src/main/resources/jooq-codegen.xml</configurationFile>
                                 </configuration>
                             </execution>
                         </executions>

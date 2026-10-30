@@ -1,0 +1,3 @@
+# jOOQ 代码生成产物（由 `mvn -Pjooq-codegen` 从 db/codegen/*.sql 反向工程生成，可随时重新生成）
+# 手写 DSL 位于 com.acme.scaffold.jooq，本目录为并行探索层，不纳入版本库。
+scaffold-common/src/main/java/com/acme/scaffold/jooqgen/
