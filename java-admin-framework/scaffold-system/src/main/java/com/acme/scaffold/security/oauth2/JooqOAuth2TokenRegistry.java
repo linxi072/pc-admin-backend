@@ -5,6 +5,7 @@ import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
@@ -29,6 +30,8 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     private final DSLContext dsl;
 
+    private static final JooqTables.TableRef OT = JooqTables.toTableRef(Tables.SYS_OAUTH2_TOKEN);
+
     private static final String STATUS_ACTIVE = "ACTIVE";
 
     @Override
@@ -44,20 +47,20 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
         token.setIssuedAt(issuedAt);
         token.setExpiresAt(expiresAt);
         token.setStatus(STATUS_ACTIVE);
-        JooqWriters.insert(dsl, JooqTables.SYS_OAUTH2_TOKEN, token);
+        JooqWriters.insert(dsl, OT, token);
         log.info("OAuth2 令牌已登记 jti={} clientId={} type={} userId={}", jti, clientId, tokenType, userId);
     }
 
     @Override
     public void revoke(String jti) {
-        OAuth2TokenDO existing = JooqWriters.fetchOne(dsl, JooqTables.SYS_OAUTH2_TOKEN, OAuth2TokenDO.class,
+        OAuth2TokenDO existing = JooqWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
                 activeByJti(jti));
         if (existing == null) {
             return;
         }
         OAuth2TokenDO update = new OAuth2TokenDO();
         update.setStatus("REVOKED");
-        JooqWriters.updateById(dsl, JooqTables.SYS_OAUTH2_TOKEN, existing.getId(), update);
+        JooqWriters.updateById(dsl, OT, existing.getId(), update);
         log.info("OAuth2 令牌已吊销 jti={}", jti);
     }
 
@@ -66,7 +69,7 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
         if (jti == null || jti.isBlank()) {
             return false;
         }
-        OAuth2TokenDO token = JooqWriters.fetchOne(dsl, JooqTables.SYS_OAUTH2_TOKEN, OAuth2TokenDO.class,
+        OAuth2TokenDO token = JooqWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
                 activeByJti(jti));
         // 查不到（未签发 / 已吊销 / 已逻辑删除）→ 不视为「已吊销」，避免误伤登录态
         return token != null && !STATUS_ACTIVE.equals(token.getStatus());
@@ -74,18 +77,18 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     @Override
     public PageResult<OAuth2TokenDO> listActive(PageQuery query, String clientId, Long userId) {
-        Condition cond = JooqWriters.notDeleted(JooqTables.SYS_OAUTH2_TOKEN)
-                .and(JooqTables.SYS_OAUTH2_TOKEN.field("status", String.class).eq(STATUS_ACTIVE))
-                .and(JooqTables.SYS_OAUTH2_TOKEN.field("expires_at", LocalDateTime.class).gt(LocalDateTime.now()));
+        Condition cond = JooqWriters.notDeleted(OT)
+                .and(OT.field("status", String.class).eq(STATUS_ACTIVE))
+                .and(OT.field("expires_at", LocalDateTime.class).gt(LocalDateTime.now()));
         if (clientId != null && !clientId.isBlank()) {
-            cond = cond.and(JooqTables.SYS_OAUTH2_TOKEN.field("client_id", String.class).eq(clientId));
+            cond = cond.and(OT.field("client_id", String.class).eq(clientId));
         }
         if (userId != null) {
-            cond = cond.and(JooqTables.SYS_OAUTH2_TOKEN.field("user_id", Long.class).eq(userId));
+            cond = cond.and(OT.field("user_id", Long.class).eq(userId));
         }
-        List<OAuth2TokenDO> records = JooqWriters.fetchList(dsl, JooqTables.SYS_OAUTH2_TOKEN, OAuth2TokenDO.class,
-                cond, JooqTables.SYS_OAUTH2_TOKEN.field("expires_at", LocalDateTime.class).desc());
-        long total = JooqWriters.count(dsl, JooqTables.SYS_OAUTH2_TOKEN, cond);
+        List<OAuth2TokenDO> records = JooqWriters.fetchList(dsl, OT, OAuth2TokenDO.class,
+                cond, OT.field("expires_at", LocalDateTime.class).desc());
+        long total = JooqWriters.count(dsl, OT, cond);
         int from = (int) Math.min(query.offset(), records.size());
         int to = (int) Math.min(from + query.limit(), records.size());
         List<OAuth2TokenDO> pageRecords = records.subList(from, to);
@@ -94,8 +97,8 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     /** 活动（未吊销且未过期）且 jti 匹配的查询条件。 */
     private static Condition activeByJti(String jti) {
-        return JooqWriters.notDeleted(JooqTables.SYS_OAUTH2_TOKEN)
-                .and(JooqTables.SYS_OAUTH2_TOKEN.field("jti", String.class).eq(jti));
+        return JooqWriters.notDeleted(OT)
+                .and(OT.field("jti", String.class).eq(jti));
     }
 
     private static String joinScopes(Set<String> scopes) {
