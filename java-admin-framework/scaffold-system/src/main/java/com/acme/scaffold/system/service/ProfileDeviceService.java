@@ -6,6 +6,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.system.dto.DeviceView;
@@ -33,6 +34,9 @@ public class ProfileDeviceService {
     private final SecurityContextFacade securityContextFacade;
     private final RefreshTokenService refreshTokenService;
 
+    private static final JooqTables.TableRef RT =
+            JooqTables.toTableRef(Tables.SYS_REFRESH_TOKEN);
+
     private static final java.time.format.DateTimeFormatter UA_TIME =
             java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -47,11 +51,11 @@ public class ProfileDeviceService {
         String currentClientId = securityContextFacade.getCurrentPrincipal()
                 .map(CurrentPrincipal::clientId).orElse(null);
 
-        List<SysRefreshTokenDO> active = JooqWriters.fetchList(dsl, JooqTables.SYS_REFRESH_TOKEN,
+        List<SysRefreshTokenDO> active = JooqWriters.fetchList(dsl, RT,
                 SysRefreshTokenDO.class,
-                JooqTables.SYS_REFRESH_TOKEN.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", Timestamp.class).isNull())
-                        .and(JooqTables.SYS_REFRESH_TOKEN.field("expires_at", Timestamp.class)
+                RT.field("user_id", Long.class).eq(userId)
+                        .and(RT.field("revoked_at", Timestamp.class).isNull())
+                        .and(RT.field("expires_at", Timestamp.class)
                                 .gt(Timestamp.valueOf(LocalDateTime.now()))));
 
         String currentSessionId = resolveCurrentSessionId(active, currentClientId);
@@ -128,11 +132,11 @@ public class ProfileDeviceService {
     /** 当前用户的全部活跃会话。 */
     private List<SysRefreshTokenDO> listDevicesSessions() {
         Long userId = currentUserId();
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_REFRESH_TOKEN,
+        return JooqWriters.fetchList(dsl, RT,
                 SysRefreshTokenDO.class,
-                JooqTables.SYS_REFRESH_TOKEN.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", Timestamp.class).isNull())
-                        .and(JooqTables.SYS_REFRESH_TOKEN.field("expires_at", Timestamp.class)
+                RT.field("user_id", Long.class).eq(userId)
+                        .and(RT.field("revoked_at", Timestamp.class).isNull())
+                        .and(RT.field("expires_at", Timestamp.class)
                                 .gt(Timestamp.valueOf(LocalDateTime.now()))));
     }
 

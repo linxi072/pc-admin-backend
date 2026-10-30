@@ -3,6 +3,7 @@ package com.acme.scaffold.security.token.service;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.security.error.SecurityErrorCode;
@@ -33,6 +34,9 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     private final DSLContext dsl;
     private final JwtProperties jwtProps;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    private static final JooqTables.TableRef RT =
+            JooqTables.toTableRef(Tables.SYS_REFRESH_TOKEN);
 
     @Override
     public String issue(Long userId, String clientId, String deviceId, String userAgent, String ip) {
@@ -66,7 +70,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         entity.setIpAddress(ip);
         entity.setIssuedAt(now);
         entity.setExpiresAt(expiresAt);
-        JooqWriters.insert(dsl, JooqTables.SYS_REFRESH_TOKEN, entity);
+        JooqWriters.insert(dsl, RT, entity);
         return raw;
     }
 
@@ -82,7 +86,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new BusinessException(SecurityErrorCode.REFRESH_INVALID, "刷新令牌已过期");
         }
-        dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        dsl.update(RT.table())
                 .set(lastUsedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .where(idField().eq(token.getId()))
                 .execute();
@@ -105,7 +109,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         String newRaw = issueWithFamily(old.getUserId(), old.getClientId(), old.getDeviceId(),
                 old.getUserAgent(), old.getIpAddress(), inheritedFamily);
         // 标记旧令牌已被本次轮换取代
-        dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "ROTATED")
                 .where(idField().eq(old.getId()))
@@ -115,7 +119,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     @Override
     public void revokeByUser(Long userId) {
-        dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "LOGOUT")
                 .where(userIdField().eq(userId).and(revokedAtField().isNull()))
@@ -124,22 +128,22 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     @Override
     public int revokeBySession(Long userId, String sessionId) {
-        return dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        return dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "DEVICE_REVOKED")
                 .where(userIdField().eq(userId)
-                        .and(JooqTables.SYS_REFRESH_TOKEN.field("session_id", String.class).eq(sessionId))
+                        .and(RT.field("session_id", String.class).eq(sessionId))
                         .and(revokedAtField().isNull()))
                 .execute();
     }
 
     @Override
     public int revokeByUserAndClient(Long userId, String clientId) {
-        return dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        return dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "DEVICE_REVOKED")
                 .where(userIdField().eq(userId)
-                        .and(JooqTables.SYS_REFRESH_TOKEN.field("client_id", String.class).eq(clientId))
+                        .and(RT.field("client_id", String.class).eq(clientId))
                         .and(revokedAtField().isNull()))
                 .execute();
     }
@@ -151,18 +155,18 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
             revokeByUser(userId);
             return -1;
         }
-        return dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        return dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "DEVICE_REVOKED")
                 .where(userIdField().eq(userId)
-                        .and(JooqTables.SYS_REFRESH_TOKEN.field("device_id", String.class).eq(deviceId))
+                        .and(RT.field("device_id", String.class).eq(deviceId))
                         .and(revokedAtField().isNull()))
                 .execute();
     }
 
     @Override
     public int countActiveSessions(Long userId) {
-        return dsl.fetchCount(JooqTables.SYS_REFRESH_TOKEN.table(),
+        return dsl.fetchCount(RT.table(),
                 userIdField().eq(userId)
                         .and(revokedAtField().isNull())
                         .and(expiresAtField().greaterThan(Timestamp.valueOf(LocalDateTime.now()))));
@@ -176,7 +180,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         // 取活跃会话（id + 登录时间 + 最近使用时间），交由纯函数挑选「最早登录」的待淘汰会话
         List<SessionLimitRules.SessionInfo> infos = dsl
                 .select(idField(), issuedAtField(), lastUsedAtField())
-                .from(JooqTables.SYS_REFRESH_TOKEN.table())
+                .from(RT.table())
                 .where(userIdField().eq(userId)
                         .and(revokedAtField().isNull())
                         .and(expiresAtField().greaterThan(Timestamp.valueOf(LocalDateTime.now()))))
@@ -188,7 +192,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         if (toRevoke.isEmpty()) {
             return;
         }
-        dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "SESSION_LIMIT")
                 .where(idField().in(toRevoke))
@@ -196,10 +200,10 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     }
 
     private void revokeFamily(String familyId) {
-        dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "REUSE_DETECTED")
-                .set(JooqTables.SYS_REFRESH_TOKEN.field("reuse_detected", Integer.class), 1)
+                .set(RT.field("reuse_detected", Integer.class), 1)
                 .where(familyIdField().eq(familyId).and(revokedAtField().isNull()))
                 .execute();
         log.warn("检测到刷新令牌重放，已吊销家族 familyId={}", familyId);
@@ -207,7 +211,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     private SysRefreshTokenDO findByRaw(String rawToken) {
         String h = hash(rawToken);
-        SysRefreshTokenDO token = JooqWriters.fetchOne(dsl, JooqTables.SYS_REFRESH_TOKEN,
+        SysRefreshTokenDO token = JooqWriters.fetchOne(dsl, RT,
                 SysRefreshTokenDO.class, tokenHashField().eq(h));
         if (token == null) {
             throw new BusinessException(SecurityErrorCode.REFRESH_INVALID, "刷新令牌无效");
@@ -218,39 +222,39 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     // --- 字段引用集中定义，避免散落的魔法字符串 ---
 
     private Field<Long> idField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("id", Long.class);
+        return RT.field("id", Long.class);
     }
 
     private Field<Long> userIdField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("user_id", Long.class);
+        return RT.field("user_id", Long.class);
     }
 
     private Field<String> familyIdField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("family_id", String.class);
+        return RT.field("family_id", String.class);
     }
 
     private Field<String> tokenHashField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("token_hash", String.class);
+        return RT.field("token_hash", String.class);
     }
 
     private Field<Timestamp> lastUsedAtField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("last_used_at", Timestamp.class);
+        return RT.field("last_used_at", Timestamp.class);
     }
 
     private Field<Timestamp> revokedAtField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", Timestamp.class);
+        return RT.field("revoked_at", Timestamp.class);
     }
 
     private Field<Timestamp> issuedAtField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("issued_at", Timestamp.class);
+        return RT.field("issued_at", Timestamp.class);
     }
 
     private Field<Timestamp> expiresAtField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("expires_at", Timestamp.class);
+        return RT.field("expires_at", Timestamp.class);
     }
 
     private Field<String> revokeReasonField() {
-        return JooqTables.SYS_REFRESH_TOKEN.field("revoke_reason", String.class);
+        return RT.field("revoke_reason", String.class);
     }
 
     private String hash(String raw) {
