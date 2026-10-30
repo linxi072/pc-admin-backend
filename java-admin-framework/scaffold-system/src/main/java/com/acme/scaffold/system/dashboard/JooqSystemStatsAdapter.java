@@ -73,8 +73,8 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public long countLoginLogsToday() {
         // 注意：登录日志时间列为 occurred_at（非 login_at），与 SYS_LOGIN_LOG 表定义严格一致
         Timestamp startOfDay = Timestamp.valueOf(LocalDate.now().atStartOfDay());
-        Condition today = JooqTables.SYS_LOGIN_LOG.field("occurred_at", Timestamp.class).ge(startOfDay);
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_LOGIN_LOG.table(), today));
+        Condition today = Tables.SYS_LOGIN_LOG.OCCURRED_AT.cast(Timestamp.class).ge(startOfDay);
+        return safe(() -> dsl.fetchCount(Tables.SYS_LOGIN_LOG, today));
     }
 
     @Override
@@ -115,11 +115,11 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyActiveTenants(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_LOGIN_LOG.field("occurred_at", Timestamp.class);
+            Field<Timestamp> ts = Tables.SYS_LOGIN_LOG.OCCURRED_AT.cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
-            Field<Long> tenantId = JooqTables.SYS_LOGIN_LOG.field("tenant_id", Long.class);
+            Field<Long> tenantId = Tables.SYS_LOGIN_LOG.TENANT_ID;
             return dsl.select(day, DSL.countDistinct(tenantId))
-                    .from(JooqTables.SYS_LOGIN_LOG.table())
+                    .from(Tables.SYS_LOGIN_LOG)
                     .where(ts.ge(Timestamp.valueOf(start.atStartOfDay())))
                     .groupBy(day)
                     .orderBy(day)
@@ -132,10 +132,10 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyLoginLogs(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_LOGIN_LOG.field("occurred_at", Timestamp.class);
+            Field<Timestamp> ts = Tables.SYS_LOGIN_LOG.OCCURRED_AT.cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
-                    .from(JooqTables.SYS_LOGIN_LOG.table())
+                    .from(Tables.SYS_LOGIN_LOG)
                     .where(ts.ge(Timestamp.valueOf(start.atStartOfDay())))
                     .groupBy(day)
                     .orderBy(day)
