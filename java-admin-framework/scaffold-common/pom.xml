@@ -62,23 +62,65 @@
     </dependencies>
 
     <!--
-      jOOQ 代码生成 profile（设计 §15）：作为「并行层」探索，不替换手写动态 DSL。
-      常规离线构建不需要此 profile；仅当数据库表结构（Flyway 迁移）变更后，
-      联网执行 `mvn -Pjooq-codegen generate-sources` 重新生成实体/DAO/查询接口，
-      落入独立包 com.acme.scaffold.jooqgen（与手写 DSL com.acme.scaffold.jooq 并行共存）。
-      全量替换手写 DSL 属高风险改造，需真实库验证 + 风险评审，当前暂缓。
-      输入脚本位于本模块 src/main/resources/db/codegen/（V1~V16 归一化 DDL），
-      生成物写入本模块 src/main/java/com/acme/scaffold/jooqgen/ 并纳入版本控制。
+      jOOQ 代码生成：常驻构建（绑定 generate-sources），每次离线构建自动重生成
+      com.acme.scaffold.jooqgen 并行层。DDLDatabase 直接解析 db/codegen/*.sql 反向工程，
+      无需连接数据库、无需 Docker。生成物落入 target/generated-sources/jooq（构建产物、
+      被 .gitignore 忽略、不纳入版本控制、亦不被 check-conventions 扫描）。
+
+      这是「增量替换手写动态 DSL（JooqTables/TableRef/JooqWriters）」的基础：
+      生产代码可逐步引用 com.acme.scaffold.jooqgen.Tables.* 获得类型安全 DSL。
+      全量替换仍属高风险改造，按表/服务小范围试点推进（首试点 PostService/sys_post）。
+
+      依赖（jooq-codegen / jooq-meta-extensions / h2 / jaxb 等）已同步进离线仓库，
+      故常规 `mvn -o ...` 离线构建即可触发生成；表结构（Flyway 迁移）变更后重新构建即刷新。
+    -->
+    <build>
+        <plugins>
+            <!--
+              官方代码生成插件（替代原 exec:java 方案，修复 ClassNotFoundException）。
+              jooq-codegen-maven 将生成器纳入插件自身 realm，并支持
+              <configurationFile> 直接复用 jooq-codegen.xml，classpath 问题天然规避。
+            -->
+            <plugin>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq-codegen-maven</artifactId>
+                <version>${jooq.version}</version>
+                <!-- DDLDatabase 解析 SQL 反向工程所需：jOOQ meta 扩展 + 内存库（仅生成期） -->
+                <dependencies>
+                    <dependency>
+                        <groupId>org.jooq</groupId>
+                        <artifactId>jooq-meta-extensions</artifactId>
+                        <version>${jooq.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.h2database</groupId>
+                        <artifactId>h2</artifactId>
+                        <version>2.2.224</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>generate-jooq-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <configurationFile>src/main/resources/jooq-codegen.xml</configurationFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!--
+      在线刷新代码生成器依赖时追加 Maven Central 仓库（离线构建忽略此 profile）。
+      常规离线构建依赖已同步进本地仓库，无需激活。
     -->
     <profiles>
         <profile>
-            <id>jooq-codegen</id>
-            <!--
-              代码生成期需联网拉取 jooq-codegen 等构件。本机 maven 的 tencent 镜像
-              (mirrorOf=central) 未收录 jooq-codegen-maven-plugin，故在此追加一个
-              id 非 central 的仓库直连 Maven Central（镜像按仓库 ID 匹配，repo-central
-              不会被 tencent 镜像拦截），用于解析代码生成器及其依赖。
-            -->
+            <id>jooq-codegen-online-repo</id>
             <repositories>
                 <repository>
                     <id>repo-central</id>
@@ -105,47 +147,6 @@
                     </snapshots>
                 </pluginRepository>
             </pluginRepositories>
-            <build>
-                <plugins>
-                    <!--
-                      官方代码生成插件（替代原 exec:java 方案，修复 ClassNotFoundException）。
-                      原 exec:java 仅以「项目依赖」构建运行 classpath，插件自身 <dependencies>
-                      （jooq-codegen 等）不进入该 classpath，导致 org.jooq.codegen.GenerationTool
-                      找不到。jooq-codegen-maven 将生成器纳入插件自身 realm，并支持
-                      <configurationFile> 直接复用 jooq-codegen.xml，classpath 问题天然规避。
-                    -->
-                    <plugin>
-                        <groupId>org.jooq</groupId>
-                        <artifactId>jooq-codegen-maven</artifactId>
-                        <version>${jooq.version}</version>
-                        <!-- DDLDatabase 解析 SQL 反向工程所需：jOOQ meta 扩展 + 内存库（仅生成期） -->
-                        <dependencies>
-                            <dependency>
-                                <groupId>org.jooq</groupId>
-                                <artifactId>jooq-meta-extensions</artifactId>
-                                <version>${jooq.version}</version>
-                            </dependency>
-                            <dependency>
-                                <groupId>com.h2database</groupId>
-                                <artifactId>h2</artifactId>
-                                <version>2.2.224</version>
-                            </dependency>
-                        </dependencies>
-                        <executions>
-                            <execution>
-                                <id>generate-jooq-sources</id>
-                                <phase>generate-sources</phase>
-                                <goals>
-                                    <goal>generate</goal>
-                                </goals>
-                                <configuration>
-                                    <configurationFile>src/main/resources/jooq-codegen.xml</configurationFile>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>
