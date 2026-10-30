@@ -4,6 +4,7 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.notification.config.NotificationDigestProperties;
 import com.acme.scaffold.system.notifydigest.domain.SysNotificationDigestDO;
@@ -89,6 +90,9 @@ public class NotificationDigestService {
     private final NotificationPreferenceService preferenceService;
     private final ObjectMapper objectMapper;
 
+    /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_DIGEST} 的类型安全表引用（B17）。 */
+    private static final JooqTables.TableRef DIGEST = JooqTables.toTableRef(Tables.SYS_NOTIFICATION_DIGEST);
+
     /**
      * 聚合入队结果。
      *
@@ -158,7 +162,7 @@ public class NotificationDigestService {
                 patch.setItemCount(newCount);
                 patch.setItemsJson(itemsJson);
                 patch.setLastAt(now);
-                JooqWriters.updateById(dsl, JooqTables.SYS_NOTIFICATION_DIGEST, exist.getId(), patch);
+                JooqWriters.updateById(dsl, DIGEST, exist.getId(), patch);
                 exist.setItemCount(newCount);
                 exist.setItemsJson(itemsJson);
                 exist.setLastAt(now);
@@ -174,7 +178,7 @@ public class NotificationDigestService {
                 row.setItemsJson(itemsJson);
                 row.setFirstAt(now);
                 row.setLastAt(now);
-                JooqWriters.insert(dsl, JooqTables.SYS_NOTIFICATION_DIGEST, row);
+                JooqWriters.insert(dsl, DIGEST, row);
                 if (newCount >= threshold) {
                     flushRows.add(row);
                 }
@@ -195,11 +199,10 @@ public class NotificationDigestService {
     public List<SysNotificationDigestDO> findDue(int limit) {
         LocalDateTime cutoff = LocalDateTime.now()
                 .minusMinutes(Math.max(0, properties.getMaxWaitMinutes()));
-        Condition cond = JooqTables.SYS_NOTIFICATION_DIGEST
-                .field("last_at", LocalDateTime.class).le(cutoff);
-        return JooqWriters.fetchTop(dsl, JooqTables.SYS_NOTIFICATION_DIGEST,
+        Condition cond = Tables.SYS_NOTIFICATION_DIGEST.LAST_AT.le(cutoff);
+        return JooqWriters.fetchTop(dsl, DIGEST,
                 SysNotificationDigestDO.class, cond, limit,
-                JooqTables.SYS_NOTIFICATION_DIGEST.field("last_at", LocalDateTime.class).asc());
+                Tables.SYS_NOTIFICATION_DIGEST.LAST_AT.asc());
     }
 
     /**
@@ -260,7 +263,7 @@ public class NotificationDigestService {
         if (id == null) {
             return;
         }
-        JooqWriters.delete(dsl, JooqTables.SYS_NOTIFICATION_DIGEST, id, false);
+        JooqWriters.delete(dsl, DIGEST, id, false);
     }
 
     // ------------------------------------------------------------------
@@ -326,13 +329,11 @@ public class NotificationDigestService {
     }
 
     private SysNotificationDigestDO fetchRow(Long userId, Channel channel, String msgType) {
-        return JooqWriters.fetchOne(dsl, JooqTables.SYS_NOTIFICATION_DIGEST,
+        return JooqWriters.fetchOne(dsl, DIGEST,
                 SysNotificationDigestDO.class,
-                JooqTables.SYS_NOTIFICATION_DIGEST.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_NOTIFICATION_DIGEST.field("channel", String.class)
-                                .eq(channel.name()))
-                        .and(JooqTables.SYS_NOTIFICATION_DIGEST.field("msg_type", String.class)
-                                .eq(msgType)));
+                Tables.SYS_NOTIFICATION_DIGEST.USER_ID.eq(userId)
+                        .and(Tables.SYS_NOTIFICATION_DIGEST.CHANNEL.eq(channel.name()))
+                        .and(Tables.SYS_NOTIFICATION_DIGEST.MSG_TYPE.eq(msgType)));
     }
 
     /** 解析 items_json；损坏数据按空列表处理（行仍可按 item_count 刷新，不阻断投递）。 */
