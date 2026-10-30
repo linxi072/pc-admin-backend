@@ -16,5 +16,5 @@ ALTER TABLE sys_user ADD COLUMN mask_mobile TINYINT NOT NULL DEFAULT 1;
 
 ALTER TABLE sys_user ADD COLUMN discoverable TINYINT NOT NULL DEFAULT 1;
 
-CREATE INDEX idx_user_revoked ON sys_refresh_token (user_id, revoked_at);
+CREATE INDEX "idx_user_revoked" ON "sys_refresh_token" (user_id, revoked_at);
 

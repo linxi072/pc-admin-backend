@@ -2,13 +2,13 @@
 -- Derived from db/migration/V2__security.sql by scripts/normalize-ddl-for-codegen.py
 -- Regenerate after changing migrations.
 
-CREATE TABLE IF NOT EXISTS sys_refresh_token (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL, client_id VARCHAR(64) NOT NULL, session_id VARCHAR(64) NOT NULL, family_id VARCHAR(64) NOT NULL, token_hash CHAR(64) NOT NULL, device_id VARCHAR(128) NULL, user_agent VARCHAR(500) NULL, ip_address VARCHAR(64) NULL, issued_at DATETIME(3) NOT NULL, expires_at DATETIME(3) NOT NULL, last_used_at DATETIME(3) NULL, revoked_at DATETIME(3) NULL, revoke_reason VARCHAR(64) NULL, replaced_by_id BIGINT NULL, reuse_detected TINYINT NOT NULL DEFAULT 0, version INT NOT NULL DEFAULT 0, PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_refresh_token" (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL, client_id VARCHAR(64) NOT NULL, session_id VARCHAR(64) NOT NULL, family_id VARCHAR(64) NOT NULL, token_hash CHAR(64) NOT NULL, device_id VARCHAR(128) NULL, user_agent VARCHAR(500) NULL, ip_address VARCHAR(64) NULL, issued_at DATETIME(3) NOT NULL, expires_at DATETIME(3) NOT NULL, last_used_at DATETIME(3) NULL, revoked_at DATETIME(3) NULL, revoke_reason VARCHAR(64) NULL, replaced_by_id BIGINT NULL, reuse_detected TINYINT NOT NULL DEFAULT 0, version INT NOT NULL DEFAULT 0, PRIMARY KEY (id));
 
-CREATE UNIQUE INDEX sys_refresh_token_uk_token_hash ON sys_refresh_token (token_hash);
+CREATE UNIQUE INDEX "sys_refresh_token_uk_token_hash" ON "sys_refresh_token" (token_hash);
 
-CREATE INDEX sys_refresh_token_idx_user_expiry ON sys_refresh_token (tenant_id, user_id, expires_at);
+CREATE INDEX "sys_refresh_token_idx_user_expiry" ON "sys_refresh_token" (tenant_id, user_id, expires_at);
 
-CREATE INDEX sys_refresh_token_idx_family ON sys_refresh_token (tenant_id, family_id);
+CREATE INDEX "sys_refresh_token_idx_family" ON "sys_refresh_token" (tenant_id, family_id);
 
 CREATE TABLE IF NOT EXISTS "sys_password_history" ("id" BIGINT NOT NULL, "tenant_id" BIGINT NOT NULL DEFAULT 0, "user_id" BIGINT NOT NULL, "password_hash" VARCHAR(255) NOT NULL, "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY ("id"));
 
