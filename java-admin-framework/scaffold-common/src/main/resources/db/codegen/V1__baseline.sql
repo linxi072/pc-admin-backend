@@ -12,13 +12,32 @@ CREATE INDEX sys_user_idx_org_status ON sys_user (tenant_id, primary_org_id, sta
 
 CREATE INDEX sys_user_idx_updated_at ON sys_user (updated_at);
 
-CREATE TABLE IF NOT EXISTS sys_org (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, parent_id BIGINT NOT NULL DEFAULT 0, ancestors VARCHAR(1000) NOT NULL DEFAULT '0', org_code VARCHAR(64) NOT NULL, org_name VARCHAR(128) NOT NULL, org_type VARCHAR(32) NOT NULL DEFAULT 'DEPARTMENT', sort_no INT NOT NULL DEFAULT 0, leader_user_id BIGINT NULL, status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', version INT NOT NULL DEFAULT 0, deleted TINYINT NOT NULL DEFAULT 0, created_by BIGINT NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_by BIGINT NULL, updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+-- 引号保留小写：与 Flyway V32 严格一致，避免 H2 反向工程把标识符转大写（B16）。
+CREATE TABLE IF NOT EXISTS "sys_org" (
+    "id" BIGINT NOT NULL,
+    "tenant_id" BIGINT NOT NULL DEFAULT 0,
+    "parent_id" BIGINT NOT NULL DEFAULT 0,
+    "ancestors" VARCHAR(1000) NOT NULL DEFAULT '0',
+    "org_code" VARCHAR(64) NOT NULL,
+    "org_name" VARCHAR(128) NOT NULL,
+    "org_type" VARCHAR(32) NOT NULL DEFAULT 'DEPARTMENT',
+    "sort_no" INT NOT NULL DEFAULT 0,
+    "leader_user_id" BIGINT NULL,
+    "status" VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    "version" INT NOT NULL DEFAULT 0,
+    "deleted" TINYINT NOT NULL DEFAULT 0,
+    "created_by" BIGINT NULL,
+    "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    "updated_by" BIGINT NULL,
+    "updated_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY ("id")
+);
 
-CREATE UNIQUE INDEX sys_org_uk_tenant_org_code ON sys_org (tenant_id, org_code);
+CREATE UNIQUE INDEX "uk_tenant_org_code" ON "sys_org" ("tenant_id", "org_code");
 
-CREATE INDEX sys_org_idx_parent ON sys_org (tenant_id, parent_id, sort_no);
+CREATE INDEX "idx_parent" ON "sys_org" ("tenant_id", "parent_id", "sort_no");
 
-CREATE INDEX sys_org_idx_ancestors ON sys_org (tenant_id, ancestors);
+CREATE INDEX "idx_ancestors" ON "sys_org" ("tenant_id", "ancestors");
 
 CREATE TABLE IF NOT EXISTS sys_user_org (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL, org_id BIGINT NOT NULL, is_primary TINYINT NOT NULL DEFAULT 0, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
 
