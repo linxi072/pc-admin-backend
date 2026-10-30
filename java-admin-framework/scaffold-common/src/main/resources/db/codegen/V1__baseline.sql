@@ -38,13 +38,34 @@ CREATE UNIQUE INDEX sys_user_role_uk_user_role_scope ON sys_user_role (tenant_id
 
 CREATE INDEX sys_user_role_idx_role_user ON sys_user_role (tenant_id, role_id, user_id);
 
-CREATE TABLE IF NOT EXISTS sys_menu (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, parent_id BIGINT NOT NULL DEFAULT 0, menu_code VARCHAR(64) NOT NULL, menu_name VARCHAR(100) NOT NULL, menu_type VARCHAR(20) NOT NULL, route_path VARCHAR(255) NULL, component_path VARCHAR(255) NULL, permission_code VARCHAR(128) NULL, icon VARCHAR(64) NULL, visible TINYINT NOT NULL DEFAULT 1, keep_alive TINYINT NOT NULL DEFAULT 0, external_url VARCHAR(500) NULL, sort_no INT NOT NULL DEFAULT 0, status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', deleted TINYINT NOT NULL DEFAULT 0, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+-- 引号保留小写：与 Flyway V32 严格一致，避免 H2 反向工程把标识符转大写（B15）。
+CREATE TABLE IF NOT EXISTS "sys_menu" (
+    "id" BIGINT NOT NULL,
+    "tenant_id" BIGINT NOT NULL DEFAULT 0,
+    "parent_id" BIGINT NOT NULL DEFAULT 0,
+    "menu_code" VARCHAR(64) NOT NULL,
+    "menu_name" VARCHAR(100) NOT NULL,
+    "menu_type" VARCHAR(20) NOT NULL,
+    "route_path" VARCHAR(255) NULL,
+    "component_path" VARCHAR(255) NULL,
+    "permission_code" VARCHAR(128) NULL,
+    "icon" VARCHAR(64) NULL,
+    "visible" TINYINT NOT NULL DEFAULT 1,
+    "keep_alive" TINYINT NOT NULL DEFAULT 0,
+    "external_url" VARCHAR(500) NULL,
+    "sort_no" INT NOT NULL DEFAULT 0,
+    "status" VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    "deleted" TINYINT NOT NULL DEFAULT 0,
+    "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    "updated_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY ("id")
+);
 
-CREATE UNIQUE INDEX sys_menu_uk_tenant_menu_code ON sys_menu (tenant_id, menu_code);
+CREATE UNIQUE INDEX "uk_tenant_menu_code" ON "sys_menu" ("tenant_id", "menu_code");
 
-CREATE INDEX sys_menu_idx_parent_sort ON sys_menu (tenant_id, parent_id, sort_no);
+CREATE INDEX "idx_parent_sort" ON "sys_menu" ("tenant_id", "parent_id", "sort_no");
 
-CREATE INDEX sys_menu_idx_permission ON sys_menu (tenant_id, permission_code);
+CREATE INDEX "idx_permission" ON "sys_menu" ("tenant_id", "permission_code");
 
 CREATE TABLE IF NOT EXISTS sys_api_resource (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, resource_name VARCHAR(128) NOT NULL, permission_code VARCHAR(128) NOT NULL, http_method VARCHAR(16) NOT NULL, path_pattern VARCHAR(255) NOT NULL, controller_method VARCHAR(255) NULL, auth_mode VARCHAR(20) NOT NULL DEFAULT 'REQUIRED', status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', risk_level VARCHAR(16) NOT NULL DEFAULT 'NORMAL', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
 
