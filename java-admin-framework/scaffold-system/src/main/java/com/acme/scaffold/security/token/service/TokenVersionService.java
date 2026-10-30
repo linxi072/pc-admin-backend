@@ -3,7 +3,6 @@ package com.acme.scaffold.security.token.service;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.token.rules.TokenVersionRules;
-import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.Record1;
@@ -35,10 +34,12 @@ public class TokenVersionService {
     private static final long CACHE_TTL_MILLIS = Duration.ofSeconds(30).toMillis();
 
     private final DSLContext dsl;
+    private final TokenVersionDataPort tokenVersionDataPort;
     private final TokenVersionCache cache = new TokenVersionCache(CACHE_TTL_MILLIS);
 
-    public TokenVersionService(DSLContext dsl) {
+    public TokenVersionService(DSLContext dsl, TokenVersionDataPort tokenVersionDataPort) {
         this.dsl = dsl;
+        this.tokenVersionDataPort = tokenVersionDataPort;
     }
 
     /** 读取用户当前版本；用户不存在（或已逻辑删除）返回 null，调用方据此判定失效。 */
@@ -93,11 +94,7 @@ public class TokenVersionService {
         if (roleIdSet.isEmpty()) {
             return;
         }
-        List<Long> userIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).in(roleIdSet)).stream()
-                .map(SysUserRoleDO::getUserId)
-                .distinct()
-                .collect(Collectors.toList());
+        List<Long> userIds = tokenVersionDataPort.userIdsByRoleIds(roleIdSet);
         bumpUsers(userIds);
     }
 
