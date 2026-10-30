@@ -21,4 +21,15 @@ public interface OnlineSessionDataPort {
 
     /** 登出 / 改密：把该用户全部在线会话置离线，返回影响行数。 */
     int markOfflineByUser(Long userId, String reason);
+
+    /**
+     * 会话是否仍然在线（过滤器校验用）。
+     *
+     * @return {@code true}=在线放行；{@code false}=行存在但已下线（应 401）；
+     *         {@code null}=无会话行（改造前签发的历史令牌等），调用方按 fail-open 放行
+     */
+    Boolean sessionState(Long userId, String deviceId);
+
+    /** 心跳写库：仅更新在线行的最近活跃时间（OFFLINE 行不复活）。 */
+    void touch(Long userId, String deviceId);
 }

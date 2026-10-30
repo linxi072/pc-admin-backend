@@ -11,4 +11,7 @@ public interface LoginRestrictionDataPort {
 
     /** 查询用户当前生效的限制；无则返回 {@code null}。 */
     LoginRestriction findActive(Long userId);
+
+    /** 到期自动解除（定时任务 / 启动补偿），返回解除条数。 */
+    int releaseExpired();
 }

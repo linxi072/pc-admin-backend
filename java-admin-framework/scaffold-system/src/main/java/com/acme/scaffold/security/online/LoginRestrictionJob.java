@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.online;
 
-import com.acme.scaffold.system.service.OnlineUserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -17,16 +16,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class LoginRestrictionJob {
 
-    private final OnlineUserService onlineUserService;
+    private final LoginRestrictionDataPort restrictionPort;
 
-    public LoginRestrictionJob(OnlineUserService onlineUserService) {
-        this.onlineUserService = onlineUserService;
+    public LoginRestrictionJob(LoginRestrictionDataPort restrictionPort) {
+        this.restrictionPort = restrictionPort;
     }
 
     @Scheduled(fixedDelayString = "${app.security.online-session-restriction-scan-interval-ms:60000}")
     public void run() {
         try {
-            onlineUserService.releaseExpired();
+            restrictionPort.releaseExpired();
         } catch (Exception e) {
             log.warn("登录限制到期解除任务执行异常", e);
         }

@@ -28,4 +28,14 @@ public class OnlineSessionDataAdapter implements OnlineSessionDataPort {
     public int markOfflineByUser(Long userId, String reason) {
         return onlineUserService.markOfflineByUser(userId, reason);
     }
+
+    @Override
+    public Boolean sessionState(Long userId, String deviceId) {
+        return onlineUserService.sessionState(userId, deviceId);
+    }
+
+    @Override
+    public void touch(Long userId, String deviceId) {
+        onlineUserService.touch(userId, deviceId);
+    }
 }

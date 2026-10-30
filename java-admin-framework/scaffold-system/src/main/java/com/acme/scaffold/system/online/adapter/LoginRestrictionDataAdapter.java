@@ -28,4 +28,9 @@ public class LoginRestrictionDataAdapter implements LoginRestrictionDataPort {
         SysLoginRestrictionDO restriction = loginRestrictionService.findActiveRestriction(userId);
         return restriction == null ? null : new LoginRestriction(restriction.getExpireAt());
     }
+
+    @Override
+    public int releaseExpired() {
+        return loginRestrictionService.releaseExpired();
+    }
 }

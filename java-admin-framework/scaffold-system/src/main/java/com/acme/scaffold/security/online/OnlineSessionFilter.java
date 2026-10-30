@@ -4,7 +4,6 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.security.error.SecurityErrorCode;
-import com.acme.scaffold.system.service.OnlineUserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -44,14 +43,14 @@ import java.nio.charset.StandardCharsets;
 @Order(2)
 public class OnlineSessionFilter extends OncePerRequestFilter {
 
-    private final OnlineUserService onlineUserService;
+    private final OnlineSessionDataPort onlineSessionPort;
     private final JwtProperties jwtProperties;
     private final ObjectMapper objectMapper;
     private final HeartbeatThrottle throttle;
 
-    public OnlineSessionFilter(OnlineUserService onlineUserService, JwtProperties jwtProperties,
+    public OnlineSessionFilter(OnlineSessionDataPort onlineSessionPort, JwtProperties jwtProperties,
                                ObjectMapper objectMapper) {
-        this.onlineUserService = onlineUserService;
+        this.onlineSessionPort = onlineSessionPort;
         this.jwtProperties = jwtProperties;
         this.objectMapper = objectMapper;
         this.throttle = new HeartbeatThrottle(
@@ -77,7 +76,7 @@ public class OnlineSessionFilter extends OncePerRequestFilter {
         Long userId = principal.userId();
 
         try {
-            Boolean state = onlineUserService.sessionState(userId, deviceId);
+            Boolean state = onlineSessionPort.sessionState(userId, deviceId);
             if (Boolean.FALSE.equals(state)) {
                 log.info("会话已失效（强制下线/登出/限制），拒绝请求 userId={} path={}",
                         userId, request.getRequestURI());
@@ -91,7 +90,7 @@ public class OnlineSessionFilter extends OncePerRequestFilter {
         // 心跳节流：到点才写库，失败仅记日志不阻断请求
         if (throttle.tryAcquire(userId + "|" + deviceId, System.currentTimeMillis())) {
             try {
-                onlineUserService.touch(userId, deviceId);
+                onlineSessionPort.touch(userId, deviceId);
             } catch (Exception e) {
                 log.debug("在线会话心跳更新失败 userId={} err={}", userId, e.getMessage());
             }

@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.online;
 
-import com.acme.scaffold.system.service.OnlineUserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -16,16 +15,16 @@ import org.springframework.stereotype.Component;
 @Order(101)
 public class LoginRestrictionRunner implements ApplicationRunner {
 
-    private final OnlineUserService onlineUserService;
+    private final LoginRestrictionDataPort restrictionPort;
 
-    public LoginRestrictionRunner(OnlineUserService onlineUserService) {
-        this.onlineUserService = onlineUserService;
+    public LoginRestrictionRunner(LoginRestrictionDataPort restrictionPort) {
+        this.restrictionPort = restrictionPort;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         try {
-            int released = onlineUserService.releaseExpired();
+            int released = restrictionPort.releaseExpired();
             if (released > 0) {
                 log.info("启动时解除到期登录限制 {} 条", released);
             }
