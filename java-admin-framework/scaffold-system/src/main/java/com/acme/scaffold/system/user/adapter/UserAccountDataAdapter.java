@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * {@link UserAccountDataPort} 的 system 侧适配器实现。
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class UserAccountDataAdapter implements UserAccountDataPort {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private final DSLContext dsl;
 
@@ -28,9 +30,9 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (username == null) {
             return null;
         }
-        SysUserDO u = JooqWriters.fetchOne(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("username", String.class).eq(username)));
+        SysUserDO u = JooqWriters.fetchOne(dsl, USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("username", String.class).eq(username)));
         return toAccount(u);
     }
 
@@ -39,7 +41,7 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (id == null) {
             return null;
         }
-        SysUserDO u = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, id);
+        SysUserDO u = JooqWriters.fetchById(dsl, USER, SysUserDO.class, id);
         return toAccount(u);
     }
 
@@ -67,6 +69,6 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         p.setTokenVersion(patch.tokenVersion());
         p.setLastLoginAt(patch.lastLoginAt());
         p.setStatus(patch.status());
-        JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, p);
+        JooqWriters.updateById(dsl, USER, id, p);
     }
 }

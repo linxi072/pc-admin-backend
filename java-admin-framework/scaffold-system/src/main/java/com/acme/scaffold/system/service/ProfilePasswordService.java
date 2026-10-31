@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 个人中心「自助改密」子域（从 {@link ProfileService} 抽离，C2 重构）。
@@ -30,6 +31,7 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class ProfilePasswordService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
@@ -64,7 +66,7 @@ public class ProfilePasswordService {
         patch.setPasswordExpired(0);
         patch.setFailedLoginCount(0);
         patch.setLockedUntil(null);
-        JooqWriters.updateById(dsl, JooqTables.SYS_USER, current.getId(), patch);
+        JooqWriters.updateById(dsl, USER, current.getId(), patch);
 
         // 统一走 TokenVersionService 自增：同步失效进程内 30s 缓存，避免改密后旧 token 短暂有效
         tokenVersionService.bumpUser(current.getId());
@@ -76,7 +78,7 @@ public class ProfilePasswordService {
 
     private SysUserDO loadCurrentUser() {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         if (user == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
         }

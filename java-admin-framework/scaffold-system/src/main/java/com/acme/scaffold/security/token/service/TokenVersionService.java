@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * Token 版本服务：让「权限变更」能立即（最多一个缓存窗口）作废已签发凭证。
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class TokenVersionService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 缓存窗口：默认 30 秒，即权限变更最迟 30 秒后全局生效。 */
     private static final long CACHE_TTL_MILLIS = Duration.ofSeconds(30).toMillis();
@@ -51,10 +53,10 @@ public class TokenVersionService {
         if (cached != null) {
             return cached;
         }
-        Record1<Integer> row = dsl.select(JooqTables.SYS_USER.field("token_version", Integer.class))
-                .from(JooqTables.SYS_USER.table())
-                .where(DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).eq(userId)))
+        Record1<Integer> row = dsl.select(USER.field("token_version", Integer.class))
+                .from(USER.table())
+                .where(DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).eq(userId)))
                 .fetchOne();
         Integer version = row == null ? null : row.value1();
         if (version != null) {
@@ -74,11 +76,11 @@ public class TokenVersionService {
         if (ids.isEmpty()) {
             return;
         }
-        int updated = dsl.update(JooqTables.SYS_USER.table())
-                .set(JooqTables.SYS_USER.field("token_version", Integer.class),
-                        JooqTables.SYS_USER.field("token_version", Integer.class).plus(1))
-                .where(DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).in(ids)))
+        int updated = dsl.update(USER.table())
+                .set(USER.field("token_version", Integer.class),
+                        USER.field("token_version", Integer.class).plus(1))
+                .where(DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).in(ids)))
                 .execute();
         cache.invalidate(ids);
         log.info("Token 版本递增 userIdCount={} affected={}", ids.size(), updated);

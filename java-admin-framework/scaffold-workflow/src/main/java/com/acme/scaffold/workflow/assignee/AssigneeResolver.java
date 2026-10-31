@@ -19,6 +19,7 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AssigneeResolver {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 主管角色码，用于 INITIATOR_MANAGER 解析（可按实际部署调整）。 */
     private static final String MANAGER_ROLE_CODE = "MANAGER";
@@ -202,9 +203,9 @@ public class AssigneeResolver {
 
     /** 活跃（未删除）用户ID子查询，过滤已注销账号。 */
     private org.jooq.Select<org.jooq.Record1<Long>> activeUserIds() {
-        return dsl.select(JooqTables.SYS_USER.field("id", Long.class))
-                .from(JooqTables.SYS_USER.table())
-                .where(JooqTables.SYS_USER.field("deleted", Integer.class).eq(0));
+        return dsl.select(USER.field("id", Long.class))
+                .from(USER.table())
+                .where(USER.field("deleted", Integer.class).eq(0));
     }
 
     private static String orDefault(String value, String def) {

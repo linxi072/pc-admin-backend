@@ -54,6 +54,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class NotificationPreferenceService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -69,7 +70,7 @@ public class NotificationPreferenceService {
     /** 我的订阅矩阵（4 渠道 × 4 消息类型 = 16 格，每格带生效值与来源）。 */
     public NotificationPreferenceMatrix mine() {
         Long userId = currentUserId();
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         if (user == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
         }
@@ -351,11 +352,11 @@ public class NotificationPreferenceService {
         if (column == null) {
             return Map.of();
         }
-        Field<Long> idField = JooqTables.SYS_USER.field("id", Long.class);
-        Field<Integer> switchField = JooqTables.SYS_USER.field(column, Integer.class);
+        Field<Long> idField = USER.field("id", Long.class);
+        Field<Integer> switchField = USER.field(column, Integer.class);
         Map<Long, Boolean> out = new HashMap<>(userIds.size() * 2);
-        dsl.select(idField, switchField).from(JooqTables.SYS_USER.table())
-                .where(DSL.and(idField.in(userIds), JooqWriters.notDeleted(JooqTables.SYS_USER)))
+        dsl.select(idField, switchField).from(USER.table())
+                .where(DSL.and(idField.in(userIds), JooqWriters.notDeleted(USER)))
                 .fetch()
                 .forEach(r -> out.put(r.get(idField),
                         NotificationPreferenceRules.channelSwitch(r.get(switchField), channel)));
@@ -371,8 +372,8 @@ public class NotificationPreferenceService {
      */
     public Map<String, Long> fetchAddressUserIds(List<String> addresses, boolean byEmail) {
         String column = byEmail ? "email" : "mobile";
-        Field<Long> idField = JooqTables.SYS_USER.field("id", Long.class);
-        Field<String> addrField = JooqTables.SYS_USER.field(column, String.class);
+        Field<Long> idField = USER.field("id", Long.class);
+        Field<String> addrField = USER.field(column, String.class);
         List<String> distinct = new ArrayList<>();
         for (String address : addresses) {
             if (address != null && !address.isBlank() && !distinct.contains(address.trim())) {
@@ -383,8 +384,8 @@ public class NotificationPreferenceService {
         if (distinct.isEmpty()) {
             return out;
         }
-        dsl.select(idField, addrField).from(JooqTables.SYS_USER.table())
-                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(JooqTables.SYS_USER)))
+        dsl.select(idField, addrField).from(USER.table())
+                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(USER)))
                 .fetch()
                 .forEach(r -> {
                     String addr = r.get(addrField);

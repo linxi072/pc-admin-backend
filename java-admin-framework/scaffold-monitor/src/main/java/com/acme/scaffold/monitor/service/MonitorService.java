@@ -52,6 +52,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MonitorService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final JooqTables.TableRef RT =
             JooqTables.toTableRef(Tables.SYS_REFRESH_TOKEN);
@@ -227,8 +228,8 @@ public class MonitorService {
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, SysUserDO> users = new HashMap<>();
         if (!userIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                            JooqTables.SYS_USER.field("id", Long.class).in(userIds))
+            JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                            USER.field("id", Long.class).in(userIds))
                     .forEach(u -> users.put(u.getId(), u));
         }
 

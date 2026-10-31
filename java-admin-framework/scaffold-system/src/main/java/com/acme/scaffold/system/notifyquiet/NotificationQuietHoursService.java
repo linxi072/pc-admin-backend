@@ -55,6 +55,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class NotificationQuietHoursService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -236,8 +237,8 @@ public class NotificationQuietHoursService {
      */
     private Map<String, Long> fetchAddressUserIds(List<String> addresses, boolean byEmail) {
         String column = byEmail ? "email" : "mobile";
-        Field<Long> idField = JooqTables.SYS_USER.field("id", Long.class);
-        Field<String> addrField = JooqTables.SYS_USER.field(column, String.class);
+        Field<Long> idField = USER.field("id", Long.class);
+        Field<String> addrField = USER.field(column, String.class);
         List<String> distinct = new ArrayList<>();
         for (String address : addresses) {
             if (address != null && !address.isBlank() && !distinct.contains(address.trim())) {
@@ -248,8 +249,8 @@ public class NotificationQuietHoursService {
         if (distinct.isEmpty()) {
             return out;
         }
-        dsl.select(idField, addrField).from(JooqTables.SYS_USER.table())
-                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(JooqTables.SYS_USER)))
+        dsl.select(idField, addrField).from(USER.table())
+                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(USER)))
                 .fetch()
                 .forEach(r -> {
                     String addr = r.get(addrField);

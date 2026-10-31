@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 流程监控应用服务（M23，M4 续）：在既有「我发起的 / 我的待办」个人面之外补管理员全局视角。
@@ -58,6 +59,7 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class WorkflowMonitorService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 排序白名单：客户端字段名 → 数据库列名（白名单外忽略，防 ORDER BY 注入）。 */
     private static final Map<String, String> INSTANCE_SORT_FIELDS = JooqSorts.whitelist(
@@ -280,8 +282,8 @@ public class WorkflowMonitorService {
         if (distinct.isEmpty()) {
             return Map.of();
         }
-        List<SysUserDO> users = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                JooqTables.SYS_USER.field("id", Long.class).in(distinct));
+        List<SysUserDO> users = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                USER.field("id", Long.class).in(distinct));
         Map<Long, String> map = new HashMap<>();
         users.forEach(u -> map.put(u.getId(), u.getUsername()));
         return map;

@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AnnouncementReadService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final String PUBLISHED = "PUBLISHED";
     private static final String ACTIVE = "ACTIVE";
@@ -226,7 +227,7 @@ public class AnnouncementReadService {
     /** 公告已读回执分页（谁在何时已读），批量装载阅读人显示名防 N+1。 */
     public PageResult<AnnouncementReceiptView> pageReceipts(AnnouncementReceiptQuery query) {
         var rd = READ;
-        var usr = JooqTables.SYS_USER;
+        var usr = USER;
 
         List<Condition> conds = new ArrayList<>();
         conds.add(Tables.SYS_ANNOUNCEMENT_READ.ANNOUNCEMENT_ID.eq(query.announcementId()));
@@ -324,7 +325,7 @@ public class AnnouncementReadService {
      * 子查询内引用外表列必须加表名限定（两表都有 id 列，无限定必解析错）。
      */
     private List<Long> unreadUserIds(Long announcementId, int limit) {
-        var usr = JooqTables.SYS_USER;
+        var usr = USER;
         var rd = READ;
         return JooqWriters.fetchTop(dsl, usr, SysUserDO.class,
                 DSL.and(JooqWriters.notDeleted(usr),
@@ -343,8 +344,8 @@ public class AnnouncementReadService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        JooqTables.SYS_USER.field("id", Long.class).in(userIds)).stream()
+        return JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                        USER.field("id", Long.class).in(userIds)).stream()
                 .filter(u -> u.getId() != null)
                 .collect(Collectors.toMap(SysUserDO::getId, SysUserDO::getDisplayName, (a, b) -> a));
     }

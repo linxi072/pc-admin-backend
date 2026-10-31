@@ -41,6 +41,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class ProfileService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
 
@@ -95,7 +96,7 @@ public class ProfileService {
             }
         }
 
-        JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_USER, current.getId(), patch, nullColumns);
+        JooqWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
         return getProfile();
     }
 
@@ -133,7 +134,7 @@ public class ProfileService {
                 patch.setNotifyEmail(0);
             }
         }
-        JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_USER, current.getId(), patch, nullColumns);
+        JooqWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
         return getProfile();
     }
 
@@ -146,7 +147,7 @@ public class ProfileService {
         SysUserDO patch = new SysUserDO();
         boolean hasAvatar = StringUtils.hasText(avatarUrl);
         patch.setAvatarUrl(hasAvatar ? avatarUrl.trim() : null);
-        JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_USER, current.getId(), patch,
+        JooqWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch,
                 hasAvatar ? Set.of() : Set.of("avatar_url"));
         return getProfile();
     }
@@ -188,7 +189,7 @@ public class ProfileService {
         if (request.discoverable() != null) {
             patch.setDiscoverable(request.discoverable());
         }
-        JooqWriters.updateById(dsl, JooqTables.SYS_USER, current.getId(), patch);
+        JooqWriters.updateById(dsl, USER, current.getId(), patch);
         return getPreference();
     }
 
@@ -210,7 +211,7 @@ public class ProfileService {
 
     private SysUserDO loadCurrentUser() {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         if (user == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
         }
@@ -222,12 +223,12 @@ public class ProfileService {
         if (!StringUtils.hasText(value)) {
             return;
         }
-        org.jooq.Condition cond = JooqTables.SYS_USER.field(column, String.class).eq(value)
-                .and(JooqWriters.notDeleted(JooqTables.SYS_USER));
+        org.jooq.Condition cond = USER.field(column, String.class).eq(value)
+                .and(JooqWriters.notDeleted(USER));
         if (selfId != null) {
-            cond = cond.and(JooqTables.SYS_USER.field("id", Long.class).ne(selfId));
+            cond = cond.and(USER.field("id", Long.class).ne(selfId));
         }
-        if (JooqWriters.count(dsl, JooqTables.SYS_USER, cond) > 0) {
+        if (JooqWriters.count(dsl, USER, cond) > 0) {
             throw BusinessException.conflict("MOBILE".equalsIgnoreCase(column) || "mobile".equals(column)
                     ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
         }

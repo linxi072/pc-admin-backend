@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 @Component
 @RequiredArgsConstructor
 public class JooqSystemStatsAdapter implements SystemStatsPort {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final JooqTables.TableRef OS = JooqTables.toTableRef(Tables.SYS_ONLINE_SESSION);
     private static final JooqTables.TableRef TN = JooqTables.toTableRef(Tables.SYS_TENANT);
@@ -43,8 +44,8 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
 
     @Override
     public long countUsers() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_USER.table(),
-                JooqWriters.notDeleted(JooqTables.SYS_USER)));
+        return safe(() -> dsl.fetchCount(USER.table(),
+                JooqWriters.notDeleted(USER)));
     }
 
     @Override
@@ -86,11 +87,11 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyNewUsers(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_USER.field("created_at", Timestamp.class);
+            Field<Timestamp> ts = USER.field("created_at", Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
-                    .from(JooqTables.SYS_USER.table())
-                    .where(JooqWriters.notDeleted(JooqTables.SYS_USER)
+                    .from(USER.table())
+                    .where(JooqWriters.notDeleted(USER)
                             .and(ts.ge(Timestamp.valueOf(start.atStartOfDay()))))
                     .groupBy(day)
                     .orderBy(day)

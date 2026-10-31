@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 工作流应用服务：编排引擎端口与业务扩展表，保证审批记录不可变且写操作幂等。
@@ -51,6 +52,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class WorkflowService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private final WorkflowEnginePort engine;
     private final DSLContext dsl;
@@ -271,7 +273,7 @@ public class WorkflowService {
         if (userId == null) {
             return null;
         }
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         return user == null ? null : user.getUsername();
     }
 

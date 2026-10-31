@@ -30,6 +30,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class WorkbenchService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private final DSLContext dsl;
 
@@ -44,8 +45,8 @@ public class WorkbenchService {
         List<StatCardVO> cards = new ArrayList<>();
 
         // 1) 今日新增用户（周期型：今日 vs 昨日）
-        long newUserToday = countBetween(JooqTables.SYS_USER, "created_at", todayStart, tomorrowStart);
-        long newUserYesterday = countBetween(JooqTables.SYS_USER, "created_at", yesterdayStart, todayStart);
+        long newUserToday = countBetween(USER, "created_at", todayStart, tomorrowStart);
+        long newUserYesterday = countBetween(USER, "created_at", yesterdayStart, todayStart);
         cards.add(StatCardVO.of("NEW_USER_TODAY", "今日新增用户", newUserToday, newUserYesterday, "人"));
 
         // 2) 今日发起流程（周期型：今日 vs 昨日）

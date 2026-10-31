@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class LoginRestrictionService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final JooqTables.TableRef LR = JooqTables.toTableRef(Tables.SYS_LOGIN_RESTRICTION);
     private static final JooqTables.TableRef OS = JooqTables.toTableRef(Tables.SYS_ONLINE_SESSION);
@@ -100,7 +101,7 @@ public class LoginRestrictionService {
      */
     @Transactional
     public Long restrict(Long userId, RestrictLoginRequest request) {
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         if (user == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
         }

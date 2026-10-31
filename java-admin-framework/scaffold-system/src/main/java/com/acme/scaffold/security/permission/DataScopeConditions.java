@@ -7,6 +7,7 @@ import org.jooq.Condition;
 import org.jooq.Record1;
 import org.jooq.Select;
 import org.jooq.impl.DSL;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 把 {@link DataScopeContext} 里的范围结果翻译成 jOOQ 查询条件，供 Service 直接拼进 WHERE。
@@ -24,6 +25,7 @@ import org.jooq.impl.DSL;
  */
 @Slf4j
 public final class DataScopeConditions {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private DataScopeConditions() {
     }
@@ -63,12 +65,12 @@ public final class DataScopeConditions {
         }
         if (orgColumn == null || !table.has(orgColumn)) {
             // sys_user 已无 org_id 单列，机构过滤改走 sys_user_org 关联表
-            if (table == JooqTables.SYS_USER && "org_id".equals(orgColumn)) {
+            if (table.name().equals(USER.name()) && "org_id".equals(orgColumn)) {
                 Set<Long> orgIds = result.orgIds();
                 if (orgIds == null || orgIds.isEmpty()) {
                     return DSL.trueCondition();
                 }
-                return JooqTables.SYS_USER.field("id", Long.class).in(userIdsInOrgs(orgIds));
+                return USER.field("id", Long.class).in(userIdsInOrgs(orgIds));
             }
             log.warn("数据权限列缺失，本次查询不加过滤: table={}, orgColumn={}", table.name(), orgColumn);
             return DSL.trueCondition();

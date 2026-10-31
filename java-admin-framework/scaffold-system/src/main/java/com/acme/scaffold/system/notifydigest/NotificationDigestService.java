@@ -75,6 +75,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class NotificationDigestService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 统计截止时刻格式（摘要正文 {@code ${date}}）。 */
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -224,7 +225,7 @@ public class NotificationDigestService {
         }
         String address = null;
         if (channel == Channel.EMAIL || channel == Channel.SMS) {
-            SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER,
+            SysUserDO user = JooqWriters.fetchById(dsl, USER,
                     SysUserDO.class, row.getUserId());
             if (user == null) {
                 return null;

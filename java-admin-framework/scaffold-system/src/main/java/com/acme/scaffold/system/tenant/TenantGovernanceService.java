@@ -30,6 +30,7 @@ import java.util.Map;
  */
 @Service
 public class TenantGovernanceService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private final DSLContext dsl;
 
@@ -120,15 +121,15 @@ public class TenantGovernanceService {
      * @return key=租户 ID，value=用户数；表无 {@code tenant_id} 或异常时返回空 Map
      */
     public Map<Long, Long> userCountByTenant() {
-        if (!JooqTables.SYS_USER.has("tenant_id")) {
+        if (!USER.has("tenant_id")) {
             return Map.of();
         }
-        Field<Long> tenantId = JooqTables.SYS_USER.field("tenant_id", Long.class);
+        Field<Long> tenantId = USER.field("tenant_id", Long.class);
         Field<Long> cnt = DSL.field("COUNT(*)", Long.class);
         Map<Long, Long> map = new HashMap<>();
         dsl.select(tenantId, cnt)
-                .from(JooqTables.SYS_USER.table())
-                .where(JooqWriters.notDeleted(JooqTables.SYS_USER))
+                .from(USER.table())
+                .where(JooqWriters.notDeleted(USER))
                 .groupBy(tenantId)
                 .forEach(r -> map.put(r.get(tenantId), r.get(cnt)));
         return map;

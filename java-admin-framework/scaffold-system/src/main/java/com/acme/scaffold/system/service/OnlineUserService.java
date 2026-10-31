@@ -52,6 +52,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class OnlineUserService implements OnlineSessionReleasePort {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 下线原因（sys_online_session.offline_reason）。 */
     public static final String REASON_LOGOUT = "LOGOUT";
@@ -327,9 +328,9 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        List<SysUserDO> users = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).in(userIds)));
+        List<SysUserDO> users = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).in(userIds)));
         Map<Long, String> names = new LinkedHashMap<>();
         for (SysUserDO u : users) {
             names.put(u.getId(), u.getDisplayName());

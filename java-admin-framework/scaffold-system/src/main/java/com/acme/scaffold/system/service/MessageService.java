@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MessageService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final int MAX_BATCH = 5000;
 
@@ -107,9 +108,9 @@ public class MessageService {
         }
 
         // 过滤掉不存在的用户，避免脏投递
-        List<Long> validUserIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                                JooqTables.SYS_USER.field("id", Long.class).in(receivers))).stream()
+        List<Long> validUserIds = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                        DSL.and(JooqWriters.notDeleted(USER),
+                                USER.field("id", Long.class).in(receivers))).stream()
                 .map(SysUserDO::getId).collect(Collectors.toList());
         if (validUserIds.isEmpty()) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "接收人不存在");
@@ -168,13 +169,13 @@ public class MessageService {
     private Set<Long> resolveReceivers(List<Long> roleIds, List<Long> orgIds) {
         List<Condition> conds = new ArrayList<>();
         if (roleIds != null && !roleIds.isEmpty()) {
-            conds.add(JooqTables.SYS_USER.field("id", Long.class).in(
+            conds.add(USER.field("id", Long.class).in(
                     dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
                             .from(JooqTables.SYS_USER_ROLE.table())
                             .where(JooqTables.SYS_USER_ROLE.field("role_id", Long.class).in(roleIds))));
         }
         if (orgIds != null && !orgIds.isEmpty()) {
-            conds.add(JooqTables.SYS_USER.field("id", Long.class).in(
+            conds.add(USER.field("id", Long.class).in(
                     dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
                             .from(JooqTables.SYS_USER_ORG.table())
                             .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).in(orgIds))));
@@ -182,9 +183,9 @@ public class MessageService {
         if (conds.isEmpty()) {
             return Set.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                                JooqTables.SYS_USER.field("status", String.class).eq("ACTIVE"),
+        return JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                        DSL.and(JooqWriters.notDeleted(USER),
+                                USER.field("status", String.class).eq("ACTIVE"),
                                 DSL.or(conds)))
                 .stream().map(SysUserDO::getId).collect(Collectors.toCollection(LinkedHashSet::new));
     }
@@ -369,8 +370,8 @@ public class MessageService {
         if (senderIds.isEmpty()) {
             return map;
         }
-        JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        DSL.and(JooqTables.SYS_USER.field("id", Long.class).in(senderIds)))
+        JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                        DSL.and(USER.field("id", Long.class).in(senderIds)))
                 .forEach(u -> map.put(u.getId(), u.getDisplayName()));
         return map;
     }

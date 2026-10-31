@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrgService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 部门资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。 */
     public static final String RESOURCE_CODE = "system:org";
@@ -126,9 +127,9 @@ public class OrgService {
         if (leaderIds.isEmpty()) {
             return Map.of();
         }
-        List<SysUserDO> users = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).in(leaderIds)));
+        List<SysUserDO> users = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).in(leaderIds)));
         Map<Long, String> names = new HashMap<>();
         for (SysUserDO u : users) {
             names.put(u.getId(), StringUtils.hasText(u.getDisplayName()) ? u.getDisplayName() : u.getUsername());

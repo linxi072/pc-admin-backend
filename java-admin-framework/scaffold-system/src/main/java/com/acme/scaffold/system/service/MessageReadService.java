@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MessageReadService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef MSG =
@@ -86,7 +87,7 @@ public class MessageReadService {
     public PageResult<MessageReceiptView> pageReceipts(MessageReceiptQuery query) {
         requireOwnedMessage(query.messageId());
         var rc = RC;
-        var usr = JooqTables.SYS_USER;
+        var usr = USER;
 
         List<Condition> conds = new ArrayList<>();
         conds.add(rc.field("message_id", Long.class).eq(query.messageId()));
@@ -189,8 +190,8 @@ public class MessageReadService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        JooqTables.SYS_USER.field("id", Long.class).in(userIds)).stream()
+        return JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                        USER.field("id", Long.class).in(userIds)).stream()
                 .filter(u -> u.getId() != null)
                 .collect(Collectors.toMap(SysUserDO::getId, SysUserDO::getDisplayName, (a, b) -> a));
     }
@@ -200,7 +201,7 @@ public class MessageReadService {
         if (senderId == null) {
             return null;
         }
-        SysUserDO u = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, senderId);
+        SysUserDO u = JooqWriters.fetchById(dsl, USER, SysUserDO.class, senderId);
         return u == null ? null : u.getDisplayName();
     }
 

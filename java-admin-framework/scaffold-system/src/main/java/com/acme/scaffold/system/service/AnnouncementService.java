@@ -44,6 +44,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class AnnouncementService {
+    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final String DRAFT = "DRAFT";
     private static final String PUBLISHED = "PUBLISHED";
@@ -277,8 +278,8 @@ public class AnnouncementService {
 
     /** 活跃用户数：公告发布时的受众快照（V40 已读率分母）。 */
     private int countActiveUsers() {
-        return (int) JooqWriters.count(dsl, JooqTables.SYS_USER,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("status", String.class).eq("ACTIVE")));
+        return (int) JooqWriters.count(dsl, USER,
+                DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("status", String.class).eq("ACTIVE")));
     }
 }
