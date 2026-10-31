@@ -185,8 +185,10 @@ def main():
 
     # ---------- 4. 资源迁移 ----------
     move_tree(os.path.join(mr, "i18n"), os.path.join(BASE, "scaffold-common", "src", "main", "resources", "i18n"))
-    move_tree(os.path.join(mr, "db", "codegen"), os.path.join(BASE, "scaffold-common", "src", "main", "resources", "db", "codegen"))
-    move_file(os.path.join(mr, "jooq-codegen.xml"), os.path.join(BASE, "scaffold-common", "src", "main", "resources", "jooq-codegen.xml"))
+    # 方案C（2026-10-31）已移除 jOOQ 代码生成层：源目录 mr/db/codegen 与 mr/jooq-codegen.xml 不再存在，
+    # 下列两行原用于将其迁移至 scaffold-common/resources；保留为历史痕迹，重跑本脚本时应跳过。
+    # move_tree(os.path.join(mr, "db", "codegen"), os.path.join(BASE, "scaffold-common", "src", "main", "resources", "db", "codegen"))
+    # move_file(os.path.join(mr, "jooq-codegen.xml"), os.path.join(BASE, "scaffold-common", "src", "main", "resources", "jooq-codegen.xml"))
     move_tree(os.path.join(mr, "db", "migration"), os.path.join(BASE, "scaffold-admin", "src", "main", "resources", "db", "migration"))
     move_tree(os.path.join(mr, "db", "reference"), os.path.join(BASE, "scaffold-admin", "src", "main", "resources", "db", "reference"))
     for f in ("application.yml", "application-local.yml", "application-prod.yml", "logback-spring.xml"):

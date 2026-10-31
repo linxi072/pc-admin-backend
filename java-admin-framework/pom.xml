@@ -228,8 +228,10 @@
     </build>
 
     <!--
-      jOOQ 代码生成 profile 位于 scaffold-common/pom.xml（生成物落 com.acme.scaffold.jooqgen，
-      与手写 DSL 的 com.acme.scaffold.jooq 并存）；父 POM 仅保留跨模块生效的 profile。
+      jOOQ 代码生成层已于方案C（2026-10-31，#857/#858）彻底移除：scaffold-common/pom.xml
+      中的 jooq-codegen-maven 插件与 jooq-codegen-online-repo profile 已删除，db/codegen/ 目录
+      与 jooq-codegen.xml 已物理移除。父 POM 仅保留 jooq.version 与 org.jooq:jooq 依赖管理
+      （手写动态 DSL 仍需核心运行库）。数据访问统一为纯手写 DSL，无代码生成步骤。
     -->
     <profiles>
         <!--
