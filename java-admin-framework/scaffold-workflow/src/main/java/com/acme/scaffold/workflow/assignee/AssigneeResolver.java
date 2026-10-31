@@ -3,7 +3,6 @@ package com.acme.scaffold.workflow.assignee;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.workflow.dto.design.WorkflowNodeDTO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -19,17 +18,17 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AssigneeResolver {
-    private static final JooqTables.TableRef SYS_ORG = JooqTables.toTableRef(Tables.SYS_ORG);
+    private static final JooqTables.TableRef SYS_ORG = JooqTables.SYS_ORG;
 
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
-    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 主管角色码，用于 INITIATOR_MANAGER 解析（可按实际部署调整）。 */
     private static final String MANAGER_ROLE_CODE = "MANAGER";
 
-    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
 

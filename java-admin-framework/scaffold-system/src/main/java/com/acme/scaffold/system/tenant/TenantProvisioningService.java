@@ -6,7 +6,6 @@ import com.acme.scaffold.common.tenant.TenantContext;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateOrgRequest;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.CreateUserRequest;
@@ -52,7 +51,7 @@ public class TenantProvisioningService {
     private final DSLContext dsl;
     private final TenantService tenantService;
 
-    private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
+    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
     private final UserService userService;
     private final RoleService roleService;
     private final OrgService orgService;

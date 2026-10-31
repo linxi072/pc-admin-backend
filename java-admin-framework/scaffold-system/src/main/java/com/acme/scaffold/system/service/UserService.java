@@ -9,7 +9,6 @@ import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.permission.ColumnField;
 import com.acme.scaffold.security.permission.ColumnPermission;
 import com.acme.scaffold.security.permission.ColumnPermissionFieldView;
@@ -62,10 +61,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
-    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
-    private static final JooqTables.TableRef USER_POST = JooqTables.toTableRef(Tables.SYS_USER_POST);
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
+    private static final JooqTables.TableRef USER_POST = JooqTables.SYS_USER_POST;
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 用户列表可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
     private static final Map<String, String> USER_SORT_FIELDS = JooqSorts.whitelist(
@@ -77,7 +76,7 @@ public class UserService {
 
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
-            JooqTables.toTableRef(Tables.SYS_ROLE);
+            JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;

@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * {@link DataScopeDataPort} 的 system 侧适配器实现。
@@ -31,8 +30,8 @@ import com.acme.scaffold.jooqgen.Tables;
 @RequiredArgsConstructor
 public class DataScopeDataAdapter implements DataScopeDataPort {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
-    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
 
     private final DSLContext dsl;
 

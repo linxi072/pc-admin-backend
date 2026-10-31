@@ -4,7 +4,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.ConfigGroupVO;
 import com.acme.scaffold.system.dto.ConfigVO;
 import com.acme.scaffold.system.dto.CreateConfigRequest;
@@ -40,12 +39,12 @@ public class ConfigService {
     private final Map<String, ConfigVO> cache = new ConcurrentHashMap<>();
 
     /** 桥接自代码生成层 {@code Tables.SYS_CONFIG} 的类型安全表引用（B14）。 */
-    private static final JooqTables.TableRef CONFIG = JooqTables.toTableRef(Tables.SYS_CONFIG);
+    private static final JooqTables.TableRef CONFIG = JooqTables.SYS_CONFIG;
 
     public List<ConfigVO> list() {
         List<SysConfigDO> all = JooqWriters.fetchList(dsl, CONFIG, SysConfigDO.class,
                 JooqWriters.notDeleted(CONFIG),
-                Tables.SYS_CONFIG.CONFIG_KEY.asc());
+                JooqTables.SYS_CONFIG.field("config_key", String.class).asc());
         return all.stream().map(this::toVO).collect(Collectors.toList());
     }
 
@@ -92,7 +91,7 @@ public class ConfigService {
         }
         SysConfigDO c = JooqWriters.fetchOne(dsl, CONFIG, SysConfigDO.class,
                 DSL.and(JooqWriters.notDeleted(CONFIG),
-                        Tables.SYS_CONFIG.CONFIG_KEY.eq(key)));
+                        JooqTables.SYS_CONFIG.field("config_key", String.class).eq(key)));
         if (c == null) {
             return null;
         }
@@ -162,6 +161,6 @@ public class ConfigService {
     private boolean existsByKey(String key) {
         return JooqWriters.count(dsl, CONFIG,
                 DSL.and(JooqWriters.notDeleted(CONFIG),
-                        Tables.SYS_CONFIG.CONFIG_KEY.eq(key))) > 0;
+                        JooqTables.SYS_CONFIG.field("config_key", String.class).eq(key))) > 0;
     }
 }

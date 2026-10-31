@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 基于手写 jOOQ DSL 的 {@link JobDagPort} 实现：从 {@code sys_job} 全量加载并构建反向依赖索引。
@@ -31,7 +30,7 @@ import com.acme.scaffold.jooqgen.Tables;
 @Component
 @RequiredArgsConstructor
 public class JooqJobDagAdapter implements JobDagPort {
-    private static final JooqTables.TableRef SYS_JOB = JooqTables.toTableRef(Tables.SYS_JOB);
+    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
 
 
     private final DSLContext dsl;

@@ -7,7 +7,6 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateNotificationTemplateRequest;
 import com.acme.scaffold.system.dto.NotificationTemplateView;
 import com.acme.scaffold.system.dto.PreviewNotificationTemplateRequest;
@@ -56,7 +55,7 @@ public class NotificationTemplateService {
 
     /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_TEMPLATE} 的类型安全表引用（B20）。 */
     private static final JooqTables.TableRef TEMPLATE =
-            JooqTables.toTableRef(Tables.SYS_NOTIFICATION_TEMPLATE);
+            JooqTables.SYS_NOTIFICATION_TEMPLATE;
 
     // ------------------------------------------------------------------
     // 查询
@@ -73,8 +72,8 @@ public class NotificationTemplateService {
         PageResult<SysNotificationTemplateDO> raw = JooqWriters.page(dsl, TEMPLATE,
                 SysNotificationTemplateDO.class, cond, query,
                 JooqSorts.resolve(TEMPLATE, query, TEMPLATE_SORT_FIELDS,
-                        Tables.SYS_NOTIFICATION_TEMPLATE.CREATED_AT.desc(),
-                        Tables.SYS_NOTIFICATION_TEMPLATE.ID.desc()));
+                        JooqTables.SYS_NOTIFICATION_TEMPLATE.field("created_at", java.time.LocalDateTime.class).desc(),
+                        JooqTables.SYS_NOTIFICATION_TEMPLATE.field("id", Long.class).desc()));
         List<NotificationTemplateView> views = raw.records().stream()
                 .map(d -> NotificationTemplateView.of(d,
                         NotificationTemplateRules.extractVariables(d.getContent())))
@@ -228,7 +227,7 @@ public class NotificationTemplateService {
         return JooqWriters.fetchOne(dsl, TEMPLATE,
                 SysNotificationTemplateDO.class,
                 DSL.and(JooqWriters.notDeleted(TEMPLATE),
-                        Tables.SYS_NOTIFICATION_TEMPLATE.TEMPLATE_CODE.eq(code)));
+                        JooqTables.SYS_NOTIFICATION_TEMPLATE.field("template_code", String.class).eq(code)));
     }
 
     /**
@@ -254,7 +253,7 @@ public class NotificationTemplateService {
         conds.add(JooqWriters.notDeleted(TEMPLATE));
         String ch = NotificationTemplateRules.normalizeChannel(channel);
         if (ch != null) {
-            conds.add(Tables.SYS_NOTIFICATION_TEMPLATE.CHANNEL.eq(ch));
+            conds.add(JooqTables.SYS_NOTIFICATION_TEMPLATE.field("channel", String.class).eq(ch));
         }
         if (enabled != null) {
             conds.add(TEMPLATE.field("enabled", Integer.class)
@@ -263,9 +262,9 @@ public class NotificationTemplateService {
         if (StringUtils.hasText(keyword)) {
             String kw = "%" + keyword.trim() + "%";
             conds.add(DSL.or(
-                    Tables.SYS_NOTIFICATION_TEMPLATE.TEMPLATE_CODE.like(kw),
-                    Tables.SYS_NOTIFICATION_TEMPLATE.TEMPLATE_NAME.like(kw),
-                    Tables.SYS_NOTIFICATION_TEMPLATE.CONTENT.like(kw)));
+                    JooqTables.SYS_NOTIFICATION_TEMPLATE.field("template_code", String.class).like(kw),
+                    JooqTables.SYS_NOTIFICATION_TEMPLATE.field("template_name", String.class).like(kw),
+                    JooqTables.SYS_NOTIFICATION_TEMPLATE.field("content", String.class).like(kw)));
         }
         return DSL.and(conds);
     }

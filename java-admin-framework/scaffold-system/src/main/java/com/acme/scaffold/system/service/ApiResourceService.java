@@ -4,7 +4,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.ApiResourceScanResult;
 import com.acme.scaffold.system.dto.ApiResourceSyncResult;
 import com.acme.scaffold.system.dto.ApiResourceView;
@@ -42,12 +41,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ApiResourceService {
 
-    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
     private final ApiResourceScanner scanner;
 
-    private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
+    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
 
     public List<ApiResourceView> list() {
         return JooqWriters.fetchList(dsl, AR, SysApiResourceDO.class,

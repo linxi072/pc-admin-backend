@@ -6,7 +6,6 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.AssignUserPostsRequest;
 import com.acme.scaffold.system.dto.CreatePostRequest;
 import com.acme.scaffold.system.dto.PostOptionVO;
@@ -39,12 +38,12 @@ import java.util.Map;
  * 供岗位管理页对存量用户补充分配。两处共用
  * {@link #replaceUserPosts(Long, List)} 保证语义一致。
  *
- * <p><b>数据访问层</b>：本服务是 jOOQ 代码生成层（{@code com.acme.scaffold.jooqgen.Tables}）
- * 渐进替换手写动态 DSL 的试点。类型安全表 {@code Tables.SYS_POST}/{@code Tables.SYS_USER_POST}
- * 经 {@link JooqTables#toTableRef} 桥接为 {@link JooqTables.TableRef} 后喂给
- * {@link JooqWriters}/{@link JooqSorts}，自动填充、逻辑删除、租户隔离、白名单排序等语义
- * 与手写 DSL 路径完全一致（零回归，其余 929 处调用方不受影响）。条件构造直接使用生成层
- * 的类型化字段（如 {@code Tables.SYS_POST.POST_CODE}），获得编译期列名校验。
+ * <p><b>数据访问层</b>：本服务采用手写动态 DSL（{@code JooqTables.SYS_POST} /
+ * {@code JooqTables.SYS_USER_POST} 经 {@link JooqTables.TableRef} 桥接）调用
+ * {@link JooqWriters}/{@link JooqSorts}，由动态 DSL 统一处理自动填充、逻辑删除、
+ * 租户隔离与白名单排序。条件字段使用 {@link JooqTables.TableRef#field(String, Class)}
+ * 的类型化构造（如 {@code JooqTables.SYS_POST.field("post_code", String.class)}），
+ * 获得运行时列名校验及与上述语义的一致保障。
  *
  * <p><b>删除语义</b>：岗位为逻辑删除；同时物理清理 sys_user_post 关联行，
  * 避免已删除岗位的悬挂关联（该表无 deleted 列，与 sys_user_org 处理一致）。
@@ -57,8 +56,8 @@ public class PostService {
     private static final String ACTIVE = "ACTIVE";
 
     /** 生成层类型安全表桥接为读写层 {@link JooqTables.TableRef}（物理表与条件字段同源，无别名歧义）。 */
-    private static final JooqTables.TableRef POST = JooqTables.toTableRef(Tables.SYS_POST);
-    private static final JooqTables.TableRef USER_POST = JooqTables.toTableRef(Tables.SYS_USER_POST);
+    private static final JooqTables.TableRef POST = JooqTables.SYS_POST;
+    private static final JooqTables.TableRef USER_POST = JooqTables.SYS_USER_POST;
 
     /** 岗位列表可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
     private static final Map<String, String> POST_SORT_FIELDS = JooqSorts.whitelist(
@@ -83,18 +82,18 @@ public class PostService {
         if (StringUtils.hasText(query.keyword())) {
             String kw = "%" + query.keyword().trim() + "%";
             conds.add(DSL.or(
-                    Tables.SYS_POST.POST_CODE.like(kw),
-                    Tables.SYS_POST.POST_NAME.like(kw)));
+                    JooqTables.SYS_POST.field("post_code", String.class).like(kw),
+                    JooqTables.SYS_POST.field("post_name", String.class).like(kw)));
         }
         if (StringUtils.hasText(query.status())) {
-            conds.add(Tables.SYS_POST.STATUS.eq(query.status().trim()));
+            conds.add(JooqTables.SYS_POST.field("status", String.class).eq(query.status().trim()));
         }
 
         var pageQuery = query.toPageQuery();
         PageResult<SysPostDO> page = JooqWriters.page(dsl, POST, SysPostDO.class, DSL.and(conds), pageQuery,
                 JooqSorts.resolve(POST, pageQuery, POST_SORT_FIELDS,
-                        Tables.SYS_POST.POST_SORT.asc(),
-                        Tables.SYS_POST.ID.desc()));
+                        JooqTables.SYS_POST.field("post_sort", Integer.class).asc(),
+                        JooqTables.SYS_POST.field("id", Long.class).desc()));
 
         List<PostView> views = page.records().stream().map(PostView::from).toList();
         return new PageResult<>(page.page(), page.size(), page.total(), views);
@@ -103,9 +102,9 @@ public class PostService {
     /** 全部启用岗位（下拉选项）：按 post_sort 升序、id 升序稳定返回。 */
     public List<PostOptionVO> options() {
         List<SysPostDO> posts = JooqWriters.fetchList(dsl, POST, SysPostDO.class,
-                DSL.and(JooqWriters.notDeleted(POST), Tables.SYS_POST.STATUS.eq(ACTIVE)),
-                Tables.SYS_POST.POST_SORT.asc(),
-                Tables.SYS_POST.ID.asc());
+                DSL.and(JooqWriters.notDeleted(POST), JooqTables.SYS_POST.field("status", String.class).eq(ACTIVE)),
+                JooqTables.SYS_POST.field("post_sort", Integer.class).asc(),
+                JooqTables.SYS_POST.field("id", Long.class).asc());
         return posts.stream()
                 .map(p -> new PostOptionVO(p.getId(), p.getPostName()))
                 .toList();
@@ -231,13 +230,13 @@ public class PostService {
             return Map.of();
         }
         List<SysUserPostDO> rels = JooqWriters.fetchList(dsl, USER_POST, SysUserPostDO.class,
-                Tables.SYS_USER_POST.USER_ID.in(userIds));
+                JooqTables.SYS_USER_POST.field("user_id", Long.class).in(userIds));
         if (rels.isEmpty()) {
             return Map.of();
         }
         List<Long> postIds = rels.stream().map(SysUserPostDO::getPostId).distinct().toList();
         List<SysPostDO> posts = JooqWriters.fetchList(dsl, POST, SysPostDO.class,
-                DSL.and(JooqWriters.notDeleted(POST), Tables.SYS_POST.ID.in(postIds)));
+                DSL.and(JooqWriters.notDeleted(POST), JooqTables.SYS_POST.field("id", Long.class).in(postIds)));
         Map<Long, String> postNameOf = new HashMap<>();
         for (SysPostDO post : posts) {
             postNameOf.put(post.getId(), post.getPostName());
@@ -269,9 +268,9 @@ public class PostService {
     private void assertCodeAbsent(String code, Long excludeId) {
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(POST));
-        conds.add(Tables.SYS_POST.POST_CODE.eq(code));
+        conds.add(JooqTables.SYS_POST.field("post_code", String.class).eq(code));
         if (excludeId != null) {
-            conds.add(Tables.SYS_POST.ID.ne(excludeId));
+            conds.add(JooqTables.SYS_POST.field("id", Long.class).ne(excludeId));
         }
         long count = JooqWriters.count(dsl, POST, DSL.and(conds));
         if (count > 0) {
@@ -282,7 +281,7 @@ public class PostService {
     /** 批量存在性校验：数量不一致即存在无效/已删除岗位。 */
     private void assertPostsExist(List<Long> postIds) {
         List<SysPostDO> posts = JooqWriters.fetchList(dsl, POST, SysPostDO.class,
-                DSL.and(JooqWriters.notDeleted(POST), Tables.SYS_POST.ID.in(postIds)));
+                DSL.and(JooqWriters.notDeleted(POST), JooqTables.SYS_POST.field("id", Long.class).in(postIds)));
         if (posts.size() != postIds.size()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "包含不存在或已删除的岗位");
         }

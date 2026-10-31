@@ -4,7 +4,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateDictDataRequest;
 import com.acme.scaffold.system.dto.DictDataVO;
 import com.acme.scaffold.system.dto.UpdateDictDataRequest;
@@ -39,7 +38,7 @@ public class DictDataService {
     }
 
     /** 类型安全生成表（桥接自手写 TableRef，列名与 JooqTables.SYS_DICT_DATA 严格一致）。 */
-    private static final JooqTables.TableRef DATA = JooqTables.toTableRef(Tables.SYS_DICT_DATA);
+    private static final JooqTables.TableRef DATA = JooqTables.SYS_DICT_DATA;
 
     private final DSLContext dsl;
 
@@ -56,10 +55,10 @@ public class DictDataService {
         String typeCode = cacheKey(dictTypeCode);
         Condition cond = JooqWriters.notDeleted(DATA);
         if (!ALL_TYPES.equals(typeCode)) {
-            cond = DSL.and(cond, Tables.SYS_DICT_DATA.DICT_TYPE_CODE.eq(typeCode));
+            cond = DSL.and(cond, JooqTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(typeCode));
         }
         List<SysDictDataDO> all = JooqWriters.fetchList(dsl, DATA, SysDictDataDO.class,
-                cond, Tables.SYS_DICT_DATA.DICT_SORT.asc());
+                cond, JooqTables.SYS_DICT_DATA.field("dict_sort", Integer.class).asc());
         return all.stream().map(d -> new DictDataVO(d.getId(), d.getDictTypeCode(), d.getDictLabel(),
                 d.getDictValue(), d.getDictSort(), d.getStatus(), d.getRemark())).toList();
     }
@@ -128,10 +127,10 @@ public class DictDataService {
 
     private boolean existsByTypeAndValue(String typeCode, String value, Long excludeId) {
         Condition cond = DSL.and(JooqWriters.notDeleted(DATA),
-                Tables.SYS_DICT_DATA.DICT_TYPE_CODE.eq(typeCode),
-                Tables.SYS_DICT_DATA.DICT_VALUE.eq(value));
+                JooqTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(typeCode),
+                JooqTables.SYS_DICT_DATA.field("dict_value", String.class).eq(value));
         if (excludeId != null) {
-            cond = DSL.and(cond, Tables.SYS_DICT_DATA.ID.ne(excludeId));
+            cond = DSL.and(cond, JooqTables.SYS_DICT_DATA.field("id", Long.class).ne(excludeId));
         }
         return JooqWriters.count(dsl, DATA, cond) > 0;
     }

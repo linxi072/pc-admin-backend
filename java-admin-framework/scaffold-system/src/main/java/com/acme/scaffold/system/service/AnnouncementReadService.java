@@ -6,7 +6,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.AnnouncementReadStatsView;
 import com.acme.scaffold.system.dto.AnnouncementReceiptQuery;
@@ -56,7 +55,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AnnouncementReadService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private static final String PUBLISHED = "PUBLISHED";
     private static final String ACTIVE = "ACTIVE";
@@ -65,9 +64,9 @@ public class AnnouncementReadService {
     private static final int MAX_MARK_ALL = 1000;
 
     /** 公告已读回执表（jOOQ 生成层类型安全桥接，表名与手写 {@code JooqTables.SYS_ANNOUNCEMENT_READ} 相等）。 */
-    private static final JooqTables.TableRef READ = JooqTables.toTableRef(Tables.SYS_ANNOUNCEMENT_READ);
+    private static final JooqTables.TableRef READ = JooqTables.SYS_ANNOUNCEMENT_READ;
 
-    private static final JooqTables.TableRef ANNOUNCEMENT = JooqTables.toTableRef(Tables.SYS_ANNOUNCEMENT);
+    private static final JooqTables.TableRef ANNOUNCEMENT = JooqTables.SYS_ANNOUNCEMENT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -113,8 +112,8 @@ public class AnnouncementReadService {
     private int markReadInternal(Long announcementId, Long userId) {
         SysAnnouncementReadDO exist = JooqWriters.fetchOne(dsl, READ,
                 SysAnnouncementReadDO.class,
-                DSL.and(Tables.SYS_ANNOUNCEMENT_READ.ANNOUNCEMENT_ID.eq(announcementId),
-                        Tables.SYS_ANNOUNCEMENT_READ.USER_ID.eq(userId)));
+                DSL.and(JooqTables.SYS_ANNOUNCEMENT_READ.field("announcement_id", Long.class).eq(announcementId),
+                        JooqTables.SYS_ANNOUNCEMENT_READ.field("user_id", Long.class).eq(userId)));
         if (exist != null) {
             return 0; // 已读，幂等返回
         }
@@ -230,11 +229,11 @@ public class AnnouncementReadService {
         var usr = USER;
 
         List<Condition> conds = new ArrayList<>();
-        conds.add(Tables.SYS_ANNOUNCEMENT_READ.ANNOUNCEMENT_ID.eq(query.announcementId()));
+        conds.add(JooqTables.SYS_ANNOUNCEMENT_READ.field("announcement_id", Long.class).eq(query.announcementId()));
         if (StringUtils.hasText(query.keyword())) {
             // 阅读人关键字走子查询限定 user_id 集合：保持主表单表分页，免 join
             String kw = "%" + query.keyword().trim() + "%";
-            conds.add(Tables.SYS_ANNOUNCEMENT_READ.USER_ID.in(
+            conds.add(JooqTables.SYS_ANNOUNCEMENT_READ.field("user_id", Long.class).in(
                     dsl.select(usr.field("id", Long.class)).from(usr.table())
                             .where(DSL.or(usr.field("display_name", String.class).like(kw),
                                     usr.field("username", String.class).like(kw)))));
@@ -243,8 +242,8 @@ public class AnnouncementReadService {
         var q = query.toPageQuery();
         PageResult<SysAnnouncementReadDO> pageResult = JooqWriters.page(dsl, rd,
                 SysAnnouncementReadDO.class, DSL.and(conds), q,
-                Tables.SYS_ANNOUNCEMENT_READ.READ_AT.desc(),
-                Tables.SYS_ANNOUNCEMENT_READ.ID.desc());
+                JooqTables.SYS_ANNOUNCEMENT_READ.field("read_at", java.time.LocalDateTime.class).desc(),
+                JooqTables.SYS_ANNOUNCEMENT_READ.field("id", Long.class).desc());
 
         Set<Long> userIds = pageResult.records().stream()
                 .map(SysAnnouncementReadDO::getUserId).filter(Objects::nonNull).collect(Collectors.toSet());

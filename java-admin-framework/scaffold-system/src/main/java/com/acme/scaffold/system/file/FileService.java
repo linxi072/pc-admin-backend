@@ -9,7 +9,6 @@ import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.jooq.paging.JooqKeysetPager;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.entity.SysFileDO;
@@ -71,7 +70,7 @@ public class FileService {
     private static final int BATCH_DELETE_LIMIT = 100;
 
     /** 桥接自代码生成层 {@code Tables.SYS_FILE} 的类型安全表引用（B22）。 */
-    private static final JooqTables.TableRef FILE = JooqTables.toTableRef(Tables.SYS_FILE);
+    private static final JooqTables.TableRef FILE = JooqTables.SYS_FILE;
 
     private final DSLContext dsl;
     private final FileStorageService fileStorageService;
@@ -181,8 +180,8 @@ public class FileService {
         // 下载计数 +1（乐观自增；失败仅告警，不阻塞下载）
         try {
             dsl.update(FILE.table())
-                    .set(Tables.SYS_FILE.DOWNLOAD_COUNT, Tables.SYS_FILE.DOWNLOAD_COUNT.plus(1))
-                    .where(Tables.SYS_FILE.ID.eq(id))
+                    .set(JooqTables.SYS_FILE.field("download_count", Long.class), JooqTables.SYS_FILE.field("download_count", Long.class).plus(1))
+                    .where(JooqTables.SYS_FILE.field("id", Long.class).eq(id))
                     .execute();
         } catch (RuntimeException e) {
             log.warn("下载计数更新失败 fileId={}", id, e);
@@ -239,7 +238,7 @@ public class FileService {
         }
         long refCount = JooqWriters.count(dsl, FILE, DSL.and(
                 JooqWriters.notDeleted(FILE),
-                Tables.SYS_FILE.STORED_NAME.eq(record.getStoredName())));
+                JooqTables.SYS_FILE.field("stored_name", String.class).eq(record.getStoredName())));
         if (FileDedupRules.shouldDeletePhysical(refCount)) {
             fileStorageService.delete(record.getStoredName());
         } else {
@@ -266,10 +265,10 @@ public class FileService {
     @Transactional(readOnly = true)
     public FileStatsView stats() {
         Result<Record3<String, Integer, BigDecimal>> rs = dsl
-                .select(Tables.SYS_FILE.SOURCE_MODULE, DSL.count(), DSL.sum(Tables.SYS_FILE.FILE_SIZE))
+                .select(JooqTables.SYS_FILE.field("source_module", String.class), DSL.count(), DSL.sum(JooqTables.SYS_FILE.field("file_size", Long.class)))
                 .from(FILE.table())
                 .where(JooqWriters.notDeleted(FILE))
-                .groupBy(Tables.SYS_FILE.SOURCE_MODULE)
+                .groupBy(JooqTables.SYS_FILE.field("source_module", String.class))
                 .orderBy(DSL.count().desc())
                 .fetch();
         List<ModuleFileStat> modules = new ArrayList<>(rs.size());
@@ -289,7 +288,7 @@ public class FileService {
     private SysFileDO findByContentHash(String contentHash) {
         return JooqWriters.fetchOne(dsl, FILE, SysFileDO.class, DSL.and(
                 JooqWriters.notDeleted(FILE),
-                Tables.SYS_FILE.CONTENT_HASH.eq(contentHash)));
+                JooqTables.SYS_FILE.field("content_hash", String.class).eq(contentHash)));
     }
 
     /** 分页查询（含来源模块 / 上传人 / 文件名筛选，逻辑删除自动排除）。 */
@@ -299,19 +298,19 @@ public class FileService {
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(FILE));
         if (sourceModule != null && !sourceModule.isBlank()) {
-            conds.add(Tables.SYS_FILE.SOURCE_MODULE.eq(sourceModule.trim()));
+            conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
         }
         if (uploaderName != null && !uploaderName.isBlank()) {
-            conds.add(Tables.SYS_FILE.UPLOADER_NAME.like("%" + uploaderName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class).like("%" + uploaderName.trim() + "%"));
         }
         if (originalName != null && !originalName.isBlank()) {
-            conds.add(Tables.SYS_FILE.ORIGINAL_NAME.like("%" + originalName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class).like("%" + originalName.trim() + "%"));
         }
         Condition cond = DSL.and(conds);
         PageQuery q = PageQuery.of(page, size, sortField, sortDirection);
         var raw = JooqWriters.page(dsl, FILE, SysFileDO.class, cond, q,
                 JooqSorts.resolve(FILE, q, FILE_SORT_FIELDS,
-                        Tables.SYS_FILE.CREATED_AT.desc()));
+                        JooqTables.SYS_FILE.field("created_at", java.time.LocalDateTime.class).desc()));
         List<FileView> views = toViewsWithSharedFlag(raw.records());
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
     }
@@ -322,17 +321,17 @@ public class FileService {
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(FILE));
         if (sourceModule != null && !sourceModule.isBlank()) {
-            conds.add(Tables.SYS_FILE.SOURCE_MODULE.eq(sourceModule.trim()));
+            conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
         }
         if (uploaderName != null && !uploaderName.isBlank()) {
-            conds.add(Tables.SYS_FILE.UPLOADER_NAME.like("%" + uploaderName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class).like("%" + uploaderName.trim() + "%"));
         }
         if (originalName != null && !originalName.isBlank()) {
-            conds.add(Tables.SYS_FILE.ORIGINAL_NAME.like("%" + originalName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class).like("%" + originalName.trim() + "%"));
         }
         Condition cond = DSL.and(conds);
         List<SysFileDO> records = JooqWriters.fetchList(dsl, FILE, SysFileDO.class, cond,
-                Tables.SYS_FILE.CREATED_AT.desc());
+                JooqTables.SYS_FILE.field("created_at", java.time.LocalDateTime.class).desc());
         return toViewsWithSharedFlag(records);
     }
 
@@ -348,19 +347,19 @@ public class FileService {
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(FILE));
         if (sourceModule != null && !sourceModule.isBlank()) {
-            conds.add(Tables.SYS_FILE.SOURCE_MODULE.eq(sourceModule.trim()));
+            conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
         }
         if (uploaderName != null && !uploaderName.isBlank()) {
-            conds.add(Tables.SYS_FILE.UPLOADER_NAME.like("%" + uploaderName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class).like("%" + uploaderName.trim() + "%"));
         }
         if (originalName != null && !originalName.isBlank()) {
-            conds.add(Tables.SYS_FILE.ORIGINAL_NAME.like("%" + originalName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class).like("%" + originalName.trim() + "%"));
         }
         Condition cond = DSL.and(conds);
         KeysetPageQuery q = new KeysetPageQuery(size, cursor);
         Field<?>[] keyFields = new Field<?>[]{
-                Tables.SYS_FILE.CREATED_AT,
-                Tables.SYS_FILE.ID
+                JooqTables.SYS_FILE.field("created_at", java.time.LocalDateTime.class),
+                JooqTables.SYS_FILE.field("id", Long.class)
         };
         boolean[] ascending = {false, false}; // created_at DESC, id DESC
         KeysetPageResult<SysFileDO> raw = JooqKeysetPager.query(dsl, FILE, SysFileDO.class,
@@ -388,11 +387,11 @@ public class FileService {
             names.add(d.getStoredName());
         }
         Result<Record2<String, Integer>> rs = dsl
-                .select(Tables.SYS_FILE.STORED_NAME, DSL.count())
+                .select(JooqTables.SYS_FILE.field("stored_name", String.class), DSL.count())
                 .from(FILE.table())
                 .where(DSL.and(JooqWriters.notDeleted(FILE),
-                        Tables.SYS_FILE.STORED_NAME.in(names)))
-                .groupBy(Tables.SYS_FILE.STORED_NAME)
+                        JooqTables.SYS_FILE.field("stored_name", String.class).in(names)))
+                .groupBy(JooqTables.SYS_FILE.field("stored_name", String.class))
                 .fetch();
         Set<String> shared = new java.util.HashSet<>();
         for (Record2<String, Integer> r : rs) {

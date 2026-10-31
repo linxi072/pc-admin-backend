@@ -4,7 +4,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.permission.ColumnPermissionRules;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.entity.SysRoleColumnPermissionDO;
@@ -38,14 +37,14 @@ public class RoleColumnPermissionService {
     /** 单角色允许的字段权限码数量上限，防止误传超大列表拖垮事务。 */
     private static final int MAX_CODES = 2000;
 
-    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
     private final TokenVersionService tokenVersionService;
 
     /** 桥接自代码生成层 {@code Tables.SYS_ROLE_COLUMN_PERMISSION} 的类型安全表引用（B21）。 */
     private static final JooqTables.TableRef RCP =
-            JooqTables.toTableRef(Tables.SYS_ROLE_COLUMN_PERMISSION);
+            JooqTables.SYS_ROLE_COLUMN_PERMISSION;
 
     /**
      * 查询某角色已配置的全部字段权限码（形如 {@code system:user:column:mobile}）。
@@ -57,7 +56,7 @@ public class RoleColumnPermissionService {
         requireRole(roleId);
         List<SysRoleColumnPermissionDO> rows = JooqWriters.fetchList(dsl, RCP,
                 SysRoleColumnPermissionDO.class,
-                Tables.SYS_ROLE_COLUMN_PERMISSION.ROLE_ID.eq(roleId));
+                JooqTables.SYS_ROLE_COLUMN_PERMISSION.field("role_id", Long.class).eq(roleId));
         return rows.stream()
                 .map(r -> ColumnPermissionRules.columnPermissionCode(r.getResourceCode(), r.getField()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -75,7 +74,7 @@ public class RoleColumnPermissionService {
         }
         List<SysRoleColumnPermissionDO> rows = JooqWriters.fetchList(dsl, RCP,
                 SysRoleColumnPermissionDO.class,
-                Tables.SYS_ROLE_COLUMN_PERMISSION.ROLE_ID.in(roleIds));
+                JooqTables.SYS_ROLE_COLUMN_PERMISSION.field("role_id", Long.class).in(roleIds));
         return rows.stream()
                 .map(r -> ColumnPermissionRules.columnPermissionCode(r.getResourceCode(), r.getField()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));

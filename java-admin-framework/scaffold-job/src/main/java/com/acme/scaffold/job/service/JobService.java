@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 定时任务管理服务：任务配置、启动、暂停、列表与实时状态、执行日志。
@@ -62,8 +61,8 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class JobService {
-    private static final JooqTables.TableRef SYS_JOB = JooqTables.toTableRef(Tables.SYS_JOB);
-    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.toTableRef(Tables.SYS_JOB_LOG);
+    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
+    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
 
 
     private static final ZoneId ZONE = ZoneId.systemDefault();

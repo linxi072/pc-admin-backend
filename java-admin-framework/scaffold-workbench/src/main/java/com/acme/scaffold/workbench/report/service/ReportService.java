@@ -40,7 +40,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 报表管理聚合：不引入独立统计表，直接对业务日志做聚合查询。
@@ -70,9 +69,9 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class ReportService {
-    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.toTableRef(Tables.SYS_JOB_LOG);
-    private static final JooqTables.TableRef SYS_LOGIN_LOG = JooqTables.toTableRef(Tables.SYS_LOGIN_LOG);
-    private static final JooqTables.TableRef SYS_OPERATION_LOG = JooqTables.toTableRef(Tables.SYS_OPERATION_LOG);
+    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
+    private static final JooqTables.TableRef SYS_LOGIN_LOG = JooqTables.SYS_LOGIN_LOG;
+    private static final JooqTables.TableRef SYS_OPERATION_LOG = JooqTables.SYS_OPERATION_LOG;
 
 
     private final DSLContext dsl;

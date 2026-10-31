@@ -5,7 +5,6 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tree.TreeBuilder;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
 import com.acme.scaffold.system.dto.MenuSortItem;
 import com.acme.scaffold.system.dto.MenuTreeVO;
@@ -45,7 +44,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MenuService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
 
     /** 管理端菜单树缓存名（单一 {@value #ALL_KEY} 键，监控页 / 清理端点按此定位）。 */
     public static final String MENU_TREE_CACHE = "menu-tree";
@@ -59,7 +58,7 @@ public class MenuService {
     private final DSLContext dsl;
 
     /** 桥接自代码生成层 {@code Tables.SYS_MENU} 的类型安全表引用（B15）。 */
-    private static final JooqTables.TableRef MENU = JooqTables.toTableRef(Tables.SYS_MENU);
+    private static final JooqTables.TableRef MENU = JooqTables.SYS_MENU;
 
     /**
      * 返回菜单树（按 parentId 聚合排序）。
@@ -73,8 +72,8 @@ public class MenuService {
     public List<MenuTreeVO> tree() {
         List<SysMenuDO> all = JooqWriters.fetchList(dsl, MENU, SysMenuDO.class,
                 JooqWriters.notDeleted(MENU),
-                Tables.SYS_MENU.SORT_NO.asc(),
-                Tables.SYS_MENU.ID.asc());
+                JooqTables.SYS_MENU.field("sort_no", Integer.class).asc(),
+                JooqTables.SYS_MENU.field("id", Long.class).asc());
         // 层级组装复用 common/tree/TreeBuilder（与 OrgService 同一实现，含环防护）
         return TreeBuilder.build(all, SysMenuDO::getId, MenuService::parentIdOf,
                 m -> parentIdOf(m) == 0L, MenuService::toMenuTreeVO);
@@ -175,7 +174,7 @@ public class MenuService {
     public void delete(Long id) {
         long childCount = JooqWriters.count(dsl, MENU,
                 DSL.and(JooqWriters.notDeleted(MENU),
-                        Tables.SYS_MENU.PARENT_ID.eq(id)));
+                        JooqTables.SYS_MENU.field("parent_id", Long.class).eq(id)));
         if (childCount > 0) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "请先删除子菜单");
         }

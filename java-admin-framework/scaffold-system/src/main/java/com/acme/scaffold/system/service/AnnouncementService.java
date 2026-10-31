@@ -6,7 +6,6 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.AnnouncementQuery;
 import com.acme.scaffold.system.dto.AnnouncementView;
@@ -44,7 +43,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class AnnouncementService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private static final String DRAFT = "DRAFT";
     private static final String PUBLISHED = "PUBLISHED";
@@ -60,7 +59,7 @@ public class AnnouncementService {
             "expireAt", "expire_at",
             "createdAt", "created_at");
 
-    private static final JooqTables.TableRef ANNOUNCEMENT = JooqTables.toTableRef(Tables.SYS_ANNOUNCEMENT);
+    private static final JooqTables.TableRef ANNOUNCEMENT = JooqTables.SYS_ANNOUNCEMENT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;

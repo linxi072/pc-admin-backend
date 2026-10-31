@@ -5,7 +5,6 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tree.TreeBuilder;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.security.permission.DataScopeContext;
@@ -40,7 +39,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrgService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 部门资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。 */
     public static final String RESOURCE_CODE = "system:org";
@@ -54,7 +53,7 @@ public class OrgService {
     private final DSLContext dsl;
 
     /** 桥接自代码生成层 {@code Tables.SYS_ORG} 的类型安全表引用（B16）。 */
-    private static final JooqTables.TableRef ORG = JooqTables.toTableRef(Tables.SYS_ORG);
+    private static final JooqTables.TableRef ORG = JooqTables.SYS_ORG;
 
     /**
      * 机构树（数据权限敏感热点读）。
@@ -70,7 +69,7 @@ public class OrgService {
         List<SysOrgDO> all = JooqWriters.fetchList(dsl, ORG, SysOrgDO.class,
                 DSL.and(JooqWriters.notDeleted(ORG),
                         DataScopeConditions.of(ORG, "id")),
-                Tables.SYS_ORG.SORT_NO.asc());
+                JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
         // 负责人姓名映射：一次 IN 批量查询（displayName 优先、回落 username），
         // 避免逐节点按 leaderUserId 回查用户表形成 N+1
         Map<Long, String> leaderNames = loadLeaderNames(all.stream()
@@ -165,7 +164,7 @@ public class OrgService {
     private boolean existsByCode(String code) {
         return JooqWriters.count(dsl, ORG,
                 DSL.and(JooqWriters.notDeleted(ORG),
-                        Tables.SYS_ORG.ORG_CODE.eq(code))) > 0;
+                        JooqTables.SYS_ORG.field("org_code", String.class).eq(code))) > 0;
     }
 
     @Transactional
@@ -220,7 +219,7 @@ public class OrgService {
     public void delete(Long id) {
         long childCount = JooqWriters.count(dsl, ORG,
                 DSL.and(JooqWriters.notDeleted(ORG),
-                        Tables.SYS_ORG.PARENT_ID.eq(id)));
+                        JooqTables.SYS_ORG.field("parent_id", Long.class).eq(id)));
         if (childCount > 0) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "请先删除子机构");
         }
@@ -230,7 +229,7 @@ public class OrgService {
     private List<SysOrgDO> loadAll() {
         return JooqWriters.fetchList(dsl, ORG, SysOrgDO.class,
                 JooqWriters.notDeleted(ORG),
-                Tables.SYS_ORG.SORT_NO.asc());
+                JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
     }
 
     // 收集节点及其全部子孙的 id 集合（用于层级移动的防环校验）

@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 个人中心「自助改密」子域（从 {@link ProfileService} 抽离，C2 重构）。
@@ -31,7 +30,7 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class ProfilePasswordService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;

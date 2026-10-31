@@ -5,7 +5,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.BindContactRequest;
 import com.acme.scaffold.system.dto.DeviceView;
 import com.acme.scaffold.system.dto.PreferenceView;
@@ -42,11 +41,11 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ProfileService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
-    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
-    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;

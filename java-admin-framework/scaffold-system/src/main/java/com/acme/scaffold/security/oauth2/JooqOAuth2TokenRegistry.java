@@ -5,7 +5,6 @@ import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
@@ -30,7 +29,7 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef OT = JooqTables.toTableRef(Tables.SYS_OAUTH2_TOKEN);
+    private static final JooqTables.TableRef OT = JooqTables.SYS_OAUTH2_TOKEN;
 
     private static final String STATUS_ACTIVE = "ACTIVE";
 

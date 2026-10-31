@@ -3,7 +3,6 @@ package com.acme.scaffold.security.token.service;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.security.error.SecurityErrorCode;
@@ -36,7 +35,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     private final SecureRandom secureRandom = new SecureRandom();
 
     private static final JooqTables.TableRef RT =
-            JooqTables.toTableRef(Tables.SYS_REFRESH_TOKEN);
+            JooqTables.SYS_REFRESH_TOKEN;
 
     @Override
     public String issue(Long userId, String clientId, String deviceId, String userAgent, String ip) {

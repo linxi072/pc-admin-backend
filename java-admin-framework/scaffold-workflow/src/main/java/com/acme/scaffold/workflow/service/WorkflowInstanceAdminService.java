@@ -21,7 +21,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 流程实例治理服务（M23 续）：管理员视角的实例高风险写操作——重新指派、挂起/恢复、跨版本迁移。
@@ -37,9 +36,9 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class WorkflowInstanceAdminService {
-    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.toTableRef(Tables.WF_APPROVAL_RECORD);
-    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.toTableRef(Tables.WF_INSTANCE_EXT);
-    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.toTableRef(Tables.WF_TASK_EXT);
+    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.WF_APPROVAL_RECORD;
+    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
+    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
 
 
     private final WorkflowEnginePort engine;

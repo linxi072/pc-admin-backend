@@ -4,7 +4,6 @@ import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.notifylog.domain.SysNotificationRecordDO;
 import com.acme.scaffold.system.notifylog.rules.NotificationRecordRules;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +35,7 @@ public class NotificationRecordRecorder {
 
     /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_RECORD} 的类型安全表引用（B24）。 */
     private static final JooqTables.TableRef RECORD =
-            JooqTables.toTableRef(Tables.SYS_NOTIFICATION_RECORD);
+            JooqTables.SYS_NOTIFICATION_RECORD;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;

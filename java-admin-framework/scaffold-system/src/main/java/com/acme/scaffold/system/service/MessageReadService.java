@@ -5,7 +5,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageReadStatsView;
 import com.acme.scaffold.system.dto.MessageReceiptQuery;
@@ -51,14 +50,14 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MessageReadService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef MSG =
-            JooqTables.toTableRef(Tables.SYS_MESSAGE);
+            JooqTables.SYS_MESSAGE;
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef RC =
-            JooqTables.toTableRef(Tables.SYS_MESSAGE_RECEIPT);
+            JooqTables.SYS_MESSAGE_RECEIPT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;

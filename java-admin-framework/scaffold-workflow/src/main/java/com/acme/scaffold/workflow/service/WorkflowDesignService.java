@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 自定义工作流设计服务：管理「草稿 -> 发布 -> 取消发布 -> 再编辑」全生命周期。
@@ -44,7 +43,7 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class WorkflowDesignService {
-    private static final JooqTables.TableRef WF_WORKFLOW_DESIGN = JooqTables.toTableRef(Tables.WF_WORKFLOW_DESIGN);
+    private static final JooqTables.TableRef WF_WORKFLOW_DESIGN = JooqTables.WF_WORKFLOW_DESIGN;
 
 
     private final WorkflowEnginePort engine;

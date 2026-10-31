@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 工作流应用服务：编排引擎端口与业务扩展表，保证审批记录不可变且写操作幂等。
@@ -52,11 +51,11 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class WorkflowService {
-    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.toTableRef(Tables.WF_APPROVAL_RECORD);
-    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.toTableRef(Tables.WF_INSTANCE_EXT);
-    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.toTableRef(Tables.WF_TASK_EXT);
+    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.WF_APPROVAL_RECORD;
+    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
+    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
 
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final WorkflowEnginePort engine;
     private final DSLContext dsl;

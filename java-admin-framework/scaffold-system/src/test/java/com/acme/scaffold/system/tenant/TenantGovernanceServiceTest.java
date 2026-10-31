@@ -4,8 +4,8 @@ import com.acme.scaffold.common.tenant.TenantContext;
 import com.acme.scaffold.jooq.dsl.TenantTables;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
-import com.acme.scaffold.jooqgen.Tables;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.Record;
 import org.jooq.SQLDialect;
 import org.jooq.conf.ParamType;
@@ -101,29 +101,47 @@ class TenantGovernanceServiceTest {
                 return new MockResult[]{new MockResult(1)};
             }
             if (lower.contains("sys_tenant")) {
-                // 生成层已迁移到类型化表：selectFrom(Tables.SYS_TENANT) 按列序投影全部 16 列并按下标读取，
-                // MockResultSet 的列数与类型须与生成表完全一致。直接用生成表构造 16 列 Result（列序/类型天然匹配），
-                // 填入非空哨兵值；仅 tenant_name 用于断言。
+                // 手写 DSL 下 SYS_TENANT 的 table() 为无列元数据的纯表名，无法用 newRecord(table) 构造带列的
+                // Record；故显式声明 16 个字段构造 Result/Record（列序/类型与手写表定义一致），填入非空哨兵值；
+                // 仅 tenant_name 用于断言。
                 LocalDateTime now = LocalDateTime.now();
                 var dslMock = DSL.using(conn);
-                var t = dslMock.newRecord(Tables.SYS_TENANT);
-                t.set(Tables.SYS_TENANT.ID, 1L);
-                t.set(Tables.SYS_TENANT.TENANT_ID, 1L);
-                t.set(Tables.SYS_TENANT.TENANT_CODE, "T1");
-                t.set(Tables.SYS_TENANT.TENANT_NAME, "T1");
-                t.set(Tables.SYS_TENANT.CONTACT_NAME, "c");
-                t.set(Tables.SYS_TENANT.CONTACT_PHONE, "p");
-                t.set(Tables.SYS_TENANT.CONTACT_EMAIL, "e");
-                t.set(Tables.SYS_TENANT.STATUS, "ACTIVE");
-                t.set(Tables.SYS_TENANT.EXPIRE_AT, now);
-                t.set(Tables.SYS_TENANT.REMARK, "r");
-                t.set(Tables.SYS_TENANT.VERSION, 1L);
-                t.set(Tables.SYS_TENANT.DELETED, (byte) 0);
-                t.set(Tables.SYS_TENANT.CREATED_BY, "sys");
-                t.set(Tables.SYS_TENANT.CREATED_AT, now);
-                t.set(Tables.SYS_TENANT.UPDATED_BY, "sys");
-                t.set(Tables.SYS_TENANT.UPDATED_AT, now);
-                var res = dslMock.newResult(Tables.SYS_TENANT);
+                Field<?>[] tenantCols = {
+                        JooqTables.SYS_TENANT.field("id", Long.class),
+                        JooqTables.SYS_TENANT.field("tenant_id", Long.class),
+                        JooqTables.SYS_TENANT.field("tenant_code", String.class),
+                        JooqTables.SYS_TENANT.field("tenant_name", String.class),
+                        JooqTables.SYS_TENANT.field("contact_name", String.class),
+                        JooqTables.SYS_TENANT.field("contact_phone", String.class),
+                        JooqTables.SYS_TENANT.field("contact_email", String.class),
+                        JooqTables.SYS_TENANT.field("status", String.class),
+                        JooqTables.SYS_TENANT.field("expire_at", java.time.LocalDateTime.class),
+                        JooqTables.SYS_TENANT.field("remark", String.class),
+                        JooqTables.SYS_TENANT.field("version", Long.class),
+                        JooqTables.SYS_TENANT.field("deleted", Byte.class),
+                        JooqTables.SYS_TENANT.field("created_by", String.class),
+                        JooqTables.SYS_TENANT.field("created_at", java.time.LocalDateTime.class),
+                        JooqTables.SYS_TENANT.field("updated_by", String.class),
+                        JooqTables.SYS_TENANT.field("updated_at", java.time.LocalDateTime.class)
+                };
+                var res = dslMock.newResult(tenantCols);
+                var t = dslMock.newRecord(tenantCols);
+                t.set(JooqTables.SYS_TENANT.field("id", Long.class), 1L);
+                t.set(JooqTables.SYS_TENANT.field("tenant_id", Long.class), 1L);
+                t.set(JooqTables.SYS_TENANT.field("tenant_code", String.class), "T1");
+                t.set(JooqTables.SYS_TENANT.field("tenant_name", String.class), "T1");
+                t.set(JooqTables.SYS_TENANT.field("contact_name", String.class), "c");
+                t.set(JooqTables.SYS_TENANT.field("contact_phone", String.class), "p");
+                t.set(JooqTables.SYS_TENANT.field("contact_email", String.class), "e");
+                t.set(JooqTables.SYS_TENANT.field("status", String.class), "ACTIVE");
+                t.set(JooqTables.SYS_TENANT.field("expire_at", java.time.LocalDateTime.class), now);
+                t.set(JooqTables.SYS_TENANT.field("remark", String.class), "r");
+                t.set(JooqTables.SYS_TENANT.field("version", Long.class), 1L);
+                t.set(JooqTables.SYS_TENANT.field("deleted", Byte.class), (byte) 0);
+                t.set(JooqTables.SYS_TENANT.field("created_by", String.class), "sys");
+                t.set(JooqTables.SYS_TENANT.field("created_at", java.time.LocalDateTime.class), now);
+                t.set(JooqTables.SYS_TENANT.field("updated_by", String.class), "sys");
+                t.set(JooqTables.SYS_TENANT.field("updated_at", java.time.LocalDateTime.class), now);
                 res.add(t);
                 return new MockResult[]{new MockResult(1, res)};
             }

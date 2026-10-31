@@ -7,7 +7,6 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageView;
@@ -48,18 +47,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MessageService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
-    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private static final int MAX_BATCH = 5000;
 
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef MSG =
-            JooqTables.toTableRef(Tables.SYS_MESSAGE);
+            JooqTables.SYS_MESSAGE;
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef RC =
-            JooqTables.toTableRef(Tables.SYS_MESSAGE_RECEIPT);
+            JooqTables.SYS_MESSAGE_RECEIPT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;

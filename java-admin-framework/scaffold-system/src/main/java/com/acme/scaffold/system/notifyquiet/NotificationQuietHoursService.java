@@ -7,7 +7,6 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.notifyquiet.domain.SysNotificationQuietHoursDO;
 import com.acme.scaffold.system.notifyquiet.dto.UpdateQuietHoursRequest;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
@@ -55,14 +54,14 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class NotificationQuietHoursService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
 
     /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_QUIET_HOURS} 的类型安全表引用（B18）。 */
     private static final JooqTables.TableRef QUIET_HOURS =
-            JooqTables.toTableRef(Tables.SYS_NOTIFICATION_QUIET_HOURS);
+            JooqTables.SYS_NOTIFICATION_QUIET_HOURS;
 
     // ------------------------------------------------------------------
     // 自服务：查询与更新
@@ -206,7 +205,7 @@ public class NotificationQuietHoursService {
     private SysNotificationQuietHoursDO fetchRow(Long userId) {
         return JooqWriters.fetchOne(dsl, QUIET_HOURS,
                 SysNotificationQuietHoursDO.class,
-                Tables.SYS_NOTIFICATION_QUIET_HOURS.USER_ID.eq(userId));
+                JooqTables.SYS_NOTIFICATION_QUIET_HOURS.field("user_id", Long.class).eq(userId));
     }
 
     /** 批量取免打扰配置：userId → QuietSetting。absent = 无行（无免打扰）。 */
@@ -217,7 +216,7 @@ public class NotificationQuietHoursService {
         }
         List<SysNotificationQuietHoursDO> rows = JooqWriters.fetchList(dsl,
                 QUIET_HOURS, SysNotificationQuietHoursDO.class,
-                Tables.SYS_NOTIFICATION_QUIET_HOURS.USER_ID.in(userIds));
+                JooqTables.SYS_NOTIFICATION_QUIET_HOURS.field("user_id", Long.class).in(userIds));
         for (SysNotificationQuietHoursDO row : rows) {
             if (row.getUserId() != null) {
                 out.put(row.getUserId(), new QuietSetting(

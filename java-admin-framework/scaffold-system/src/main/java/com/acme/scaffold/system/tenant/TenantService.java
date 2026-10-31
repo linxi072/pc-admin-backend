@@ -7,7 +7,6 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tenant.TenantRules;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.tenant.domain.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.CreateTenantRequest;
@@ -62,7 +61,7 @@ public class TenantService {
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef TN = JooqTables.toTableRef(Tables.SYS_TENANT);
+    private static final JooqTables.TableRef TN = JooqTables.SYS_TENANT;
 
     // ------------------------------------------------------------------
     // 管理面查询

@@ -2,7 +2,6 @@ package com.acme.scaffold.system.permission.adapter;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.permission.PermissionDataPort;
 import com.acme.scaffold.system.entity.SysApiResourceDO;
 import com.acme.scaffold.system.entity.SysMenuDO;
@@ -31,13 +30,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PermissionDataAdapter implements PermissionDataPort {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
 
-    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
+    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
 
     @Override
     public Set<Long> roleIdsOfUser(Long userId) {

@@ -4,7 +4,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateDictTypeRequest;
 import com.acme.scaffold.system.dto.DictTypeVO;
 import com.acme.scaffold.system.dto.UpdateDictTypeRequest;
@@ -23,17 +22,17 @@ import java.util.stream.Collectors;
 public class DictTypeService {
 
     /** 类型安全生成表（逗号桥接自手写 TableRef，列名与 JooqTables.SYS_DICT_TYPE 严格一致）。 */
-    private static final JooqTables.TableRef TYPE = JooqTables.toTableRef(Tables.SYS_DICT_TYPE);
+    private static final JooqTables.TableRef TYPE = JooqTables.SYS_DICT_TYPE;
 
     /** 字典数据表（删除前回查关联数据用，列名与 JooqTables.SYS_DICT_DATA 严格一致）。 */
-    private static final JooqTables.TableRef DATA = JooqTables.toTableRef(Tables.SYS_DICT_DATA);
+    private static final JooqTables.TableRef DATA = JooqTables.SYS_DICT_DATA;
 
     private final DSLContext dsl;
 
     public List<DictTypeVO> list() {
         List<SysDictTypeDO> all = JooqWriters.fetchList(dsl, TYPE, SysDictTypeDO.class,
                 JooqWriters.notDeleted(TYPE),
-                Tables.SYS_DICT_TYPE.SORT_NO.asc());
+                JooqTables.SYS_DICT_TYPE.field("sort_no", Integer.class).asc());
         return all.stream().map(t -> new DictTypeVO(t.getId(), t.getDictCode(), t.getDictName(),
                 t.getStatus(), t.getSortNo(), t.getRemark())).collect(Collectors.toList());
     }
@@ -79,7 +78,7 @@ public class DictTypeService {
         }
         long dataCount = JooqWriters.count(dsl, DATA,
                 DSL.and(JooqWriters.notDeleted(DATA),
-                        Tables.SYS_DICT_DATA.DICT_TYPE_CODE.eq(existing.getDictCode())));
+                        JooqTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(existing.getDictCode())));
         if (dataCount > 0) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "请先删除该字典类型下的字典数据");
         }
@@ -89,6 +88,6 @@ public class DictTypeService {
     private boolean existsByCode(String code) {
         return JooqWriters.count(dsl, TYPE,
                 DSL.and(JooqWriters.notDeleted(TYPE),
-                        Tables.SYS_DICT_TYPE.DICT_CODE.eq(code))) > 0;
+                        JooqTables.SYS_DICT_TYPE.field("dict_code", String.class).eq(code))) > 0;
     }
 }

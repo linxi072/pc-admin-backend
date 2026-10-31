@@ -2,7 +2,6 @@ package com.acme.scaffold.system.tenant;
 
 import com.acme.scaffold.jooq.dsl.TenantTables;
 import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.tenant.domain.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
@@ -30,11 +29,11 @@ import java.util.Map;
  */
 @Service
 public class TenantGovernanceService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef TN = JooqTables.toTableRef(Tables.SYS_TENANT);
+    private static final JooqTables.TableRef TN = JooqTables.SYS_TENANT;
 
     public TenantGovernanceService(DSLContext dsl) {
         this.dsl = dsl;

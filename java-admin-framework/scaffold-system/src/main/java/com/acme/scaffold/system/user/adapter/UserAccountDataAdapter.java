@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * {@link UserAccountDataPort} 的 system 侧适配器实现。
@@ -21,7 +20,7 @@ import com.acme.scaffold.jooqgen.Tables;
 @Component
 @RequiredArgsConstructor
 public class UserAccountDataAdapter implements UserAccountDataPort {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
 

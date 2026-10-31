@@ -3,7 +3,6 @@ package com.acme.scaffold.system.smslog;
 import com.acme.scaffold.common.IdGenerator;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.smslog.domain.SysSmsRecordDO;
 import com.acme.scaffold.system.smslog.rules.SmsRecordRules;
@@ -38,7 +37,7 @@ public class SmsRecordRecorder {
 
     /** 桥接自代码生成层 {@code Tables.SYS_SMS_RECORD} 的类型安全表引用（B23）。 */
     private static final JooqTables.TableRef SMS_RECORD =
-            JooqTables.toTableRef(Tables.SYS_SMS_RECORD);
+            JooqTables.SYS_SMS_RECORD;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;

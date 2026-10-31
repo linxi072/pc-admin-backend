@@ -6,7 +6,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.system.dto.DeviceView;
@@ -35,7 +34,7 @@ public class ProfileDeviceService {
     private final RefreshTokenService refreshTokenService;
 
     private static final JooqTables.TableRef RT =
-            JooqTables.toTableRef(Tables.SYS_REFRESH_TOKEN);
+            JooqTables.SYS_REFRESH_TOKEN;
 
     private static final java.time.format.DateTimeFormatter UA_TIME =
             java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");

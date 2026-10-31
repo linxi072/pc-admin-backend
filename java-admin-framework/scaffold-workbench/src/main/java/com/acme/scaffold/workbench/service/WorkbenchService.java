@@ -2,7 +2,6 @@ package com.acme.scaffold.workbench.service;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.workbench.dto.StatCardVO;
 import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
 import lombok.RequiredArgsConstructor;
@@ -30,14 +29,14 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class WorkbenchService {
-    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.toTableRef(Tables.WF_INSTANCE_EXT);
-    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.toTableRef(Tables.WF_TASK_EXT);
+    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
+    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
 
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
+    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
 
     /** 返回工作台统计卡片数据。 */
     public WorkbenchStatsVO stats(Long userId) {

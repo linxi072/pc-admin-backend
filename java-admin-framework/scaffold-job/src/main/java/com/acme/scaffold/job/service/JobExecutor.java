@@ -23,7 +23,6 @@ import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 任务执行器：调度器到点触发后由 JobRunr 回调本类的 {@link #run(Long)}。
@@ -40,8 +39,8 @@ import com.acme.scaffold.jooqgen.Tables;
 @Component
 @RequiredArgsConstructor
 public class JobExecutor implements JobInvoker {
-    private static final JooqTables.TableRef SYS_JOB = JooqTables.toTableRef(Tables.SYS_JOB);
-    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.toTableRef(Tables.SYS_JOB_LOG);
+    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
+    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
 
 
     private static final int MAX_ERROR_LEN = 900;

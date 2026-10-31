@@ -1,7 +1,6 @@
 package com.acme.scaffold.security.token.service;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +38,7 @@ public class SessionCleanupService {
     private final OnlineSessionReleasePort onlineSessionRelease;
 
     private static final JooqTables.TableRef RT =
-            JooqTables.toTableRef(Tables.SYS_REFRESH_TOKEN);
+            JooqTables.SYS_REFRESH_TOKEN;
 
     public SessionCleanupService(DSLContext dsl, JwtProperties jwtProps,
                                  OnlineSessionReleasePort onlineSessionRelease) {

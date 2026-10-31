@@ -9,7 +9,6 @@ import com.acme.scaffold.config.datasource.DataSourceRegistry;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.monitor.dto.CacheStatView;
 import com.acme.scaffold.monitor.dto.OnlineSessionView;
 import com.acme.scaffold.monitor.dto.PoolStatView;
@@ -52,10 +51,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MonitorService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private static final JooqTables.TableRef RT =
-            JooqTables.toTableRef(Tables.SYS_REFRESH_TOKEN);
+            JooqTables.SYS_REFRESH_TOKEN;
 
     /** 异常日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
     private static final Map<String, String> ERROR_LOG_SORT_FIELDS = JooqSorts.whitelist(

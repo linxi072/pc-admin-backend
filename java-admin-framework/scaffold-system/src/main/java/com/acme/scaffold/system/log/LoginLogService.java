@@ -5,7 +5,6 @@ import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
 import com.acme.scaffold.security.entity.SysLoginLogDO;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +43,7 @@ public class LoginLogService {
             "ipAddress", "ip_address",
             "occurredAt", "occurred_at");
 
-    private static final JooqTables.TableRef LL = JooqTables.toTableRef(Tables.SYS_LOGIN_LOG);
+    private static final JooqTables.TableRef LL = JooqTables.SYS_LOGIN_LOG;
 
     private final DSLContext dsl;
 
@@ -76,7 +75,7 @@ public class LoginLogService {
         PageResult<SysLoginLogDO> raw = JooqWriters.page(dsl, LL,
                 SysLoginLogDO.class, cond, pageQuery,
                 JooqSorts.resolve(LL, pageQuery, LOGIN_LOG_SORT_FIELDS,
-                        Tables.SYS_LOGIN_LOG.OCCURRED_AT.desc()));
+                        JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc()));
         List<LoginLogView> views = raw.records().stream()
                 .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
@@ -95,15 +94,15 @@ public class LoginLogService {
         Long total = dsl.selectCount().from(LL.table())
                 .where(cond).fetchOne(0, Long.class);
         Long success = dsl.selectCount().from(LL.table())
-                .where(DSL.and(cond, Tables.SYS_LOGIN_LOG.RESULT
+                .where(DSL.and(cond, JooqTables.SYS_LOGIN_LOG.field("result", String.class)
                         .eq("SUCCESS"))).fetchOne(0, Long.class);
         Integer distinctUsers = dsl.selectDistinct(
-                        Tables.SYS_LOGIN_LOG.USERNAME)
+                        JooqTables.SYS_LOGIN_LOG.field("username", String.class))
                 .from(LL.table()).where(cond).fetch().size();
         LocalDateTime lastLoginAt = dsl.select(
-                        Tables.SYS_LOGIN_LOG.OCCURRED_AT.max())
+                        JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).max())
                 .from(LL.table())
-                .where(DSL.and(cond, Tables.SYS_LOGIN_LOG.RESULT
+                .where(DSL.and(cond, JooqTables.SYS_LOGIN_LOG.field("result", String.class)
                         .eq("SUCCESS"))).fetchOne(0, LocalDateTime.class);
 
         long totalVal = total == null ? 0L : total;
@@ -130,33 +129,33 @@ public class LoginLogService {
         }
         List<Condition> conds = new ArrayList<>();
         conds.add(DSL.and(
-                Tables.SYS_LOGIN_LOG.OCCURRED_AT.ge(begin),
-                Tables.SYS_LOGIN_LOG.OCCURRED_AT.le(end)));
+                JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).ge(begin),
+                JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).le(end)));
         if (username != null && !username.isBlank()) {
-            conds.add(Tables.SYS_LOGIN_LOG.USERNAME
+            conds.add(JooqTables.SYS_LOGIN_LOG.field("username", String.class)
                     .like("%" + username.trim() + "%"));
         }
         if (result != null && !result.isBlank()) {
-            conds.add(Tables.SYS_LOGIN_LOG.RESULT.eq(result.trim()));
+            conds.add(JooqTables.SYS_LOGIN_LOG.field("result", String.class).eq(result.trim()));
         }
         if (loginType != null && !loginType.isBlank()) {
-            conds.add(Tables.SYS_LOGIN_LOG.LOGIN_TYPE.eq(loginType.trim()));
+            conds.add(JooqTables.SYS_LOGIN_LOG.field("login_type", String.class).eq(loginType.trim()));
         }
         if (failureCode != null && !failureCode.isBlank()) {
-            conds.add(Tables.SYS_LOGIN_LOG.FAILURE_CODE
+            conds.add(JooqTables.SYS_LOGIN_LOG.field("failure_code", String.class)
                     .eq(failureCode.trim()));
         }
         if (ipAddress != null && !ipAddress.isBlank()) {
-            conds.add(Tables.SYS_LOGIN_LOG.IP_ADDRESS
+            conds.add(JooqTables.SYS_LOGIN_LOG.field("ip_address", String.class)
                     .like("%" + ipAddress.trim() + "%"));
         }
         if (keyword != null && !keyword.isBlank()) {
             String kw = "%" + keyword.trim() + "%";
             conds.add(DSL.or(
-                    Tables.SYS_LOGIN_LOG.USERNAME.like(kw),
-                    Tables.SYS_LOGIN_LOG.IP_ADDRESS.like(kw),
-                    Tables.SYS_LOGIN_LOG.FAILURE_CODE.like(kw),
-                    Tables.SYS_LOGIN_LOG.TRACE_ID.like(kw)));
+                    JooqTables.SYS_LOGIN_LOG.field("username", String.class).like(kw),
+                    JooqTables.SYS_LOGIN_LOG.field("ip_address", String.class).like(kw),
+                    JooqTables.SYS_LOGIN_LOG.field("failure_code", String.class).like(kw),
+                    JooqTables.SYS_LOGIN_LOG.field("trace_id", String.class).like(kw)));
         }
         return DSL.and(conds);
     }
@@ -180,7 +179,7 @@ public class LoginLogService {
         // 多取一行用于判定是否被截断，便于提示用户缩小范围
         List<SysLoginLogDO> records = dsl.selectFrom(LL.table())
                 .where(cond)
-                .orderBy(Tables.SYS_LOGIN_LOG.OCCURRED_AT.desc())
+                .orderBy(JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc())
                 .limit(bounded + 1)
                 .fetch(new SnakeRecordMapper<>(SysLoginLogDO.class));
         if (records.size() > bounded) {

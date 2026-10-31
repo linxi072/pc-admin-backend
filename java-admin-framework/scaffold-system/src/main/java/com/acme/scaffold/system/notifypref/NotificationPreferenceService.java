@@ -7,7 +7,6 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.notifypref.domain.SysNotificationPreferenceDO;
 import com.acme.scaffold.system.notifypref.dto.PreferenceItemRequest;
@@ -54,14 +53,14 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class NotificationPreferenceService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
 
     /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_PREFERENCE} 的类型安全表引用（B19）。 */
     private static final JooqTables.TableRef PREFERENCE =
-            JooqTables.toTableRef(Tables.SYS_NOTIFICATION_PREFERENCE);
+            JooqTables.SYS_NOTIFICATION_PREFERENCE;
 
     // ------------------------------------------------------------------
     // 自服务：矩阵查询与批量更新
@@ -85,7 +84,7 @@ public class NotificationPreferenceService {
 
         List<SysNotificationPreferenceDO> rows = JooqWriters.fetchList(dsl,
                 PREFERENCE, SysNotificationPreferenceDO.class,
-                Tables.SYS_NOTIFICATION_PREFERENCE.USER_ID.eq(userId));
+                JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).eq(userId));
         return NotificationPreferenceRules.buildMatrix(master, groupRows(rows));
     }
 
@@ -133,9 +132,9 @@ public class NotificationPreferenceService {
     private void applyItem(Long userId, ResolvedItem item) {
         SysNotificationPreferenceDO exist = JooqWriters.fetchOne(dsl,
                 PREFERENCE, SysNotificationPreferenceDO.class,
-                Tables.SYS_NOTIFICATION_PREFERENCE.USER_ID.eq(userId)
-                        .and(Tables.SYS_NOTIFICATION_PREFERENCE.CHANNEL.eq(item.channel().name()))
-                        .and(Tables.SYS_NOTIFICATION_PREFERENCE.MSG_TYPE.eq(item.msgType())));
+                JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).eq(userId)
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class).eq(item.channel().name()))
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class).eq(item.msgType())));
         if (item.enabled() == null) {
             // 恢复默认：删行，让「从未设置过」与「设过又还原」在库里同构（均无行）
             if (exist != null) {
@@ -301,9 +300,9 @@ public class NotificationPreferenceService {
         }
         SysNotificationPreferenceDO exist = JooqWriters.fetchOne(dsl,
                 PREFERENCE, SysNotificationPreferenceDO.class,
-                Tables.SYS_NOTIFICATION_PREFERENCE.USER_ID.eq(userId)
-                        .and(Tables.SYS_NOTIFICATION_PREFERENCE.CHANNEL.eq(channel.name()))
-                        .and(Tables.SYS_NOTIFICATION_PREFERENCE.MSG_TYPE.eq(type)));
+                JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).eq(userId)
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class).eq(channel.name()))
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class).eq(type)));
         if (exist != null) {
             if (exist.getEnabled() != null && exist.getEnabled() == 0) {
                 return false;
@@ -331,9 +330,9 @@ public class NotificationPreferenceService {
     private Map<Long, Boolean> fetchRowEnabled(Channel channel, String msgTypeKey, List<Long> userIds) {
         List<SysNotificationPreferenceDO> rows = JooqWriters.fetchList(dsl,
                 PREFERENCE, SysNotificationPreferenceDO.class,
-                Tables.SYS_NOTIFICATION_PREFERENCE.USER_ID.in(userIds)
-                        .and(Tables.SYS_NOTIFICATION_PREFERENCE.CHANNEL.eq(channel.name()))
-                        .and(Tables.SYS_NOTIFICATION_PREFERENCE.MSG_TYPE.eq(msgTypeKey)));
+                JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).in(userIds)
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class).eq(channel.name()))
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class).eq(msgTypeKey)));
         Map<Long, Boolean> out = new HashMap<>(rows.size() * 2);
         for (SysNotificationPreferenceDO row : rows) {
             if (row.getUserId() != null) {

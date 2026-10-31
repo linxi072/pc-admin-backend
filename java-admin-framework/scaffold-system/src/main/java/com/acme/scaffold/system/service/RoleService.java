@@ -4,7 +4,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.RoleView;
 import com.acme.scaffold.system.entity.SysRoleApiDO;
@@ -29,11 +28,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
 
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
-            JooqTables.toTableRef(Tables.SYS_ROLE);
+            JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
 

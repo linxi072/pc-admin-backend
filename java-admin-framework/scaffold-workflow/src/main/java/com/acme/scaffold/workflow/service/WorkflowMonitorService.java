@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 流程监控应用服务（M23，M4 续）：在既有「我发起的 / 我的待办」个人面之外补管理员全局视角。
@@ -59,11 +58,11 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class WorkflowMonitorService {
-    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.toTableRef(Tables.WF_APPROVAL_RECORD);
-    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.toTableRef(Tables.WF_INSTANCE_EXT);
-    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.toTableRef(Tables.WF_TASK_EXT);
+    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.WF_APPROVAL_RECORD;
+    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
+    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
 
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 排序白名单：客户端字段名 → 数据库列名（白名单外忽略，防 ORDER BY 注入）。 */
     private static final Map<String, String> INSTANCE_SORT_FIELDS = JooqSorts.whitelist(

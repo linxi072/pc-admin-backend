@@ -7,7 +7,6 @@ import org.jooq.Condition;
 import org.jooq.Record1;
 import org.jooq.Select;
 import org.jooq.impl.DSL;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 把 {@link DataScopeContext} 里的范围结果翻译成 jOOQ 查询条件，供 Service 直接拼进 WHERE。
@@ -26,8 +25,8 @@ import com.acme.scaffold.jooqgen.Tables;
 @Slf4j
 public final class DataScopeConditions {
 
-    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private DataScopeConditions() {
     }

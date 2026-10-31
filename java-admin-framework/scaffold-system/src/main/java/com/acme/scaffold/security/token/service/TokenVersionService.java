@@ -14,7 +14,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * Token 版本服务：让「权限变更」能立即（最多一个缓存窗口）作废已签发凭证。
@@ -30,7 +29,7 @@ import com.acme.scaffold.jooqgen.Tables;
 @Slf4j
 @Service
 public class TokenVersionService {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 缓存窗口：默认 30 秒，即权限变更最迟 30 秒后全局生效。 */
     private static final long CACHE_TTL_MILLIS = Duration.ofSeconds(30).toMillis();

@@ -7,7 +7,6 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
@@ -52,7 +51,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class OnlineUserService implements OnlineSessionReleasePort {
-    private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 下线原因（sys_online_session.offline_reason）。 */
     public static final String REASON_LOGOUT = "LOGOUT";
@@ -61,7 +60,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     public static final String REASON_INACTIVITY = "INACTIVITY";
     public static final String REASON_PASSWORD_CHANGED = "PASSWORD_CHANGED";
 
-    private static final JooqTables.TableRef OS = JooqTables.toTableRef(Tables.SYS_ONLINE_SESSION);
+    private static final JooqTables.TableRef OS = JooqTables.SYS_ONLINE_SESSION;
 
     private final DSLContext dsl;
     private final RefreshTokenService refreshTokenService;
