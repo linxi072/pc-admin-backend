@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PermissionDataAdapter implements PermissionDataPort {
 
+    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+
     private final DSLContext dsl;
 
     private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
@@ -84,9 +86,9 @@ public class PermissionDataAdapter implements PermissionDataPort {
         if (roleIds.isEmpty()) {
             return Set.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
-                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ROLE),
-                                JooqTables.SYS_ROLE.field("id", Long.class).in(roleIds)))
+        return JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+                        DSL.and(JooqWriters.notDeleted(ROLE),
+                                ROLE.field("id", Long.class).in(roleIds)))
                 .stream().map(SysRoleDO::getRoleCode).collect(Collectors.toSet());
     }
 }

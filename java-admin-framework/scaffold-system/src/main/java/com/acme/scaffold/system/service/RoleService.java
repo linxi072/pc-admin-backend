@@ -4,6 +4,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.RoleView;
 import com.acme.scaffold.system.entity.SysRoleApiDO;
@@ -28,6 +29,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleService {
 
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
+    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
+            JooqTables.toTableRef(Tables.SYS_ROLE);
+
     private final DSLContext dsl;
 
     /**
@@ -46,7 +51,7 @@ public class RoleService {
         role.setRoleType(request.roleType() == null ? "BUSINESS" : request.roleType());
         role.setStatus(request.status() == null ? "ACTIVE" : request.status());
         role.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
-        JooqWriters.insert(dsl, JooqTables.SYS_ROLE, role);
+        JooqWriters.insert(dsl, ROLE, role);
         assignMenus(role.getId(), request.menuIds());
         assignApis(role.getId(), request.apiIds());
         return role.getId();
@@ -70,7 +75,7 @@ public class RoleService {
         if (request.sortNo() != null) {
             role.setSortNo(request.sortNo());
         }
-        JooqWriters.updateById(dsl, JooqTables.SYS_ROLE, id, role);
+        JooqWriters.updateById(dsl, ROLE, id, role);
         // 绑定语义：menuIds / apiIds 为 null 表示「本次不改动绑定」（保留原授权），
         // 空集合表示「清空全部绑定」。原实现无条件重建绑定，调用方局部更新角色信息
         // （如只改角色名）时漏传即把菜单/接口授权全部清空——契约二义且误清后果严重。
@@ -96,9 +101,9 @@ public class RoleService {
     }
 
     public List<RoleView> list() {
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
-                        JooqWriters.notDeleted(JooqTables.SYS_ROLE),
-                        JooqTables.SYS_ROLE.field("sort_no", Integer.class).asc())
+        return JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+                        JooqWriters.notDeleted(ROLE),
+                        ROLE.field("sort_no", Integer.class).asc())
                 .stream().map(RoleView::from).collect(Collectors.toList());
     }
 
@@ -112,7 +117,7 @@ public class RoleService {
         // 用户-角色关联先清：该表无外键约束，漏删会残留孤儿行（角色已不存在但用户仍"挂"着它，
         // 权限计算靠 notDeleted 兜底过滤虽不泄露，但数据卫生失控且角色重建后历史绑定不会恢复）
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "role_id", id);
-        JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true);
+        JooqWriters.delete(dsl, ROLE, id, true);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "role_id", id);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_API, "role_id", id);
         // 数据权限：先清 CUSTOM 机构关联再清规则，否则残留孤儿行。
@@ -156,13 +161,13 @@ public class RoleService {
 
     /** 角色编码是否已存在（全局唯一，含逻辑删除过滤）。开通流程用于幂等查重。 */
     public boolean existsByCode(String code) {
-        return JooqWriters.count(dsl, JooqTables.SYS_ROLE,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ROLE),
-                        JooqTables.SYS_ROLE.field("role_code", String.class).eq(code))) > 0;
+        return JooqWriters.count(dsl, ROLE,
+                DSL.and(JooqWriters.notDeleted(ROLE),
+                        ROLE.field("role_code", String.class).eq(code))) > 0;
     }
 
     private SysRoleDO get(Long id) {
-        SysRoleDO role = JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, id);
+        SysRoleDO role = JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, id);
         if (role == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
         }

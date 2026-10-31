@@ -5,6 +5,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.BindContactRequest;
 import com.acme.scaffold.system.dto.DeviceView;
 import com.acme.scaffold.system.dto.PreferenceView;
@@ -40,6 +41,8 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class ProfileService {
+
+    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -287,9 +290,9 @@ public class ProfileService {
         if (roleIds.isEmpty()) {
             return List.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
-                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ROLE),
-                                JooqTables.SYS_ROLE.field("id", Long.class).in(roleIds)))
+        return JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+                        DSL.and(JooqWriters.notDeleted(ROLE),
+                                ROLE.field("id", Long.class).in(roleIds)))
                 .stream().map(SysRoleDO::getRoleName).toList();
     }
 

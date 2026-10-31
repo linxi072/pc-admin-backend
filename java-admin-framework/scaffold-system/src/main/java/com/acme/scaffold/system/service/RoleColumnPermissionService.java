@@ -38,6 +38,8 @@ public class RoleColumnPermissionService {
     /** 单角色允许的字段权限码数量上限，防止误传超大列表拖垮事务。 */
     private static final int MAX_CODES = 2000;
 
+    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+
     private final DSLContext dsl;
     private final TokenVersionService tokenVersionService;
 
@@ -139,7 +141,7 @@ public class RoleColumnPermissionService {
 
     /** 校验角色存在，返回角色 ID。 */
     private Long requireRole(Long roleId) {
-        SysRoleDO role = JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, roleId);
+        SysRoleDO role = JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, roleId);
         if (role == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
         }

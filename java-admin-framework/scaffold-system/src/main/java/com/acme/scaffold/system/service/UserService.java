@@ -9,6 +9,7 @@ import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.permission.ColumnField;
 import com.acme.scaffold.security.permission.ColumnPermission;
 import com.acme.scaffold.security.permission.ColumnPermissionFieldView;
@@ -68,6 +69,10 @@ public class UserService {
             "displayName", "display_name",
             "status", "status",
             "createdAt", "created_at");
+
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
+    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
+            JooqTables.toTableRef(Tables.SYS_ROLE);
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
@@ -329,7 +334,7 @@ public class UserService {
         if (roleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "角色不能为空");
         }
-        SysRoleDO role = JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, roleId);
+        SysRoleDO role = JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, roleId);
         if (role == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
         }
@@ -452,9 +457,9 @@ public class UserService {
         Set<Long> roleIds = userRoleIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());
         Map<Long, RoleInfo> roleCache = new HashMap<>();
         if (!roleIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
-                            DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ROLE),
-                                    JooqTables.SYS_ROLE.field("id", Long.class).in(roleIds)))
+            JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+                            DSL.and(JooqWriters.notDeleted(ROLE),
+                                    ROLE.field("id", Long.class).in(roleIds)))
                     .forEach(r -> roleCache.put(r.getId(), new RoleInfo(r.getId(), r.getRoleName(), r.getRoleCode())));
         }
         Map<Long, List<RoleInfo>> result = new HashMap<>();

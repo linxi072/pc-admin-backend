@@ -4,6 +4,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.permission.DataScopeType;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.DataScopeRuleView;
@@ -46,6 +47,8 @@ public class RoleDataScopeService {
 
     /** 单条规则允许配置的自定义机构数量上限，防止误传超大列表拖垮事务。 */
     private static final int MAX_CUSTOM_ORGS = 500;
+
+    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
 
     private final DSLContext dsl;
     private final TokenVersionService tokenVersionService;
@@ -229,7 +232,7 @@ public class RoleDataScopeService {
 
     /** 校验角色存在，返回角色 ID。与 {@link RoleService#get} 保持同一套判定。 */
     private Long requireRole(Long roleId) {
-        SysRoleDO role = JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, roleId);
+        SysRoleDO role = JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, roleId);
         if (role == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
         }

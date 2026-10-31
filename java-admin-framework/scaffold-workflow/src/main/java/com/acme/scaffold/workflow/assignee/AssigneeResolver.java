@@ -3,6 +3,7 @@ package com.acme.scaffold.workflow.assignee;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.workflow.dto.design.WorkflowNodeDTO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -21,6 +22,8 @@ public class AssigneeResolver {
 
     /** 主管角色码，用于 INITIATOR_MANAGER 解析（可按实际部署调整）。 */
     private static final String MANAGER_ROLE_CODE = "MANAGER";
+
+    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
 
     private final DSLContext dsl;
 
@@ -49,9 +52,9 @@ public class AssigneeResolver {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                             "审批节点 " + nodeDesc(node) + " 的 ROLE 受让人需指定角色码");
                 }
-                Long roleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
-                        .from(JooqTables.SYS_ROLE.table())
-                        .where(JooqTables.SYS_ROLE.field("role_code", String.class).eq(code))
+                Long roleId = dsl.select(ROLE.field("id", Long.class))
+                        .from(ROLE.table())
+                        .where(ROLE.field("role_code", String.class).eq(code))
                         .fetchOne(0, Long.class);
                 if (roleId == null) {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
@@ -121,9 +124,9 @@ public class AssigneeResolver {
         if (roleCode.isBlank()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "ROLE 受让人需指定角色码");
         }
-        Long roleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
-                .from(JooqTables.SYS_ROLE.table())
-                .where(JooqTables.SYS_ROLE.field("role_code", String.class).eq(roleCode))
+        Long roleId = dsl.select(ROLE.field("id", Long.class))
+                .from(ROLE.table())
+                .where(ROLE.field("role_code", String.class).eq(roleCode))
                 .fetchOne(0, Long.class);
         if (roleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "角色不存在: " + roleCode);
@@ -144,9 +147,9 @@ public class AssigneeResolver {
         if (orgId == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "发起人所在主部门未知");
         }
-        Long managerRoleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
-                .from(JooqTables.SYS_ROLE.table())
-                .where(JooqTables.SYS_ROLE.field("role_code", String.class).eq(MANAGER_ROLE_CODE))
+        Long managerRoleId = dsl.select(ROLE.field("id", Long.class))
+                .from(ROLE.table())
+                .where(ROLE.field("role_code", String.class).eq(MANAGER_ROLE_CODE))
                 .fetchOne(0, Long.class);
         if (managerRoleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "未配置主管角色(" + MANAGER_ROLE_CODE + ")");

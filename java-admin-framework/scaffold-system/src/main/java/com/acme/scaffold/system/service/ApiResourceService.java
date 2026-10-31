@@ -42,6 +42,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ApiResourceService {
 
+    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+
     private final DSLContext dsl;
     private final ApiResourceScanner scanner;
 
@@ -231,8 +233,8 @@ public class ApiResourceService {
      * 授权也不会被重新插入（只在 insert 路径授予一次）。
      */
     private void grantToSuperAdmin(Long apiId) {
-        SysRoleDO superAdmin = JooqWriters.fetchOne(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
-                JooqTables.SYS_ROLE.field("role_code", String.class).eq("SUPER_ADMIN"));
+        SysRoleDO superAdmin = JooqWriters.fetchOne(dsl, ROLE, SysRoleDO.class,
+                ROLE.field("role_code", String.class).eq("SUPER_ADMIN"));
         if (superAdmin == null) {
             log.warn("未找到 SUPER_ADMIN 角色，跳过新接口自动授权 apiId={}", apiId);
             return;

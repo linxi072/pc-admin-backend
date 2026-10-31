@@ -32,6 +32,8 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     private static final JooqTables.TableRef OS = JooqTables.toTableRef(Tables.SYS_ONLINE_SESSION);
     private static final JooqTables.TableRef TN = JooqTables.toTableRef(Tables.SYS_TENANT);
 
+    private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
+
     private final DSLContext dsl;
 
     @Override
@@ -47,7 +49,7 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
 
     @Override
     public long countRoles() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_ROLE.table()));
+        return safe(() -> dsl.fetchCount(ROLE.table()));
     }
 
     @Override
