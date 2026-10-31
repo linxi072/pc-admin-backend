@@ -5,8 +5,6 @@ import org.jooq.Record;
 import org.jooq.Table;
 import org.jooq.impl.DSL;
 
-import java.util.LinkedHashSet;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -357,28 +355,6 @@ public final class JooqTables {
             "process_definition_id", "published_by", "published_at", "created_at", "updated_at");
 
     /**
-     * 桥接：将 jOOQ 代码生成层（{@code com.acme.scaffold.jooqgen} 的 {@code Tables.Xxx}）适配为
-     * {@link TableRef}，使 {@link JooqWriters}/{@link JooqSorts} 现有逻辑
-     * （自动填充 id/tenant_id/deleted/version/时间字段、逻辑删除、租户隔离、白名单排序）
-     * 可直接作用于类型安全的生成表，而无需改造既有 929 处手写 DSL 调用方。
-     *
-     * <p>表名与列名统一转小写，保证与 Flyway 迁移脚本（snake_case）及生产 MySQL 大小写敏感语义一致；
-     * 因生成层标识符已由 codegen DDL 显式加引号保留小写，此处 lower-case 通常为恒等映射，仅作防御性归一。</p>
-     *
-     * @param table 代码生成层表对象（如 {@code Tables.SYS_POST}），类型擦除为 {@code Table<?>}
-     */
-    public static TableRef toTableRef(org.jooq.Table<?> table) {
-        String name = table.getName().toLowerCase(Locale.ROOT);
-        Set<String> columns = new LinkedHashSet<>();
-        for (org.jooq.Field<?> f : table.fields()) {
-            columns.add(f.getName().toLowerCase(Locale.ROOT));
-        }
-        @SuppressWarnings("unchecked")
-        org.jooq.Table<Record> typed = (org.jooq.Table<Record>) table;
-        return new TableRef(typed, columns.toArray(new String[0]));
-    }
-
-    /**
      * 表引用：物理表名 + 列清单 + 类型化字段构造。
      */
     public static final class TableRef {
@@ -390,17 +366,6 @@ public final class JooqTables {
         public TableRef(String name, String... columns) {
             this.name = name;
             this.table = DSL.table(DSL.name(name));
-            this.columns = Set.of(columns);
-        }
-
-        /**
-         * 由代码生成层表（{@code com.acme.scaffold.jooqgen.Tables.Xxx}）构造桥接引用。
-         * 直接复用生成表的 jOOQ 对象作为物理表，保证 SELECT/FROM 与条件字段引用同一表对象，
-         * 避免别名/对象身份不一致；列清单单独归一为小写以驱动 has()/field() 动态字段。
-         */
-        public TableRef(Table<Record> table, String... columns) {
-            this.name = table.getName().toLowerCase(Locale.ROOT);
-            this.table = table;
             this.columns = Set.of(columns);
         }
 
@@ -427,10 +392,10 @@ public final class JooqTables {
         }
 
         /**
-         * 以「物理表名」作为值相等依据：手写 {@link TableRef} 与经 {@link #toTableRef} 桥接的
-         * 生成层 {@code TableRef} 只要指向同一张表即判等。这使得既有的静态打桩断言
+         * 以「物理表名」作为值相等依据：任意两个 {@link TableRef} 只要指向同一张表即判等。
+         * 这使得既有的静态打桩断言
          * （如 {@code when(JooqWriters.insert(any(), eq(JooqTables.SYS_POST), any()))}）
-         * 在试点迁移到代码生成表后仍然匹配，无需改动测试。
+         * 在表引用经不同构造路径（常量 / 显式构造）创建后仍然匹配，无需改动测试。
          */
         @Override
         public boolean equals(Object o) {

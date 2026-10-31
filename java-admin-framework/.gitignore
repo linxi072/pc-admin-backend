@@ -1,4 +1,0 @@
-# jOOQ 代码生成产物（由 `mvn -Pjooq-codegen` 从 db/codegen/*.sql 反向工程生成）
-# 输出目录 target/generated-sources/jooq 为 Maven 标准构建产物，已被忽略、不纳入版本控制、
-# 亦不被 check-conventions 扫描；手写 DSL 位于 com.acme.scaffold.jooq，二者并行共存。
-scaffold-common/target/generated-sources/jooq/
