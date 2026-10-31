@@ -7,6 +7,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageView;
@@ -48,6 +49,13 @@ import java.util.stream.Collectors;
 public class MessageService {
 
     private static final int MAX_BATCH = 5000;
+
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE} 等价，列集一致。 */
+    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef MSG =
+            JooqTables.toTableRef(Tables.SYS_MESSAGE);
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
+    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef RC =
+            JooqTables.toTableRef(Tables.SYS_MESSAGE_RECEIPT);
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -118,7 +126,7 @@ public class MessageService {
         msg.setTotalCount(validUserIds.size());
         msg.setReadCount(0);
         msg.setSentAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, JooqTables.SYS_MESSAGE, msg);
+        JooqWriters.insert(dsl, MSG, msg);
 
         // 批量插入收件明细：先收集全部回执再一次性 batch 写入，避免逐条 insert 的多次往返（M2/M3 批量写入缺陷修复）
         List<SysMessageReceiptDO> receipts = new ArrayList<>(validUserIds.size());
@@ -129,7 +137,7 @@ public class MessageService {
             r.setIsRead(0);
             receipts.add(r);
         }
-        JooqWriters.batchInsert(dsl, JooqTables.SYS_MESSAGE_RECEIPT, receipts);
+        JooqWriters.batchInsert(dsl, RC, receipts);
         log.info("站内信发送完成 messageId={} 接收人数={}", msg.getId(), validUserIds.size());
         // 实时推送未读提醒给在线接收人；离线用户进入页面时通过 REST 拉取全量未读（保证至少一次可见）
         realtimePushService.sendToUsers(validUserIds, RealtimePushService.TYPE_UNREAD_MESSAGE,
@@ -193,32 +201,32 @@ public class MessageService {
     public PageResult<MessageView> pageMine(int page, int size, boolean onlyUnread) {
         Long userId = requireCurrentUserId();
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId));
+        conds.add(RC.field("user_id", Long.class).eq(userId));
         if (onlyUnread) {
-            conds.add(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(0));
+            conds.add(RC.field("is_read", Integer.class).eq(0));
         }
 
         // 以收件表为主表做分页查询（仅返回属于自己的消息）
-        long total = JooqWriters.count(dsl, JooqTables.SYS_MESSAGE_RECEIPT, DSL.and(conds));
+        long total = JooqWriters.count(dsl, RC, DSL.and(conds));
         var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
         List<Record2<Long, Integer>> receipts = dsl.select(
-                        JooqTables.SYS_MESSAGE_RECEIPT.field("message_id", Long.class),
-                        JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class))
-                .from(JooqTables.SYS_MESSAGE_RECEIPT.table())
+                        RC.field("message_id", Long.class),
+                        RC.field("is_read", Integer.class))
+                .from(RC.table())
                 .where(DSL.and(conds))
                 // 未读优先，其次接收时间倒序
-                .orderBy(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).asc(),
-                        JooqTables.SYS_MESSAGE_RECEIPT.field("id", Long.class).desc())
+                .orderBy(RC.field("is_read", Integer.class).asc(),
+                        RC.field("id", Long.class).desc())
                 .limit(q.limit()).offset(q.offset())
                 .fetch();
 
         List<MessageView> views = new ArrayList<>();
         if (!receipts.isEmpty()) {
             Set<Long> msgIds = receipts.stream().map(Record2::value1).collect(Collectors.toSet());
-            Map<Long, SysMessageDO> msgMap = JooqWriters.fetchList(dsl, JooqTables.SYS_MESSAGE,
+            Map<Long, SysMessageDO> msgMap = JooqWriters.fetchList(dsl, MSG,
                             SysMessageDO.class,
-                            DSL.and(JooqWriters.notDeleted(JooqTables.SYS_MESSAGE),
-                                    JooqTables.SYS_MESSAGE.field("id", Long.class).in(msgIds)))
+                            DSL.and(JooqWriters.notDeleted(MSG),
+                                    MSG.field("id", Long.class).in(msgIds)))
                     .stream().collect(Collectors.toMap(SysMessageDO::getId, m -> m));
 
             Set<Long> senderIds = msgMap.values().stream().map(SysMessageDO::getSenderId)
@@ -245,9 +253,9 @@ public class MessageService {
     /** 我的未读数量（用于顶部提醒徽标）。 */
     public long unreadCount() {
         Long userId = requireCurrentUserId();
-        return JooqWriters.count(dsl, JooqTables.SYS_MESSAGE_RECEIPT,
-                DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(0)));
+        return JooqWriters.count(dsl, RC,
+                DSL.and(RC.field("user_id", Long.class).eq(userId),
+                        RC.field("is_read", Integer.class).eq(0)));
     }
 
     /**
@@ -257,10 +265,10 @@ public class MessageService {
     @Transactional
     public void markRead(Long messageId) {
         Long userId = requireCurrentUserId();
-        SysMessageReceiptDO receipt = JooqWriters.fetchOne(dsl, JooqTables.SYS_MESSAGE_RECEIPT,
+        SysMessageReceiptDO receipt = JooqWriters.fetchOne(dsl, RC,
                 SysMessageReceiptDO.class,
-                DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("message_id", Long.class).eq(messageId),
-                        JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId)));
+                DSL.and(RC.field("message_id", Long.class).eq(messageId),
+                        RC.field("user_id", Long.class).eq(userId)));
         if (receipt == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "消息不存在或非本人接收");
         }
@@ -268,16 +276,16 @@ public class MessageService {
             return; // 已读，幂等返回
         }
         LocalDateTime now = LocalDateTime.now();
-        dsl.update(JooqTables.SYS_MESSAGE_RECEIPT.table())
-                .set(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class), 1)
-                .set(JooqTables.SYS_MESSAGE_RECEIPT.field("read_at", LocalDateTime.class), now)
-                .where(JooqTables.SYS_MESSAGE_RECEIPT.field("id", Long.class).eq(receipt.getId()))
+        dsl.update(RC.table())
+                .set(RC.field("is_read", Integer.class), 1)
+                .set(RC.field("read_at", LocalDateTime.class), now)
+                .where(RC.field("id", Long.class).eq(receipt.getId()))
                 .execute();
 
-        dsl.update(JooqTables.SYS_MESSAGE.table())
-                .set(JooqTables.SYS_MESSAGE.field("read_count", Integer.class),
-                        JooqTables.SYS_MESSAGE.field("read_count", Integer.class).plus(1))
-                .where(JooqTables.SYS_MESSAGE.field("id", Long.class).eq(messageId))
+        dsl.update(MSG.table())
+                .set(MSG.field("read_count", Integer.class),
+                        MSG.field("read_count", Integer.class).plus(1))
+                .where(MSG.field("id", Long.class).eq(messageId))
                 .execute();
     }
 
@@ -291,10 +299,10 @@ public class MessageService {
     @Transactional
     public int markAllRead() {
         Long userId = requireCurrentUserId();
-        Map<Long, Long> perMessage = JooqWriters.fetchList(dsl, JooqTables.SYS_MESSAGE_RECEIPT,
+        Map<Long, Long> perMessage = JooqWriters.fetchList(dsl, RC,
                         SysMessageReceiptDO.class,
-                        DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId),
-                                JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(0)))
+                        DSL.and(RC.field("user_id", Long.class).eq(userId),
+                                RC.field("is_read", Integer.class).eq(0)))
                 .stream()
                 .filter(r -> r.getMessageId() != null)
                 .collect(Collectors.groupingBy(SysMessageReceiptDO::getMessageId, Collectors.counting()));
@@ -303,21 +311,21 @@ public class MessageService {
         }
         LocalDateTime now = LocalDateTime.now();
         // 1) 回执批量置已读（单条语句）
-        dsl.update(JooqTables.SYS_MESSAGE_RECEIPT.table())
-                .set(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class), 1)
-                .set(JooqTables.SYS_MESSAGE_RECEIPT.field("read_at", LocalDateTime.class), now)
-                .where(JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId))
-                .and(JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(0))
+        dsl.update(RC.table())
+                .set(RC.field("is_read", Integer.class), 1)
+                .set(RC.field("read_at", LocalDateTime.class), now)
+                .where(RC.field("user_id", Long.class).eq(userId))
+                .and(RC.field("is_read", Integer.class).eq(0))
                 .execute();
         // 2) 各消息已读数按本次回执数累加（单条 CASE 语句，替代逐消息 UPDATE）
-        var msgId = JooqTables.SYS_MESSAGE.field("id", Long.class);
-        var readCount = JooqTables.SYS_MESSAGE.field("read_count", Integer.class);
+        var msgId = MSG.field("id", Long.class);
+        var readCount = MSG.field("read_count", Integer.class);
         org.jooq.CaseConditionStep<Integer> step = null;
         for (Map.Entry<Long, Long> e : perMessage.entrySet()) {
             step = (step == null ? DSL.when(msgId.eq(e.getKey()), e.getValue().intValue())
                     : step.when(msgId.eq(e.getKey()), e.getValue().intValue()));
         }
-        dsl.update(JooqTables.SYS_MESSAGE.table())
+        dsl.update(MSG.table())
                 .set(readCount, step.otherwise(readCount))
                 .where(msgId.in(perMessage.keySet()))
                 .execute();
@@ -332,10 +340,10 @@ public class MessageService {
     public PageResult<SysMessageDO> pageSent(int page, int size) {
         Long userId = requireCurrentUserId();
         var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
-        return JooqWriters.page(dsl, JooqTables.SYS_MESSAGE, SysMessageDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_MESSAGE),
-                        JooqTables.SYS_MESSAGE.field("sender_id", Long.class).eq(userId)),
-                q, JooqTables.SYS_MESSAGE.field("id", Long.class).desc());
+        return JooqWriters.page(dsl, MSG, SysMessageDO.class,
+                DSL.and(JooqWriters.notDeleted(MSG),
+                        MSG.field("sender_id", Long.class).eq(userId)),
+                q, MSG.field("id", Long.class).desc());
     }
 
     // ------------------------------------------------------------------
@@ -348,10 +356,10 @@ public class MessageService {
         if (msgIds == null || msgIds.isEmpty()) {
             return map;
         }
-        JooqWriters.fetchList(dsl, JooqTables.SYS_MESSAGE_RECEIPT, SysMessageReceiptDO.class,
-                        DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("message_id", Long.class).in(msgIds),
-                                JooqTables.SYS_MESSAGE_RECEIPT.field("user_id", Long.class).eq(userId),
-                                JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(1)))
+        JooqWriters.fetchList(dsl, RC, SysMessageReceiptDO.class,
+                        DSL.and(RC.field("message_id", Long.class).in(msgIds),
+                                RC.field("user_id", Long.class).eq(userId),
+                                RC.field("is_read", Integer.class).eq(1)))
                 .forEach(r -> map.put(r.getMessageId(), r.getReadAt()));
         return map;
     }
