@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 流程实例治理服务（M23 续）：管理员视角的实例高风险写操作——重新指派、挂起/恢复、跨版本迁移。
@@ -36,6 +37,10 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class WorkflowInstanceAdminService {
+    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.toTableRef(Tables.WF_APPROVAL_RECORD);
+    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.toTableRef(Tables.WF_INSTANCE_EXT);
+    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.toTableRef(Tables.WF_TASK_EXT);
+
 
     private final WorkflowEnginePort engine;
     private final DSLContext dsl;
@@ -62,9 +67,9 @@ public class WorkflowInstanceAdminService {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
         for (WorkflowEnginePort.TaskInfo task : tasks) {
             engine.setAssignee(task.taskId(), toUserId);
-            dsl.update(JooqTables.WF_TASK_EXT.table())
-                    .set(JooqTables.WF_TASK_EXT.field("assignee_user_id", Long.class), toUserId)
-                    .where(JooqTables.WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()))
+            dsl.update(WF_TASK_EXT.table())
+                    .set(WF_TASK_EXT.field("assignee_user_id", Long.class), toUserId)
+                    .where(WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()))
                     .execute();
             saveAdminRecord(processInstanceId, task.taskId(), task.activityId(),
                     "REASSIGN", principal.userId(), task.assigneeUserId(), toUserId, "管理员重新指派");
@@ -156,9 +161,9 @@ public class WorkflowInstanceAdminService {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "目标流程定义不存在: " + toProcessDefinitionId);
         }
         engine.migrateInstance(processInstanceId, toProcessDefinitionId);
-        dsl.update(JooqTables.WF_INSTANCE_EXT.table())
-                .set(JooqTables.WF_INSTANCE_EXT.field("process_definition_id", String.class), toProcessDefinitionId)
-                .where(JooqTables.WF_INSTANCE_EXT.field("process_instance_id", String.class).eq(processInstanceId))
+        dsl.update(WF_INSTANCE_EXT.table())
+                .set(WF_INSTANCE_EXT.field("process_definition_id", String.class), toProcessDefinitionId)
+                .where(WF_INSTANCE_EXT.field("process_instance_id", String.class).eq(processInstanceId))
                 .execute();
         recordInstanceAction(processInstanceId, "MIGRATE", "to=" + toProcessDefinitionId);
         log.info("实例迁移 processInstanceId={} from={} to={} 操作人={}", processInstanceId, currentDefId,
@@ -203,6 +208,6 @@ public class WorkflowInstanceAdminService {
         record.setOpinion(opinion);
         record.setTraceId(org.slf4j.MDC.get("traceId"));
         record.setOccurredAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, JooqTables.WF_APPROVAL_RECORD, record);
+        JooqWriters.insert(dsl, WF_APPROVAL_RECORD, record);
     }
 }

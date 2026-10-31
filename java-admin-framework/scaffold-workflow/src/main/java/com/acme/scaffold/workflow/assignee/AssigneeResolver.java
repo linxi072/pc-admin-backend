@@ -19,6 +19,8 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AssigneeResolver {
+    private static final JooqTables.TableRef SYS_ORG = JooqTables.toTableRef(Tables.SYS_ORG);
+
 
     private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
     private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
@@ -78,9 +80,9 @@ public class AssigneeResolver {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                             "审批节点 " + nodeDesc(node) + " 的 ORG 受让人部门ID非法: " + expr);
                 }
-                Long exist = dsl.select(JooqTables.SYS_ORG.field("id", Long.class))
-                        .from(JooqTables.SYS_ORG.table())
-                        .where(JooqTables.SYS_ORG.field("id", Long.class).eq(orgId))
+                Long exist = dsl.select(SYS_ORG.field("id", Long.class))
+                        .from(SYS_ORG.table())
+                        .where(SYS_ORG.field("id", Long.class).eq(orgId))
                         .fetchOne(0, Long.class);
                 if (exist == null) {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,

@@ -59,6 +59,10 @@ import com.acme.scaffold.jooqgen.Tables;
 @Service
 @RequiredArgsConstructor
 public class WorkflowMonitorService {
+    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.toTableRef(Tables.WF_APPROVAL_RECORD);
+    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.toTableRef(Tables.WF_INSTANCE_EXT);
+    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.toTableRef(Tables.WF_TASK_EXT);
+
     private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 排序白名单：客户端字段名 → 数据库列名（白名单外忽略，防 ORDER BY 注入）。 */
@@ -94,11 +98,11 @@ public class WorkflowMonitorService {
         String kw = WorkflowMonitorRules.normalizeKeyword(keyword);
         Condition cond = buildInstanceCondition(st, kw);
         var query = PageQuery.of(page, size, null, null);
-        PageResult<WfInstanceExtDO> raw = JooqWriters.page(dsl, JooqTables.WF_INSTANCE_EXT,
+        PageResult<WfInstanceExtDO> raw = JooqWriters.page(dsl, WF_INSTANCE_EXT,
                 WfInstanceExtDO.class, cond, query,
-                JooqSorts.resolve(JooqTables.WF_INSTANCE_EXT, query, INSTANCE_SORT_FIELDS,
-                        JooqTables.WF_INSTANCE_EXT.field("started_at", LocalDateTime.class).desc(),
-                        JooqTables.WF_INSTANCE_EXT.field("id", Long.class).desc()));
+                JooqSorts.resolve(WF_INSTANCE_EXT, query, INSTANCE_SORT_FIELDS,
+                        WF_INSTANCE_EXT.field("started_at", LocalDateTime.class).desc(),
+                        WF_INSTANCE_EXT.field("id", Long.class).desc()));
         LocalDateTime now = LocalDateTime.now();
         Map<Long, String> usernames = usernames(raw.records().stream()
                 .map(WfInstanceExtDO::getStarterUserId).toList());
@@ -166,14 +170,14 @@ public class WorkflowMonitorService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
         return new MonitorStatsView(
-                countInstances(JooqTables.WF_INSTANCE_EXT.field("status", String.class).eq("RUNNING")),
+                countInstances(WF_INSTANCE_EXT.field("status", String.class).eq("RUNNING")),
                 engine.countOverdueTasks(now),
-                JooqWriters.count(dsl, JooqTables.WF_TASK_EXT, DSL.and(
-                        JooqWriters.notDeleted(JooqTables.WF_TASK_EXT),
-                        JooqTables.WF_TASK_EXT.field("status", String.class).eq("PENDING"))),
-                countInstances(JooqTables.WF_INSTANCE_EXT.field("started_at", LocalDateTime.class)
+                JooqWriters.count(dsl, WF_TASK_EXT, DSL.and(
+                        JooqWriters.notDeleted(WF_TASK_EXT),
+                        WF_TASK_EXT.field("status", String.class).eq("PENDING"))),
+                countInstances(WF_INSTANCE_EXT.field("started_at", LocalDateTime.class)
                         .greaterOrEqual(todayStart)),
-                countInstances(JooqTables.WF_INSTANCE_EXT.field("finished_at", LocalDateTime.class)
+                countInstances(WF_INSTANCE_EXT.field("finished_at", LocalDateTime.class)
                         .greaterOrEqual(todayStart)));
     }
 
@@ -256,22 +260,22 @@ public class WorkflowMonitorService {
     // ------------------------------------------------------------------
 
     private long countInstances(Condition extra) {
-        return JooqWriters.count(dsl, JooqTables.WF_INSTANCE_EXT,
-                DSL.and(JooqWriters.notDeleted(JooqTables.WF_INSTANCE_EXT), extra));
+        return JooqWriters.count(dsl, WF_INSTANCE_EXT,
+                DSL.and(JooqWriters.notDeleted(WF_INSTANCE_EXT), extra));
     }
 
     /** 实例筛选：逻辑删除恒成立；状态白名单命中才收敛；关键字对标题/业务单号 OR 模糊。 */
     private Condition buildInstanceCondition(String status, String keyword) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.WF_INSTANCE_EXT));
+        conds.add(JooqWriters.notDeleted(WF_INSTANCE_EXT));
         if (status != null) {
-            conds.add(JooqTables.WF_INSTANCE_EXT.field("status", String.class).eq(status));
+            conds.add(WF_INSTANCE_EXT.field("status", String.class).eq(status));
         }
         if (StringUtils.hasText(keyword)) {
             String like = "%" + keyword + "%";
             conds.add(DSL.or(
-                    JooqTables.WF_INSTANCE_EXT.field("title", String.class).like(like),
-                    JooqTables.WF_INSTANCE_EXT.field("business_id", String.class).like(like)));
+                    WF_INSTANCE_EXT.field("title", String.class).like(like),
+                    WF_INSTANCE_EXT.field("business_id", String.class).like(like)));
         }
         return DSL.and(conds);
     }
@@ -296,9 +300,9 @@ public class WorkflowMonitorService {
         if (distinct.isEmpty()) {
             return Map.of();
         }
-        List<WfInstanceExtDO> rows = JooqWriters.fetchList(dsl, JooqTables.WF_INSTANCE_EXT,
+        List<WfInstanceExtDO> rows = JooqWriters.fetchList(dsl, WF_INSTANCE_EXT,
                 WfInstanceExtDO.class,
-                JooqTables.WF_INSTANCE_EXT.field("process_instance_id", String.class).in(distinct));
+                WF_INSTANCE_EXT.field("process_instance_id", String.class).in(distinct));
         Map<String, WfInstanceExtDO> map = new HashMap<>();
         rows.forEach(e -> map.put(e.getProcessInstanceId(), e));
         return map;
@@ -306,11 +310,11 @@ public class WorkflowMonitorService {
 
     /** 该任务最近一次催办时刻（无记录返回 null，表示从未催办）。 */
     private LocalDateTime lastRemindAt(String taskId) {
-        List<WfApprovalRecordDO> rows = JooqWriters.fetchList(dsl, JooqTables.WF_APPROVAL_RECORD,
+        List<WfApprovalRecordDO> rows = JooqWriters.fetchList(dsl, WF_APPROVAL_RECORD,
                 WfApprovalRecordDO.class,
-                DSL.and(JooqTables.WF_APPROVAL_RECORD.field("task_id", String.class).eq(taskId),
-                        JooqTables.WF_APPROVAL_RECORD.field("action", String.class).eq(ACTION_REMIND)),
-                JooqTables.WF_APPROVAL_RECORD.field("occurred_at", LocalDateTime.class).desc());
+                DSL.and(WF_APPROVAL_RECORD.field("task_id", String.class).eq(taskId),
+                        WF_APPROVAL_RECORD.field("action", String.class).eq(ACTION_REMIND)),
+                WF_APPROVAL_RECORD.field("occurred_at", LocalDateTime.class).desc());
         return rows.isEmpty() ? null : rows.get(0).getOccurredAt();
     }
 
@@ -329,6 +333,6 @@ public class WorkflowMonitorService {
         record.setOpinion("minInterval=" + properties.getRemindMinIntervalMinutes());
         record.setTraceId(org.slf4j.MDC.get("traceId"));
         record.setOccurredAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, JooqTables.WF_APPROVAL_RECORD, record);
+        JooqWriters.insert(dsl, WF_APPROVAL_RECORD, record);
     }
 }

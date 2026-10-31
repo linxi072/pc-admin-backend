@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 基于手写 jOOQ DSL 的 {@link JobDagPort} 实现：从 {@code sys_job} 全量加载并构建反向依赖索引。
@@ -30,12 +31,14 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 public class JooqJobDagAdapter implements JobDagPort {
+    private static final JooqTables.TableRef SYS_JOB = JooqTables.toTableRef(Tables.SYS_JOB);
+
 
     private final DSLContext dsl;
 
     private Map<Long, SysJobDO> loadAll() {
-        List<SysJobDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_JOB, SysJobDO.class,
-                JooqWriters.notDeleted(JooqTables.SYS_JOB));
+        List<SysJobDO> all = JooqWriters.fetchList(dsl, SYS_JOB, SysJobDO.class,
+                JooqWriters.notDeleted(SYS_JOB));
         Map<Long, SysJobDO> map = new HashMap<>();
         for (SysJobDO j : all) {
             map.put(j.getId(), j);
@@ -50,7 +53,7 @@ public class JooqJobDagAdapter implements JobDagPort {
 
     @Override
     public Optional<SysJobDO> findById(Long id) {
-        return Optional.ofNullable(JooqWriters.fetchById(dsl, JooqTables.SYS_JOB, SysJobDO.class, id));
+        return Optional.ofNullable(JooqWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id));
     }
 
     @Override
@@ -98,7 +101,7 @@ public class JooqJobDagAdapter implements JobDagPort {
 
     @Override
     public void setRunning(Long id, String schedulerRef, LocalDateTime nextFireTime) {
-        var t = JooqTables.SYS_JOB;
+        var t = SYS_JOB;
         dsl.update(t.table())
                 .set(t.field("status", String.class), JobStatus.RUNNING.name())
                 .set(t.field("scheduler_ref", String.class), schedulerRef)
@@ -109,7 +112,7 @@ public class JooqJobDagAdapter implements JobDagPort {
 
     @Override
     public void setStatus(Long id, String status) {
-        var t = JooqTables.SYS_JOB;
+        var t = SYS_JOB;
         dsl.update(t.table())
                 .set(t.field("status", String.class), status)
                 .where(t.field("id", Long.class).eq(id))

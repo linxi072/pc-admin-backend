@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * 自定义工作流设计服务：管理「草稿 -> 发布 -> 取消发布 -> 再编辑」全生命周期。
@@ -43,6 +44,8 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class WorkflowDesignService {
+    private static final JooqTables.TableRef WF_WORKFLOW_DESIGN = JooqTables.toTableRef(Tables.WF_WORKFLOW_DESIGN);
+
 
     private final WorkflowEnginePort engine;
     private final DSLContext dsl;
@@ -55,9 +58,9 @@ public class WorkflowDesignService {
     @Transactional
     public WorkflowDesignView create(CreateDesignRequest req) {
         // 仅认未删除行：逻辑删除的墓碑行不可见，否则会返回一条随即 404 的设计
-        WfWorkflowDesignDO existing = JooqWriters.fetchOne(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                JooqWriters.notDeleted(JooqTables.WF_WORKFLOW_DESIGN)
-                        .and(JooqTables.WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(req.processKey())));
+        WfWorkflowDesignDO existing = JooqWriters.fetchOne(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
+                JooqWriters.notDeleted(WF_WORKFLOW_DESIGN)
+                        .and(WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(req.processKey())));
         if (existing != null) {
             return get(existing.getId());
         }
@@ -69,7 +72,7 @@ public class WorkflowDesignService {
         e.setVersion(0);
         e.setNodesJson("[]");
         e.setEdgesJson("[]");
-        JooqWriters.insert(dsl, JooqTables.WF_WORKFLOW_DESIGN, e);
+        JooqWriters.insert(dsl, WF_WORKFLOW_DESIGN, e);
         return get(e.getId());
     }
 
@@ -81,12 +84,12 @@ public class WorkflowDesignService {
         e.setFormSchema(req.formSchema());
         e.setNodesJson(toJson(req.nodes()));
         e.setEdgesJson(toJson(req.edges()));
-        JooqWriters.updateById(dsl, JooqTables.WF_WORKFLOW_DESIGN, id, e);
+        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
         return get(id);
     }
 
     public WorkflowDesignView get(Long id) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
+        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
@@ -94,9 +97,9 @@ public class WorkflowDesignService {
     }
 
     public List<WorkflowDesignView> list() {
-        return JooqWriters.fetchList(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                        JooqWriters.notDeleted(JooqTables.WF_WORKFLOW_DESIGN),
-                        JooqTables.WF_WORKFLOW_DESIGN.field("id", Long.class).desc())
+        return JooqWriters.fetchList(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
+                        JooqWriters.notDeleted(WF_WORKFLOW_DESIGN),
+                        WF_WORKFLOW_DESIGN.field("id", Long.class).desc())
                 .stream().map(this::toView).toList();
     }
 
@@ -113,15 +116,15 @@ public class WorkflowDesignService {
                 : key + suffix;
         WfWorkflowDesignDO patch = new WfWorkflowDesignDO();
         patch.setProcessKey(tombstoneKey);
-        JooqWriters.updateById(dsl, JooqTables.WF_WORKFLOW_DESIGN, id, patch);
-        JooqWriters.delete(dsl, JooqTables.WF_WORKFLOW_DESIGN, id, true);
+        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, patch);
+        JooqWriters.delete(dsl, WF_WORKFLOW_DESIGN, id, true);
     }
 
     // ---------- 发布 / 取消发布 ----------
 
     @Transactional
     public WorkflowDesignView publish(Long id) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
+        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
@@ -145,7 +148,7 @@ public class WorkflowDesignService {
         CurrentPrincipal principal = securityContextFacade.getCurrentPrincipal().orElse(null);
         e.setPublishedBy(principal == null ? null : principal.userId());
         e.setPublishedAt(LocalDateTime.now());
-        JooqWriters.updateById(dsl, JooqTables.WF_WORKFLOW_DESIGN, id, e);
+        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
         log.info("工作流发布成功 processKey={} version={} deploymentId={}", e.getProcessKey(), e.getVersion(), deploymentId);
         return get(id);
     }
@@ -154,17 +157,17 @@ public class WorkflowDesignService {
     public WorkflowDesignView unpublish(Long id) {
         WfWorkflowDesignDO e = requirePublished(id);
         e.setStatus("DRAFT");
-        JooqWriters.updateById(dsl, JooqTables.WF_WORKFLOW_DESIGN, id, e);
+        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
         return get(id);
     }
 
     // ---------- 发起时变量构建 ----------
 
     public WorkflowDesignView getPublished(String processKey) {
-        WfWorkflowDesignDO e = JooqWriters.fetchOne(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                JooqWriters.notDeleted(JooqTables.WF_WORKFLOW_DESIGN)
-                        .and(JooqTables.WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(processKey))
-                        .and(JooqTables.WF_WORKFLOW_DESIGN.field("status", String.class).eq("PUBLISHED")));
+        WfWorkflowDesignDO e = JooqWriters.fetchOne(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
+                JooqWriters.notDeleted(WF_WORKFLOW_DESIGN)
+                        .and(WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(processKey))
+                        .and(WF_WORKFLOW_DESIGN.field("status", String.class).eq("PUBLISHED")));
         return e == null ? null : toView(e);
     }
 
@@ -227,7 +230,7 @@ public class WorkflowDesignService {
     }
 
     private WfWorkflowDesignDO requireDraft(Long id) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
+        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
@@ -238,7 +241,7 @@ public class WorkflowDesignService {
     }
 
     private WfWorkflowDesignDO requirePublished(Long id) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, JooqTables.WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
+        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
