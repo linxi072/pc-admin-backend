@@ -86,11 +86,11 @@ CREATE INDEX "idx_parent_sort" ON "sys_menu" ("tenant_id", "parent_id", "sort_no
 
 CREATE INDEX "idx_permission" ON "sys_menu" ("tenant_id", "permission_code");
 
-CREATE TABLE IF NOT EXISTS sys_api_resource (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, resource_name VARCHAR(128) NOT NULL, permission_code VARCHAR(128) NOT NULL, http_method VARCHAR(16) NOT NULL, path_pattern VARCHAR(255) NOT NULL, controller_method VARCHAR(255) NULL, auth_mode VARCHAR(20) NOT NULL DEFAULT 'REQUIRED', status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', risk_level VARCHAR(16) NOT NULL DEFAULT 'NORMAL', created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_api_resource" ("id" BIGINT NOT NULL, "tenant_id" BIGINT NOT NULL DEFAULT 0, "resource_name" VARCHAR(128) NOT NULL, "permission_code" VARCHAR(128) NOT NULL, "http_method" VARCHAR(16) NOT NULL, "path_pattern" VARCHAR(255) NOT NULL, "controller_method" VARCHAR(255) NULL, "auth_mode" VARCHAR(20) NOT NULL DEFAULT 'REQUIRED', "status" VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', "risk_level" VARCHAR(16) NOT NULL DEFAULT 'NORMAL', "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), "updated_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY ("id"));
 
-CREATE UNIQUE INDEX sys_api_resource_uk_method_path ON sys_api_resource (tenant_id, http_method, path_pattern);
+CREATE UNIQUE INDEX "sys_api_resource_uk_method_path" ON "sys_api_resource" ("tenant_id", "http_method", "path_pattern");
 
-CREATE INDEX sys_api_resource_idx_permission ON sys_api_resource (tenant_id, permission_code);
+CREATE INDEX "sys_api_resource_idx_permission" ON "sys_api_resource" ("tenant_id", "permission_code");
 
 CREATE TABLE IF NOT EXISTS sys_role_menu (tenant_id BIGINT NOT NULL DEFAULT 0, role_id BIGINT NOT NULL, menu_id BIGINT NOT NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (tenant_id, role_id, menu_id));
 
