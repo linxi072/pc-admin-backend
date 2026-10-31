@@ -2,6 +2,7 @@ package com.acme.scaffold.workbench.service;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.workbench.dto.StatCardVO;
 import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,8 @@ import java.util.List;
 public class WorkbenchService {
 
     private final DSLContext dsl;
+
+    private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
 
     /** 返回工作台统计卡片数据。 */
     public WorkbenchStatsVO stats(Long userId) {
@@ -67,9 +70,9 @@ public class WorkbenchService {
         cards.add(StatCardVO.snapshot("RUNNING_INSTANCE", "运行中流程", running, "个"));
 
         // 5) 在线接口（快照型：已登记且启用的接口资源）
-        long activeApi = JooqWriters.count(dsl, JooqTables.SYS_API_RESOURCE, DSL.and(
-                JooqWriters.notDeleted(JooqTables.SYS_API_RESOURCE),
-                JooqTables.SYS_API_RESOURCE.field("status", String.class).eq("ACTIVE")));
+        long activeApi = JooqWriters.count(dsl, AR, DSL.and(
+                JooqWriters.notDeleted(AR),
+                AR.field("status", String.class).eq("ACTIVE")));
         cards.add(StatCardVO.snapshot("ACTIVE_API", "在线接口", activeApi, "个"));
 
         return new WorkbenchStatsVO(List.copyOf(cards));

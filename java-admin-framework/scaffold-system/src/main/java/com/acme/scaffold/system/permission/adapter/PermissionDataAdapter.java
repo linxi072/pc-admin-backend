@@ -2,6 +2,7 @@ package com.acme.scaffold.system.permission.adapter;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.security.permission.PermissionDataPort;
 import com.acme.scaffold.system.entity.SysApiResourceDO;
 import com.acme.scaffold.system.entity.SysMenuDO;
@@ -32,6 +33,8 @@ public class PermissionDataAdapter implements PermissionDataPort {
 
     private final DSLContext dsl;
 
+    private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
+
     @Override
     public Set<Long> roleIdsOfUser(Long userId) {
         // 多对多：从 sys_user_role 关联表取该用户全部角色（并集），权限=所有角色权限并集。
@@ -54,9 +57,9 @@ public class PermissionDataAdapter implements PermissionDataPort {
                         JooqTables.SYS_ROLE_API.field("role_id", Long.class).in(roleIds)).stream()
                 .map(SysRoleApiDO::getApiId).collect(Collectors.toList());
         if (!apiIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, JooqTables.SYS_API_RESOURCE, SysApiResourceDO.class,
-                            DSL.and(JooqWriters.notDeleted(JooqTables.SYS_API_RESOURCE),
-                                    JooqTables.SYS_API_RESOURCE.field("id", Long.class).in(apiIds)))
+            JooqWriters.fetchList(dsl, AR, SysApiResourceDO.class,
+                            DSL.and(JooqWriters.notDeleted(AR),
+                                    AR.field("id", Long.class).in(apiIds)))
                     .forEach(a -> permissions.add(a.getPermissionCode()));
         }
 

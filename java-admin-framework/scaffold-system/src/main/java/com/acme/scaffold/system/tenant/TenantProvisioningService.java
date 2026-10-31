@@ -6,6 +6,7 @@ import com.acme.scaffold.common.tenant.TenantContext;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.system.dto.CreateOrgRequest;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.CreateUserRequest;
@@ -50,6 +51,8 @@ public class TenantProvisioningService {
 
     private final DSLContext dsl;
     private final TenantService tenantService;
+
+    private static final JooqTables.TableRef AR = JooqTables.toTableRef(Tables.SYS_API_RESOURCE);
     private final UserService userService;
     private final RoleService roleService;
     private final OrgService orgService;
@@ -88,8 +91,8 @@ public class TenantProvisioningService {
             Set<Long> menuIds = JooqWriters.fetchList(dsl, JooqTables.SYS_MENU, SysMenuDO.class,
                             JooqWriters.notDeleted(JooqTables.SYS_MENU)).stream()
                     .map(SysMenuDO::getId).collect(Collectors.toSet());
-            Set<Long> apiIds = JooqWriters.fetchList(dsl, JooqTables.SYS_API_RESOURCE, SysApiResourceDO.class,
-                            JooqWriters.notDeleted(JooqTables.SYS_API_RESOURCE)).stream()
+            Set<Long> apiIds = JooqWriters.fetchList(dsl, AR, SysApiResourceDO.class,
+                            JooqWriters.notDeleted(AR)).stream()
                     .map(SysApiResourceDO::getId).collect(Collectors.toSet());
 
             Long roleId = roleService.create(new CreateRoleRequest(roleCode,
