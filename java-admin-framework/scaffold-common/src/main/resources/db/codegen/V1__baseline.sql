@@ -2,15 +2,15 @@
 -- Derived from db/migration/V1__baseline.sql by scripts/normalize-ddl-for-codegen.py
 -- Regenerate after changing migrations.
 
-CREATE TABLE IF NOT EXISTS sys_user (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, username VARCHAR(64) NOT NULL, password_hash VARCHAR(255) NOT NULL, display_name VARCHAR(100) NOT NULL, mobile VARCHAR(32) NULL, email VARCHAR(128) NULL, primary_org_id BIGINT NULL, status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', failed_login_count INT NOT NULL DEFAULT 0, locked_until DATETIME(3) NULL, password_changed_at DATETIME(3) NULL, password_expired TINYINT NOT NULL DEFAULT 0, token_version INT NOT NULL DEFAULT 1, mfa_enabled TINYINT NOT NULL DEFAULT 0, last_login_at DATETIME(3) NULL, version INT NOT NULL DEFAULT 0, deleted TINYINT NOT NULL DEFAULT 0, created_by BIGINT NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_by BIGINT NULL, updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_user" ("id" BIGINT NOT NULL, "tenant_id" BIGINT NOT NULL DEFAULT 0, "username" VARCHAR(64) NOT NULL, "password_hash" VARCHAR(255) NOT NULL, "display_name" VARCHAR(100) NOT NULL, "mobile" VARCHAR(32) NULL, "email" VARCHAR(128) NULL, "primary_org_id" BIGINT NULL, "status" VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', "failed_login_count" INT NOT NULL DEFAULT 0, "locked_until" DATETIME(3) NULL, "password_changed_at" DATETIME(3) NULL, "password_expired" TINYINT NOT NULL DEFAULT 0, "token_version" INT NOT NULL DEFAULT 1, "mfa_enabled" TINYINT NOT NULL DEFAULT 0, "last_login_at" DATETIME(3) NULL, "version" INT NOT NULL DEFAULT 0, "deleted" TINYINT NOT NULL DEFAULT 0, "created_by" BIGINT NULL, "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), "updated_by" BIGINT NULL, "updated_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY ("id"));
 
-CREATE UNIQUE INDEX sys_user_uk_tenant_username ON sys_user (tenant_id, username);
+CREATE UNIQUE INDEX "sys_user_uk_tenant_username" ON "sys_user" ("tenant_id", "username");
 
-CREATE UNIQUE INDEX sys_user_uk_tenant_mobile ON sys_user (tenant_id, mobile);
+CREATE UNIQUE INDEX "sys_user_uk_tenant_mobile" ON "sys_user" ("tenant_id", "mobile");
 
-CREATE INDEX sys_user_idx_org_status ON sys_user (tenant_id, primary_org_id, status);
+CREATE INDEX "sys_user_idx_org_status" ON "sys_user" ("tenant_id", "primary_org_id", "status");
 
-CREATE INDEX sys_user_idx_updated_at ON sys_user (updated_at);
+CREATE INDEX "sys_user_idx_updated_at" ON "sys_user" ("updated_at");
 
 -- 引号保留小写：与 Flyway V32 严格一致，避免 H2 反向工程把标识符转大写（B16）。
 CREATE TABLE IF NOT EXISTS "sys_org" (

@@ -21,15 +21,15 @@ CREATE INDEX sys_user_org_idx_user ON sys_user_org (tenant_id, user_id);
 -- 归一化 DDL 仅供 jOOQ DDLDatabase 反向工程：先删依赖索引再删列，得到最终 schema。
 -- jOOQ DDL 解析器不支持 DROP INDEX/DROP COLUMN 的 IF EXISTS 形式，故此处用无 IF EXISTS 语句。
 
-DROP INDEX idx_tenant_role;
+DROP INDEX "idx_tenant_role";
 
-DROP INDEX idx_tenant_org;
+DROP INDEX "idx_tenant_org";
 
-DROP INDEX sys_user_idx_org_status;
+DROP INDEX "sys_user_idx_org_status";
 
-ALTER TABLE sys_user DROP COLUMN role_id;
+ALTER TABLE "sys_user" DROP COLUMN "role_id";
 
-ALTER TABLE sys_user DROP COLUMN org_id;
+ALTER TABLE "sys_user" DROP COLUMN "org_id";
 
-ALTER TABLE sys_user DROP COLUMN primary_org_id;
+ALTER TABLE "sys_user" DROP COLUMN "primary_org_id";
 
