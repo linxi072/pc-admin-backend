@@ -39,11 +39,11 @@ CREATE INDEX "idx_parent" ON "sys_org" ("tenant_id", "parent_id", "sort_no");
 
 CREATE INDEX "idx_ancestors" ON "sys_org" ("tenant_id", "ancestors");
 
-CREATE TABLE IF NOT EXISTS sys_user_org (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL, org_id BIGINT NOT NULL, is_primary TINYINT NOT NULL DEFAULT 0, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_user_org" ("id" BIGINT NOT NULL, "tenant_id" BIGINT NOT NULL DEFAULT 0, "user_id" BIGINT NOT NULL, "org_id" BIGINT NOT NULL, "is_primary" TINYINT NOT NULL DEFAULT 0, "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY ("id"));
 
-CREATE UNIQUE INDEX sys_user_org_uk_user_org ON sys_user_org (tenant_id, user_id, org_id);
+CREATE UNIQUE INDEX "sys_user_org_uk_user_org" ON "sys_user_org" ("tenant_id", "user_id", "org_id");
 
-CREATE INDEX sys_user_org_idx_org_user ON sys_user_org (tenant_id, org_id, user_id);
+CREATE INDEX "sys_user_org_idx_org_user" ON "sys_user_org" ("tenant_id", "org_id", "user_id");
 
 CREATE TABLE IF NOT EXISTS "sys_role" (
     "id" BIGINT NOT NULL,
@@ -66,11 +66,11 @@ CREATE UNIQUE INDEX "sys_role_uk_tenant_role_code" ON "sys_role" ("tenant_id", "
 
 CREATE INDEX "sys_role_idx_status_sort" ON "sys_role" ("tenant_id", "status", "sort_no");
 
-CREATE TABLE IF NOT EXISTS sys_user_role (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL, role_id BIGINT NOT NULL, scope_org_id BIGINT NOT NULL DEFAULT 0, valid_from DATETIME(3) NULL, valid_until DATETIME(3) NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_user_role" ("id" BIGINT NOT NULL, "tenant_id" BIGINT NOT NULL DEFAULT 0, "user_id" BIGINT NOT NULL, "role_id" BIGINT NOT NULL, "scope_org_id" BIGINT NOT NULL DEFAULT 0, "valid_from" DATETIME(3) NULL, "valid_until" DATETIME(3) NULL, "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY ("id"));
 
-CREATE UNIQUE INDEX sys_user_role_uk_user_role_scope ON sys_user_role (tenant_id, user_id, role_id, scope_org_id);
+CREATE UNIQUE INDEX "sys_user_role_uk_user_role_scope" ON "sys_user_role" ("tenant_id", "user_id", "role_id", "scope_org_id");
 
-CREATE INDEX sys_user_role_idx_role_user ON sys_user_role (tenant_id, role_id, user_id);
+CREATE INDEX "sys_user_role_idx_role_user" ON "sys_user_role" ("tenant_id", "role_id", "user_id");
 
 -- 引号保留小写：与 Flyway V32 严格一致，避免 H2 反向工程把标识符转大写（B15）。
 CREATE TABLE IF NOT EXISTS "sys_menu" (

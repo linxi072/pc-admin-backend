@@ -2,9 +2,9 @@
 -- Derived from db/migration/V6__user_single_role_org.sql by scripts/normalize-ddl-for-codegen.py
 -- Regenerate after changing migrations.
 
-DROP TABLE IF EXISTS sys_user_role;
+DROP TABLE IF EXISTS "sys_user_role";
 
-DROP TABLE IF EXISTS sys_user_org;
+DROP TABLE IF EXISTS "sys_user_org";
 
 ALTER TABLE "sys_user" ADD COLUMN "role_id" BIGINT NULL;
 
