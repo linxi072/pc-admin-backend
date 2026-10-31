@@ -43,6 +43,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class AnnouncementService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private static final String DRAFT = "DRAFT";
     private static final String PUBLISHED = "PUBLISHED";
@@ -58,6 +59,8 @@ public class AnnouncementService {
             "expireAt", "expire_at",
             "createdAt", "created_at");
 
+    private static final JooqTables.TableRef ANNOUNCEMENT = JooqTables.SYS_ANNOUNCEMENT;
+
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
 
@@ -72,33 +75,33 @@ public class AnnouncementService {
     public PageResult<AnnouncementView> list(AnnouncementQuery query) {
         LocalDateTime now = LocalDateTime.now();
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.SYS_ANNOUNCEMENT));
+        conds.add(JooqWriters.notDeleted(ANNOUNCEMENT));
 
         if (StringUtils.hasText(query.keyword())) {
             String kw = "%" + query.keyword().trim() + "%";
             conds.add(DSL.or(
-                    JooqTables.SYS_ANNOUNCEMENT.field("title", String.class).like(kw),
-                    JooqTables.SYS_ANNOUNCEMENT.field("content", String.class).like(kw)));
+                    ANNOUNCEMENT.field("title", String.class).like(kw),
+                    ANNOUNCEMENT.field("content", String.class).like(kw)));
         }
         if (StringUtils.hasText(query.status())) {
-            conds.add(JooqTables.SYS_ANNOUNCEMENT.field("status", String.class).eq(query.status()));
+            conds.add(ANNOUNCEMENT.field("status", String.class).eq(query.status()));
         }
         if (Boolean.TRUE.equals(query.onlyValid())) {
-            conds.add(JooqTables.SYS_ANNOUNCEMENT.field("status", String.class).eq(PUBLISHED));
-            conds.add(DSL.or(JooqTables.SYS_ANNOUNCEMENT.field("publish_at", LocalDateTime.class).isNull(),
-                    JooqTables.SYS_ANNOUNCEMENT.field("publish_at", LocalDateTime.class).le(now)));
-            conds.add(DSL.or(JooqTables.SYS_ANNOUNCEMENT.field("expire_at", LocalDateTime.class).isNull(),
-                    JooqTables.SYS_ANNOUNCEMENT.field("expire_at", LocalDateTime.class).gt(now)));
+            conds.add(ANNOUNCEMENT.field("status", String.class).eq(PUBLISHED));
+            conds.add(DSL.or(ANNOUNCEMENT.field("publish_at", LocalDateTime.class).isNull(),
+                    ANNOUNCEMENT.field("publish_at", LocalDateTime.class).le(now)));
+            conds.add(DSL.or(ANNOUNCEMENT.field("expire_at", LocalDateTime.class).isNull(),
+                    ANNOUNCEMENT.field("expire_at", LocalDateTime.class).gt(now)));
         }
 
         var pageQuery = query.toPageQuery();
-        PageResult<SysAnnouncementDO> page = JooqWriters.page(dsl, JooqTables.SYS_ANNOUNCEMENT,
+        PageResult<SysAnnouncementDO> page = JooqWriters.page(dsl, ANNOUNCEMENT,
                 SysAnnouncementDO.class, DSL.and(conds), pageQuery,
-                JooqSorts.resolve(JooqTables.SYS_ANNOUNCEMENT, pageQuery, ANNOUNCEMENT_SORT_FIELDS,
+                JooqSorts.resolve(ANNOUNCEMENT, pageQuery, ANNOUNCEMENT_SORT_FIELDS,
                         // 默认：置顶优先(is_top 倒序)，其次发布时间倒序
-                        JooqTables.SYS_ANNOUNCEMENT.field("is_top", Integer.class).desc(),
-                        JooqTables.SYS_ANNOUNCEMENT.field("publish_at", LocalDateTime.class).desc().nullsLast(),
-                        JooqTables.SYS_ANNOUNCEMENT.field("id", Long.class).desc()));
+                        ANNOUNCEMENT.field("is_top", Integer.class).desc(),
+                        ANNOUNCEMENT.field("publish_at", LocalDateTime.class).desc().nullsLast(),
+                        ANNOUNCEMENT.field("id", Long.class).desc()));
 
         List<AnnouncementView> views = page.records().stream()
                 .map(a -> AnnouncementView.from(a, AnnouncementView.isEffective(a, now)))
@@ -112,10 +115,10 @@ public class AnnouncementService {
         SysAnnouncementDO a = getDO(id);
         // 浏览计数（不影响业务语义，失败不阻断）
         try {
-            dsl.update(JooqTables.SYS_ANNOUNCEMENT.table())
-                    .set(JooqTables.SYS_ANNOUNCEMENT.field("view_count", Integer.class),
-                            JooqTables.SYS_ANNOUNCEMENT.field("view_count", Integer.class).plus(1))
-                    .where(JooqTables.SYS_ANNOUNCEMENT.field("id", Long.class).eq(id))
+            dsl.update(ANNOUNCEMENT.table())
+                    .set(ANNOUNCEMENT.field("view_count", Integer.class),
+                            ANNOUNCEMENT.field("view_count", Integer.class).plus(1))
+                    .where(ANNOUNCEMENT.field("id", Long.class).eq(id))
                     .execute();
             a.setViewCount((a.getViewCount() == null ? 0 : a.getViewCount()) + 1);
         } catch (Exception e) {
@@ -140,7 +143,7 @@ public class AnnouncementService {
         a.setPublishAt(request.publishAt());
         a.setExpireAt(request.expireAt());
         a.setPublisherId(currentUserId());
-        JooqWriters.insert(dsl, JooqTables.SYS_ANNOUNCEMENT, a);
+        JooqWriters.insert(dsl, ANNOUNCEMENT, a);
         return a.getId();
     }
 
@@ -165,7 +168,7 @@ public class AnnouncementService {
         }
         a.setPublishAt(request.publishAt());
         a.setExpireAt(request.expireAt());
-        JooqWriters.updateById(dsl, JooqTables.SYS_ANNOUNCEMENT, id, a);
+        JooqWriters.updateById(dsl, ANNOUNCEMENT, id, a);
     }
 
     /**
@@ -196,7 +199,7 @@ public class AnnouncementService {
         // offline_at 必须显式置空：updateById 的 NOT_NULL 策略会跳过 null 字段，
         // 导致重新发布的公告仍带历史 offlineAt（与 isEffective 口径相悖），故走
         // updateByIdWithNulls 把 offline_at 列入待置空列。
-        JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_ANNOUNCEMENT, id, a, Set.of("offline_at"));
+        JooqWriters.updateByIdWithNulls(dsl, ANNOUNCEMENT, id, a, Set.of("offline_at"));
     }
 
     /** 下线公告：已发布 → 已下线。 */
@@ -209,7 +212,7 @@ public class AnnouncementService {
         SysAnnouncementDO a = new SysAnnouncementDO();
         a.setStatus(OFFLINE);
         a.setOfflineAt(LocalDateTime.now());
-        JooqWriters.updateById(dsl, JooqTables.SYS_ANNOUNCEMENT, id, a);
+        JooqWriters.updateById(dsl, ANNOUNCEMENT, id, a);
     }
 
     /** 切换置顶。 */
@@ -218,14 +221,14 @@ public class AnnouncementService {
         SysAnnouncementDO exist = getDO(id);
         SysAnnouncementDO a = new SysAnnouncementDO();
         a.setIsTop(exist.getIsTop() != null && exist.getIsTop() == 1 ? 0 : 1);
-        JooqWriters.updateById(dsl, JooqTables.SYS_ANNOUNCEMENT, id, a);
+        JooqWriters.updateById(dsl, ANNOUNCEMENT, id, a);
     }
 
     /** 删除公告（逻辑删除）。 */
     @Transactional
     public void delete(Long id) {
         getDO(id);
-        JooqWriters.delete(dsl, JooqTables.SYS_ANNOUNCEMENT, id, true);
+        JooqWriters.delete(dsl, ANNOUNCEMENT, id, true);
     }
 
     // ------------------------------------------------------------------
@@ -241,11 +244,11 @@ public class AnnouncementService {
     @Transactional
     public int offlineExpired() {
         LocalDateTime now = LocalDateTime.now();
-        return dsl.update(JooqTables.SYS_ANNOUNCEMENT.table())
-                .set(JooqTables.SYS_ANNOUNCEMENT.field("status", String.class), OFFLINE)
-                .set(JooqTables.SYS_ANNOUNCEMENT.field("offline_at", LocalDateTime.class), now)
-                .where(JooqTables.SYS_ANNOUNCEMENT.field("status", String.class).eq(PUBLISHED))
-                .and(JooqTables.SYS_ANNOUNCEMENT.field("expire_at", LocalDateTime.class).lt(now))
+        return dsl.update(ANNOUNCEMENT.table())
+                .set(ANNOUNCEMENT.field("status", String.class), OFFLINE)
+                .set(ANNOUNCEMENT.field("offline_at", LocalDateTime.class), now)
+                .where(ANNOUNCEMENT.field("status", String.class).eq(PUBLISHED))
+                .and(ANNOUNCEMENT.field("expire_at", LocalDateTime.class).lt(now))
                 .execute();
     }
 
@@ -261,7 +264,7 @@ public class AnnouncementService {
     }
 
     private SysAnnouncementDO getDO(Long id) {
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, JooqTables.SYS_ANNOUNCEMENT, SysAnnouncementDO.class, id);
+        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, id);
         if (a == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
         }
@@ -274,8 +277,8 @@ public class AnnouncementService {
 
     /** 活跃用户数：公告发布时的受众快照（V40 已读率分母）。 */
     private int countActiveUsers() {
-        return (int) JooqWriters.count(dsl, JooqTables.SYS_USER,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("status", String.class).eq("ACTIVE")));
+        return (int) JooqWriters.count(dsl, USER,
+                DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("status", String.class).eq("ACTIVE")));
     }
 }

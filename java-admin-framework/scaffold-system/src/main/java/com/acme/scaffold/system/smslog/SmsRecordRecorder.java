@@ -35,6 +35,10 @@ public class SmsRecordRecorder {
     /** 掩码号码列宽上限（{@code VARCHAR(1024)}）：100 个掩码号约 1200 字符，超出截断，号码数以 mobileCount 为准。 */
     private static final int MAX_MASKED_LEN = 1024;
 
+    /** 桥接自代码生成层 {@code Tables.SYS_SMS_RECORD} 的类型安全表引用（B23）。 */
+    private static final JooqTables.TableRef SMS_RECORD =
+            JooqTables.SYS_SMS_RECORD;
+
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
 
@@ -67,7 +71,7 @@ public class SmsRecordRecorder {
             });
             row.setTraceId(MDC.get("traceId"));
             row.setSentAt(LocalDateTime.now());
-            JooqWriters.insert(dsl, JooqTables.SYS_SMS_RECORD, row);
+            JooqWriters.insert(dsl, SMS_RECORD, row);
         } catch (Exception e) {
             // 短信记录属审计旁路，写入失败不阻断发送主流程（短信已真实发出，记录缺失可补）
             log.warn("短信发送记录写入失败 batchNo={} success={} err={}", batchNo, success, e.getMessage());

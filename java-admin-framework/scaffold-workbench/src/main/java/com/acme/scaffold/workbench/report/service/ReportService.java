@@ -69,6 +69,10 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class ReportService {
+    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
+    private static final JooqTables.TableRef SYS_LOGIN_LOG = JooqTables.SYS_LOGIN_LOG;
+    private static final JooqTables.TableRef SYS_OPERATION_LOG = JooqTables.SYS_OPERATION_LOG;
+
 
     private final DSLContext dsl;
 
@@ -131,7 +135,7 @@ public class ReportService {
     }
 
     private ReportSummaryVO buildSummary(Condition cond) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         long total = JooqWriters.count(dsl, t, cond);
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
@@ -160,7 +164,7 @@ public class ReportService {
     }
 
     private List<ReportSeriesPointVO> buildTrend(ReportRange.ResolvedWindow w, Condition cond) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         Field<LocalDateTime> occurred = t.field("occurred_at", LocalDateTime.class);
         Field<Long> operatorId = t.field("operator_id", Long.class);
 
@@ -192,7 +196,7 @@ public class ReportService {
     // ==================================================================
 
     private ReportVO buildJobExecView(ReportQuery query, ReportRange.ResolvedWindow w) {
-        var t = JooqTables.SYS_JOB_LOG;
+        var t = SYS_JOB_LOG;
         Condition cond = statCondition(t, "fire_time", w.from(), w.to(),
                 keywordCondition(query.type(), query.keyword()));
 
@@ -212,7 +216,7 @@ public class ReportService {
     }
 
     private ReportSummaryVO jobExecSummary(Condition cond, long total) {
-        var t = JooqTables.SYS_JOB_LOG;
+        var t = SYS_JOB_LOG;
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
         }
@@ -231,7 +235,7 @@ public class ReportService {
 
     /** 最近执行明细：按触发时间倒序取 {@value #DETAIL_LIMIT} 条。 */
     private ReportDetailTableVO recentJobExecDetails(Condition cond) {
-        var t = JooqTables.SYS_JOB_LOG;
+        var t = SYS_JOB_LOG;
         var rs = dsl.select(
                         t.field("job_name", String.class),
                         t.field("task_key", String.class),
@@ -265,7 +269,7 @@ public class ReportService {
     // ==================================================================
 
     private ReportVO buildLoginView(ReportQuery query, ReportRange.ResolvedWindow w) {
-        var t = JooqTables.SYS_LOGIN_LOG;
+        var t = SYS_LOGIN_LOG;
         Condition cond = statCondition(t, "occurred_at", w.from(), w.to(),
                 keywordCondition(query.type(), query.keyword()));
 
@@ -285,7 +289,7 @@ public class ReportService {
     }
 
     private ReportSummaryVO loginSummary(Condition cond, long total) {
-        var t = JooqTables.SYS_LOGIN_LOG;
+        var t = SYS_LOGIN_LOG;
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
         }
@@ -303,7 +307,7 @@ public class ReportService {
 
     /** 登录类型分布（PASSWORD → 密码登录，其余原样）。 */
     private List<ReportDistributionVO> loginTypeDistribution(Condition cond) {
-        var t = JooqTables.SYS_LOGIN_LOG;
+        var t = SYS_LOGIN_LOG;
         Field<String> loginType = t.field("login_type", String.class);
         Result<Record2<String, Integer>> rs = dsl
                 .select(loginType, DSL.count())
@@ -324,7 +328,7 @@ public class ReportService {
 
     /** 异常登录记录：失败登录按时间倒序取 {@value #DETAIL_LIMIT} 条。 */
     private ReportDetailTableVO abnormalLoginDetails(Condition cond) {
-        var t = JooqTables.SYS_LOGIN_LOG;
+        var t = SYS_LOGIN_LOG;
         Condition failed = DSL.and(cond, loginFailedCond(t));
         var rs = dsl.select(
                         t.field("username", String.class),
@@ -358,7 +362,7 @@ public class ReportService {
     // ==================================================================
 
     private ReportVO buildApiCallView(ReportQuery query, ReportRange.ResolvedWindow w) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         Condition cond = statCondition(t, "occurred_at", w.from(), w.to(),
                 keywordCondition(query.type(), query.keyword()));
 
@@ -378,7 +382,7 @@ public class ReportService {
     }
 
     private ReportSummaryVO apiCallSummary(Condition cond, long total) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
         }
@@ -396,7 +400,7 @@ public class ReportService {
 
     /** Top 接口明细：按请求路径+方法分组，按调用量倒序取 {@value #DETAIL_LIMIT} 条。 */
     private ReportDetailTableVO topApiDetails(Condition cond) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         Field<String> path = t.field("request_path", String.class);
         Field<String> method = t.field("request_method", String.class);
         Field<Integer> calls = DSL.count();
@@ -455,9 +459,9 @@ public class ReportService {
         String escaped = keyword.trim().replace("%", "\\%").replace("_", "\\_");
         String pattern = "%" + escaped + "%";
         return switch (type) {
-            case JOB_EXEC -> JooqTables.SYS_JOB_LOG.field("job_name", String.class).like(pattern, '\\');
-            case LOGIN -> JooqTables.SYS_LOGIN_LOG.field("username", String.class).like(pattern, '\\');
-            case API_CALL -> JooqTables.SYS_OPERATION_LOG.field("request_path", String.class).like(pattern, '\\');
+            case JOB_EXEC -> SYS_JOB_LOG.field("job_name", String.class).like(pattern, '\\');
+            case LOGIN -> SYS_LOGIN_LOG.field("username", String.class).like(pattern, '\\');
+            case API_CALL -> SYS_OPERATION_LOG.field("request_path", String.class).like(pattern, '\\');
             default -> null;
         };
     }
@@ -600,7 +604,7 @@ public class ReportService {
 
     private List<ReportCategoryStatVO> buildCategoryStats(Condition cond, long total,
                                                           SortField sortBy, SortOrder order) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         Field<String> moduleCoalesced = DSL.coalesce(t.field("module_code", String.class), DSL.val("未知"));
         Result<Record2<String, Integer>> rs = dsl
                 .select(moduleCoalesced, DSL.count())
@@ -630,7 +634,7 @@ public class ReportService {
     // ==================================================================
 
     private List<ReportStatusStatVO> buildStatusStats(Condition cond, long total) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         long success = JooqWriters.count(dsl, t,
                 DSL.and(cond, t.field("success", Integer.class).eq(1)));
         long failure = JooqWriters.count(dsl, t,
@@ -645,7 +649,7 @@ public class ReportService {
 
     /** 时间窗基础条件：单租户 + 发生时间落在 [from, to]，可选类别/状态筛选（使用视角）。 */
     private Condition baseCondition(LocalDateTime from, LocalDateTime to, String module, Boolean success) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SYS_OPERATION_LOG;
         Condition c = DSL.and(
                 t.field("tenant_id", Long.class).eq(0L),
                 t.field("occurred_at", LocalDateTime.class).ge(from),

@@ -1,28 +1,20 @@
 package com.acme.scaffold.security.permission;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.system.entity.SysOrgDO;
-import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
-import com.acme.scaffold.system.entity.SysRoleDataScopeOrgDO;
-import com.acme.scaffold.system.entity.SysUserRoleDO;
-import com.acme.scaffold.system.entity.SysUserOrgDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * 默认数据权限解析：基于角色数据范围规则（sys_role_data_scope / sys_role_data_scope_org）计算可见范围。
- * 持久层由 MyBatis-Plus 迁移为 jOOQ。
+ * 持久层由 B5 抽离至 {@link DataScopeDataPort}，本类只保留跨角色合并裁决等纯业务逻辑，
+ * 不再直连 {@code system.entity}（模块边界：security 只定义 Port，由 system 提供适配器实现）。
  *
  * <p>规则合并约定（纯 N:N：用户可能绑定多个角色，各角色可配置独立的数据范围规则，需跨角色合并）：
  * <ul>
@@ -38,7 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DefaultDataScopeProvider implements DataScopeProvider {
 
-    private final DSLContext dsl;
+    private final DataScopeDataPort port;
 
     @Override
     public DataScopeResult resolve(Long userId, String resourceCode) {
@@ -46,33 +38,27 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
             return DataScopeResult.all();
         }
         // 多对多：用户角色来自 sys_user_role 关联表（并集）。
-        List<SysUserRoleDO> roleRows = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId));
-        if (roleRows.isEmpty()) {
+        Set<Long> roleIds = port.roleIdsOfUser(userId);
+        if (roleIds.isEmpty()) {
             return DataScopeResult.all(); // 无角色 => 按不限制兜底（与 V6 语义一致）
         }
-        Set<Long> roleIds = roleRows.stream().map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
 
-        List<SysRoleDataScopeDO> rules = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE,
-                SysRoleDataScopeDO.class,
-                DSL.and(JooqTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).in(roleIds),
-                        JooqTables.SYS_ROLE_DATA_SCOPE.field("resource_code", String.class).eq(resourceCode)));
-        if (rules.isEmpty()) {
+        // ruleId -> scopeType；无规则 => 不限制。
+        Map<Long, String> scopes = port.dataScopesOfRoles(roleIds, resourceCode);
+        if (scopes.isEmpty()) {
             return DataScopeResult.all(); // 无规则 => 不限制
         }
 
-        // 主部门由 sys_user_org 中 is_primary=1 推导（多部门时取主部门用于 DEPT 类数据范围）
-        List<SysUserOrgDO> orgRows = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ORG, SysUserOrgDO.class,
-                DSL.and(JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)));
-        Long primaryOrgId = orgRows.isEmpty() ? null : orgRows.get(0).getOrgId();
+        // 主部门由 sys_user_org 中 is_primary=1 推导（多部门时取主部门用于 DEPT 类数据范围）。
+        Long primaryOrgId = port.primaryOrgIdOfUser(userId);
 
-        // 分类各角色规则的类型，并解析机构类规则对应的机构集合（DEPT/DEPT_AND_CHILD/CUSTOM 需查库）。
+        // 分类各角色规则的类型，并解析机构类规则对应的机构集合（DEPT/DEPT_AND_CHILD/CUSTOM 查库）。
         // 合并裁决抽离为纯函数 mergeRules，便于离线单测（见 DefaultDataScopeProviderTest）。
         Set<Long> orgIds = new HashSet<>();
         List<DataScopeType> ruleTypes = new ArrayList<>();
-        for (SysRoleDataScopeDO rule : rules) {
-            DataScopeType type = safeType(rule.getScopeType(), rule.getId());
+        for (Map.Entry<Long, String> e : scopes.entrySet()) {
+            Long ruleId = e.getKey();
+            DataScopeType type = safeType(e.getValue(), ruleId);
             ruleTypes.add(type);
             switch (type) {
                 case DEPT -> {
@@ -83,10 +69,10 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
                 case DEPT_AND_CHILD -> {
                     if (primaryOrgId != null) {
                         orgIds.add(primaryOrgId);
-                        orgIds.addAll(childOrgIds(primaryOrgId));
+                        orgIds.addAll(port.childOrgIds(primaryOrgId));
                     }
                 }
-                case CUSTOM -> orgIds.addAll(customOrgIds(rule.getId()));
+                case CUSTOM -> orgIds.addAll(port.customOrgIds(ruleId));
                 default -> { /* ALL / SELF：无需解析机构 */ }
             }
         }
@@ -141,35 +127,6 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
             return DataScopeResult.all();
         }
         return DataScopeResult.ofOrgs(resolvedOrgIds);
-    }
-
-    /**
-     * 取某机构的全部下级机构。
-     *
-     * <p><b>ancestors 是逗号分隔的物化路径（如 {@code 0,1,11}），必须按完整 ID 片段匹配。</b>
-     * 原实现用 {@code LIKE '%orgId%'}，会导致 orgId=1 命中 {@code ancestors='0,11,111'}
-     * —— 即 id=1 的部门能看到 id=11、111 这类无关机构，属越权。
-     */
-    private Set<Long> childOrgIds(Long orgId) {
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG), ancestorContains(orgId)))
-                .stream().map(SysOrgDO::getId).collect(Collectors.toSet());
-    }
-
-    /**
-     * ancestors 片段匹配条件：两侧补逗号后比较，保证命中的是完整 ID 而非子串。
-     * 生成 SQL 形如 {@code CONCAT(',', ancestors, ',') LIKE '%,1,%'}。
-     */
-    private Condition ancestorContains(Long orgId) {
-        return DSL.condition(DSL.concat(DSL.val(","),
-                        JooqTables.SYS_ORG.field("ancestors", String.class), DSL.val(","))
-                .like(DSL.val("%," + orgId + ",%")));
-    }
-
-    private Set<Long> customOrgIds(Long ruleId) {
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE_ORG, SysRoleDataScopeOrgDO.class,
-                        JooqTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).eq(ruleId)).stream()
-                .map(SysRoleDataScopeOrgDO::getOrgId).collect(Collectors.toSet());
     }
 
     /** scope_type 取值非法或为空时按 ALL 兜底并告警，避免一条脏数据让整个角色查不到数据。 */

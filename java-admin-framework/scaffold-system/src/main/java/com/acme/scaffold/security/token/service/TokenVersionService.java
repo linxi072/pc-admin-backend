@@ -3,7 +3,6 @@ package com.acme.scaffold.security.token.service;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.token.rules.TokenVersionRules;
-import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.Record1;
@@ -30,15 +29,18 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class TokenVersionService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 缓存窗口：默认 30 秒，即权限变更最迟 30 秒后全局生效。 */
     private static final long CACHE_TTL_MILLIS = Duration.ofSeconds(30).toMillis();
 
     private final DSLContext dsl;
+    private final TokenVersionDataPort tokenVersionDataPort;
     private final TokenVersionCache cache = new TokenVersionCache(CACHE_TTL_MILLIS);
 
-    public TokenVersionService(DSLContext dsl) {
+    public TokenVersionService(DSLContext dsl, TokenVersionDataPort tokenVersionDataPort) {
         this.dsl = dsl;
+        this.tokenVersionDataPort = tokenVersionDataPort;
     }
 
     /** 读取用户当前版本；用户不存在（或已逻辑删除）返回 null，调用方据此判定失效。 */
@@ -50,10 +52,10 @@ public class TokenVersionService {
         if (cached != null) {
             return cached;
         }
-        Record1<Integer> row = dsl.select(JooqTables.SYS_USER.field("token_version", Integer.class))
-                .from(JooqTables.SYS_USER.table())
-                .where(DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).eq(userId)))
+        Record1<Integer> row = dsl.select(USER.field("token_version", Integer.class))
+                .from(USER.table())
+                .where(DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).eq(userId)))
                 .fetchOne();
         Integer version = row == null ? null : row.value1();
         if (version != null) {
@@ -73,11 +75,11 @@ public class TokenVersionService {
         if (ids.isEmpty()) {
             return;
         }
-        int updated = dsl.update(JooqTables.SYS_USER.table())
-                .set(JooqTables.SYS_USER.field("token_version", Integer.class),
-                        JooqTables.SYS_USER.field("token_version", Integer.class).plus(1))
-                .where(DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).in(ids)))
+        int updated = dsl.update(USER.table())
+                .set(USER.field("token_version", Integer.class),
+                        USER.field("token_version", Integer.class).plus(1))
+                .where(DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).in(ids)))
                 .execute();
         cache.invalidate(ids);
         log.info("Token 版本递增 userIdCount={} affected={}", ids.size(), updated);
@@ -93,11 +95,7 @@ public class TokenVersionService {
         if (roleIdSet.isEmpty()) {
             return;
         }
-        List<Long> userIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).in(roleIdSet)).stream()
-                .map(SysUserRoleDO::getUserId)
-                .distinct()
-                .collect(Collectors.toList());
+        List<Long> userIds = tokenVersionDataPort.userIdsByRoleIds(roleIdSet);
         bumpUsers(userIds);
     }
 

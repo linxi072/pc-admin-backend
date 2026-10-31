@@ -390,5 +390,27 @@ public final class JooqTables {
         public <T> Field<T> field(String column, Class<T> type) {
             return DSL.field(DSL.name(column), type);
         }
+
+        /**
+         * 以「物理表名」作为值相等依据：任意两个 {@link TableRef} 只要指向同一张表即判等。
+         * 这使得既有的静态打桩断言
+         * （如 {@code when(JooqWriters.insert(any(), eq(JooqTables.SYS_POST), any()))}）
+         * 在表引用经不同构造路径（常量 / 显式构造）创建后仍然匹配，无需改动测试。
+         */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof TableRef that)) {
+                return false;
+            }
+            return name.equals(that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
     }
 }

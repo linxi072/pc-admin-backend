@@ -53,9 +53,14 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class NotificationPreferenceService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
+
+    /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_PREFERENCE} 的类型安全表引用（B19）。 */
+    private static final JooqTables.TableRef PREFERENCE =
+            JooqTables.SYS_NOTIFICATION_PREFERENCE;
 
     // ------------------------------------------------------------------
     // 自服务：矩阵查询与批量更新
@@ -64,7 +69,7 @@ public class NotificationPreferenceService {
     /** 我的订阅矩阵（4 渠道 × 4 消息类型 = 16 格，每格带生效值与来源）。 */
     public NotificationPreferenceMatrix mine() {
         Long userId = currentUserId();
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         if (user == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
         }
@@ -78,7 +83,7 @@ public class NotificationPreferenceService {
         // WEBSOCKET 无 sys_user 列：不放入 map，buildMatrix 按列默认值（恒开）兜底
 
         List<SysNotificationPreferenceDO> rows = JooqWriters.fetchList(dsl,
-                JooqTables.SYS_NOTIFICATION_PREFERENCE, SysNotificationPreferenceDO.class,
+                PREFERENCE, SysNotificationPreferenceDO.class,
                 JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).eq(userId));
         return NotificationPreferenceRules.buildMatrix(master, groupRows(rows));
     }
@@ -126,23 +131,21 @@ public class NotificationPreferenceService {
 
     private void applyItem(Long userId, ResolvedItem item) {
         SysNotificationPreferenceDO exist = JooqWriters.fetchOne(dsl,
-                JooqTables.SYS_NOTIFICATION_PREFERENCE, SysNotificationPreferenceDO.class,
+                PREFERENCE, SysNotificationPreferenceDO.class,
                 JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class)
-                                .eq(item.channel().name()))
-                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class)
-                                .eq(item.msgType())));
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class).eq(item.channel().name()))
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class).eq(item.msgType())));
         if (item.enabled() == null) {
             // 恢复默认：删行，让「从未设置过」与「设过又还原」在库里同构（均无行）
             if (exist != null) {
-                JooqWriters.delete(dsl, JooqTables.SYS_NOTIFICATION_PREFERENCE, exist.getId(), false);
+                JooqWriters.delete(dsl, PREFERENCE, exist.getId(), false);
             }
             return;
         }
         if (exist != null) {
             SysNotificationPreferenceDO patch = new SysNotificationPreferenceDO();
             patch.setEnabled(item.enabled());
-            JooqWriters.updateById(dsl, JooqTables.SYS_NOTIFICATION_PREFERENCE,
+            JooqWriters.updateById(dsl, PREFERENCE,
                     exist.getId(), patch);
             return;
         }
@@ -151,7 +154,7 @@ public class NotificationPreferenceService {
         row.setChannel(item.channel().name());
         row.setMsgType(item.msgType());
         row.setEnabled(item.enabled());
-        JooqWriters.insert(dsl, JooqTables.SYS_NOTIFICATION_PREFERENCE, row);
+        JooqWriters.insert(dsl, PREFERENCE, row);
     }
 
     // ------------------------------------------------------------------
@@ -296,19 +299,17 @@ public class NotificationPreferenceService {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "不支持的消息类型: " + msgType);
         }
         SysNotificationPreferenceDO exist = JooqWriters.fetchOne(dsl,
-                JooqTables.SYS_NOTIFICATION_PREFERENCE, SysNotificationPreferenceDO.class,
+                PREFERENCE, SysNotificationPreferenceDO.class,
                 JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class)
-                                .eq(channel.name()))
-                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class)
-                                .eq(type)));
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class).eq(channel.name()))
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class).eq(type)));
         if (exist != null) {
             if (exist.getEnabled() != null && exist.getEnabled() == 0) {
                 return false;
             }
             SysNotificationPreferenceDO patch = new SysNotificationPreferenceDO();
             patch.setEnabled(0);
-            JooqWriters.updateById(dsl, JooqTables.SYS_NOTIFICATION_PREFERENCE,
+            JooqWriters.updateById(dsl, PREFERENCE,
                     exist.getId(), patch);
             return true;
         }
@@ -317,7 +318,7 @@ public class NotificationPreferenceService {
         row.setChannel(channel.name());
         row.setMsgType(type);
         row.setEnabled(0);
-        JooqWriters.insert(dsl, JooqTables.SYS_NOTIFICATION_PREFERENCE, row);
+            JooqWriters.insert(dsl, PREFERENCE, row);
         return true;
     }
 
@@ -328,12 +329,10 @@ public class NotificationPreferenceService {
     /** 批量取 (渠道, 类型) 偏好行：userId → enabled。absent = 无行（默认开通）。 */
     private Map<Long, Boolean> fetchRowEnabled(Channel channel, String msgTypeKey, List<Long> userIds) {
         List<SysNotificationPreferenceDO> rows = JooqWriters.fetchList(dsl,
-                JooqTables.SYS_NOTIFICATION_PREFERENCE, SysNotificationPreferenceDO.class,
+                PREFERENCE, SysNotificationPreferenceDO.class,
                 JooqTables.SYS_NOTIFICATION_PREFERENCE.field("user_id", Long.class).in(userIds)
-                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class)
-                                .eq(channel.name()))
-                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class)
-                                .eq(msgTypeKey)));
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("channel", String.class).eq(channel.name()))
+                        .and(JooqTables.SYS_NOTIFICATION_PREFERENCE.field("msg_type", String.class).eq(msgTypeKey)));
         Map<Long, Boolean> out = new HashMap<>(rows.size() * 2);
         for (SysNotificationPreferenceDO row : rows) {
             if (row.getUserId() != null) {
@@ -352,11 +351,11 @@ public class NotificationPreferenceService {
         if (column == null) {
             return Map.of();
         }
-        Field<Long> idField = JooqTables.SYS_USER.field("id", Long.class);
-        Field<Integer> switchField = JooqTables.SYS_USER.field(column, Integer.class);
+        Field<Long> idField = USER.field("id", Long.class);
+        Field<Integer> switchField = USER.field(column, Integer.class);
         Map<Long, Boolean> out = new HashMap<>(userIds.size() * 2);
-        dsl.select(idField, switchField).from(JooqTables.SYS_USER.table())
-                .where(DSL.and(idField.in(userIds), JooqWriters.notDeleted(JooqTables.SYS_USER)))
+        dsl.select(idField, switchField).from(USER.table())
+                .where(DSL.and(idField.in(userIds), JooqWriters.notDeleted(USER)))
                 .fetch()
                 .forEach(r -> out.put(r.get(idField),
                         NotificationPreferenceRules.channelSwitch(r.get(switchField), channel)));
@@ -372,8 +371,8 @@ public class NotificationPreferenceService {
      */
     public Map<String, Long> fetchAddressUserIds(List<String> addresses, boolean byEmail) {
         String column = byEmail ? "email" : "mobile";
-        Field<Long> idField = JooqTables.SYS_USER.field("id", Long.class);
-        Field<String> addrField = JooqTables.SYS_USER.field(column, String.class);
+        Field<Long> idField = USER.field("id", Long.class);
+        Field<String> addrField = USER.field(column, String.class);
         List<String> distinct = new ArrayList<>();
         for (String address : addresses) {
             if (address != null && !address.isBlank() && !distinct.contains(address.trim())) {
@@ -384,8 +383,8 @@ public class NotificationPreferenceService {
         if (distinct.isEmpty()) {
             return out;
         }
-        dsl.select(idField, addrField).from(JooqTables.SYS_USER.table())
-                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(JooqTables.SYS_USER)))
+        dsl.select(idField, addrField).from(USER.table())
+                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(USER)))
                 .fetch()
                 .forEach(r -> {
                     String addr = r.get(addrField);

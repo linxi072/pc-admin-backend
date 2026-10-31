@@ -59,7 +59,7 @@
 
 ## 四、文档约定与基线
 
-- **实际技术栈**：Spring Boot 3.3.4 / Java 17（编译基线，`pom.xml` 声明；运行时可用 21）/ jOOQ 3.19.11（手写动态 DSL + 并行 codegen 层：`scaffold-common/src/main/resources/db/codegen/` + `jooq-codegen.xml`，由 `mvn -Pjooq-codegen generate-sources` 驱动，详见该目录 README；业务查询以手写 DSL 为权威）/ JobRunr 6.3.4 / Flowable 7.1.0 / MySQL 8.x / Redis / Flyway；**不使用 Docker**，全部以原生进程方式构建与部署。
+- **实际技术栈**：Spring Boot 3.3.4 / Java 17（编译基线，`pom.xml` 声明；运行时可用 21）/ jOOQ 3.19.11（**纯手写动态 DSL**：`JooqTables` / `JooqWriters` / `JooqSorts` / `TableRef` / `JooqKeysetPager` 为数据访问单一事实来源，无代码生成层）/ JobRunr 6.3.4 / Flowable 7.1.0 / MySQL 8.x / Redis / Flyway；**不使用 Docker**，全部以原生进程方式构建与部署。
 - **设计文档 vs 实现**：设计方案描述目标架构（包名 `com.acme.scaffold`、XXL-JOB、Spring Boot 4 基线），而实际实现采用 jOOQ 替代 MyBatis-Plus、JobRunr 替代 XXL-JOB、Flowable 7.1.0，并以 `java-admin-framework` 为工程名；二者在调度引擎与持久层选型上存在**有意偏差**，以各手册正文为准。
 - **单一事实源**：表结构、接口契约、权限码、流程语义以 `scaffold-admin/src/main/resources/db/migration/` 迁移链（当前 `V32`~`V59`，其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`，schema 版本 59）与四本手册正文为权威；归档文档仅作历史追溯。
 - **端口约定**：应用对外服务端口与 Actuator 管理端口分离，详见《部署手册》§端口与冒烟；JobRunr Dashboard 独立端口（local profile 默认 8000），不与应用端口复用。
@@ -69,3 +69,5 @@
 > 更新日期：2026-10-21（本轮新增《新手开发部署教程》（docs/manual/getting-started.md，五段式 + 实战踩坑排查表）与系统初始化安装脚本套件 scripts/init/（env/db/seed/verify 四步，幂等可重复，20 例离线自测）；登记新手入口；修正 V1.0.3 模块拆分后的陈旧路径口径：迁移链与 DDL/DML 分类参考件位于 scaffold-admin/src/main/resources/db/，build_v32/build_reference 脚本转为历史归档）
 >
 > 更新日期：2026-10-28（文档与 SQL 一致性整理）：技术栈补 jOOQ codegen 并行层说明；迁移链口径更新至 `V32`~`V59`（其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`，schema 版本 59）；文档统一命名为英文 kebab-case（`系统功能使用说明.md` → `system-usage.md` 并登记于本目录）；新增 `docs/archive/README.md` 归档索引、`db/migration/README.md` 迁移→模块索引、`db/reference/by-module/` 按功能模块分类参考 SQL（由 `scripts/build_reference_modular.py` 从 `db/migration/` 派生，与迁移链保持单一事实源一致）。
+>
+> 更新日期：2026-10-31（**方案 C 后文档同步**）：技术栈移除 jOOQ codegen 并行层描述，统一为**纯手写动态 DSL 单一事实来源**；删除 `db/codegen/` 与 `jooq-codegen.xml` 相关表述（该目录与文件已于 2026-10-31 随 #857/#858 物理移除）；《开发手册》§8.1、《部署手册》§34、《模块拆分指南》、《重构计划》同步更正 codegen 残留与批次状态（B1/B2/B5/C1/C2 经磁盘复核均已完成；详见《重构计划》与 `docs/manual/health-report-2026-10-31.md`）。

@@ -61,6 +61,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class JobService {
+    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
+    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
+
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
     private static final String DEFAULT_GROUP = "DEFAULT";
@@ -78,8 +81,8 @@ public class JobService {
     public PageResult<JobVO> page(JobQuery query) {
         Condition cond = buildCondition(query);
         PageQuery pq = PageQuery.of(query.page(), query.size());
-        PageResult<SysJobDO> raw = JooqWriters.page(dsl, JooqTables.SYS_JOB, SysJobDO.class, cond, pq,
-                JooqTables.SYS_JOB.field("id", Long.class).desc());
+        PageResult<SysJobDO> raw = JooqWriters.page(dsl, SYS_JOB, SysJobDO.class, cond, pq,
+                SYS_JOB.field("id", Long.class).desc());
         Set<Long> ids = raw.records().stream().map(SysJobDO::getId).collect(Collectors.toSet());
         Map<Long, List<Long>> dependentsMap = dagService.dependentsMap(ids);
         List<JobVO> records = raw.records().stream().map(j -> toVO(j, dependentsMap)).toList();
@@ -95,12 +98,12 @@ public class JobService {
     public PageResult<JobLogVO> logs(Long jobId, int page, int size) {
         require(jobId);
         Condition cond = DSL.and(
-                JooqTables.SYS_JOB_LOG.field("tenant_id", Long.class).eq(0L),
-                JooqTables.SYS_JOB_LOG.field("job_id", Long.class).eq(jobId));
-        PageResult<SysJobLogDO> raw = JooqWriters.page(dsl, JooqTables.SYS_JOB_LOG, SysJobLogDO.class, cond,
+                SYS_JOB_LOG.field("tenant_id", Long.class).eq(0L),
+                SYS_JOB_LOG.field("job_id", Long.class).eq(jobId));
+        PageResult<SysJobLogDO> raw = JooqWriters.page(dsl, SYS_JOB_LOG, SysJobLogDO.class, cond,
                 PageQuery.of(page, size),
-                JooqTables.SYS_JOB_LOG.field("fire_time", LocalDateTime.class).desc(),
-                JooqTables.SYS_JOB_LOG.field("id", Long.class).desc());
+                SYS_JOB_LOG.field("fire_time", LocalDateTime.class).desc(),
+                SYS_JOB_LOG.field("id", Long.class).desc());
         List<JobLogVO> records = raw.records().stream()
                 .map(r -> new JobLogVO(r.getId(), r.getJobId(), r.getFireTime(), r.getFinishedTime(),
                         r.getDurationMs(), r.getStatus(), r.getErrorMessage(), r.getTraceId()))
@@ -145,7 +148,7 @@ public class JobService {
         job.setTotalRuns(0L);
         job.setSuccessRuns(0L);
         job.setFailureRuns(0L);
-        JooqWriters.insert(dsl, JooqTables.SYS_JOB, job);
+        JooqWriters.insert(dsl, SYS_JOB, job);
         log.info("新建定时任务 id={} name={} type={}（默认暂停，未调度；依赖={}）",
                 job.getId(), job.getJobName(), type, job.getDependsOn());
         return job.getId();
@@ -193,7 +196,7 @@ public class JobService {
         } else {
             patch.setDependsOn(JobDagRules.serializeDependsOn(deps));
         }
-        JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_JOB, id, patch, nullColumns);
+        JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch, nullColumns);
         log.info("更新定时任务 id={} name={} type={}（原运行中={}；依赖={}）",
                 id, dto.jobName(), type, wasRunning, patch.getDependsOn());
 
@@ -258,9 +261,9 @@ public class JobService {
         patch.setSchedulerRef(ref);
         if (nextFire != null) {
             patch.setNextFireTime(LocalDateTime.ofInstant(nextFire, ZONE));
-            JooqWriters.updateById(dsl, JooqTables.SYS_JOB, id, patch);
+            JooqWriters.updateById(dsl, SYS_JOB, id, patch);
         } else {
-            JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_JOB, id, patch,
+            JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch,
                     Set.of("next_fire_time"));
         }
         log.info("启动定时任务 id={} name={} type={} ref={} nextFire={}",
@@ -273,7 +276,7 @@ public class JobService {
         cancelSchedule(job);
         SysJobDO patch = new SysJobDO();
         patch.setStatus(JobStatus.PAUSED.name());
-        JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_JOB, id, patch,
+        JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch,
                 Set.of("scheduler_ref", "next_fire_time"));
         log.info("暂停定时任务 id={} name={}", id, job.getJobName());
     }
@@ -284,7 +287,7 @@ public class JobService {
         // 依赖编排删除守卫：存在下游依赖时拒绝，避免悬空依赖边
         dagService.assertNoDependents(id);
         cancelSchedule(job);
-        JooqWriters.delete(dsl, JooqTables.SYS_JOB, id, true);
+        JooqWriters.delete(dsl, SYS_JOB, id, true);
         log.info("删除定时任务 id={} name={}", id, job.getJobName());
     }
 
@@ -293,7 +296,7 @@ public class JobService {
     // ------------------------------------------------------------------
 
     private SysJobDO require(Long id) {
-        SysJobDO job = JooqWriters.fetchById(dsl, JooqTables.SYS_JOB, SysJobDO.class, id);
+        SysJobDO job = JooqWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id);
         if (job == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "定时任务不存在");
         }
@@ -395,7 +398,7 @@ public class JobService {
     }
 
     private Condition buildCondition(JobQuery query) {
-        var t = JooqTables.SYS_JOB;
+        var t = SYS_JOB;
         Condition cond = DSL.and(
                 t.field("tenant_id", Long.class).eq(0L),
                 JooqWriters.notDeleted(t));

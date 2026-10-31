@@ -29,8 +29,11 @@ import java.util.Map;
  */
 @Service
 public class TenantGovernanceService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
+
+    private static final JooqTables.TableRef TN = JooqTables.SYS_TENANT;
 
     public TenantGovernanceService(DSLContext dsl) {
         this.dsl = dsl;
@@ -42,7 +45,7 @@ public class TenantGovernanceService {
      * @return 按租户聚合的行数快照（含各表明细与合计）
      */
     public List<TenantDataOverview> dataOverview() {
-        List<SysTenantDO> tenants = JooqWriters.fetchList(dsl, JooqTables.SYS_TENANT,
+        List<SysTenantDO> tenants = JooqWriters.fetchList(dsl, TN,
                 SysTenantDO.class, DSL.trueCondition());
         List<TenantDataOverview> result = new ArrayList<>();
         for (SysTenantDO t : tenants) {
@@ -117,15 +120,15 @@ public class TenantGovernanceService {
      * @return key=租户 ID，value=用户数；表无 {@code tenant_id} 或异常时返回空 Map
      */
     public Map<Long, Long> userCountByTenant() {
-        if (!JooqTables.SYS_USER.has("tenant_id")) {
+        if (!USER.has("tenant_id")) {
             return Map.of();
         }
-        Field<Long> tenantId = JooqTables.SYS_USER.field("tenant_id", Long.class);
+        Field<Long> tenantId = USER.field("tenant_id", Long.class);
         Field<Long> cnt = DSL.field("COUNT(*)", Long.class);
         Map<Long, Long> map = new HashMap<>();
         dsl.select(tenantId, cnt)
-                .from(JooqTables.SYS_USER.table())
-                .where(JooqWriters.notDeleted(JooqTables.SYS_USER))
+                .from(USER.table())
+                .where(JooqWriters.notDeleted(USER))
                 .groupBy(tenantId)
                 .forEach(r -> map.put(r.get(tenantId), r.get(cnt)));
         return map;

@@ -2,9 +2,9 @@ package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.system.openapi.OpenApiClientService;
-import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
-import com.acme.scaffold.system.openapi.rules.OpenApiClientRules;
+import com.acme.scaffold.common.oauth2.OpenApiClientRules;
+import com.acme.scaffold.security.oauth2.OAuth2ClientDataPort;
+import com.acme.scaffold.security.oauth2.OAuth2ClientView;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,12 +35,12 @@ import java.util.Set;
 @RequestMapping("/oauth2")
 public class OAuth2AuthorizeEndpoint {
 
-    private final OpenApiClientService clientService;
+    private final OAuth2ClientDataPort clientPort;
     private final OAuth2AuthorizationCodeService codeService;
 
-    public OAuth2AuthorizeEndpoint(OpenApiClientService clientService,
+    public OAuth2AuthorizeEndpoint(OAuth2ClientDataPort clientPort,
                                    OAuth2AuthorizationCodeService codeService) {
-        this.clientService = clientService;
+        this.clientPort = clientPort;
         this.codeService = codeService;
     }
 
@@ -56,20 +56,20 @@ public class OAuth2AuthorizeEndpoint {
             return error(HttpStatus.BAD_REQUEST, "unsupported_response_type", "仅支持 response_type=code");
         }
 
-        OpenApiClientDO client;
+        OAuth2ClientView client;
         try {
-            client = clientService.getActiveClient(clientId);
+            client = clientPort.getActive(clientId);
         } catch (BusinessException e) {
             return error(HttpStatus.UNAUTHORIZED, "invalid_client", "客户端无效或未启用");
         }
 
-        Set<String> clientScopes = OpenApiClientRules.parseScopes(client.getScopes());
+        Set<String> clientScopes = client.scopes();
         Set<String> reqScopes = (scope == null || scope.isBlank())
                 ? Set.of() : OpenApiClientRules.parseScopes(scope);
         if (!clientScopes.containsAll(reqScopes)) {
             return error(HttpStatus.BAD_REQUEST, "invalid_scope", "请求的 scope 超出客户端授权范围");
         }
-        String grantedScope = reqScopes.isEmpty() ? client.getScopes() : scope;
+        String grantedScope = reqScopes.isEmpty() ? String.join(",", client.scopes()) : scope;
 
         CurrentPrincipal principal = currentPrincipal();
         if (principal == null || principal.userId() == null) {

@@ -1,5 +1,7 @@
 # 需求文档 vs 实现差距分析 & 分阶段实现方案
 
+> ⚠️ **历史归档文档（生成日期 2026-10-10）**：本文档写于方案 C 之前。其中关于「jOOQ codegen 全量替换手写 DSL（A6）」「`jooq-codegen` 等联网 jar」的描述已**过时**——方案 C（2026-10-31，#855–#858）已彻底移除 jOOQ 代码生成层（删除 `db/codegen/` 目录、`jooq-codegen.xml` 与生成插件），全仓数据访问统一为**纯手写动态 DSL**（`JooqTables` / `JooqWriters` / `JooqSorts` / `JooqKeysetPager`）。当前权威状态以四本手册（`docs/manual/*.md`）与 `docs/manual/health-report-2026-10-31.md` 为准。
+
 > 分析对象：`Java后端基础管理框架设计方案.md`（以下简称《方案》§12 API 最小集合 / §15 分阶段 / §20 验收清单 / 各功能章节）
 > 对照代码：`java-admin-framework`（后端控制器·服务·配置）+ `pc-admin-vue3-vite`（前端 `src/api` 层）
 > 方法：逐一比对《方案》接口与验收项，并**直接核查真实代码**（`@RequestMapping`/`@*Mapping`、服务层、配置），不采信 README 自述。

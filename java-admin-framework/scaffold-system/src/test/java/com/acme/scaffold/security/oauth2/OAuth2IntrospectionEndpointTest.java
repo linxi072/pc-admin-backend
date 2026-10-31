@@ -1,7 +1,5 @@
 package com.acme.scaffold.security.oauth2;
 
-import com.acme.scaffold.system.openapi.OpenApiClientService;
-import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +16,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -32,7 +31,7 @@ class OAuth2IntrospectionEndpointTest {
     @Mock
     private JwtDecoder decoder;
     @Mock
-    private OpenApiClientService clientService;
+    private OAuth2ClientDataPort clientPort;
 
     @InjectMocks
     private OAuth2IntrospectionEndpoint endpoint;
@@ -80,7 +79,7 @@ class OAuth2IntrospectionEndpointTest {
     @Test
     @DisplayName("Basic 客户端调用方 + 活跃令牌 → active=true")
     void introspect_active_basic() throws Exception {
-        when(clientService.authenticateClient("c1", "s")).thenReturn(new OpenApiClientDO());
+        when(clientPort.authenticate("c1", "s")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
         when(decoder.decode("tok")).thenReturn(activeJwt());
         mockMvc.perform(post("/oauth2/introspect")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)

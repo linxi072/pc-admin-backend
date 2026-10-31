@@ -51,6 +51,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class OnlineUserService implements OnlineSessionReleasePort {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 下线原因（sys_online_session.offline_reason）。 */
     public static final String REASON_LOGOUT = "LOGOUT";
@@ -58,6 +59,8 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     public static final String REASON_RESTRICTED = "RESTRICTED";
     public static final String REASON_INACTIVITY = "INACTIVITY";
     public static final String REASON_PASSWORD_CHANGED = "PASSWORD_CHANGED";
+
+    private static final JooqTables.TableRef OS = JooqTables.SYS_ONLINE_SESSION;
 
     private final DSLContext dsl;
     private final RefreshTokenService refreshTokenService;
@@ -76,9 +79,9 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     public void registerSession(Long userId, String username, String displayName, String deviceId,
                                 String clientId, String ip, String userAgent) {
         LocalDateTime now = LocalDateTime.now();
-        SysOnlineSessionDO exist = JooqWriters.fetchOne(dsl, JooqTables.SYS_ONLINE_SESSION,
+        SysOnlineSessionDO exist = JooqWriters.fetchOne(dsl, OS,
                 SysOnlineSessionDO.class,
-                DSL.and(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class).eq(userId),
+                DSL.and(OS.field("user_id", Long.class).eq(userId),
                         deviceEq(deviceId)));
         if (exist == null) {
             SysOnlineSessionDO row = new SysOnlineSessionDO();
@@ -92,7 +95,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
             row.setLoginAt(now);
             row.setLastActiveAt(now);
             row.setStatus(SysOnlineSessionDO.STATUS_ONLINE);
-            JooqWriters.insert(dsl, JooqTables.SYS_ONLINE_SESSION, row);
+            JooqWriters.insert(dsl, OS, row);
         } else {
             SysOnlineSessionDO patch = new SysOnlineSessionDO();
             patch.setLoginIp(ip);
@@ -102,7 +105,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
             patch.setLastActiveAt(now);
             patch.setStatus(SysOnlineSessionDO.STATUS_ONLINE);
             patch.setDisplayName(displayName);
-            JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_ONLINE_SESSION, exist.getId(), patch,
+            JooqWriters.updateByIdWithNulls(dsl, OS, exist.getId(), patch,
                     Set.of("offline_reason"));
         }
     }
@@ -112,12 +115,12 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userId == null || deviceId == null || deviceId.isBlank()) {
             return;
         }
-        dsl.update(JooqTables.SYS_ONLINE_SESSION.table())
-                .set(JooqTables.SYS_ONLINE_SESSION.field("last_active_at", Timestamp.class),
+        dsl.update(OS.table())
+                .set(OS.field("last_active_at", Timestamp.class),
                         Timestamp.valueOf(LocalDateTime.now()))
-                .where(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_ONLINE_SESSION.field("device_id", String.class).eq(deviceId))
-                        .and(JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+                .where(OS.field("user_id", Long.class).eq(userId)
+                        .and(OS.field("device_id", String.class).eq(deviceId))
+                        .and(OS.field("status", String.class)
                                 .eq(SysOnlineSessionDO.STATUS_ONLINE)))
                 .execute();
     }
@@ -132,10 +135,10 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userId == null || deviceId == null || deviceId.isBlank()) {
             return null;
         }
-        SysOnlineSessionDO row = JooqWriters.fetchOne(dsl, JooqTables.SYS_ONLINE_SESSION,
+        SysOnlineSessionDO row = JooqWriters.fetchOne(dsl, OS,
                 SysOnlineSessionDO.class,
-                DSL.and(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_ONLINE_SESSION.field("device_id", String.class).eq(deviceId)));
+                DSL.and(OS.field("user_id", Long.class).eq(userId),
+                        OS.field("device_id", String.class).eq(deviceId)));
         if (row == null) {
             return null;
         }
@@ -148,11 +151,11 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userId == null) {
             return 0;
         }
-        return dsl.update(JooqTables.SYS_ONLINE_SESSION.table())
-                .set(JooqTables.SYS_ONLINE_SESSION.field("status", String.class), SysOnlineSessionDO.STATUS_OFFLINE)
-                .set(JooqTables.SYS_ONLINE_SESSION.field("offline_reason", String.class), reason)
-                .where(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+        return dsl.update(OS.table())
+                .set(OS.field("status", String.class), SysOnlineSessionDO.STATUS_OFFLINE)
+                .set(OS.field("offline_reason", String.class), reason)
+                .where(OS.field("user_id", Long.class).eq(userId)
+                        .and(OS.field("status", String.class)
                                 .eq(SysOnlineSessionDO.STATUS_ONLINE)))
                 .execute();
     }
@@ -166,12 +169,12 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     @Transactional
     @Override
     public int releaseInactiveSessions(LocalDateTime cutoff) {
-        return dsl.update(JooqTables.SYS_ONLINE_SESSION.table())
-                .set(JooqTables.SYS_ONLINE_SESSION.field("status", String.class), SysOnlineSessionDO.STATUS_OFFLINE)
-                .set(JooqTables.SYS_ONLINE_SESSION.field("offline_reason", String.class), REASON_INACTIVITY)
-                .where(JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+        return dsl.update(OS.table())
+                .set(OS.field("status", String.class), SysOnlineSessionDO.STATUS_OFFLINE)
+                .set(OS.field("offline_reason", String.class), REASON_INACTIVITY)
+                .where(OS.field("status", String.class)
                         .eq(SysOnlineSessionDO.STATUS_ONLINE)
-                        .and(JooqTables.SYS_ONLINE_SESSION.field("last_active_at", Timestamp.class)
+                        .and(OS.field("last_active_at", Timestamp.class)
                                 .lessThan(Timestamp.valueOf(cutoff))))
                 .execute();
     }
@@ -193,39 +196,39 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         Set<Long> restrictedUserIds = loginRestrictionService.activeRestrictedUserIds(now);
 
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+        conds.add(OS.field("status", String.class)
                 .eq(SysOnlineSessionDO.STATUS_ONLINE));
         if (username != null) {
-            conds.add(JooqTables.SYS_ONLINE_SESSION.field("username", String.class)
+            conds.add(OS.field("username", String.class)
                     .like("%" + username + "%"));
         }
         if (ip != null) {
-            conds.add(JooqTables.SYS_ONLINE_SESSION.field("login_ip", String.class).like("%" + ip + "%"));
+            conds.add(OS.field("login_ip", String.class).like("%" + ip + "%"));
         }
         if ("RESTRICTED".equalsIgnoreCase(status)) {
             if (restrictedUserIds.isEmpty()) {
                 return PageResult.empty(query.page(), query.size());
             }
-            conds.add(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class).in(restrictedUserIds));
+            conds.add(OS.field("user_id", Long.class).in(restrictedUserIds));
         } else if ("ONLINE".equalsIgnoreCase(status) || "IDLE".equalsIgnoreCase(status)) {
             LocalDateTime cutoff = now.minus(jwtProperties.getOnlineSessionIdleThreshold());
             boolean idle = "IDLE".equalsIgnoreCase(status);
             conds.add(idle
-                    ? JooqTables.SYS_ONLINE_SESSION.field("last_active_at", Timestamp.class)
+                    ? OS.field("last_active_at", Timestamp.class)
                     .lessThan(Timestamp.valueOf(cutoff))
-                    : JooqTables.SYS_ONLINE_SESSION.field("last_active_at", Timestamp.class)
+                    : OS.field("last_active_at", Timestamp.class)
                     .greaterOrEqual(Timestamp.valueOf(cutoff)));
             if (!restrictedUserIds.isEmpty()) {
-                conds.add(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class)
+                conds.add(OS.field("user_id", Long.class)
                         .notIn(restrictedUserIds));
             }
         }
 
         var pageQuery = query.toPageQuery();
-        PageResult<SysOnlineSessionDO> page = JooqWriters.page(dsl, JooqTables.SYS_ONLINE_SESSION,
+        PageResult<SysOnlineSessionDO> page = JooqWriters.page(dsl, OS,
                 SysOnlineSessionDO.class, DSL.and(conds), pageQuery,
-                JooqTables.SYS_ONLINE_SESSION.field("last_active_at", Timestamp.class).desc(),
-                JooqTables.SYS_ONLINE_SESSION.field("id", Long.class).desc());
+                OS.field("last_active_at", Timestamp.class).desc(),
+                OS.field("id", Long.class).desc());
 
         Map<Long, String> freshNames = freshDisplayNames(page.records());
         List<OnlineUserView> views = page.records().stream()
@@ -287,10 +290,10 @@ public class OnlineUserService implements OnlineSessionReleasePort {
      */
     @Transactional
     public int forceLogout(List<Long> sessionIds) {
-        List<SysOnlineSessionDO> rows = JooqWriters.fetchList(dsl, JooqTables.SYS_ONLINE_SESSION,
+        List<SysOnlineSessionDO> rows = JooqWriters.fetchList(dsl, OS,
                 SysOnlineSessionDO.class,
-                DSL.and(JooqTables.SYS_ONLINE_SESSION.field("id", Long.class).in(sessionIds),
-                        JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+                DSL.and(OS.field("id", Long.class).in(sessionIds),
+                        OS.field("status", String.class)
                                 .eq(SysOnlineSessionDO.STATUS_ONLINE)));
         if (rows.isEmpty()) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "目标会话不存在或已下线");
@@ -298,12 +301,12 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         int affected = 0;
         for (SysOnlineSessionDO row : rows) {
             refreshTokenService.revokeByUserAndDevice(row.getUserId(), row.getDeviceId());
-            dsl.update(JooqTables.SYS_ONLINE_SESSION.table())
-                    .set(JooqTables.SYS_ONLINE_SESSION.field("status", String.class),
+            dsl.update(OS.table())
+                    .set(OS.field("status", String.class),
                             SysOnlineSessionDO.STATUS_OFFLINE)
-                    .set(JooqTables.SYS_ONLINE_SESSION.field("offline_reason", String.class),
+                    .set(OS.field("offline_reason", String.class),
                             REASON_FORCE_LOGOUT)
-                    .where(JooqTables.SYS_ONLINE_SESSION.field("id", Long.class).eq(row.getId()))
+                    .where(OS.field("id", Long.class).eq(row.getId()))
                     .execute();
             affected++;
             log.info("强制下线会话 userId={} deviceId={} ip={}", row.getUserId(), row.getDeviceId(),
@@ -324,9 +327,9 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        List<SysUserDO> users = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).in(userIds)));
+        List<SysUserDO> users = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).in(userIds)));
         Map<Long, String> names = new LinkedHashMap<>();
         for (SysUserDO u : users) {
             names.put(u.getId(), u.getDisplayName());
@@ -336,7 +339,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
 
     /** device_id 可空等值条件：null 匹配 IS NULL，与唯一键 (user_id, device_id) 语义一致。 */
     private Condition deviceEq(String deviceId) {
-        Field<String> f = JooqTables.SYS_ONLINE_SESSION.field("device_id", String.class);
+        Field<String> f = OS.field("device_id", String.class);
         return deviceId == null ? f.isNull() : f.eq(deviceId);
     }
 

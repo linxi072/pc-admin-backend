@@ -12,7 +12,7 @@ import com.acme.scaffold.system.openapi.dto.ClientSecretView;
 import com.acme.scaffold.system.openapi.dto.CreateOpenApiClientRequest;
 import com.acme.scaffold.system.openapi.dto.OpenApiClientView;
 import com.acme.scaffold.system.openapi.dto.UpdateOpenApiClientRequest;
-import com.acme.scaffold.system.openapi.rules.OpenApiClientRules;
+import com.acme.scaffold.common.oauth2.OpenApiClientRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;

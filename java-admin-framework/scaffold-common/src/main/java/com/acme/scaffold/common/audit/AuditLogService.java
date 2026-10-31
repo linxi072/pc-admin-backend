@@ -1,5 +1,6 @@
 package com.acme.scaffold.common.audit;
 
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
 
 import java.time.LocalDateTime;
@@ -37,6 +38,19 @@ public interface AuditLogService {
      * @throws com.acme.scaffold.common.exception.BusinessException traceId 为空时抛 400
      */
     List<AuditLogView> findByTraceId(String traceId, boolean sensitiveVisible);
+
+    /**
+     * keyset 游标分页（深翻页优化）：固定按 (occurred_at DESC, id DESC) 排序，
+     * 游标由服务端基于上一页末条记录的排序键生成，避免 offset 分页随偏移量退化。
+     *
+     * <p>仅复用 {@link AuditLogQuery} 的筛选部分（排序由 keyset 固定为主键序）；
+     * 出参不含 total（keyset 不廉价计算总数），以 {@code nextCursor} 表示是否还有下一页。
+     *
+     * @param query            查询条件（仅筛选部分生效，排序被忽略）
+     * @param cursor           不透明游标（首页为空串）
+     * @param sensitiveVisible 是否回传未脱敏摘要，由 Controller 依据 {@code system:audit:sensitive} 权限决定
+     */
+    KeysetPageResult<AuditLogView> keysetPage(AuditLogQuery query, String cursor, boolean sensitiveVisible);
 
     /**
      * 按条件统计摘要（总数 / 成功 / 失败 / 慢操作 / 平均与最大耗时）。

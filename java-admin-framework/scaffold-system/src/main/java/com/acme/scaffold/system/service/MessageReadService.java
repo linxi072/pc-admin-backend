@@ -50,6 +50,14 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MessageReadService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE} 等价，列集一致。 */
+    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef MSG =
+            JooqTables.SYS_MESSAGE;
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
+    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef RC =
+            JooqTables.SYS_MESSAGE_RECEIPT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -65,11 +73,11 @@ public class MessageReadService {
      */
     public MessageReadStatsView readStats(Long messageId) {
         SysMessageDO m = requireOwnedMessage(messageId);
-        int total = (int) JooqWriters.count(dsl, JooqTables.SYS_MESSAGE_RECEIPT,
-                DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("message_id", Long.class).eq(messageId)));
-        int read = (int) JooqWriters.count(dsl, JooqTables.SYS_MESSAGE_RECEIPT,
-                DSL.and(JooqTables.SYS_MESSAGE_RECEIPT.field("message_id", Long.class).eq(messageId),
-                        JooqTables.SYS_MESSAGE_RECEIPT.field("is_read", Integer.class).eq(1)));
+        int total = (int) JooqWriters.count(dsl, RC,
+                DSL.and(RC.field("message_id", Long.class).eq(messageId)));
+        int read = (int) JooqWriters.count(dsl, RC,
+                DSL.and(RC.field("message_id", Long.class).eq(messageId),
+                        RC.field("is_read", Integer.class).eq(1)));
         String senderName = loadSenderName(m.getSenderId());
         return MessageReadStatsView.of(m, total, read, senderName);
     }
@@ -77,8 +85,8 @@ public class MessageReadService {
     /** 站内信回执分页（谁已读/未读、何时已读），支持阅读人关键字与回执状态筛选；未读在前。 */
     public PageResult<MessageReceiptView> pageReceipts(MessageReceiptQuery query) {
         requireOwnedMessage(query.messageId());
-        var rc = JooqTables.SYS_MESSAGE_RECEIPT;
-        var usr = JooqTables.SYS_USER;
+        var rc = RC;
+        var usr = USER;
 
         List<Condition> conds = new ArrayList<>();
         conds.add(rc.field("message_id", Long.class).eq(query.messageId()));
@@ -154,7 +162,7 @@ public class MessageReadService {
      * 站内信是一对多私信，已读统计/催办仅对发送者开放，避免 ID 遍历他人消息的未读名单。
      */
     private SysMessageDO requireOwnedMessage(Long messageId) {
-        SysMessageDO m = JooqWriters.fetchById(dsl, JooqTables.SYS_MESSAGE, SysMessageDO.class, messageId);
+        SysMessageDO m = JooqWriters.fetchById(dsl, MSG, SysMessageDO.class, messageId);
         if (m == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "站内信不存在");
         }
@@ -167,7 +175,7 @@ public class MessageReadService {
 
     /** 未读用户 ID 列表（is_read = 0），按 limit 截断（limit 已收敛到合法区间）。 */
     private List<Long> unreadUserIds(Long messageId, int limit) {
-        var rc = JooqTables.SYS_MESSAGE_RECEIPT;
+        var rc = RC;
         return JooqWriters.fetchTop(dsl, rc, SysMessageReceiptDO.class,
                 DSL.and(rc.field("message_id", Long.class).eq(messageId),
                         rc.field("is_read", Integer.class).eq(0)),
@@ -181,8 +189,8 @@ public class MessageReadService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        JooqTables.SYS_USER.field("id", Long.class).in(userIds)).stream()
+        return JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                        USER.field("id", Long.class).in(userIds)).stream()
                 .filter(u -> u.getId() != null)
                 .collect(Collectors.toMap(SysUserDO::getId, SysUserDO::getDisplayName, (a, b) -> a));
     }
@@ -192,7 +200,7 @@ public class MessageReadService {
         if (senderId == null) {
             return null;
         }
-        SysUserDO u = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, senderId);
+        SysUserDO u = JooqWriters.fetchById(dsl, USER, SysUserDO.class, senderId);
         return u == null ? null : u.getDisplayName();
     }
 

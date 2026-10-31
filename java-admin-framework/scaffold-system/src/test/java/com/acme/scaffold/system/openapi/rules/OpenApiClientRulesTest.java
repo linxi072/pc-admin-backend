@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.openapi.rules;
 
+import com.acme.scaffold.common.oauth2.OpenApiClientRules;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

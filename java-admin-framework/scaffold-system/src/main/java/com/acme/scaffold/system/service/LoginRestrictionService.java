@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +40,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class LoginRestrictionService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+
+    private static final JooqTables.TableRef LR = JooqTables.SYS_LOGIN_RESTRICTION;
+    private static final JooqTables.TableRef OS = JooqTables.SYS_ONLINE_SESSION;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -52,17 +55,15 @@ public class LoginRestrictionService {
         List<Condition> conds = new ArrayList<>();
         String kw = username == null ? null : username.trim();
         if (StringUtils.hasText(kw)) {
-            conds.add(JooqTables.SYS_LOGIN_RESTRICTION.field("username", String.class)
-                    .like("%" + kw + "%"));
+            conds.add(JooqTables.SYS_LOGIN_RESTRICTION.field("username", String.class).like("%" + kw + "%"));
         }
         if (StringUtils.hasText(status)) {
-            conds.add(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class)
-                    .eq(status.trim().toUpperCase()));
+            conds.add(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class).eq(status.trim().toUpperCase()));
         }
         var pageQuery = PageQuery.of(page, size);
-        PageResult<SysLoginRestrictionDO> result = JooqWriters.page(dsl, JooqTables.SYS_LOGIN_RESTRICTION,
+        PageResult<SysLoginRestrictionDO> result = JooqWriters.page(dsl, LR,
                 SysLoginRestrictionDO.class, DSL.and(conds), pageQuery,
-                JooqTables.SYS_LOGIN_RESTRICTION.field("restricted_at", Timestamp.class).desc(),
+                JooqTables.SYS_LOGIN_RESTRICTION.field("restricted_at", java.time.LocalDateTime.class).desc(),
                 JooqTables.SYS_LOGIN_RESTRICTION.field("id", Long.class).desc());
         List<LoginRestrictionView> views = result.records().stream()
                 .map(r -> new LoginRestrictionView(
@@ -78,7 +79,7 @@ public class LoginRestrictionService {
         if (userId == null) {
             return null;
         }
-        List<SysLoginRestrictionDO> actives = JooqWriters.fetchList(dsl, JooqTables.SYS_LOGIN_RESTRICTION,
+        List<SysLoginRestrictionDO> actives = JooqWriters.fetchList(dsl, LR,
                 SysLoginRestrictionDO.class,
                 DSL.and(JooqTables.SYS_LOGIN_RESTRICTION.field("user_id", Long.class).eq(userId),
                         JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class)
@@ -99,7 +100,7 @@ public class LoginRestrictionService {
      */
     @Transactional
     public Long restrict(Long userId, RestrictLoginRequest request) {
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
+        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         if (user == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
         }
@@ -122,17 +123,17 @@ public class LoginRestrictionService {
         CurrentOperator operator = currentOperator();
         restriction.setRestrictedBy(operator.id());
         restriction.setRestrictedByName(operator.name());
-        JooqWriters.insert(dsl, JooqTables.SYS_LOGIN_RESTRICTION, restriction);
+        JooqWriters.insert(dsl, LR, restriction);
 
         // 连带强制下线：按用户全量吊销刷新令牌 + 全部在线会话置离线
         refreshTokenService.revokeByUser(userId);
-        int offline = dsl.update(JooqTables.SYS_ONLINE_SESSION.table())
-                .set(JooqTables.SYS_ONLINE_SESSION.field("status", String.class),
+        int offline = dsl.update(OS.table())
+                .set(OS.field("status", String.class),
                         SysOnlineSessionDO.STATUS_OFFLINE)
-                .set(JooqTables.SYS_ONLINE_SESSION.field("offline_reason", String.class),
+                .set(OS.field("offline_reason", String.class),
                         OnlineUserService.REASON_RESTRICTED)
-                .where(JooqTables.SYS_ONLINE_SESSION.field("user_id", Long.class).eq(userId)
-                        .and(JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+                .where(OS.field("user_id", Long.class).eq(userId)
+                        .and(OS.field("status", String.class)
                                 .eq(SysOnlineSessionDO.STATUS_ONLINE)))
                 .execute();
         return restriction.getId();
@@ -145,14 +146,11 @@ public class LoginRestrictionService {
             return 0;
         }
         CurrentOperator operator = currentOperator();
-        return dsl.update(JooqTables.SYS_LOGIN_RESTRICTION.table())
-                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class),
-                        SysLoginRestrictionDO.STATUS_RELEASED)
-                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("released_at", Timestamp.class),
-                        Timestamp.valueOf(LocalDateTime.now()))
+        return dsl.update(LR.table())
+                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class), SysLoginRestrictionDO.STATUS_RELEASED)
+                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("released_at", java.time.LocalDateTime.class), LocalDateTime.now())
                 .set(JooqTables.SYS_LOGIN_RESTRICTION.field("released_by", Long.class), operator.id())
-                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("release_type", String.class),
-                        SysLoginRestrictionDO.RELEASE_MANUAL)
+                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("release_type", String.class), SysLoginRestrictionDO.RELEASE_MANUAL)
                 .where(JooqTables.SYS_LOGIN_RESTRICTION.field("user_id", Long.class).eq(userId)
                         .and(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class)
                                 .eq(SysLoginRestrictionDO.STATUS_ACTIVE)))
@@ -167,25 +165,22 @@ public class LoginRestrictionService {
      */
     @Transactional
     public int releaseExpired() {
-        int updated = dsl.update(JooqTables.SYS_LOGIN_RESTRICTION.table())
-                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class),
-                        SysLoginRestrictionDO.STATUS_RELEASED)
-                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("released_at", Timestamp.class),
-                        Timestamp.valueOf(LocalDateTime.now()))
-                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("release_type", String.class),
-                        SysLoginRestrictionDO.RELEASE_AUTO_EXPIRED)
+        int updated = dsl.update(LR.table())
+                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class), SysLoginRestrictionDO.STATUS_RELEASED)
+                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("released_at", java.time.LocalDateTime.class), LocalDateTime.now())
+                .set(JooqTables.SYS_LOGIN_RESTRICTION.field("release_type", String.class), SysLoginRestrictionDO.RELEASE_AUTO_EXPIRED)
                 .where(JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class)
                         .eq(SysLoginRestrictionDO.STATUS_ACTIVE)
-                        .and(JooqTables.SYS_LOGIN_RESTRICTION.field("expire_at", Timestamp.class).isNotNull())
-                        .and(JooqTables.SYS_LOGIN_RESTRICTION.field("expire_at", Timestamp.class)
-                                .lessOrEqual(Timestamp.valueOf(LocalDateTime.now()))))
+                        .and(JooqTables.SYS_LOGIN_RESTRICTION.field("expire_at", java.time.LocalDateTime.class).isNotNull())
+                        .and(JooqTables.SYS_LOGIN_RESTRICTION.field("expire_at", java.time.LocalDateTime.class)
+                                .lessOrEqual(LocalDateTime.now())))
                 .execute();
         return updated;
     }
 
     /** 生效限制的用户 ID 集合（RESTRICTED 判定与筛选的唯一数据源）。 */
     public Set<Long> activeRestrictedUserIds(LocalDateTime now) {
-        List<SysLoginRestrictionDO> actives = JooqWriters.fetchList(dsl, JooqTables.SYS_LOGIN_RESTRICTION,
+        List<SysLoginRestrictionDO> actives = JooqWriters.fetchList(dsl, LR,
                 SysLoginRestrictionDO.class,
                 JooqTables.SYS_LOGIN_RESTRICTION.field("status", String.class)
                         .eq(SysLoginRestrictionDO.STATUS_ACTIVE));

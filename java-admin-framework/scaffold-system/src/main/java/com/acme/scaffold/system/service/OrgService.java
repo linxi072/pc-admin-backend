@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrgService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 部门资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。 */
     public static final String RESOURCE_CODE = "system:org";
@@ -51,6 +52,9 @@ public class OrgService {
 
     private final DSLContext dsl;
 
+    /** 桥接自代码生成层 {@code Tables.SYS_ORG} 的类型安全表引用（B16）。 */
+    private static final JooqTables.TableRef ORG = JooqTables.SYS_ORG;
+
     /**
      * 机构树（数据权限敏感热点读）。
      *
@@ -62,9 +66,9 @@ public class OrgService {
     @DataScope(resourceCode = RESOURCE_CODE, name = "部门管理")
     @Cacheable(cacheNames = ORG_TREE_CACHE, key = "#root.target.orgScopeKey()")
     public List<OrgTreeVO> tree() {
-        List<SysOrgDO> all = JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
-                        DataScopeConditions.of(JooqTables.SYS_ORG, "id")),
+        List<SysOrgDO> all = JooqWriters.fetchList(dsl, ORG, SysOrgDO.class,
+                DSL.and(JooqWriters.notDeleted(ORG),
+                        DataScopeConditions.of(ORG, "id")),
                 JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
         // 负责人姓名映射：一次 IN 批量查询（displayName 优先、回落 username），
         // 避免逐节点按 leaderUserId 回查用户表形成 N+1
@@ -122,9 +126,9 @@ public class OrgService {
         if (leaderIds.isEmpty()) {
             return Map.of();
         }
-        List<SysUserDO> users = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_USER),
-                        JooqTables.SYS_USER.field("id", Long.class).in(leaderIds)));
+        List<SysUserDO> users = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                DSL.and(JooqWriters.notDeleted(USER),
+                        USER.field("id", Long.class).in(leaderIds)));
         Map<Long, String> names = new HashMap<>();
         for (SysUserDO u : users) {
             names.put(u.getId(), StringUtils.hasText(u.getDisplayName()) ? u.getDisplayName() : u.getUsername());
@@ -148,25 +152,25 @@ public class OrgService {
         org.setLeaderUserId(request.leaderUserId());
         org.setStatus(request.status() == null ? "ACTIVE" : request.status());
         if (parentId != 0L) {
-            SysOrgDO parent = JooqWriters.fetchById(dsl, JooqTables.SYS_ORG, SysOrgDO.class, parentId);
+            SysOrgDO parent = JooqWriters.fetchById(dsl, ORG, SysOrgDO.class, parentId);
             org.setAncestors(parent == null ? "0" : parent.getAncestors() + "," + parentId);
         } else {
             org.setAncestors("0");
         }
-        JooqWriters.insert(dsl, JooqTables.SYS_ORG, org);
+        JooqWriters.insert(dsl, ORG, org);
         return org.getId();
     }
 
     private boolean existsByCode(String code) {
-        return JooqWriters.count(dsl, JooqTables.SYS_ORG,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
+        return JooqWriters.count(dsl, ORG,
+                DSL.and(JooqWriters.notDeleted(ORG),
                         JooqTables.SYS_ORG.field("org_code", String.class).eq(code))) > 0;
     }
 
     @Transactional
     @CacheEvict(cacheNames = ORG_TREE_CACHE, allEntries = true)
     public void update(Long id, UpdateOrgRequest request) {
-        SysOrgDO existing = JooqWriters.fetchById(dsl, JooqTables.SYS_ORG, SysOrgDO.class, id);
+        SysOrgDO existing = JooqWriters.fetchById(dsl, ORG, SysOrgDO.class, id);
         if (existing == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "机构不存在");
         }
@@ -204,27 +208,27 @@ public class OrgService {
         if (request.leaderUserId() == null) {
             // 清除负责人：updateById 的 NOT_NULL 策略会跳过 null 字段导致旧值残留，
             // 须显式置空（与 ProfileService 解绑手机号/邮箱同一范式）
-            JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_ORG, id, org, Set.of("leader_user_id"));
+            JooqWriters.updateByIdWithNulls(dsl, ORG, id, org, Set.of("leader_user_id"));
         } else {
-            JooqWriters.updateById(dsl, JooqTables.SYS_ORG, id, org);
+            JooqWriters.updateById(dsl, ORG, id, org);
         }
     }
 
     @Transactional
     @CacheEvict(cacheNames = ORG_TREE_CACHE, allEntries = true)
     public void delete(Long id) {
-        long childCount = JooqWriters.count(dsl, JooqTables.SYS_ORG,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
+        long childCount = JooqWriters.count(dsl, ORG,
+                DSL.and(JooqWriters.notDeleted(ORG),
                         JooqTables.SYS_ORG.field("parent_id", Long.class).eq(id)));
         if (childCount > 0) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "请先删除子机构");
         }
-        JooqWriters.delete(dsl, JooqTables.SYS_ORG, id, true);
+        JooqWriters.delete(dsl, ORG, id, true);
     }
 
     private List<SysOrgDO> loadAll() {
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                JooqWriters.notDeleted(JooqTables.SYS_ORG),
+        return JooqWriters.fetchList(dsl, ORG, SysOrgDO.class,
+                JooqWriters.notDeleted(ORG),
                 JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
     }
 
@@ -273,7 +277,7 @@ public class OrgService {
             if (touched.contains(o.getId())) {
                 SysOrgDO patch = new SysOrgDO();
                 patch.setAncestors(o.getAncestors());
-                JooqWriters.updateById(dsl, JooqTables.SYS_ORG, o.getId(), patch);
+                JooqWriters.updateById(dsl, ORG, o.getId(), patch);
             }
         }
     }

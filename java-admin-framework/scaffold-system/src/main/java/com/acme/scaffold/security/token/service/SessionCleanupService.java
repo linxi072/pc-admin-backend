@@ -37,6 +37,9 @@ public class SessionCleanupService {
     private final JwtProperties jwtProps;
     private final OnlineSessionReleasePort onlineSessionRelease;
 
+    private static final JooqTables.TableRef RT =
+            JooqTables.SYS_REFRESH_TOKEN;
+
     public SessionCleanupService(DSLContext dsl, JwtProperties jwtProps,
                                  OnlineSessionReleasePort onlineSessionRelease) {
         this.dsl = dsl;
@@ -66,12 +69,12 @@ public class SessionCleanupService {
         LocalDateTime cutoff = now.minus(jwtProps.getSessionMaxInactive());
         Timestamp nowTs = Timestamp.valueOf(now);
         Timestamp cutoffTs = Timestamp.valueOf(cutoff);
-        Field<Timestamp> lastUsed = JooqTables.SYS_REFRESH_TOKEN.field("last_used_at", Timestamp.class);
-        Field<Timestamp> issuedAt = JooqTables.SYS_REFRESH_TOKEN.field("issued_at", Timestamp.class);
-        Field<Timestamp> expiresAt = JooqTables.SYS_REFRESH_TOKEN.field("expires_at", Timestamp.class);
-        Field<Timestamp> revokedAt = JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", Timestamp.class);
-        Field<String> reason = JooqTables.SYS_REFRESH_TOKEN.field("revoke_reason", String.class);
-        int updated = dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        Field<Timestamp> lastUsed = RT.field("last_used_at", Timestamp.class);
+        Field<Timestamp> issuedAt = RT.field("issued_at", Timestamp.class);
+        Field<Timestamp> expiresAt = RT.field("expires_at", Timestamp.class);
+        Field<Timestamp> revokedAt = RT.field("revoked_at", Timestamp.class);
+        Field<String> reason = RT.field("revoke_reason", String.class);
+        int updated = dsl.update(RT.table())
                 .set(revokedAt, nowTs)
                 .set(reason, "INACTIVITY_TIMEOUT")
                 .where(and(
@@ -91,10 +94,10 @@ public class SessionCleanupService {
     /** 清理已自然过期但 revoked_at 仍为空的刷新令牌（仅置状态，便于审计），返回受影响行数。 */
     public int purgeExpired() {
         Timestamp nowTs = Timestamp.valueOf(LocalDateTime.now());
-        Field<Timestamp> expiresAt = JooqTables.SYS_REFRESH_TOKEN.field("expires_at", Timestamp.class);
-        Field<Timestamp> revokedAt = JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", Timestamp.class);
-        Field<String> reason = JooqTables.SYS_REFRESH_TOKEN.field("revoke_reason", String.class);
-        return dsl.update(JooqTables.SYS_REFRESH_TOKEN.table())
+        Field<Timestamp> expiresAt = RT.field("expires_at", Timestamp.class);
+        Field<Timestamp> revokedAt = RT.field("revoked_at", Timestamp.class);
+        Field<String> reason = RT.field("revoke_reason", String.class);
+        return dsl.update(RT.table())
                 .set(revokedAt, nowTs)
                 .set(reason, "EXPIRED_CLEANUP")
                 .where(and(revokedAt.isNull(), expiresAt.lessThan(nowTs)))

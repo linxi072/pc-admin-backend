@@ -5,10 +5,10 @@ import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.paging.JooqKeysetPager;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooq.paging.JooqKeysetPager;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.entity.SysFileDO;
@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -70,6 +69,9 @@ public class FileService {
     /** 批量删除单次上限（防御性限制，避免超长 ID 列表拖垮事务）。 */
     private static final int BATCH_DELETE_LIMIT = 100;
 
+    /** 桥接自代码生成层 {@code Tables.SYS_FILE} 的类型安全表引用（B22）。 */
+    private static final JooqTables.TableRef FILE = JooqTables.SYS_FILE;
+
     private final DSLContext dsl;
     private final FileStorageService fileStorageService;
     private final SecurityContextFacade securityContextFacade;
@@ -95,7 +97,7 @@ public class FileService {
     /**
      * 上传文件（公共可复用接口）。
      *
-     * <p>秒传（V50）：魔数校验通过后计算内容 SHA-256，命中未删记录且物理文件仍在时，
+     * <p>秒传（V50）：魔数校验通过后计算内容 SHA-256，命中未删记录且物理文件仍存在时，
      * 复用其 stored_name / storage_path，不落盘、不产生新物理文件（响应 deduplicated=true）。
      *
      * @param file          文件内容
@@ -157,7 +159,7 @@ public class FileService {
         record.setUploaderId(principal.userId());
         record.setUploaderName(principal.displayName() != null ? principal.displayName() : principal.username());
         try {
-            JooqWriters.insert(dsl, JooqTables.SYS_FILE, record);
+            JooqWriters.insert(dsl, FILE, record);
         } catch (RuntimeException e) {
             // DB 写入失败：仅清理本次新落盘的孤儿文件（秒传复用场景无新文件可清）
             if (!deduplicated) {
@@ -170,16 +172,15 @@ public class FileService {
 
     /** 下载：返回文件资源与原始文件名（Content-Disposition 由 Controller 设置）。 */
     public FileDownload download(Long id) {
-        SysFileDO record = JooqWriters.fetchById(dsl, JooqTables.SYS_FILE, SysFileDO.class, id);
+        SysFileDO record = JooqWriters.fetchById(dsl, FILE, SysFileDO.class, id);
         if (record == null) {
             throw BusinessException.of(FileErrorCode.FILE_NOT_FOUND, FileErrorCode.FILE_NOT_FOUND.message());
         }
         Resource resource = fileStorageService.loadAsResource(record.getStoredName());
         // 下载计数 +1（乐观自增；失败仅告警，不阻塞下载）
         try {
-            dsl.update(JooqTables.SYS_FILE.table())
-                    .set(JooqTables.SYS_FILE.field("download_count", Long.class),
-                            JooqTables.SYS_FILE.field("download_count", Long.class).plus(1))
+            dsl.update(FILE.table())
+                    .set(JooqTables.SYS_FILE.field("download_count", Long.class), JooqTables.SYS_FILE.field("download_count", Long.class).plus(1))
                     .where(JooqTables.SYS_FILE.field("id", Long.class).eq(id))
                     .execute();
         } catch (RuntimeException e) {
@@ -231,19 +232,19 @@ public class FileService {
 
     /** 删除单条记录（无事务注解，供批量删除在同事务内逐项调用，避免 Spring 自调用不走代理）。 */
     private void deleteOne(Long id) {
-        SysFileDO record = JooqWriters.fetchById(dsl, JooqTables.SYS_FILE, SysFileDO.class, id);
+        SysFileDO record = JooqWriters.fetchById(dsl, FILE, SysFileDO.class, id);
         if (record == null) {
             throw BusinessException.of(FileErrorCode.FILE_NOT_FOUND, FileErrorCode.FILE_NOT_FOUND.message());
         }
-        long refCount = JooqWriters.count(dsl, JooqTables.SYS_FILE, DSL.and(
-                JooqWriters.notDeleted(JooqTables.SYS_FILE),
+        long refCount = JooqWriters.count(dsl, FILE, DSL.and(
+                JooqWriters.notDeleted(FILE),
                 JooqTables.SYS_FILE.field("stored_name", String.class).eq(record.getStoredName())));
         if (FileDedupRules.shouldDeletePhysical(refCount)) {
             fileStorageService.delete(record.getStoredName());
         } else {
             log.info("物理文件被 {} 条记录共享，保留磁盘文件 storedName={}", refCount, record.getStoredName());
         }
-        JooqWriters.delete(dsl, JooqTables.SYS_FILE, id, true);
+        JooqWriters.delete(dsl, FILE, id, true);
     }
 
     /**
@@ -263,13 +264,11 @@ public class FileService {
     /** 文件统计（V50）：按来源模块聚合数量与占用空间；空表自然返回零值，无需特殊分支。 */
     @Transactional(readOnly = true)
     public FileStatsView stats() {
-        var t = JooqTables.SYS_FILE;
-        Field<String> module = t.field("source_module", String.class);
         Result<Record3<String, Integer, BigDecimal>> rs = dsl
-                .select(module, DSL.count(), DSL.sum(t.field("file_size", Long.class)))
-                .from(t.table())
-                .where(JooqWriters.notDeleted(t))
-                .groupBy(module)
+                .select(JooqTables.SYS_FILE.field("source_module", String.class), DSL.count(), DSL.sum(JooqTables.SYS_FILE.field("file_size", Long.class)))
+                .from(FILE.table())
+                .where(JooqWriters.notDeleted(FILE))
+                .groupBy(JooqTables.SYS_FILE.field("source_module", String.class))
                 .orderBy(DSL.count().desc())
                 .fetch();
         List<ModuleFileStat> modules = new ArrayList<>(rs.size());
@@ -287,8 +286,8 @@ public class FileService {
 
     /** 按内容哈希查未删记录（秒传锚点）；无命中返回 null。 */
     private SysFileDO findByContentHash(String contentHash) {
-        return JooqWriters.fetchOne(dsl, JooqTables.SYS_FILE, SysFileDO.class, DSL.and(
-                JooqWriters.notDeleted(JooqTables.SYS_FILE),
+        return JooqWriters.fetchOne(dsl, FILE, SysFileDO.class, DSL.and(
+                JooqWriters.notDeleted(FILE),
                 JooqTables.SYS_FILE.field("content_hash", String.class).eq(contentHash)));
     }
 
@@ -297,23 +296,21 @@ public class FileService {
     public PageResult<FileView> page(int page, int size, String sourceModule, String uploaderName,
                                      String originalName, String sortField, String sortDirection) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.SYS_FILE));
+        conds.add(JooqWriters.notDeleted(FILE));
         if (sourceModule != null && !sourceModule.isBlank()) {
             conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
         }
         if (uploaderName != null && !uploaderName.isBlank()) {
-            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class)
-                    .like("%" + uploaderName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class).like("%" + uploaderName.trim() + "%"));
         }
         if (originalName != null && !originalName.isBlank()) {
-            conds.add(JooqTables.SYS_FILE.field("original_name", String.class)
-                    .like("%" + originalName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class).like("%" + originalName.trim() + "%"));
         }
         Condition cond = DSL.and(conds);
         PageQuery q = PageQuery.of(page, size, sortField, sortDirection);
-        var raw = JooqWriters.page(dsl, JooqTables.SYS_FILE, SysFileDO.class, cond, q,
-                JooqSorts.resolve(JooqTables.SYS_FILE, q, FILE_SORT_FIELDS,
-                        JooqTables.SYS_FILE.field("created_at", LocalDateTime.class).desc()));
+        var raw = JooqWriters.page(dsl, FILE, SysFileDO.class, cond, q,
+                JooqSorts.resolve(FILE, q, FILE_SORT_FIELDS,
+                        JooqTables.SYS_FILE.field("created_at", java.time.LocalDateTime.class).desc()));
         List<FileView> views = toViewsWithSharedFlag(raw.records());
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
     }
@@ -322,21 +319,19 @@ public class FileService {
     @Transactional(readOnly = true)
     public List<FileView> listAll(String sourceModule, String uploaderName, String originalName) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.SYS_FILE));
+        conds.add(JooqWriters.notDeleted(FILE));
         if (sourceModule != null && !sourceModule.isBlank()) {
             conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
         }
         if (uploaderName != null && !uploaderName.isBlank()) {
-            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class)
-                    .like("%" + uploaderName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class).like("%" + uploaderName.trim() + "%"));
         }
         if (originalName != null && !originalName.isBlank()) {
-            conds.add(JooqTables.SYS_FILE.field("original_name", String.class)
-                    .like("%" + originalName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class).like("%" + originalName.trim() + "%"));
         }
         Condition cond = DSL.and(conds);
-        List<SysFileDO> records = JooqWriters.fetchList(dsl, JooqTables.SYS_FILE, SysFileDO.class, cond,
-                JooqTables.SYS_FILE.field("created_at", LocalDateTime.class).desc());
+        List<SysFileDO> records = JooqWriters.fetchList(dsl, FILE, SysFileDO.class, cond,
+                JooqTables.SYS_FILE.field("created_at", java.time.LocalDateTime.class).desc());
         return toViewsWithSharedFlag(records);
     }
 
@@ -350,26 +345,24 @@ public class FileService {
     public KeysetPageResult<FileView> keysetPage(int size, String cursor,
                                                 String sourceModule, String uploaderName, String originalName) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.SYS_FILE));
+        conds.add(JooqWriters.notDeleted(FILE));
         if (sourceModule != null && !sourceModule.isBlank()) {
             conds.add(JooqTables.SYS_FILE.field("source_module", String.class).eq(sourceModule.trim()));
         }
         if (uploaderName != null && !uploaderName.isBlank()) {
-            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class)
-                    .like("%" + uploaderName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("uploader_name", String.class).like("%" + uploaderName.trim() + "%"));
         }
         if (originalName != null && !originalName.isBlank()) {
-            conds.add(JooqTables.SYS_FILE.field("original_name", String.class)
-                    .like("%" + originalName.trim() + "%"));
+            conds.add(JooqTables.SYS_FILE.field("original_name", String.class).like("%" + originalName.trim() + "%"));
         }
         Condition cond = DSL.and(conds);
         KeysetPageQuery q = new KeysetPageQuery(size, cursor);
         Field<?>[] keyFields = new Field<?>[]{
-                JooqTables.SYS_FILE.field("created_at", LocalDateTime.class),
+                JooqTables.SYS_FILE.field("created_at", java.time.LocalDateTime.class),
                 JooqTables.SYS_FILE.field("id", Long.class)
         };
         boolean[] ascending = {false, false}; // created_at DESC, id DESC
-        KeysetPageResult<SysFileDO> raw = JooqKeysetPager.query(dsl, JooqTables.SYS_FILE, SysFileDO.class,
+        KeysetPageResult<SysFileDO> raw = JooqKeysetPager.query(dsl, FILE, SysFileDO.class,
                 cond, q, f -> new Object[]{f.getCreatedAt(), f.getId()}, keyFields, ascending);
         List<FileView> views = toViewsWithSharedFlag(raw.records());
         return KeysetPageResult.of(raw.size(), views, raw.nextCursor());
@@ -393,13 +386,12 @@ public class FileService {
         for (SysFileDO d : records) {
             names.add(d.getStoredName());
         }
-        var t = JooqTables.SYS_FILE;
         Result<Record2<String, Integer>> rs = dsl
-                .select(t.field("stored_name", String.class), DSL.count())
-                .from(t.table())
-                .where(DSL.and(JooqWriters.notDeleted(t),
-                        t.field("stored_name", String.class).in(names)))
-                .groupBy(t.field("stored_name", String.class))
+                .select(JooqTables.SYS_FILE.field("stored_name", String.class), DSL.count())
+                .from(FILE.table())
+                .where(DSL.and(JooqWriters.notDeleted(FILE),
+                        JooqTables.SYS_FILE.field("stored_name", String.class).in(names)))
+                .groupBy(JooqTables.SYS_FILE.field("stored_name", String.class))
                 .fetch();
         Set<String> shared = new java.util.HashSet<>();
         for (Record2<String, Integer> r : rs) {

@@ -29,8 +29,14 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class WorkbenchService {
+    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
+    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
+
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private final DSLContext dsl;
+
+    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
 
     /** 返回工作台统计卡片数据。 */
     public WorkbenchStatsVO stats(Long userId) {
@@ -41,35 +47,35 @@ public class WorkbenchService {
         List<StatCardVO> cards = new ArrayList<>();
 
         // 1) 今日新增用户（周期型：今日 vs 昨日）
-        long newUserToday = countBetween(JooqTables.SYS_USER, "created_at", todayStart, tomorrowStart);
-        long newUserYesterday = countBetween(JooqTables.SYS_USER, "created_at", yesterdayStart, todayStart);
+        long newUserToday = countBetween(USER, "created_at", todayStart, tomorrowStart);
+        long newUserYesterday = countBetween(USER, "created_at", yesterdayStart, todayStart);
         cards.add(StatCardVO.of("NEW_USER_TODAY", "今日新增用户", newUserToday, newUserYesterday, "人"));
 
         // 2) 今日发起流程（周期型：今日 vs 昨日）
-        long newInstanceToday = countBetween(JooqTables.WF_INSTANCE_EXT, "started_at",
+        long newInstanceToday = countBetween(WF_INSTANCE_EXT, "started_at",
                 todayStart, tomorrowStart);
-        long newInstanceYesterday = countBetween(JooqTables.WF_INSTANCE_EXT, "started_at",
+        long newInstanceYesterday = countBetween(WF_INSTANCE_EXT, "started_at",
                 yesterdayStart, todayStart);
         cards.add(StatCardVO.of("NEW_INSTANCE_TODAY", "今日发起流程",
                 newInstanceToday, newInstanceYesterday, "个"));
 
         // 3) 我的待办（快照型：按当前登录人过滤，未认领/未完成的待办任务）
-        long myTodo = userId == null ? 0L : JooqWriters.count(dsl, JooqTables.WF_TASK_EXT, DSL.and(
-                JooqWriters.notDeleted(JooqTables.WF_TASK_EXT),
-                JooqTables.WF_TASK_EXT.field("assignee_user_id", Long.class).eq(userId),
-                JooqTables.WF_TASK_EXT.field("status", String.class).eq("PENDING")));
+        long myTodo = userId == null ? 0L : JooqWriters.count(dsl, WF_TASK_EXT, DSL.and(
+                JooqWriters.notDeleted(WF_TASK_EXT),
+                WF_TASK_EXT.field("assignee_user_id", Long.class).eq(userId),
+                WF_TASK_EXT.field("status", String.class).eq("PENDING")));
         cards.add(StatCardVO.snapshot("MY_TODO_TASKS", "我的待办", myTodo, "条"));
 
         // 4) 运行中流程（快照型）
-        long running = JooqWriters.count(dsl, JooqTables.WF_INSTANCE_EXT, DSL.and(
-                JooqWriters.notDeleted(JooqTables.WF_INSTANCE_EXT),
-                JooqTables.WF_INSTANCE_EXT.field("status", String.class).eq("RUNNING")));
+        long running = JooqWriters.count(dsl, WF_INSTANCE_EXT, DSL.and(
+                JooqWriters.notDeleted(WF_INSTANCE_EXT),
+                WF_INSTANCE_EXT.field("status", String.class).eq("RUNNING")));
         cards.add(StatCardVO.snapshot("RUNNING_INSTANCE", "运行中流程", running, "个"));
 
         // 5) 在线接口（快照型：已登记且启用的接口资源）
-        long activeApi = JooqWriters.count(dsl, JooqTables.SYS_API_RESOURCE, DSL.and(
-                JooqWriters.notDeleted(JooqTables.SYS_API_RESOURCE),
-                JooqTables.SYS_API_RESOURCE.field("status", String.class).eq("ACTIVE")));
+        long activeApi = JooqWriters.count(dsl, AR, DSL.and(
+                JooqWriters.notDeleted(AR),
+                AR.field("status", String.class).eq("ACTIVE")));
         cards.add(StatCardVO.snapshot("ACTIVE_API", "在线接口", activeApi, "个"));
 
         return new WorkbenchStatsVO(List.copyOf(cards));

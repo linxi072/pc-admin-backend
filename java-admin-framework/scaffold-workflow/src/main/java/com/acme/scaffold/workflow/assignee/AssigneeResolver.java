@@ -18,9 +18,17 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AssigneeResolver {
+    private static final JooqTables.TableRef SYS_ORG = JooqTables.SYS_ORG;
+
+
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 主管角色码，用于 INITIATOR_MANAGER 解析（可按实际部署调整）。 */
     private static final String MANAGER_ROLE_CODE = "MANAGER";
+
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
 
@@ -49,9 +57,9 @@ public class AssigneeResolver {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                             "审批节点 " + nodeDesc(node) + " 的 ROLE 受让人需指定角色码");
                 }
-                Long roleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
-                        .from(JooqTables.SYS_ROLE.table())
-                        .where(JooqTables.SYS_ROLE.field("role_code", String.class).eq(code))
+                Long roleId = dsl.select(ROLE.field("id", Long.class))
+                        .from(ROLE.table())
+                        .where(ROLE.field("role_code", String.class).eq(code))
                         .fetchOne(0, Long.class);
                 if (roleId == null) {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
@@ -71,9 +79,9 @@ public class AssigneeResolver {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                             "审批节点 " + nodeDesc(node) + " 的 ORG 受让人部门ID非法: " + expr);
                 }
-                Long exist = dsl.select(JooqTables.SYS_ORG.field("id", Long.class))
-                        .from(JooqTables.SYS_ORG.table())
-                        .where(JooqTables.SYS_ORG.field("id", Long.class).eq(orgId))
+                Long exist = dsl.select(SYS_ORG.field("id", Long.class))
+                        .from(SYS_ORG.table())
+                        .where(SYS_ORG.field("id", Long.class).eq(orgId))
                         .fetchOne(0, Long.class);
                 if (exist == null) {
                     throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
@@ -121,9 +129,9 @@ public class AssigneeResolver {
         if (roleCode.isBlank()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "ROLE 受让人需指定角色码");
         }
-        Long roleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
-                .from(JooqTables.SYS_ROLE.table())
-                .where(JooqTables.SYS_ROLE.field("role_code", String.class).eq(roleCode))
+        Long roleId = dsl.select(ROLE.field("id", Long.class))
+                .from(ROLE.table())
+                .where(ROLE.field("role_code", String.class).eq(roleCode))
                 .fetchOne(0, Long.class);
         if (roleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "角色不存在: " + roleCode);
@@ -144,9 +152,9 @@ public class AssigneeResolver {
         if (orgId == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "发起人所在主部门未知");
         }
-        Long managerRoleId = dsl.select(JooqTables.SYS_ROLE.field("id", Long.class))
-                .from(JooqTables.SYS_ROLE.table())
-                .where(JooqTables.SYS_ROLE.field("role_code", String.class).eq(MANAGER_ROLE_CODE))
+        Long managerRoleId = dsl.select(ROLE.field("id", Long.class))
+                .from(ROLE.table())
+                .where(ROLE.field("role_code", String.class).eq(MANAGER_ROLE_CODE))
                 .fetchOne(0, Long.class);
         if (managerRoleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "未配置主管角色(" + MANAGER_ROLE_CODE + ")");
@@ -155,53 +163,53 @@ public class AssigneeResolver {
     }
 
     private Long primaryOrgOf(Long userId) {
-        return dsl.select(JooqTables.SYS_USER_ORG.field("org_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
+        return dsl.select(USER_ORG.field("org_id", Long.class))
+                .from(USER_ORG.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)))
+                        USER_ORG.field("user_id", Long.class).eq(userId),
+                        USER_ORG.field("is_primary", Integer.class).eq(1)))
                 .fetchOne(0, Long.class);
     }
 
     /** 取拥有指定角色的全部用户ID（关联表 sys_user_role，多对多）。 */
     private List<Long> userIdsByRole(Long roleId) {
-        return dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ROLE.table())
+        return dsl.select(USER_ROLE.field("user_id", Long.class))
+                .from(USER_ROLE.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).eq(roleId),
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
+                        USER_ROLE.field("role_id", Long.class).eq(roleId),
+                        USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
     }
 
     /** 取归属指定部门的全部用户ID（关联表 sys_user_org，多对多）。 */
     private List<Long> userIdsByOrg(Long orgId) {
-        return dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
+        return dsl.select(USER_ORG.field("user_id", Long.class))
+                .from(USER_ORG.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ORG.field("org_id", Long.class).eq(orgId),
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).in(activeUserIds())))
+                        USER_ORG.field("org_id", Long.class).eq(orgId),
+                        USER_ORG.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
     }
 
     /** 取某部门内拥有指定角色的用户ID（org + role 组合，多对多）。 */
     private List<Long> userIdsByRoleInOrg(Long roleId, Long orgId) {
-        return dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ROLE.table())
+        return dsl.select(USER_ROLE.field("user_id", Long.class))
+                .from(USER_ROLE.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).eq(roleId),
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(
-                                dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                                        .from(JooqTables.SYS_USER_ORG.table())
-                                        .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).eq(orgId))),
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
+                        USER_ROLE.field("role_id", Long.class).eq(roleId),
+                        USER_ROLE.field("user_id", Long.class).in(
+                                dsl.select(USER_ORG.field("user_id", Long.class))
+                                        .from(USER_ORG.table())
+                                        .where(USER_ORG.field("org_id", Long.class).eq(orgId))),
+                        USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
     }
 
     /** 活跃（未删除）用户ID子查询，过滤已注销账号。 */
     private org.jooq.Select<org.jooq.Record1<Long>> activeUserIds() {
-        return dsl.select(JooqTables.SYS_USER.field("id", Long.class))
-                .from(JooqTables.SYS_USER.table())
-                .where(JooqTables.SYS_USER.field("deleted", Integer.class).eq(0));
+        return dsl.select(USER.field("id", Long.class))
+                .from(USER.table())
+                .where(USER.field("deleted", Integer.class).eq(0));
     }
 
     private static String orDefault(String value, String def) {

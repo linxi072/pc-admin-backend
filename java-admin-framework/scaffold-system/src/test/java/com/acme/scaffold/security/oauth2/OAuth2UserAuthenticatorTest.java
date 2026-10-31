@@ -1,80 +1,94 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.permission.PermissionService;
-import com.acme.scaffold.system.entity.SysUserDO;
-import org.junit.jupiter.api.DisplayName;
+import com.acme.scaffold.security.user.UserAccount;
+import com.acme.scaffold.security.user.UserAccountDataPort;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.jooq.DSLContext;
-import org.mockito.MockedStatic;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-@DisplayName("OAuth2 用户认证（password 授权）")
+@ExtendWith(MockitoExtension.class)
 class OAuth2UserAuthenticatorTest {
 
-    @Test
-    @DisplayName("用户名/密码正确 → 返回聚合权限的主体")
-    void authenticate_success() {
-        DSLContext dsl = mock(DSLContext.class);
-        org.springframework.security.crypto.password.PasswordEncoder pe = mock(
-                org.springframework.security.crypto.password.PasswordEncoder.class);
-        PermissionService perm = mock(PermissionService.class);
+    @Mock
+    private UserAccountDataPort accountPort;
+    @Mock
+    private PermissionService permissionService;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
-        SysUserDO user = new SysUserDO();
-        user.setId(42L);
-        user.setUsername("alice");
-        user.setStatus("ENABLED");
-        user.setPasswordHash("hash");
-        user.setTokenVersion(3);
+    private OAuth2UserAuthenticator authenticator;
 
-        try (MockedStatic<JooqWriters> m = mockStatic(JooqWriters.class)) {
-            m.when(() -> JooqWriters.fetchOne(eq(dsl), any(), eq(SysUserDO.class), any())).thenReturn(user);
-            when(pe.matches("pw", "hash")).thenReturn(true);
-            when(perm.getPermissions(42L)).thenReturn(Set.of("system:user:read"));
-            when(perm.getRoleCodes(42L)).thenReturn(Set.of("ADMIN"));
+    @BeforeEach
+    void init() {
+        authenticator = new OAuth2UserAuthenticator(passwordEncoder, permissionService, accountPort);
+    }
 
-            OAuth2UserAuthenticator auth = new OAuth2UserAuthenticator(dsl, pe, perm);
-            OAuth2UserAuthenticator.AuthenticatedUser u = auth.authenticate("alice", "pw");
-            assertEquals(42L, u.userId());
-            assertEquals("alice", u.username());
-            assertEquals(3, u.tokenVersion());
-            assertEquals(Set.of("system:user:read"), u.authorities());
-        }
+    private UserAccount account(String status) {
+        return new UserAccount(42L, "alice", "Alice", 1L, status, "hash", 3, 0,
+                "13800000000", "a@x.com", null, 0, null);
     }
 
     @Test
-    @DisplayName("密码错误 → BAD_CREDENTIALS")
-    void authenticate_badPassword() {
-        DSLContext dsl = mock(DSLContext.class);
-        org.springframework.security.crypto.password.PasswordEncoder pe = mock(
-                org.springframework.security.crypto.password.PasswordEncoder.class);
-        PermissionService perm = mock(PermissionService.class);
+    void authenticate_success_aggregatesPermissionsAndRoles() {
+        UserAccount u = account("ENABLED");
+        when(accountPort.loadByUsername("alice")).thenReturn(u);
+        when(passwordEncoder.matches("pw", "hash")).thenReturn(true);
+        when(permissionService.getPermissions(42L)).thenReturn(Set.of("sys:user:read"));
+        when(permissionService.getRoleCodes(42L)).thenReturn(Set.of("ADMIN"));
 
-        SysUserDO user = new SysUserDO();
-        user.setId(1L);
-        user.setUsername("bob");
-        user.setStatus("ENABLED");
-        user.setPasswordHash("hash");
+        OAuth2UserAuthenticator.AuthenticatedUser result = authenticator.authenticate("alice", "pw");
 
-        try (MockedStatic<JooqWriters> m = mockStatic(JooqWriters.class)) {
-            m.when(() -> JooqWriters.fetchOne(eq(dsl), any(), eq(SysUserDO.class), any())).thenReturn(user);
-            when(pe.matches("wrong", "hash")).thenReturn(false);
+        assertEquals(42L, result.userId());
+        assertEquals("alice", result.username());
+        assertEquals(3, result.tokenVersion());
+        assertEquals(Set.of("sys:user:read"), result.authorities());
+        assertEquals(Set.of("ADMIN"), result.roles());
+    }
 
-            OAuth2UserAuthenticator auth = new OAuth2UserAuthenticator(dsl, pe, perm);
-            BusinessException ex = assertThrows(BusinessException.class, () -> auth.authenticate("bob", "wrong"));
-            assertEquals(SecurityErrorCode.BAD_CREDENTIALS, ex.getErrorCode());
-        }
+    @Test
+    void authenticate_unknownUser_throwsBadCredentials() {
+        when(accountPort.loadByUsername("ghost")).thenReturn(null);
+        BusinessException ex = assertThrows(BusinessException.class, () -> authenticator.authenticate("ghost", "pw"));
+        assertEquals(SecurityErrorCode.BAD_CREDENTIALS, ex.getErrorCode());
+    }
+
+    @Test
+    void authenticate_disabled_throwsAccountDisabled() {
+        when(accountPort.loadByUsername("alice")).thenReturn(account("DISABLED"));
+        BusinessException ex = assertThrows(BusinessException.class, () -> authenticator.authenticate("alice", "pw"));
+        assertEquals(SecurityErrorCode.ACCOUNT_DISABLED, ex.getErrorCode());
+    }
+
+    @Test
+    void authenticate_locked_throwsAccountDisabled() {
+        when(accountPort.loadByUsername("alice")).thenReturn(account("LOCKED"));
+        BusinessException ex = assertThrows(BusinessException.class, () -> authenticator.authenticate("alice", "pw"));
+        assertEquals(SecurityErrorCode.ACCOUNT_DISABLED, ex.getErrorCode());
+    }
+
+    @Test
+    void authenticate_wrongPassword_throwsBadCredentials() {
+        when(accountPort.loadByUsername("alice")).thenReturn(account("ENABLED"));
+        when(passwordEncoder.matches("bad", "hash")).thenReturn(false);
+        BusinessException ex = assertThrows(BusinessException.class, () -> authenticator.authenticate("alice", "bad"));
+        assertEquals(SecurityErrorCode.BAD_CREDENTIALS, ex.getErrorCode());
+    }
+
+    @Test
+    void authenticate_blankInput_throwsBadCredentials() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> authenticator.authenticate("", "pw"));
+        assertEquals(SecurityErrorCode.BAD_CREDENTIALS, ex.getErrorCode());
     }
 }

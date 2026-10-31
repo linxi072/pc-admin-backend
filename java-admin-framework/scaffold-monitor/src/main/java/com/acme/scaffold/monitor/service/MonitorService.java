@@ -51,6 +51,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MonitorService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+
+    private static final JooqTables.TableRef RT =
+            JooqTables.SYS_REFRESH_TOKEN;
 
     /** 异常日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
     private static final Map<String, String> ERROR_LOG_SORT_FIELDS = JooqSorts.whitelist(
@@ -201,16 +205,16 @@ public class MonitorService {
         }
         LocalDateTime now = LocalDateTime.now();
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", LocalDateTime.class).isNull());
-        conds.add(JooqTables.SYS_REFRESH_TOKEN.field("expires_at", LocalDateTime.class).gt(now));
+        conds.add(RT.field("revoked_at", LocalDateTime.class).isNull());
+        conds.add(RT.field("expires_at", LocalDateTime.class).gt(now));
 
         // limit 下推至 SQL（取宽松上限后仍在内存按会话去重 + 关键字过滤 + limit 截断）：
         // 避免活跃会话量大时把全部刷新令牌拉进堆内。按 last_used_at 倒序取最近窗口，
         // 语义上等价于「最近活跃的会话」。
         int sqlCap = Math.min(Math.max(limit * 10, 500), 5000);
-        List<SysRefreshTokenDO> tokens = JooqWriters.fetchTop(dsl, JooqTables.SYS_REFRESH_TOKEN,
+        List<SysRefreshTokenDO> tokens = JooqWriters.fetchTop(dsl, RT,
                 SysRefreshTokenDO.class, DSL.and(conds), sqlCap,
-                JooqTables.SYS_REFRESH_TOKEN.field("last_used_at", LocalDateTime.class).desc().nullsLast());
+                RT.field("last_used_at", LocalDateTime.class).desc().nullsLast());
 
         // 按 sessionId 去重，保留最近活跃的一条
         Map<String, SysRefreshTokenDO> bySession = new HashMap<>();
@@ -223,8 +227,8 @@ public class MonitorService {
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, SysUserDO> users = new HashMap<>();
         if (!userIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                            JooqTables.SYS_USER.field("id", Long.class).in(userIds))
+            JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                            USER.field("id", Long.class).in(userIds))
                     .forEach(u -> users.put(u.getId(), u));
         }
 
@@ -256,16 +260,16 @@ public class MonitorService {
     public Map<String, Object> onlineSummary() {
         LocalDateTime now = LocalDateTime.now();
         Condition cond = DSL.and(
-                JooqTables.SYS_REFRESH_TOKEN.field("revoked_at", LocalDateTime.class).isNull(),
-                JooqTables.SYS_REFRESH_TOKEN.field("expires_at", LocalDateTime.class).gt(now));
+                RT.field("revoked_at", LocalDateTime.class).isNull(),
+                RT.field("expires_at", LocalDateTime.class).gt(now));
 
-        Integer tokens = dsl.selectCount().from(JooqTables.SYS_REFRESH_TOKEN.table())
+        Integer tokens = dsl.selectCount().from(RT.table())
                 .where(cond).fetchOne(0, Integer.class);
-        Integer sessions = dsl.selectDistinct(JooqTables.SYS_REFRESH_TOKEN.field("session_id", String.class))
-                .from(JooqTables.SYS_REFRESH_TOKEN.table()).where(cond)
+        Integer sessions = dsl.selectDistinct(RT.field("session_id", String.class))
+                .from(RT.table()).where(cond)
                 .fetch().size();
-        Integer users = dsl.selectDistinct(JooqTables.SYS_REFRESH_TOKEN.field("user_id", Long.class))
-                .from(JooqTables.SYS_REFRESH_TOKEN.table()).where(cond)
+        Integer users = dsl.selectDistinct(RT.field("user_id", Long.class))
+                .from(RT.table()).where(cond)
                 .fetch().size();
 
         return Map.of(

@@ -43,4 +43,4 @@ schema 版本当前为 **59**（V57 为 Java 类迁移，无对应 `.sql`）。
 
 - `../reference/schema_ddl.sql` / `data_dml.sql`：V32~V59 的 DDL / DML 分类参考件（由 `scripts/build_reference_modular.py` 从本目录派生，仅供阅读与追溯，**不可当迁移执行**）。
 - `../reference/by-module/*.sql`：按功能模块归类的参考 SQL（同上来源，按模块分组）。
-- `../../common/src/main/resources/db/codegen/`：jOOQ codegen 并行层（H2 归一化 DDL，由 `mvn -Pjooq-codegen generate-sources` 消费），**独立于本迁移链**，仅供代码生成。
+- （原 `../../common/src/main/resources/db/codegen/`：jOOQ codegen 并行层 —— **已于方案C（2026-10-31）移除**：该目录与 `jooq-codegen.xml` 已删除，全仓数据访问统一为纯手写动态 DSL，本迁移链不受影响且始终为唯一事实来源。）

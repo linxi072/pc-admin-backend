@@ -28,6 +28,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class LoginLogRecorder {
 
+    private static final JooqTables.TableRef LL = JooqTables.SYS_LOGIN_LOG;
+
     private final DSLContext dsl;
 
     /** 登录方式：当前仅口令登录（预留扩展：短信 / 扫码 / SSO）。 */
@@ -63,7 +65,7 @@ public class LoginLogRecorder {
             row.setUserAgent(truncate(userAgent, MAX_UA_LEN));
             row.setTraceId(MDC.get("traceId"));
             row.setOccurredAt(LocalDateTime.now());
-            JooqWriters.insert(dsl, JooqTables.SYS_LOGIN_LOG, row);
+            JooqWriters.insert(dsl, LL, row);
         } catch (Exception e) {
             // 登录日志属审计旁路，写入失败不阻断登录主流程
             log.warn("登录日志写入失败 username={} success={} err={}", username, success, e.getMessage());

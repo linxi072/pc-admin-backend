@@ -25,6 +25,9 @@ import org.jooq.impl.DSL;
 @Slf4j
 public final class DataScopeConditions {
 
+    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+
     private DataScopeConditions() {
     }
 
@@ -63,12 +66,12 @@ public final class DataScopeConditions {
         }
         if (orgColumn == null || !table.has(orgColumn)) {
             // sys_user 已无 org_id 单列，机构过滤改走 sys_user_org 关联表
-            if (table == JooqTables.SYS_USER && "org_id".equals(orgColumn)) {
+            if (table.name().equals(USER.name()) && "org_id".equals(orgColumn)) {
                 Set<Long> orgIds = result.orgIds();
                 if (orgIds == null || orgIds.isEmpty()) {
                     return DSL.trueCondition();
                 }
-                return JooqTables.SYS_USER.field("id", Long.class).in(userIdsInOrgs(orgIds));
+                return USER.field("id", Long.class).in(userIdsInOrgs(orgIds));
             }
             log.warn("数据权限列缺失，本次查询不加过滤: table={}, orgColumn={}", table.name(), orgColumn);
             return DSL.trueCondition();
@@ -82,17 +85,17 @@ public final class DataScopeConditions {
 
     /** 取本人所属部门的子查询；用户未挂部门时结果为空，对应「查不到任何行」。 */
     private static Select<Record1<Long>> orgOfUser(Long userId) {
-        return DSL.select(JooqTables.SYS_USER_ORG.field("org_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
+        return DSL.select(USER_ORG.field("org_id", Long.class))
+                .from(USER_ORG.table())
                 .where(DSL.and(
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)));
+                        USER_ORG.field("user_id", Long.class).eq(userId),
+                        USER_ORG.field("is_primary", Integer.class).eq(1)));
     }
 
     /** 取归属指定机构集合的用户ID子查询（基于 sys_user_org 多对多关联表）。 */
     private static Select<Record1<Long>> userIdsInOrgs(Set<Long> orgIds) {
-        return DSL.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
-                .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).in(orgIds));
+        return DSL.select(USER_ORG.field("user_id", Long.class))
+                .from(USER_ORG.table())
+                .where(USER_ORG.field("org_id", Long.class).in(orgIds));
     }
 }

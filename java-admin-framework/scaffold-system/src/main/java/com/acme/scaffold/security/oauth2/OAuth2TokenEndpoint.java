@@ -1,10 +1,10 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.oauth2.OpenApiClientRules;
 import com.acme.scaffold.security.jwt.JwtProperties;
-import com.acme.scaffold.system.openapi.OpenApiClientService;
-import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
-import com.acme.scaffold.system.openapi.rules.OpenApiClientRules;
+import com.acme.scaffold.security.oauth2.OAuth2ClientDataPort;
+import com.acme.scaffold.security.oauth2.OAuth2ClientView;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  *       （携带用户 authorities，可访问 {@code system:*} 受保护接口）；</li>
  *   <li>{@code authorization_code}：客户端凭证 + 一次性授权码，换取<b>代表用户</b>的令牌。</li>
  * </ul>
- * 客户端认证复用 {@link OpenApiClientService#authenticateClient}（BCrypt 密钥哈希 + 状态/过期校验），
+ * 客户端认证复用 {@link OAuth2ClientDataPort#authenticate}（BCrypt 密钥哈希 + 状态/过期校验，由 system 适配器委托 OpenApiClientService），
  * 令牌签发委托 {@link OAuth2TokenProvider}。</p>
  *
  * <p>端点本身匿名可访问（已加入 {@code SecurityConfig#BASE_PUBLIC_API}），但实际访问受 client 认证保护；
@@ -47,20 +47,20 @@ import java.util.stream.Collectors;
 @Slf4j
 public class OAuth2TokenEndpoint {
 
-    private final OpenApiClientService clientService;
+    private final OAuth2ClientDataPort clientPort;
     private final OAuth2TokenProvider tokenProvider;
     private final JwtProperties properties;
     private final OAuth2UserAuthenticator userAuthenticator;
     private final OAuth2AuthorizationCodeService codeService;
     private final OAuth2TokenRegistry tokenRegistry;
 
-    public OAuth2TokenEndpoint(OpenApiClientService clientService,
+    public OAuth2TokenEndpoint(OAuth2ClientDataPort clientPort,
                                OAuth2TokenProvider tokenProvider,
                                JwtProperties properties,
                                OAuth2UserAuthenticator userAuthenticator,
                                OAuth2AuthorizationCodeService codeService,
                                OAuth2TokenRegistry tokenRegistry) {
-        this.clientService = clientService;
+        this.clientPort = clientPort;
         this.tokenProvider = tokenProvider;
         this.properties = properties;
         this.userAuthenticator = userAuthenticator;
@@ -104,9 +104,9 @@ public class OAuth2TokenEndpoint {
             return error(HttpStatus.BAD_REQUEST, "invalid_request", String.join("；", errors));
         }
 
-        OpenApiClientDO client;
+        OAuth2ClientView client;
         try {
-            client = clientService.authenticateClient(clientId, clientSecret);
+            client = clientPort.authenticate(clientId, clientSecret);
         } catch (BusinessException e) {
             // 统一以 invalid_client 响应，避免泄露具体失败原因（不存在/停用/过期/密钥错误）
             return error(HttpStatus.UNAUTHORIZED, "invalid_client", "客户端认证失败");
@@ -126,38 +126,38 @@ public class OAuth2TokenEndpoint {
         }
     }
 
-    private ResponseEntity<Map<String, Object>> clientCredentialsGrant(OpenApiClientDO client, long ttlSeconds) {
-        Set<String> scopes = OpenApiClientRules.parseScopes(client.getScopes());
+    private ResponseEntity<Map<String, Object>> clientCredentialsGrant(OAuth2ClientView client, long ttlSeconds) {
+        Set<String> scopes = client.scopes();
         String jti = UUID.randomUUID().toString();
-        String accessToken = tokenProvider.issueClientCredentialsToken(client.getClientId(), scopes, jti);
+        String accessToken = tokenProvider.issueClientCredentialsToken(client.clientId(), scopes, jti);
         String scopeStr = scopes.isEmpty() ? "" : scopes.stream().sorted().collect(Collectors.joining(" "));
-        recordIssuance(jti, client.getClientId(), null, null, scopes, "CLIENT", ttlSeconds);
+        recordIssuance(jti, client.clientId(), null, null, scopes, "CLIENT", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);
     }
 
-    private ResponseEntity<Map<String, Object>> passwordGrant(OpenApiClientDO client, String username,
+    private ResponseEntity<Map<String, Object>> passwordGrant(OAuth2ClientView client, String username,
                                                              String password, String scope, long ttlSeconds) {
         OAuth2UserAuthenticator.AuthenticatedUser user = userAuthenticator.authenticate(username, password);
-        Set<String> granted = resolveScopes(client.getScopes(), scope);
+        Set<String> granted = resolveScopes(client.scopes(), scope);
         String jti = UUID.randomUUID().toString();
-        String accessToken = tokenProvider.issueUserToken(client.getClientId(), user.userId(), user.username(),
+        String accessToken = tokenProvider.issueUserToken(client.clientId(), user.userId(), user.username(),
                 user.tokenVersion(), granted, user.authorities(), jti);
         String scopeStr = granted.isEmpty() ? "" : granted.stream().sorted().collect(Collectors.joining(" "));
-        recordIssuance(jti, client.getClientId(), user.userId(), user.username(), granted, "USER", ttlSeconds);
+        recordIssuance(jti, client.clientId(), user.userId(), user.username(), granted, "USER", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);
     }
 
-    private ResponseEntity<Map<String, Object>> authorizationCodeGrant(OpenApiClientDO client, String code,
+    private ResponseEntity<Map<String, Object>> authorizationCodeGrant(OAuth2ClientView client, String code,
                                                                      String redirectUri, long ttlSeconds) {
-        OAuth2AuthorizationCodeService.CodeContext ctx = codeService.consume(code, client.getClientId(), redirectUri);
+        OAuth2AuthorizationCodeService.CodeContext ctx = codeService.consume(code, client.clientId(), redirectUri);
         Set<String> granted = (ctx.scope() == null || ctx.scope().isBlank())
-                ? OpenApiClientRules.parseScopes(client.getScopes())
+                ? client.scopes()
                 : OpenApiClientRules.parseScopes(ctx.scope());
         String jti = UUID.randomUUID().toString();
-        String accessToken = tokenProvider.issueUserToken(client.getClientId(), ctx.userId(), ctx.username(),
+        String accessToken = tokenProvider.issueUserToken(client.clientId(), ctx.userId(), ctx.username(),
                 ctx.tokenVersion(), granted, ctx.authorities(), jti);
         String scopeStr = granted.isEmpty() ? "" : granted.stream().sorted().collect(Collectors.joining(" "));
-        recordIssuance(jti, client.getClientId(), ctx.userId(), ctx.username(), granted, "USER", ttlSeconds);
+        recordIssuance(jti, client.clientId(), ctx.userId(), ctx.username(), granted, "USER", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);
     }
 
@@ -176,8 +176,7 @@ public class OAuth2TokenEndpoint {
     }
 
     /** 请求的 scope 与客户端授权范围取交集；未请求 scope 时回落为客户端全量授权范围。 */
-    private static Set<String> resolveScopes(String clientScopes, String requestedScope) {
-        Set<String> allowed = OpenApiClientRules.parseScopes(clientScopes);
+    private static Set<String> resolveScopes(Set<String> allowed, String requestedScope) {
         if (requestedScope == null || requestedScope.isBlank()) {
             return allowed;
         }

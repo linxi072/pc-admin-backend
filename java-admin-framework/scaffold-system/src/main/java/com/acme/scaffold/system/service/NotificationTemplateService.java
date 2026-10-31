@@ -53,6 +53,10 @@ public class NotificationTemplateService {
 
     private final DSLContext dsl;
 
+    /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_TEMPLATE} 的类型安全表引用（B20）。 */
+    private static final JooqTables.TableRef TEMPLATE =
+            JooqTables.SYS_NOTIFICATION_TEMPLATE;
+
     // ------------------------------------------------------------------
     // 查询
     // ------------------------------------------------------------------
@@ -65,10 +69,10 @@ public class NotificationTemplateService {
                                                      String sortField, String sortDirection) {
         Condition cond = buildCondition(channel, keyword, enabled);
         var query = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<SysNotificationTemplateDO> raw = JooqWriters.page(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE,
+        PageResult<SysNotificationTemplateDO> raw = JooqWriters.page(dsl, TEMPLATE,
                 SysNotificationTemplateDO.class, cond, query,
-                JooqSorts.resolve(JooqTables.SYS_NOTIFICATION_TEMPLATE, query, TEMPLATE_SORT_FIELDS,
-                        JooqTables.SYS_NOTIFICATION_TEMPLATE.field("created_at", LocalDateTime.class).desc(),
+                JooqSorts.resolve(TEMPLATE, query, TEMPLATE_SORT_FIELDS,
+                        JooqTables.SYS_NOTIFICATION_TEMPLATE.field("created_at", java.time.LocalDateTime.class).desc(),
                         JooqTables.SYS_NOTIFICATION_TEMPLATE.field("id", Long.class).desc()));
         List<NotificationTemplateView> views = raw.records().stream()
                 .map(d -> NotificationTemplateView.of(d,
@@ -137,7 +141,7 @@ public class NotificationTemplateService {
         d.setMsgType(StringUtils.hasText(req.msgType()) ? req.msgType() : "NOTICE");
         d.setEnabled(req.enabled() != null && req.enabled() ? 1 : 0);
         d.setRemark(req.remark());
-        JooqWriters.insert(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE, d);
+        JooqWriters.insert(dsl, TEMPLATE, d);
         return d.getId();
     }
 
@@ -184,13 +188,13 @@ public class NotificationTemplateService {
         if (req.remark() != null) {
             patch.setRemark(req.remark());
         }
-        JooqWriters.updateById(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE, id, patch);
+        JooqWriters.updateById(dsl, TEMPLATE, id, patch);
     }
 
     /** 删除模板（逻辑删除，便于审计与恢复）。 */
     public void remove(Long id) {
         requireById(id);
-        JooqWriters.delete(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE, id, true);
+        JooqWriters.delete(dsl, TEMPLATE, id, true);
     }
 
     /** 启停模板。 */
@@ -198,7 +202,7 @@ public class NotificationTemplateService {
         requireById(id);
         SysNotificationTemplateDO patch = new SysNotificationTemplateDO();
         patch.setEnabled(enabled ? 1 : 0);
-        JooqWriters.updateById(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE, id, patch);
+        JooqWriters.updateById(dsl, TEMPLATE, id, patch);
     }
 
     // ------------------------------------------------------------------
@@ -206,7 +210,7 @@ public class NotificationTemplateService {
     // ------------------------------------------------------------------
 
     private SysNotificationTemplateDO requireById(Long id) {
-        SysNotificationTemplateDO d = JooqWriters.fetchById(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE,
+        SysNotificationTemplateDO d = JooqWriters.fetchById(dsl, TEMPLATE,
                 SysNotificationTemplateDO.class, id);
         if (d == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "通知模板不存在");
@@ -220,9 +224,9 @@ public class NotificationTemplateService {
 
     /** 按编码取未删除模板（不存在返回 null）。create/requireEnabledByCode 共用。 */
     private SysNotificationTemplateDO fetchByCode(String code) {
-        return JooqWriters.fetchOne(dsl, JooqTables.SYS_NOTIFICATION_TEMPLATE,
+        return JooqWriters.fetchOne(dsl, TEMPLATE,
                 SysNotificationTemplateDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_NOTIFICATION_TEMPLATE),
+                DSL.and(JooqWriters.notDeleted(TEMPLATE),
                         JooqTables.SYS_NOTIFICATION_TEMPLATE.field("template_code", String.class).eq(code)));
     }
 
@@ -246,13 +250,13 @@ public class NotificationTemplateService {
     /** 统一筛选条件：逻辑删除恒成立；渠道/启用状态/关键字按需收敛。 */
     private Condition buildCondition(String channel, String keyword, Boolean enabled) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.SYS_NOTIFICATION_TEMPLATE));
+        conds.add(JooqWriters.notDeleted(TEMPLATE));
         String ch = NotificationTemplateRules.normalizeChannel(channel);
         if (ch != null) {
             conds.add(JooqTables.SYS_NOTIFICATION_TEMPLATE.field("channel", String.class).eq(ch));
         }
         if (enabled != null) {
-            conds.add(JooqTables.SYS_NOTIFICATION_TEMPLATE.field("enabled", Integer.class)
+            conds.add(TEMPLATE.field("enabled", Integer.class)
                     .eq(enabled ? 1 : 0));
         }
         if (StringUtils.hasText(keyword)) {

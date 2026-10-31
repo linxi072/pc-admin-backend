@@ -39,6 +39,9 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 public class JobExecutor implements JobInvoker {
+    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
+    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
+
 
     private static final int MAX_ERROR_LEN = 900;
     private static final int MAX_LOG_ERROR_LEN = 900;
@@ -53,7 +56,7 @@ public class JobExecutor implements JobInvoker {
             log.warn("定时任务触发但 jobId 为空，忽略");
             return;
         }
-        SysJobDO job = JooqWriters.fetchById(dsl, JooqTables.SYS_JOB, SysJobDO.class, jobId);
+        SysJobDO job = JooqWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, jobId);
         if (job == null) {
             log.warn("定时任务触发但任务不存在或已删除：jobId={}", jobId);
             return;
@@ -141,9 +144,9 @@ public class JobExecutor implements JobInvoker {
         }
 
         if (nullColumns.isEmpty()) {
-            JooqWriters.updateById(dsl, JooqTables.SYS_JOB, job.getId(), patch);
+            JooqWriters.updateById(dsl, SYS_JOB, job.getId(), patch);
         } else {
-            JooqWriters.updateByIdWithNulls(dsl, JooqTables.SYS_JOB, job.getId(), patch, nullColumns);
+            JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, job.getId(), patch, nullColumns);
         }
 
         SysJobLogDO logRow = new SysJobLogDO();
@@ -157,7 +160,7 @@ public class JobExecutor implements JobInvoker {
         logRow.setStatus(success ? "SUCCESS" : "FAILED");
         logRow.setErrorMessage(error == null ? null : truncate(error, MAX_LOG_ERROR_LEN));
         logRow.setTraceId(MDC.get("traceId"));
-        JooqWriters.insert(dsl, JooqTables.SYS_JOB_LOG, logRow);
+        JooqWriters.insert(dsl, SYS_JOB_LOG, logRow);
     }
 
     private static long nz(Long value) {

@@ -9,7 +9,7 @@
 > 更新日期：2026-10-26（**M30 实时推送模板化已交付（feat/V1.0.4）**：realtime 模块复用 M10 通知模板中心实现推送模板化——后端 `realtime.port.RealtimeTemplatePort`/`RealtimeTemplateRenderResult` 防腐层端口 + DTO（`RealtimeBroadcastRequest`/`RealtimeUserPushRequest`）增 `templateCode`/`variables` + `RealtimeAdminService` 解析分支（指定模板按 `NOTIFICATION` 推送渲染后 `RealtimeNotificationPayload`，端口缺失显式失败不降级）；system 新增 `RealtimeTemplateAdapter`（实现端口，仅接受启用中 `WEBSOCKET` 渠道模板）；新增 7 例单测，全仓 **1491→1498** 例全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0；前端 `realtime.js` 透传 + `RealtimeView.vue`「使用模板」开关（模板下拉 + 动态变量输入 + 服务端渲染预览）；详见 roadmap-m19-plus.md §4.1.4）
 > 更新日期：2026-10-27（**M19 SaaS 开通闭环已交付（feat/V1.0.4）**：承接 M19 P1–P3 与生产可用化，打通生产启用闭环——`TenantProvisioningService`（`@Transactional` + `@TenantIgnorable`）一键开通租户（默认部门 + 绑定全量菜单/接口的租户管理员角色 + 首位管理员用户，幂等守卫已开通返回 CONFLICT）+ V57 Java 迁移幂等回填存量 `tenant_id IS NULL`（数据驱动内省 `information_schema`，零孤儿 fail-fast 断言）+ 跨租户运营总览前端（复用运行时已交付的 `/api/system/tenants/data-overview`）；新增 9 例单测，全仓 **1519→1528 例**全绿 + `check-conventions` EXIT=0 + `npx vite build` EXIT=0；详见 roadmap-m19-plus.md §4.1.5）
 
-> 方法：**直接核查真实代码**（509 个后端主源 `.java` / 158 个测试源、852 个测试用例（surefire 汇总 0 失败 0 错误）、40 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
+> 方法：**直接核查真实代码**（509 个后端主源 `.java` / 158 个测试源、1788 个测试用例（2026-10-31 方案C 后全量复验，surefire 汇总 0 失败 0 错误）、40 个 `@RestController`、46 个前端 `.vue`、29 个 `api/*.js`、`pom.xml` 依赖、`application*.yml` 配置），不采信文档自述。
 > 对照源：设计方案 §12 API 最小集合、§20 最小可交付验收清单、`requirement-gap-analysis.md`（2026-10-10）、`module-plan`（M1–M4）、四本手册。
 
 ---

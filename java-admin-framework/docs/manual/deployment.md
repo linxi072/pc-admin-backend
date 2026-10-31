@@ -132,7 +132,7 @@ $MVN -o clean package -DskipTests
 | 新增（参考件） | `scaffold-admin/src/main/resources/db/reference/schema_ddl.sql`、`data_dml.sql` | 全部 DDL / DML 按类型分类汇总，逐语句带 `[源文件 L行号]` 来源注释（V1.0.3 模块拆分后随 scaffold-admin 交付；**不可直接当迁移执行**） |
 | 新增（工具，已归档） | `scripts/build_v32.py`、`scripts/build_reference.py` | 生成与校验脚本；输入 V1~V31 原件已按「原件删除」策略移除，脚本不可重跑，保留以供追溯生成方式与等价性口径（脚本头部有归档说明） |
 | 删除 | 34 个：V1~V31 共 31 个迁移 + `db/scaffold_full_init.sql` + `sql/schema.sql` + 仓库根 `permission-schema.sql` | 内容已完整并入 V32 与分类参考件 |
-| **保留** | `scaffold-common/src/main/resources/db/codegen/`（16 个 SQL + README） | **不是重复副本**：是 jOOQ 代码生成并行层的 H2 归一化 DDL 输入，被 `scaffold-common/src/main/resources/jooq-codegen.xml` 的 `<scripts>` 显式引用（见 §15），删除会破坏 `mvn -Pjooq-codegen generate-sources` |
+| **已移除（方案C）** | `scaffold-common/src/main/resources/db/codegen/`（原 16 个 SQL + README） | 方案C（#857/#858，2026-10-31）已**物理删除**该目录与 `jooq-codegen.xml`，并移除 `scaffold-common/pom.xml` 中的 `jooq-codegen-maven` 插件；jOOQ 仅保留核心运行库（`org.jooq:jooq`），数据访问统一为纯手写动态 DSL，无代码生成层。 |
 
 ### 34.2 关键约束：分类文件不能直接当迁移执行
 
@@ -203,7 +203,7 @@ VALUES (32, '32', 'consolidated schema', 'SQL', 'V32__consolidated_schema.sql', 
 ### 34.6 影响与注意事项
 
 - **手工重建路径变化**：原 `db/scaffold_full_init.sql`（幂等手工全量初始化）已并入 V32，手工重建改为「全新库 + 执行 V32」；V32 非幂等，仅在空库或已按 §34.4 处理历史的库上执行。
-- **代码生成层不受影响**：`scaffold-common/src/main/resources/db/codegen/` 保留，`jooq-codegen.xml` 引用路径不变。
+- **代码生成层已移除（方案C）**：`scaffold-common/src/main/resources/db/codegen/` 与 `jooq-codegen.xml` 已在 2026-10-31 方案C 中删除，全仓数据访问统一为纯手写动态 DSL（`JooqTables` / `JooqWriters` / `JooqSorts` / `JooqKeysetPager`），不再依赖任何代码生成步骤。
 - **生产环境（prod）** 若为既有库，升级时同样需按 §34.4 替换历史记录；全新库直接执行 V32。
 - **后续新增迁移** 继续走 `scaffold-admin/src/main/resources/db/migration/`；当前已至 `V59`（`V40` 公告已读回执 / `V41`~`V45` 通知体系 / `V46` 脱敏策略 / `V47`+`V53`+`V58` 表单中心 / `V48` 开放平台 / `V49` 工作流监控 / `V50` 文件去重 / `V51`+`V54` 租户 / `V52` 报表大屏 / `V55` 实时推送 / `V56` 数据权限 / `V59` 任务依赖编排；其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`），完整清单见 `db/migration/README.md`。
 - **已应用脚本不得再改**（包括注释）：checksum 按整个文件字节计算，改动会导致启动校验失败；处理办法见附录 O.1。

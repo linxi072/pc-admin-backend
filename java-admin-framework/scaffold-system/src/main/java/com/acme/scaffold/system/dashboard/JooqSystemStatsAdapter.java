@@ -27,23 +27,29 @@ import java.util.function.Supplier;
 @Component
 @RequiredArgsConstructor
 public class JooqSystemStatsAdapter implements SystemStatsPort {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+
+    private static final JooqTables.TableRef OS = JooqTables.SYS_ONLINE_SESSION;
+    private static final JooqTables.TableRef TN = JooqTables.SYS_TENANT;
+
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
 
     private final DSLContext dsl;
 
     @Override
     public long countTenants() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_TENANT.table()));
+        return safe(() -> dsl.fetchCount(TN.table()));
     }
 
     @Override
     public long countUsers() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_USER.table(),
-                JooqWriters.notDeleted(JooqTables.SYS_USER)));
+        return safe(() -> dsl.fetchCount(USER.table(),
+                JooqWriters.notDeleted(USER)));
     }
 
     @Override
     public long countRoles() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_ROLE.table()));
+        return safe(() -> dsl.fetchCount(ROLE.table()));
     }
 
     @Override
@@ -53,9 +59,9 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
 
     @Override
     public long countOnlineSessions() {
-        Condition online = JooqTables.SYS_ONLINE_SESSION.field("status", String.class)
+        Condition online = OS.field("status", String.class)
                 .eq(SysOnlineSessionDO.STATUS_ONLINE);
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_ONLINE_SESSION.table(), online));
+        return safe(() -> dsl.fetchCount(OS.table(), online));
     }
 
     @Override
@@ -72,7 +78,7 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public long countLoginLogsToday() {
         // 注意：登录日志时间列为 occurred_at（非 login_at），与 SYS_LOGIN_LOG 表定义严格一致
         Timestamp startOfDay = Timestamp.valueOf(LocalDate.now().atStartOfDay());
-        Condition today = JooqTables.SYS_LOGIN_LOG.field("occurred_at", Timestamp.class).ge(startOfDay);
+        Condition today = JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).cast(Timestamp.class).ge(startOfDay);
         return safe(() -> dsl.fetchCount(JooqTables.SYS_LOGIN_LOG.table(), today));
     }
 
@@ -80,11 +86,11 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyNewUsers(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_USER.field("created_at", Timestamp.class);
+            Field<Timestamp> ts = USER.field("created_at", Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
-                    .from(JooqTables.SYS_USER.table())
-                    .where(JooqWriters.notDeleted(JooqTables.SYS_USER)
+                    .from(USER.table())
+                    .where(JooqWriters.notDeleted(USER)
                             .and(ts.ge(Timestamp.valueOf(start.atStartOfDay()))))
                     .groupBy(day)
                     .orderBy(day)
@@ -97,11 +103,11 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyNewTenants(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_TENANT.field("created_at", Timestamp.class);
+            Field<Timestamp> ts = TN.field("created_at", Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
-                    .from(JooqTables.SYS_TENANT.table())
-                    .where(JooqWriters.notDeleted(JooqTables.SYS_TENANT)
+                    .from(TN.table())
+                    .where(JooqWriters.notDeleted(TN)
                             .and(ts.ge(Timestamp.valueOf(start.atStartOfDay()))))
                     .groupBy(day)
                     .orderBy(day)
@@ -114,7 +120,7 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyActiveTenants(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_LOGIN_LOG.field("occurred_at", Timestamp.class);
+            Field<Timestamp> ts = JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             Field<Long> tenantId = JooqTables.SYS_LOGIN_LOG.field("tenant_id", Long.class);
             return dsl.select(day, DSL.countDistinct(tenantId))
@@ -131,7 +137,7 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyLoginLogs(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_LOGIN_LOG.field("occurred_at", Timestamp.class);
+            Field<Timestamp> ts = JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
                     .from(JooqTables.SYS_LOGIN_LOG.table())
@@ -147,7 +153,7 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyOperationLogs(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_OPERATION_LOG.field("occurred_at", Timestamp.class);
+            Field<Timestamp> ts = JooqTables.SYS_OPERATION_LOG.field("occurred_at", java.time.LocalDateTime.class).cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
                     .from(JooqTables.SYS_OPERATION_LOG.table())
@@ -163,7 +169,7 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyNotifications(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", Timestamp.class);
+            Field<Timestamp> ts = JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class).cast(Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
                     .from(JooqTables.SYS_NOTIFICATION_RECORD.table())

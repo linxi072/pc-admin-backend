@@ -44,6 +44,10 @@ public class SmsRecordService {
             "operatorName", "operator_name",
             "sentAt", "sent_at");
 
+    /** 桥接自代码生成层 {@code Tables.SYS_SMS_RECORD} 的类型安全表引用（B23）。 */
+    private static final JooqTables.TableRef SMS_RECORD =
+            JooqTables.SYS_SMS_RECORD;
+
     private final DSLContext dsl;
 
     /**
@@ -64,10 +68,10 @@ public class SmsRecordService {
             LocalDateTime startTime, LocalDateTime endTime, String sortField, String sortDirection) {
         Condition cond = buildCondition(status, provider, keyword, startTime, endTime);
         var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<SysSmsRecordDO> raw = JooqWriters.page(dsl, JooqTables.SYS_SMS_RECORD,
+        PageResult<SysSmsRecordDO> raw = JooqWriters.page(dsl, SMS_RECORD,
                 SysSmsRecordDO.class, cond, pageQuery,
-                JooqSorts.resolve(JooqTables.SYS_SMS_RECORD, pageQuery, SMS_RECORD_SORT_FIELDS,
-                        JooqTables.SYS_SMS_RECORD.field("sent_at", LocalDateTime.class).desc()));
+                JooqSorts.resolve(SMS_RECORD, pageQuery, SMS_RECORD_SORT_FIELDS,
+                        JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).desc()));
         List<SmsRecordView> views = raw.records().stream()
                 .map(SmsRecordView::of).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
@@ -81,14 +85,13 @@ public class SmsRecordService {
     public Map<String, Object> summary(String status, String provider, String keyword,
                                        LocalDateTime startTime, LocalDateTime endTime) {
         Condition cond = buildCondition(status, provider, keyword, startTime, endTime);
-        Long total = dsl.selectCount().from(JooqTables.SYS_SMS_RECORD.table())
+        Long total = dsl.selectCount().from(SMS_RECORD.table())
                 .where(cond).fetchOne(0, Long.class);
-        Long success = dsl.selectCount().from(JooqTables.SYS_SMS_RECORD.table())
+        Long success = dsl.selectCount().from(SMS_RECORD.table())
                 .where(DSL.and(cond, JooqTables.SYS_SMS_RECORD.field("status", String.class)
                         .eq(SmsRecordRules.STATUS_SUCCESS))).fetchOne(0, Long.class);
-        LocalDateTime lastSentAt = dsl.select(
-                        JooqTables.SYS_SMS_RECORD.field("sent_at", LocalDateTime.class).max())
-                .from(JooqTables.SYS_SMS_RECORD.table())
+        LocalDateTime lastSentAt = dsl.select(DSL.max(JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class)))
+                .from(SMS_RECORD.table())
                 .where(cond).fetchOne(0, LocalDateTime.class);
         return buildSummary(total == null ? 0L : total, success == null ? 0L : success, lastSentAt);
     }
@@ -121,8 +124,8 @@ public class SmsRecordService {
         }
         List<Condition> conds = new ArrayList<>();
         conds.add(DSL.and(
-                JooqTables.SYS_SMS_RECORD.field("sent_at", LocalDateTime.class).ge(begin),
-                JooqTables.SYS_SMS_RECORD.field("sent_at", LocalDateTime.class).le(end)));
+                JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).ge(begin),
+                JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).le(end)));
         String st = SmsRecordRules.normalizeStatus(status);
         if (st != null) {
             conds.add(JooqTables.SYS_SMS_RECORD.field("status", String.class).eq(st));

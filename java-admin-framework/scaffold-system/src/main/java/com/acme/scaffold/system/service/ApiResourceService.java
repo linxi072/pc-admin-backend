@@ -41,13 +41,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ApiResourceService {
 
+    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
+
     private final DSLContext dsl;
     private final ApiResourceScanner scanner;
 
+    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
+
     public List<ApiResourceView> list() {
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_API_RESOURCE, SysApiResourceDO.class,
-                        JooqWriters.notDeleted(JooqTables.SYS_API_RESOURCE),
-                        JooqTables.SYS_API_RESOURCE.field("id", Long.class).asc())
+        return JooqWriters.fetchList(dsl, AR, SysApiResourceDO.class,
+                        JooqWriters.notDeleted(AR),
+                        AR.field("id", Long.class).asc())
                 .stream().map(ApiResourceView::from).collect(Collectors.toList());
     }
 
@@ -60,24 +64,24 @@ public class ApiResourceService {
         api.setPathPattern(request.pathPattern());
         api.setAuthMode(request.authMode() == null ? "REQUIRED" : request.authMode());
         api.setRiskLevel(request.riskLevel() == null ? "NORMAL" : request.riskLevel());
-        JooqWriters.insert(dsl, JooqTables.SYS_API_RESOURCE, api);
+        JooqWriters.insert(dsl, AR, api);
         return api.getId();
     }
 
     @Transactional
     public void delete(Long id) {
-        SysApiResourceDO api = JooqWriters.fetchById(dsl, JooqTables.SYS_API_RESOURCE,
+        SysApiResourceDO api = JooqWriters.fetchById(dsl, AR,
                 SysApiResourceDO.class, id);
         if (api == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "接口资源不存在");
         }
         // 该表无 deleted 列，保持与迁移前一致的物理删除语义
-        JooqWriters.delete(dsl, JooqTables.SYS_API_RESOURCE, id, false);
+        JooqWriters.delete(dsl, AR, id, false);
     }
 
     @Transactional
     public void update(Long id, UpdateApiResourceRequest request) {
-        SysApiResourceDO existing = JooqWriters.fetchById(dsl, JooqTables.SYS_API_RESOURCE,
+        SysApiResourceDO existing = JooqWriters.fetchById(dsl, AR,
                 SysApiResourceDO.class, id);
         if (existing == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "接口资源不存在");
@@ -92,7 +96,7 @@ public class ApiResourceService {
         api.setAuthMode(request.authMode() == null ? existing.getAuthMode() : request.authMode());
         api.setStatus(request.status() == null ? existing.getStatus() : request.status());
         api.setRiskLevel(request.riskLevel() == null ? existing.getRiskLevel() : request.riskLevel());
-        JooqWriters.updateById(dsl, JooqTables.SYS_API_RESOURCE, id, api);
+        JooqWriters.updateById(dsl, AR, id, api);
     }
 
     // ------------------------------------------------------------------
@@ -172,7 +176,7 @@ public class ApiResourceService {
             api.setPathPattern(item.pathPattern());
             api.setControllerMethod(item.controllerMethod());
             api.setAuthMode(item.authMode());
-            JooqWriters.insert(dsl, JooqTables.SYS_API_RESOURCE, api);
+            JooqWriters.insert(dsl, AR, api);
             grantToSuperAdmin(api.getId());
             inserted++;
         }
@@ -188,7 +192,7 @@ public class ApiResourceService {
                 api.setPathPattern(item.pathPattern());
                 api.setControllerMethod(item.controllerMethod());
                 api.setAuthMode(item.authMode());
-                JooqWriters.insert(dsl, JooqTables.SYS_API_RESOURCE, api);
+                JooqWriters.insert(dsl, AR, api);
                 grantToSuperAdmin(api.getId());
                 inserted++;
                 continue;
@@ -206,7 +210,7 @@ public class ApiResourceService {
             // 若不显式置 null，updateById 的「跳过 null」策略会失效并把人工值覆盖掉。
             patch.setStatus(null);
             patch.setRiskLevel(null);
-            JooqWriters.updateById(dsl, JooqTables.SYS_API_RESOURCE, current.getId(), patch);
+            JooqWriters.updateById(dsl, AR, current.getId(), patch);
             updated++;
         }
 
@@ -228,8 +232,8 @@ public class ApiResourceService {
      * 授权也不会被重新插入（只在 insert 路径授予一次）。
      */
     private void grantToSuperAdmin(Long apiId) {
-        SysRoleDO superAdmin = JooqWriters.fetchOne(dsl, JooqTables.SYS_ROLE, SysRoleDO.class,
-                JooqTables.SYS_ROLE.field("role_code", String.class).eq("SUPER_ADMIN"));
+        SysRoleDO superAdmin = JooqWriters.fetchOne(dsl, ROLE, SysRoleDO.class,
+                ROLE.field("role_code", String.class).eq("SUPER_ADMIN"));
         if (superAdmin == null) {
             log.warn("未找到 SUPER_ADMIN 角色，跳过新接口自动授权 apiId={}", apiId);
             return;
@@ -248,8 +252,8 @@ public class ApiResourceService {
 
     /** 现有记录按「METHOD path」建索引，与扫描结果的 uniqueKey 对齐。单次查询，避免 N+1。 */
     private Map<String, SysApiResourceDO> mapByUniqueKey() {
-        List<SysApiResourceDO> rows = JooqWriters.fetchList(dsl, JooqTables.SYS_API_RESOURCE,
-                SysApiResourceDO.class, JooqWriters.notDeleted(JooqTables.SYS_API_RESOURCE));
+        List<SysApiResourceDO> rows = JooqWriters.fetchList(dsl, AR,
+                SysApiResourceDO.class, JooqWriters.notDeleted(AR));
         Map<String, SysApiResourceDO> map = new HashMap<>();
         for (SysApiResourceDO row : rows) {
             if (row.getHttpMethod() == null || row.getPathPattern() == null) {

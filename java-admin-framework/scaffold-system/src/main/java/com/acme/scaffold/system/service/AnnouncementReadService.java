@@ -55,12 +55,18 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AnnouncementReadService {
+    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     private static final String PUBLISHED = "PUBLISHED";
     private static final String ACTIVE = "ACTIVE";
 
     /** markAllRead 保护性上限：实际场景未读公告远不会达到，仅防止极端情况下遍历过宽。 */
     private static final int MAX_MARK_ALL = 1000;
+
+    /** 公告已读回执表（jOOQ 生成层类型安全桥接，表名与手写 {@code JooqTables.SYS_ANNOUNCEMENT_READ} 相等）。 */
+    private static final JooqTables.TableRef READ = JooqTables.SYS_ANNOUNCEMENT_READ;
+
+    private static final JooqTables.TableRef ANNOUNCEMENT = JooqTables.SYS_ANNOUNCEMENT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -82,7 +88,7 @@ public class AnnouncementReadService {
     @Transactional
     public void markRead(Long announcementId) {
         Long userId = requireCurrentUserId();
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, JooqTables.SYS_ANNOUNCEMENT,
+        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT,
                 SysAnnouncementDO.class, announcementId);
         if (a == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
@@ -104,7 +110,7 @@ public class AnnouncementReadService {
      * @return 本次实际新增的已读回执数（0 表示已读/冲突，1 表示首次标记）
      */
     private int markReadInternal(Long announcementId, Long userId) {
-        SysAnnouncementReadDO exist = JooqWriters.fetchOne(dsl, JooqTables.SYS_ANNOUNCEMENT_READ,
+        SysAnnouncementReadDO exist = JooqWriters.fetchOne(dsl, READ,
                 SysAnnouncementReadDO.class,
                 DSL.and(JooqTables.SYS_ANNOUNCEMENT_READ.field("announcement_id", Long.class).eq(announcementId),
                         JooqTables.SYS_ANNOUNCEMENT_READ.field("user_id", Long.class).eq(userId)));
@@ -116,7 +122,7 @@ public class AnnouncementReadService {
         r.setAnnouncementId(announcementId);
         r.setUserId(userId);
         try {
-            JooqWriters.insert(dsl, JooqTables.SYS_ANNOUNCEMENT_READ, r);
+            JooqWriters.insert(dsl, READ, r);
         } catch (DataIntegrityViolationException e) {
             // 并发/重放：应用层查重与插入之间的时间窗由唯一键裁决，冲突即视为已读
             log.debug("公告已读回执并发插入被唯一键拒绝，按幂等处理 announcementId={} userId={}",
@@ -124,10 +130,10 @@ public class AnnouncementReadService {
             return 0;
         }
 
-        dsl.update(JooqTables.SYS_ANNOUNCEMENT.table())
-                .set(JooqTables.SYS_ANNOUNCEMENT.field("read_count", Integer.class),
-                        JooqTables.SYS_ANNOUNCEMENT.field("read_count", Integer.class).plus(1))
-                .where(JooqTables.SYS_ANNOUNCEMENT.field("id", Long.class).eq(announcementId))
+        dsl.update(ANNOUNCEMENT.table())
+                .set(ANNOUNCEMENT.field("read_count", Integer.class),
+                        ANNOUNCEMENT.field("read_count", Integer.class).plus(1))
+                .where(ANNOUNCEMENT.field("id", Long.class).eq(announcementId))
                 .execute();
         return 1;
     }
@@ -139,7 +145,7 @@ public class AnnouncementReadService {
     public long countMyUnread() {
         Long userId = requireCurrentUserId();
         LocalDateTime now = LocalDateTime.now();
-        return JooqWriters.count(dsl, JooqTables.SYS_ANNOUNCEMENT,
+        return JooqWriters.count(dsl, ANNOUNCEMENT,
                 DSL.and(myUnreadConditions(userId, now)));
     }
 
@@ -154,9 +160,9 @@ public class AnnouncementReadService {
     public int markAllRead() {
         Long userId = requireCurrentUserId();
         LocalDateTime now = LocalDateTime.now();
-        List<SysAnnouncementDO> unread = JooqWriters.fetchTop(dsl, JooqTables.SYS_ANNOUNCEMENT,
+        List<SysAnnouncementDO> unread = JooqWriters.fetchTop(dsl, ANNOUNCEMENT,
                 SysAnnouncementDO.class, DSL.and(myUnreadConditions(userId, now)),
-                MAX_MARK_ALL, defaultOrder(JooqTables.SYS_ANNOUNCEMENT));
+                MAX_MARK_ALL, defaultOrder(ANNOUNCEMENT));
         int marked = 0;
         for (SysAnnouncementDO a : unread) {
             marked += markReadInternal(a.getId(), userId);
@@ -172,7 +178,7 @@ public class AnnouncementReadService {
      */
     @Transactional
     public int remindUnread(Long announcementId, Integer limit) {
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, JooqTables.SYS_ANNOUNCEMENT,
+        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT,
                 SysAnnouncementDO.class, announcementId);
         if (a == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
@@ -206,7 +212,7 @@ public class AnnouncementReadService {
     public PageResult<AnnouncementView> myUnread(int page, int size) {
         Long userId = requireCurrentUserId();
         LocalDateTime now = LocalDateTime.now();
-        var ann = JooqTables.SYS_ANNOUNCEMENT;
+        var ann = ANNOUNCEMENT;
 
         var q = PageQuery.of(page, size);
         PageResult<SysAnnouncementDO> pageResult = JooqWriters.page(dsl, ann, SysAnnouncementDO.class,
@@ -219,15 +225,15 @@ public class AnnouncementReadService {
 
     /** 公告已读回执分页（谁在何时已读），批量装载阅读人显示名防 N+1。 */
     public PageResult<AnnouncementReceiptView> pageReceipts(AnnouncementReceiptQuery query) {
-        var rd = JooqTables.SYS_ANNOUNCEMENT_READ;
-        var usr = JooqTables.SYS_USER;
+        var rd = READ;
+        var usr = USER;
 
         List<Condition> conds = new ArrayList<>();
-        conds.add(rd.field("announcement_id", Long.class).eq(query.announcementId()));
+        conds.add(JooqTables.SYS_ANNOUNCEMENT_READ.field("announcement_id", Long.class).eq(query.announcementId()));
         if (StringUtils.hasText(query.keyword())) {
             // 阅读人关键字走子查询限定 user_id 集合：保持主表单表分页，免 join
             String kw = "%" + query.keyword().trim() + "%";
-            conds.add(rd.field("user_id", Long.class).in(
+            conds.add(JooqTables.SYS_ANNOUNCEMENT_READ.field("user_id", Long.class).in(
                     dsl.select(usr.field("id", Long.class)).from(usr.table())
                             .where(DSL.or(usr.field("display_name", String.class).like(kw),
                                     usr.field("username", String.class).like(kw)))));
@@ -236,8 +242,8 @@ public class AnnouncementReadService {
         var q = query.toPageQuery();
         PageResult<SysAnnouncementReadDO> pageResult = JooqWriters.page(dsl, rd,
                 SysAnnouncementReadDO.class, DSL.and(conds), q,
-                rd.field("read_at", LocalDateTime.class).desc(),
-                rd.field("id", Long.class).desc());
+                JooqTables.SYS_ANNOUNCEMENT_READ.field("read_at", java.time.LocalDateTime.class).desc(),
+                JooqTables.SYS_ANNOUNCEMENT_READ.field("id", Long.class).desc());
 
         Set<Long> userIds = pageResult.records().stream()
                 .map(SysAnnouncementReadDO::getUserId).filter(Objects::nonNull).collect(Collectors.toSet());
@@ -252,7 +258,7 @@ public class AnnouncementReadService {
 
     /** 单条公告已读统计（分子分母与推导值一次齐备）。 */
     public AnnouncementReadStatsView stats(Long announcementId) {
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, JooqTables.SYS_ANNOUNCEMENT,
+        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT,
                 SysAnnouncementDO.class, announcementId);
         if (a == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
@@ -262,7 +268,7 @@ public class AnnouncementReadService {
 
     /** 已读统计分页（公告管理页内嵌「已读进度」列的数据源），按置顶/发布时间倒序。 */
     public PageResult<AnnouncementReadStatsView> listStats(int page, int size, String keyword) {
-        var ann = JooqTables.SYS_ANNOUNCEMENT;
+        var ann = ANNOUNCEMENT;
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(ann));
         if (StringUtils.hasText(keyword)) {
@@ -296,8 +302,8 @@ public class AnnouncementReadService {
      * {@link #markAllRead} 共用，保证三者未读口径完全一致。
      */
     private List<Condition> myUnreadConditions(Long userId, LocalDateTime now) {
-        var ann = JooqTables.SYS_ANNOUNCEMENT;
-        var rd = JooqTables.SYS_ANNOUNCEMENT_READ;
+        var ann = ANNOUNCEMENT;
+        var rd = READ;
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(ann));
         conds.add(ann.field("status", String.class).eq(PUBLISHED));
@@ -318,8 +324,8 @@ public class AnnouncementReadService {
      * 子查询内引用外表列必须加表名限定（两表都有 id 列，无限定必解析错）。
      */
     private List<Long> unreadUserIds(Long announcementId, int limit) {
-        var usr = JooqTables.SYS_USER;
-        var rd = JooqTables.SYS_ANNOUNCEMENT_READ;
+        var usr = USER;
+        var rd = READ;
         return JooqWriters.fetchTop(dsl, usr, SysUserDO.class,
                 DSL.and(JooqWriters.notDeleted(usr),
                         usr.field("status", String.class).eq(ACTIVE),
@@ -337,8 +343,8 @@ public class AnnouncementReadService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        JooqTables.SYS_USER.field("id", Long.class).in(userIds)).stream()
+        return JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+                        USER.field("id", Long.class).in(userIds)).stream()
                 .filter(u -> u.getId() != null)
                 .collect(Collectors.toMap(SysUserDO::getId, SysUserDO::getDisplayName, (a, b) -> a));
     }
