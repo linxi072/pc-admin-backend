@@ -205,38 +205,18 @@ JooqWriters.updateById(dsl, JooqTables.SYS_USER, id, user);
 JooqWriters.delete(dsl, JooqTables.SYS_ROLE, id, true); // true = 逻辑删除
 ```
 
-### 8.1 可选强类型查询层（jOOQ codegen 并行层）
+### 8.1 数据访问单一事实来源（纯手写动态 DSL）
 
-除手写动态 DSL 外，仓库内置一套**并行代码生成层**：基于 Flyway 迁移脚本（归一化后的 H2 兼容 DDL，`scaffold-common/src/main/resources/db/codegen/V1~V16`）离线反向工程，生成到独立包 `com.acme.scaffold.jooqgen`（含 `Tables` / `Records` / `POJOs` / `DAOs` / `Interfaces`）。
+> **方案 C（2026-10-31）已彻底移除 jOOQ codegen 并行层**：仓库不再包含 `db/codegen/` 目录、`jooq-codegen.xml` 与任何生成期插件；先前文档/注释中提到的 `com.acme.scaffold.jooqgen` 包、`Tables.*` 生成类、`mvn -Pjooq-codegen generate-sources` 均**已废弃**，请勿再使用。
 
-> **定位**：并行层 **不替换** 手写 DSL（`com.acme.scaffold.jooq` / `JooqTables` / `JooqWriters` 仍是生产数据访问主线）。仅当需要编译期强类型列引用（如 `Tables.SYS_USER.STATUS`）时，可在局部查询中选用生成类，业务代码结构不变。两者并存、互不覆盖。
+全仓数据访问统一以**手写动态 DSL** 为唯一事实来源，核心基建位于 `com.acme.scaffold.jooq`：
 
-**生成命令**（需能直连 Maven Central 的环境）：
+- `JooqTables`：表引用常量（如 `JooqTables.SYS_USER`），字段以 `JooqTables.SYS_USER.field("col", Type.class)` 访问；
+- `JooqWriters`：增删改查与自动填充（租户隔离 / 逻辑删除 / 审计列）；
+- `JooqSorts`：服务端排序白名单与类型化排序；
+- `JooqKeysetPager`：keyset（游标）深翻页引擎（见 §8 前文与《功能差距分析》「深翻页」项）。
 
-```bash
-# 联网拉取 jooq-codegen 等生成期构件（profile 已声明 repo-central 仓库源）
-mvn -Pjooq-codegen generate-sources
-# 生成物落入 src/main/java/com/acme/scaffold/jooqgen/ 并纳入版本控制；
-# 常规离线构建（mvn -o compile）直接使用已提交的生成代码，无需重跑。
-```
-
-⚠️ **本地镜像注意事项**：若本机 `~/.m2/settings.xml` 配置了 `mirrorOf=*` 的镜像（如腾讯云镜像）且该镜像未收录 `org.jooq:jooq-codegen` / `jooq-meta` / `jooq-meta-extensions`，则 `repo-central` 仓库源会被该镜像拦截导致 `Failed to read artifact descriptor for org.jooq:jooq-codegen` 解析失败。解决办法：为镜像收窄匹配范围（如 `mirrorOf=external:*`，使 `repo-central` 直连生效），或将所需 jOOQ 生成构件预置进本地仓库。
-
-**等价写法示例**（手写 DSL ↔ 生成层）：
-
-```java
-// —— 手写动态 DSL（主线）——
-List<SysUserDO> a = JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-        JooqTables.SYS_USER.field("status", String.class).eq("ACTIVE"),
-        JooqTables.SYS_USER.field("id", Long.class).desc());
-
-// —— 生成层（可选，编译期类型安全）——
-import com.acme.scaffold.jooqgen.tables.SysUser;
-List<SysUserRecord> b = dsl.selectFrom(SysUser.SYS_USER)
-        .where(SysUser.SYS_USER.STATUS.eq("ACTIVE"))
-        .orderBy(SysUser.SYS_USER.ID.desc())
-        .fetch();
-```
+上述写法（§8 前文示例）即为生产数据访问的唯一形态，无需代码生成、无需连接数据库、无需 Docker。
 
 新增迁移后，再次执行上述生成命令即可刷新并行层，无需改动业务代码。
 

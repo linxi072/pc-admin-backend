@@ -141,7 +141,7 @@ java-admin-framework/                       # 工程根 = 父 POM 所在目录
 │       │   └── jooq/                       # dsl/mapping/paging（手写动态 DSL）
 │       └── resources/
 │           ├── i18n/                       # messages*/validation* 消息束（原根 resources）
-│           └── db/codegen/ + jooq-codegen.xml   # jOOQ 代码生成输入（-Pjooq-codegen）
+│           └── （原 `db/codegen/` + `jooq-codegen.xml`：方案C 已移除 jOOQ 代码生成层，见《开发手册》§8.1）
 ├── scaffold-realtime/                      # 通信层：WebSocket
 │   └── src/main/java/com/acme/scaffold/realtime/
 │       ├── websocket/ session/ service/ controller/ payload/ dto/
@@ -196,7 +196,7 @@ java-admin-framework/                       # 工程根 = 父 POM 所在目录
 | `<dependencies>`（继承） | lombok（optional）、**springdoc-openapi-starter-webmvc-ui**（各模块控制器统一用 OpenAPI 注解）、starter-test / security-test（test） |
 | `<dependencyManagement>` | 非 Boot BOM 管理的第三方：jooq、jjwt×3、flowable、jobrunr、kafka-clients、spring-context-support、jakarta.mail、angus-mail、springdoc |
 | `<build>` | failsafe（`*IT`，skipITs 可覆盖）；pluginManagement 托管 spring-boot-maven-plugin |
-| `<profiles>` | `coverage`（JaCoCo，**按模块独立门禁**）、`otel`（默认关闭）；`jooq-codegen` 移至 scaffold-common |
+| `<profiles>` | `coverage`（JaCoCo，**按模块独立门禁**）、`otel`（默认关闭）；`jooq-codegen` profile 已随方案C 移除（数据访问统一为纯手写动态 DSL） |
 
 ### 6.2 模块 POM 依赖矩阵（第三方 + 内部）
 
@@ -223,7 +223,7 @@ java-admin-framework/                       # 工程根 = 父 POM 所在目录
 | `i18n/messages*`、`i18n/validation*` | scaffold-common | `I18nConfig` 以 `classpath:i18n/...` 声明，消息束须与配置同模块；运行期经 jar 合入最终 classpath |
 | `db/migration/V32~V59` | scaffold-admin | Flyway 在启动模块执行，`spring.flyway.locations=classpath:db/migration`（其中 `V57` 为 Java 类迁移 `V57__backfill_tenant_id.java`） |
 | `db/reference/*` | scaffold-admin | 参考 DDL/DML（非迁移；V1.0.3 拆分后位于 `scaffold-admin/src/main/resources/db/reference/`） |
-| `db/codegen/*`、`jooq-codegen.xml` | scaffold-common | `-Pjooq-codegen` 生成 `com.acme.scaffold.jooqgen` 至 common |
+| `jooq/*`（手写 DSL） | scaffold-common | `JooqTables` / `JooqWriters` / `JooqSorts` / `JooqKeysetPager` 等手写动态 DSL 基建（方案C 移除 codegen 后唯一数据访问方式） |
 | `application*.yml`、`logback-spring.xml` | scaffold-admin | 运行期配置与日志 |
 | `.env.example` | 工程根 | 环境变量样例（非 Maven 资源） |
 
