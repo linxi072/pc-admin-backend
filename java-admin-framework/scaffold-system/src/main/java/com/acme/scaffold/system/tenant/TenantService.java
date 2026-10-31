@@ -7,6 +7,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tenant.TenantRules;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.tenant.domain.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.CreateTenantRequest;
@@ -61,6 +62,8 @@ public class TenantService {
 
     private final DSLContext dsl;
 
+    private static final JooqTables.TableRef TN = JooqTables.toTableRef(Tables.SYS_TENANT);
+
     // ------------------------------------------------------------------
     // 管理面查询
     // ------------------------------------------------------------------
@@ -68,9 +71,9 @@ public class TenantService {
     /** 全部租户（含停用，按 id 升序）。整表缓存，见 {@link #list()}。 */
     @Cacheable(cacheNames = TENANT_LIST_CACHE, key = "'all'")
     public List<TenantView> list() {
-        List<SysTenantDO> rows = JooqWriters.fetchList(dsl, JooqTables.SYS_TENANT,
-                SysTenantDO.class, JooqWriters.notDeleted(JooqTables.SYS_TENANT),
-                JooqTables.SYS_TENANT.field("id", Long.class).asc());
+        List<SysTenantDO> rows = JooqWriters.fetchList(dsl, TN,
+                SysTenantDO.class, JooqWriters.notDeleted(TN),
+                TN.field("id", Long.class).asc());
         return rows.stream().map(TenantView::of).toList();
     }
 
@@ -78,10 +81,10 @@ public class TenantService {
                                        String status, String sortField, String sortDirection) {
         Condition cond = buildCondition(tenantCode, status);
         var query = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<SysTenantDO> raw = JooqWriters.page(dsl, JooqTables.SYS_TENANT,
+        PageResult<SysTenantDO> raw = JooqWriters.page(dsl, TN,
                 SysTenantDO.class, cond, query,
-                JooqSorts.resolve(JooqTables.SYS_TENANT, query, SORT_FIELDS,
-                        JooqTables.SYS_TENANT.field("id", Long.class).desc()));
+                JooqSorts.resolve(TN, query, SORT_FIELDS,
+                        TN.field("id", Long.class).desc()));
         return PageResult.of(raw.page(), raw.size(), raw.total(),
                 raw.records().stream().map(TenantView::of).toList());
     }
@@ -120,7 +123,7 @@ public class TenantService {
         d.setStatus(status);
         d.setExpireAt(req.expireAt());
         d.setRemark(req.remark());
-        JooqWriters.insert(dsl, JooqTables.SYS_TENANT, d);
+        JooqWriters.insert(dsl, TN, d);
         return d.getId();
     }
 
@@ -167,7 +170,7 @@ public class TenantService {
         if (req.remark() != null) {
             patch.setRemark(req.remark());
         }
-        JooqWriters.updateById(dsl, JooqTables.SYS_TENANT, id, patch);
+        JooqWriters.updateById(dsl, TN, id, patch);
     }
 
     /** 删除租户（逻辑删除，便于审计与恢复）。 */
@@ -175,7 +178,7 @@ public class TenantService {
     @Transactional
     public void remove(Long id) {
         requireById(id);
-        JooqWriters.delete(dsl, JooqTables.SYS_TENANT, id, true);
+        JooqWriters.delete(dsl, TN, id, true);
     }
 
     /** 启停租户（ENABLED / DISABLED）。 */
@@ -185,7 +188,7 @@ public class TenantService {
         requireById(id);
         SysTenantDO patch = new SysTenantDO();
         patch.setStatus(enabled ? "ENABLED" : "DISABLED");
-        JooqWriters.updateById(dsl, JooqTables.SYS_TENANT, id, patch);
+        JooqWriters.updateById(dsl, TN, id, patch);
     }
 
     // ------------------------------------------------------------------
@@ -193,7 +196,7 @@ public class TenantService {
     // ------------------------------------------------------------------
 
     private SysTenantDO requireById(Long id) {
-        SysTenantDO d = JooqWriters.fetchById(dsl, JooqTables.SYS_TENANT, SysTenantDO.class, id);
+        SysTenantDO d = JooqWriters.fetchById(dsl, TN, SysTenantDO.class, id);
         if (d == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "租户不存在");
         }
@@ -201,22 +204,22 @@ public class TenantService {
     }
 
     private boolean existsByTenantCode(String tenantCode) {
-        return JooqWriters.fetchOne(dsl, JooqTables.SYS_TENANT, SysTenantDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_TENANT),
-                        JooqTables.SYS_TENANT.field("tenant_code", String.class).eq(tenantCode))) != null;
+        return JooqWriters.fetchOne(dsl, TN, SysTenantDO.class,
+                DSL.and(JooqWriters.notDeleted(TN),
+                        TN.field("tenant_code", String.class).eq(tenantCode))) != null;
     }
 
     /** 统一筛选条件：逻辑删除恒成立；tenant_code 精确匹配/状态精确匹配按需收敛。 */
     private Condition buildCondition(String tenantCode, String status) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.SYS_TENANT));
+        conds.add(JooqWriters.notDeleted(TN));
         if (StringUtils.hasText(tenantCode)) {
-            conds.add(JooqTables.SYS_TENANT.field("tenant_code", String.class)
+            conds.add(TN.field("tenant_code", String.class)
                     .eq(tenantCode.trim()));
         }
         String st = TenantRules.normalizeTenantStatus(status);
         if (st != null) {
-            conds.add(JooqTables.SYS_TENANT.field("status", String.class).eq(st));
+            conds.add(TN.field("status", String.class).eq(st));
         }
         return DSL.and(conds);
     }

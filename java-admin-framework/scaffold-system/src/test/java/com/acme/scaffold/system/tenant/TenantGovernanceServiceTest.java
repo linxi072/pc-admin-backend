@@ -4,6 +4,7 @@ import com.acme.scaffold.common.tenant.TenantContext;
 import com.acme.scaffold.jooq.dsl.TenantTables;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
+import com.acme.scaffold.jooqgen.Tables;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.SQLDialect;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -50,7 +52,8 @@ class TenantGovernanceServiceTest {
         }
 
         boolean isUpdate() {
-            return sql.toLowerCase().contains("update");
+            // 生成层 SELECT 显式投影 updated_at 等列名含 "update" 子串，须按语句前缀判断
+            return sql.toLowerCase().startsWith("update");
         }
 
         boolean isSelectFromTenant() {
@@ -92,18 +95,37 @@ class TenantGovernanceServiceTest {
             Object[] bindings = ctx.bindings();
             executed.add(new Executed(sql, bindings));
             String lower = sql.toLowerCase();
-            if (lower.contains("update")) {
+            // 注意：生成层 selectFrom 显式投影 updated_by/updated_at 等列名包含 "update" 子串，
+            // 故 UPDATE 语句须按前缀判断，否则 SELECT 会被误判为 UPDATE 返回空结果。
+            if (lower.startsWith("update")) {
                 return new MockResult[]{new MockResult(1)};
             }
             if (lower.contains("sys_tenant")) {
-                Record t = DSL.using(conn).newRecord(
-                        DSL.field("id", Long.class),
-                        DSL.field("tenant_id", Long.class),
-                        DSL.field("tenant_name", String.class),
-                        DSL.field("status", String.class));
-                t.set(DSL.field("id", Long.class), 1L);
-                t.set(DSL.field("tenant_name", String.class), "T1");
-                return new MockResult[]{new MockResult(t)};
+                // 生成层已迁移到类型化表：selectFrom(Tables.SYS_TENANT) 按列序投影全部 16 列并按下标读取，
+                // MockResultSet 的列数与类型须与生成表完全一致。直接用生成表构造 16 列 Result（列序/类型天然匹配），
+                // 填入非空哨兵值；仅 tenant_name 用于断言。
+                LocalDateTime now = LocalDateTime.now();
+                var dslMock = DSL.using(conn);
+                var t = dslMock.newRecord(Tables.SYS_TENANT);
+                t.set(Tables.SYS_TENANT.ID, 1L);
+                t.set(Tables.SYS_TENANT.TENANT_ID, 1L);
+                t.set(Tables.SYS_TENANT.TENANT_CODE, "T1");
+                t.set(Tables.SYS_TENANT.TENANT_NAME, "T1");
+                t.set(Tables.SYS_TENANT.CONTACT_NAME, "c");
+                t.set(Tables.SYS_TENANT.CONTACT_PHONE, "p");
+                t.set(Tables.SYS_TENANT.CONTACT_EMAIL, "e");
+                t.set(Tables.SYS_TENANT.STATUS, "ACTIVE");
+                t.set(Tables.SYS_TENANT.EXPIRE_AT, now);
+                t.set(Tables.SYS_TENANT.REMARK, "r");
+                t.set(Tables.SYS_TENANT.VERSION, 1L);
+                t.set(Tables.SYS_TENANT.DELETED, (byte) 0);
+                t.set(Tables.SYS_TENANT.CREATED_BY, "sys");
+                t.set(Tables.SYS_TENANT.CREATED_AT, now);
+                t.set(Tables.SYS_TENANT.UPDATED_BY, "sys");
+                t.set(Tables.SYS_TENANT.UPDATED_AT, now);
+                var res = dslMock.newResult(Tables.SYS_TENANT);
+                res.add(t);
+                return new MockResult[]{new MockResult(1, res)};
             }
             if (lower.contains("select")) {
                 Record c = DSL.using(conn).newRecord(DSL.field("cnt", Integer.class));

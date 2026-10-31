@@ -30,12 +30,13 @@ import java.util.function.Supplier;
 public class JooqSystemStatsAdapter implements SystemStatsPort {
 
     private static final JooqTables.TableRef OS = JooqTables.toTableRef(Tables.SYS_ONLINE_SESSION);
+    private static final JooqTables.TableRef TN = JooqTables.toTableRef(Tables.SYS_TENANT);
 
     private final DSLContext dsl;
 
     @Override
     public long countTenants() {
-        return safe(() -> dsl.fetchCount(JooqTables.SYS_TENANT.table()));
+        return safe(() -> dsl.fetchCount(TN.table()));
     }
 
     @Override
@@ -100,11 +101,11 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     public List<TrendPoint> dailyNewTenants(int days) {
         return safeList(() -> {
             LocalDate start = LocalDate.now().minusDays(Math.max(1, days) - 1L);
-            Field<Timestamp> ts = JooqTables.SYS_TENANT.field("created_at", Timestamp.class);
+            Field<Timestamp> ts = TN.field("created_at", Timestamp.class);
             Field<LocalDate> day = dateField(ts);
             return dsl.select(day, DSL.count())
-                    .from(JooqTables.SYS_TENANT.table())
-                    .where(JooqWriters.notDeleted(JooqTables.SYS_TENANT)
+                    .from(TN.table())
+                    .where(JooqWriters.notDeleted(TN)
                             .and(ts.ge(Timestamp.valueOf(start.atStartOfDay()))))
                     .groupBy(day)
                     .orderBy(day)

@@ -2,6 +2,7 @@ package com.acme.scaffold.system.tenant;
 
 import com.acme.scaffold.jooq.dsl.TenantTables;
 import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooqgen.Tables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.tenant.domain.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
@@ -32,6 +33,8 @@ public class TenantGovernanceService {
 
     private final DSLContext dsl;
 
+    private static final JooqTables.TableRef TN = JooqTables.toTableRef(Tables.SYS_TENANT);
+
     public TenantGovernanceService(DSLContext dsl) {
         this.dsl = dsl;
     }
@@ -42,7 +45,7 @@ public class TenantGovernanceService {
      * @return 按租户聚合的行数快照（含各表明细与合计）
      */
     public List<TenantDataOverview> dataOverview() {
-        List<SysTenantDO> tenants = JooqWriters.fetchList(dsl, JooqTables.SYS_TENANT,
+        List<SysTenantDO> tenants = JooqWriters.fetchList(dsl, TN,
                 SysTenantDO.class, DSL.trueCondition());
         List<TenantDataOverview> result = new ArrayList<>();
         for (SysTenantDO t : tenants) {
