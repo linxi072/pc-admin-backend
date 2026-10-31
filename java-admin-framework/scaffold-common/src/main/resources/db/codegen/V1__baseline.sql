@@ -45,11 +45,26 @@ CREATE UNIQUE INDEX sys_user_org_uk_user_org ON sys_user_org (tenant_id, user_id
 
 CREATE INDEX sys_user_org_idx_org_user ON sys_user_org (tenant_id, org_id, user_id);
 
-CREATE TABLE IF NOT EXISTS sys_role (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, role_code VARCHAR(64) NOT NULL, role_name VARCHAR(100) NOT NULL, role_type VARCHAR(20) NOT NULL DEFAULT 'BUSINESS', status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', sort_no INT NOT NULL DEFAULT 0, version INT NOT NULL DEFAULT 0, deleted TINYINT NOT NULL DEFAULT 0, created_by BIGINT NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_by BIGINT NULL, updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS "sys_role" (
+    "id" BIGINT NOT NULL,
+    "tenant_id" BIGINT NOT NULL DEFAULT 0,
+    "role_code" VARCHAR(64) NOT NULL,
+    "role_name" VARCHAR(100) NOT NULL,
+    "role_type" VARCHAR(20) NOT NULL DEFAULT 'BUSINESS',
+    "status" VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    "sort_no" INT NOT NULL DEFAULT 0,
+    "version" INT NOT NULL DEFAULT 0,
+    "deleted" TINYINT NOT NULL DEFAULT 0,
+    "created_by" BIGINT NULL,
+    "created_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    "updated_by" BIGINT NULL,
+    "updated_at" DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY ("id")
+);
 
-CREATE UNIQUE INDEX sys_role_uk_tenant_role_code ON sys_role (tenant_id, role_code);
+CREATE UNIQUE INDEX "sys_role_uk_tenant_role_code" ON "sys_role" ("tenant_id", "role_code");
 
-CREATE INDEX sys_role_idx_status_sort ON sys_role (tenant_id, status, sort_no);
+CREATE INDEX "sys_role_idx_status_sort" ON "sys_role" ("tenant_id", "status", "sort_no");
 
 CREATE TABLE IF NOT EXISTS sys_user_role (id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, user_id BIGINT NOT NULL, role_id BIGINT NOT NULL, scope_org_id BIGINT NOT NULL DEFAULT 0, valid_from DATETIME(3) NULL, valid_until DATETIME(3) NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), PRIMARY KEY (id));
 
