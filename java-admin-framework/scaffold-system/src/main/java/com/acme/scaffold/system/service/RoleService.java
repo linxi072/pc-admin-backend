@@ -29,6 +29,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleService {
 
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
             JooqTables.toTableRef(Tables.SYS_ROLE);
@@ -116,7 +118,7 @@ public class RoleService {
     public void delete(Long id) {
         // 用户-角色关联先清：该表无外键约束，漏删会残留孤儿行（角色已不存在但用户仍"挂"着它，
         // 权限计算靠 notDeleted 兜底过滤虽不泄露，但数据卫生失控且角色重建后历史绑定不会恢复）
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "role_id", id);
+        JooqWriters.deleteByColumn(dsl, USER_ROLE, "role_id", id);
         JooqWriters.delete(dsl, ROLE, id, true);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "role_id", id);
         JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_API, "role_id", id);

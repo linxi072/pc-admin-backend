@@ -45,6 +45,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MenuService {
 
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+
     /** 管理端菜单树缓存名（单一 {@value #ALL_KEY} 键，监控页 / 清理端点按此定位）。 */
     public static final String MENU_TREE_CACHE = "menu-tree";
 
@@ -103,8 +105,8 @@ public class MenuService {
      */
     @Cacheable(cacheNames = USER_MENUS_CACHE, key = "#userId")
     public List<MenuTreeVO> menusForCurrentUser(Long userId) {
-        List<Long> roleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
+        List<Long> roleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                        USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
                 .map(SysUserRoleDO::getRoleId).distinct().toList();
         if (roleIds.isEmpty()) {
             return List.of();

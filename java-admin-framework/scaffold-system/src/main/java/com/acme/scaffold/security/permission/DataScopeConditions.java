@@ -25,6 +25,8 @@ import com.acme.scaffold.jooqgen.Tables;
  */
 @Slf4j
 public final class DataScopeConditions {
+
+    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
     private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private DataScopeConditions() {
@@ -84,17 +86,17 @@ public final class DataScopeConditions {
 
     /** 取本人所属部门的子查询；用户未挂部门时结果为空，对应「查不到任何行」。 */
     private static Select<Record1<Long>> orgOfUser(Long userId) {
-        return DSL.select(JooqTables.SYS_USER_ORG.field("org_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
+        return DSL.select(USER_ORG.field("org_id", Long.class))
+                .from(USER_ORG.table())
                 .where(DSL.and(
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)));
+                        USER_ORG.field("user_id", Long.class).eq(userId),
+                        USER_ORG.field("is_primary", Integer.class).eq(1)));
     }
 
     /** 取归属指定机构集合的用户ID子查询（基于 sys_user_org 多对多关联表）。 */
     private static Select<Record1<Long>> userIdsInOrgs(Set<Long> orgIds) {
-        return DSL.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
-                .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).in(orgIds));
+        return DSL.select(USER_ORG.field("user_id", Long.class))
+                .from(USER_ORG.table())
+                .where(USER_ORG.field("org_id", Long.class).in(orgIds));
     }
 }

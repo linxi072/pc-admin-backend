@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * {@link TokenVersionDataPort} 的 system 侧适配器实现。
@@ -22,6 +23,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TokenVersionDataAdapter implements TokenVersionDataPort {
 
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+
     private final DSLContext dsl;
 
     @Override
@@ -29,8 +32,8 @@ public class TokenVersionDataAdapter implements TokenVersionDataPort {
         if (roleIds == null || roleIds.isEmpty()) {
             return List.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).in(roleIds)).stream()
+        return JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                        USER_ROLE.field("role_id", Long.class).in(roleIds)).stream()
                 .map(SysUserRoleDO::getUserId)
                 .distinct()
                 .collect(Collectors.toList());

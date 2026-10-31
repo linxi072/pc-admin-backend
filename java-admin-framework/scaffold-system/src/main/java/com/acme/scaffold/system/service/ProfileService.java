@@ -41,6 +41,9 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class ProfileService {
+
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
     private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
@@ -285,8 +288,8 @@ public class ProfileService {
 
     /** 取用户全部角色名称（多对多，sys_user_role 关联表）。 */
     private List<String> loadRoleNames(Long userId) {
-        List<Long> roleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
+        List<Long> roleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                        USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
                 .map(SysUserRoleDO::getRoleId).toList();
         if (roleIds.isEmpty()) {
             return List.of();
@@ -299,8 +302,8 @@ public class ProfileService {
 
     /** 取用户全部部门名称（多对多，sys_user_org 关联表）。 */
     private List<String> loadOrgNames(Long userId) {
-        List<Long> orgIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ORG, SysUserOrgDO.class,
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId)).stream()
+        List<Long> orgIds = JooqWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
+                        USER_ORG.field("user_id", Long.class).eq(userId)).stream()
                 .map(SysUserOrgDO::getOrgId).toList();
         if (orgIds.isEmpty()) {
             return List.of();

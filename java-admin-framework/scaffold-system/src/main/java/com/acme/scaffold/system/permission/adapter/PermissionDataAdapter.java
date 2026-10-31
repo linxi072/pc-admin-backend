@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PermissionDataAdapter implements PermissionDataPort {
 
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+
     private static final JooqTables.TableRef ROLE = JooqTables.toTableRef(Tables.SYS_ROLE);
 
     private final DSLContext dsl;
@@ -40,8 +42,8 @@ public class PermissionDataAdapter implements PermissionDataPort {
     @Override
     public Set<Long> roleIdsOfUser(Long userId) {
         // 多对多：从 sys_user_role 关联表取该用户全部角色（并集），权限=所有角色权限并集。
-        List<SysUserRoleDO> rows = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId));
+        List<SysUserRoleDO> rows = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                USER_ROLE.field("user_id", Long.class).eq(userId));
         if (rows.isEmpty()) {
             return Set.of();
         }

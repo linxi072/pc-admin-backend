@@ -61,6 +61,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
+    private static final JooqTables.TableRef USER_POST = JooqTables.toTableRef(Tables.SYS_USER_POST);
     private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 用户列表可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
@@ -228,9 +232,9 @@ public class UserService {
     @Transactional
     public void delete(Long id) {
         get(id); // 校验存在性，不存在抛 NOT_FOUND
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "user_id", id);
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ORG, "user_id", id);
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_POST, "user_id", id);
+        JooqWriters.deleteByColumn(dsl, USER_ROLE, "user_id", id);
+        JooqWriters.deleteByColumn(dsl, USER_ORG, "user_id", id);
+        JooqWriters.deleteByColumn(dsl, USER_POST, "user_id", id);
         JooqWriters.delete(dsl, USER, id, false);
         // 用户已不存在：递增影响 0 行，但会失效缓存，使该用户残留的凭证在下一次请求即被判失效
         tokenVersionService.bumpUser(id);
@@ -300,15 +304,15 @@ public class UserService {
         // 按单一角色 / 部门筛选：改走关联表子查询（多对多）
         if (query.roleId() != null) {
             conds.add(USER.field("id", Long.class).in(
-                    dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
-                            .from(JooqTables.SYS_USER_ROLE.table())
-                            .where(JooqTables.SYS_USER_ROLE.field("role_id", Long.class).eq(query.roleId()))));
+                    dsl.select(USER_ROLE.field("user_id", Long.class))
+                            .from(USER_ROLE.table())
+                            .where(USER_ROLE.field("role_id", Long.class).eq(query.roleId()))));
         }
         if (query.orgId() != null) {
             conds.add(USER.field("id", Long.class).in(
-                    dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                            .from(JooqTables.SYS_USER_ORG.table())
-                            .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).eq(query.orgId()))));
+                    dsl.select(USER_ORG.field("user_id", Long.class))
+                            .from(USER_ORG.table())
+                            .where(USER_ORG.field("org_id", Long.class).eq(query.orgId()))));
         }
         // 数据权限：SELF -> id = 当前用户；DEPT/DEPT_AND_CHILD/CUSTOM -> 主部门所在机构集合；ALL -> 不加条件。
         // sys_user 已无 org_id 单列，DataScopeConditions 内部改走 sys_user_org 关联表。
@@ -358,27 +362,27 @@ public class UserService {
 
     /** 整体替换用户角色关联：删除旧关联后按新集合写入，primaryRoleId 标记主角色（为空取首位）。 */
     private void assignRoles(Long userId, List<Long> roleIds, Long primaryRoleId) {
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ROLE, "user_id", userId);
+        JooqWriters.deleteByColumn(dsl, USER_ROLE, "user_id", userId);
         Long primary = roleIds.isEmpty() ? null : (primaryRoleId != null ? primaryRoleId : roleIds.get(0));
         for (Long roleId : roleIds) {
             SysUserRoleDO ur = new SysUserRoleDO();
             ur.setUserId(userId);
             ur.setRoleId(roleId);
             ur.setIsPrimary(Objects.equals(roleId, primary) ? 1 : 0);
-            JooqWriters.insert(dsl, JooqTables.SYS_USER_ROLE, ur);
+            JooqWriters.insert(dsl, USER_ROLE, ur);
         }
     }
 
     /** 整体替换用户部门关联：删除旧关联后按新集合写入，primaryDeptId 标记主部门（为空取首位）。 */
     private void assignOrgs(Long userId, List<Long> deptIds, Long primaryDeptId) {
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_USER_ORG, "user_id", userId);
+        JooqWriters.deleteByColumn(dsl, USER_ORG, "user_id", userId);
         Long primary = deptIds.isEmpty() ? null : (primaryDeptId != null ? primaryDeptId : deptIds.get(0));
         for (Long deptId : deptIds) {
             SysUserOrgDO uo = new SysUserOrgDO();
             uo.setUserId(userId);
             uo.setOrgId(deptId);
             uo.setIsPrimary(Objects.equals(deptId, primary) ? 1 : 0);
-            JooqWriters.insert(dsl, JooqTables.SYS_USER_ORG, uo);
+            JooqWriters.insert(dsl, USER_ORG, uo);
         }
     }
 
@@ -437,8 +441,8 @@ public class UserService {
                     if (p.userId() == null) {
                         return Set.<String>of();
                     }
-                    Set<Long> roleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                                    JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(p.userId())).stream()
+                    Set<Long> roleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                                    USER_ROLE.field("user_id", Long.class).eq(p.userId())).stream()
                             .map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
                     return roleColumnPermissionService.grantedCodes(roleIds);
                 })
@@ -451,8 +455,8 @@ public class UserService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        Map<Long, List<Long>> userRoleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(userIds)).stream()
+        Map<Long, List<Long>> userRoleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                        USER_ROLE.field("user_id", Long.class).in(userIds)).stream()
                 .collect(Collectors.groupingBy(SysUserRoleDO::getUserId,
                         Collectors.mapping(SysUserRoleDO::getRoleId, Collectors.toList())));
         Set<Long> roleIds = userRoleIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());
@@ -477,8 +481,8 @@ public class UserService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        Map<Long, List<Long>> userOrgIds = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ORG, SysUserOrgDO.class,
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).in(userIds)).stream()
+        Map<Long, List<Long>> userOrgIds = JooqWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
+                        USER_ORG.field("user_id", Long.class).in(userIds)).stream()
                 .collect(Collectors.groupingBy(SysUserOrgDO::getUserId,
                         Collectors.mapping(SysUserOrgDO::getOrgId, Collectors.toList())));
         Set<Long> orgIds = userOrgIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());

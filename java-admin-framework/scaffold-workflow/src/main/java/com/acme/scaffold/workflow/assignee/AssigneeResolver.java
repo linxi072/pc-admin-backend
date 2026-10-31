@@ -19,6 +19,9 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AssigneeResolver {
+
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
     private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     /** 主管角色码，用于 INITIATOR_MANAGER 解析（可按实际部署调整）。 */
@@ -159,45 +162,45 @@ public class AssigneeResolver {
     }
 
     private Long primaryOrgOf(Long userId) {
-        return dsl.select(JooqTables.SYS_USER_ORG.field("org_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
+        return dsl.select(USER_ORG.field("org_id", Long.class))
+                .from(USER_ORG.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)))
+                        USER_ORG.field("user_id", Long.class).eq(userId),
+                        USER_ORG.field("is_primary", Integer.class).eq(1)))
                 .fetchOne(0, Long.class);
     }
 
     /** 取拥有指定角色的全部用户ID（关联表 sys_user_role，多对多）。 */
     private List<Long> userIdsByRole(Long roleId) {
-        return dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ROLE.table())
+        return dsl.select(USER_ROLE.field("user_id", Long.class))
+                .from(USER_ROLE.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).eq(roleId),
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
+                        USER_ROLE.field("role_id", Long.class).eq(roleId),
+                        USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
     }
 
     /** 取归属指定部门的全部用户ID（关联表 sys_user_org，多对多）。 */
     private List<Long> userIdsByOrg(Long orgId) {
-        return dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ORG.table())
+        return dsl.select(USER_ORG.field("user_id", Long.class))
+                .from(USER_ORG.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ORG.field("org_id", Long.class).eq(orgId),
-                        JooqTables.SYS_USER_ORG.field("user_id", Long.class).in(activeUserIds())))
+                        USER_ORG.field("org_id", Long.class).eq(orgId),
+                        USER_ORG.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
     }
 
     /** 取某部门内拥有指定角色的用户ID（org + role 组合，多对多）。 */
     private List<Long> userIdsByRoleInOrg(Long roleId, Long orgId) {
-        return dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
-                .from(JooqTables.SYS_USER_ROLE.table())
+        return dsl.select(USER_ROLE.field("user_id", Long.class))
+                .from(USER_ROLE.table())
                 .where(org.jooq.impl.DSL.and(
-                        JooqTables.SYS_USER_ROLE.field("role_id", Long.class).eq(roleId),
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(
-                                dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                                        .from(JooqTables.SYS_USER_ORG.table())
-                                        .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).eq(orgId))),
-                        JooqTables.SYS_USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
+                        USER_ROLE.field("role_id", Long.class).eq(roleId),
+                        USER_ROLE.field("user_id", Long.class).in(
+                                dsl.select(USER_ORG.field("user_id", Long.class))
+                                        .from(USER_ORG.table())
+                                        .where(USER_ORG.field("org_id", Long.class).eq(orgId))),
+                        USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
     }
 

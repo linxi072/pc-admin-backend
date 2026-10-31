@@ -47,6 +47,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MessageService {
+
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
     private static final JooqTables.TableRef USER = JooqTables.toTableRef(Tables.SYS_USER);
 
     private static final int MAX_BATCH = 5000;
@@ -170,15 +173,15 @@ public class MessageService {
         List<Condition> conds = new ArrayList<>();
         if (roleIds != null && !roleIds.isEmpty()) {
             conds.add(USER.field("id", Long.class).in(
-                    dsl.select(JooqTables.SYS_USER_ROLE.field("user_id", Long.class))
-                            .from(JooqTables.SYS_USER_ROLE.table())
-                            .where(JooqTables.SYS_USER_ROLE.field("role_id", Long.class).in(roleIds))));
+                    dsl.select(USER_ROLE.field("user_id", Long.class))
+                            .from(USER_ROLE.table())
+                            .where(USER_ROLE.field("role_id", Long.class).in(roleIds))));
         }
         if (orgIds != null && !orgIds.isEmpty()) {
             conds.add(USER.field("id", Long.class).in(
-                    dsl.select(JooqTables.SYS_USER_ORG.field("user_id", Long.class))
-                            .from(JooqTables.SYS_USER_ORG.table())
-                            .where(JooqTables.SYS_USER_ORG.field("org_id", Long.class).in(orgIds))));
+                    dsl.select(USER_ORG.field("user_id", Long.class))
+                            .from(USER_ORG.table())
+                            .where(USER_ORG.field("org_id", Long.class).in(orgIds))));
         }
         if (conds.isEmpty()) {
             return Set.of();

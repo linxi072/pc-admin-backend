@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.acme.scaffold.jooqgen.Tables;
 
 /**
  * {@link DataScopeDataPort} 的 system 侧适配器实现。
@@ -30,13 +31,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DataScopeDataAdapter implements DataScopeDataPort {
 
+    private static final JooqTables.TableRef USER_ROLE = JooqTables.toTableRef(Tables.SYS_USER_ROLE);
+    private static final JooqTables.TableRef USER_ORG = JooqTables.toTableRef(Tables.SYS_USER_ORG);
+
     private final DSLContext dsl;
 
     @Override
     public Set<Long> roleIdsOfUser(Long userId) {
         // 多对多：从 sys_user_role 关联表取该用户全部角色（并集）。
-        List<SysUserRoleDO> rows = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ROLE, SysUserRoleDO.class,
-                JooqTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId));
+        List<SysUserRoleDO> rows = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                USER_ROLE.field("user_id", Long.class).eq(userId));
         if (rows.isEmpty()) {
             return Set.of();
         }
@@ -59,9 +63,9 @@ public class DataScopeDataAdapter implements DataScopeDataPort {
 
     @Override
     public Long primaryOrgIdOfUser(Long userId) {
-        List<SysUserOrgDO> orgRows = JooqWriters.fetchList(dsl, JooqTables.SYS_USER_ORG, SysUserOrgDO.class,
-                DSL.and(JooqTables.SYS_USER_ORG.field("user_id", Long.class).eq(userId),
-                        JooqTables.SYS_USER_ORG.field("is_primary", Integer.class).eq(1)));
+        List<SysUserOrgDO> orgRows = JooqWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
+                DSL.and(USER_ORG.field("user_id", Long.class).eq(userId),
+                        USER_ORG.field("is_primary", Integer.class).eq(1)));
         return orgRows.isEmpty() ? null : orgRows.get(0).getOrgId();
     }
 
