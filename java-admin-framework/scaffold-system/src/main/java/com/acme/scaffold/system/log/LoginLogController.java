@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.log;
 
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -59,6 +60,26 @@ public class LoginLogController {
         return Result.success(loginLogService.page(page, size, username, result, loginType,
                 failureCode, ipAddress, keyword, startTime, endTime, sortField, sortDirection,
                 sensitiveVisible()));
+    }
+
+    @Operation(summary = "游标分页查询登录日志（深翻页优化，支持与 /page 相同的筛选条件）")
+    @GetMapping("/keyset")
+    @PreAuthorize("hasAuthority('system:login-log:read')")
+    public Result<KeysetPageResult<LoginLogView>> keyset(
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String result,
+            @RequestParam(required = false) String loginType,
+            @RequestParam(required = false) String failureCode,
+            @RequestParam(required = false) String ipAddress,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+        return Result.success(loginLogService.keysetPage(size, cursor, username, result, loginType,
+                failureCode, ipAddress, keyword, startTime, endTime, sensitiveVisible()));
     }
 
     @Operation(summary = "登录日志统计摘要（总数/成功/失败/失败率/独立用户/最近登录）")

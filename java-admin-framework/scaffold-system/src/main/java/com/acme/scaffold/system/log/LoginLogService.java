@@ -1,16 +1,20 @@
 package com.acme.scaffold.system.log;
 
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
+import com.acme.scaffold.jooq.paging.JooqKeysetPager;
 import com.acme.scaffold.security.entity.SysLoginLogDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 
@@ -79,6 +83,33 @@ public class LoginLogService {
         List<LoginLogView> views = raw.records().stream()
                 .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
+    }
+
+    /**
+     * keyset 游标分页（深翻页优化）：固定按 (occurred_at DESC, id DESC) 排序，
+     * 游标由服务端基于上一页末条记录的排序键生成，避免 offset 分页随偏移量退化。
+     *
+     * <p>筛选条件与 {@link #page} 完全一致（复用 {@link #buildCondition}）；排序键含 id 作为
+     * tie-breaker 以保证顺序唯一确定。出参不含 total（keyset 不廉价计算总数），
+     * 以 {@code nextCursor} 表示是否还有下一页，前端据此判断是否展示「下一页」。</p>
+     */
+    public KeysetPageResult<LoginLogView> keysetPage(int size, String cursor,
+            String username, String result, String loginType, String failureCode,
+            String ipAddress, String keyword, LocalDateTime startTime, LocalDateTime endTime,
+            boolean sensitiveVisible) {
+        Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
+                keyword, startTime, endTime);
+        KeysetPageQuery q = new KeysetPageQuery(size, cursor);
+        Field<?>[] keyFields = new Field<?>[]{
+                JooqTables.SYS_LOGIN_LOG.field("occurred_at", LocalDateTime.class),
+                JooqTables.SYS_LOGIN_LOG.field("id", Long.class)
+        };
+        boolean[] ascending = {false, false}; // occurred_at DESC, id DESC
+        KeysetPageResult<SysLoginLogDO> raw = JooqKeysetPager.query(dsl, LL, SysLoginLogDO.class,
+                cond, q, f -> new Object[]{f.getOccurredAt(), f.getId()}, keyFields, ascending);
+        List<LoginLogView> views = raw.records().stream()
+                .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
+        return KeysetPageResult.of(raw.size(), views, raw.nextCursor());
     }
 
     /**

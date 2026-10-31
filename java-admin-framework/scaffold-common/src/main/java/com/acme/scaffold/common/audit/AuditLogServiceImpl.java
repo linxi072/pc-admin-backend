@@ -1,5 +1,7 @@
 package com.acme.scaffold.common.audit;
 
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
 import com.acme.scaffold.common.audit.dto.AuditLogQuery;
@@ -8,10 +10,12 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooq.paging.JooqKeysetPager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.Record2;
 import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -154,6 +158,25 @@ public class AuditLogServiceImpl implements AuditLogService {
                 .map(l -> AuditLogView.of(l, sensitiveVisible))
                 .toList();
         return new PageResult<>(page.page(), page.size(), page.total(), views);
+    }
+
+    @Override
+    public KeysetPageResult<AuditLogView> keysetPage(AuditLogQuery query, String cursor, boolean sensitiveVisible) {
+        // keyset 不读取 query 的排序字段，固定按 (occurred_at DESC, id DESC) 排序，
+        // 仅复用筛选条件；排序键含 id 作为 tie-breaker，保证顺序唯一确定。
+        KeysetPageQuery q = new KeysetPageQuery(query.size(), cursor);
+        Field<?>[] keyFields = new Field<?>[]{
+                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class),
+                JooqTables.SYS_OPERATION_LOG.field("id", Long.class)
+        };
+        boolean[] ascending = {false, false}; // occurred_at DESC, id DESC
+        KeysetPageResult<SysOperationLogDO> raw = JooqKeysetPager.query(dsl, JooqTables.SYS_OPERATION_LOG,
+                SysOperationLogDO.class, conditions(query), q,
+                l -> new Object[]{l.getOccurredAt(), l.getId()}, keyFields, ascending);
+        List<AuditLogView> views = raw.records().stream()
+                .map(l -> AuditLogView.of(l, sensitiveVisible))
+                .toList();
+        return KeysetPageResult.of(raw.size(), views, raw.nextCursor());
     }
 
     @Override

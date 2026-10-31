@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.controller;
 
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditProperties;
@@ -66,6 +67,30 @@ public class AuditLogController {
         AuditLogQuery query = new AuditLogQuery(page, size, moduleCode, operationType, operatorId, operatorName,
                 success, traceId, keyword, minDurationMs, startTime, endTime, sortField, sortDirection);
         return Result.success(auditLogService.query(query, sensitiveVisible()));
+    }
+
+    @Operation(summary = "游标分页查询审计日志（深翻页优化，支持与 /page 相同的筛选条件）")
+    @GetMapping("/keyset")
+    @PreAuthorize("hasAuthority('system:audit:read')")
+    @AuditRead(module = "audit", type = "READ", name = "游标分页查询审计日志")
+    public Result<KeysetPageResult<AuditLogView>> keyset(
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String moduleCode,
+            @RequestParam(required = false) String operationType,
+            @RequestParam(required = false) Long operatorId,
+            @RequestParam(required = false) String operatorName,
+            @RequestParam(required = false) Boolean success,
+            @RequestParam(required = false) String traceId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long minDurationMs,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+        AuditLogQuery query = new AuditLogQuery(1, size, moduleCode, operationType, operatorId, operatorName,
+                success, traceId, keyword, minDurationMs, startTime, endTime, null, null);
+        return Result.success(auditLogService.keysetPage(query, cursor, sensitiveVisible()));
     }
 
     @Operation(summary = "按 traceId 查询一次请求的完整操作链路")
