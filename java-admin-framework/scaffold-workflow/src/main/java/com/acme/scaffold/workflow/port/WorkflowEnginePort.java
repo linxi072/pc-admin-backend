@@ -11,7 +11,8 @@ public interface WorkflowEnginePort {
     }
 
     record TaskInfo(String taskId, String executionId, String processInstanceId, String activityId,
-                    String name, Long assigneeUserId, java.time.LocalDateTime dueAt) {
+                    String name, Long assigneeUserId, java.time.LocalDateTime dueAt,
+                    String delegationState) {
     }
 
     /**
@@ -62,6 +63,24 @@ public interface WorkflowEnginePort {
      * 应使用 {@link #setAssignee}（转办语义）。
      */
     void claim(String taskId, Long userId);
+
+    /**
+     * 委派任务：将原审批人（当前 assignee）的任务临时委托给 {@code toUserId} 办理，
+     * 原审批人保留所有权。委派后任务 assignee 变为 {@code toUserId}、{@code delegationState=PENDING}。
+     *
+     * <p>被委托人办结（{@link #resolve}）后，任务回到原审批人（{@code delegationState=RESOLVED}），
+     * 由其最终完成（{@code complete}）。仅对「已被认领」的任务合法，否则由实现抛出
+     * {@link com.acme.scaffold.common.exception.BusinessException}（{@code VALIDATION_ERROR}）。</p>
+     */
+    void delegate(String taskId, Long toUserId);
+
+    /**
+     * 被委托人办结委派：将处于 {@code PENDING} 委派态的任务交还原审批人，{@code delegationState=PENDING→RESOLVED}。
+     *
+     * <p>仅当当前用户为被委托人（assignee 即该用户且 delegationState=PENDING）可调用；
+     * 调用后任务回到原审批人待办，由其最终审批完成。</p>
+     */
+    void resolve(String taskId);
 
     String status(String processInstanceId);
 

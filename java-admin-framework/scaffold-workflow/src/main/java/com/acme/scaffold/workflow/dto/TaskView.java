@@ -12,5 +12,7 @@ import java.time.LocalDateTime;
 public record TaskView(String taskId, String processInstanceId, String activityId, String name,
                        String status,
                        @JsonSerialize(using = ToStringSerializer.class) Long assigneeUserId,
-                       LocalDateTime dueAt) {
+                       LocalDateTime dueAt,
+                       @JsonSerialize(using = ToStringSerializer.class) Long delegatorUserId,
+                       String delegationState) {
 }

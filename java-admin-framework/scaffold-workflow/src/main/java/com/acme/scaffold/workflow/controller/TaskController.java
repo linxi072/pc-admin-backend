@@ -3,6 +3,8 @@ package com.acme.scaffold.workflow.controller;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.workflow.dto.CompleteTaskRequest;
+import com.acme.scaffold.workflow.dto.DelegateTaskRequest;
+import com.acme.scaffold.workflow.dto.ResolveDelegateRequest;
 import com.acme.scaffold.workflow.dto.TaskView;
 import com.acme.scaffold.workflow.dto.TransferTaskRequest;
 import com.acme.scaffold.workflow.service.WorkflowService;
@@ -51,6 +53,24 @@ public class TaskController {
     @AuditOperation(module = "workflow", type = "TRANSFER", name = "转办任务")
     public Result<Void> transfer(@Valid @RequestBody TransferTaskRequest request) {
         workflowService.transfer(request);
+        return Result.success();
+    }
+
+    @Operation(summary = "委派任务（临时委托他人办理）")
+    @PostMapping("/delegate")
+    @PreAuthorize("hasAuthority('workflow:task:delegate')")
+    @AuditOperation(module = "workflow", type = "DELEGATE", name = "委派任务")
+    public Result<Void> delegate(@Valid @RequestBody DelegateTaskRequest request) {
+        workflowService.delegate(request);
+        return Result.success();
+    }
+
+    @Operation(summary = "办结委派（被委托人交还原审批人）")
+    @PostMapping("/resolve-delegate")
+    @PreAuthorize("hasAuthority('workflow:task:resolve-delegate')")
+    @AuditOperation(module = "workflow", type = "DELEGATE_RESOLVE", name = "办结委派")
+    public Result<Void> resolveDelegate(@Valid @RequestBody ResolveDelegateRequest request) {
+        workflowService.resolveDelegate(request);
         return Result.success();
     }
 

@@ -11,8 +11,10 @@ import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.workflow.dto.ApprovalRecordView;
 import com.acme.scaffold.workflow.dto.CompleteTaskRequest;
+import com.acme.scaffold.workflow.dto.DelegateTaskRequest;
 import com.acme.scaffold.workflow.dto.InstanceDetailView;
 import com.acme.scaffold.workflow.dto.InstanceView;
+import com.acme.scaffold.workflow.dto.ResolveDelegateRequest;
 import com.acme.scaffold.workflow.dto.StartProcessRequest;
 import com.acme.scaffold.workflow.dto.TaskView;
 import com.acme.scaffold.workflow.dto.TransferTaskRequest;
@@ -44,7 +46,7 @@ import java.util.stream.Collectors;
 
 /**
  * 工作流应用服务：编排引擎端口与业务扩展表，保证审批记录不可变且写操作幂等。
- * 支持会签（ALL）、或签（ANY）、驳回、转办。
+ * 支持会签（ALL）、或签（ANY）、驳回、转办、委派（临时委托他人办理，办结交还原审批人）。
  * 持久层由 MyBatis-Plus 迁移为 jOOQ。
  */
 @Slf4j
@@ -195,6 +197,82 @@ public class WorkflowService {
     }
 
     /**
+     * 委派任务：把自己当前待办临时委托给 {@code toUserId} 办理，原审批人保留所有权。
+     *
+     * <p>双重幂等（同 {@link #transfer}）：{@code operationId} 兜住重复送达，{@link Idempotent}（requireKey=true）
+     * 兜住缺键/并发重复提交。委派后引擎将该任务 assignee 置为被委托人、{@code delegationState=PENDING}；
+     * 被委托人办结（{@link #resolveDelegate}）后任务回到原审批人（{@code delegationState=RESOLVED}），由其最终完成。
+     */
+    @Idempotent(scope = "workflow:task:delegate", requireKey = true)
+    @Transactional
+    public void delegate(DelegateTaskRequest request) {
+        CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
+        if (existsOperation(request.operationId())) {
+            return;
+        }
+        WorkflowEnginePort.TaskInfo task = engine.getTask(request.taskId());
+        if (task == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "任务不存在或已完成");
+        }
+        Long fromUserId = task.assigneeUserId();
+        if (fromUserId == null || !fromUserId.equals(principal.userId())) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN, "只能委派自己待办的任务");
+        }
+        if ("PENDING".equals(task.delegationState())) {
+            throw new BusinessException(CommonErrorCode.CONFLICT, "任务已处于委派待办状态，不能重复委派");
+        }
+        engine.delegate(task.taskId(), request.toUserId());
+
+        dsl.update(WF_TASK_EXT.table())
+                .set(WF_TASK_EXT.field("assignee_user_id", Long.class), request.toUserId())
+                .set(WF_TASK_EXT.field("delegator_user_id", Long.class), fromUserId)
+                .set(WF_TASK_EXT.field("delegation_state", String.class), "PENDING")
+                .where(WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()))
+                .execute();
+        saveApprovalRecord(request.operationId(), task, "DELEGATE",
+                principal.userId(), fromUserId, request.toUserId(), request.opinion(), null);
+    }
+
+    /**
+     * 办结委派：被委托人完成办理后将任务交还原审批人。
+     *
+     * <p>仅当当前用户为被委托人（assignee 即该用户且 {@code delegationState=PENDING}）可调；
+     * 调用引擎 {@code resolve} 将任务交还原审批人（delegationState→RESOLVED、assignee 还原），
+     * 并记录一条 {@code DELEGATE_RESOLVE} 不可变审批记录。</p>
+     */
+    @Idempotent(scope = "workflow:task:resolve-delegate", requireKey = true)
+    @Transactional
+    public void resolveDelegate(ResolveDelegateRequest request) {
+        CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
+        if (existsOperation(request.operationId())) {
+            return;
+        }
+        WorkflowEnginePort.TaskInfo task = engine.getTask(request.taskId());
+        if (task == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "任务不存在或已完成");
+        }
+        if (task.assigneeUserId() == null || !task.assigneeUserId().equals(principal.userId())) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN, "当前用户不是该委派的被委托人");
+        }
+        if (!"PENDING".equals(task.delegationState())) {
+            throw new BusinessException(CommonErrorCode.CONFLICT, "该任务未处于委派待办状态");
+        }
+        engine.resolve(task.taskId());
+
+        WfTaskExtDO ext = JooqWriters.fetchOne(dsl, WF_TASK_EXT, WfTaskExtDO.class,
+                WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()));
+        Long delegator = ext == null ? null : ext.getDelegatorUserId();
+        dsl.update(WF_TASK_EXT.table())
+                .set(WF_TASK_EXT.field("assignee_user_id", Long.class),
+                        delegator == null ? task.assigneeUserId() : delegator)
+                .set(WF_TASK_EXT.field("delegation_state", String.class), "RESOLVED")
+                .where(WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()))
+                .execute();
+        saveApprovalRecord(request.operationId(), task, "DELEGATE_RESOLVE",
+                principal.userId(), principal.userId(), delegator, request.opinion(), null);
+    }
+
+    /**
      * 认领任务：仅适用于尚未指定办理人（assignee 为空）的池化任务。
      *
      * <p>规则：任务不存在 → 404；已被他人认领 → 409（不可抢占）；
@@ -228,9 +306,13 @@ public class WorkflowService {
 
     public List<TaskView> myTasks() {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
-        return engine.listTasksByAssignee(principal.userId()).stream()
+        List<WorkflowEnginePort.TaskInfo> tasks = engine.listTasksByAssignee(principal.userId());
+        Map<String, Long> delegatorByTask = loadDelegators(
+                tasks.stream().map(WorkflowEnginePort.TaskInfo::taskId).toList());
+        return tasks.stream()
                 .map(t -> new TaskView(t.taskId(), t.processInstanceId(), t.activityId(), t.name(),
-                        "PENDING", t.assigneeUserId(), t.dueAt()))
+                        "PENDING", t.assigneeUserId(), t.dueAt(),
+                        delegatorByTask.get(t.taskId()), t.delegationState()))
                 .collect(Collectors.toList());
     }
 
@@ -262,9 +344,13 @@ public class WorkflowService {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "流程实例不存在");
         }
         String starterUsername = resolveUsername(ext.getStarterUserId());
-        List<TaskView> currentTasks = engine.activeTasks(processInstanceId).stream()
+        List<WorkflowEnginePort.TaskInfo> active = engine.activeTasks(processInstanceId);
+        Map<String, Long> delegatorByTask = loadDelegators(
+                active.stream().map(WorkflowEnginePort.TaskInfo::taskId).toList());
+        List<TaskView> currentTasks = active.stream()
                 .map(t -> new TaskView(t.taskId(), t.processInstanceId(), t.activityId(), t.name(),
-                        "PENDING", t.assigneeUserId(), t.dueAt()))
+                        "PENDING", t.assigneeUserId(), t.dueAt(),
+                        delegatorByTask.get(t.taskId()), t.delegationState()))
                 .collect(Collectors.toList());
         List<ApprovalRecordView> records = records(processInstanceId);
         return new InstanceDetailView(ext.getProcessInstanceId(), ext.getBusinessType(), ext.getBusinessId(),
@@ -283,6 +369,21 @@ public class WorkflowService {
     private boolean existsOperation(String operationId) {
         return JooqWriters.count(dsl, WF_APPROVAL_RECORD,
                 WF_APPROVAL_RECORD.field("operation_id", String.class).eq(operationId)) > 0;
+    }
+
+    /**
+     * 批量加载任务的委派发起人（原审批人），避免待办列表 N+1 查询。
+     * 非委派任务或无扩展行时返回空映射，对应 {@code delegatorUserId} 为 null。
+     */
+    private Map<String, Long> loadDelegators(List<String> taskIds) {
+        if (taskIds.isEmpty()) {
+            return Map.of();
+        }
+        return JooqWriters.fetchList(dsl, WF_TASK_EXT, WfTaskExtDO.class,
+                        WF_TASK_EXT.field("task_id", String.class).in(taskIds))
+                .stream().filter(e -> e.getDelegatorUserId() != null)
+                .collect(Collectors.toMap(WfTaskExtDO::getTaskId, WfTaskExtDO::getDelegatorUserId,
+                        (a, b) -> a));
     }
 
     private void saveTaskExt(String processInstanceId, WorkflowEnginePort.TaskInfo t) {

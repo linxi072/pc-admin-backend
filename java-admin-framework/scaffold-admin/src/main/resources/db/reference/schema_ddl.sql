@@ -375,6 +375,8 @@ CREATE TABLE IF NOT EXISTS wf_task_ext (
     activity_id VARCHAR(128) NOT NULL,
     assignee_user_id BIGINT UNSIGNED NULL,
     original_assignee_user_id BIGINT UNSIGNED NULL,
+    delegator_user_id BIGINT UNSIGNED NULL,
+    delegation_state VARCHAR(16) NULL,
     status VARCHAR(20) NOT NULL,
     approval_mode VARCHAR(20) NOT NULL,
     due_at DATETIME(3) NULL,

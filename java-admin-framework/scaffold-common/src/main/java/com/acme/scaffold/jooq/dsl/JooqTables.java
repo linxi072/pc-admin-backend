@@ -347,7 +347,8 @@ public final class JooqTables {
 
     public static final TableRef WF_TASK_EXT = new TableRef("wf_task_ext",
             "id", "tenant_id", "task_id", "process_instance_id", "activity_id", "assignee_user_id",
-            "original_assignee_user_id", "status", "approval_mode", "due_at", "claimed_at",
+            "original_assignee_user_id", "delegator_user_id", "delegation_state",
+            "status", "approval_mode", "due_at", "claimed_at",
             "completed_at", "version");
 
     public static final TableRef WF_APPROVAL_RECORD = new TableRef("wf_approval_record",

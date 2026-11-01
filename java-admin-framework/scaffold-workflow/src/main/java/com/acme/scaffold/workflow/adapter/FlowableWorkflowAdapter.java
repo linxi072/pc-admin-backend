@@ -131,6 +131,21 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
     }
 
     @Override
+    public void delegate(String taskId, Long toUserId) {
+        // delegateTask 要求任务已被认领（assignee 非空）；若未认领 Flowable 会抛 IllegalStateException，
+        // 业务层已预检「当前用户为 assignee」，处于已认领态，此处无需额外兜底。
+        taskService.delegateTask(taskId, String.valueOf(toUserId));
+    }
+
+    @Override
+    public void resolve(String taskId) {
+        // resolveTask 将 PENDING 委派态交还原审批人（delegationState→RESOLVED、assignee 还原）。
+        // 业务层已预检「当前用户为被委托人且 delegationState=PENDING」，非法态 Flowable 会抛异常，
+        // 这里不静默吞掉，交由全局异常处理器转 500，避免委派链错乱。
+        taskService.resolveTask(taskId);
+    }
+
+    @Override
     public String status(String processInstanceId) {
         ProcessInstance running = runtimeService.createProcessInstanceQuery()
                 .processInstanceId(processInstanceId).singleResult();
@@ -247,8 +262,9 @@ public class FlowableWorkflowAdapter implements WorkflowEnginePort {
     private TaskInfo toInfo(Task task) {
         Long assignee = task.getAssignee() == null ? null : Long.valueOf(task.getAssignee());
         LocalDateTime dueAt = task.getDueDate() == null ? null : toLocal(task.getDueDate());
+        String delegationState = task.getDelegationState() == null ? null : task.getDelegationState().name();
         return new TaskInfo(task.getId(), task.getExecutionId(), task.getProcessInstanceId(),
-                task.getTaskDefinitionKey(), task.getName(), assignee, dueAt);
+                task.getTaskDefinitionKey(), task.getName(), assignee, dueAt, delegationState);
     }
 
     private LocalDateTime toLocal(Date date) {
