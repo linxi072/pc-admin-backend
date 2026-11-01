@@ -1,13 +1,17 @@
 package com.acme.scaffold.monitor.alert;
 
+import com.acme.scaffold.monitor.alert.AlertReceivedEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class AlertReceiverServiceTest {
 
@@ -68,5 +72,40 @@ class AlertReceiverServiceTest {
         // 保留最近两条：A4、A3（addFirst，最新在队首）
         assertEquals("A4", s.inbox().get(0).getName());
         assertEquals("A3", s.inbox().get(1).getName());
+    }
+
+    // ---------- ingestSynthetic（规则引擎合成告警入口） ----------
+
+    @Test
+    void ingestSynthetic_nullReturnsZero() {
+        AlertReceiverService s = newService();
+        assertEquals(0, s.ingestSynthetic(null));
+        assertEquals(0, s.inboxSize());
+    }
+
+    @Test
+    void ingestSynthetic_storesAndPublishes() {
+        ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+        AlertReceiverService s = new AlertReceiverService(new AlertProperties(), publisher);
+        AlertInboxEntry entry = new AlertInboxEntry("e1", Instant.now(), "firing",
+                "[规则] CPU 高负载", "warning", "规则「CPU 高负载」触发", "rules-engine", null, null);
+        assertEquals(1, s.ingestSynthetic(entry));
+        assertEquals(1, s.inboxSize());
+        assertEquals("rules-engine", s.inbox().get(0).getInstance());
+        // 与 Alertmanager 推送共用收件箱与事件流
+        verify(publisher).publishEvent(any(AlertReceivedEvent.class));
+    }
+
+    @Test
+    void ingestSynthetic_respectsCapacity() {
+        AlertProperties p = new AlertProperties();
+        p.setInboxCapacity(3);
+        AlertReceiverService s = new AlertReceiverService(p, mock(ApplicationEventPublisher.class));
+        for (int i = 0; i < 6; i++) {
+            s.ingestSynthetic(new AlertInboxEntry("e" + i, Instant.now(), "firing",
+                    "R" + i, "warning", "x", "rules-engine", null, null));
+        }
+        assertEquals(3, s.inboxSize());
+        assertEquals("e5", s.inbox().get(0).getId());
     }
 }
