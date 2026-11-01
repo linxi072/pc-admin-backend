@@ -1,5 +1,7 @@
 package com.acme.scaffold.system.dashboard;
 
+import com.acme.scaffold.system.dashboard.dto.DashboardDrillVO;
+import com.acme.scaffold.system.dashboard.dto.HourlyPoint;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -7,6 +9,7 @@ import com.acme.scaffold.common.observability.ObservabilitySnapshot;
 import com.acme.scaffold.common.observability.ObservabilityStatsPort;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,6 +48,13 @@ class DashboardServiceTest {
         @Override public List<TrendPoint> dailyLoginLogs(int days) { return loginLogs; }
         @Override public List<TrendPoint> dailyOperationLogs(int days) { return operationLogs; }
         @Override public List<TrendPoint> dailyNotifications(int days) { return notifications; }
+        @Override public List<HourlyPoint> hourlyMetric(DashboardDrillMetric metric, LocalDate date) {
+            List<HourlyPoint> pts = new ArrayList<>();
+            for (int h = 0; h < 24; h++) {
+                pts.add(new HourlyPoint(h, 0L));
+            }
+            return pts;
+        }
     }
 
     @Test
@@ -190,5 +200,35 @@ class DashboardServiceTest {
         assertEquals(0, o.traceErrorTotal());
         // 系统域计数仍正常
         assertEquals(5000, o.operationLogCount());
+    }
+
+    @Test
+    @DisplayName("drill 返回指定指标在指定日期的逐小时序列（24 点，缺数据补零）")
+    void drillReturnsHourlySeries() {
+        DashboardService svc = new DashboardService(new FakeStatsPort() {
+            @Override
+            public List<HourlyPoint> hourlyMetric(DashboardDrillMetric metric, LocalDate date) {
+                List<HourlyPoint> pts = new ArrayList<>();
+                for (int h = 0; h < 24; h++) {
+                    pts.add(new HourlyPoint(h, h));
+                }
+                return pts;
+            }
+        });
+        DashboardDrillVO vo = svc.drill(DashboardDrillMetric.LOGIN_LOGS, LocalDate.of(2026, 10, 26));
+        assertEquals("LOGIN_LOGS", vo.metric());
+        assertEquals("2026-10-26", vo.date());
+        assertEquals(24, vo.series().size());
+        assertEquals(8L, vo.series().get(8).value());
+        assertTrue(vo.title().contains("登录日志"));
+    }
+
+    @Test
+    @DisplayName("drill 缺省日期回落为今日（不抛异常）")
+    void drillDefaultsToTodayWhenDateNull() {
+        DashboardService svc = new DashboardService(new FakeStatsPort());
+        DashboardDrillVO vo = svc.drill(DashboardDrillMetric.NEW_USERS, null);
+        assertEquals("NEW_USERS", vo.metric());
+        assertEquals(24, vo.series().size());
     }
 }
