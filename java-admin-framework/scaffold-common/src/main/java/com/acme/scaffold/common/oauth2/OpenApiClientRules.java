@@ -37,6 +37,12 @@ public final class OpenApiClientRules {
     /** 状态白名单。 */
     public static final Set<String> STATUSES = Set.of("ENABLED", "DISABLED");
 
+    /** 授权码回调地址（redirect_uri）白名单上限。 */
+    public static final int MAX_REDIRECT_URIS = 8;
+
+    /** 单个 redirect_uri 长度上限。 */
+    public static final int MAX_REDIRECT_URI_LEN = 256;
+
     /** 默认 scope（注册时未声明）。 */
     public static final String DEFAULT_SCOPES = "read";
 
@@ -150,5 +156,89 @@ public final class OpenApiClientRules {
             errors.add("过期时间须晚于当前时刻");
         }
         return errors;
+    }
+
+    // ------------------------------------------------------------------
+    // redirect_uri 白名单
+    // ------------------------------------------------------------------
+
+    /**
+     * 解析 redirect_uri 白名单串：逗号/分号/空白分隔，去空白去重保序；空串返回空集合。
+     * 返回只读视图且<b>严格保持声明顺序</b>（与 {@link #parseScopes} 同语义）。
+     */
+    public static Set<String> parseRedirectUris(String redirectUris) {
+        if (redirectUris == null || redirectUris.isBlank()) {
+            return Set.of();
+        }
+        Set<String> out = new LinkedHashSet<>();
+        for (String part : redirectUris.split("[,;\\s]+")) {
+            String s = part.trim();
+            if (!s.isEmpty()) {
+                out.add(s);
+            }
+        }
+        return Collections.unmodifiableSet(out);
+    }
+
+    /** redirect_uri 集合 → 规范化落库串（逗号分隔，保序）；空集合返回空串。 */
+    public static String normalizeRedirectUris(String redirectUris) {
+        Set<String> parsed = parseRedirectUris(redirectUris);
+        return String.join(",", parsed);
+    }
+
+    /**
+     * 校验 redirect_uri 白名单结构（创建/更新时调用）。返回错误列表，空列表表示通过。
+     * 允许空白（不约束回调地址，兼容存量客户端）。
+     */
+    public static List<String> validateRedirectUris(String redirectUris) {
+        List<String> errors = new ArrayList<>();
+        Set<String> parsed = parseRedirectUris(redirectUris);
+        if (parsed.size() > MAX_REDIRECT_URIS) {
+            errors.add("redirect_uri 不超过 " + MAX_REDIRECT_URIS + " 个");
+            return errors;
+        }
+        for (String uri : parsed) {
+            if (uri.length() > MAX_REDIRECT_URI_LEN) {
+                errors.add("redirect_uri 过长（≤ " + MAX_REDIRECT_URI_LEN + " 字符）：" + uri);
+                continue;
+            }
+            if (!isValidRedirectUri(uri)) {
+                errors.add("redirect_uri 非法（须为 https，或 http 的 localhost/127.0.0.1）：" + uri);
+            }
+        }
+        return errors;
+    }
+
+    /**
+     * 判断请求的 redirect_uri 是否被客户端登记白名单允许。
+     *
+     * <p>白名单为空（存量客户端未登记）→ 不约束 redirect_uri（向后兼容，任意取值含 null 均放行）；
+     * 白名单非空 → 请求必须精确命中其中一项（RFC 6749 §3.1 精确匹配），且不可为空。</p>
+     */
+    public static boolean isRedirectUriAllowed(Set<String> registered, String requested) {
+        if (registered == null || registered.isEmpty()) {
+            return true;
+        }
+        return requested != null && registered.contains(requested);
+    }
+
+    /** redirect_uri 合法性：https 任意主机；http 仅允许 localhost / 127.0.0.1 / [::1]（开发态）。 */
+    private static boolean isValidRedirectUri(String uri) {
+        if (uri.startsWith("https://")) {
+            return uri.length() > "https://".length();
+        }
+        if (uri.startsWith("http://")) {
+            String host = uri.substring("http://".length());
+            int slash = host.indexOf('/');
+            if (slash >= 0) {
+                host = host.substring(0, slash);
+            }
+            int colon = host.indexOf(':');
+            if (colon >= 0) {
+                host = host.substring(0, colon);
+            }
+            return "localhost".equals(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
+        }
+        return false;
     }
 }

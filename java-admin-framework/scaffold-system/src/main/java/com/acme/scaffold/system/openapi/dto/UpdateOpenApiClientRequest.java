@@ -14,5 +14,7 @@ public record UpdateOpenApiClientRequest(
         @Size(max = 512, message = "授权范围不超过 512 字符") String scopes,
         String status,
         LocalDateTime expiredAt,
+        @Size(max = 1024, message = "回调地址白名单不超过 1024 字符") String redirectUris,
+        Boolean pkceRequired,
         @Size(max = 255, message = "备注不超过 255 字符") String remark) {
 }

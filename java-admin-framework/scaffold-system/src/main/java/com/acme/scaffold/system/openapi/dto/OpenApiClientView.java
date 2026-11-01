@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
  * @param secretRotatedAt 最近一次密钥轮换时间
  * @param expiredAt      过期时间（可空）
  * @param remark         备注
+ * @param redirectUris   授权码回调地址白名单（规范化逗号分隔串，可空）
+ * @param pkceRequired   是否强制 PKCE（授权码流程）
  * @param createdAt      创建时间
  * @param updatedAt      更新时间
  */
@@ -29,6 +31,8 @@ public record OpenApiClientView(
         LocalDateTime secretRotatedAt,
         LocalDateTime expiredAt,
         String remark,
+        String redirectUris,
+        Boolean pkceRequired,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 
@@ -40,6 +44,7 @@ public record OpenApiClientView(
         return new OpenApiClientView(
                 d.getId(), d.getClientId(), d.getClientName(), d.getScopes(), d.getStatus(),
                 d.getSecretRotatedAt(), d.getExpiredAt(), d.getRemark(),
+                d.getRedirectUris(), d.getPkceRequired() != null && d.getPkceRequired() == 1,
                 d.getCreatedAt(), d.getUpdatedAt());
     }
 }

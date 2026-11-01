@@ -316,7 +316,13 @@ public final class JooqTables {
     public static final TableRef OPENAPI_CLIENT = new TableRef("sys_openapi_client",
             "id", "tenant_id", "client_id", "client_name", "client_secret_hash", "scopes",
             "status", "secret_rotated_at", "expired_at", "remark",
+            "redirect_uris", "pkce_required",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    /** OAuth2 用户同意(consent)记录（V68 #900）：资源拥有者对客户端的授权同意，支持「记住授权」复用。列名与 V68 迁移严格一致。 */
+    public static final TableRef SYS_OAUTH2_CONSENT = new TableRef("sys_oauth2_consent",
+            "id", "tenant_id", "user_id", "client_id", "scopes",
+            "status", "expires_at", "created_at", "updated_at");
 
     public static final TableRef FORM_SUBMISSION = new TableRef("sys_form_submission",
             "id", "tenant_id", "form_definition_id", "form_code", "submitted_by",

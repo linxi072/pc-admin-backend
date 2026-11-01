@@ -34,6 +34,10 @@ public class OAuth2ClientDataAdapter implements OAuth2ClientDataPort {
     }
 
     private OAuth2ClientView toView(OpenApiClientDO client) {
-        return new OAuth2ClientView(client.getClientId(), OpenApiClientRules.parseScopes(client.getScopes()));
+        return new OAuth2ClientView(
+                client.getClientId(),
+                OpenApiClientRules.parseScopes(client.getScopes()),
+                OpenApiClientRules.parseRedirectUris(client.getRedirectUris()),
+                client.getPkceRequired() != null && client.getPkceRequired() == 1);
     }
 }

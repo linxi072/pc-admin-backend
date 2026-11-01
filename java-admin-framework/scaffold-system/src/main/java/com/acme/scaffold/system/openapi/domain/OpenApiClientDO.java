@@ -30,6 +30,12 @@ public class OpenApiClientDO {
     /** 授权范围（逗号分隔，如 read,write）。 */
     private String scopes;
 
+    /** 授权码回调地址白名单（逗号分隔；空白=不约束，向后兼容存量客户端）。 */
+    private String redirectUris;
+
+    /** 是否强制 PKCE（授权码流程）：1=强制，0=可选。 */
+    private Integer pkceRequired = 0;
+
     /** 状态：ENABLED / DISABLED。 */
     private String status;
 

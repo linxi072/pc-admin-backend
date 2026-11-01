@@ -95,6 +95,7 @@ public class OpenApiClientService {
     public ClientSecretView create(CreateOpenApiClientRequest req) {
         List<String> errors = OpenApiClientRules.validate(req.clientId(), req.clientName(),
                 req.scopes(), req.status(), req.expiredAt());
+        errors.addAll(OpenApiClientRules.validateRedirectUris(req.redirectUris()));
         if (!errors.isEmpty()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, String.join("；", errors));
         }
@@ -112,6 +113,8 @@ public class OpenApiClientService {
                 ? OpenApiClientRules.DEFAULT_STATUS : OpenApiClientRules.normalizeStatus(req.status()));
         d.setSecretRotatedAt(now);
         d.setExpiredAt(req.expiredAt());
+        d.setRedirectUris(OpenApiClientRules.normalizeRedirectUris(req.redirectUris()));
+        d.setPkceRequired(req.pkceRequired() != null && req.pkceRequired() ? 1 : 0);
         d.setRemark(req.remark());
         JooqWriters.insert(dsl, JooqTables.OPENAPI_CLIENT, d);
         return new ClientSecretView(d.getClientId(), plainSecret, now);
@@ -127,8 +130,10 @@ public class OpenApiClientService {
         String scopes = req.scopes() != null ? req.scopes() : existing.getScopes();
         String status = req.status() != null ? req.status() : existing.getStatus();
         LocalDateTime expiredAt = req.expiredAt() != null ? req.expiredAt() : existing.getExpiredAt();
+        String redirectUris = req.redirectUris() != null ? req.redirectUris() : existing.getRedirectUris();
         List<String> errors = OpenApiClientRules.validate(existing.getClientId(), name, scopes,
                 status, expiredAt);
+        errors.addAll(OpenApiClientRules.validateRedirectUris(redirectUris));
         if (!errors.isEmpty()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, String.join("；", errors));
         }
@@ -144,6 +149,12 @@ public class OpenApiClientService {
         }
         if (req.expiredAt() != null) {
             patch.setExpiredAt(req.expiredAt());
+        }
+        if (req.redirectUris() != null) {
+            patch.setRedirectUris(OpenApiClientRules.normalizeRedirectUris(req.redirectUris()));
+        }
+        if (req.pkceRequired() != null) {
+            patch.setPkceRequired(req.pkceRequired() ? 1 : 0);
         }
         if (req.remark() != null) {
             patch.setRemark(req.remark());

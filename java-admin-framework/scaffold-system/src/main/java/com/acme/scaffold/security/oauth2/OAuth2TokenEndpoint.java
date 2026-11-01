@@ -77,6 +77,7 @@ public class OAuth2TokenEndpoint {
             @RequestParam(name = "password", required = false) String password,
             @RequestParam(name = "code", required = false) String code,
             @RequestParam(name = "redirect_uri", required = false) String redirectUri,
+            @RequestParam(name = "code_verifier", required = false) String codeVerifier,
             @RequestParam(name = "scope", required = false) String scope,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
 
@@ -117,7 +118,7 @@ public class OAuth2TokenEndpoint {
             if (OAuth2TokenRules.GRANT_PASSWORD.equals(grantType)) {
                 return passwordGrant(client, username, password, scope, ttlSeconds);
             } else if (OAuth2TokenRules.GRANT_AUTHORIZATION_CODE.equals(grantType)) {
-                return authorizationCodeGrant(client, code, redirectUri, ttlSeconds);
+                return authorizationCodeGrant(client, code, redirectUri, codeVerifier, ttlSeconds);
             } else {
                 return clientCredentialsGrant(client, ttlSeconds);
             }
@@ -148,8 +149,9 @@ public class OAuth2TokenEndpoint {
     }
 
     private ResponseEntity<Map<String, Object>> authorizationCodeGrant(OAuth2ClientView client, String code,
-                                                                     String redirectUri, long ttlSeconds) {
-        OAuth2AuthorizationCodeService.CodeContext ctx = codeService.consume(code, client.clientId(), redirectUri);
+                                                                     String redirectUri, String codeVerifier,
+                                                                     long ttlSeconds) {
+        OAuth2AuthorizationCodeService.CodeContext ctx = codeService.consume(code, client.clientId(), redirectUri, codeVerifier);
         Set<String> granted = (ctx.scope() == null || ctx.scope().isBlank())
                 ? client.scopes()
                 : OpenApiClientRules.parseScopes(ctx.scope());
