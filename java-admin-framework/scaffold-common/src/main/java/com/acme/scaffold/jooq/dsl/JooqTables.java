@@ -361,6 +361,11 @@ public final class JooqTables {
             "deleted", "nodes_json", "edges_json", "form_schema", "bpmn_xml", "deployment_id",
             "process_definition_id", "published_by", "published_at", "created_at", "updated_at");
 
+    public static final TableRef ALERT_RULE = new TableRef("alert_rule",
+            "id", "tenant_id", "rule_name", "metric_key", "comparator", "threshold", "severity",
+            "for_duration_sec", "consecutive_count", "channel_type", "channel_config", "enabled",
+            "remark", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
     /**
      * 表引用：物理表名 + 列清单 + 类型化字段构造。
      */

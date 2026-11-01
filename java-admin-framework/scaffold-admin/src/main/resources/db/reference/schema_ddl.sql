@@ -2126,3 +2126,33 @@ EXECUTE stmt;
 
 -- [from V59__job_dependency.sql]
 DEALLOCATE PREPARE stmt;
+
+-- =====================================================================================
+-- 来源迁移：V70__alert_rule.sql（告警规则闭环 #922）
+-- =====================================================================================
+
+-- V70 告警规则表：可配置阈值规则的持久化与周期评估数据源。
+-- 指标键/比较符/严重度/渠道类型均以字符串存储枚举名（由 AlertRuleRules 解析校验）。
+CREATE TABLE IF NOT EXISTS alert_rule (
+    id BIGINT UNSIGNED NOT NULL,
+    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    rule_name VARCHAR(128) NOT NULL,
+    metric_key VARCHAR(32) NOT NULL,
+    comparator VARCHAR(8) NOT NULL,
+    threshold DECIMAL(12, 4) NOT NULL,
+    severity VARCHAR(16) NOT NULL DEFAULT 'WARNING',
+    for_duration_sec INT NOT NULL DEFAULT 0,
+    consecutive_count INT NOT NULL DEFAULT 1,
+    channel_type VARCHAR(16) NOT NULL DEFAULT 'INBOX',
+    channel_config VARCHAR(1024) NULL,
+    enabled TINYINT(1) NOT NULL DEFAULT 0,
+    remark VARCHAR(255) NULL,
+    version INT NOT NULL DEFAULT 0,
+    deleted TINYINT(1) NOT NULL DEFAULT 0,
+    created_by BIGINT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_by BIGINT NULL,
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    KEY idx_metric_enabled (metric_key, enabled)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -76,6 +76,27 @@ public class AlertReceiverService {
     }
 
     /**
+     * 将规则引擎产出的合成告警注入收件箱（与 Alertmanager 推送共用同一内存收件箱与事件流）。
+     *
+     * <p>用于告警规则闭环：{@code AlertRuleService} 评估命中后构造 {@link AlertInboxEntry} 经此入箱，
+     * 复用既有环形裁剪与 {@link AlertReceivedEvent} 发布逻辑，前端无需区分告警来源。</p>
+     *
+     * @param entry 合成告警条目；为 null 时直接返回 0（不入箱、不发事件）
+     * @return 实际入箱条数（0 或 1）
+     */
+    public int ingestSynthetic(AlertInboxEntry entry) {
+        if (entry == null) {
+            return 0;
+        }
+        inbox.addFirst(entry);
+        while (inbox.size() > capacity && inbox.pollLast() != null) {
+            // 环形裁剪：队尾出队直至不超过容量
+        }
+        eventPublisher.publishEvent(new AlertReceivedEvent(this, List.of(entry)));
+        return 1;
+    }
+
+    /**
      * 清空收件箱并返回清理条数（管理端「一键清空」与测试复位共用）。
      *
      * <p>只丢弃当前窗口快照，不影响后续接收，也不回放已发布的
