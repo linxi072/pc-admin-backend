@@ -1,15 +1,19 @@
 package com.acme.scaffold.system.dashboard;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.system.dashboard.dto.DashboardDrillVO;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 
 /**
  * 运营总览看板接口（M27 报表大屏）。
@@ -40,5 +44,16 @@ public class DashboardController {
     @TenantIgnorable("平台级全局趋势统计，跨租户聚合")
     public Result<DashboardTrend> trend(@RequestParam(value = "days", defaultValue = "30") int days) {
         return Result.success(service.trend(days));
+    }
+
+    @Operation(summary = "运营看板下钻：返回指定指标在指定日期的逐小时分布（点击趋势线/统计卡触发）")
+    @GetMapping("/drill")
+    @PreAuthorize("hasAuthority('system:dashboard:read')")
+    @TenantIgnorable("平台级全局统计，跨租户聚合")
+    public Result<DashboardDrillVO> drill(
+            @RequestParam DashboardDrillMetric metric,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return Result.success(service.drill(metric, date));
     }
 }

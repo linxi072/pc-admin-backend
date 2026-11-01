@@ -4,6 +4,8 @@ import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
+import com.acme.scaffold.workbench.report.dto.DrillDimension;
+import com.acme.scaffold.workbench.report.dto.DrillResultVO;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
 import com.acme.scaffold.workbench.report.stats.ReportStats;
 import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.MonthDay;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -113,6 +116,213 @@ public class ReportService {
             case API_CALL -> buildApiCallView(query, w);
         };
     }
+
+    // ==================================================================
+    // 下钻（点击维度钻取更细粒度数据）：在既有聚合条件上叠加父级过滤
+    // ==================================================================
+
+    /**
+     * 报表下钻：在 {@link #report} 既有查询条件（类型 / 时间范围 / 类别 / 状态 / 关键字）之上，
+     * 叠加一个父级维度过滤后返回更细粒度时间序列（或明细表）。
+     *
+     * <p>设计要点（最少侵入）：
+     * <ul>
+     *   <li><b>复用既有聚合</b>：底层的 {@code baseCondition}/{@code statCondition}/{@code keywordCondition}
+     *       以及 {@code buildTrend}/{@code buildStatTrend} 一律复用，下钻仅追加一个等值/范围谓词；</li>
+     *   <li><b>时间序列不变形</b>：非时间维度下钻返回与主报表同窗口、同粒度的序列（已按父级过滤）；
+     *       {@link DrillDimension#TIME_DAY} 则将窗口收敛到单日并切换到逐小时粒度；</li>
+     *   <li><b>适用性约束</b>：{@code MODULE/STATUS/REQUEST_PATH} 仅作用于基于 {@code sys_operation_log} 的视角，
+     *       {@code LOGIN_TYPE} 仅作用于登录视角，不匹配时退化为整窗序列（不下钻，避免跨表字段引用）；</li>
+     *   <li><b>明细兜底</b>：{@code DURATION} 仅 JOB_EXEC 填充耗时分桶明细，其余维度明细为空表。</li>
+     * </ul>
+     *
+     * @param query     既有报表查询（范围 / 类型 / 筛选沿用）
+     * @param dimension 下钻维度
+     * @param parent    父级取值（天桶形如 {@code "10-12"}/{@code "2026-10-12"}；模块编码 / 状态中文 / 登录方式 / 接口路径 / 耗时分桶标签）
+     */
+    public DrillResultVO drill(ReportQuery query, DrillDimension dimension, String parent) {
+        ReportRange.ResolvedWindow w =
+                query.rangeType().resolve(LocalDateTime.now(), query.start(), query.end());
+
+        Condition base = switch (query.type()) {
+            case USAGE, CATEGORY, STATUS -> baseCondition(w.from(), w.to(), query.module(), query.success());
+            case JOB_EXEC -> statCondition(SYS_JOB_LOG, "fire_time", w.from(), w.to(),
+                    keywordCondition(ReportType.JOB_EXEC, query.keyword()));
+            case LOGIN -> statCondition(SYS_LOGIN_LOG, "occurred_at", w.from(), w.to(),
+                    keywordCondition(ReportType.LOGIN, query.keyword()));
+            case API_CALL -> statCondition(SYS_OPERATION_LOG, "occurred_at", w.from(), w.to(),
+                    keywordCondition(ReportType.API_CALL, query.keyword()));
+        };
+
+        Condition child = DSL.and(base, parentCondition(query.type(), dimension, parent));
+
+        List<ReportSeriesPointVO> series;
+        if (dimension == DrillDimension.TIME_DAY) {
+            LocalDate day = resolveDay(parent, w);
+            ReportRange.ResolvedWindow dayWindow = new ReportRange.ResolvedWindow(
+                    day.atStartOfDay(), day.atTime(23, 59, 59, 999_000_000), ReportRange.BucketMode.HOUR);
+            series = buildSeriesFor(query.type(), dayWindow, child);
+        } else {
+            series = buildSeriesFor(query.type(), w, child);
+        }
+
+        ReportDetailTableVO details =
+                (dimension == DrillDimension.DURATION && query.type() == ReportType.JOB_EXEC)
+                        ? jobExecDetailsInDuration(child)
+                        : emptyDetails();
+
+        return new DrillResultVO(dimension.name(), parent,
+                drillTitle(query.type(), dimension, parent),
+                query.rangeType().name(),
+                w.from().format(WINDOW_FMT), w.to().format(WINDOW_FMT),
+                series, details);
+    }
+
+    /** 按报表类型路由到对应的时间序列构建器（与 {@link #report} 同源，保证口径一致）。 */
+    private List<ReportSeriesPointVO> buildSeriesFor(ReportType type, ReportRange.ResolvedWindow w, Condition cond) {
+        return switch (type) {
+            case USAGE, CATEGORY, STATUS -> buildTrend(w, cond);
+            case JOB_EXEC -> buildStatTrend(w, cond, SYS_JOB_LOG, "fire_time",
+                    SYS_JOB_LOG.field("job_id", Long.class), jobFailedCond(SYS_JOB_LOG));
+            case LOGIN -> buildStatTrend(w, cond, SYS_LOGIN_LOG, "occurred_at",
+                    SYS_LOGIN_LOG.field("user_id", Long.class), loginFailedCond(SYS_LOGIN_LOG));
+            case API_CALL -> buildStatTrend(w, cond, SYS_OPERATION_LOG, "occurred_at",
+                    SYS_OPERATION_LOG.field("request_path", String.class), apiFailedCond(SYS_OPERATION_LOG));
+        };
+    }
+
+    /** 父级维度过滤谓词：不匹配报表类型的维度退化为 {@code noCondition}（不下钻）。 */
+    private Condition parentCondition(ReportType type, DrillDimension dimension, String parent) {
+        if (parent == null || parent.isBlank()) {
+            return DSL.noCondition();
+        }
+        if (!dimensionApplies(type, dimension)) {
+            return DSL.noCondition();
+        }
+        return switch (dimension) {
+            case TIME_DAY -> DSL.noCondition();
+            case MODULE -> SYS_OPERATION_LOG.field("module_code", String.class).eq(parent);
+            case STATUS -> type == ReportType.JOB_EXEC
+                    ? SYS_JOB_LOG.field("status", String.class)
+                        .eq("成功".equals(parent) ? JOB_STATUS_SUCCESS : JOB_STATUS_FAILED)
+                    : SYS_OPERATION_LOG.field("success", Integer.class)
+                        .eq("成功".equals(parent) ? 1 : 0);
+            case LOGIN_TYPE -> SYS_LOGIN_LOG.field("login_type", String.class)
+                    .eq(LOGIN_TYPE_PASSWORD_LABEL.equals(parent) ? "PASSWORD" : parent);
+            case REQUEST_PATH -> SYS_OPERATION_LOG.field("request_path", String.class).eq(parent);
+            case DURATION -> {
+                TableRef t = switch (type) {
+                    case JOB_EXEC -> SYS_JOB_LOG;
+                    case API_CALL -> SYS_OPERATION_LOG;
+                    default -> null;
+                };
+                yield t == null ? DSL.noCondition() : durationBucketCondition(parent, t);
+            }
+        };
+    }
+
+    /** 维度适用性约束：避免对不匹配的表引用字段导致跨表 SQL 错误。 */
+    private boolean dimensionApplies(ReportType type, DrillDimension dimension) {
+        return switch (dimension) {
+            case TIME_DAY, DURATION -> true;
+            case MODULE, STATUS, REQUEST_PATH ->
+                    type == ReportType.USAGE || type == ReportType.CATEGORY
+                            || type == ReportType.STATUS || type == ReportType.API_CALL;
+            case LOGIN_TYPE -> type == ReportType.LOGIN;
+        };
+    }
+
+    /**
+     * 解析父级日期：优先 {@code yyyy-MM-dd}；其次在窗口内匹配 {@code MM-dd}（如 {@code "10-12"}）；
+     * 均失败回退到今日（保证下钻序列非空且有意义）。
+     */
+    private LocalDate resolveDay(String parent, ReportRange.ResolvedWindow w) {
+        if (parent == null || parent.isBlank()) {
+            return LocalDate.now();
+        }
+        try {
+            return LocalDate.parse(parent, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        } catch (Exception ignored) {
+            // fall through
+        }
+        try {
+            MonthDay md = MonthDay.parse(parent, DateTimeFormatter.ofPattern("MM-dd"));
+            for (LocalDate d = w.from().toLocalDate(); !d.isAfter(w.to().toLocalDate()); d = d.plusDays(1)) {
+                if (d.getMonthValue() == md.getMonthValue() && d.getDayOfMonth() == md.getDayOfMonth()) {
+                    return d;
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return LocalDate.now();
+    }
+
+    /** 耗时分桶明细（JOB_EXEC 下钻）：{@code cond} 已含 {@link #drill} 叠加的耗时分桶谓词，直接取最近 {@value #DETAIL_LIMIT} 条。 */
+    private ReportDetailTableVO jobExecDetailsInDuration(Condition cond) {
+        var t = SYS_JOB_LOG;
+        Condition c = cond;
+        var rs = dsl.select(
+                        t.field("job_name", String.class),
+                        t.field("task_key", String.class),
+                        t.field("fire_time", LocalDateTime.class),
+                        t.field("duration_ms", Long.class),
+                        t.field("status", String.class),
+                        t.field("error_message", String.class))
+                .from(t.table()).where(c)
+                .orderBy(t.field("fire_time", LocalDateTime.class).desc())
+                .limit(DETAIL_LIMIT)
+                .fetch();
+        List<ReportDetailTableVO.Column> columns = List.of(
+                col("jobName", "任务名称"), col("taskKey", "任务标识"), col("fireTime", "触发时间"),
+                col("durationMs", "耗时(ms)"), col("status", "执行结果"), col("errorMessage", "错误信息"));
+        List<Map<String, String>> rows = new ArrayList<>(rs.size());
+        for (var r : rs) {
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("jobName", str(r.value1()));
+            row.put("taskKey", str(r.value2()));
+            row.put("fireTime", fmtTime(r.value3()));
+            row.put("durationMs", r.value4() == null ? "" : String.valueOf(r.value4()));
+            row.put("status", JOB_STATUS_SUCCESS.equals(r.value5()) ? "成功" : "失败");
+            row.put("errorMessage", str(r.value6()));
+            rows.add(row);
+        }
+        return new ReportDetailTableVO(columns, rows);
+    }
+
+    /** 耗时分桶谓词：按标签索引映射到与 {@link ReportStats#DURATION_LABELS} 一致的区间。 */
+    private Condition durationBucketCondition(String label, TableRef t) {
+        String[] labels = ReportStats.DURATION_LABELS;
+        int idx = -1;
+        for (int i = 0; i < labels.length; i++) {
+            if (labels[i].equals(label)) {
+                idx = i;
+                break;
+            }
+        }
+        Field<Long> d = t.field("duration_ms", Long.class);
+        return switch (idx) {
+            case 0 -> d.isNull();
+            case 1 -> d.isNotNull().and(d.lessThan(100L));
+            case 2 -> d.greaterOrEqual(100L).and(d.lessThan(500L));
+            case 3 -> d.greaterOrEqual(500L).and(d.lessThan(1000L));
+            case 4 -> d.greaterOrEqual(1000L).and(d.lessThan(5000L));
+            case 5 -> d.greaterOrEqual(5000L);
+            default -> DSL.noCondition();
+        };
+    }
+
+    private String drillTitle(ReportType type, DrillDimension dimension, String parent) {
+        return switch (dimension) {
+            case TIME_DAY -> type.getLabel() + " · " + str(parent) + " 逐小时分布";
+            case MODULE -> "模块「" + str(parent) + "」趋势";
+            case STATUS -> "状态「" + str(parent) + "」趋势";
+            case LOGIN_TYPE -> "登录方式「" + str(parent) + "」趋势";
+            case REQUEST_PATH -> "接口「" + str(parent) + "」趋势";
+            case DURATION -> "耗时「" + str(parent) + "」明细";
+        };
+    }
+
 
     // ==================================================================
     // 使用视角（USAGE / CATEGORY / STATUS）：基于 sys_operation_log

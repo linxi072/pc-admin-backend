@@ -1,12 +1,15 @@
 package com.acme.scaffold.system.dashboard;
 
 import com.acme.scaffold.common.observability.ObservabilitySnapshot;
+import com.acme.scaffold.system.dashboard.dto.DashboardDrillVO;
+import com.acme.scaffold.system.dashboard.dto.HourlyPoint;
 import com.acme.scaffold.common.observability.ObservabilityStatsPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 运营总览聚合服务（M27 报表大屏）。
@@ -75,5 +78,22 @@ public class DashboardService {
                 days,
                 today,
                 System.currentTimeMillis());
+    }
+
+    /**
+     * 运营看板下钻：返回指定指标在指定日期的逐小时分布。
+     *
+     * <p>最少侵入设计：直接复用 {@code SystemStatsPort#hourlyMetric}（适配器内为新写的逐小时聚合，
+     * 与既有每日聚合同源）；缺失日期回落为今日，保证抽屉始终有数据。</p>
+     *
+     * @param metric 下钻指标（与趋势序列一一对应）
+     * @param date   下钻日期（为空时回落为今日）
+     */
+    public DashboardDrillVO drill(DashboardDrillMetric metric, LocalDate date) {
+        LocalDate d = (date == null) ? LocalDate.now() : date;
+        List<HourlyPoint> series = statsPort.hourlyMetric(metric, d);
+        String isoDate = d.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
+        return new DashboardDrillVO(metric.name(), isoDate,
+                metric.getLabel() + " · " + isoDate + " 逐小时分布", series);
     }
 }

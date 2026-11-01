@@ -1,5 +1,7 @@
 package com.acme.scaffold.system.dashboard;
 
+import com.acme.scaffold.system.dashboard.dto.HourlyPoint;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -52,4 +54,7 @@ public interface SystemStatsPort {
 
     /** 近 days 日每日通知发送数（按 sent_at 按天聚合，仅含有数据的日期）。 */
     List<TrendPoint> dailyNotifications(int days);
+
+    /** 指定指标在指定日期的逐小时分布（0–23 点），用于看板下钻；异常由适配器兜底空序列。 */
+    List<HourlyPoint> hourlyMetric(DashboardDrillMetric metric, LocalDate date);
 }

@@ -31,7 +31,7 @@ public final class ReportStats {
      * <p>SQL 侧按「NULL 桶优先」聚合（见持久层 {@code durationCounts}），故此处首元素必须是「无耗时记录」，
      * 否则整体标签错位一位（历史缺陷：标签曾按「<100ms 打头」排列，导致 NULL 桶被标成 <100ms）。</p>
      */
-    static final String[] DURATION_LABELS =
+    public static final String[] DURATION_LABELS =
             {"无耗时记录", "<100ms", "100-500ms", "500ms-1s", "1s-5s", ">5s"};
 
     /**

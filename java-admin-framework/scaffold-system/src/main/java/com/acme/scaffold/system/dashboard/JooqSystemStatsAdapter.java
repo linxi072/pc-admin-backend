@@ -7,12 +7,19 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
+import org.jooq.Record2;
+import org.jooq.Result;
 import org.jooq.impl.DSL;
+
+import com.acme.scaffold.system.dashboard.dto.HourlyPoint;
 import org.springframework.stereotype.Component;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -184,6 +191,74 @@ public class JooqSystemStatsAdapter implements SystemStatsPort {
     /** 按天截断的时间字段：MySQL {@code DATE(expr)}。 */
     private static Field<LocalDate> dateField(Field<Timestamp> ts) {
         return DSL.field("DATE({0})", LocalDate.class, ts);
+    }
+
+    @Override
+    public List<HourlyPoint> hourlyMetric(DashboardDrillMetric metric, LocalDate date) {
+        return safeList(() -> {
+            LocalDate d = (date == null) ? LocalDate.now() : date;
+            Timestamp dayStart = Timestamp.valueOf(d.atStartOfDay());
+            Timestamp dayEnd = Timestamp.valueOf(d.atTime(23, 59, 59, 999_000_000));
+            return switch (metric) {
+                case NEW_USERS -> hourly(USER, USER.field("created_at", Timestamp.class),
+                        JooqWriters.notDeleted(USER), dayStart, dayEnd);
+                case NEW_TENANTS -> hourly(TN, TN.field("created_at", Timestamp.class),
+                        JooqWriters.notDeleted(TN), dayStart, dayEnd);
+                case ACTIVE_TENANTS -> hourlyDistinct(JooqTables.SYS_LOGIN_LOG,
+                        tscol(JooqTables.SYS_LOGIN_LOG, "occurred_at"),
+                        JooqTables.SYS_LOGIN_LOG.field("tenant_id", Long.class), dayStart, dayEnd);
+                case LOGIN_LOGS -> hourly(JooqTables.SYS_LOGIN_LOG,
+                        tscol(JooqTables.SYS_LOGIN_LOG, "occurred_at"), null, dayStart, dayEnd);
+                case OPERATION_LOGS -> hourly(JooqTables.SYS_OPERATION_LOG,
+                        tscol(JooqTables.SYS_OPERATION_LOG, "occurred_at"), null, dayStart, dayEnd);
+                case NOTIFICATIONS -> hourly(JooqTables.SYS_NOTIFICATION_RECORD,
+                        tscol(JooqTables.SYS_NOTIFICATION_RECORD, "sent_at"), null, dayStart, dayEnd);
+            };
+        });
+    }
+
+    /** 指定日期逐小时计数（缺小时补零，0–23）。 */
+    private List<HourlyPoint> hourly(JooqTables.TableRef t, Field<Timestamp> ts, Condition extra,
+                                     Timestamp dayStart, Timestamp dayEnd) {
+        Field<Integer> hour = DSL.field("HOUR({0})", Integer.class, ts);
+        Condition cond = ts.ge(dayStart).and(ts.le(dayEnd));
+        if (extra != null) {
+            cond = cond.and(extra);
+        }
+        Result<Record2<Integer, Integer>> rs = dsl.select(hour, DSL.count())
+                .from(t.table()).where(cond).groupBy(hour).fetch();
+        Map<Integer, Long> map = new HashMap<>();
+        for (Record2<Integer, Integer> r : rs) {
+            map.put(r.value1(), toLong(r.value2()));
+        }
+        List<HourlyPoint> out = new ArrayList<>(24);
+        for (int h = 0; h < 24; h++) {
+            out.add(new HourlyPoint(h, map.getOrDefault(h, 0L)));
+        }
+        return out;
+    }
+
+    /** 指定日期逐小时去重计数（如活跃租户数）。 */
+    private List<HourlyPoint> hourlyDistinct(JooqTables.TableRef t, Field<Timestamp> ts, Field<Long> distinctField,
+                                            Timestamp dayStart, Timestamp dayEnd) {
+        Field<Integer> hour = DSL.field("HOUR({0})", Integer.class, ts);
+        Condition cond = ts.ge(dayStart).and(ts.le(dayEnd));
+        Result<Record2<Integer, Integer>> rs = dsl.select(hour, DSL.countDistinct(distinctField))
+                .from(t.table()).where(cond).groupBy(hour).fetch();
+        Map<Integer, Long> map = new HashMap<>();
+        for (Record2<Integer, Integer> r : rs) {
+            map.put(r.value1(), toLong(r.value2()));
+        }
+        List<HourlyPoint> out = new ArrayList<>(24);
+        for (int h = 0; h < 24; h++) {
+            out.add(new HourlyPoint(h, map.getOrDefault(h, 0L)));
+        }
+        return out;
+    }
+
+    /** 将 LocalDateTime 列安全转为 Timestamp 类型字段（与每日趋势口径一致）。 */
+    private static Field<Timestamp> tscol(JooqTables.TableRef t, String col) {
+        return t.field(col, java.time.LocalDateTime.class).cast(Timestamp.class);
     }
 
     /** 统计查询统一兜底：异常即回落 0（看板不因单一统计失败而整体报错）。 */

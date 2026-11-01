@@ -9,6 +9,8 @@ import com.acme.scaffold.workbench.report.dto.ReportVO;
 import com.acme.scaffold.workbench.report.dto.SortField;
 import com.acme.scaffold.workbench.report.dto.SortOrder;
 import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
+import com.acme.scaffold.workbench.report.dto.DrillDimension;
+import com.acme.scaffold.workbench.report.dto.DrillResultVO;
 import com.acme.scaffold.workbench.report.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -96,5 +98,24 @@ public class ReportController {
                         "attachment; filename=\"" + export.filename() + "\"")
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .body(export.content());
+    }
+
+    @Operation(summary = "报表下钻：在现有聚合条件上叠加父级维度过滤，返回更细粒度时间序列 / 明细")
+    @GetMapping("/drill")
+    public Result<DrillResultVO> drill(
+            @RequestParam(defaultValue = "USAGE") ReportType type,
+            @RequestParam(defaultValue = "LAST_7D") ReportRange rangeType,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) Boolean success,
+            @RequestParam(required = false) String keyword,
+            @RequestParam DrillDimension dimension,
+            @RequestParam String parent) {
+        ReportQuery query = new ReportQuery(type, rangeType, start, end, module, success, keyword,
+                SortField.COUNT, SortOrder.DESC);
+        return Result.success(reportService.drill(query, dimension, parent));
     }
 }
