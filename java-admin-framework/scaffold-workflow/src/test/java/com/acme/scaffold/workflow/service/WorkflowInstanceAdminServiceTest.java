@@ -94,7 +94,7 @@ class WorkflowInstanceAdminServiceTest {
     void reassign_success() {
         when(engine.status("pi-1")).thenReturn("RUNNING");
         when(engine.activeTasks("pi-1")).thenReturn(List.of(
-                new WorkflowEnginePort.TaskInfo("t-1", "e-1", "pi-1", "mgr", "经理", 5L, null)));
+                new WorkflowEnginePort.TaskInfo("t-1", "e-1", "pi-1", "mgr", "经理", 5L, null, null)));
         service.reassign("pi-1", 99L);
         verify(engine).setAssignee("t-1", 99L);
         verify(realtimePushService).sendToUsers(any(), any(), any());

@@ -71,7 +71,7 @@ class WorkflowMonitorServiceTest {
     @DisplayName("remind：池化任务无办理人 → 409（先认领再催办），零 DB 零推送")
     void remind_rejectsUnassignedTask() {
         when(engine.getTask("t-1")).thenReturn(new WorkflowEnginePort.TaskInfo(
-                "t-1", "e-1", "pi-1", "manager", "部门经理", null, null));
+                "t-1", "e-1", "pi-1", "manager", "部门经理", null, null, null));
         BusinessException ex = assertThrows(BusinessException.class, () -> service.remind("t-1"));
         assertEquals(CommonErrorCode.CONFLICT, ex.getErrorCode());
         verifyNoInteractions(dsl);
