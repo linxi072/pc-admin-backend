@@ -20,6 +20,7 @@ import com.acme.scaffold.workbench.report.dto.ReportType;
 import com.acme.scaffold.workbench.report.dto.ReportVO;
 import com.acme.scaffold.workbench.report.dto.SortField;
 import com.acme.scaffold.workbench.report.dto.SortOrder;
+import com.acme.scaffold.workbench.report.rules.ReportDrillRules;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -34,7 +35,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.MonthDay;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -154,11 +154,11 @@ public class ReportService {
                     keywordCondition(ReportType.API_CALL, query.keyword()));
         };
 
-        Condition child = DSL.and(base, parentCondition(query.type(), dimension, parent));
+        Condition child = DSL.and(base, ReportDrillRules.parentCondition(query.type(), dimension, parent));
 
         List<ReportSeriesPointVO> series;
         if (dimension == DrillDimension.TIME_DAY) {
-            LocalDate day = resolveDay(parent, w);
+            LocalDate day = ReportDrillRules.resolveDay(parent, w);
             ReportRange.ResolvedWindow dayWindow = new ReportRange.ResolvedWindow(
                     day.atStartOfDay(), day.atTime(23, 59, 59, 999_000_000), ReportRange.BucketMode.HOUR);
             series = buildSeriesFor(query.type(), dayWindow, child);
@@ -172,7 +172,7 @@ public class ReportService {
                         : emptyDetails();
 
         return new DrillResultVO(dimension.name(), parent,
-                drillTitle(query.type(), dimension, parent),
+                ReportDrillRules.drillTitle(query.type(), dimension, parent),
                 query.rangeType().name(),
                 w.from().format(WINDOW_FMT), w.to().format(WINDOW_FMT),
                 series, details);
@@ -189,73 +189,6 @@ public class ReportService {
             case API_CALL -> buildStatTrend(w, cond, SYS_OPERATION_LOG, "occurred_at",
                     SYS_OPERATION_LOG.field("request_path", String.class), apiFailedCond(SYS_OPERATION_LOG));
         };
-    }
-
-    /** 父级维度过滤谓词：不匹配报表类型的维度退化为 {@code noCondition}（不下钻）。 */
-    private Condition parentCondition(ReportType type, DrillDimension dimension, String parent) {
-        if (parent == null || parent.isBlank()) {
-            return DSL.noCondition();
-        }
-        if (!dimensionApplies(type, dimension)) {
-            return DSL.noCondition();
-        }
-        return switch (dimension) {
-            case TIME_DAY -> DSL.noCondition();
-            case MODULE -> SYS_OPERATION_LOG.field("module_code", String.class).eq(parent);
-            case STATUS -> type == ReportType.JOB_EXEC
-                    ? SYS_JOB_LOG.field("status", String.class)
-                        .eq("成功".equals(parent) ? JOB_STATUS_SUCCESS : JOB_STATUS_FAILED)
-                    : SYS_OPERATION_LOG.field("success", Integer.class)
-                        .eq("成功".equals(parent) ? 1 : 0);
-            case LOGIN_TYPE -> SYS_LOGIN_LOG.field("login_type", String.class)
-                    .eq(LOGIN_TYPE_PASSWORD_LABEL.equals(parent) ? "PASSWORD" : parent);
-            case REQUEST_PATH -> SYS_OPERATION_LOG.field("request_path", String.class).eq(parent);
-            case DURATION -> {
-                TableRef t = switch (type) {
-                    case JOB_EXEC -> SYS_JOB_LOG;
-                    case API_CALL -> SYS_OPERATION_LOG;
-                    default -> null;
-                };
-                yield t == null ? DSL.noCondition() : durationBucketCondition(parent, t);
-            }
-        };
-    }
-
-    /** 维度适用性约束：避免对不匹配的表引用字段导致跨表 SQL 错误。 */
-    private boolean dimensionApplies(ReportType type, DrillDimension dimension) {
-        return switch (dimension) {
-            case TIME_DAY, DURATION -> true;
-            case MODULE, STATUS, REQUEST_PATH ->
-                    type == ReportType.USAGE || type == ReportType.CATEGORY
-                            || type == ReportType.STATUS || type == ReportType.API_CALL;
-            case LOGIN_TYPE -> type == ReportType.LOGIN;
-        };
-    }
-
-    /**
-     * 解析父级日期：优先 {@code yyyy-MM-dd}；其次在窗口内匹配 {@code MM-dd}（如 {@code "10-12"}）；
-     * 均失败回退到今日（保证下钻序列非空且有意义）。
-     */
-    private LocalDate resolveDay(String parent, ReportRange.ResolvedWindow w) {
-        if (parent == null || parent.isBlank()) {
-            return LocalDate.now();
-        }
-        try {
-            return LocalDate.parse(parent, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        } catch (Exception ignored) {
-            // fall through
-        }
-        try {
-            MonthDay md = MonthDay.parse(parent, DateTimeFormatter.ofPattern("MM-dd"));
-            for (LocalDate d = w.from().toLocalDate(); !d.isAfter(w.to().toLocalDate()); d = d.plusDays(1)) {
-                if (d.getMonthValue() == md.getMonthValue() && d.getDayOfMonth() == md.getDayOfMonth()) {
-                    return d;
-                }
-            }
-        } catch (Exception ignored) {
-            // fall through
-        }
-        return LocalDate.now();
     }
 
     /** 耗时分桶明细（JOB_EXEC 下钻）：{@code cond} 已含 {@link #drill} 叠加的耗时分桶谓词，直接取最近 {@value #DETAIL_LIMIT} 条。 */
@@ -288,39 +221,6 @@ public class ReportService {
             rows.add(row);
         }
         return new ReportDetailTableVO(columns, rows);
-    }
-
-    /** 耗时分桶谓词：按标签索引映射到与 {@link ReportStats#DURATION_LABELS} 一致的区间。 */
-    private Condition durationBucketCondition(String label, TableRef t) {
-        String[] labels = ReportStats.DURATION_LABELS;
-        int idx = -1;
-        for (int i = 0; i < labels.length; i++) {
-            if (labels[i].equals(label)) {
-                idx = i;
-                break;
-            }
-        }
-        Field<Long> d = t.field("duration_ms", Long.class);
-        return switch (idx) {
-            case 0 -> d.isNull();
-            case 1 -> d.isNotNull().and(d.lessThan(100L));
-            case 2 -> d.greaterOrEqual(100L).and(d.lessThan(500L));
-            case 3 -> d.greaterOrEqual(500L).and(d.lessThan(1000L));
-            case 4 -> d.greaterOrEqual(1000L).and(d.lessThan(5000L));
-            case 5 -> d.greaterOrEqual(5000L);
-            default -> DSL.noCondition();
-        };
-    }
-
-    private String drillTitle(ReportType type, DrillDimension dimension, String parent) {
-        return switch (dimension) {
-            case TIME_DAY -> type.getLabel() + " · " + str(parent) + " 逐小时分布";
-            case MODULE -> "模块「" + str(parent) + "」趋势";
-            case STATUS -> "状态「" + str(parent) + "」趋势";
-            case LOGIN_TYPE -> "登录方式「" + str(parent) + "」趋势";
-            case REQUEST_PATH -> "接口「" + str(parent) + "」趋势";
-            case DURATION -> "耗时「" + str(parent) + "」明细";
-        };
     }
 
 
