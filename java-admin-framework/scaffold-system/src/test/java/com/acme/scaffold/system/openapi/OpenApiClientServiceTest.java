@@ -39,7 +39,7 @@ class OpenApiClientServiceTest {
     @DisplayName("create：client_id 格式非法拒绝")
     void create_rejectsInvalidClientId() {
         CreateOpenApiClientRequest req = new CreateOpenApiClientRequest(
-                "bad", "合作伙伴系统", "read", "ENABLED", null, null);
+                "bad", "合作伙伴系统", "read", "ENABLED", null, null, null, null);
         BusinessException ex = assertThrows(BusinessException.class, () -> service.create(req));
         assertTrue(ex.getMessage().contains("客户端 ID"), ex.getMessage());
         verifyNoInteractions(dsl, passwordEncoder);
@@ -49,7 +49,7 @@ class OpenApiClientServiceTest {
     @DisplayName("create：scope 单项非法拒绝")
     void create_rejectsInvalidScope() {
         CreateOpenApiClientRequest req = new CreateOpenApiClientRequest(
-                "acme-partner-01", "合作伙伴系统", "Read_Write", "ENABLED", null, null);
+                "acme-partner-01", "合作伙伴系统", "Read_Write", "ENABLED", null, null, null, null);
         BusinessException ex = assertThrows(BusinessException.class, () -> service.create(req));
         assertTrue(ex.getMessage().contains("scope 非法"), ex.getMessage());
         verifyNoInteractions(dsl, passwordEncoder);
@@ -60,7 +60,7 @@ class OpenApiClientServiceTest {
     void create_rejectsPastExpiry() {
         CreateOpenApiClientRequest req = new CreateOpenApiClientRequest(
                 "acme-partner-01", "合作伙伴系统", "read", "ENABLED",
-                LocalDateTime.now().minusDays(1), null);
+                LocalDateTime.now().minusDays(1), null, null, null);
         BusinessException ex = assertThrows(BusinessException.class, () -> service.create(req));
         assertTrue(ex.getMessage().contains("过期时间"), ex.getMessage());
         verifyNoInteractions(dsl, passwordEncoder);
@@ -70,7 +70,7 @@ class OpenApiClientServiceTest {
     @DisplayName("create：状态非法拒绝")
     void create_rejectsInvalidStatus() {
         CreateOpenApiClientRequest req = new CreateOpenApiClientRequest(
-                "acme-partner-01", "合作伙伴系统", "read", "PAUSED", null, null);
+                "acme-partner-01", "合作伙伴系统", "read", "PAUSED", null, null, null, null);
         BusinessException ex = assertThrows(BusinessException.class, () -> service.create(req));
         assertTrue(ex.getMessage().contains("状态非法"), ex.getMessage());
         verifyNoInteractions(dsl, passwordEncoder);

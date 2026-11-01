@@ -58,7 +58,7 @@ class OAuth2TokenEndpointTest {
     @Test
     @DisplayName("client_credentials 成功返回 access_token")
     void token_success() throws Exception {
-        OAuth2ClientView client = new OAuth2ClientView("client-1", Set.of("read", "write"));
+        OAuth2ClientView client = new OAuth2ClientView("client-1", Set.of("read", "write"), Set.of(), false);
         when(clientPort.authenticate("client-1", "secret")).thenReturn(client);
         when(tokenProvider.issueClientCredentialsToken(eq("client-1"), eq(Set.of("read", "write")), any()))
                 .thenReturn("tok-abc");
@@ -82,7 +82,7 @@ class OAuth2TokenEndpointTest {
     @Test
     @DisplayName("Basic 认证头被识别")
     void token_basicAuth() throws Exception {
-        OAuth2ClientView client = new OAuth2ClientView("client-2", Set.of("read"));
+        OAuth2ClientView client = new OAuth2ClientView("client-2", Set.of("read"), Set.of(), false);
         when(clientPort.authenticate("client-2", "pw")).thenReturn(client);
         when(tokenProvider.issueClientCredentialsToken(eq("client-2"), eq(Set.of("read")), any()))
                 .thenReturn("tok-2");
@@ -126,7 +126,7 @@ class OAuth2TokenEndpointTest {
     @Test
     @DisplayName("password 授权成功返回代表用户的令牌")
     void password_grant_success() throws Exception {
-        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"));
+        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"), Set.of(), false);
         when(clientPort.authenticate("c1", "s")).thenReturn(client);
         OAuth2UserAuthenticator.AuthenticatedUser u = new OAuth2UserAuthenticator.AuthenticatedUser(
                 42L, "alice", "Alice", 0L, 1, Set.of("system:user:read"), Set.of("ADMIN"));
@@ -149,7 +149,7 @@ class OAuth2TokenEndpointTest {
     @Test
     @DisplayName("password 凭证错误 → 400 invalid_grant")
     void password_grant_bad_credentials() throws Exception {
-        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"));
+        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"), Set.of(), false);
         when(clientPort.authenticate("c1", "s")).thenReturn(client);
         when(userAuthenticator.authenticate("alice", "bad"))
                 .thenThrow(new BusinessException(CommonErrorCode.UNAUTHORIZED, "用户名或密码错误"));
@@ -168,11 +168,11 @@ class OAuth2TokenEndpointTest {
     @Test
     @DisplayName("authorization_code 兑换成功返回代表用户的令牌")
     void authorization_code_grant_success() throws Exception {
-        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"));
+        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"), Set.of(), false);
         when(clientPort.authenticate("c1", "s")).thenReturn(client);
         OAuth2AuthorizationCodeService.CodeContext ctx = new OAuth2AuthorizationCodeService.CodeContext(
-                42L, "alice", 1, Set.of("system:user:read"), Set.of("ADMIN"), "c1", "read", null);
-        when(codeService.consume("thecode", "c1", null)).thenReturn(ctx);
+                42L, "alice", 1, Set.of("system:user:read"), Set.of("ADMIN"), "c1", "read", null, null, null);
+        when(codeService.consume("thecode", "c1", null, null)).thenReturn(ctx);
         when(tokenProvider.issueUserToken(eq("c1"), eq(42L), eq("alice"), eq(1), any(), eq(Set.of("system:user:read")), any()))
                 .thenReturn("tok-ac");
         when(properties.getOauth2TokenTtl()).thenReturn(Duration.ofSeconds(1800));
@@ -190,9 +190,9 @@ class OAuth2TokenEndpointTest {
     @Test
     @DisplayName("authorization_code 无效 → 400 invalid_grant")
     void authorization_code_grant_invalid() throws Exception {
-        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"));
+        OAuth2ClientView client = new OAuth2ClientView("c1", Set.of("read"), Set.of(), false);
         when(clientPort.authenticate("c1", "s")).thenReturn(client);
-        when(codeService.consume("bad", "c1", null))
+        when(codeService.consume("bad", "c1", null, null))
                 .thenThrow(new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "授权码无效"));
 
         mockMvc.perform(post("/oauth2/token")

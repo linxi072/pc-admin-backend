@@ -79,7 +79,7 @@ class OAuth2IntrospectionEndpointTest {
     @Test
     @DisplayName("Basic 客户端调用方 + 活跃令牌 → active=true")
     void introspect_active_basic() throws Exception {
-        when(clientPort.authenticate("c1", "s")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
+        when(clientPort.authenticate("c1", "s")).thenReturn(new OAuth2ClientView("c1", Set.of("read"), Set.of(), false));
         when(decoder.decode("tok")).thenReturn(activeJwt());
         mockMvc.perform(post("/oauth2/introspect")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)

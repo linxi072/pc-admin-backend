@@ -1,6 +1,7 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
+import com.acme.scaffold.security.jwt.JwtProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,10 @@ class OAuth2AuthorizeEndpointTest {
     private OAuth2ClientDataPort clientPort;
     @Mock
     private OAuth2AuthorizationCodeService codeService;
+    @Mock
+    private OAuth2ConsentService consentService;
+    @Mock
+    private RsaKeyProvider rsaKeyProvider;
 
     @InjectMocks
     private OAuth2AuthorizeEndpoint endpoint;
@@ -42,6 +47,8 @@ class OAuth2AuthorizeEndpointTest {
     @BeforeEach
     void setup() {
         mockMvc = MockMvcBuilders.standaloneSetup(endpoint).build();
+        // 默认：已同意，授权端点直接签发 code（不进入同意分支）
+        lenient().when(consentService.isApproved(any(), any(), any())).thenReturn(true);
     }
 
     @AfterEach
@@ -53,7 +60,7 @@ class OAuth2AuthorizeEndpointTest {
         CurrentPrincipal p = new CurrentPrincipal(42L, "alice", "Alice", 0L, null, 1,
                 Set.of("ADMIN"), Set.of("system:user:read"));
         Authentication auth = mock(Authentication.class);
-        // lenient：部分用例在到达 principal 取值前已提前返回（如 scope 校验失败），避免 strict stubbing 误报
+        // lenient：部分用例在到达 principal 取值前已提前返回，避免 strict stubbing 误报
         lenient().when(auth.isAuthenticated()).thenReturn(true);
         lenient().when(auth.getPrincipal()).thenReturn(p);
         SecurityContextHolder.getContext().setAuthentication(auth);
@@ -62,9 +69,9 @@ class OAuth2AuthorizeEndpointTest {
     @Test
     @DisplayName("已认证资源拥有者 + 合法客户端 → 返回授权码")
     void authorize_success() throws Exception {
-        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
-        withPrincipal();
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read"), Set.of(), false));
         when(codeService.issue(eq("c1"), any(), any())).thenReturn("thecode");
+        withPrincipal();
 
         mockMvc.perform(get("/oauth2/authorize")
                         .param("response_type", "code")
@@ -76,7 +83,7 @@ class OAuth2AuthorizeEndpointTest {
     @Test
     @DisplayName("资源拥有者未认证 → 401 login_required")
     void authorize_requiresLogin() throws Exception {
-        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read"), Set.of(), false));
 
         mockMvc.perform(get("/oauth2/authorize")
                         .param("response_type", "code")
@@ -88,7 +95,7 @@ class OAuth2AuthorizeEndpointTest {
     @Test
     @DisplayName("请求 scope 超出客户端授权范围 → 400 invalid_scope")
     void authorize_invalidScope() throws Exception {
-        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read")));
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read"), Set.of(), false));
         withPrincipal();
 
         mockMvc.perform(get("/oauth2/authorize")
@@ -107,5 +114,53 @@ class OAuth2AuthorizeEndpointTest {
                         .param("client_id", "c1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("unsupported_response_type"));
+    }
+
+    @Test
+    @DisplayName("强制 PKCE 客户端未带 code_challenge → 400 invalid_request")
+    void authorize_pkceRequired_missing() throws Exception {
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read"), Set.of(), true));
+        withPrincipal();
+
+        mockMvc.perform(get("/oauth2/authorize")
+                        .param("response_type", "code")
+                        .param("client_id", "c1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_request"));
+    }
+
+    @Test
+    @DisplayName("redirect_uri 不在白名单 → 400 invalid_request")
+    void authorize_redirectNotInWhitelist() throws Exception {
+        when(clientPort.getActive("c1")).thenReturn(
+                new OAuth2ClientView("c1", Set.of("read"), Set.of("https://a.example/cb"), false));
+        withPrincipal();
+
+        mockMvc.perform(get("/oauth2/authorize")
+                        .param("response_type", "code")
+                        .param("client_id", "c1")
+                        .param("redirect_uri", "https://b.example/cb"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_request"));
+    }
+
+    @Test
+    @DisplayName("未同意 → 返回 consent_required + 签名 consent_token")
+    void authorize_consentRequired() throws Exception {
+        RsaKeyProvider keys = new RsaKeyProvider(new JwtProperties());
+        OAuth2AuthorizationCodeService codeSvc = new OAuth2AuthorizationCodeService(keys);
+        OAuth2ConsentService consentSvc = mock(OAuth2ConsentService.class);
+        when(consentSvc.isApproved(42L, "c1", Set.of("read"))).thenReturn(false);
+        OAuth2AuthorizeEndpoint ep = new OAuth2AuthorizeEndpoint(clientPort, codeSvc, consentSvc, keys);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(ep).build();
+        when(clientPort.getActive("c1")).thenReturn(new OAuth2ClientView("c1", Set.of("read"), Set.of(), false));
+        withPrincipal();
+
+        mvc.perform(get("/oauth2/authorize")
+                        .param("response_type", "code")
+                        .param("client_id", "c1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.error").value("consent_required"))
+                .andExpect(jsonPath("$.consent_token").exists());
     }
 }
