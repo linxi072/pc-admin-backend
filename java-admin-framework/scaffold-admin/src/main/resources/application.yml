@@ -258,6 +258,12 @@ app:
     # JWT 签名密钥：必须通过环境变量 JWT_SECRET 提供（Base64 编码、≥256 位）。
     # 未配置时不使用任何硬编码默认值，将自动生成仅当前进程有效的随机临时密钥（重启失效），仅用于开发/测试。
     jwt-secret: ${JWT_SECRET:}
+    # OAuth2 授权服务器 RS256 固定私钥（Base64 编码的 PKCS#8 DER）。
+    # 留空则启动时生成内存临时密钥（重启失效、JWKS kid 变化，仅用于开发/测试）。
+    # 生产必须配置固定私钥，并通过环境变量 APP_OAUTH2_PRIVATE_KEY 注入（禁止在配置文件中写入明文）。
+    # 生成方式见 scripts/generate-oauth2-key.sh。
+    oauth2:
+      private-key: ${APP_OAUTH2_PRIVATE_KEY:}
   # 慢 SQL 阈值（毫秒），由 JooqConfig 注入 SlowQueryListener
   jooq:
     slow-query-threshold-ms: 500
