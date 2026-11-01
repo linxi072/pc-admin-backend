@@ -21,7 +21,13 @@
       <!-- 运营概览 -->
       <el-card class="page-card section" header="运营概览">
         <div class="stat-grid">
-          <div class="stat-card" v-for="s in systemStats" :key="s.key">
+          <div
+            class="stat-card"
+            v-for="s in systemStats"
+            :key="s.key"
+            :class="{ 'is-clickable': CARD_DRILL[s.key] }"
+            @click="onStatCardClick(s)"
+          >
             <div class="label">{{ s.label }}</div>
             <div class="value">{{ fmtCount(s.value) }}</div>
           </div>
@@ -83,17 +89,27 @@
       <el-row v-else :gutter="16">
         <el-col :xs="24" :md="8" v-for="m in trendMetrics" :key="m.key">
           <el-card class="chart-card" :header="m.label">
-            <BaseChart :option="trendOption(m)" height="280px" />
+            <BaseChart :option="trendOption(m)" height="280px" @chart-click="(p) => onTrendClick(p, m)" />
           </el-card>
         </el-col>
       </el-row>
     </el-card>
+
+    <!-- 下钻抽屉：点击趋势线 / 概览统计卡触发，复用通用 DrillDrawer（dashboard 模式） -->
+    <DrillDrawer
+      v-model="drillVisible"
+      source="dashboard"
+      :drill-metric="drillMetric"
+      :drill-date="drillDate"
+      :title="drillTitle"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import BaseChart from '@/components/BaseChart.vue'
+import DrillDrawer from '@/components/DrillDrawer.vue'
 import { dashboardOverview, dashboardTrend } from '@/api/dashboard'
 
 // 图表走 Canvas 渲染，无法解析 CSS 变量：运行时读取 :root 的品牌色（失败回落到原值）
@@ -152,6 +168,58 @@ const trendMetrics = [
   { key: 'operationLogs', label: '操作日志', color: '#f56c6c' },
   { key: 'notifications', label: '通知发送', color: '#9254de' }
 ]
+
+// 趋势线 / 概览卡 → 下钻指标映射；无对应每日序列的指标不启用下钻
+const TREND_DRILL = {
+  newUsers: 'NEW_USERS',
+  newTenants: 'NEW_TENANTS',
+  activeTenants: 'ACTIVE_TENANTS',
+  loginLogs: 'LOGIN_LOGS',
+  operationLogs: 'OPERATION_LOGS',
+  notifications: 'NOTIFICATIONS'
+}
+const CARD_DRILL = {
+  userCount: 'NEW_USERS',
+  tenantCount: 'NEW_TENANTS',
+  loginLogTodayCount: 'LOGIN_LOGS',
+  operationLogCount: 'OPERATION_LOGS'
+}
+const METRIC_LABEL = {
+  NEW_USERS: '新增用户', NEW_TENANTS: '新增租户', ACTIVE_TENANTS: '活跃租户',
+  LOGIN_LOGS: '登录日志', OPERATION_LOGS: '操作日志', NOTIFICATIONS: '通知发送'
+}
+
+const drillVisible = ref(false)
+const drillMetric = ref('')
+const drillDate = ref('')
+const drillTitle = ref('下钻详情')
+
+function todayISO() {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+function openDashboardDrill(metric, date, title) {
+  drillMetric.value = metric
+  drillDate.value = date
+  drillTitle.value = title
+  drillVisible.value = true
+}
+
+/** 趋势线点击：下钻该指标在点击日（p.name 为 ISO 日期）的逐小时分布。 */
+function onTrendClick(p, m) {
+  const metric = TREND_DRILL[m.key]
+  if (!metric) return
+  openDashboardDrill(metric, p.name, `${m.label} · ${p.name} 逐小时分布`)
+}
+
+/** 概览统计卡点击：可下钻的指标（累计型）下钻其「今日」逐小时分布。 */
+function onStatCardClick(s) {
+  const metric = CARD_DRILL[s.key]
+  if (!metric) return
+  openDashboardDrill(metric, todayISO(), `${METRIC_LABEL[metric]} · 今日逐小时分布`)
+}
 
 function trendOption(m) {
   const series = (trend.value && trend.value[m.key]) || []
@@ -251,6 +319,14 @@ onMounted(() => {
 }
 .chart-card {
   margin-bottom: 16px;
+}
+/* 可下钻的概览统计卡：悬浮高亮 + 指针，提示可点击 */
+.stat-card.is-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.stat-card.is-clickable:hover {
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.25);
 }
 /* 错误态重试按钮：嵌入 alert 标题行，紧凑不抢焦点 */
 .retry-btn {

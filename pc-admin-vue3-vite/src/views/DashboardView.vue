@@ -30,7 +30,13 @@
     <el-empty v-else-if="!cards.length" description="暂无统计数据" />
 
     <div v-else class="stat-grid">
-      <div class="stat-card" v-for="c in cards" :key="c.key">
+      <div
+        class="stat-card"
+        v-for="c in cards"
+        :key="c.key"
+        :class="{ 'is-clickable': CARD_DRILL[c.key] }"
+        @click="onStatCardClick(c)"
+      >
         <el-icon class="stat-icon" :class="trendClass(c.trend)"><component :is="iconFor(c.key)" /></el-icon>
         <div class="label">{{ c.label }}</div>
         <div class="value">
@@ -93,6 +99,15 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 下钻抽屉：点击可下钻的统计卡触发（首页工作台仅 NEW_USER_TODAY 映射到新增用户今日逐小时） -->
+    <DrillDrawer
+      v-model="drillVisible"
+      source="dashboard"
+      :drill-metric="drillMetric"
+      :drill-date="drillDate"
+      :title="drillTitle"
+    />
   </div>
 </template>
 
@@ -100,6 +115,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { CircleCheck, CircleClose, DataAnalysis, Timer } from '@element-plus/icons-vue'
+import DrillDrawer from '@/components/DrillDrawer.vue'
 import { workbenchStats, recentActivities } from '@/api/workbench'
 
 const router = useRouter()
@@ -121,6 +137,40 @@ const ICONS = {
 }
 function iconFor(key) {
   return ICONS[key] || 'Odometer'
+}
+
+// 首页工作台统计卡 → 下钻指标映射（workbench 卡片中只有「今日新增用户」对应看板新增用户每日序列）
+const CARD_DRILL = {
+  NEW_USER_TODAY: 'NEW_USERS'
+}
+const METRIC_LABEL = {
+  NEW_USERS: '新增用户', NEW_TENANTS: '新增租户', ACTIVE_TENANTS: '活跃租户',
+  LOGIN_LOGS: '登录日志', OPERATION_LOGS: '操作日志', NOTIFICATIONS: '通知发送'
+}
+
+const drillVisible = ref(false)
+const drillMetric = ref('')
+const drillDate = ref('')
+const drillTitle = ref('下钻详情')
+
+function todayISO() {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+function openDashboardDrill(metric, date, title) {
+  drillMetric.value = metric
+  drillDate.value = date
+  drillTitle.value = title
+  drillVisible.value = true
+}
+
+/** 统计卡点击：仅映射到的卡片可下钻（今日新增用户 → 新增用户今日逐小时）。 */
+function onStatCardClick(c) {
+  const metric = CARD_DRILL[c.key]
+  if (!metric) return
+  openDashboardDrill(metric, todayISO(), `${METRIC_LABEL[metric]} · 今日逐小时分布`)
 }
 
 async function loadStats() {
@@ -217,6 +267,13 @@ onMounted(() => {
   padding: 18px 20px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   position: relative;
+}
+.stat-card.is-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.stat-card.is-clickable:hover {
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.25);
 }
 .stat-icon {
   font-size: 22px;

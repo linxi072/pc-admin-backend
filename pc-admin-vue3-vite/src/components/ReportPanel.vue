@@ -73,7 +73,7 @@
 
       <!-- 趋势（使用视角：访问量/活跃用户；统计视角：主指标/次指标/失败数） -->
       <el-card class="mt-16" :header="trendTitle">
-        <BaseChart :option="trendOption" height="340px" />
+        <BaseChart :option="trendOption" height="340px" @chart-click="onTrendClick" />
       </el-card>
 
       <template>
@@ -82,13 +82,13 @@
           <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
             <el-card :header="distributionTitle">
               <el-empty v-if="!distribution.length" description="该筛选条件下暂无数据" />
-              <BaseChart v-else :option="distributionOption" height="420px" />
+              <BaseChart v-else :option="distributionOption" height="420px" @chart-click="onDistributionClick" />
             </el-card>
           </el-col>
           <!-- 状态分布 -->
           <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
             <el-card header="状态分布（成功 / 失败）">
-              <BaseChart :option="statusOption" height="420px" />
+              <BaseChart :option="statusOption" height="420px" @chart-click="onStatusClick" />
             </el-card>
           </el-col>
         </el-row>
@@ -108,6 +108,14 @@
         </el-card>
       </template>
     </template>
+
+    <!-- 下钻抽屉：点击趋势/分布/状态图元触发，复用通用 DrillDrawer（report 模式） -->
+    <DrillDrawer
+      v-model="drillVisible"
+      source="report"
+      :report-params="drillReportParams"
+      :title="drillTitle"
+    />
   </div>
 </template>
 
@@ -115,6 +123,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import BaseChart from '@/components/BaseChart.vue'
+import DrillDrawer from '@/components/DrillDrawer.vue'
 import { parseFileName } from '@/utils/download'
 import { reportData, reportExport } from '@/api/report'
 
@@ -375,6 +384,56 @@ function reset() {
   dateRange.value = []
   keyword.value = ''
   load()
+}
+
+// ------------------------------------------------------------------
+// 下钻（点击图表触发）：复用通用 DrillDrawer（report 模式）
+// ------------------------------------------------------------------
+const drillVisible = ref(false)
+const drillTitle = ref('下钻详情')
+const drillReportParams = ref(null)
+
+/** 基于当前筛选条件构造下钻参数（type/rangeType/自定义起止/关键字 + 维度+父级）。 */
+function buildDrillParams(dimension, parent) {
+  const p = { type: type.value, rangeType: rangeType.value, dimension, parent }
+  if (rangeType.value === 'CUSTOM' && dateRange.value && dateRange.value.length === 2) {
+    p.start = dateRange.value[0]
+    p.end = dateRange.value[1]
+  }
+  if (keyword.value && keyword.value.trim()) {
+    p.keyword = keyword.value.trim()
+  }
+  return p
+}
+
+function openReportDrill(dimension, parent, title) {
+  if (!parent) return
+  drillReportParams.value = buildDrillParams(dimension, parent)
+  drillTitle.value = title
+  drillVisible.value = true
+}
+
+/** 趋势线点击：非「今日」范围下钻该天逐小时分布（今日已按小时，无需下钻）。 */
+function onTrendClick(p) {
+  if (rangeType.value === 'TODAY') return
+  openReportDrill('TIME_DAY', p.name, `${statMeta.value?.main || '趋势'} · ${p.name} 逐小时分布`)
+}
+
+/** 分布图点击：耗时分布→DURATION 明细；登录类型分布→LOGIN_TYPE 趋势。 */
+function onDistributionClick(p) {
+  if (!statMeta.value) return
+  if (statMeta.value.duration) {
+    openReportDrill('DURATION', p.name, `耗时「${p.name}」明细`)
+  } else if (type.value === 'LOGIN') {
+    openReportDrill('LOGIN_TYPE', p.name, `登录方式「${p.name}」趋势`)
+  }
+}
+
+/** 状态饼图点击：JOB_EXEC / API_CALL 下钻该状态趋势（success 字段）。 */
+function onStatusClick(p) {
+  if (type.value === 'JOB_EXEC' || type.value === 'API_CALL') {
+    openReportDrill('STATUS', p.name, `状态「${p.name}」趋势`)
+  }
 }
 
 onMounted(load)

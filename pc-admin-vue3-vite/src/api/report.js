@@ -28,3 +28,21 @@ export const reportData = (params) => request({ method: 'GET', url: '/api/report
  */
 export const reportExport = (params) =>
   requestRaw({ method: 'GET', url: '/api/report/export', params, responseType: 'blob' })
+
+/**
+ * GET /api/report/drill -> DrillResultVO
+ *
+ * 报表下钻：在既有报表查询条件上叠加父级维度过滤，返回更细粒度时间序列或明细。
+ * @param {Object} params
+ * @param {('USAGE'|'CATEGORY'|'STATUS'|'JOB_EXEC'|'LOGIN'|'API_CALL')} params.type 报表类型
+ * @param {('TODAY'|'LAST_7D'|'LAST_30D'|'CUSTOM')} params.rangeType 时间范围类型（必填）
+ * @param {string} [params.start] 自定义范围起始日期（YYYY-MM-DD，仅 CUSTOM）
+ * @param {string} [params.end]   自定义范围结束日期（YYYY-MM-DD，仅 CUSTOM）
+ * @param {string} [params.module] 类别筛选
+ * @param {boolean} [params.success] 状态筛选
+ * @param {string} [params.keyword] 关键字筛选
+ * @param {('TIME_DAY'|'MODULE'|'STATUS'|'LOGIN_TYPE'|'REQUEST_PATH'|'DURATION')} params.dimension 下钻维度
+ * @param {string} params.parent 父级取值（天桶如 '10-12' / 模块编码 / 状态中文 / 登录方式 / 接口路径 / 耗时分桶标签）
+ */
+export const reportDrill = (params) =>
+  request({ method: 'GET', url: '/api/report/drill', params })

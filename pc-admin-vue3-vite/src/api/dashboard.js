@@ -19,3 +19,17 @@ export const dashboardOverview = () =>
  */
 export const dashboardTrend = (days) =>
   request({ method: 'GET', url: '/api/system/dashboard/trend', params: { days } })
+
+/**
+ * GET /api/system/dashboard/drill -> DashboardDrillVO
+ *
+ * 运营看板下钻：返回指定指标在指定日期的逐小时分布（0–23 点）。
+ * @param {('NEW_USERS'|'NEW_TENANTS'|'ACTIVE_TENANTS'|'LOGIN_LOGS'|'OPERATION_LOGS'|'NOTIFICATIONS')} metric 下钻指标
+ * @param {string} [date] 下钻日期（YYYY-MM-DD，缺省回落为今日）
+ */
+export const dashboardDrill = (metric, date) =>
+  request({
+    method: 'GET',
+    url: '/api/system/dashboard/drill',
+    params: date ? { metric, date } : { metric }
+  })

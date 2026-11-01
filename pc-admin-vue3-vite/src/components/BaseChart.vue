@@ -24,6 +24,8 @@ const props = defineProps({
   height: { type: String, default: '320px' }
 })
 
+const emit = defineEmits(['chart-click'])
+
 const el = ref(null)
 let chart = null
 let ro = null
@@ -40,6 +42,9 @@ onMounted(async () => {
   await nextTick()
   chart = init(el.value)
   render()
+  // 点击下钻：把 ECharts 的点击参数（含坐标轴类目 name / 系列值）透传出去，
+  // 由父组件判断是否触发下钻（向后兼容：旧调用方不监听 chart-click 时无任何副作用）。
+  chart.on('click', (params) => emit('chart-click', params))
   ro = new ResizeObserver(handleResize)
   ro.observe(el.value)
   window.addEventListener('resize', handleResize)
