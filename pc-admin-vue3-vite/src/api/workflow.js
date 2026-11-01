@@ -12,6 +12,14 @@ export const completeTask = (body) =>
 export const transferTask = (body) =>
   request({ method: 'POST', url: '/api/workflow/tasks/transfer', data: body })
 
+// POST /api/workflow/tasks/delegate -> void（委派任务：临时委托他人办理）
+export const delegateTask = (body) =>
+  request({ method: 'POST', url: '/api/workflow/tasks/delegate', data: body })
+
+// POST /api/workflow/tasks/resolve-delegate -> void（被委托人办结交还原审批人）
+export const resolveDelegateTask = (body) =>
+  request({ method: 'POST', url: '/api/workflow/tasks/resolve-delegate', data: body })
+
 // GET /api/workflow/instances/mine -> List<InstanceView>
 export const myInstances = () =>
   request({ method: 'GET', url: '/api/workflow/instances/mine' })

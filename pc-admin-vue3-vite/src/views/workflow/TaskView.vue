@@ -10,19 +10,27 @@
         <el-table-column prop="taskId" label="任务ID" width="100" />
         <el-table-column prop="name" label="任务名称" width="160" />
         <el-table-column prop="processInstanceId" label="流程实例" width="140" />
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="160">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'PENDING' ? 'warning' : 'success'">
+            <el-tag v-if="row.delegationState === 'PENDING'" type="danger">委派待办</el-tag>
+            <el-tag v-else-if="row.delegationState === 'RESOLVED'" type="warning">委派已交还</el-tag>
+            <el-tag v-else :type="row.status === 'PENDING' ? 'warning' : 'success'">
               {{ row.status === 'PENDING' ? '待处理' : '已完成' }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="dueAt" label="截止时间" width="170" />
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" width="340" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Select" @click="openApprove(row)">审批</el-button>
-            <el-button link type="danger" :icon="Close" @click="openReject(row)">驳回</el-button>
-            <el-button link type="warning" :icon="Share" @click="openTransfer(row)">转办</el-button>
+            <template v-if="row.delegationState === 'PENDING'">
+              <el-button link type="success" :icon="Promotion" @click="openResolve(row)">办结交还</el-button>
+            </template>
+            <template v-else>
+              <el-button link type="primary" :icon="Select" @click="openApprove(row)">审批</el-button>
+              <el-button link type="danger" :icon="Close" @click="openReject(row)">驳回</el-button>
+              <el-button link type="warning" :icon="Share" @click="openTransfer(row)">转办</el-button>
+              <el-button link type="info" :icon="Switch" @click="openDelegate(row)">委派</el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -69,14 +77,54 @@
         <el-button type="warning" :loading="acting" @click="submitTransfer">确定转办</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="delegateVisible" title="委派任务" width="460px">
+      <el-form label-width="90px">
+        <el-form-item label="任务">
+          <span>{{ current?.name }}（{{ current?.taskId }}）</span>
+        </el-form-item>
+        <el-form-item label="委派给">
+          <el-select v-model="delegateTo" style="width: 100%" placeholder="选择被委托人">
+            <el-option
+              v-for="u in userOptions"
+              :key="u.id"
+              :label="u.displayName + '(' + u.username + ')'"
+              :value="u.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="意见">
+          <el-input v-model="opinion" type="textarea" :rows="2" placeholder="委派说明" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="delegateVisible = false">取消</el-button>
+        <el-button type="primary" :loading="acting" @click="submitDelegate">确定委派</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="resolveVisible" title="办结交还" width="460px">
+      <el-form label-width="90px">
+        <el-form-item label="任务">
+          <span>{{ current?.name }}（{{ current?.taskId }}）</span>
+        </el-form-item>
+        <el-form-item label="办理意见">
+          <el-input v-model="opinion" type="textarea" :rows="3" placeholder="办结意见" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resolveVisible = false">取消</el-button>
+        <el-button type="success" :loading="acting" @click="submitResolve">确定交还</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Select, Close, Share, Refresh } from '@element-plus/icons-vue'
-import { myTasks, completeTask, transferTask } from '@/api/workflow'
+import { Select, Close, Share, Refresh, Switch, Promotion } from '@element-plus/icons-vue'
+import { myTasks, completeTask, transferTask, delegateTask, resolveDelegateTask } from '@/api/workflow'
 import { pageUsers } from '@/api/user'
 
 function genOpId() {
@@ -88,11 +136,14 @@ const rows = ref([])
 const userOptions = ref([])
 const approveVisible = ref(false)
 const transferVisible = ref(false)
+const delegateVisible = ref(false)
+const resolveVisible = ref(false)
 const rejectMode = ref(false)
 const acting = ref(false)
 const current = ref(null)
 const opinion = ref('')
 const transferTo = ref(null)
+const delegateTo = ref(null)
 
 async function load() {
   loading.value = true
@@ -156,6 +207,54 @@ async function submitTransfer() {
     })
     ElMessage.success('已转办')
     transferVisible.value = false
+    load()
+  } finally {
+    acting.value = false
+  }
+}
+
+function openDelegate(row) {
+  current.value = row
+  opinion.value = ''
+  delegateTo.value = null
+  delegateVisible.value = true
+}
+async function submitDelegate() {
+  if (!delegateTo.value) {
+    ElMessage.warning('请选择被委托人')
+    return
+  }
+  acting.value = true
+  try {
+    await delegateTask({
+      taskId: current.value.taskId,
+      toUserId: delegateTo.value,
+      opinion: opinion.value,
+      operationId: genOpId()
+    })
+    ElMessage.success('已委派')
+    delegateVisible.value = false
+    load()
+  } finally {
+    acting.value = false
+  }
+}
+
+function openResolve(row) {
+  current.value = row
+  opinion.value = ''
+  resolveVisible.value = true
+}
+async function submitResolve() {
+  acting.value = true
+  try {
+    await resolveDelegateTask({
+      taskId: current.value.taskId,
+      opinion: opinion.value,
+      operationId: genOpId()
+    })
+    ElMessage.success('已交还原审批人')
+    resolveVisible.value = false
     load()
   } finally {
     acting.value = false
