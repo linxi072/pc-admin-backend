@@ -37,5 +37,31 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  // 生产构建：按依赖切分长缓存 chunk，降低首屏体积、提升命中率。
+  // element-plus / echarts / vue 生态 / axios 各自独立分包，业务代码变更不使其失效。
+  build: {
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      // 降低 Rollup 并行文件操作数：本环境 brokered-fs 在 element-plus/echarts 海量模块
+      // 的高并发读取下会出现 IPC slot 超时，限制并发可规避（不影响产物正确性）。
+      maxParallelFileOps: 4,
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('element-plus') || id.includes('@element-plus')) return 'element-plus'
+          if (id.includes('echarts') || id.includes('zrender')) return 'echarts'
+          if (id.includes('axios')) return 'axios'
+          if (
+            id.includes('/vue/') ||
+            id.includes('/vue-router/') ||
+            id.includes('/@vue/') ||
+            id.includes('/@vueuse/') ||
+            id.includes('/pinia/')
+          ) return 'vue-vendor'
+          return 'vendor'
+        }
+      }
+    }
   }
 })
