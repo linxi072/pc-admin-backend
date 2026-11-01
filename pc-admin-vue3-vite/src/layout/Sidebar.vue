@@ -4,9 +4,6 @@
       :collapse="collapsed"
       :default-active="activeIndex"
       router
-      background-color="#001529"
-      text-color="#c0c4cc"
-      active-text-color="#ffffff"
       class="app-menu"
     >
       <!-- 菜单完全由后端「我的菜单」接口按当前用户角色动态返回，无前端硬编码 -->

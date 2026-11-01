@@ -1,9 +1,22 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>运营管理后台</title>
+    <!-- 首屏防闪烁：在 CSS 应用前同步 data-theme 与 .dark，避免主题残留时的白屏/错色 -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('app-theme')
+          var valid = ['light', 'dark', 'warm', 'brand']
+          if (!valid.includes(t)) t = 'light'
+          var el = document.documentElement
+          el.setAttribute('data-theme', t)
+          if (t === 'dark') el.classList.add('dark')
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

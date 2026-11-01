@@ -32,6 +32,7 @@
     <div v-else class="notice-placeholder" aria-hidden="true" />
 
     <div class="right">
+      <ThemeSwitcher />
       <NotificationBell />
       <el-tooltip :content="t('topbar.accountSettings')" placement="bottom">
         <el-button text class="icon-btn" @click="onCmd('settings')">
@@ -81,6 +82,7 @@ import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { closeRealtime } from '@/api/realtime'
 import { t } from '@/i18n'
 import NotificationBell from '@/components/NotificationBell.vue'
+import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 
 defineProps({ collapsed: Boolean })
 defineEmits(['toggle'])
@@ -201,7 +203,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  color: #fff;
+  color: var(--chrome-text);
   gap: 12px;
 }
 .left {
@@ -211,7 +213,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .hamburger {
-  color: #c0c4cc;
+  color: var(--chrome-text-muted);
 }
 .notice-bar {
   flex: 1;
@@ -266,7 +268,7 @@ onUnmounted(() => {
   transform: scale(0.85);
 }
 .notice-more {
-  color: #c0c4cc;
+  color: var(--chrome-text-muted);
   flex-shrink: 0;
   font-size: 12px;
 }
@@ -285,11 +287,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  color: #fff;
+  color: var(--chrome-text);
   outline: none;
 }
 .avatar {
-  background: var(--brand);
+  background: var(--primary);
 }
 .detail-title {
   margin: 0 0 8px;
@@ -305,7 +307,7 @@ onUnmounted(() => {
 .detail-content {
   white-space: pre-wrap;
   line-height: 1.7;
-  color: #303133;
+  color: var(--text);
   max-height: 420px;
   overflow: auto;
 }

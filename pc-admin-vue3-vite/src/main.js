@@ -1,12 +1,17 @@
 import { createApp } from 'vue'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+// Element Plus 暗色变量表：仅在 html.dark 下生效，配合主题系统深色调使用
+import 'element-plus/theme-chalk/dark/css-vars.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 import App from './App.vue'
 import router from './router'
 import './styles.css'
+import './styles/theme-tokens.css'
+import './styles/element-theme.css'
 import { t } from './i18n'
+import { initTheme } from './utils/theme'
 
 const app = createApp(App)
 
@@ -21,4 +26,6 @@ app.config.globalProperties.$t = t
 
 app.use(router)
 app.use(ElementPlus)
+// 与持久化主题对齐（index.html 内联脚本已先行同步，此处幂等，避免首屏闪烁）
+initTheme()
 app.mount('#app')

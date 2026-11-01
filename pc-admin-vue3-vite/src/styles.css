@@ -26,14 +26,14 @@ body,
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', Helvetica, Arial, sans-serif;
-  background: var(--app-bg);
-  color: #1f2329;
+  background: var(--bg);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 
 .page-card {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 16px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
@@ -83,7 +83,7 @@ body {
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--border);
 }
 
 .toolbar-actions .action-buttons {
@@ -107,8 +107,8 @@ body {
 }
 
 .stat-card {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 18px 20px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
@@ -140,7 +140,7 @@ body {
 .tree-panel {
   max-height: 320px;
   overflow: auto;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px;
 }
@@ -149,7 +149,7 @@ body {
 .scope-tree {
   max-height: 260px;
   overflow: auto;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px;
   width: 100%;

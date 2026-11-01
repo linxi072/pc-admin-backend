@@ -44,18 +44,18 @@ onMounted(() => {
 }
 .app-header {
   padding: 0;
-  background: #001529;
+  background: var(--chrome);
 }
 .app-body {
   height: calc(100vh - 96px);
 }
 .app-aside {
-  background: #001529;
+  background: var(--chrome);
   transition: width 0.2s ease;
   overflow: hidden;
 }
 .app-main {
-  background: var(--app-bg);
+  background: var(--bg);
   padding: 16px;
   overflow: auto;
 }
@@ -63,10 +63,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
-  color: #8a919f;
+  background: var(--footer-bg);
+  color: var(--footer-text);
   font-size: 12px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--footer-border);
 }
 .app-footer .muted {
   opacity: 0.7;
