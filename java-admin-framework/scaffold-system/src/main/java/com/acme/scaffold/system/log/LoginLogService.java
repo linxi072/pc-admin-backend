@@ -219,4 +219,27 @@ public class LoginLogService {
         }
         return records.stream().map(d -> LoginLogView.of(d, false)).toList();
     }
+
+    /**
+     * 清理发生时间早于 {@code cutoff} 的登录日志（留存清理，对应 operations §27.6 后续方向）。
+     *
+     * <p>物理删除（登录日志为纯追加审计数据，无逻辑删除列）；跨全租户统一按时间窗口清理，
+     * 留存口径由 {@code LoginLogRetentionJob} 经 {@link com.acme.scaffold.common.audit.AuditRetentionRules#cutoff}
+     * 计算，与操作审计留存保持一致。
+     *
+     * @param cutoff 截止时间（不含）；{@code null} 时直接返回 0（调用方应已判空跳过）
+     * @return 删除的记录条数
+     */
+    public int purgeBefore(LocalDateTime cutoff) {
+        if (cutoff == null) {
+            return 0;
+        }
+        int removed = dsl.deleteFrom(LL.table())
+                .where(LL.field("occurred_at", LocalDateTime.class).lt(cutoff))
+                .execute();
+        if (removed > 0) {
+            log.info("清理过期登录日志 {} 条（早于 {}）", removed, cutoff);
+        }
+        return removed;
+    }
 }
