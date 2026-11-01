@@ -9,6 +9,14 @@ const routes = [
     meta: { public: true, title: 'route.loginTitle' }
   },
   {
+    // OAuth2 用户同意页（#900）：授权码 + PKCE 流程中，由第三方客户端经 consent_required
+    // 引导到此独立全屏页。要求已认证（Bearer），但不依赖后台菜单树，故路由守卫对其放行。
+    path: '/oauth2/consent',
+    name: 'oauth2Consent',
+    component: () => import('@/views/oauth2/ConsentView.vue'),
+    meta: { title: 'route.oauth2Consent' }
+  },
+  {
     path: '/',
     component: () => import('@/layout/AppLayout.vue'),
     redirect: '/dashboard',
@@ -408,6 +416,8 @@ router.beforeEach((to) => {
   if (!isAuthenticated()) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
+  // OAuth2 同意页（#900）：已认证用户直达，不依赖后台菜单树（非后台功能页）
+  if (to.path === '/oauth2/consent') return true
   // 动态菜单范围鉴权：菜单尚未加载（首屏/刷新瞬间）时放行，避免误拦截；
   // 菜单加载完成后，凡不在用户菜单树中的受保护路由，视为未授权，重定向到工作台。
   // 带路径参数的详情页（如 /workflow/designer/:id）通常由已授权列表页进入，予以放行。

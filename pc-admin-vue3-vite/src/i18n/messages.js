@@ -150,7 +150,8 @@ export default {
       formSubmission: '表单提交管理',
       openApiClient: '开放平台客户端',
       health: '健康探针',
-      oauth2Token: 'OAuth2 令牌管理'
+      oauth2Token: 'OAuth2 令牌管理',
+      oauth2Consent: '授权同意'
     },
     health: {
       scope: '存活探针（liveness）仅依赖 JVM，就绪探针（readiness）检查数据库等必需依赖。两者均为 k8s 风格根路径端点，实时反映实例健康态，仅供运维只读诊断。',
@@ -186,6 +187,30 @@ export default {
       revokeConfirm: '确认吊销该令牌？吊销后持有者下一次请求将被拒绝。',
       revokedHint: '吊销已提交，持有该令牌的客户端在下次请求时即被拒绝。',
       empty: '当前没有有效的 OAuth2 令牌。'
+    },
+    oauth2Consent: {
+      loading: '正在加载授权信息…',
+      title: '授权请求',
+      subtitle: '以下应用请求访问您的账号，请确认是否授权：',
+      appLabel: '应用',
+      unknownApp: '未知应用',
+      redirectLabel: '授权后将跳转至',
+      scopesTitle: '该应用将获得以下权限',
+      noScope: '（未申请具体权限范围）',
+      remember: '记住此授权（30 天内不再询问）',
+      allow: '允许',
+      deny: '拒绝',
+      submitting: '提交中…',
+      invalidToken: '授权令牌无效或缺失，请重新发起授权。',
+      invalidRedirect: '回调地址缺失，无法完成授权跳转。',
+      deniedHint: '您已拒绝该授权请求。',
+      backToHome: '返回工作台',
+      scopeDescs: {
+        read: '读取您的基本资料与名下资源',
+        write: '创建或修改您名下的资源',
+        profile: '读取您的个人资料（昵称、头像等）',
+        admin: '以管理员身份操作（最高权限）'
+      }
     },
     formDesigner: {
       visualDesign: '可视化设计',
@@ -411,7 +436,8 @@ export default {
       formSubmission: 'Form Submissions',
       openApiClient: 'Open Platform Clients',
       health: 'Health Probe',
-      oauth2Token: 'OAuth2 Token Management'
+      oauth2Token: 'OAuth2 Token Management',
+      oauth2Consent: 'Authorization Consent'
     },
     health: {
       scope: 'Liveness depends only on the JVM; readiness checks required dependencies such as the database. Both are k8s-style root endpoints reflecting real-time instance health, read-only for ops diagnostics.',
@@ -447,6 +473,30 @@ export default {
       revokeConfirm: 'Revoke this token? The holder will be rejected on its next request.',
       revokedHint: 'Revocation submitted; the holder is rejected on its next request.',
       empty: 'No active OAuth2 tokens at the moment.'
+    },
+    oauth2Consent: {
+      loading: 'Loading authorization info…',
+      title: 'Authorization Request',
+      subtitle: 'The following application requests access to your account. Please confirm:',
+      appLabel: 'Application',
+      unknownApp: 'Unknown application',
+      redirectLabel: 'You will be redirected to',
+      scopesTitle: 'This application will be granted the following permissions',
+      noScope: '(No specific scope requested)',
+      remember: 'Remember this authorization (no prompt within 30 days)',
+      allow: 'Allow',
+      deny: 'Deny',
+      submitting: 'Submitting…',
+      invalidToken: 'The authorization token is invalid or missing. Please restart the authorization flow.',
+      invalidRedirect: 'Missing redirect URI; cannot complete the authorization redirect.',
+      deniedHint: 'You have denied this authorization request.',
+      backToHome: 'Back to Dashboard',
+      scopeDescs: {
+        read: 'Read your basic profile and owned resources',
+        write: 'Create or modify resources under your name',
+        profile: 'Read your personal profile (nickname, avatar, etc.)',
+        admin: 'Operate as administrator (highest privilege)'
+      }
     },
     formDesigner: {
       visualDesign: 'Visual Design',

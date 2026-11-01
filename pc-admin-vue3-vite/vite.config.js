@@ -35,6 +35,13 @@ export default defineConfig({
       '/readyz': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true
+      },
+      // OAuth2 协议端点（授权码 + PKCE + consent，#900）：后端路径为 /oauth2/authorize、
+      // /oauth2/consent、/oauth2/token 等，同样无 /api 前缀，dev 下须代理到本地 8080
+      // 方能打通授权流程（/oauth2/token 由开放平台客户端自测 issueClientToken 使用）。
+      '/oauth2': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true
       }
     }
   },
