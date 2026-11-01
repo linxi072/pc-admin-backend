@@ -234,7 +234,7 @@ onMounted(load)
 .stat-num {
   font-size: 20px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
 }
 .stat-ok { color: #67c23a; }
 .stat-danger { color: #f56c6c; }

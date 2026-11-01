@@ -262,7 +262,7 @@ onMounted(() => {
   gap: 16px;
 }
 .stat-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   padding: 18px 20px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -290,7 +290,7 @@ onMounted(() => {
   margin-top: 6px;
   font-size: 26px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
 }
 .unit {
   font-size: 13px;
@@ -348,7 +348,7 @@ onMounted(() => {
 .recent-dot.is-fail { color: #f56c6c; }
 .recent-name {
   font-weight: 500;
-  color: #303133;
+  color: var(--text);
 }
 .recent-time {
   margin-left: auto;

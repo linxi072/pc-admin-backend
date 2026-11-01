@@ -425,7 +425,7 @@ onBeforeUnmount(() => {
 .metric-value {
   font-size: 22px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
   margin-bottom: 8px;
 }
 .metric-sub {

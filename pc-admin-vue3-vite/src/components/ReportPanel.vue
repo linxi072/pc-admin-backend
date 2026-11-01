@@ -455,6 +455,6 @@ onMounted(load)
 .summary-row { margin-top: 16px; }
 .summary-card { margin-bottom: 16px; }
 .summary-label { color: #8a919f; font-size: 13px; }
-.summary-value { margin-top: 8px; font-size: 26px; font-weight: 600; color: #303133; }
+.summary-value { margin-top: 8px; font-size: 26px; font-weight: 600; color: var(--text); }
 .summary-unit { font-size: 13px; font-weight: 400; color: #8a919f; margin-left: 4px; }
 </style>

@@ -692,6 +692,6 @@ onMounted(load)
 .detail-content {
   white-space: pre-wrap;
   line-height: 1.7;
-  color: #303133;
+  color: var(--text);
 }
 </style>

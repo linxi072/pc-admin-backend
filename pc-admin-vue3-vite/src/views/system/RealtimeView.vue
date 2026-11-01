@@ -429,7 +429,7 @@ onMounted(() => {
   margin-left: 10px;
 }
 .tpl-preview {
-  background: #f5f7fa;
+  background: var(--surface-2);
   border: 1px solid #ebeef5;
   border-radius: 4px;
   padding: 8px 12px;
@@ -439,6 +439,6 @@ onMounted(() => {
   word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
-  color: #303133;
+  color: var(--text);
 }
 </style>

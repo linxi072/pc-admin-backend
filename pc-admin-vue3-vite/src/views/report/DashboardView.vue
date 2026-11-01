@@ -298,7 +298,7 @@ onMounted(() => {
   font-weight: 600;
   font-size: 14px;
   margin-bottom: 12px;
-  color: #303133;
+  color: var(--text);
 }
 .trend-toolbar {
   display: flex;

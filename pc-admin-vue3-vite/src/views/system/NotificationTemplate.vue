@@ -584,7 +584,7 @@ onMounted(load)
 .preview-result-title {
   font-size: 13px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
   margin-bottom: 8px;
 }
 .preview-result {
@@ -598,7 +598,7 @@ onMounted(load)
   word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
-  color: #303133;
+  color: var(--text);
   margin: 0;
 }
 </style>

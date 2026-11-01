@@ -315,7 +315,7 @@ parse(props.modelValue)
 .fd-pane-title {
   font-size: 13px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
   margin-bottom: 8px;
 }
 .fd-palette-item {
@@ -343,7 +343,7 @@ parse(props.modelValue)
   border: 1px solid #ebeef5;
   border-radius: 6px;
   margin-bottom: 6px;
-  background: #fff;
+  background: var(--surface);
   cursor: pointer;
 }
 .fd-field.active {
@@ -362,7 +362,7 @@ parse(props.modelValue)
 .fd-field-label {
   display: block;
   font-size: 13px;
-  color: #303133;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -400,7 +400,7 @@ parse(props.modelValue)
   margin-top: 4px;
 }
 .fd-preview-body {
-  background: #fff;
+  background: var(--surface);
   border-radius: 6px;
   padding: 12px;
 }

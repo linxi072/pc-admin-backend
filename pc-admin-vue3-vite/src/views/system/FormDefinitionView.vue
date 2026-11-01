@@ -376,7 +376,7 @@ onMounted(loadDefinitions)
 .preview-title {
   font-size: 13px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
   margin-bottom: 8px;
 }
 .preview-body {

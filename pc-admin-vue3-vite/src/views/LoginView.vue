@@ -324,7 +324,7 @@ onMounted(fetchCaptcha)
   padding: 0 12px;
   border: 1px solid var(--el-border-color, #dcdfe6);
   border-radius: 4px;
-  background: #f5f7fa;
+  background: var(--surface-2);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;

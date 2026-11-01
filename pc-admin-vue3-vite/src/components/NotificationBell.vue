@@ -264,7 +264,7 @@ defineExpose({ refresh: loadSummary })
 }
 .bell-item-text {
   font-size: 14px;
-  color: #303133;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

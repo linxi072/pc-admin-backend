@@ -254,7 +254,7 @@ onMounted(loadForms)
   margin: 0 0 16px;
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
 }
 .pilot-actions {
   margin-top: 8px;
@@ -266,7 +266,7 @@ onMounted(loadForms)
 .pilot-json-title {
   font-size: 13px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
   margin: 0 0 8px;
 }
 .pilot-json-title + .pilot-json-body {
@@ -280,7 +280,7 @@ onMounted(loadForms)
   word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  color: #303133;
+  color: var(--text);
   margin: 0;
   max-height: 320px;
   overflow: auto;
@@ -294,7 +294,7 @@ onMounted(loadForms)
   word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  color: #303133;
+  color: var(--text);
   max-height: 200px;
   overflow: auto;
 }

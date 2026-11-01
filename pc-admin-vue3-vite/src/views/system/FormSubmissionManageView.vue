@@ -268,12 +268,12 @@ onMounted(load)
 .stat-total .stat-num {
   font-size: 26px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
 }
 .stat-num {
   font-size: 20px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text);
 }
 .stat-label {
   font-size: 12px;
@@ -292,7 +292,7 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f5f7fa;
+  background: var(--surface-2);
   border-radius: 4px;
   padding: 2px 8px;
   font-size: 12px;

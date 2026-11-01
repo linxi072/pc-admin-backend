@@ -695,7 +695,7 @@ onBeforeUnmount(stopTimer)
 .mr-4 { margin-right: 4px; }
 .dag-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
 .dag-label { color: #a8abb2; font-size: 12px; margin-right: 6px; flex: none; }
-.cell-name { font-weight: 500; color: #303133; }
+.cell-name { font-weight: 500; color: var(--text); }
 .cell-sub { color: #a8abb2; font-size: 12px; margin-top: 2px; }
 .rule-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }

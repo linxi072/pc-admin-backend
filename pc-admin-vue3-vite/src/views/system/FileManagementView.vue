@@ -438,7 +438,7 @@ onMounted(() => {
 /* 存储统计卡（V50） */
 .stats-row { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
 .stat-item { min-width: 110px; }
-.stat-value { font-size: 20px; font-weight: 600; color: #303133; line-height: 1.2; }
+.stat-value { font-size: 20px; font-weight: 600; color: var(--text); line-height: 1.2; }
 .stat-label { font-size: 12px; color: #a8abb2; margin-top: 4px; }
 .stat-modules { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; }
 </style>

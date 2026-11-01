@@ -513,7 +513,7 @@ onMounted(load)
   flex: 1;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
-  color: #303133;
+  color: var(--text);
   word-break: break-all;
 }
 .hint {
@@ -551,6 +551,6 @@ onMounted(load)
 .token-text {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
-  color: #303133;
+  color: var(--text);
 }
 </style>
