@@ -1,0 +1,92 @@
+/**
+ * Element Plus 变量桥接（按主题重映射 --el-*）
+ * ------------------------------------------------------------------
+ * 组件大量依赖 Element Plus 的 --el-color-* / --el-text-* / --el-border-* /
+ * --el-menu-* 等变量。这里把它们指向我们的设计令牌，从而「重映射」即换肤，
+ * 既有组件无需逐个改样式即可跟随主题。
+ *
+ * 主色色阶（light-3/5/7/8/9、dark-2）用 color-mix 由 --primary 实时派生，
+ * 四主题下自动得到对应冷暖色阶，无需手写 20+ 常量。
+ */
+
+:root,
+[data-theme='light'],
+[data-theme='dark'],
+[data-theme='warm'],
+[data-theme='brand'] {
+  --el-color-primary: var(--primary);
+  --el-color-primary-light-3: color-mix(in srgb, var(--primary) 70%, #fff);
+  --el-color-primary-light-5: color-mix(in srgb, var(--primary) 50%, #fff);
+  --el-color-primary-light-7: color-mix(in srgb, var(--primary) 30%, #fff);
+  --el-color-primary-light-8: color-mix(in srgb, var(--primary) 20%, #fff);
+  --el-color-primary-light-9: color-mix(in srgb, var(--primary) 10%, #fff);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--primary) 80%, #000);
+
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--danger);
+  --el-color-error: var(--danger);
+  --el-color-info: var(--text-secondary);
+
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-muted);
+  --el-text-color-disabled: var(--text-faint);
+
+  --el-border-color: var(--border-strong);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-extra-light: var(--border);
+  --el-border-color-dark: var(--border-strong);
+
+  --el-fill-color: var(--surface-2);
+  --el-fill-color-light: var(--surface-2);
+  --el-fill-color-lighter: var(--surface);
+  --el-fill-color-blank: var(--surface);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-bg-color-overlay: var(--surface);
+  --el-mask-color: rgba(0, 0, 0, 0.5);
+
+  /* 菜单跟随框架铬色 */
+  --el-menu-bg-color: var(--chrome);
+  --el-menu-text-color: var(--chrome-text-muted);
+  --el-menu-active-color: var(--chrome-text);
+  --el-menu-hover-bg-color: var(--chrome-hover);
+  --el-menu-border-color: transparent;
+}
+
+/* 深色主题叠加：背景与浮层走低对比暗色，覆盖 EP 默认亮系背景 */
+[data-theme='dark'] {
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-bg-color-overlay: var(--surface);
+  --el-fill-color: var(--surface-2);
+  --el-fill-color-light: var(--surface-2);
+  --el-fill-color-lighter: var(--surface);
+  --el-fill-color-blank: var(--surface);
+  --el-mask-color: rgba(0, 0, 0, 0.6);
+}
+
+/* 侧边栏激活项高亮（EP 无专门「激活背景」变量，用主题主色淡底标识） */
+.app-menu .el-menu-item.is-active {
+  background-color: var(--nav-active-bg);
+}
+.app-menu .el-sub-menu.is-active > .el-sub-menu__title {
+  color: var(--chrome-text);
+}
+
+/* 换肤过渡：避免切换时突兀闪烁 */
+body,
+.page-card,
+.stat-card,
+.app-main,
+.app-header,
+.app-aside,
+.app-footer,
+.el-card,
+.el-table,
+.el-dialog {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}

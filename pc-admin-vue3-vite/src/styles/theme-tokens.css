@@ -1,0 +1,187 @@
+/**
+ * 主题设计令牌（全局换肤单一事实来源）
+ * ------------------------------------------------------------------
+ * - 所有设计令牌集中在此，按 [data-theme] 切换；组件仅引用令牌，不写死颜色。
+ * - light 主题 = 项目原有观感（#409eff / #001529），保证零回归。
+ * - chrome 系列为「框架铬色」：顶栏 / 侧边栏 / 页脚背景，始终深色以保证
+ *   其内部白字（面包屑、公告、头像、主题切换器）在四主题下均清晰可读。
+ * - --brand 重映射为 --primary，使既有 var(--brand) 强调色自动跟随主题。
+ */
+
+:root,
+[data-theme='light'] {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --surface-hover: #eef2f7;
+
+  --text: #1f2329;
+  --text-secondary: #909399;
+  --text-muted: #a8abb2;
+  --text-faint: #c0c4cc;
+
+  --border: #ebeef5;
+  --border-strong: #dcdfe6;
+
+  --primary: #409eff;
+  --primary-hover: #66b1ff;
+  --primary-active: #337ecc;
+  --on-primary: #ffffff;
+
+  --success: #67c23a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --on-danger: #ffffff;
+
+  --focus-ring: rgba(64, 159, 255, 0.35);
+  --nav-active-bg: rgba(64, 159, 255, 0.16);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* 框架铬色（始终深色） */
+  --chrome: #001529;
+  --chrome-surface: #001f3d;
+  --chrome-text: #ffffff;
+  --chrome-text-muted: #c0c4cc;
+  --chrome-border: rgba(255, 255, 255, 0.12);
+  --chrome-hover: rgba(255, 255, 255, 0.1);
+  --chrome-active: rgba(64, 159, 255, 0.24);
+  --footer-bg: #ffffff;
+  --footer-text: #8a919f;
+  --footer-border: #ebeef5;
+
+  --brand: var(--primary);
+}
+
+[data-theme='dark'] {
+  --bg: #0f1115;
+  --surface: #1a1d24;
+  --surface-2: #20242c;
+  --surface-hover: #262b34;
+
+  --text: #e6e8eb;
+  --text-secondary: #a8abb2;
+  --text-muted: #8a8f99;
+  --text-faint: #6b7079;
+
+  --border: #2c313a;
+  --border-strong: #3a404b;
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-active: #2563eb;
+  --on-primary: #ffffff;
+
+  --success: #67c23a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --on-danger: #ffffff;
+
+  --focus-ring: rgba(59, 130, 246, 0.4);
+  --nav-active-bg: rgba(59, 130, 246, 0.22);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --chrome: #0b0d11;
+  --chrome-surface: #15181e;
+  --chrome-text: #e6e8eb;
+  --chrome-text-muted: #a8abb2;
+  --chrome-border: rgba(255, 255, 255, 0.1);
+  --chrome-hover: rgba(255, 255, 255, 0.08);
+  --chrome-active: rgba(59, 130, 246, 0.28);
+  --footer-bg: #15181e;
+  --footer-text: #8a8f99;
+  --footer-border: #2c313a;
+
+  --brand: var(--primary);
+}
+
+[data-theme='warm'] {
+  --bg: #fbf2e4;
+  --surface: #fffaf1;
+  --surface-2: #f6e6d2;
+  --surface-hover: #f0dcbf;
+
+  --text: #43291a;
+  --text-secondary: #8a5a3f;
+  --text-muted: #b4977b;
+  --text-faint: #d0b89c;
+
+  --border: #ecd6ba;
+  --border-strong: #dcc09c;
+
+  --primary: #c2410c;
+  --primary-hover: #e8590c;
+  --primary-active: #9a3412;
+  --on-primary: #fff7ed;
+
+  --success: #5c8a0c;
+  --warning: #e0820a;
+  --danger: #d63a2f;
+  --on-danger: #fff7ed;
+
+  --focus-ring: rgba(194, 65, 12, 0.35);
+  --nav-active-bg: rgba(194, 65, 12, 0.14);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --chrome: #3a2113;
+  --chrome-surface: #4a2c19;
+  --chrome-text: #fff7ed;
+  --chrome-text-muted: #e0c3a8;
+  --chrome-border: rgba(255, 247, 237, 0.14);
+  --chrome-hover: rgba(255, 247, 237, 0.1);
+  --chrome-active: rgba(194, 65, 12, 0.3);
+  --footer-bg: #fffaf1;
+  --footer-text: #8a5a3f;
+  --footer-border: #ecd6ba;
+
+  --brand: var(--primary);
+}
+
+[data-theme='brand'] {
+  --bg: #f5f3ff;
+  --surface: #ffffff;
+  --surface-2: #f3effe;
+  --surface-hover: #ece6fc;
+
+  --text: #2a1a3a;
+  --text-secondary: #7c6aa0;
+  --text-muted: #a896c4;
+  --text-faint: #c9bce0;
+
+  --border: #e6def8;
+  --border-strong: #d4c6ee;
+
+  --primary: #7c3aed;
+  --primary-hover: #9f67f5;
+  --primary-active: #6d28d9;
+  --on-primary: #ffffff;
+
+  --success: #4c9a2a;
+  --warning: #d98324;
+  --danger: #d63a2f;
+  --on-danger: #ffffff;
+
+  --focus-ring: rgba(124, 58, 237, 0.35);
+  --nav-active-bg: rgba(124, 58, 237, 0.16);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --chrome: #2a1538;
+  --chrome-surface: #361b48;
+  --chrome-text: #f6f0ff;
+  --chrome-text-muted: #cbb6e8;
+  --chrome-border: rgba(246, 240, 255, 0.14);
+  --chrome-hover: rgba(246, 240, 255, 0.1);
+  --chrome-active: rgba(124, 58, 237, 0.3);
+  --footer-bg: #ffffff;
+  --footer-text: #7c6aa0;
+  --footer-border: #e6def8;
+
+  --brand: var(--primary);
+}
