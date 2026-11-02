@@ -110,14 +110,3 @@ export function getChartTheme() {
   }
   return map[currentTheme.value] || map.light
 }
-
-/**
- * 循环切换主题：按 THEMES 顺序取下一个，并写入持久化。
- * 供顶栏「主题切换」按键使用；返回新主题的 label 用于 toast 提示。
- */
-export function cycleTheme() {
-  const idx = THEMES.findIndex((t) => t.key === currentTheme.value)
-  const next = THEMES[(idx + 1) % THEMES.length]
-  setTheme(next.key)
-  return next.label
-}
