@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">工作台</h2>
+    <h2 class="page-title">{{ t('dashboard.title') }}</h2>
 
     <!-- 统计卡片：数据全部来自 GET /api/workbench/stats，前端不硬编码 -->
     <div v-if="loading" class="stat-grid">
@@ -23,18 +23,18 @@
     >
       <template #title>
         <span>{{ error }}</span>
-        <el-button size="small" text type="primary" class="retry-btn" @click="loadStats">重试</el-button>
+        <el-button size="small" text type="primary" class="retry-btn" @click="loadStats">{{ t('dashboard.retry') }}</el-button>
       </template>
     </el-alert>
 
-    <el-empty v-else-if="!cards.length" description="暂无统计数据" />
+    <el-empty v-else-if="!cards.length" :description="t('dashboard.noStats')" />
 
     <div v-else class="stat-grid">
       <div
         class="stat-card"
         v-for="c in cards"
         :key="c.key"
-        :class="{ 'is-clickable': CARD_DRILL[c.key] }"
+        :class="{ 'is-clickable': CARD_ACTION[c.key] }"
         @click="onStatCardClick(c)"
       >
         <el-icon class="stat-icon" :class="trendClass(c.trend)"><component :is="iconFor(c.key)" /></el-icon>
@@ -54,21 +54,21 @@
     <!-- 下半区：最近动态 + 快捷入口/系统信息 -->
     <el-row :gutter="16" class="lower-row">
       <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
-        <el-card class="page-card" header="最近动态">
+        <el-card class="page-card" :header="t('dashboard.recent')">
           <el-skeleton v-if="recentLoading" :rows="4" animated />
           <el-alert v-else-if="recentError" type="error" show-icon :closable="false">
             <template #title>
               <span>{{ recentError }}</span>
-              <el-button size="small" text type="primary" class="retry-btn" @click="loadRecent">重试</el-button>
+              <el-button size="small" text type="primary" class="retry-btn" @click="loadRecent">{{ t('dashboard.retry') }}</el-button>
             </template>
           </el-alert>
-          <el-empty v-else-if="!recent.length" description="暂无操作记录" :image-size="60" />
+          <el-empty v-else-if="!recent.length" :description="t('dashboard.noRecent')" :image-size="60" />
           <ul v-else class="recent-list">
             <li v-for="(r, i) in recent" :key="i" class="recent-item">
               <el-icon class="recent-dot" :class="r.success ? 'is-ok' : 'is-fail'">
                 <CircleCheck v-if="r.success" /><CircleClose v-else />
               </el-icon>
-              <span class="recent-name">{{ r.operationName || '操作' }}</span>
+              <span class="recent-name">{{ r.operationName || t('dashboard.operation') }}</span>
               <el-tag size="small" type="info" effect="plain">{{ r.moduleCode || '—' }}</el-tag>
               <span class="recent-time" :title="fmtTime(r.occurredAt)">{{ relativeTime(r.occurredAt) }}</span>
             </li>
@@ -77,24 +77,24 @@
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-        <el-card class="page-card" header="快捷入口">
+          <el-card class="page-card" :header="t('dashboard.quickEntry')">
           <div class="quick">
-            <el-button type="primary" @click="go('user')">用户管理</el-button>
-            <el-button type="primary" @click="go('role')">角色管理</el-button>
-            <el-button type="primary" @click="go('task')">我的待办</el-button>
-            <el-button type="primary" @click="go('instance')">我发起的流程</el-button>
+            <el-button type="primary" @click="go('user')">{{ t('dashboard.userMgmt') }}</el-button>
+            <el-button type="primary" @click="go('role')">{{ t('dashboard.roleMgmt') }}</el-button>
+            <el-button type="primary" @click="go('task')">{{ t('dashboard.myTasks') }}</el-button>
+            <el-button type="primary" @click="go('instance')">{{ t('dashboard.myInstances') }}</el-button>
             <el-button type="success" @click="go('reportJobExec')">
-              <el-icon class="btn-icon"><DataAnalysis /></el-icon>报表管理
+              <el-icon class="btn-icon"><DataAnalysis /></el-icon>{{ t('dashboard.reportMgmt') }}
             </el-button>
             <el-button type="success" @click="go('jobList')">
-              <el-icon class="btn-icon"><Timer /></el-icon>定时任务
+              <el-icon class="btn-icon"><Timer /></el-icon>{{ t('dashboard.jobMgmt') }}
             </el-button>
           </div>
         </el-card>
-        <el-card class="page-card" header="系统信息">
+        <el-card class="page-card" :header="t('dashboard.systemInfo')">
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="前端框架">Vue 3 + Element Plus + Vite</el-descriptions-item>
-            <el-descriptions-item label="后端服务">java-admin-framework（jOOQ / JobRunr / Flowable）</el-descriptions-item>
+            <el-descriptions-item :label="t('dashboard.frontendFramework')">Vue 3 + Element Plus + Vite</el-descriptions-item>
+            <el-descriptions-item :label="t('dashboard.backendService')">java-admin-framework（jOOQ / JobRunr / Flowable）</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-col>
@@ -139,19 +139,25 @@ function iconFor(key) {
   return ICONS[key] || 'Odometer'
 }
 
-// 首页工作台统计卡 → 下钻指标映射（workbench 卡片中只有「今日新增用户」对应看板新增用户每日序列）
-const CARD_DRILL = {
-  NEW_USER_TODAY: 'NEW_USERS'
+// 首页工作台统计卡 → 点击行为映射。
+// 有对应看板下钻指标的卡片走抽屉（逐小时分布）；其余卡片跳转到最相关的业务页面。
+// 这样每张卡片点击都有反馈，且不依赖后端尚未提供的新下钻指标。
+const CARD_ACTION = {
+  NEW_USER_TODAY: { type: 'drill', metric: 'NEW_USERS' },
+  NEW_INSTANCE_TODAY: { type: 'route', name: 'instance' },
+  MY_TODO_TASKS: { type: 'route', name: 'task' },
+  RUNNING_INSTANCE: { type: 'route', name: 'instance' },
+  ACTIVE_API: { type: 'route', name: 'apiResource' }
 }
 const METRIC_LABEL = {
-  NEW_USERS: '新增用户', NEW_TENANTS: '新增租户', ACTIVE_TENANTS: '活跃租户',
-  LOGIN_LOGS: '登录日志', OPERATION_LOGS: '操作日志', NOTIFICATIONS: '通知发送'
+  NEW_USERS: 'dashboard.metricNewUsers', NEW_TENANTS: 'dashboard.metricNewTenants', ACTIVE_TENANTS: 'dashboard.metricActiveTenants',
+  LOGIN_LOGS: 'dashboard.metricLoginLogs', OPERATION_LOGS: 'dashboard.metricOperationLogs', NOTIFICATIONS: 'dashboard.metricNotifications'
 }
 
 const drillVisible = ref(false)
 const drillMetric = ref('')
 const drillDate = ref('')
-const drillTitle = ref('下钻详情')
+const drillTitle = ref(t('dashboard.drillTitle'))
 
 function todayISO() {
   const d = new Date()
@@ -166,11 +172,20 @@ function openDashboardDrill(metric, date, title) {
   drillVisible.value = true
 }
 
-/** 统计卡点击：仅映射到的卡片可下钻（今日新增用户 → 新增用户今日逐小时）。 */
+/**
+ * 统计卡点击：按 CARD_ACTION 分流。
+ * - drill 类：打开逐小时下钻抽屉（如今日新增用户 → 新增用户今日逐小时分布）；
+ * - route 类：跳转到最相关的业务页面（如我的待办 → 待办列表）。
+ * 未映射的卡片（理论上不存在）点击无副作用。
+ */
 function onStatCardClick(c) {
-  const metric = CARD_DRILL[c.key]
-  if (!metric) return
-  openDashboardDrill(metric, todayISO(), `${METRIC_LABEL[metric]} · 今日逐小时分布`)
+  const action = CARD_ACTION[c.key]
+  if (!action) return
+  if (action.type === 'drill') {
+    openDashboardDrill(action.metric, todayISO(), `${t(METRIC_LABEL[action.metric])} · ${t('dashboard.todayHourly')}`)
+  } else if (action.type === 'route') {
+    router.push({ name: action.name, query: action.query || {} })
+  }
 }
 
 async function loadStats() {
@@ -181,7 +196,7 @@ async function loadStats() {
     cards.value = Array.isArray(res?.cards) ? res.cards : []
   } catch (e) {
     cards.value = []
-    error.value = e.message || '统计数据加载失败'
+    error.value = e.message || t('dashboard.statsLoadFailed')
   } finally {
     loading.value = false
   }
@@ -195,7 +210,7 @@ async function loadRecent() {
     recent.value = Array.isArray(list) ? list : []
   } catch (e) {
     recent.value = []
-    recentError.value = e.message || '动态加载失败'
+    recentError.value = e.message || t('dashboard.recentLoadFailed')
   } finally {
     recentLoading.value = false
   }
@@ -208,7 +223,7 @@ function trendClass(trend) {
 }
 
 function trendText(c) {
-  if (c.trend === 'FLAT') return '持平'
+  if (c.trend === 'FLAT') return t('dashboard.trendFlat')
   return `${c.trend === 'UP' ? '↑' : '↓'} ${Math.abs(c.changeRate)}%`
 }
 
@@ -229,14 +244,14 @@ function relativeTime(iso) {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return '—'
   const diff = Date.now() - then
-  if (diff < 0) return '刚刚'
+  if (diff < 0) return t('dashboard.justNow')
   const min = Math.floor(diff / 60000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
+  if (min < 1) return t('dashboard.justNow')
+  if (min < 60) return t('dashboard.minutesAgo', { min })
   const hour = Math.floor(min / 60)
-  if (hour < 24) return `${hour} 小时前`
+  if (hour < 24) return t('dashboard.hoursAgo', { hour })
   const day = Math.floor(hour / 24)
-  if (day <= 7) return `${day} 天前`
+  if (day <= 7) return t('dashboard.daysAgo', { day })
   return fmtTime(iso)
 }
 
