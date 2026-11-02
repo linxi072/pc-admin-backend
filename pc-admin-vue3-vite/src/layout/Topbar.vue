@@ -32,6 +32,20 @@
     <div v-else class="notice-placeholder" aria-hidden="true" />
 
     <div class="right">
+      <!-- 后端连通性探针指示灯：实时反映存活/时钟漂移/语言协商；点击立即探测 -->
+      <el-tooltip placement="bottom" :disabled="false">
+        <template #content>
+          <div class="conn-tip">
+            <div v-for="(line, i) in tipLines" :key="i" :class="{ 'conn-tip-title': i === 0 }">
+              {{ line }}
+            </div>
+            <div class="conn-tip-hint">{{ t('topbar.connectivity.clickToRefresh') }}</div>
+          </div>
+        </template>
+        <span class="conn-indicator" :class="'conn-' + status" @click="refreshProbe">
+          <span class="conn-dot" />
+        </span>
+      </el-tooltip>
       <ThemeSwitcher />
       <NotificationBell />
       <el-dropdown @command="onCmd">
@@ -78,6 +92,7 @@ import { closeRealtime } from '@/api/realtime'
 import { t } from '@/i18n'
 import NotificationBell from '@/components/NotificationBell.vue'
 import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
+import { useConnectivity } from '@/utils/connectivity'
 
 defineProps({ collapsed: Boolean })
 defineEmits(['toggle'])
@@ -86,6 +101,9 @@ const route = useRoute()
 const router = useRouter()
 const username = computed(() => authState.username || 'admin')
 const currentTitle = computed(() => route.meta.title || '')
+
+// 后端连通性探针：模块级单例，顶栏挂载即开始周期探测
+const { status, tipLines, start: startProbe, stop: stopProbe, refresh: refreshProbe } = useConnectivity()
 
 const notice = ref(null)
 const paused = ref(false)
@@ -184,10 +202,12 @@ async function onCmd(cmd) {
 onMounted(async () => {
   await loadNotice()
   raf = requestAnimationFrame(step)
+  startProbe()
 })
 
 onUnmounted(() => {
   if (raf) cancelAnimationFrame(raf)
+  stopProbe()
 })
 </script>
 
@@ -272,6 +292,62 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+/* 连通性探针指示灯：位于右侧集群最左，颜色随状态变化 */
+.conn-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.conn-indicator:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.conn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15);
+}
+.conn-ok .conn-dot {
+  background: #67c23a;
+}
+.conn-degraded .conn-dot {
+  background: #e6a23c;
+}
+.conn-offline .conn-dot {
+  background: #f56c6c;
+}
+.conn-init .conn-dot {
+  background: #909399;
+  animation: conn-pulse 1s infinite ease-in-out;
+}
+@keyframes conn-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.conn-tip {
+  max-width: 280px;
+  line-height: 1.6;
+}
+.conn-tip-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.conn-tip-hint {
+  margin-top: 4px;
+  opacity: 0.7;
+  font-size: 12px;
 }
 .icon-btn {
   display: flex;
