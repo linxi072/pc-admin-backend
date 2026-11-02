@@ -18,9 +18,6 @@ import com.acme.scaffold.system.service.ImportCenterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,8 +30,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -239,13 +234,7 @@ public class ImportController {
     }
 
     private static ResponseEntity<byte[]> fileResponse(byte[] body, String fileName, ImportFormat format) {
-        String fullName = fileName + "." + format.extension();
-        String encoded = URLEncoder.encode(fullName, StandardCharsets.UTF_8).replace("+", "%20");
-        return ResponseEntity.status(HttpStatus.OK)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded)
-                .contentType(MediaType.parseMediaType(format.contentType()))
-                .contentLength(body.length)
-                .body(body);
+        return FileResponseSupport.fileResponse(body, fileName, format.extension(), format.contentType());
     }
 
     /** 单段视图（段名 / 段内表头），多段模板下随 {@link ImportTemplateView#segments()} 返回。 */
