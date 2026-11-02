@@ -7,7 +7,6 @@ import com.acme.scaffold.system.entity.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeOrgDO;
 import com.acme.scaffold.system.entity.SysUserOrgDO;
-import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -30,20 +29,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DataScopeDataAdapter implements DataScopeDataPort {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
     private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
 
     private final DSLContext dsl;
 
     @Override
     public Set<Long> roleIdsOfUser(Long userId) {
-        // 多对多：从 sys_user_role 关联表取该用户全部角色（并集）。
-        List<SysUserRoleDO> rows = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
-                USER_ROLE.field("user_id", Long.class).eq(userId));
-        if (rows.isEmpty()) {
-            return Set.of();
-        }
-        return rows.stream().map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
+        return UserRoleSupport.roleIdsOfUser(dsl, userId);
     }
 
     @Override
