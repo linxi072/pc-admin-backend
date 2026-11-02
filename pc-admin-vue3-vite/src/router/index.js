@@ -209,6 +209,15 @@ const routes = [
         meta: { title: 'route.designer', permission: 'workflow:definition:update' }
       },
       {
+        // 流程实例治理（M23 续）：管理员对运行实例执行挂起 / 恢复 / 改派 / 迁移写操作，
+        // 与「流程监控」互补（监控为只读视角）。后端 /api/workflow/admin 四端点，权限码
+        // workflow:instance:reassign / :suspend / :migrate 由 ApiResourceAutoSyncRunner 自动登记并授予 SUPER_ADMIN。
+        path: 'workflow/instance-admin',
+        name: 'workflowInstanceAdmin',
+        component: () => import('@/views/workflow/InstanceAdminView.vue'),
+        meta: { title: 'route.instanceAdmin', permission: 'workflow:instance:reassign' }
+      },
+      {
         // 报表入口：V30 移除公共统计页（使用/类别/状态）后，旧入口重定向到保留的
         // 首个统计页，避免历史书签/外部链接失效；V31 起 3 个统计页统一归属
         // 「报表管理」一级菜单（后端菜单树驱动，路由 path 不变）

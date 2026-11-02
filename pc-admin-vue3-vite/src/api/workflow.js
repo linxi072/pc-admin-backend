@@ -92,3 +92,39 @@ export const monitorStats = () =>
 // POST /api/workflow/monitor/tasks/{taskId}/remind -> void
 export const remindTask = (taskId) =>
   request({ method: 'POST', url: `/api/workflow/monitor/tasks/${taskId}/remind` })
+
+// ---------------- 流程实例治理（M23 续 /api/workflow/admin） ----------------
+
+// POST /api/workflow/admin/instances/{processInstanceId}/reassign?toUserId= -> void
+// 将实例的全部活跃任务重新指派给目标办理人（管理员视角，可越过当前办理人）
+export const reassignInstance = (processInstanceId, toUserId) =>
+  request({
+    method: 'POST',
+    url: `/api/workflow/admin/instances/${processInstanceId}/reassign`,
+    params: { toUserId }
+  })
+
+// POST /api/workflow/admin/instances/{processInstanceId}/suspend -> void
+// 挂起流程实例（冻结在途任务，引擎态 suspended）
+export const suspendInstance = (processInstanceId) =>
+  request({
+    method: 'POST',
+    url: `/api/workflow/admin/instances/${processInstanceId}/suspend`
+  })
+
+// POST /api/workflow/admin/instances/{processInstanceId}/resume -> void
+// 恢复（取消挂起）流程实例
+export const resumeInstance = (processInstanceId) =>
+  request({
+    method: 'POST',
+    url: `/api/workflow/admin/instances/${processInstanceId}/resume`
+  })
+
+// POST /api/workflow/admin/instances/{processInstanceId}/migrate?toProcessDefinitionId= -> void
+// 将运行实例迁移到目标流程定义版本（同流程不同版本热升级）
+export const migrateInstance = (processInstanceId, toProcessDefinitionId) =>
+  request({
+    method: 'POST',
+    url: `/api/workflow/admin/instances/${processInstanceId}/migrate`,
+    params: { toProcessDefinitionId }
+  })

@@ -364,7 +364,8 @@ export default {
       openApiClient: '开放平台客户端',
       health: '健康探针',
       oauth2Token: 'OAuth2 令牌管理',
-      oauth2Consent: '授权同意'
+      oauth2Consent: '授权同意',
+      instanceAdmin: '流程实例治理'
     },
     system: {
       common: {
@@ -1558,6 +1559,29 @@ export default {
       minuteUnit: '分',
       hourUnit: '小时',
       dayUnit: '天',
+      instanceAdmin: {
+        title: '流程实例治理',
+        desc: '对运行中的流程实例执行挂起 / 恢复 / 改派 / 迁移等治理操作，用于异常处理与版本热升级。挂起态为引擎态，列表中仍标记为「运行中」。',
+        suspend: '挂起',
+        resume: '恢复',
+        reassign: '改派',
+        migrate: '迁移',
+        suspendConfirm: '确认挂起该流程实例？挂起后所有在途任务将被冻结。',
+        resumeConfirm: '确认恢复该流程实例？',
+        reassignTitle: '改派流程实例',
+        reassignTarget: '目标办理人',
+        reassignPlaceholder: '请选择目标办理人',
+        reassignConfirm: '确认将实例「{title}」的全部活跃任务改派给「{name}」？',
+        migrateTitle: '迁移流程实例',
+        migrateTarget: '目标流程定义',
+        migratePlaceholder: '请选择目标流程定义版本',
+        migrateConfirm: '确认将实例「{title}」迁移到「{name}」？',
+        suspended: '已挂起',
+        suspendSuccess: '已挂起',
+        resumeSuccess: '已恢复',
+        reassignSuccess: '已改派',
+        migrateSuccess: '已迁移'
+      },
     },
     monitor: {
       hex32: '32 位 hex，精确匹配',
@@ -2524,7 +2548,8 @@ export default {
       openApiClient: 'Open Platform Clients',
       health: 'Health Probe',
       oauth2Token: 'OAuth2 Token Management',
-      oauth2Consent: 'Authorization Consent'
+      oauth2Consent: 'Authorization Consent',
+      instanceAdmin: 'Workflow Instance Admin'
     },
     system: {
       common: {
@@ -3718,6 +3743,29 @@ export default {
       minuteUnit: 'min',
       hourUnit: 'h',
       dayUnit: 'd',
+      instanceAdmin: {
+        title: 'Workflow Instance Admin',
+        desc: 'Govern running workflow instances with suspend / resume / reassign / migrate operations for exception handling and live version upgrades. Suspension is an engine-level state; suspended instances still appear as "Running" in the list.',
+        suspend: 'Suspend',
+        resume: 'Resume',
+        reassign: 'Reassign',
+        migrate: 'Migrate',
+        suspendConfirm: 'Suspend this process instance? All in-flight tasks will be frozen.',
+        resumeConfirm: 'Resume this process instance?',
+        reassignTitle: 'Reassign Instance',
+        reassignTarget: 'Target assignee',
+        reassignPlaceholder: 'Select target assignee',
+        reassignConfirm: 'Reassign all active tasks of instance "{title}" to "{name}"?',
+        migrateTitle: 'Migrate Instance',
+        migrateTarget: 'Target process definition',
+        migratePlaceholder: 'Select target process definition version',
+        migrateConfirm: 'Migrate instance "{title}" to "{name}"?',
+        suspended: 'Suspended',
+        suspendSuccess: 'Suspended',
+        resumeSuccess: 'Resumed',
+        reassignSuccess: 'Reassigned',
+        migrateSuccess: 'Migrated'
+      },
     },
     monitor: {
       hex32: '32-bit hex, exact match',
