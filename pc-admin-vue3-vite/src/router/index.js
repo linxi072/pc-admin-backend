@@ -147,6 +147,14 @@ const routes = [
         meta: { title: 'route.smsRecord', permission: 'system:sms-record:read' }
       },
       {
+        // 幂等记录管理（#971）：M2 幂等模块的运维侧面；分页/统计/过期清理三接口齐备，
+        // 权限码 system:idempotency:read / :manage 由 ApiResourceAutoSyncRunner 自动登记并授予 SUPER_ADMIN。
+        path: 'system/idempotency',
+        name: 'idempotency',
+        component: () => import('@/views/system/IdempotencyRecordView.vue'),
+        meta: { title: 'route.idempotency', permission: 'system:idempotency:read' }
+      },
+      {
         // 通知模板中心（V41）：为 M6 多渠道通知提供可复用 ${var} 模板；权限码与菜单由后端驱动
         path: 'system/notification-templates',
         name: 'notificationTemplate',
