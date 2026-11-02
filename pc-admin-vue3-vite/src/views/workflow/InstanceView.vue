@@ -1,75 +1,75 @@
 <template>
   <div>
-    <h2 class="page-title">我发起的流程</h2>
+    <h2 class="page-title">{{ t('workflow.myInitiated') }}</h2>
     <el-card class="page-card">
       <div class="toolbar">
         <span class="spacer" />
-        <el-button type="primary" :icon="Plus" @click="startVisible = true">发起流程</el-button>
+        <el-button type="primary" :icon="Plus" @click="startVisible = true">{{ t('workflow.initiateProcess') }}</el-button>
       </div>
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="processInstanceId" label="流程实例" width="140" />
-        <el-table-column prop="title" label="标题" min-width="180" />
-        <el-table-column prop="businessType" label="业务类型" width="110" />
-        <el-table-column label="状态" width="110">
+        <el-table-column prop="processInstanceId" :label="t('common.processInstance')" width="140" />
+        <el-table-column prop="title" :label="t('common.title')" min-width="180" />
+        <el-table-column prop="businessType" :label="t('common.businessType')" width="110" />
+        <el-table-column :label="t('common.status')" width="110">
           <template #default="{ row }">
             <el-tag :type="row.status === 'RUNNING' ? 'primary' : row.status === 'COMPLETED' ? 'success' : 'info'">
               {{ statusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="startedAt" label="发起时间" width="170" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column prop="startedAt" :label="t('workflow.startTime')" width="170" />
+        <el-table-column :label="t('common.operation')" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Document" @click="openRecords(row)">审批记录</el-button>
+            <el-button link type="primary" :icon="Document" @click="openRecords(row)">{{ t('workflow.approvalRecord') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="startVisible" title="发起审批流程" width="520px">
+    <el-dialog v-model="startVisible" :title="t('workflow.initiateApproval')" width="520px">
       <el-form :model="startForm" label-width="90px">
-        <el-form-item label="流程定义">
+        <el-form-item :label="t('workflow.processDefinition')">
           <el-select v-model="startForm.processKey" style="width: 100%" @change="onProcessChange">
             <el-option
               v-for="p in processOptions"
               :key="p.processKey"
-              :label="p.processName + (p.status === 'PUBLISHED' ? '（已发布·自动审批人）' : '（草稿·需手动选审批人）')"
+              :label="p.processName + (p.status === 'PUBLISHED' ? t('workflow.publishedAutoApprover') : t('workflow.draftManualApprover'))"
               :value="p.processKey"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="业务类型">
-          <el-input v-model="startForm.businessType" placeholder="如 LEAVE" />
+        <el-form-item :label="t('common.businessType')">
+          <el-input v-model="startForm.businessType" :placeholder="t('workflow.exLeave')" />
         </el-form-item>
-        <el-form-item label="业务单号">
-          <el-input v-model="startForm.businessId" placeholder="如 L001" />
+        <el-form-item :label="t('workflow.businessNo')">
+          <el-input v-model="startForm.businessId" :placeholder="t('workflow.exL001')" />
         </el-form-item>
-        <el-form-item label="标题">
+        <el-form-item :label="t('common.title')">
           <el-input v-model="startForm.title" />
         </el-form-item>
 
         <template v-if="hasDynamicFields">
-          <el-divider content-position="left">业务表单（依据设计动态渲染）</el-divider>
+          <el-divider content-position="left">{{ t('workflow.businessForm') }}</el-divider>
           <el-form-item v-for="f in formSchemaFields" :key="f.field" :label="f.label">
             <el-input v-if="f.type === 'text'" v-model="formValues[f.field]" :placeholder="f.placeholder" />
             <el-input v-else-if="f.type === 'textarea'" v-model="formValues[f.field]" type="textarea" :rows="2" :placeholder="f.placeholder" />
             <el-input-number v-else-if="f.type === 'number'" v-model="formValues[f.field]" :min="0" controls-position="right" style="width: 100%" />
             <el-date-picker v-else-if="f.type === 'date'" v-model="formValues[f.field]" type="date" value-format="YYYY-MM-DD" :placeholder="f.placeholder" style="width: 100%" />
-            <el-select v-else-if="f.type === 'select'" v-model="formValues[f.field]" :placeholder="f.placeholder || '请选择'" style="width: 100%">
+            <el-select v-else-if="f.type === 'select'" v-model="formValues[f.field]" :placeholder="f.placeholder || t('common.pleaseSelect')" style="width: 100%">
               <el-option v-for="opt in f.options" :key="opt" :label="opt" :value="opt" />
             </el-select>
             <el-switch v-else-if="f.type === 'switch'" v-model="formValues[f.field]" />
             <span v-if="f.required" style="color: var(--el-color-danger); margin-left: 4px">*</span>
-            <div v-if="showErrors && missingFields.has(f.field)" class="field-error">该字段为必填项，请填写后提交</div>
+            <div v-if="showErrors && missingFields.has(f.field)" class="field-error">{{ t('workflow.fieldRequired') }}</div>
           </el-form-item>
         </template>
 
-        <el-form-item v-if="!designPublished" label="审批人">
+        <el-form-item v-if="!designPublished" :label="t('workflow.approver')">
           <el-select v-model="startForm.assigneeUserIds" multiple style="width: 100%">
             <el-option v-for="u in userOptions" :key="u.id" :label="u.displayName" :value="u.id" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="!designPublished" label="主管">
+        <el-form-item v-if="!designPublished" :label="t('common.manager')">
           <el-select v-model="startForm.managerUserId" style="width: 100%">
             <el-option v-for="u in userOptions" :key="u.id" :label="u.displayName" :value="u.id" />
           </el-select>
@@ -79,16 +79,16 @@
           type="success"
           :closable="false"
           show-icon
-          title="该流程已发布设计，审批人/主管由设计自动解析，无需手动选择。"
+          :title="t('workflow.publishedDesignAutoResolve')"
         />
       </el-form>
       <template #footer>
-        <el-button @click="startVisible = false">取消</el-button>
-        <el-button type="primary" :loading="starting" @click="submitStart">提交</el-button>
+        <el-button @click="startVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="starting" @click="submitStart">{{ t('common.submit') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="recordsVisible" title="审批记录" size="420px">
+    <el-drawer v-model="recordsVisible" :title="t('workflow.approvalRecord')" size="420px">
       <el-timeline v-loading="recordsLoading">
         <el-timeline-item
           v-for="r in records"
@@ -100,12 +100,13 @@
           <div v-if="r.opinion">意见：{{ r.opinion }}</div>
         </el-timeline-item>
       </el-timeline>
-      <el-empty v-if="!recordsLoading && records.length === 0" description="暂无审批记录" />
+      <el-empty v-if="!recordsLoading && records.length === 0" :description="t('workflow.noApprovalRecord')" />
     </el-drawer>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Document } from '@element-plus/icons-vue'
@@ -148,10 +149,10 @@ const recordsLoading = ref(false)
 const records = ref([])
 
 function statusLabel(s) {
-  return s === 'RUNNING' ? '运行中' : s === 'COMPLETED' ? '已完成' : s === 'TERMINATED' ? '已终止' : s
+  return s === 'RUNNING' ? t('common.running') : s === 'COMPLETED' ? t('common.completed') : s === 'TERMINATED' ? t('common.terminated') : s
 }
 function actionLabel(a) {
-  return a === 'APPROVE' ? '通过' : a === 'REJECT' ? '驳回' : a === 'START' ? '发起' : a === 'TRANSFER' ? '转办' : a
+  return a === 'APPROVE' ? t('common.approve') : a === 'REJECT' ? t('common.reject') : a === 'START' ? t('common.initiate') : a === 'TRANSFER' ? t('workflow.transfer') : a
 }
 
 /** 业务类型默认取自 processKey 大写下划线转驼峰缩写（如 leaveApproval -> LEAVE）。 */
@@ -219,7 +220,7 @@ async function submitStart() {
     // 必填业务字段强制校验：未通过则拦截提交并提示具体缺失项，待全部通过方可继续
     if (missingFields.value.size > 0) {
       showErrors.value = true
-      ElMessage.error('请先填写必填项：' + [...missingFields.value].map(fieldLabelOf).join('、'))
+      ElMessage.error(t('workflow.pleaseFillRequired') + [...missingFields.value].map(fieldLabelOf).join('、'))
       return
     }
     const payload = { ...startForm }
@@ -241,7 +242,7 @@ async function submitStart() {
     payload.formFields = formFields
     const pid = await startProcess(payload)
     showErrors.value = false
-    ElMessage.success('流程已发起：' + pid)
+    ElMessage.success(t('workflow.processInitiated') + pid)
     startVisible.value = false
     load()
   } finally {

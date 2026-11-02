@@ -1,19 +1,19 @@
 <template>
   <div>
     <div class="designer-header">
-      <el-button :icon="ArrowLeft" @click="goBack">返回</el-button>
-      <h2 class="page-title" style="margin: 0 12px">{{ def.processName || '工作流设计器' }}</h2>
+      <el-button :icon="ArrowLeft" @click="goBack">{{ t('common.back') }}</el-button>
+      <h2 class="page-title" style="margin: 0 12px">{{ def.processName || t('workflow.workflowDesigner') }}</h2>
       <el-tag :type="def.status === 'PUBLISHED' ? 'success' : 'info'">
-        {{ def.status === 'PUBLISHED' ? '已发布 v' + def.version : '草稿' }}
+        {{ def.status === 'PUBLISHED' ? t('workflow.publishedV') + def.version : t('common.draft') }}
       </el-tag>
       <span class="spacer" />
-      <el-button :icon="View" @click="previewBpmn">预览 BPMN</el-button>
-      <el-button type="primary" :icon="Document" :loading="saving" @click="saveDraft">保存草稿</el-button>
+      <el-button :icon="View" @click="previewBpmn">{{ t('workflow.previewBpmn') }}</el-button>
+      <el-button type="primary" :icon="Document" :loading="saving" @click="saveDraft">{{ t('workflow.saveDraft') }}</el-button>
       <el-button
         v-if="def.status !== 'PUBLISHED'"
-        type="success" :icon="Upload" :loading="publishing" @click="doPublish">发布并生效</el-button>
+        type="success" :icon="Upload" :loading="publishing" @click="doPublish">{{ t('workflow.publishAndActivate') }}</el-button>
       <el-button
-        v-else type="warning" :icon="Download" :loading="publishing" @click="doUnpublish">取消发布</el-button>
+        v-else type="warning" :icon="Download" :loading="publishing" @click="doUnpublish">{{ t('workflow.unpublish') }}</el-button>
     </div>
 
     <el-row :gutter="16">
@@ -22,16 +22,16 @@
         <el-card class="page-card" shadow="never">
           <template #header>
             <div class="card-head">
-              <span>节点（按顺序流转）</span>
+              <span>{{ t('workflow.nodesOrdered') }}</span>
               <el-dropdown @command="addNode">
-                <el-button size="small" type="primary" :icon="Plus">新增节点</el-button>
+                <el-button size="small" type="primary" :icon="Plus">{{ t('workflow.addNode') }}</el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="APPROVAL">审批节点</el-dropdown-item>
-                    <el-dropdown-item command="SERVICE">执行步骤</el-dropdown-item>
-                    <el-dropdown-item command="CC">抄送</el-dropdown-item>
-                    <el-dropdown-item command="GATEWAY">条件分支</el-dropdown-item>
-                    <el-dropdown-item command="END">结束</el-dropdown-item>
+                    <el-dropdown-item command="APPROVAL">{{ t('workflow.approvalNode') }}</el-dropdown-item>
+                    <el-dropdown-item command="SERVICE">{{ t('workflow.executeStep') }}</el-dropdown-item>
+                    <el-dropdown-item command="CC">{{ t('common.cc') }}</el-dropdown-item>
+                    <el-dropdown-item command="GATEWAY">{{ t('workflow.conditionBranch') }}</el-dropdown-item>
+                    <el-dropdown-item command="END">{{ t('common.end') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -41,14 +41,14 @@
             <el-tag :type="nodeTagType(n.type)" size="small" style="width: 64px; text-align: center">
               {{ nodeTypeLabel(n.type) }}
             </el-tag>
-            <span class="node-name">{{ n.name || '(未命名)' }}</span>
+            <span class="node-name">{{ n.name || t('common.unnamed') }}</span>
             <span class="spacer" />
-            <el-button link :icon="Top" :disabled="idx === 0" @click="move(idx, -1)" title="上移" />
-            <el-button link :icon="Bottom" :disabled="idx === nodes.length - 1" @click="move(idx, 1)" title="下移" />
-            <el-button link :icon="Edit" @click="selectNode(idx)" title="编辑" />
-            <el-button link type="danger" :icon="Delete" :disabled="n.type === 'START'" @click="removeNode(idx)" title="删除" />
+            <el-button link :icon="Top" :disabled="idx === 0" @click="move(idx, -1)" :title="t('common.moveUp')" />
+            <el-button link :icon="Bottom" :disabled="idx === nodes.length - 1" @click="move(idx, 1)" :title="t('common.moveDown')" />
+            <el-button link :icon="Edit" @click="selectNode(idx)" :title="t('common.edit')" />
+            <el-button link type="danger" :icon="Delete" :disabled="n.type === 'START'" @click="removeNode(idx)" :title="t('common.delete')" />
           </div>
-          <el-empty v-if="nodes.length === 0" description="请新增节点" :image-size="60" />
+          <el-empty v-if="nodes.length === 0" :description="t('workflow.pleaseAddNode')" :image-size="60" />
         </el-card>
       </el-col>
 
@@ -57,92 +57,92 @@
         <el-card v-if="current" class="page-card" shadow="never">
           <template #header><span>节点属性（{{ nodeTypeLabel(current.type) }}）</span></template>
           <el-form label-width="110px" :model="current">
-            <el-form-item label="节点名称">
-              <el-input v-model="current.name" placeholder="如 直属主管审批" />
+            <el-form-item :label="t('workflow.nodeName')">
+              <el-input v-model="current.name" :placeholder="t('workflow.exDirectManager')" />
             </el-form-item>
 
             <template v-if="current.type === 'APPROVAL'">
-              <el-form-item label="审批模式">
+              <el-form-item :label="t('workflow.approvalMode')">
                 <el-select v-model="current.approvalMode" style="width: 100%">
-                  <el-option label="或签（任一通过）" value="ANY" />
-                  <el-option label="会签（全部通过）" value="ALL" />
-                  <el-option label="按比例通过" value="RATIO" />
+                  <el-option :label="t('workflow.orSign')" value="ANY" />
+                  <el-option :label="t('workflow.countersign')" value="ALL" />
+                  <el-option :label="t('workflow.passByRatio')" value="RATIO" />
                 </el-select>
               </el-form-item>
-              <el-form-item v-if="current.approvalMode === 'RATIO'" label="通过比例">
+              <el-form-item v-if="current.approvalMode === 'RATIO'" :label="t('workflow.passRatio')">
                 <el-input-number v-model="current.approvalRatio" :min="0.01" :max="1" :step="0.1" :precision="2" />
               </el-form-item>
-              <el-form-item label="受让人类型">
+              <el-form-item :label="t('workflow.assigneeType')">
                 <el-select v-model="current.assigneeType" style="width: 100%">
-                  <el-option label="指定人员" value="USER" />
-                  <el-option label="按角色" value="ROLE" />
-                  <el-option label="按部门" value="ORG" />
-                  <el-option label="发起人本人" value="INITIATOR" />
-                  <el-option label="发起人主管" value="INITIATOR_MANAGER" />
+                  <el-option :label="t('workflow.specifiedPerson')" value="USER" />
+                  <el-option :label="t('common.byRole')" value="ROLE" />
+                  <el-option :label="t('common.byDept')" value="ORG" />
+                  <el-option :label="t('workflow.initiatorSelf')" value="INITIATOR" />
+                  <el-option :label="t('workflow.initiatorManager')" value="INITIATOR_MANAGER" />
                 </el-select>
               </el-form-item>
               <el-form-item
                 v-if="current.assigneeType === 'USER'"
-                label="人员ID">
-                <el-input v-model="current.assigneeExpression" placeholder="逗号分隔，如 10,11" />
+                :label="t('workflow.personId')">
+                <el-input v-model="current.assigneeExpression" :placeholder="t('workflow.commaExample1')" />
               </el-form-item>
               <el-form-item
                 v-else-if="current.assigneeType === 'ROLE' || current.assigneeType === 'ORG'"
-                :label="current.assigneeType === 'ROLE' ? '角色编码' : '部门ID'">
-                <el-input v-model="current.assigneeExpression" :placeholder="current.assigneeType === 'ROLE' ? '如 MANAGER' : '如 3'" />
+                :label="current.assigneeType === 'ROLE' ? t('workflow.roleCode') : t('workflow.deptId')">
+                <el-input v-model="current.assigneeExpression" :placeholder="current.assigneeType === 'ROLE' ? t('workflow.exRoleManager') : t('workflow.exDeptId')" />
               </el-form-item>
-              <el-form-item label="驳回策略">
+              <el-form-item :label="t('workflow.rejectStrategy')">
                 <el-select v-model="current.rejectPolicy" style="width: 100%">
-                  <el-option label="不允许驳回" value="NONE" />
-                  <el-option label="驳回到上一审批" value="PREVIOUS" />
-                  <el-option label="驳回到结束" value="END" />
-                  <el-option label="驳回到指定节点" value="SPECIFIC" />
+                  <el-option :label="t('workflow.rejectNotAllowed')" value="NONE" />
+                  <el-option :label="t('workflow.rejectToPrev')" value="PREVIOUS" />
+                  <el-option :label="t('workflow.rejectToEnd')" value="END" />
+                  <el-option :label="t('workflow.rejectToNode')" value="SPECIFIC" />
                 </el-select>
               </el-form-item>
-              <el-form-item v-if="current.rejectPolicy === 'SPECIFIC'" label="驳回目标节点">
-                <el-select v-model="current.rejectTargetNodeId" style="width: 100%" placeholder="选择节点">
+              <el-form-item v-if="current.rejectPolicy === 'SPECIFIC'" :label="t('workflow.rejectTargetNode')">
+                <el-select v-model="current.rejectTargetNodeId" style="width: 100%" :placeholder="t('workflow.selectNode')">
                   <el-option v-for="o in nodeIdOptions" :key="o" :label="nodeName(o)" :value="o" />
                 </el-select>
               </el-form-item>
             </template>
 
             <template v-if="current.type === 'SERVICE'">
-              <el-form-item label="步骤类型">
-                <el-input v-model="current.stepType" placeholder="如 SYNC_ERP" />
+              <el-form-item :label="t('common.stepType')">
+                <el-input v-model="current.stepType" :placeholder="t('workflow.exSyncErp')" />
               </el-form-item>
-              <el-form-item label="步骤配置">
-                <el-input v-model="current.stepConfig" type="textarea" :rows="2" placeholder="JSON 或自由文本" />
+              <el-form-item :label="t('workflow.stepConfig')">
+                <el-input v-model="current.stepConfig" type="textarea" :rows="2" :placeholder="t('workflow.jsonOrFreeText')" />
               </el-form-item>
             </template>
 
             <template v-if="current.type === 'CC'">
-              <el-form-item label="抄送人ID">
-                <el-input v-model="current.assigneeExpression" placeholder="逗号分隔，如 20,21" />
+              <el-form-item :label="t('workflow.ccPersonId')">
+                <el-input v-model="current.assigneeExpression" :placeholder="t('workflow.commaExample2')" />
               </el-form-item>
             </template>
 
             <!-- 节点受让人预览：接已发布判定 -->
-            <el-divider content-position="left">受让人预览</el-divider>
+            <el-divider content-position="left">{{ t('workflow.assigneePreview') }}</el-divider>
             <el-alert
               v-if="isPublished"
               type="success" :closable="false" show-icon
-              :title="`当前设计已发布（v${publishedVersion}）生效中；以下为草稿受让人预览，重新发布后生效。`"
+              :title="t('workflow.publishedDraftPreviewNote', { publishedVersion })"
             />
             <el-alert
               v-else type="info" :closable="false" show-icon
-              title="未发布（草稿预览）：该设计尚未生效，保存并发布后受让人按此解析。"
+              :title="t('workflow.unpublishedDraftPreview')"
             />
             <el-descriptions :column="1" border size="small" style="margin-top: 8px">
-              <el-descriptions-item v-if="current.type === 'APPROVAL'" label="审批模式">
+              <el-descriptions-item v-if="current.type === 'APPROVAL'" :label="t('workflow.approvalMode')">
                 {{ approvalModeText(current) }}
               </el-descriptions-item>
-              <el-descriptions-item label="受让人（草稿）">
+              <el-descriptions-item :label="t('workflow.assigneeDraft')">
                 {{ assigneePreviewText(current) }}
               </el-descriptions-item>
-              <el-descriptions-item v-if="isPublished" label="受让人（生效）">
-                {{ assigneePreviewText(publishedNode) || '（该节点尚未在生效版本中）' }}
+              <el-descriptions-item v-if="isPublished" :label="t('workflow.assigneeActive')">
+                {{ assigneePreviewText(publishedNode) || t('workflow.nodeNotActive') }}
               </el-descriptions-item>
-              <el-descriptions-item v-if="current.type === 'APPROVAL'" label="驳回策略">
+              <el-descriptions-item v-if="current.type === 'APPROVAL'" :label="t('workflow.rejectStrategy')">
                 {{ rejectPolicyText(current) }}
               </el-descriptions-item>
             </el-descriptions>
@@ -150,28 +150,28 @@
         </el-card>
 
         <el-card class="page-card" shadow="never">
-          <template #header><span>连线与条件分支</span></template>
+          <template #header><span>{{ t('workflow.edgesAndBranches') }}</span></template>
           <el-table :data="edges" border size="small">
-            <el-table-column label="来源" width="120">
+            <el-table-column :label="t('common.source')" width="120">
               <template #default="{ row }">
                 <el-select v-model="row.sourceNodeId" style="width: 100%">
                   <el-option v-for="o in nodeIdOptions" :key="o" :label="nodeName(o)" :value="o" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="去向" width="120">
+            <el-table-column :label="t('common.target')" width="120">
               <template #default="{ row }">
                 <el-select v-model="row.targetNodeId" style="width: 100%">
                   <el-option v-for="o in nodeIdOptions" :key="o" :label="nodeName(o)" :value="o" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="条件表达式 (EL)">
+            <el-table-column :label="t('workflow.conditionExpr')">
               <template #default="{ row }">
-                <el-input v-model="row.conditionExpression" placeholder="如 amount <= 1000" />
+                <el-input v-model="row.conditionExpression" :placeholder="t('workflow.exAmountCond')" />
               </template>
             </el-table-column>
-            <el-table-column label="默认分支" width="90" align="center">
+            <el-table-column :label="t('workflow.defaultBranch')" width="90" align="center">
               <template #default="{ row }">
                 <el-checkbox v-model="row.isDefault" :true-value="true" :false-value="false" />
               </template>
@@ -183,42 +183,42 @@
             </el-table-column>
           </el-table>
           <div style="margin-top: 10px">
-            <el-button size="small" :icon="Plus" @click="addEdge">添加连线</el-button>
+            <el-button size="small" :icon="Plus" @click="addEdge">{{ t('workflow.addEdge') }}</el-button>
           </div>
           <el-alert
             style="margin-top: 10px"
             type="info" :closable="false"
-            title="提示：条件分支节点(网关)可有多条出边；每条出边可配置条件表达式，或指定一条为默认分支（无符合条件时走默认）。" />
+            :title="t('workflow.branchHint')" />
         </el-card>
 
         <el-card class="page-card" shadow="never" style="margin-top: 16px">
-          <template #header><span>业务表单字段（发起时动态渲染）</span></template>
+          <template #header><span>{{ t('workflow.businessFormFields') }}</span></template>
           <el-table :data="formFields" border size="small">
-            <el-table-column label="字段 key" width="140">
-              <template #default="{ row }"><el-input v-model="row.field" placeholder="如 amount" /></template>
+            <el-table-column :label="t('workflow.fieldKey')" width="140">
+              <template #default="{ row }"><el-input v-model="row.field" :placeholder="t('workflow.exAmount')" /></template>
             </el-table-column>
-            <el-table-column label="标签" width="140">
-              <template #default="{ row }"><el-input v-model="row.label" placeholder="如 报销金额" /></template>
+            <el-table-column :label="t('common.label')" width="140">
+              <template #default="{ row }"><el-input v-model="row.label" :placeholder="t('workflow.exExpenseAmount')" /></template>
             </el-table-column>
-            <el-table-column label="类型" width="110">
+            <el-table-column :label="t('common.type')" width="110">
               <template #default="{ row }">
                 <el-select v-model="row.type">
-                  <el-option label="文本" value="text" />
-                  <el-option label="多行" value="textarea" />
-                  <el-option label="数字" value="number" />
-                  <el-option label="日期" value="date" />
-                  <el-option label="下拉" value="select" />
-                  <el-option label="开关" value="switch" />
+                  <el-option :label="t('common.text')" value="text" />
+                  <el-option :label="t('common.multiline')" value="textarea" />
+                  <el-option :label="t('common.number')" value="number" />
+                  <el-option :label="t('common.date')" value="date" />
+                  <el-option :label="t('common.dropdown')" value="select" />
+                  <el-option :label="t('common.switch')" value="switch" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="必填" width="64" align="center">
+            <el-table-column :label="t('common.required')" width="64" align="center">
               <template #default="{ row }"><el-checkbox v-model="row.required" :true-value="true" :false-value="false" /></template>
             </el-table-column>
-            <el-table-column label="占位提示 / 选项" min-width="180">
+            <el-table-column :label="t('workflow.placeholderOrOption')" min-width="180">
               <template #default="{ row }">
-                <el-input v-if="row.type === 'select'" v-model="row.optionsText" placeholder="逗号分隔，如 差旅,办公" />
-                <el-input v-else v-model="row.placeholder" placeholder="占位提示" />
+                <el-input v-if="row.type === 'select'" v-model="row.optionsText" :placeholder="t('workflow.commaExample3')" />
+                <el-input v-else v-model="row.placeholder" :placeholder="t('workflow.placeholderHint')" />
               </template>
             </el-table-column>
             <el-table-column label="" width="50" align="center">
@@ -226,7 +226,7 @@
             </el-table-column>
           </el-table>
           <div style="margin-top: 10px">
-            <el-button size="small" :icon="Plus" @click="addFormField">新增字段</el-button>
+            <el-button size="small" :icon="Plus" @click="addFormField">{{ t('workflow.addField') }}</el-button>
             <span style="margin-left: 10px; color: var(--el-text-color-secondary); font-size: 12px">
               字段将在发起流程时按类型动态渲染，提交值随流程变量下发。
             </span>
@@ -235,13 +235,14 @@
       </el-col>
     </el-row>
 
-    <el-dialog v-model="bpmnVisible" title="BPMN 预览" width="760px">
+    <el-dialog v-model="bpmnVisible" :title="t('workflow.bpmnPreview')" width="760px">
       <pre class="bpmn-pre">{{ bpmnXml }}</pre>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -288,11 +289,11 @@ const publishedNode = computed(() => {
 })
 
 const ASSIGNEE_TYPE_LABEL = {
-  USER: '指定人员', ROLE: '角色', ORG: '部门',
-  INITIATOR: '发起人本人', INITIATOR_MANAGER: '发起人主管'
+  USER: t('workflow.specifiedPerson'), ROLE: t('common.role'), ORG: t('common.department'),
+  INITIATOR: t('workflow.initiatorSelf'), INITIATOR_MANAGER: t('workflow.initiatorManager')
 }
-const APPROVAL_MODE_LABEL = { ANY: '或签（任一通过）', ALL: '会签（全部通过）', RATIO: '按比例通过' }
-const REJECT_POLICY_LABEL = { NONE: '不允许驳回', PREVIOUS: '驳回到上一审批', END: '驳回到结束', SPECIFIC: '驳回到指定节点' }
+const APPROVAL_MODE_LABEL = { ANY: t('workflow.orSign'), ALL: t('workflow.countersign'), RATIO: t('workflow.passByRatio') }
+const REJECT_POLICY_LABEL = { NONE: t('workflow.rejectNotAllowed'), PREVIOUS: t('workflow.rejectToPrev'), END: t('workflow.rejectToEnd'), SPECIFIC: t('workflow.rejectToNode') }
 
 function approvalModeText(node) {
   return APPROVAL_MODE_LABEL[node?.approvalMode] || node?.approvalMode || '—'
@@ -311,7 +312,7 @@ function resolveAssignees(expr, kind) {
   const tokens = String(expr).split(',').map((s) => s.trim()).filter(Boolean)
   if (tokens.length === 0) return ''
   if (kind === 'USER' || kind === 'CC') {
-    return tokens.map((id) => userMap.value[String(id)] || `用户#${id}`).join('、')
+    return tokens.map((id) => userMap.value[String(id)] || `t('workflow.userHash', { id })`).join('、')
   }
   if (kind === 'ROLE') {
     return tokens.map((code) => roleMap.value[code] || code).join('、')
@@ -324,15 +325,15 @@ function assigneePreviewText(node) {
   if (!node) return '—'
   if (node.type === 'CC') {
     const names = resolveAssignees(node.assigneeExpression, 'CC')
-    return names ? ('抄送人：' + names) : '（未设置抄送人）'
+    return names ? (t('workflow.ccPerson') + names) : t('workflow.ccNotSet')
   }
   if (node.type !== 'APPROVAL') return '—'
   const t = node.assigneeType
-  if (t === 'INITIATOR') return '发起人本人'
-  if (t === 'INITIATOR_MANAGER') return '发起人主管'
-  const typeLabel = ASSIGNEE_TYPE_LABEL[t] || t || '（未设置）'
+  if (t === 'INITIATOR') return t('workflow.initiatorSelf')
+  if (t === 'INITIATOR_MANAGER') return t('workflow.initiatorManager')
+  const typeLabel = ASSIGNEE_TYPE_LABEL[t] || t || t('workflow.notSet')
   const names = resolveAssignees(node.assigneeExpression, t)
-  return names ? `${typeLabel}：${names}` : `${typeLabel}（未指定具体对象）`
+  return names ? `${typeLabel}：${names}` : t('workflow.typeLabelUnspecified', { typeLabel })
 }
 
 let seq = 0
@@ -341,7 +342,7 @@ function genId(prefix) {
 }
 
 function nodeTypeLabel(t) {
-  return { START: '发起', END: '结束', APPROVAL: '审批', SERVICE: '执行', CC: '抄送', GATEWAY: '分支' }[t] || t
+  return { START: t('common.initiate'), END: t('common.end'), APPROVAL: t('workflow.approval'), SERVICE: t('workflow.execute'), CC: t('common.cc'), GATEWAY: t('common.branch') }[t] || t
 }
 function nodeTagType(t) {
   return { START: 'success', END: 'info', APPROVAL: 'warning', SERVICE: 'primary', CC: 'info', GATEWAY: 'danger' }[t] || ''
@@ -349,7 +350,7 @@ function nodeTagType(t) {
 
 function addNode(type) {
   if (type === 'START') {
-    ElMessage.warning('发起节点已内置，无需新增')
+    ElMessage.warning(t('workflow.startNodeBuiltin'))
     return
   }
   const n = { id: genId(type), type, name: nodeTypeLabel(type) }
@@ -468,8 +469,8 @@ async function load() {
     if (m) seq = Math.max(seq, Number(m[1]))
   })
   nodes.value = loadedNodes.length ? loadedNodes : [
-    { id: 'start', type: 'START', name: '发起' },
-    { id: 'end', type: 'END', name: '结束' }
+    { id: 'start', type: 'START', name: t('common.initiate') },
+    { id: 'end', type: 'END', name: t('common.end') }
   ]
   edges.value = loadedEdges
   selectedIndex.value = -1
@@ -496,7 +497,7 @@ async function saveDraft() {
       nodes: nodes.value,
       edges: edges.value
     })
-    ElMessage.success('草稿已保存')
+    ElMessage.success(t('workflow.draftSaved'))
   } finally {
     saving.value = false
   }
@@ -505,7 +506,7 @@ async function saveDraft() {
 async function doPublish() {
   if (!validate()) return
   try {
-    await ElMessageBox.confirm('发布后将生成新版本并即时对新发起实例生效，确认发布？', '发布工作流', { type: 'warning' })
+    await ElMessageBox.confirm(t('workflow.publishConfirm'), t('workflow.publishWorkflow'), { type: 'warning' })
   } catch {
     return
   }
@@ -522,7 +523,7 @@ async function doPublish() {
     const updated = await publishDefinition(id)
     def.status = updated.status
     def.version = updated.version
-    ElMessage.success('已发布并生效')
+    ElMessage.success(t('workflow.publishedAndActive'))
   } finally {
     publishing.value = false
   }
@@ -533,7 +534,7 @@ async function doUnpublish() {
   try {
     const updated = await unpublishDefinition(id)
     def.status = updated.status
-    ElMessage.success('已取消发布')
+    ElMessage.success(t('workflow.unpublished'))
   } finally {
     publishing.value = false
   }
@@ -541,7 +542,7 @@ async function doUnpublish() {
 
 async function previewBpmn() {
   const res = await getDefinitionBpmn(id)
-  bpmnXml.value = res.bpmnXml || '(暂无，请先保存或发布)'
+  bpmnXml.value = res.bpmnXml || t('workflow.emptySaveOrPublish')
   bpmnVisible.value = true
 }
 
@@ -549,21 +550,21 @@ async function previewBpmn() {
 function validate() {
   const types = nodes.value.map((n) => n.type)
   if (types.filter((t) => t === 'START').length !== 1) {
-    ElMessage.error('必须有且仅有一个发起(START)节点')
+    ElMessage.error(t('workflow.exactlyOneStart'))
     return false
   }
   if (types.filter((t) => t === 'END').length < 1) {
-    ElMessage.error('至少需要一个结束(END)节点')
+    ElMessage.error(t('workflow.atLeastOneEnd'))
     return false
   }
   const ids = new Set(nodes.value.map((n) => n.id))
   for (const e of edges.value) {
     if (!e.sourceNodeId || !e.targetNodeId) {
-      ElMessage.error('存在未填写来源/去向的连线')
+      ElMessage.error(t('workflow.edgeMissingSourceTarget'))
       return false
     }
     if (!ids.has(e.sourceNodeId) || !ids.has(e.targetNodeId)) {
-      ElMessage.error('连线引用了不存在的节点')
+      ElMessage.error(t('workflow.edgeRefsMissingNode'))
       return false
     }
   }
