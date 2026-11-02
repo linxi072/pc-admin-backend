@@ -98,17 +98,10 @@ public class OAuth2ConsentEndpoint {
     }
 
     private static CurrentPrincipal currentPrincipal() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof CurrentPrincipal p) {
-            return p;
-        }
-        return null;
+        return OAuth2EndpointSupport.currentPrincipal();
     }
 
     private static ResponseEntity<Map<String, Object>> error(HttpStatus status, String code, String desc) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("error", code);
-        body.put("error_description", desc);
-        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(body);
+        return OAuth2EndpointSupport.error(status, code, desc);
     }
 }

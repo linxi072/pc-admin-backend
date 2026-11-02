@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -192,9 +191,6 @@ public class OAuth2TokenEndpoint {
     }
 
     private static ResponseEntity<Map<String, Object>> error(HttpStatus status, String code, String desc) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("error", code);
-        body.put("error_description", desc);
-        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(body);
+        return OAuth2EndpointSupport.error(status, code, desc);
     }
 }
