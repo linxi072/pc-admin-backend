@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.acme.scaffold.common.text.TextUtils;
+import com.acme.scaffold.system.rules.ChannelNormalizeRules;
 
 /**
  * 通知发送记录纯函数规则：接收方按渠道掩码、标题/正文摘要、筛选值归一。
@@ -78,16 +79,7 @@ public final class NotificationRecordRules {
      * 未知渠道返回 {@code null}（调用方忽略该筛选条件，避免把非法值带入 SQL）。
      */
     public static String normalizeChannel(String channel) {
-        if (channel == null || channel.isBlank()) {
-            return null;
-        }
-        String c = channel.trim().toUpperCase();
-        for (Channel value : Channel.values()) {
-            if (value.name().equals(c)) {
-                return c;
-            }
-        }
-        return null;
+        return ChannelNormalizeRules.normalizeChannel(channel);
     }
 
     /**
