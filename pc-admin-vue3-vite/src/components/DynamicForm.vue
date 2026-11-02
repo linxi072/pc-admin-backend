@@ -17,7 +17,7 @@
       <el-input
         v-if="f.type === 'INPUT'"
         v-model="model[f.key]"
-        :placeholder="f.placeholder || `请输入${f.label}`"
+        :placeholder="f.placeholder || t('form.placeholderInput', { label: f.label })"
         :maxlength="f.maxLength || undefined"
         clearable
       />
@@ -27,7 +27,7 @@
         v-model="model[f.key]"
         type="textarea"
         :rows="f.rows || 3"
-        :placeholder="f.placeholder || `请输入${f.label}`"
+        :placeholder="f.placeholder || t('form.placeholderInput', { label: f.label })"
         :maxlength="f.maxLength || undefined"
         show-word-limit
       />
@@ -43,7 +43,7 @@
       <el-select
         v-else-if="f.type === 'SELECT'"
         v-model="model[f.key]"
-        :placeholder="f.placeholder || `请选择${f.label}`"
+        :placeholder="f.placeholder || t('form.placeholderSelect', { label: f.label })"
         style="width: 100%"
         clearable
       >
@@ -76,7 +76,7 @@
         v-model="model[f.key]"
         type="date"
         value-format="YYYY-MM-DD"
-        :placeholder="f.placeholder || '请选择日期'"
+        :placeholder="f.placeholder || t('form.placeholderDate')"
         style="width: 100%"
       />
       <!-- 未支持类型：显式降级提示，避免静默丢失字段 -->
@@ -85,7 +85,7 @@
         type="warning"
         :closable="false"
         show-icon
-        :title="`不支持的字段类型：${f.type}`"
+        :title="t('form.unsupportedType', { type: f.type })"
       />
     </el-form-item>
   </el-form>
@@ -93,6 +93,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
+import { t } from '@/i18n'
 
 const props = defineProps({
   /** 表单 Schema（已解析对象：{ version, title, fields[] }），字段契约见后端 FormSchemaRules。 */
@@ -138,7 +139,7 @@ const rules = computed(() => {
   for (const f of fields.value) {
     const list = []
     if (f.required) {
-      const msg = f.type === 'SWITCH' ? `请开启${f.label}` : `${f.label}不能为空`
+      const msg = f.type === 'SWITCH' ? t('form.enableRequired', { label: f.label }) : t('form.required', { label: f.label })
       list.push({ required: true, message: msg, trigger: f.type === 'SWITCH' ? 'change' : 'blur' })
     }
     const min = Number.isInteger(f.minLength) ? f.minLength : undefined
@@ -147,8 +148,8 @@ const rules = computed(() => {
       list.push({
         validator: (rule, value, callback) => {
           const len = value == null ? 0 : String(value).length
-          if (min !== undefined && len < min) return callback(new Error(`${f.label}至少 ${min} 个字符`))
-          if (max !== undefined && len > max) return callback(new Error(`${f.label}不超过 ${max} 个字符`))
+          if (min !== undefined && len < min) return callback(new Error(t('form.minLength', { label: f.label, min })))
+          if (max !== undefined && len > max) return callback(new Error(t('form.maxLength', { label: f.label, max })))
           callback()
         },
         trigger: 'blur'

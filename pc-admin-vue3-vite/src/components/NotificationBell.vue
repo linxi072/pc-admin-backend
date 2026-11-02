@@ -1,5 +1,5 @@
 <template>
-  <el-tooltip content="通知中心" placement="bottom">
+  <el-tooltip :content="t('notify.center')" placement="bottom">
     <el-badge :value="total" :max="99" :hidden="total === 0" type="danger" class="icon-btn">
       <el-button text class="bell" @click="open">
         <el-icon size="18"><Bell /></el-icon>
@@ -9,14 +9,14 @@
 
   <el-drawer
     v-model="visible"
-    title="通知中心"
+    :title="t('notify.center')"
     direction="rtl"
     size="360px"
     :with-header="true"
   >
     <template #header>
       <div class="drawer-header">
-        <span class="drawer-title">通知中心</span>
+        <span class="drawer-title">{{ t('notify.center') }}</span>
         <el-button
           link
           type="primary"
@@ -24,7 +24,7 @@
           :loading="marking"
           @click="handleMarkAllRead"
         >
-          全部已读
+          {{ t('notify.markAllRead') }}
         </el-button>
       </div>
     </template>
@@ -33,7 +33,7 @@
       <el-skeleton v-if="loading" :rows="6" animated />
       <el-empty
         v-else-if="items.length === 0"
-        description="暂无未读通知"
+        :description="t('notify.empty')"
         :image-size="80"
       />
       <ul v-else class="bell-list">
@@ -56,7 +56,7 @@
                 effect="plain"
                 :type="it.source === 'ANNOUNCEMENT' ? 'warning' : 'info'"
               >
-                {{ it.source === 'ANNOUNCEMENT' ? '公告' : '站内信' }}
+                {{ it.source === 'ANNOUNCEMENT' ? t('notify.announcement') : t('notify.message') }}
               </el-tag>
               <span class="bell-item-text">{{ it.title }}</span>
             </div>
@@ -68,7 +68,7 @@
     </div>
 
     <template #footer>
-      <el-button text type="primary" @click="goAll">查看全部</el-button>
+      <el-button text type="primary" @click="goAll">{{ t('notify.viewAll') }}</el-button>
     </template>
   </el-drawer>
 </template>
@@ -79,6 +79,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElNotification } from 'element-plus'
 import { getSummary, getRecent, markAllRead } from '@/api/notificationCenter'
 import { initRealtime, onRealtime } from '@/api/realtime'
+import { t } from '@/i18n'
 
 const router = useRouter()
 const total = ref(0)
@@ -152,7 +153,7 @@ async function handleMarkAllRead() {
   try {
     const res = await markAllRead()
     const marked = res?.marked ?? 0
-    ElMessage.success(marked > 0 ? `已将 ${marked} 条通知标记为已读` : '当前没有未读通知')
+    ElMessage.success(marked > 0 ? t('notify.markedRead', { marked }) : t('notify.noneUnread'))
     total.value = 0
     items.value = []
     await loadSummary()
@@ -169,9 +170,9 @@ function formatTime(iso) {
   const d = new Date(iso)
   if (isNaN(d.getTime())) return ''
   const diff = (Date.now() - d.getTime()) / 1000
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
-  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
+  if (diff < 60) return t('notify.justNow')
+  if (diff < 3600) return t('notify.minutesAgo', { n: Math.floor(diff / 60) })
+  if (diff < 86400) return t('notify.hoursAgo', { n: Math.floor(diff / 3600) })
   const pad = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
@@ -184,8 +185,8 @@ function handleRealtime(msg) {
   if (msg.type === 'UNREAD_MESSAGE') {
     const p = msg.payload || {}
     ElNotification({
-      title: '新消息',
-      message: p.title || '您有一条新消息',
+      title: t('notify.newMessage'),
+      message: p.title || t('notify.youHaveMessage'),
       type: 'info',
       duration: 3000
     })

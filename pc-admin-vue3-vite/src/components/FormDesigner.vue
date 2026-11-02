@@ -11,7 +11,7 @@
         :icon="Plus"
         @click="addField(t.type)"
       >
-        {{ t.label }}
+        {{ $t(t.labelKey) }}
       </el-button>
       <div class="fd-palette-hint">{{ $t('formDesigner.paletteHint') }}</div>
     </div>
@@ -118,13 +118,13 @@ const emit = defineEmits(['update:modelValue'])
 const KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*$/
 
 const palette = [
-  { type: 'INPUT', label: '单行文本' },
-  { type: 'TEXTAREA', label: '多行文本' },
-  { type: 'NUMBER', label: '数字' },
-  { type: 'SELECT', label: '下拉选择' },
-  { type: 'RADIO', label: '单选' },
-  { type: 'SWITCH', label: '开关' },
-  { type: 'DATE', label: '日期' }
+  { type: 'INPUT', labelKey: 'formDesigner.typeInput' },
+  { type: 'TEXTAREA', labelKey: 'formDesigner.typeTextarea' },
+  { type: 'NUMBER', labelKey: 'formDesigner.typeNumber' },
+  { type: 'SELECT', labelKey: 'formDesigner.typeSelect' },
+  { type: 'RADIO', labelKey: 'formDesigner.typeRadio' },
+  { type: 'SWITCH', labelKey: 'formDesigner.typeSwitch' },
+  { type: 'DATE', labelKey: 'formDesigner.typeDate' }
 ]
 
 const title = ref('')
@@ -154,7 +154,8 @@ function $tSafe(k) {
 }
 
 function typeLabel(t) {
-  return palette.find((p) => p.type === t)?.label || t
+  const found = palette.find((p) => p.type === t)
+  return found ? $t(found.labelKey) : t
 }
 
 function hasPlaceholder(t) {

@@ -10,14 +10,14 @@
 import { ref } from 'vue'
 
 export const THEMES = [
-  { key: 'light', label: '浅色' },
-  { key: 'dark', label: '深色' },
-  { key: 'warm', label: '暖色调' },
-  { key: 'brand', label: '品牌色' },
-  { key: 'green', label: '薄荷绿' },
-  { key: 'rose', label: '樱粉' },
-  { key: 'cyan', label: '青蓝' },
-  { key: 'amber', label: '琥珀' }
+  { key: 'light' },
+  { key: 'dark' },
+  { key: 'warm' },
+  { key: 'brand' },
+  { key: 'green' },
+  { key: 'rose' },
+  { key: 'cyan' },
+  { key: 'amber' }
 ]
 
 const STORAGE_KEY = 'app-theme'

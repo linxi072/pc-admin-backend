@@ -1,29 +1,29 @@
 <template>
   <!-- 图标选择器：菜单管理「图标」字段的可视化选择入口，替代手背 Element Plus 图标名 -->
   <div class="icon-picker">
-    <el-input :model-value="displayValue" readonly placeholder="点击选择图标（留空则不显示）" class="icon-trigger">
+    <el-input :model-value="displayValue" readonly :placeholder="t('iconPicker.triggerPlaceholder')" class="icon-trigger">
       <template #prepend>
         <el-icon v-if="safePreview" class="icon-preview"><component :is="safePreview" /></el-icon>
         <el-icon v-else><Picture /></el-icon>
       </template>
       <template #append>
-        <el-button v-if="modelValue" size="small" text class="icon-clear" title="清除图标" @click.stop="clear">
+        <el-button v-if="modelValue" size="small" text class="icon-clear" :title="t('iconPicker.clear')" @click.stop="clear">
           <el-icon><Close /></el-icon>
         </el-button>
-        <el-button v-else size="small" text title="选择图标" @click.stop="open">
+        <el-button v-else size="small" text :title="t('iconPicker.select')" @click.stop="open">
           <el-icon><Search /></el-icon>
         </el-button>
       </template>
     </el-input>
 
-    <el-dialog v-model="visible" title="选择图标" width="720px" append-to-body destroy-on-close>
-      <el-input v-model="query" placeholder="搜索图标名（支持中文关键字，如：监控/用户/定时）" clearable class="icon-search">
+    <el-dialog v-model="visible" :title="t('iconPicker.select')" width="720px" append-to-body destroy-on-close>
+      <el-input v-model="query" :placeholder="t('iconPicker.searchPlaceholder')" clearable class="icon-search">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
       <el-alert type="info" :closable="false" show-icon class="icon-tip"
-        title="图标来自 Element Plus 图标库（全局注册），按语义分组；运维管理相关图标已归入「监控运维」组。" />
-      <div v-for="group in filteredGroups" :key="group.name" class="icon-group">
-        <div class="icon-group-title">{{ group.name }}（{{ group.icons.length }}）</div>
+        :title="t('iconPicker.libNote')" />
+      <div v-for="group in filteredGroups" :key="group.i18nKey" class="icon-group">
+        <div class="icon-group-title">{{ t('iconPicker.' + group.i18nKey) }}（{{ group.icons.length }}）</div>
         <div class="icon-grid">
           <div v-for="name in group.icons" :key="name"
             class="icon-cell" :class="{ 'is-active': name === modelValue }"
@@ -32,12 +32,12 @@
             <span class="icon-cell-name">{{ name }}</span>
           </div>
         </div>
-        <el-empty v-if="!group.icons.length" :image-size="40" description="无匹配图标" />
+        <el-empty v-if="!group.icons.length" :image-size="40" :description="t('iconPicker.noMatch')" />
       </div>
-      <el-empty v-if="!filteredGroups.length" description="未找到匹配图标" />
+      <el-empty v-if="!filteredGroups.length" :description="t('iconPicker.notFound')" />
       <template #footer>
-        <el-button @click="visible = false">取消</el-button>
-        <el-button v-if="modelValue" @click="clear">清除当前图标</el-button>
+        <el-button @click="visible = false">{{ t('iconPicker.cancel') }}</el-button>
+        <el-button v-if="modelValue" @click="clear">{{ t('iconPicker.clearCurrent') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -47,6 +47,7 @@
 import { ref, computed } from 'vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { Close, Picture, Search } from '@element-plus/icons-vue'
+import { t } from '@/i18n'
 
 /**
  * 图标选择器（菜单管理「图标」字段）。
@@ -84,40 +85,40 @@ const safePreview = computed(() => {
 
 const GROUPS = [
   {
-    name: '监控运维',
+    i18nKey: 'groupMonitor',
     icons: ['Odometer', 'Monitor', 'Box', 'Link', 'Key', 'Document', 'Connection', 'DataLine',
       'DataAnalysis', 'PieChart', 'TrendCharts', 'Aim', 'Cpu', 'SetUp', 'Tools', 'Setting',
       'Warning', 'WarningFilled', 'Bell', 'AlarmClock', 'Timer', 'Stopwatch', 'Lightning',
       'Magnet', 'Present', 'FirstAidKit', 'ColdDrink']
   },
   {
-    name: '系统管理',
+    i18nKey: 'groupSystem',
     icons: ['User', 'UserFilled', 'Avatar', 'Menu', 'OfficeBuilding', 'Notebook', 'Coin',
       'School', 'Briefcase', 'Suitcase', 'Postcard', 'Reading', 'Collection', 'Files',
       'Folder', 'FolderOpened', 'FolderChecked', 'FolderAdd', 'Tickets', 'Stamp', 'PriceTag']
   },
   {
-    name: '工作流协作',
+    i18nKey: 'groupWorkflow',
     icons: ['Share', 'Edit', 'EditPen', 'MagicStick', 'Switch', 'Refresh',
       'RefreshLeft', 'RefreshRight', 'CircleCheck', 'CircleClose', 'CirclePlus', 'Finished',
       'Select', 'Rank', 'Histogram', 'Guide', 'ChatDotRound', 'ChatLineRound', 'Message',
       'Comment', 'Phone', 'Location', 'Position', 'Paperclip']
   },
   {
-    name: '报表统计',
+    i18nKey: 'groupReport',
     icons: ['DataBoard', 'Sort', 'SortUp', 'SortDown', 'Grid', 'List',
       'Medal', 'Trophy', 'Discount', 'SoldOut', 'ShoppingCart', 'Goods', 'Wallet', 'Money',
       'CreditCard']
   },
   {
-    name: '通用操作',
+    i18nKey: 'groupGeneral',
     icons: ['Search', 'Plus', 'Minus', 'Close', 'Check', 'Delete', 'View', 'Hide',
       'Download', 'Upload', 'Top', 'Bottom', 'Back', 'FullScreen', 'Lock', 'Unlock', 'Star',
       'StarFilled', 'Flag', 'QuestionFilled', 'InfoFilled', 'More', 'MoreFilled', 'Operation',
       'Sunrise', 'Moon', 'Sunny']
   },
   {
-    name: '开发工具',
+    i18nKey: 'groupDev',
     icons: ['Platform', 'Iphone', 'Camera', 'Picture', 'VideoCamera',
       'Microphone', 'Headset', 'Mouse', 'Printer', 'Brush', 'MilkTea', 'Lollipop',
       'IceCream', 'Coffee', 'Goblet']
@@ -128,7 +129,7 @@ const filteredGroups = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return GROUPS
   return GROUPS
-    .map((g) => ({ name: g.name, icons: g.icons.filter((n) => n.toLowerCase().includes(q)) }))
+    .map((g) => ({ i18nKey: g.i18nKey, icons: g.icons.filter((n) => n.toLowerCase().includes(q)) }))
     .filter((g) => g.icons.length)
 })
 

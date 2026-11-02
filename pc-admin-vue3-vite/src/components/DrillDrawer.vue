@@ -1,16 +1,16 @@
 <template>
-  <el-drawer
+    <el-drawer
     v-model="visible"
     :title="title"
     size="560px"
     @open="onOpen"
   >
     <div class="drill-body">
-      <div v-if="loading" class="drill-loading">加载中…</div>
+      <div v-if="loading" class="drill-loading">{{ t('drill.loading') }}</div>
       <el-alert v-else-if="error" type="error" :title="error" :closable="false" />
       <template v-else>
         <BaseChart v-if="series.length" :option="chartOption" height="320px" />
-        <el-empty v-else description="该维度下暂无数据" />
+        <el-empty v-else :description="t('drill.empty')" />
 
         <el-card v-if="details" class="mt-16" :header="detailTitle">
           <el-table :data="details.rows" border stripe size="small" max-height="360">
@@ -33,6 +33,7 @@ import { ref, computed } from 'vue'
 import BaseChart from '@/components/BaseChart.vue'
 import { reportDrill } from '@/api/report'
 import { dashboardDrill } from '@/api/dashboard'
+import { t } from '@/i18n'
 
 /**
  * 通用下钻抽屉：根据 source 调用对应下钻端点，渲染逐小时/按天下钻序列与可选明细表。
@@ -49,7 +50,7 @@ import { dashboardDrill } from '@/api/dashboard'
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   source: { type: String, default: 'report' }, // 'report' | 'dashboard'
-  title: { type: String, default: '下钻详情' },
+  title: { type: String, default: () => t('drill.title') },
   // report 模式参数（原样透传至 /api/report/drill）
   reportParams: { type: Object, default: null },
   // dashboard 模式参数
@@ -70,7 +71,7 @@ const loading = ref(false)
 const error = ref('')
 const series = ref([]) // [{ label, value }]
 const details = ref(null)
-const detailTitle = ref('明细')
+const detailTitle = ref(t('drill.detail'))
 
 const chartOption = computed(() => {
   const isDashboard = props.source === 'dashboard'
@@ -113,7 +114,7 @@ async function onOpen() {
       }
     }
   } catch (e) {
-    error.value = e.message || '下钻加载失败'
+    error.value = e.message || t('drill.error')
   } finally {
     loading.value = false
   }
