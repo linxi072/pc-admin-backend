@@ -61,17 +61,8 @@ public class WecomRobotAdapter implements NotificationPort {
     }
 
     private String resolveUrl(NotificationMessage message) {
-        String url = (message.webhookUrl() != null && !message.webhookUrl().isBlank())
-                ? message.webhookUrl()
-                : configValue(KEY_WEBHOOK_URL);
-        if (url == null || url.isBlank()) {
-            url = properties.getWebhookUrl();
-        }
-        if (url == null || url.isBlank()) {
-            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
-                    "企业微信机器人地址缺失（消息未带、参数中心与配置均无默认）");
-        }
-        return url;
+        return RobotUrlSupport.resolveUrl(message, configValue(KEY_WEBHOOK_URL), properties.getWebhookUrl(),
+                "企业微信机器人地址缺失（消息未带、参数中心与配置均无默认）");
     }
 
     private String configValue(String key) {
