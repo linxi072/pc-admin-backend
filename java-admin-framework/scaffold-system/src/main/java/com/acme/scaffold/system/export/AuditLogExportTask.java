@@ -8,11 +8,9 @@ import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.system.maskstrategy.MaskStrategyResolver;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +27,6 @@ import java.util.Set;
  * 未命中任何策略时回落默认掩码（SensitiveType.IP），与 M20 既有口径一致；管理员可在「脱敏策略中心」
  * 注册 field_key={@code audit.ip} 的策略，集中管控 IP 的脱敏算法与角色豁免。</p>
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuditLogExportTask implements ExportTask {
@@ -91,15 +88,7 @@ public class AuditLogExportTask implements ExportTask {
 
     /** 解析 ISO-8601 时间参数；空或非法一律返回 null（视为不加时间过滤，由服务端补默认区间）。 */
     private static LocalDateTime parseTime(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDateTime.parse(value.trim());
-        } catch (DateTimeParseException e) {
-            log.warn("审计日志导出：时间参数格式非法，已忽略: {}", value);
-            return null;
-        }
+        return ExportTimeSupport.parseTime(value, "审计日志导出");
     }
 
     private static String str(Object o) {

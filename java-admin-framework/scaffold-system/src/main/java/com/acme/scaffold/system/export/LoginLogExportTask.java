@@ -4,11 +4,9 @@ import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.system.log.LoginLogService;
 import com.acme.scaffold.system.log.LoginLogView;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -23,7 +21,6 @@ import java.util.Map;
  * 即便调用者持有 {@code system:login-log:sensitive} 也不放行原文。筛选参数（username/result/...）
  * 由导出中心透传，可选项，缺省导出最近 7 天（与列表页默认口径一致）。</p>
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class LoginLogExportTask implements ExportTask {
@@ -80,15 +77,7 @@ public class LoginLogExportTask implements ExportTask {
 
     /** 解析 ISO-8601 时间参数；空或非法一律返回 null（视为不加时间过滤，由服务端补默认区间）。 */
     private static LocalDateTime parseTime(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDateTime.parse(value.trim());
-        } catch (DateTimeParseException e) {
-            log.warn("登录日志导出：时间参数格式非法，已忽略: {}", value);
-            return null;
-        }
+        return ExportTimeSupport.parseTime(value, "登录日志导出");
     }
 
     private static String str(Object o) {
