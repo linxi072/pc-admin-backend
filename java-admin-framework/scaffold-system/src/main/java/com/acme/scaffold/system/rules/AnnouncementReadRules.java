@@ -13,10 +13,10 @@ package com.acme.scaffold.system.rules;
 public final class AnnouncementReadRules {
 
     /** 催办单次人数上限：催办是打扰性动作，保守取值（远低于站内信群发上限 5000）。 */
-    public static final int MAX_REMIND_LIMIT = 500;
+    public static final int MAX_REMIND_LIMIT = RemindLimitRules.MAX_REMIND_LIMIT;
 
     /** 催办未显式指定批量时的默认值。 */
-    public static final int DEFAULT_REMIND_LIMIT = 100;
+    public static final int DEFAULT_REMIND_LIMIT = RemindLimitRules.DEFAULT_REMIND_LIMIT;
 
     private AnnouncementReadRules() {
     }
@@ -52,8 +52,7 @@ public final class AnnouncementReadRules {
      * 收敛而非报错——催办上限是保护性阈值，调用方传 0/负数/超大值都按最接近的合法值执行。
      */
     public static int resolveRemindLimit(Integer requested) {
-        int limit = requested == null ? DEFAULT_REMIND_LIMIT : requested;
-        return Math.min(Math.max(limit, 1), MAX_REMIND_LIMIT);
+        return RemindLimitRules.resolveRemindLimit(requested);
     }
 
     /** 仅已发布（PUBLISHED）公告可催办：草稿/已下线/已过期的催办没有业务意义。 */

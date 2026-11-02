@@ -44,16 +44,7 @@ public final class NotificationTemplateRules {
      * 渠道归一：大小写不敏感匹配 {@link Channel} 枚举，非法返回 {@code null}。
      */
     public static String normalizeChannel(String channel) {
-        if (channel == null || channel.isBlank()) {
-            return null;
-        }
-        String c = channel.trim().toUpperCase();
-        for (Channel value : Channel.values()) {
-            if (value.name().equals(c)) {
-                return c;
-            }
-        }
-        return null;
+        return ChannelNormalizeRules.normalizeChannel(channel);
     }
 
     /** 渠道是否合法（对应 {@link #normalizeChannel} 非空）。 */
