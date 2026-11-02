@@ -1,7 +1,7 @@
 <template>
   <div>
-    <el-empty v-if="denied" description="无「Kafka 监控读取」权限（system:kafka:read），请联系管理员授权后重试">
-      <el-button type="primary" @click="load">重新加载</el-button>
+    <el-empty v-if="denied" :description="t('monitor.noKafkaPerm')">
+      <el-button type="primary" @click="load">{{ t('common.reload') }}</el-button>
     </el-empty>
 
     <template v-else>
@@ -10,35 +10,35 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num" :class="status.enabled ? 'stat-ok' : 'stat-danger'">
-              {{ status.enabled ? '已装配' : '未装配' }}
+              {{ status.enabled ? t('monitor.assembled') : t('monitor.notAssembled') }}
             </div>
-            <div class="stat-label">消费容器</div>
+            <div class="stat-label">{{ t('monitor.consumerContainer') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num" :class="status.running ? 'stat-ok' : 'stat-danger'">
-              {{ status.running ? '运行中' : '已停止' }}
+              {{ status.running ? t('common.running') : t('monitor.stopped') }}
             </div>
-            <div class="stat-label">Worker 线程</div>
+            <div class="stat-label">{{ t('monitor.workerThreads') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ status.handledCount ?? 0 }}</div>
-            <div class="stat-label">累计已处理</div>
+            <div class="stat-label">{{ t('monitor.accProcessed') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ status.staleCount ?? 0 }}</div>
-            <div class="stat-label">旧版/重复丢弃</div>
+            <div class="stat-label">{{ t('monitor.legacyDupDiscard') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ status.poisonCount ?? 0 }}</div>
-            <div class="stat-label">累计毒消息</div>
+            <div class="stat-label">{{ t('monitor.accPoison') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
@@ -46,7 +46,7 @@
             <div class="stat-num" :class="status.poisonPending > 0 ? 'stat-danger' : ''">
               {{ status.poisonPending ?? 0 }}
             </div>
-            <div class="stat-label">待补偿（死信存量）</div>
+            <div class="stat-label">{{ t('monitor.pendingCompensation') }}</div>
           </div>
         </el-col>
       </el-row>
@@ -54,37 +54,37 @@
       <el-card class="page-card" shadow="never">
         <div class="toolbar">
           <div class="toolbar-filters">
-            <span class="card-title">死信（毒消息）列表</span>
+            <span class="card-title">{{ t('monitor.deadLetterList') }}</span>
             <div class="filter-group">
               <span class="filter-label">Message Key</span>
-              <el-input v-model="keyFilter" placeholder="精确匹配，可空" clearable style="width: 220px" @keyup.enter="onSearch" />
+              <el-input v-model="keyFilter" :placeholder="t('monitor.exactMatchNullable')" clearable style="width: 220px" @keyup.enter="onSearch" />
             </div>
           </div>
           <div class="toolbar-actions">
             <div class="action-buttons">
-              <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-              <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+              <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
+              <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
             </div>
           </div>
         </div>
 
         <el-table :data="poison.records" v-loading="loading" border stripe>
           <el-table-column prop="topic" label="Topic" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="partition" label="分区" width="70" />
-          <el-table-column prop="offset" label="位次" width="90" />
+          <el-table-column prop="partition" :label="t('monitor.partition')" width="70" />
+          <el-table-column prop="offset" :label="t('monitor.rank')" width="90" />
           <el-table-column prop="key" label="Key" width="160" show-overflow-tooltip>
             <template #default="{ row }">{{ row.key || '--' }}</template>
           </el-table-column>
-          <el-table-column prop="attempts" label="失败次数" width="90" sortable />
-          <el-table-column prop="detectedAtEpochMillis" label="判定时间" width="170">
+          <el-table-column prop="attempts" :label="t('monitor.failCount')" width="90" sortable />
+          <el-table-column prop="detectedAtEpochMillis" :label="t('monitor.judgeTime')" width="170">
             <template #default="{ row }">{{ fmtEpoch(row.detectedAtEpochMillis) }}</template>
           </el-table-column>
-          <el-table-column prop="lastError" label="末次异常" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="payloadPreview" label="负载预览" min-width="200" show-overflow-tooltip />
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column prop="lastError" :label="t('monitor.lastError')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="payloadPreview" :label="t('monitor.loadPreview')" min-width="200" show-overflow-tooltip />
+          <el-table-column :label="t('common.operation')" width="160" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" size="small" @click="onRetry(row)">重试</el-button>
-              <el-button type="danger" size="small" @click="onDiscard(row)">丢弃</el-button>
+              <el-button type="primary" size="small" @click="onRetry(row)">{{ t('monitor.retry') }}</el-button>
+              <el-button type="danger" size="small" @click="onDiscard(row)">{{ t('monitor.discard') }}</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -110,6 +110,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
@@ -168,8 +169,8 @@ function onSizeChange(sz) {
 async function onRetry(row) {
   try {
     await ElMessageBox.confirm(
-      `确认重试毒消息 ${row.topic}-${row.partition}@${row.offset}？将清除失败计数与版本表占位。`,
-      '重试确认',
+      t('monitor.confirmRetryPoison', { topic: row.topic, partition: row.partition, offset: row.offset }),
+      t('monitor.retryConfirm'),
       { type: 'warning' }
     )
   } catch {
@@ -177,7 +178,7 @@ async function onRetry(row) {
   }
   try {
     await retryPoison(row.id)
-    ElMessage.success('已允许重投，待上游重发后重新处理')
+    ElMessage.success(t('monitor.replayAllowed'))
     load()
   } catch (e) {
     // 拦截器已提示
@@ -187,8 +188,8 @@ async function onRetry(row) {
 async function onDiscard(row) {
   try {
     await ElMessageBox.confirm(
-      `确认丢弃毒消息 ${row.topic}-${row.partition}@${row.offset}？丢弃后该消息不再参与补偿。`,
-      '丢弃确认',
+      t('monitor.confirmDiscardPoison', { topic: row.topic, partition: row.partition, offset: row.offset }),
+      t('monitor.discardConfirm'),
       { type: 'warning' }
     )
   } catch {
@@ -196,7 +197,7 @@ async function onDiscard(row) {
   }
   try {
     await discardPoison(row.id)
-    ElMessage.success('已丢弃')
+    ElMessage.success(t('monitor.discarded'))
     load()
   } catch (e) {
     // 拦截器已提示

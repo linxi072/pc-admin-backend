@@ -1,7 +1,7 @@
 <template>
   <div>
-    <el-empty v-if="denied" description="无「系统监控读取」权限（system:monitor:read），请联系管理员授权后重试">
-      <el-button type="primary" @click="load">重新加载</el-button>
+    <el-empty v-if="denied" :description="t('monitor.noMonPerm')">
+      <el-button type="primary" @click="load">{{ t('common.reload') }}</el-button>
     </el-empty>
 
     <template v-else>
@@ -16,25 +16,25 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ stats.firingCount ?? 0 }}</div>
-            <div class="stat-label">firing（未恢复）</div>
+            <div class="stat-label">{{ t('monitor.firing') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-ok">{{ stats.resolvedCount ?? 0 }}</div>
-            <div class="stat-label">resolved（已恢复）</div>
+            <div class="stat-label">{{ t('monitor.resolved') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-time">{{ fmtEpoch(stats.mostRecentEpochMillis) }}</div>
-            <div class="stat-label">最新接收时间</div>
+            <div class="stat-label">{{ t('monitor.latestReceive') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-time">{{ fmtEpoch(stats.oldestRetainedEpochMillis) }}</div>
-            <div class="stat-label">最旧留存时间</div>
+            <div class="stat-label">{{ t('monitor.oldestRetain') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
@@ -51,7 +51,7 @@
               </el-tag>
               <span v-if="severityEntries.length === 0" class="muted">--</span>
             </div>
-            <div class="stat-label">severity 分布（降序）</div>
+            <div class="stat-label">{{ t('monitor.severityDist') }}</div>
           </div>
         </el-col>
       </el-row>
@@ -59,57 +59,57 @@
       <el-card class="page-card" shadow="never">
         <div class="toolbar">
           <div class="toolbar-filters">
-            <span class="card-title">告警列表（最新在前）</span>
+            <span class="card-title">{{ t('monitor.alertList') }}</span>
             <div class="filter-group">
-              <span class="filter-label">状态</span>
-              <el-select v-model="query.status" placeholder="全部" clearable style="width: 130px">
+              <span class="filter-label">{{ t('common.status') }}</span>
+              <el-select v-model="query.status" :placeholder="t('common.all')" clearable style="width: 130px">
                 <el-option label="firing" value="firing" />
                 <el-option label="resolved" value="resolved" />
               </el-select>
             </div>
             <div class="filter-group">
-              <span class="filter-label">级别</span>
-              <el-input v-model="query.severity" placeholder="如 critical / warning" clearable style="width: 170px" @keyup.enter="onSearch" />
+              <span class="filter-label">{{ t('monitor.level') }}</span>
+              <el-input v-model="query.severity" :placeholder="t('monitor.egSeverity')" clearable style="width: 170px" @keyup.enter="onSearch" />
             </div>
             <div class="filter-group">
-              <span class="filter-label">条数</span>
+              <span class="filter-label">{{ t('monitor.count') }}</span>
               <el-input-number v-model="query.limit" :min="1" :max="200" style="width: 110px" />
             </div>
           </div>
           <div class="toolbar-actions">
             <div class="action-buttons">
-              <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-              <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-              <el-button type="danger" :icon="Delete" @click="onClear">清空收件箱</el-button>
+              <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
+              <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+              <el-button type="danger" :icon="Delete" @click="onClear">{{ t('monitor.clearInbox') }}</el-button>
             </div>
           </div>
         </div>
 
         <el-table :data="alerts" v-loading="loading" border stripe>
-          <el-table-column prop="receivedAtEpochMillis" label="接收时间" width="170">
+          <el-table-column prop="receivedAtEpochMillis" :label="t('monitor.receiveTime')" width="170">
             <template #default="{ row }">{{ fmtEpoch(row.receivedAtEpochMillis) }}</template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" :label="t('common.status')" width="100">
             <template #default="{ row }">
               <el-tag :type="row.status === 'firing' ? 'danger' : 'success'" size="small">{{ row.status }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="severity" label="级别" width="100">
+          <el-table-column prop="severity" :label="t('monitor.level')" width="100">
             <template #default="{ row }">
               <el-tag :type="row.severity === 'critical' ? 'danger' : row.severity === 'warning' ? 'warning' : 'info'" size="small">
                 {{ row.severity || 'unknown' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="告警名" width="200" show-overflow-tooltip />
-          <el-table-column prop="instance" label="对象" width="160" show-overflow-tooltip>
+          <el-table-column prop="name" :label="t('monitor.alertName')" width="200" show-overflow-tooltip />
+          <el-table-column prop="instance" :label="t('monitor.object')" width="160" show-overflow-tooltip>
             <template #default="{ row }">{{ row.instance || '--' }}</template>
           </el-table-column>
-          <el-table-column prop="summary" label="摘要" min-width="240" show-overflow-tooltip />
-          <el-table-column prop="startsAt" label="生效时间" width="170" show-overflow-tooltip>
+          <el-table-column prop="summary" :label="t('monitor.summary')" min-width="240" show-overflow-tooltip />
+          <el-table-column prop="startsAt" :label="t('monitor.effectiveTime')" width="170" show-overflow-tooltip>
             <template #default="{ row }">{{ row.startsAt || '--' }}</template>
           </el-table-column>
-          <el-table-column prop="endsAt" label="消除时间" width="170" show-overflow-tooltip>
+          <el-table-column prop="endsAt" :label="t('monitor.resolveTime')" width="170" show-overflow-tooltip>
             <template #default="{ row }">{{ row.endsAt || '--' }}</template>
           </el-table-column>
         </el-table>
@@ -124,6 +124,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Delete } from '@element-plus/icons-vue'
@@ -176,13 +177,13 @@ function resetQuery() {
 
 async function onClear() {
   try {
-    await ElMessageBox.confirm('确认清空告警收件箱？将整体丢弃当前窗口（最多为容量条），已发布的事件不受影响。', '清空确认', { type: 'warning' })
+    await ElMessageBox.confirm(t('monitor.confirmClearInbox'), t('monitor.clearConfirm'), { type: 'warning' })
   } catch {
     return
   }
   try {
     const cleared = await clearAlerts()
-    ElMessage.success(`已清空 ${cleared ?? 0} 条`)
+    ElMessage.success(t('monitor.clearedN', { cleared: cleared ?? 0 }))
     load()
   } catch (e) {
     // 拦截器已提示

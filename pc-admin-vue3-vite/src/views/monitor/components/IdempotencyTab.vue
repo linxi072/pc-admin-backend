@@ -1,7 +1,7 @@
 <template>
   <div>
-    <el-empty v-if="denied" description="无「幂等记录读取」权限（system:idempotency:read），请联系管理员授权后重试">
-      <el-button type="primary" @click="load">重新加载</el-button>
+    <el-empty v-if="denied" :description="t('monitor.noIdemPerm')">
+      <el-button type="primary" @click="load">{{ t('common.reload') }}</el-button>
     </el-empty>
 
     <template v-else>
@@ -10,7 +10,7 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ summary.total ?? '--' }}</div>
-            <div class="stat-label">筛选口径总数</div>
+            <div class="stat-label">{{ t('monitor.filterTotal') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
@@ -18,7 +18,7 @@
             <div class="stat-num" :class="summary.processing > 0 ? 'stat-danger' : ''">
               {{ summary.processing ?? 0 }}
             </div>
-            <div class="stat-label">PROCESSING（在途残留）</div>
+            <div class="stat-label">{{ t('monitor.processing') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
@@ -38,13 +38,13 @@
             <div class="stat-num" :class="summary.expiredPending > 0 ? 'stat-danger' : ''">
               {{ summary.expiredPending ?? 0 }}
             </div>
-            <div class="stat-label">已过期待清理</div>
+            <div class="stat-label">{{ t('monitor.expiredToClean') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-time">{{ fmtDateTime(summary.lastCreatedAt) }}</div>
-            <div class="stat-label">最近登记时间</div>
+            <div class="stat-label">{{ t('monitor.lastRegister') }}</div>
           </div>
         </el-col>
       </el-row>
@@ -53,33 +53,33 @@
         <div class="toolbar">
           <div class="toolbar-filters">
             <div class="filter-group">
-              <span class="filter-label">状态</span>
-              <el-select v-model="query.status" placeholder="全部" clearable style="width: 150px">
+              <span class="filter-label">{{ t('common.status') }}</span>
+              <el-select v-model="query.status" :placeholder="t('common.all')" clearable style="width: 150px">
                 <el-option label="PROCESSING" value="PROCESSING" />
                 <el-option label="SUCCESS" value="SUCCESS" />
                 <el-option label="FAILED" value="FAILED" />
               </el-select>
             </div>
             <div class="filter-group">
-              <span class="filter-label">接口域</span>
+              <span class="filter-label">{{ t('monitor.interfaceDomain') }}</span>
               <el-input v-model="query.apiScope" placeholder="@Idempotent scope" clearable style="width: 160px" />
             </div>
             <div class="filter-group">
-              <span class="filter-label">用户 ID</span>
-              <el-input v-model="query.userId" placeholder="精确匹配" clearable style="width: 120px" />
+              <span class="filter-label">{{ t('monitor.userId') }}</span>
+              <el-input v-model="query.userId" :placeholder="t('monitor.exactMatch')" clearable style="width: 120px" />
             </div>
             <div class="filter-group">
-              <span class="filter-label">关键字</span>
-              <el-input v-model="query.keyword" placeholder="幂等键/错误信息" clearable style="width: 220px" @keyup.enter="onSearch" />
+              <span class="filter-label">{{ t('common.keyword') }}</span>
+              <el-input v-model="query.keyword" :placeholder="t('monitor.idempotencyKeyErr')" clearable style="width: 220px" @keyup.enter="onSearch" />
             </div>
             <div class="filter-group">
-              <span class="filter-label">时间范围</span>
+              <span class="filter-label">{{ t('monitor.timeRange') }}</span>
               <el-date-picker
                 v-model="dateRange"
                 type="datetimerange"
-                range-separator="至"
-                start-placeholder="开始时间"
-                end-placeholder="结束时间"
+                :range-separator="t('common.to')"
+                :start-placeholder="t('common.startTime')"
+                :end-placeholder="t('monitor.endTime')"
                 value-format="YYYY-MM-DDTHH:mm:ss"
                 style="width: 340px"
               />
@@ -87,40 +87,40 @@
           </div>
           <div class="toolbar-actions">
             <div class="action-buttons">
-              <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-              <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-              <el-button type="danger" :icon="Delete" @click="onPurge">清理过期</el-button>
+              <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
+              <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+              <el-button type="danger" :icon="Delete" @click="onPurge">{{ t('monitor.cleanExpired') }}</el-button>
             </div>
           </div>
         </div>
 
         <el-table :data="rows" v-loading="loading" border stripe>
-          <el-table-column prop="idempotencyKey" label="幂等键" min-width="220" show-overflow-tooltip />
-          <el-table-column prop="apiScope" label="接口域" width="150" show-overflow-tooltip />
-          <el-table-column prop="status" label="状态" width="120">
+          <el-table-column prop="idempotencyKey" :label="t('monitor.idempotencyKey')" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="apiScope" :label="t('monitor.interfaceDomain')" width="150" show-overflow-tooltip />
+          <el-table-column prop="status" :label="t('common.status')" width="120">
             <template #default="{ row }">
               <el-tag :type="row.status === 'FAILED' ? 'danger' : row.status === 'PROCESSING' ? 'warning' : 'success'" size="small">
                 {{ row.status }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="userId" label="用户" width="90">
-            <template #default="{ row }">{{ row.userId ?? '匿名' }}</template>
+          <el-table-column prop="userId" :label="t('monitor.user')" width="90">
+            <template #default="{ row }">{{ row.userId ?? t('monitor.anonymous') }}</template>
           </el-table-column>
-          <el-table-column prop="errorCode" label="错误码" width="150" show-overflow-tooltip>
+          <el-table-column prop="errorCode" :label="t('monitor.errorCode')" width="150" show-overflow-tooltip>
             <template #default="{ row }">{{ row.errorCode || '--' }}</template>
           </el-table-column>
-          <el-table-column prop="expiresAt" label="过期时间" width="170">
+          <el-table-column prop="expiresAt" :label="t('monitor.expireTime')" width="170">
             <template #default="{ row }">
               <span :class="{ 'expired-flag': row.expired }">{{ fmtDateTime(row.expiresAt) }}</span>
-              <el-tag v-if="row.expired" type="danger" size="small" style="margin-left: 4px">已过期</el-tag>
+              <el-tag v-if="row.expired" type="danger" size="small" style="margin-left: 4px">{{ t('monitor.expired') }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createdAt" label="登记时间" width="170">
+          <el-table-column prop="createdAt" :label="t('monitor.registerTime')" width="170">
             <template #default="{ row }">{{ fmtDateTime(row.createdAt) }}</template>
           </el-table-column>
-          <el-table-column prop="requestFingerprint" label="请求指纹" width="150" show-overflow-tooltip />
-          <el-table-column prop="errorMessage" label="失败原因" min-width="180" show-overflow-tooltip>
+          <el-table-column prop="requestFingerprint" :label="t('monitor.requestFingerprint')" width="150" show-overflow-tooltip />
+          <el-table-column prop="errorMessage" :label="t('monitor.failReason')" min-width="180" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.errorMessage" class="error-text">{{ row.errorMessage }}</span>
               <span v-else class="muted">--</span>
@@ -150,6 +150,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Delete } from '@element-plus/icons-vue'
@@ -235,8 +236,8 @@ function resetQuery() {
 async function onPurge() {
   try {
     await ElMessageBox.confirm(
-      '确认清理已过期的幂等记录？仅删除 expires_at 已过的记录，与周期清理任务同口径。',
-      '清理确认',
+      t('monitor.confirmCleanIdem'),
+      t('monitor.cleanConfirm'),
       { type: 'warning' }
     )
   } catch {
@@ -244,7 +245,7 @@ async function onPurge() {
   }
   try {
     const removed = await purgeIdempotencyRecords()
-    ElMessage.success(`已清理 ${removed ?? 0} 条过期记录`)
+    ElMessage.success(t('monitor.cleanedExpired', { removed: removed ?? 0 }))
     load()
   } catch (e) {
     // 拦截器已提示
