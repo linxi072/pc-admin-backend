@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.acme.scaffold.common.text.TextUtils;
+
 /**
  * 告警收件箱查询纯函数规则：筛选值归一、读取上限钳制、汇总统计。
  *
@@ -140,15 +142,9 @@ public final class AlertInboxRules {
         return new Summary(capacity, total, firing, resolved, sortByCountDesc(bySeverity), mostRecent, oldest);
     }
 
-    /** 通用截断：null 原样返回，超长截取前 {@code max} 字符（不追加省略号，用于视图展示）。 */
+    /** 通用截断：委托 {@link com.acme.scaffold.common.text.TextUtils#truncate(String, int)}（单一事实来源）。 */
     public static String truncate(String text, int max) {
-        if (text == null) {
-            return null;
-        }
-        if (max <= 0) {
-            return "";
-        }
-        return text.length() <= max ? text : text.substring(0, max);
+        return TextUtils.truncate(text, max);
     }
 
     private static long toEpochMilli(Instant instant) {

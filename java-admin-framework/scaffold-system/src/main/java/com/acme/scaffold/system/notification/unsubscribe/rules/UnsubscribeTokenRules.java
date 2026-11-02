@@ -10,6 +10,8 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Optional;
 
+import com.acme.scaffold.common.security.ConstantTime;
+
 /**
  * 退订令牌纯函数规则（M15）：HMAC-SHA256 签名的「免登录退订」凭证编解码。
  *
@@ -88,7 +90,7 @@ public final class UnsubscribeTokenRules {
             return Optional.empty();
         }
         String body = parts[0] + "." + parts[1];
-        if (!constantTimeEquals(sign(secret, body), parts[2])) {
+        if (!ConstantTime.equals(sign(secret, body), parts[2])) {
             return Optional.empty();
         }
         String payload = decode(parts[1]);
@@ -143,21 +145,5 @@ public final class UnsubscribeTokenRules {
         } catch (GeneralSecurityException ex) {
             throw new IllegalStateException("HMAC-SHA256 不可用", ex);
         }
-    }
-
-    private static boolean constantTimeEquals(String left, String right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        byte[] leftBytes = left.getBytes(StandardCharsets.UTF_8);
-        byte[] rightBytes = right.getBytes(StandardCharsets.UTF_8);
-        if (leftBytes.length != rightBytes.length) {
-            return false;
-        }
-        int diff = 0;
-        for (int i = 0; i < leftBytes.length; i++) {
-            diff |= leftBytes[i] ^ rightBytes[i];
-        }
-        return diff == 0;
     }
 }

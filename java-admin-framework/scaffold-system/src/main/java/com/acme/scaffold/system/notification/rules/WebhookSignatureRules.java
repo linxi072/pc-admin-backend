@@ -7,6 +7,8 @@ import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
 
+import com.acme.scaffold.common.security.ConstantTime;
+
 /**
  * Webhook 外发 HMAC 签名规则（M18）：对「外发报文 + 时间戳 + 一次性 nonce」做 HMAC-SHA256 签名，
  * 由 {@code RestTemplateWebhookClient} 注入请求头、由接收方（或本框架校验器）验签，
@@ -141,22 +143,6 @@ public final class WebhookSignatureRules {
         }
         String expected = sign(key, ts, nonceHeader, rawBody);
         String provided = stripScheme(signatureHeader.trim());
-        return constantTimeEquals(expected, provided);
-    }
-
-    private static boolean constantTimeEquals(String left, String right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        byte[] leftBytes = left.getBytes(StandardCharsets.UTF_8);
-        byte[] rightBytes = right.getBytes(StandardCharsets.UTF_8);
-        if (leftBytes.length != rightBytes.length) {
-            return false;
-        }
-        int diff = 0;
-        for (int i = 0; i < leftBytes.length; i++) {
-            diff |= leftBytes[i] ^ rightBytes[i];
-        }
-        return diff == 0;
+        return ConstantTime.equals(expected, provided);
     }
 }
