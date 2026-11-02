@@ -1,6 +1,7 @@
 package com.acme.scaffold.common.idempotency.rules;
 
 import com.acme.scaffold.common.idempotency.IdempotencyStatus;
+import com.acme.scaffold.common.text.TextUtils;
 
 import java.time.LocalDateTime;
 
@@ -114,15 +115,9 @@ public final class IdempotencyRecordRules {
         return expiresAt != null && expiresAt.isBefore(now);
     }
 
-    /** 通用截断：null 原样返回，超长截取前 {@code max} 字符（不追加省略号，用于定宽列与筛选值）。 */
+    /** 通用截断：委托 {@link com.acme.scaffold.common.text.TextUtils#truncate(String, int)}（单一事实来源）。 */
     public static String truncate(String text, int max) {
-        if (text == null) {
-            return null;
-        }
-        if (max <= 0) {
-            return "";
-        }
-        return text.length() <= max ? text : text.substring(0, max);
+        return TextUtils.truncate(text, max);
     }
 
     /** 收敛后的时间窗（闭区间）。 */

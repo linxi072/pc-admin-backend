@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.acme.scaffold.common.text.TextUtils;
+
 /**
  * 短信发送记录纯函数规则：号码掩码、正文摘要、筛选值归一。
  *
@@ -101,11 +103,8 @@ public final class SmsRecordRules {
         return null;
     }
 
-    /** 通用截断：null 原样返回，超长截取前 {@code max} 字符（不追加省略号，用于定宽列）。 */
+    /** 通用截断：委托 {@link com.acme.scaffold.common.text.TextUtils#truncate(String, int)}（单一事实来源）。 */
     public static String truncate(String text, int max) {
-        if (text == null || max <= 0) {
-            return max <= 0 ? "" : text;
-        }
-        return text.length() <= max ? text : text.substring(0, max);
+        return TextUtils.truncate(text, max);
     }
 }

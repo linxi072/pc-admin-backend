@@ -96,5 +96,11 @@
             <artifactId>scaffold-realtime</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 认证授权域（已拆分为独立模块 scaffold-security；本模块通过以下依赖使用其 Port 与适配器） -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-security</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 </project>

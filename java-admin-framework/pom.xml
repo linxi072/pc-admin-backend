@@ -5,7 +5,7 @@
   拆分方式参照 RuoYi-Vue 的模块化单体思路：公共件与框架装配下沉为基础模块，
   业务能力（系统/工作流/调度/监控/工作台/代码生成/消息/实时）各为独立模块，
   启动装配收敛到 scaffold-admin。模块依赖必须成 DAG（由 scripts/check-conventions.py
-  的 H5 模块环检测守护），拆分方案与迁移步骤见 docs/manual/module-split.md。
+  的 H5 模块环检测守护）。拆分约束与迁移步骤见 docs/ARCHITECTURE.md 与 docs/MODULES.md。
 
   坐标约定：groupId 与包根一致（com.acme.scaffold），artifactId 统一 scaffold- 前缀；
   各模块版本与父 POM 对齐（1.0.0），Java 包名保持 com.acme.scaffold.* 不变
@@ -37,6 +37,8 @@
         <module>scaffold-realtime</module>
         <module>scaffold-kafka</module>
         <module>scaffold-codegen</module>
+        <!-- 认证授权与令牌域（JWT/刷新令牌/Token 版本、OAuth2、密码策略、数据权限、限流、在线会话） -->
+        <module>scaffold-security</module>
         <!-- 框架装配层：config/observability/monitor.detection + realtime 的 WebSocket 端点注册 -->
         <module>scaffold-framework</module>
         <!-- 业务层 -->

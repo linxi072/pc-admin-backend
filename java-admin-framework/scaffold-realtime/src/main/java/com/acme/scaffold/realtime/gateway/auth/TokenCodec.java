@@ -7,6 +7,8 @@ import java.security.GeneralSecurityException;
 import java.util.Base64;
 import java.util.Optional;
 
+import com.acme.scaffold.common.security.ConstantTime;
+
 /**
  * 短期令牌编解码（演示级实现，对应设计稿 §3.2「短期令牌 + 防重放」）。
  *
@@ -61,7 +63,7 @@ public final class TokenCodec {
         }
         ParsedToken body = parsed.get();
         String expected = sign(secret, VERSION + "." + body.userId() + "." + body.exp() + "." + body.iat());
-        return constantTimeEquals(expected, body.signature());
+        return ConstantTime.equals(expected, body.signature());
     }
 
     private static String sign(String secret, String body) {
@@ -73,21 +75,5 @@ public final class TokenCodec {
         } catch (GeneralSecurityException ex) {
             throw new IllegalStateException("HMAC-SHA256 不可用", ex);
         }
-    }
-
-    private static boolean constantTimeEquals(String left, String right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        byte[] leftBytes = left.getBytes(StandardCharsets.UTF_8);
-        byte[] rightBytes = right.getBytes(StandardCharsets.UTF_8);
-        if (leftBytes.length != rightBytes.length) {
-            return false;
-        }
-        int diff = 0;
-        for (int i = 0; i < leftBytes.length; i++) {
-            diff |= leftBytes[i] ^ rightBytes[i];
-        }
-        return diff == 0;
     }
 }

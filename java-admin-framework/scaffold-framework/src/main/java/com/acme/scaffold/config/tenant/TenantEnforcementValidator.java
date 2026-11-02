@@ -45,7 +45,7 @@ public class TenantEnforcementValidator implements CommandLineRunner {
         } else {
             log.info("多租户强制隔离未启用(enforce=false，默认值)：隔离逻辑就绪但未生效，"
                     + "业务表读写暂不加 tenant_id 约束（保持对既有单租户部署的零回归）。"
-                    + "生产启用见 docs/manual/m19-production-enablement.md。");
+                    + "生产启用需将 tenant.enforce 置为 true 并完成历史数据按租户归位。");
         }
     }
 }

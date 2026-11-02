@@ -4,7 +4,7 @@
 
 > 本脚手架已完成**技术栈迁移**：持久层由 MyBatis-Plus → jOOQ，任务调度由 XXL-JOB → JobRunr；迁移后功能与原实现保持一致（表结构、接口契约、权限码、流程语义均未变更），且**全流程不使用 Docker**（构建与部署均以原生进程方式运行）。
 >
-> V1.0.3 起工程按功能维度拆分为 **11 个 Maven 模块**（参照 RuoYi-Vue 模块化单体思路），模块职责、依赖 DAG 与命名规范见 **[`docs/manual/module-split.md`](docs/manual/module-split.md)**。
+> V1.0.3 起工程按功能维度拆分为 **12 个 Maven 模块**（参照 RuoYi-Vue 模块化单体思路），模块职责、依赖 DAG 与命名规范见 **[`docs/MODULES.md`](docs/MODULES.md)**；架构 / 关键流程 / 使用方式见 `docs/` 下新生成的核心文档。
 
 ## 模块结构
 
@@ -15,8 +15,9 @@ java-admin-framework
 ├── scaffold-realtime     # 通信层：WebSocket 握手鉴权端口与会话管理
 ├── scaffold-kafka        # 通信层：Kafka 保序规则与消费者薄封装
 ├── scaffold-codegen      # 工具层：表元数据读取与 CRUD 骨架生成
+├── scaffold-security     # 认证授权与令牌域：JWT/刷新令牌/Token 版本、OAuth2、密码策略、数据权限、限流、在线会话
 ├── scaffold-framework    # 框架装配层：全局 Spring 配置、指标链路、N+1/慢查询监听
-├── scaffold-system       # 业务层：RBAC + 认证授权 + 系统管理
+├── scaffold-system       # 业务层：RBAC + 系统管理
 ├── scaffold-monitor      # 业务层：告警收件箱、健康探针、监控查询
 ├── scaffold-job          # 业务层：任务定义管理与周期任务注册（JobRunr）
 ├── scaffold-workbench    # 业务层：工作台看板与报表
@@ -25,12 +26,12 @@ java-admin-framework
 
 ## 文档
 
-项目文档已统一整理为四本独立手册，详见 **[`docs/index.md`](docs/index.md)**：
+重构后的统一文档入口见 **[`docs/README.md`](docs/README.md)**。新生成的核心文档：
 
-- 架构手册：[`docs/manual/architecture.md`](docs/manual/architecture.md)
-- 开发手册：[`docs/manual/development.md`](docs/manual/development.md)
-- 运维手册：[`docs/manual/operations.md`](docs/manual/operations.md)
-- 部署手册：[`docs/manual/deployment.md`](docs/manual/deployment.md)
+- 架构说明：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- 模块职责：[`docs/MODULES.md`](docs/MODULES.md)
+- 关键流程：[`docs/KEY-FLOWS.md`](docs/KEY-FLOWS.md)
+- 使用方式：[`docs/USAGE.md`](docs/USAGE.md)
 
 ## 快速开始
 
