@@ -1,34 +1,34 @@
 <template>
   <div>
-    <h2 class="page-title">接口资源管理</h2>
+    <h2 class="page-title">{{ t('route.apiResource') }}</h2>
     <el-card class="page-card">
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">资源名称</span>
+            <span class="filter-label">{{ t('system.resourceNameSys') }}</span>
             <el-input
               v-model="filters.resourceName"
-              placeholder="资源名称"
+              :placeholder="t('system.resourceNameSys')"
               clearable
               style="width: 180px"
               @clear="page = 1"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">权限标识</span>
+            <span class="filter-label">{{ t('system.permissionCodeSys') }}</span>
             <el-input
               v-model="filters.permissionCode"
-              placeholder="权限标识"
+              :placeholder="t('system.permissionCodeSys')"
               clearable
               style="width: 180px"
               @clear="page = 1"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">方法</span>
+            <span class="filter-label">{{ t('system.methodSys') }}</span>
             <el-select
               v-model="filters.httpMethod"
-              placeholder="方法"
+              :placeholder="t('system.methodSys')"
               clearable
               style="width: 120px"
               @change="page = 1"
@@ -42,26 +42,26 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button :icon="Refresh" :loading="scanning" @click="onScan">扫描对比</el-button>
+            <el-button :icon="Refresh" :loading="scanning" @click="onScan">{{ t('system.scanCompare') }}</el-button>
           </div>
           <div class="action-buttons">
-            <el-button type="primary" :icon="Plus" @click="openCreate">注册接口资源</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.registerApiResource') }}</el-button>
           </div>
         </div>
       </div>
 
       <el-table :data="pagedRows" v-loading="loading" border stripe>
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="resourceName" label="资源名称" min-width="160" />
-        <el-table-column prop="permissionCode" label="权限标识" min-width="170" show-overflow-tooltip />
-        <el-table-column label="方法" width="100">
+        <el-table-column prop="resourceName" :label="t('system.resourceNameSys')" min-width="160" />
+        <el-table-column prop="permissionCode" :label="t('system.permissionCodeSys')" min-width="170" show-overflow-tooltip />
+        <el-table-column :label="t('system.methodSys')" width="100">
           <template #default="{ row }">
             <el-tag :type="methodType(row.httpMethod)" size="small">{{ row.httpMethod }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="pathPattern" label="路径模式" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="authMode" label="鉴权模式" width="110" />
-        <el-table-column label="风险等级" width="100">
+        <el-table-column prop="pathPattern" :label="t('system.pathPattern')" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="authMode" :label="t('system.authMode')" width="110" />
+        <el-table-column :label="t('system.riskLevel')" width="100">
           <template #default="{ row }">
             <el-tag
               :type="row.riskLevel === 'HIGH' ? 'danger' : row.riskLevel === 'MEDIUM' ? 'warning' : 'info'"
@@ -71,12 +71,12 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="170" fixed="right">
+        <el-table-column :label="t('common.operation')" width="170" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-popconfirm title="确认删除该接口资源？" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-popconfirm :title="t('system.confirmDeleteApi')" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">删除</el-button>
+                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -95,15 +95,15 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editingId !== null ? '编辑接口资源' : '注册接口资源'" width="560px">
+    <el-dialog v-model="dialogVisible" :title="editingId !== null ? t('system.editApiResource') : t('system.registerApiResource')" width="560px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="资源名称" prop="resourceName">
-          <el-input v-model="form.resourceName" placeholder="如 用户-分页查询" />
+        <el-form-item :label="t('system.resourceNameSys')" prop="resourceName">
+          <el-input v-model="form.resourceName" :placeholder="t('system.phUserPaginatedQuery')" />
         </el-form-item>
-        <el-form-item label="权限标识" prop="permissionCode">
+        <el-form-item :label="t('system.permissionCodeSys')" prop="permissionCode">
           <el-input v-model="form.permissionCode" placeholder="system:user:read" />
         </el-form-item>
-        <el-form-item label="HTTP 方法" prop="httpMethod">
+        <el-form-item :label="t('system.httpMethod')" prop="httpMethod">
           <el-select v-model="form.httpMethod" style="width: 100%">
             <el-option label="GET" value="GET" />
             <el-option label="POST" value="POST" />
@@ -111,50 +111,50 @@
             <el-option label="DELETE" value="DELETE" />
           </el-select>
         </el-form-item>
-        <el-form-item label="路径模式" prop="pathPattern">
+        <el-form-item :label="t('system.pathPattern')" prop="pathPattern">
           <el-input v-model="form.pathPattern" placeholder="/api/system/users/**" />
         </el-form-item>
-        <el-form-item label="鉴权模式">
+        <el-form-item :label="t('system.authMode')">
           <el-select v-model="form.authMode" style="width: 100%">
             <el-option label="JWT" value="JWT" />
             <el-option label="REQUIRED" value="REQUIRED" />
             <el-option label="ANONYMOUS" value="ANONYMOUS" />
           </el-select>
         </el-form-item>
-        <el-form-item label="风险等级">
+        <el-form-item :label="t('system.riskLevel')">
           <el-select v-model="form.riskLevel" style="width: 100%">
-            <el-option label="低 (LOW)" value="LOW" />
-            <el-option label="中 (MEDIUM)" value="MEDIUM" />
-            <el-option label="高 (HIGH)" value="HIGH" />
+            <el-option :label="t('system.riskLow')" value="LOW" />
+            <el-option :label="t('system.riskMedium')" value="MEDIUM" />
+            <el-option :label="t('system.riskHigh')" value="HIGH" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="scanVisible" title="扫描对比结果" size="70%">
+    <el-drawer v-model="scanVisible" :title="t('system.scanCompareResult')" size="70%">
       <div class="scan-summary">
         <div class="scan-item">
-          <span class="label">扫描接口总数</span>
+          <span class="label">{{ t('system.scanTotal') }}</span>
           <span class="value">{{ scanResult.total }}</span>
         </div>
         <div class="scan-item">
-          <span class="label">待新增</span>
+          <span class="label">{{ t('system.toAdd') }}</span>
           <span class="value warn">{{ scanResult.newResources.length }}</span>
         </div>
         <div class="scan-item">
-          <span class="label">待更新</span>
+          <span class="label">{{ t('system.toUpdate') }}</span>
           <span class="value warn">{{ scanResult.changedResources.length }}</span>
         </div>
         <div class="scan-item">
-          <span class="label">无变化</span>
+          <span class="label">{{ t('system.noChangeSys') }}</span>
           <span class="value">{{ scanResult.unchangedCount }}</span>
         </div>
         <div class="scan-item">
-          <span class="label">库中失效</span>
+          <span class="label">{{ t('system.staleInDb') }}</span>
           <span class="value muted">{{ scanResult.orphanedResources.length }}</span>
         </div>
       </div>
@@ -163,55 +163,55 @@
         type="info"
         show-icon
         :closable="false"
-        title="失效记录不会自动删除"
-        description="库中存在但代码里已无对应接口的记录，仅供人工确认。删除前请先到「角色管理」确认没有角色引用它，否则会造成授权悬空。"
+        :title="t('system.staleNotDeleted')"
+        :description="t('system.orphanApiHint')"
         style="margin-bottom: 12px"
       />
 
       <el-tabs v-model="scanTab">
-        <el-tab-pane :label="`待新增 (${scanResult.newResources.length})`" name="new">
+        <el-tab-pane :label="t('system.toAddCount', { n: scanResult.newResources.length })" name="new">
           <el-table :data="scanResult.newResources" border stripe max-height="460">
-            <el-table-column label="方法" width="100">
+            <el-table-column :label="t('system.methodSys')" width="100">
               <template #default="{ row }">
                 <el-tag :type="methodType(row.httpMethod)" size="small">{{ row.httpMethod }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="pathPattern" label="路径模式" min-width="230" show-overflow-tooltip />
-            <el-table-column prop="permissionCode" label="权限标识" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="resourceName" label="资源名称" min-width="160" show-overflow-tooltip />
-            <el-table-column prop="controllerMethod" label="源码位置" min-width="190" show-overflow-tooltip />
+            <el-table-column prop="pathPattern" :label="t('system.pathPattern')" min-width="230" show-overflow-tooltip />
+            <el-table-column prop="permissionCode" :label="t('system.permissionCodeSys')" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="resourceName" :label="t('system.resourceNameSys')" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="controllerMethod" :label="t('system.sourceLocation')" min-width="190" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
-        <el-tab-pane :label="`待更新 (${scanResult.changedResources.length})`" name="changed">
+        <el-tab-pane :label="t('system.toUpdateCount', { n: scanResult.changedResources.length })" name="changed">
           <el-table :data="scanResult.changedResources" border stripe max-height="460">
-            <el-table-column label="方法" width="100">
+            <el-table-column :label="t('system.methodSys')" width="100">
               <template #default="{ row }">
                 <el-tag :type="methodType(row.httpMethod)" size="small">{{ row.httpMethod }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="pathPattern" label="路径模式" min-width="230" show-overflow-tooltip />
-            <el-table-column prop="permissionCode" label="权限标识" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="resourceName" label="资源名称" min-width="160" show-overflow-tooltip />
-            <el-table-column prop="controllerMethod" label="源码位置" min-width="190" show-overflow-tooltip />
+            <el-table-column prop="pathPattern" :label="t('system.pathPattern')" min-width="230" show-overflow-tooltip />
+            <el-table-column prop="permissionCode" :label="t('system.permissionCodeSys')" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="resourceName" :label="t('system.resourceNameSys')" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="controllerMethod" :label="t('system.sourceLocation')" min-width="190" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
-        <el-tab-pane :label="`库中失效 (${scanResult.orphanedResources.length})`" name="orphan">
+        <el-tab-pane :label="t('system.staleCount', { n: scanResult.orphanedResources.length })" name="orphan">
           <el-table :data="scanResult.orphanedResources" border stripe max-height="460">
             <el-table-column prop="id" label="ID" width="70" />
-            <el-table-column prop="resourceName" label="资源名称" min-width="160" />
-            <el-table-column prop="permissionCode" label="权限标识" min-width="170" show-overflow-tooltip />
-            <el-table-column label="方法" width="100">
+            <el-table-column prop="resourceName" :label="t('system.resourceNameSys')" min-width="160" />
+            <el-table-column prop="permissionCode" :label="t('system.permissionCodeSys')" min-width="170" show-overflow-tooltip />
+            <el-table-column :label="t('system.methodSys')" width="100">
               <template #default="{ row }">
                 <el-tag :type="methodType(row.httpMethod)" size="small">{{ row.httpMethod }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="pathPattern" label="路径模式" min-width="220" show-overflow-tooltip />
+            <el-table-column prop="pathPattern" :label="t('system.pathPattern')" min-width="220" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
       </el-tabs>
 
       <template #footer>
-        <el-button @click="scanVisible = false">关闭</el-button>
+        <el-button @click="scanVisible = false">{{ t('common.close') }}</el-button>
         <el-button
           type="primary"
           :icon="Refresh"
@@ -227,6 +227,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Edit, Refresh } from '@element-plus/icons-vue'
@@ -274,10 +275,10 @@ const form = reactive({
   riskLevel: 'LOW'
 })
 const rules = {
-  resourceName: [{ required: true, message: '请输入资源名称', trigger: 'blur' }],
-  permissionCode: [{ required: true, message: '请输入权限标识', trigger: 'blur' }],
-  httpMethod: [{ required: true, message: '请选择方法', trigger: 'change' }],
-  pathPattern: [{ required: true, message: '请输入路径模式', trigger: 'blur' }]
+  resourceName: [{ required: true, message: t('system.needResourceName'), trigger: 'blur' }],
+  permissionCode: [{ required: true, message: t('system.needPermissionCode'), trigger: 'blur' }],
+  httpMethod: [{ required: true, message: t('system.selectMethod'), trigger: 'change' }],
+  pathPattern: [{ required: true, message: t('system.needPathPattern'), trigger: 'blur' }]
 }
 
 // 后端一次性返回全量列表（非分页），前端做客户端筛选
@@ -348,10 +349,10 @@ async function onSubmit() {
   try {
     if (editingId.value != null) {
       await updateApiResource(editingId.value, { ...form })
-      ElMessage.success('更新成功')
+      ElMessage.success(t('system.updated'))
     } else {
       await createApiResource({ ...form })
-      ElMessage.success('注册成功')
+      ElMessage.success(t('system.registered'))
     }
     dialogVisible.value = false
     editingId.value = null
@@ -364,7 +365,7 @@ async function onSubmit() {
 async function onDelete(row) {
   try {
     await deleteApiResource(row.id)
-    ElMessage.success('已删除')
+    ElMessage.success(t('common.deleted'))
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -387,7 +388,7 @@ async function onScan() {
     scanTab.value = scanResult.newResources.length ? 'new' : 'changed'
     scanVisible.value = true
     if (pendingCount.value === 0) {
-      ElMessage.success('接口资源已是最新，无需同步')
+      ElMessage.success(t('system.apiUpToDate'))
     }
   } finally {
     scanning.value = false
@@ -397,14 +398,14 @@ async function onScan() {
 /** 执行同步写库。无变更时按钮禁用，这里再兜一层确认。 */
 async function onSync() {
   if (pendingCount.value === 0) {
-    ElMessage.info('没有需要同步的接口')
+    ElMessage.info(t('system.noApiToSync'))
     return
   }
   try {
     await ElMessageBox.confirm(
-      `将新增 ${scanResult.newResources.length} 条、更新 ${scanResult.changedResources.length} 条接口资源。更新会覆盖权限标识与资源名称（状态与风险等级保留）。是否继续？`,
-      '确认同步',
-      { type: 'warning', confirmButtonText: '同步', cancelButtonText: '取消' }
+      t('system.apiSyncConfirm', { add: scanResult.newResources.length, update: scanResult.changedResources.length }),
+      t('system.confirmSync'),
+      { type: 'warning', confirmButtonText: t('system.syncSys'), cancelButtonText: t('common.cancel') }
     )
   } catch (e) {
     return
@@ -413,7 +414,7 @@ async function onSync() {
   try {
     const r = await syncApiResources()
     ElMessage.success(
-      `同步完成：新增 ${r.insertedCount} 条，更新 ${r.updatedCount} 条，无变化 ${r.unchangedCount} 条`
+      t('system.apiSyncDone', { inserted: r.insertedCount, updated: r.updatedCount, unchanged: r.unchangedCount })
     )
     scanVisible.value = false
     load()

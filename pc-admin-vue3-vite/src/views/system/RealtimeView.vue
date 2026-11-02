@@ -1,14 +1,14 @@
 <template>
   <div>
-    <h2 class="page-title">实时推送</h2>
+    <h2 class="page-title">{{ t('common.realtimePush') }}</h2>
 
     <div class="toolbar" style="margin-bottom: 12px">
       <div class="toolbar-filters">
-        <span class="filter-label">在线会话与手动推送运维：只读查看在线连接，必要时向在线用户广播或定向推送实时消息</span>
+        <span class="filter-label">{{ t('system.realtimeOpsDesc') }}</span>
       </div>
       <div class="toolbar-actions">
         <div class="action-buttons">
-          <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
+          <el-button :icon="Refresh" :loading="loading" @click="load">{{ t('common.refresh') }}</el-button>
         </div>
       </div>
     </div>
@@ -27,28 +27,28 @@
       v-if="!error && onlineCount === 0 && !loading"
       type="info"
       :closable="false"
-      title="当前未查询到在线会话（实时网关 realtime.gateway.enabled=false 或未启用时属正常状态；前端进入页面时已通过 REST 拉取全量待办/未读）。"
+      :title="t('system.noOnlineSessionHint')"
       show-icon
       style="margin-bottom: 12px"
     />
 
-    <el-card class="page-card section" header="在线总览">
+    <el-card class="page-card section" :header="t('system.onlineOverview')">
       <div class="stat-grid">
         <div class="stat-card">
-          <div class="label">在线会话总数</div>
+          <div class="label">{{ t('system.onlineSessionTotal') }}</div>
           <div class="value">{{ onlineCount }}</div>
         </div>
         <div class="stat-card">
-          <div class="label">在线用户数</div>
+          <div class="label">{{ t('system.onlineUserCount') }}</div>
           <div class="value">{{ sessions.length }}</div>
         </div>
       </div>
     </el-card>
 
-    <el-card class="page-card section" header="在线会话列表">
-      <el-table :data="sessions" v-loading="loading" empty-text="暂无在线会话" style="width: 100%">
-        <el-table-column prop="userId" label="用户 ID" min-width="160" />
-        <el-table-column prop="sessionCount" label="活跃会话数" min-width="140">
+    <el-card class="page-card section" :header="t('system.onlineSessionList')">
+      <el-table :data="sessions" v-loading="loading" :empty-text="t('system.noOnlineSessions')" style="width: 100%">
+        <el-table-column prop="userId" :label="t('monitor.userId')" min-width="160" />
+        <el-table-column prop="sessionCount" :label="t('system.activeSessionCount')" min-width="140">
           <template #default="{ row }">
             <el-tag size="small">{{ row.sessionCount }}</el-tag>
           </template>
@@ -56,20 +56,20 @@
       </el-table>
     </el-card>
 
-    <el-card class="page-card section" header="广播推送（向所有在线会话）">
+    <el-card class="page-card section" :header="t('system.broadcastPush')">
       <el-form :model="broadcastForm" label-width="96px" @submit.prevent>
-        <el-form-item label="使用模板">
+        <el-form-item :label="t('system.useTemplate')">
           <el-switch v-model="broadcastForm.useTemplate" @change="onUseTemplateChange(broadcastForm)" />
-          <span class="hint">开启后从通知模板中心（WEBSOCKET 渠道）选取模板，自动渲染标题/正文，无需手填负载</span>
+          <span class="hint">{{ t('system.useTemplateHint') }}</span>
         </el-form-item>
 
         <template v-if="broadcastForm.useTemplate">
-          <el-form-item label="模板" required>
+          <el-form-item :label="t('common.template')" required>
             <el-select
               v-model="broadcastForm.template"
               value-key="templateCode"
               filterable
-              placeholder="选择 WEBSOCKET 模板"
+              :placeholder="t('system.selectWebsocketTemplate')"
               style="width: 360px"
               @change="onTemplateChange(broadcastForm)"
             >
@@ -81,31 +81,31 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item v-for="v in broadcastForm.template?.variableNames || []" :key="v" :label="`变量 ${v}`">
+          <el-form-item v-for="v in broadcastForm.template?.variableNames || []" :key="v" :label="t('system.varLabel', { v })">
             <el-input
               v-model="broadcastForm.variables[v]"
-              :placeholder="`请输入 ${v}`"
+              :placeholder="t('system.enterVarPlaceholder', { v })"
               style="max-width: 520px"
               @input="refreshPreview(broadcastForm)"
             />
           </el-form-item>
-          <el-form-item label="渲染预览" v-if="broadcastForm.preview">
+          <el-form-item :label="t('system.renderPreview')" v-if="broadcastForm.preview">
             <pre class="tpl-preview">{{ broadcastForm.preview }}</pre>
           </el-form-item>
         </template>
 
         <template v-else>
-          <el-form-item label="推送类型" required>
-            <el-select v-model="broadcastForm.type" placeholder="请选择推送类型" style="width: 260px">
+          <el-form-item :label="t('system.pushType')" required>
+            <el-select v-model="broadcastForm.type" :placeholder="t('system.selectPushType')" style="width: 260px">
               <el-option v-for="t in pushTypes" :key="t.value" :label="t.label" :value="t.value" />
             </el-select>
           </el-form-item>
-          <el-form-item label="业务负载">
+          <el-form-item :label="t('system.businessPayload')">
             <el-input
               v-model="broadcastForm.payload"
               type="textarea"
               :rows="3"
-              placeholder="可选：纯文本或 JSON；留空则仅推送类型通知"
+              :placeholder="t('system.optionalTextJson')"
               style="max-width: 520px"
             />
           </el-form-item>
@@ -117,35 +117,35 @@
             :icon="Promotion"
             :loading="broadcastLoading"
             @click="doBroadcast"
-          >广播推送</el-button>
+          >{{ t('system.broadcastPushShort') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
-    <el-card class="page-card section" header="定向推送（向指定用户）">
+    <el-card class="page-card section" :header="t('system.directPush')">
       <el-form :model="userForm" label-width="96px" @submit.prevent>
-        <el-form-item label="目标用户 ID" required>
+        <el-form-item :label="t('system.targetUserId')" required>
           <el-input
             v-model="userForm.userIdsText"
             type="textarea"
             :rows="2"
-            placeholder="多个 ID 以逗号 / 空格 / 换行分隔，例如：1001, 1002, 1003"
+            :placeholder="t('system.multipleIdsHint')"
             style="max-width: 520px"
           />
         </el-form-item>
 
-        <el-form-item label="使用模板">
+        <el-form-item :label="t('system.useTemplate')">
           <el-switch v-model="userForm.useTemplate" @change="onUseTemplateChange(userForm)" />
-          <span class="hint">开启后从通知模板中心（WEBSOCKET 渠道）选取模板，自动渲染标题/正文，无需手填负载</span>
+          <span class="hint">{{ t('system.useTemplateHint') }}</span>
         </el-form-item>
 
         <template v-if="userForm.useTemplate">
-          <el-form-item label="模板" required>
+          <el-form-item :label="t('common.template')" required>
             <el-select
               v-model="userForm.template"
               value-key="templateCode"
               filterable
-              placeholder="选择 WEBSOCKET 模板"
+              :placeholder="t('system.selectWebsocketTemplate')"
               style="width: 360px"
               @change="onTemplateChange(userForm)"
             >
@@ -157,31 +157,31 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item v-for="v in userForm.template?.variableNames || []" :key="v" :label="`变量 ${v}`">
+          <el-form-item v-for="v in userForm.template?.variableNames || []" :key="v" :label="t('system.varLabel', { v })">
             <el-input
               v-model="userForm.variables[v]"
-              :placeholder="`请输入 ${v}`"
+              :placeholder="t('system.enterVarPlaceholder', { v })"
               style="max-width: 520px"
               @input="refreshPreview(userForm)"
             />
           </el-form-item>
-          <el-form-item label="渲染预览" v-if="userForm.preview">
+          <el-form-item :label="t('system.renderPreview')" v-if="userForm.preview">
             <pre class="tpl-preview">{{ userForm.preview }}</pre>
           </el-form-item>
         </template>
 
         <template v-else>
-          <el-form-item label="推送类型" required>
-            <el-select v-model="userForm.type" placeholder="请选择推送类型" style="width: 260px">
+          <el-form-item :label="t('system.pushType')" required>
+            <el-select v-model="userForm.type" :placeholder="t('system.selectPushType')" style="width: 260px">
               <el-option v-for="t in pushTypes" :key="t.value" :label="t.label" :value="t.value" />
             </el-select>
           </el-form-item>
-          <el-form-item label="业务负载">
+          <el-form-item :label="t('system.businessPayload')">
             <el-input
               v-model="userForm.payload"
               type="textarea"
               :rows="3"
-              placeholder="可选：纯文本或 JSON；留空则仅推送类型通知"
+              :placeholder="t('system.optionalTextJson')"
               style="max-width: 520px"
             />
           </el-form-item>
@@ -193,7 +193,7 @@
             :icon="Promotion"
             :loading="userLoading"
             @click="doPushToUser"
-          >定向推送</el-button>
+          >{{ t('system.directPushShort') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -210,6 +210,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Promotion } from '@element-plus/icons-vue'
@@ -222,10 +223,10 @@ import {
 import { pageNotificationTemplates, previewNotificationTemplate } from '@/api/notificationTemplate'
 
 const pushTypes = [
-  { value: 'UNREAD_MESSAGE', label: '未读消息 (UNREAD_MESSAGE)' },
-  { value: 'TODO_REMINDER', label: '待办提醒 (TODO_REMINDER)' },
-  { value: 'NOTIFICATION', label: '系统通知 (NOTIFICATION)' },
-  { value: 'PONG', label: '心跳探测 (PONG)' }
+  { value: 'UNREAD_MESSAGE', label: t('system.unreadMessage') },
+  { value: 'TODO_REMINDER', label: t('system.todoReminder') },
+  { value: 'NOTIFICATION', label: t('system.systemNotification') },
+  { value: 'PONG', label: t('system.heartbeatProbe') }
 ]
 
 const loading = ref(false)
@@ -330,7 +331,7 @@ async function load() {
     onlineCount.value = typeof count === 'number' ? count : 0
     sessions.value = Array.isArray(list) ? list : []
   } catch (e) {
-    error.value = e?.message || '加载失败'
+    error.value = e?.message || t('system.loadFailedX')
   } finally {
     loading.value = false
   }
@@ -338,7 +339,7 @@ async function load() {
 
 async function doBroadcast() {
   if (!broadcastForm.useTemplate && !broadcastForm.type) {
-    ElMessage.warning('请选择推送类型')
+    ElMessage.warning(t('system.selectPushType'))
     return
   }
   broadcastLoading.value = true
@@ -347,7 +348,7 @@ async function doBroadcast() {
     let delivered
     if (broadcastForm.useTemplate) {
       if (!broadcastForm.template) {
-        ElMessage.warning('请选择模板')
+        ElMessage.warning(t('system.selectTemplate'))
         broadcastLoading.value = false
         return
       }
@@ -362,11 +363,11 @@ async function doBroadcast() {
       const res = await realtimeBroadcast(broadcastForm.type, buildPayload(broadcastForm.payload), null, null)
       delivered = res?.delivered ?? 0
     }
-    pushResult.value = { ok: true, title: `广播已下发，成功触达 ${delivered} 个在线会话` }
-    ElMessage.success(`广播成功触达 ${delivered} 个会话`)
+    pushResult.value = { ok: true, title: t('system.broadcastDeliveredSessions', { delivered }) }
+    ElMessage.success(t('system.broadcastReachedSessions', { delivered }))
   } catch (e) {
     // 响应拦截器已弹出错误提示（如 403 无权限），此处仅记录内联状态，避免重复提示
-    pushResult.value = { ok: false, title: e?.message || '广播推送失败' }
+    pushResult.value = { ok: false, title: e?.message || t('system.broadcastPushFailed') }
   } finally {
     broadcastLoading.value = false
   }
@@ -374,12 +375,12 @@ async function doBroadcast() {
 
 async function doPushToUser() {
   if (!userForm.useTemplate && !userForm.type) {
-    ElMessage.warning('请选择推送类型')
+    ElMessage.warning(t('system.selectPushType'))
     return
   }
   const ids = parseUserIds(userForm.userIdsText)
   if (ids.length === 0) {
-    ElMessage.warning('请填写至少一个有效的目标用户 ID')
+    ElMessage.warning(t('system.needValidTargetUserId'))
     return
   }
   userLoading.value = true
@@ -388,7 +389,7 @@ async function doPushToUser() {
     let delivered
     if (userForm.useTemplate) {
       if (!userForm.template) {
-        ElMessage.warning('请选择模板')
+        ElMessage.warning(t('system.selectTemplate'))
         userLoading.value = false
         return
       }
@@ -406,11 +407,11 @@ async function doPushToUser() {
     }
     pushResult.value = {
       ok: true,
-      title: `定向推送已下发，成功触达 ${delivered} / ${ids.length} 个用户`
+      title: t('system.directDeliveredUsers', { delivered, total: ids.length })
     }
-    ElMessage.success(`定向推送成功触达 ${delivered} 个用户`)
+    ElMessage.success(t('system.directReachedUsers', { delivered }))
   } catch (e) {
-    pushResult.value = { ok: false, title: e?.message || '定向推送失败' }
+    pushResult.value = { ok: false, title: e?.message || t('system.targetedPushFailed') }
   } finally {
     userLoading.value = false
   }

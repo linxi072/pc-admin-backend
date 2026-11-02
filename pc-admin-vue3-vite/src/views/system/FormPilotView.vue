@@ -1,15 +1,15 @@
 <template>
   <div>
-    <h2 class="page-title">低代码表单</h2>
+    <h2 class="page-title">{{ t('route.formPilot') }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">表单</span>
+            <span class="filter-label">{{ t('system.formLabel') }}</span>
             <el-select
               v-model="selectedCode"
-              placeholder="请选择表单"
+              :placeholder="t('system.pleaseSelectForm')"
               style="width: 240px"
               :loading="listLoading"
               @change="onFormChange"
@@ -26,7 +26,7 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button :icon="RefreshLeft" @click="loadForms">刷新列表</el-button>
+            <el-button :icon="RefreshLeft" @click="loadForms">{{ t('system.refreshList') }}</el-button>
           </div>
         </div>
       </div>
@@ -36,7 +36,7 @@
         type="info"
         :closable="false"
         show-icon
-        title="请选择表单查看 Schema 渲染效果"
+        :title="t('system.selectFormToPreview')"
       />
 
       <template v-else>
@@ -50,15 +50,15 @@
               v-model="formData"
             />
             <div class="pilot-actions">
-              <el-button type="primary" :loading="validating" @click="onValidate">校验并查看数据</el-button>
-              <el-button type="success" :loading="submitting" :disabled="!schema || submitting" @click="onSubmit">提交</el-button>
-              <el-button @click="onReset">重置</el-button>
+              <el-button type="primary" :loading="validating" @click="onValidate">{{ t('system.validateAndView') }}</el-button>
+              <el-button type="success" :loading="submitting" :disabled="!schema || submitting" @click="onSubmit">{{ t('common.submit') }}</el-button>
+              <el-button @click="onReset">{{ t('common.reset') }}</el-button>
             </div>
           </div>
           <div class="pilot-json">
-            <div class="pilot-json-title">实时模型（model）</div>
+            <div class="pilot-json-title">{{ t('system.liveModel') }}</div>
             <pre class="pilot-json-body">{{ formattedModel }}</pre>
-            <div class="pilot-json-title">Schema 原文</div>
+            <div class="pilot-json-title">{{ t('system.schemaSource') }}</div>
             <pre class="pilot-json-body">{{ schemaText }}</pre>
           </div>
         </div>
@@ -66,24 +66,22 @@
         <el-divider />
 
         <div class="submission-block">
-          <h3 class="pilot-title">
-            提交记录
-            <el-button text type="primary" :loading="submissionsLoading" @click="loadSubmissions">刷新</el-button>
+          <h3 class="pilot-title">{{ t('system.submissionRecords') }}<el-button text type="primary" :loading="submissionsLoading" @click="loadSubmissions">{{ t('common.refresh') }}</el-button>
           </h3>
           <el-table
             v-loading="submissionsLoading"
             :data="submissions"
             border
             size="small"
-            empty-text="暂无提交记录"
+            :empty-text="t('formSubmission.noData')"
           >
-            <el-table-column prop="submittedBy" label="提交人" width="140" />
-            <el-table-column label="提交内容">
+            <el-table-column prop="submittedBy" :label="t('formSubmission.submittedBy')" width="140" />
+            <el-table-column :label="t('formSubmission.dataJson')">
               <template #default="{ row }">
                 <pre class="submission-json">{{ pretty(row.dataJson) }}</pre>
               </template>
             </el-table-column>
-            <el-table-column prop="createdAt" label="提交时间" width="190" />
+            <el-table-column prop="createdAt" :label="t('formSubmission.sortByCreatedAt')" width="190" />
           </el-table>
           <el-pagination
             v-if="submissionTotal > submissionPageSize"
@@ -97,8 +95,7 @@
         </div>
       </template>
 
-      <div class="hint">
-        本页为 <b>M22 正式立项</b>：Schema 契约 + 零依赖渲染 + 提交落库（绑定目标 FORM_SUBMISSION）。
+      <div class="hint">{{ t('system.pageIs') }}<b>{{ t('system.m22Initiated') }}</b>：Schema 契约 + 零依赖渲染 + 提交落库（绑定目标 FORM_SUBMISSION）。
         字段类型白名单 INPUT / TEXTAREA / NUMBER / SELECT / RADIO / SWITCH / DATE；
         提交值经后端按 schema 校验（必填 / 类型 / 长度 / 选项白名单 / 未知字段拒绝）后写入独立
         <code>sys_form_submission</code> 表，不侵入业务表、不做运行时 DDL。
@@ -108,6 +105,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { RefreshLeft } from '@element-plus/icons-vue'
@@ -169,9 +167,9 @@ async function onValidate() {
   try {
     const ok = await dynamicFormRef.value.validate()
     if (ok) {
-      ElMessage.success('校验通过，数据见右侧实时模型')
+      ElMessage.success(t('system.validationPassed'))
     } else {
-      ElMessage.warning('存在校验未通过的字段')
+      ElMessage.warning(t('system.validationFailedFields'))
     }
   } finally {
     validating.value = false
@@ -182,13 +180,13 @@ async function onSubmit() {
   if (!dynamicFormRef.value || !selectedCode.value) return
   const ok = await dynamicFormRef.value.validate()
   if (!ok) {
-    ElMessage.warning('存在校验未通过的字段')
+    ElMessage.warning(t('system.validationFailedFields'))
     return
   }
   submitting.value = true
   try {
     await submitForm(selectedCode.value, formData.value)
-    ElMessage.success('提交成功，记录已保存')
+    ElMessage.success(t('system.submissionSaved'))
     submissionPage.value = 1
     await loadSubmissions()
   } catch (e) {

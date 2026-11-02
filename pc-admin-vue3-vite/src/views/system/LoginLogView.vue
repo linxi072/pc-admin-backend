@@ -1,58 +1,58 @@
 <template>
   <div>
-    <h2 class="page-title">登录日志</h2>
+    <h2 class="page-title">{{ t('route.loginLog') }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">用户名</span>
-            <el-input v-model="query.username" placeholder="用户名（模糊）" clearable style="width: 160px" @keyup.enter="load" />
+            <span class="filter-label">{{ t('common.username') }}</span>
+            <el-input v-model="query.username" :placeholder="t('system.usernameFuzzy')" clearable style="width: 160px" @keyup.enter="load" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">结果</span>
-            <el-select v-model="query.result" placeholder="全部" clearable style="width: 120px">
-              <el-option label="成功" value="SUCCESS" />
-              <el-option label="失败" value="FAILURE" />
+            <span class="filter-label">{{ t('job.result') }}</span>
+            <el-select v-model="query.result" :placeholder="t('common.all')" clearable style="width: 120px">
+              <el-option :label="t('common.success')" value="SUCCESS" />
+              <el-option :label="t('common.failed')" value="FAILURE" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">登录类型</span>
-            <el-select v-model="query.loginType" placeholder="全部" clearable style="width: 120px">
+            <span class="filter-label">{{ t('system.loginType') }}</span>
+            <el-select v-model="query.loginType" :placeholder="t('common.all')" clearable style="width: 120px">
               <el-option label="PASSWORD" value="PASSWORD" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">失败码</span>
-            <el-input v-model="query.failureCode" placeholder="如 AUTH_001" clearable style="width: 140px" @keyup.enter="load" />
+            <span class="filter-label">{{ t('system.failCodeSys') }}</span>
+            <el-input v-model="query.failureCode" :placeholder="t('system.phFailureCode')" clearable style="width: 140px" @keyup.enter="load" />
           </div>
           <div class="filter-group">
             <span class="filter-label">IP</span>
-            <el-input v-model="query.ipAddress" placeholder="IP（模糊）" clearable style="width: 140px" @keyup.enter="load" />
+            <el-input v-model="query.ipAddress" :placeholder="t('system.ipBlurred')" clearable style="width: 140px" @keyup.enter="load" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">时间范围</span>
+            <span class="filter-label">{{ t('monitor.timeRange') }}</span>
             <el-date-picker
               v-model="dateRange"
               type="datetimerange"
-              range-separator="至"
-              start-placeholder="开始时间"
-              end-placeholder="结束时间"
+              :range-separator="t('common.to')"
+              :start-placeholder="t('common.startTime')"
+              :end-placeholder="t('monitor.endTime')"
               value-format="YYYY-MM-DDTHH:mm:ss"
               :default-time="[new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]"
               style="width: 360px"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">关键字</span>
-            <el-input v-model="query.keyword" placeholder="用户名/IP/失败码/traceId" clearable style="width: 200px" @keyup.enter="load" />
+            <span class="filter-label">{{ t('common.keyword') }}</span>
+            <el-input v-model="query.keyword" :placeholder="t('system.usernameIpCodeTrace')" clearable style="width: 200px" @keyup.enter="load" />
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
           </div>
         </div>
       </div>
@@ -62,61 +62,61 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ summary.total ?? '--' }}</div>
-            <div class="stat-label">总记录</div>
+            <div class="stat-label">{{ t('system.totalRecords') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-ok">{{ summary.success ?? '--' }}</div>
-            <div class="stat-label">成功</div>
+            <div class="stat-label">{{ t('common.success') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ summary.failure ?? '--' }}</div>
-            <div class="stat-label">失败</div>
+            <div class="stat-label">{{ t('common.failed') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ fmtPct(summary.failureRate) }}</div>
-            <div class="stat-label">失败率</div>
+            <div class="stat-label">{{ t('system.failureRate') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ summary.distinctUsers ?? '--' }}</div>
-            <div class="stat-label">独立用户</div>
+            <div class="stat-label">{{ t('system.uniqueUsers') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-time">{{ fmtTime(summary.lastLoginAt) }}</div>
-            <div class="stat-label">最近成功登录</div>
+            <div class="stat-label">{{ t('system.lastSuccessLogin') }}</div>
           </div>
         </el-col>
       </el-row>
 
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="occurredAt" label="时间" width="180" sortable="custom" />
-        <el-table-column prop="username" label="用户名" width="140" sortable="custom" />
-        <el-table-column prop="userId" label="用户 ID" width="90" />
-        <el-table-column prop="loginType" label="登录类型" width="110" />
-        <el-table-column label="结果" width="90">
+        <el-table-column prop="occurredAt" :label="t('system.time')" width="180" sortable="custom" />
+        <el-table-column prop="username" :label="t('common.username')" width="140" sortable="custom" />
+        <el-table-column prop="userId" :label="t('monitor.userId')" width="90" />
+        <el-table-column prop="loginType" :label="t('system.loginType')" width="110" />
+        <el-table-column :label="t('job.result')" width="90">
           <template #default="{ row }">
             <el-tag :type="row.result === 'SUCCESS' ? 'success' : 'danger'" size="small">
-              {{ row.result === 'SUCCESS' ? '成功' : '失败' }}
+              {{ row.result === 'SUCCESS' ? t('common.success') : t('common.failed') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="failureCode" label="失败码" width="120">
+        <el-table-column prop="failureCode" :label="t('system.failCodeSys')" width="120">
           <template #default="{ row }">
             <span v-if="row.failureCode">{{ row.failureCode }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="ipAddress" label="IP 地址" width="150" sortable="custom" />
+        <el-table-column prop="ipAddress" :label="t('common.ipAddress')" width="150" sortable="custom" />
         <el-table-column prop="userAgent" label="User-Agent" min-width="220" show-overflow-tooltip />
         <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
       </el-table>
@@ -133,12 +133,13 @@
           @size-change="onSizeChange"
         />
       </div>
-      <div class="hint">默认查询最近 7 天记录；登录失败时用户可能不存在，「用户 ID」为空属正常。</div>
+      <div class="hint">{{ t('system.loginLogDesc') }}</div>
     </el-card>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
 import { pageLoginLogs, loginLogSummary } from '@/api/loginLog'

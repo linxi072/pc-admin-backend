@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">数据权限</h2>
+    <h2 class="page-title">{{ t('route.dataScope') }}</h2>
 
     <div class="toolbar" style="margin-bottom: 12px">
       <div class="toolbar-filters">
@@ -9,7 +9,7 @@
         </span>
       </div>
       <div class="toolbar-actions">
-        <el-button :icon="Refresh" :loading="loading" @click="loadRows">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadRows">{{ t('common.refresh') }}</el-button>
       </div>
     </div>
 
@@ -17,17 +17,17 @@
       type="info"
       :closable="false"
       show-icon
-      title="未配置的资源默认不限制（全部数据）。自定义部门范围需至少选择一个部门。"
+      :title="t('system.dataScopeTitle')"
       style="margin-bottom: 12px"
     />
 
     <el-card class="page-card section">
       <el-form :inline="true" @submit.prevent>
-        <el-form-item label="角色">
+        <el-form-item :label="t('common.role')">
           <el-select
             v-model="selectedRoleId"
             filterable
-            placeholder="请选择角色"
+            :placeholder="t('system.pleaseSelectRole')"
             style="width: 280px"
             :loading="roleLoading"
             @change="onRoleChange"
@@ -50,23 +50,23 @@
         v-if="selectedRoleId"
         :data="rows"
         v-loading="loading"
-        empty-text="暂无可配置资源"
+        :empty-text="t('system.noConfigurableResource')"
         style="width: 100%"
       >
-        <el-table-column prop="resourceName" label="资源" min-width="160" />
-        <el-table-column prop="resourceCode" label="资源编码" min-width="160">
+        <el-table-column prop="resourceName" :label="t('system.colResource')" min-width="160" />
+        <el-table-column prop="resourceCode" :label="t('system.resourceCode')" min-width="160">
           <template #default="{ row }">
             <span class="muted">{{ row.resourceCode }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="数据范围" width="240">
+        <el-table-column :label="t('system.dataScopeX')" width="240">
           <template #default="{ row }">
             <el-select v-model="row.scopeType" style="width: 200px" @change="onScopeChange(row)">
               <el-option v-for="o in SCOPE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="自定义部门" min-width="200">
+        <el-table-column :label="t('system.customDept')" min-width="200">
           <template #default="{ row }">
             <el-button v-if="row.scopeType === 'CUSTOM'" link type="primary" @click="openOrgDialog(row)">
               选择部门（{{ row.orgIds?.length || 0 }}）
@@ -74,17 +74,17 @@
             <span v-else class="muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column :label="t('common.operation')" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" size="small" :loading="row.saving" @click="saveRow(row)">保存</el-button>
+            <el-button type="primary" size="small" :loading="row.saving" @click="saveRow(row)">{{ t('common.save') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-empty v-else description="请先选择角色" />
+      <el-empty v-else :description="t('system.selectRoleFirst')" />
     </el-card>
 
-    <el-dialog v-model="orgDialogVisible" title="选择可见部门" width="440px">
+    <el-dialog v-model="orgDialogVisible" :title="t('system.selectVisibleDept')" width="440px">
       <el-tree
         ref="orgTreeRef"
         :data="orgTreeData"
@@ -95,14 +95,15 @@
         style="max-height: 360px; overflow: auto"
       />
       <template #footer>
-        <el-button @click="orgDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmOrgDialog">确定</el-button>
+        <el-button @click="orgDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="confirmOrgDialog">{{ t('system.confirmSys') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
@@ -125,11 +126,11 @@ const dialogRow = ref(null)
 
 // 与后端 DataScopeType 一一对应；label 供页面展示，value 直接作为接口入参
 const SCOPE_OPTIONS = [
-  { value: 'ALL', label: '全部数据' },
-  { value: 'DEPT_AND_CHILD', label: '本部门及下级' },
-  { value: 'DEPT', label: '仅本部门' },
-  { value: 'SELF', label: '仅本人' },
-  { value: 'CUSTOM', label: '自定义部门' }
+  { value: 'ALL', label: t('system.allData') },
+  { value: 'DEPT_AND_CHILD', label: t('system.deptAndChildren') },
+  { value: 'DEPT', label: t('system.onlyThisDept') },
+  { value: 'SELF', label: t('system.onlySelf') },
+  { value: 'CUSTOM', label: t('system.customDept') }
 ]
 
 async function loadRoles() {
@@ -169,7 +170,7 @@ async function loadRows() {
       }
     })
   } catch (e) {
-    error.value = e?.message || '加载失败'
+    error.value = e?.message || t('system.loadFailedX')
     rows.value = []
   } finally {
     loading.value = false
@@ -199,7 +200,7 @@ function confirmOrgDialog() {
 
 async function saveRow(row) {
   if (row.scopeType === 'CUSTOM' && (!row.orgIds || row.orgIds.length === 0)) {
-    ElMessage.warning('自定义范围必须至少选择一个部门')
+    ElMessage.warning(t('system.customScopeNeedDept'))
     return
   }
   row.saving = true
@@ -209,7 +210,7 @@ async function saveRow(row) {
       scopeType: row.scopeType,
       orgIds: row.scopeType === 'CUSTOM' ? row.orgIds : []
     })
-    ElMessage.success('数据权限已保存')
+    ElMessage.success(t('system.dataPermissionSaved'))
     await loadRows()
   } catch (e) {
     // 拦截器已统一提示

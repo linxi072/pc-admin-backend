@@ -30,7 +30,7 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">{{ $t('oauth2Token.reset') }}</el-button>
             <el-button :icon="Refresh" :loading="loading" @click="load">{{ $t('oauth2Token.refresh') }}</el-button>
           </div>
@@ -114,6 +114,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Refresh, CircleClose } from '@element-plus/icons-vue'

@@ -1,14 +1,12 @@
 <template>
   <div>
-    <h2 class="page-title">消息中心</h2>
+    <h2 class="page-title">{{ t('route.notice') }}</h2>
 
     <el-tabs v-model="activeTab" class="notice-tabs">
       <el-tab-pane name="announcement">
         <template #label>
           <span class="tab-label">
-            <el-icon><Bell /></el-icon>
-            系统公告
-            <el-badge v-if="unreadAnnouncements > 0" :value="unreadAnnouncements" type="danger" class="tab-badge" />
+            <el-icon><Bell /></el-icon>{{ t('system.systemAnnouncement') }}<el-badge v-if="unreadAnnouncements > 0" :value="unreadAnnouncements" type="danger" class="tab-badge" />
           </span>
         </template>
         <AnnouncementView embedded />
@@ -17,9 +15,7 @@
       <el-tab-pane name="message">
         <template #label>
           <span class="tab-label">
-            <el-icon><ChatDotRound /></el-icon>
-            站内信
-            <el-badge v-if="unread > 0" :value="unread" type="danger" class="tab-badge" />
+            <el-icon><ChatDotRound /></el-icon>{{ t('common.stationMsg') }}<el-badge v-if="unread > 0" :value="unread" type="danger" class="tab-badge" />
           </span>
         </template>
         <MessageView embedded />
@@ -29,6 +25,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AnnouncementView from './AnnouncementView.vue'

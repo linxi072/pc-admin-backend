@@ -1,18 +1,18 @@
 <template>
   <div>
-    <h2 class="page-title">连接池监控</h2>
+    <h2 class="page-title">{{ t('route.poolMonitor') }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="toolbar-filters">
-          <span class="card-title">HikariCP 连接池实时状态</span>
+          <span class="card-title">{{ t('system.hikariPoolStatus') }}</span>
           <div class="filter-group">
-            <el-checkbox v-model="autoRefresh">自动刷新(10s)</el-checkbox>
+            <el-checkbox v-model="autoRefresh">{{ t('system.autoRefresh10s') }}</el-checkbox>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
+            <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">{{ t('common.refresh') }}</el-button>
           </div>
         </div>
       </div>
@@ -22,39 +22,39 @@
         v-if="countsUnavailable"
         type="warning"
         :closable="false"
-        title="当前数据源非 HikariCP，实时计数不可用，仅展示池配置。"
+        :title="t('system.notHikariHint')"
         class="pool-alert"
       />
 
       <el-row :gutter="16">
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">活跃连接</div>
+            <div class="metric-label">{{ t('system.activeConns') }}</div>
             <div class="metric-value">{{ fmtCount(pool.activeCount) }}</div>
-            <div class="metric-sub">正在执行 SQL 的连接</div>
+            <div class="metric-sub">{{ t('system.executingSqlConns') }}</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">空闲连接</div>
+            <div class="metric-label">{{ t('system.idleConns') }}</div>
             <div class="metric-value">{{ fmtCount(pool.idleCount) }}</div>
-            <div class="metric-sub">池中待命连接</div>
+            <div class="metric-sub">{{ t('system.standbyConns') }}</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">连接总数</div>
+            <div class="metric-label">{{ t('system.totalConns') }}</div>
             <div class="metric-value">{{ fmtCount(pool.totalCount) }}</div>
-            <div class="metric-sub">活跃 + 空闲</div>
+            <div class="metric-sub">{{ t('system.activePlusIdle') }}</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">等待线程</div>
+            <div class="metric-label">{{ t('system.waitingThreads') }}</div>
             <div class="metric-value" :class="{ 'metric-danger': waiting > 0 }">
               {{ fmtCount(pool.threadsAwaiting) }}
             </div>
-            <div class="metric-sub">阻塞等待获取连接的线程</div>
+            <div class="metric-sub">{{ t('system.blockedWaitingConns') }}</div>
           </div>
         </el-col>
       </el-row>
@@ -62,7 +62,7 @@
       <el-row :gutter="16">
         <el-col :span="12">
           <div class="metric-card">
-            <div class="metric-label">连接池使用率</div>
+            <div class="metric-label">{{ t('system.poolUsage') }}</div>
             <div class="metric-value">{{ fmtPct(usagePct) }}</div>
             <el-progress
               :percentage="pctNum(usagePct)"
@@ -75,28 +75,29 @@
         </el-col>
         <el-col :span="12">
           <div class="metric-card">
-            <div class="metric-label">健康提示</div>
+            <div class="metric-label">{{ t('system.healthHint') }}</div>
             <div class="health-text" :class="healthClass">{{ healthText }}</div>
-            <div class="metric-sub">等待线程持续 > 0 说明池容量不足或存在慢 SQL</div>
+            <div class="metric-sub">{{ t('system.waitThreadsHint') }}</div>
           </div>
         </el-col>
       </el-row>
 
       <el-descriptions class="pool-desc" :column="3" border size="small">
-        <el-descriptions-item label="连接池名称">{{ pool.poolName || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="最大连接数">{{ pool.maximumPoolSize ?? '--' }}</el-descriptions-item>
-        <el-descriptions-item label="最小空闲连接">{{ pool.minimumIdle ?? '--' }}</el-descriptions-item>
-        <el-descriptions-item label="获取连接超时">{{ fmtMs(pool.connectionTimeoutMillis) }}</el-descriptions-item>
-        <el-descriptions-item label="活性校验超时">{{ fmtMs(pool.validationTimeoutMillis) }}</el-descriptions-item>
-        <el-descriptions-item label="空闲连接回收">{{ fmtMs(pool.idleTimeoutMillis) }}</el-descriptions-item>
-        <el-descriptions-item label="连接最大存活">{{ fmtMs(pool.maxLifetimeMillis) }}</el-descriptions-item>
-        <el-descriptions-item label="连接地址" :span="2">{{ pool.jdbcUrl || '--' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.poolName')">{{ pool.poolName || '--' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.maxConns')">{{ pool.maximumPoolSize ?? '--' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.minIdleConns')">{{ pool.minimumIdle ?? '--' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.acquireTimeout')">{{ fmtMs(pool.connectionTimeoutMillis) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.validationTimeout')">{{ fmtMs(pool.validationTimeoutMillis) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.idleReclaim')">{{ fmtMs(pool.idleTimeoutMillis) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.maxLifetime')">{{ fmtMs(pool.maxLifetimeMillis) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.connAddress')" :span="2">{{ pool.jdbcUrl || '--' }}</el-descriptions-item>
       </el-descriptions>
     </el-card>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { getPoolStats } from '@/api/monitor'
@@ -112,10 +113,10 @@ const usagePct = computed(() =>
   pool.value.usageRate > 0 ? pool.value.usageRate * 100 : null)
 
 const healthText = computed(() => {
-  if (countsUnavailable.value) return '计数不可用'
-  if (waiting.value > 0) return `有 ${waiting.value} 个线程在等待连接，建议排查慢 SQL 或调大 maximumPoolSize`
-  if (usagePct.value != null && usagePct.value >= 80) return '使用率偏高，关注连接竞争'
-  return '连接池状态健康'
+  if (countsUnavailable.value) return t('system.countersUnavailable')
+  if (waiting.value > 0) return t('system.waitingThreadsDetail', { n: waiting.value })
+  if (usagePct.value != null && usagePct.value >= 80) return t('system.poolUsageHigh')
+  return t('system.poolHealthy')
 })
 const healthClass = computed(() => {
   if (waiting.value > 0) return 'health-danger'
