@@ -12,8 +12,8 @@
 
           <!-- 文件管理列表导出：附筛选条件 -->
           <div v-if="filesTemplate" class="filter-bar">
-            <span class="filter-label">来源功能模块</span>
-            <el-select v-model="query.sourceModule" placeholder="全部" clearable filterable style="width: 180px">
+            <span class="filter-label">{{ t('system.sourceModule') }}</span>
+            <el-select v-model="query.sourceModule" :placeholder="t('common.all')" clearable filterable style="width: 180px">
               <el-option
                 v-for="opt in sourceModuleOptions"
                 :key="opt.value"
@@ -21,18 +21,18 @@
                 :value="opt.value"
               />
             </el-select>
-            <span class="filter-label">上传人</span>
+            <span class="filter-label">{{ t('system.uploader') }}</span>
             <el-input
               v-model="query.uploaderName"
-              placeholder="上传人（模糊）"
+              :placeholder="t('system.uploaderBlurred')"
               clearable
               style="width: 160px"
               @keyup.enter="onExport(filesTemplate)"
             />
-            <span class="filter-label">文件名</span>
+            <span class="filter-label">{{ t('system.fileName') }}</span>
             <el-input
               v-model="query.originalName"
-              placeholder="文件名（模糊）"
+              :placeholder="t('system.fileNameBlurred')"
               clearable
               style="width: 180px"
               @keyup.enter="onExport(filesTemplate)"
@@ -41,7 +41,7 @@
 
           <!-- 报表管理导出：附报表类型 / 统计窗口 / 关键字（与报表管理页同一数据与口径） -->
           <div v-else-if="reportTemplate" class="filter-bar">
-            <span class="filter-label">报表类型</span>
+            <span class="filter-label">{{ t('system.reportType') }}</span>
             <el-select v-model="query.reportType" style="width: 180px" @keyup.enter="onExport(reportTemplate)">
               <el-option
                 v-for="opt in reportTypeOptions"
@@ -50,12 +50,12 @@
                 :value="opt.value"
               />
             </el-select>
-            <span class="filter-label">统计窗口</span>
+            <span class="filter-label">{{ t('report.windowHint') }}</span>
             <el-select v-model="query.reportRange" style="width: 140px" @keyup.enter="onExport(reportTemplate)">
-              <el-option label="近 7 天" value="LAST_7D" />
-              <el-option label="近 30 天" value="LAST_30D" />
+              <el-option :label="t('reportDashboard.last7Days')" value="LAST_7D" />
+              <el-option :label="t('reportDashboard.last30Days')" value="LAST_30D" />
             </el-select>
-            <span class="filter-label">关键字</span>
+            <span class="filter-label">{{ t('common.keyword') }}</span>
             <el-input
               v-model="query.reportKeyword"
               :placeholder="reportKeywordPlaceholder"
@@ -66,21 +66,21 @@
           </div>
 
           <el-table :data="exportRows" v-loading="exportLoading" border stripe>
-            <el-table-column prop="displayName" label="模板名称" min-width="200" />
-            <el-table-column prop="fileName" label="文件名" width="200" />
-            <el-table-column prop="code" label="编码" width="160">
+            <el-table-column prop="displayName" :label="t('system.templateName')" min-width="200" />
+            <el-table-column prop="fileName" :label="t('system.fileName')" width="200" />
+            <el-table-column prop="code" :label="t('system.code')" width="160">
               <template #default="{ row }">
                 <el-tag size="small" type="info">{{ row.code }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="260" fixed="right">
+            <el-table-column :label="t('common.operation')" width="260" fixed="right">
               <template #default="{ row }">
                 <el-button
                   type="primary"
                   :icon="Download"
                   :loading="exporting === row.code + ':CSV'"
                   @click="onExport(row, 'CSV')"
-                >导出 CSV</el-button>
+                >{{ t('report.exportCsv') }}</el-button>
                 <!-- 按模板声明渲染双格式按钮（formats 由后端 /templates 返回，单表与多段模板均可声明 XLSX） -->
                 <el-button
                   v-if="supportsXlsx(row)"
@@ -88,7 +88,7 @@
                   :icon="Download"
                   :loading="exporting === row.code + ':XLSX'"
                   @click="onExport(row, 'XLSX')"
-                >导出 XLSX</el-button>
+                >{{ t('system.exportXlsx') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -103,13 +103,13 @@
           </template>
 
           <el-table :data="importRows" v-loading="importLoading" border stripe>
-            <el-table-column prop="displayName" label="模板名称" min-width="140" />
-            <el-table-column prop="code" label="编码" width="140">
+            <el-table-column prop="displayName" :label="t('system.templateName')" min-width="140" />
+            <el-table-column prop="code" :label="t('system.code')" width="140">
               <template #default="{ row }">
                 <el-tag size="small" type="info">{{ row.code }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="表头列" min-width="280">
+            <el-table-column :label="t('system.headerColumns')" min-width="280">
               <template #default="{ row }">
                 <template v-if="row.multiSegment">
                   <div v-for="seg in row.segments" :key="seg.name" class="segment-block">
@@ -122,15 +122,15 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="360" fixed="right">
+            <el-table-column :label="t('common.operation')" width="360" fixed="right">
               <template #default="{ row }">
                 <el-button
                   type="primary"
                   :icon="Download"
                   :loading="downloading === row.code + ':XLSX'"
                   @click="onDownloadTemplate(row, 'XLSX')"
-                >下载模板 XLSX</el-button>
-                <el-tooltip v-if="row.multiSegment" content="多段模板仅支持 XLSX（含多工作表）" placement="top">
+                >{{ t('system.downloadXlsxTemplate') }}</el-button>
+                <el-tooltip v-if="row.multiSegment" :content="t('system.multiSegmentTemplatesSupportXlsxOnlyMultipleSheets')" placement="top">
                   <el-button :icon="Download" disabled>CSV</el-button>
                 </el-tooltip>
                 <el-button
@@ -139,7 +139,7 @@
                   :loading="downloading === row.code + ':CSV'"
                   @click="onDownloadTemplate(row, 'CSV')"
                 >CSV</el-button>
-                <el-button type="success" :icon="Upload" @click="openImport(row)">导入</el-button>
+                <el-button type="success" :icon="Upload" @click="openImport(row)">{{ t('common.import') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -153,7 +153,7 @@
         <template #title>
           请先下载模板，严格按模板表头填写后上传（支持 CSV / XLSX）。建议先「预检」确认数据无误，再「确认导入」。
           <template v-if="current && current.multiSegment">
-            <br />本模板为<b>多段结构</b>，仅支持 XLSX：每个工作表对应一段数据，工作表名须与模板完全一致。
+            <br />{{ t('system.thisTemplateIs') }}<b>{{ t('system.multiSegmentStructure') }}</b>，仅支持 XLSX：每个工作表对应一段数据，工作表名须与模板完全一致。
           </template>
         </template>
       </el-alert>
@@ -170,9 +170,9 @@
         :on-exceed="onExceed"
       >
         <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-        <div class="el-upload__text">将文件拖到此处，或<em>点击选择</em></div>
+        <div class="el-upload__text">{{ t('system.dragTheFileHereOr') }}<em>{{ t('system.clickToSelect') }}</em></div>
         <template #tip>
-          <div class="el-upload__tip">仅支持 .csv / .xlsx 单文件；表头须与模板完全一致</div>
+          <div class="el-upload__tip">{{ t('system.onlyASingleCsvXlsxFileHeaderMustExactlyMatchTheTemplate') }}</div>
         </template>
       </el-upload>
 
@@ -184,11 +184,11 @@
         :type="result.failureCount > 0 ? 'warning' : 'success'"
       >
         <template #title>
-          {{ result.dryRun ? '预检完成' : '导入完成' }}：
+          {{ result.dryRun ? t('system.preCheckComplete') : t('system.importComplete') }}：
           <span v-if="result.totalRows != null">共 {{ result.totalRows }} 行，</span>
           <span v-if="result.successCount != null">成功 {{ result.successCount }} 行，</span>
           失败 {{ result.failureCount }} 行
-          <span v-if="result.reportDownloaded">（明细如下，完整报告已下载为 CSV）</span>
+          <span v-if="result.reportDownloaded">{{ t('system.detailsBelowFullReportDownloadedAsCsv') }}</span>
           <span v-else-if="result.errors.length < result.failureCount">
             （下方仅展示前 {{ result.errors.length }} 条失败明细）
           </span>
@@ -209,30 +209,31 @@
         max-height="260"
         class="error-table"
       >
-        <el-table-column v-if="resultHasSegment" prop="segment" label="数据段" width="120" />
-        <el-table-column prop="rowNo" label="数据行号" width="110" />
-        <el-table-column prop="message" label="失败原因" />
+        <el-table-column v-if="resultHasSegment" prop="segment" :label="t('system.dataSegment')" width="120" />
+        <el-table-column prop="rowNo" :label="t('system.dataRowNumber')" width="110" />
+        <el-table-column prop="message" :label="t('monitor.failReason')" />
       </el-table>
 
       <div class="submit-row">
-        <el-checkbox v-model="withReport">失败时下载错误报告（CSV，含失败行原始值）</el-checkbox>
+        <el-checkbox v-model="withReport">{{ t('system.onFailureDownloadAnErrorReportCsvWithRawFailedRows') }}</el-checkbox>
       </div>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">关闭</el-button>
-        <el-button :icon="View" :loading="submitting === 'dry'" @click="onSubmit(true)">预检</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.close') }}</el-button>
+        <el-button :icon="View" :loading="submitting === 'dry'" @click="onSubmit(true)">{{ t('system.preCheck') }}</el-button>
         <el-button
           type="primary"
           :icon="Upload"
           :loading="submitting === 'real'"
           @click="onSubmit(false)"
-        >确认导入</el-button>
+        >{{ t('system.confirmImport') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Download, Upload, UploadFilled, View } from '@element-plus/icons-vue'
@@ -267,30 +268,30 @@ const query = reactive({
 
 // 与后端 app.file.* 一致的来源模块候选（业务模块也可在上传时自由输入）
 const sourceModuleOptions = [
-  { value: 'file-management', label: '文件管理' },
-  { value: 'workflow', label: '工作流' },
-  { value: 'report', label: '报表管理' },
-  { value: 'user', label: '用户管理' },
-  { value: 'role', label: '角色管理' },
-  { value: 'system', label: '系统配置' }
+  { value: 'file-management', label: t('route.file') },
+  { value: 'workflow', label: t('system.workflow') },
+  { value: 'report', label: t('dashboard.reportMgmt') },
+  { value: 'user', label: t('route.user') },
+  { value: 'role', label: t('route.role') },
+  { value: 'system', label: t('system.systemConfig') }
 ]
 
 // 报表类型候选（与后端 ReportType 枚举 label 对齐）
 const reportTypeOptions = [
-  { value: 'USAGE', label: '使用统计' },
-  { value: 'CATEGORY', label: '类别统计' },
-  { value: 'STATUS', label: '状态统计' },
-  { value: 'JOB_EXEC', label: '定时任务执行统计' },
-  { value: 'LOGIN', label: '登录统计' },
-  { value: 'API_CALL', label: '接口调用统计' }
+  { value: 'USAGE', label: t('system.usageStats') },
+  { value: 'CATEGORY', label: t('system.categoryStats') },
+  { value: 'STATUS', label: t('system.statusStats') },
+  { value: 'JOB_EXEC', label: t('route.reportJobExec') },
+  { value: 'LOGIN', label: t('route.reportLogin') },
+  { value: 'API_CALL', label: t('route.reportApiCall') }
 ]
 
 // 关键字占位提示（与后端按类型作用字段一致：任务名 / 用户名 / 请求路径；使用视角忽略）
 const reportKeywordPlaceholder = computed(() => {
-  if (query.reportType === 'JOB_EXEC') return '任务名称关键字'
-  if (query.reportType === 'LOGIN') return '用户名关键字'
-  if (query.reportType === 'API_CALL') return '请求路径关键字'
-  return '关键字（该类型不筛选）'
+  if (query.reportType === 'JOB_EXEC') return t('report.taskNameKeyword')
+  if (query.reportType === 'LOGIN') return t('report.usernameKeyword')
+  if (query.reportType === 'API_CALL') return t('report.pathKeyword')
+  return t('system.keywordNotFilteredForThisType')
 })
 
 const filesTemplate = computed(() => exportRows.value.find((r) => r.code === 'files'))
@@ -343,9 +344,9 @@ async function onExport(row, format = 'CSV') {
       resp,
       row.fileName || 'export',
       format === 'XLSX' ? 'xlsx' : 'csv',
-      '导出失败'
+      t('report.exportFailed')
     )
-    if (ok) ElMessage.success('导出成功')
+    if (ok) ElMessage.success(t('system.exported'))
   } catch (e) {
     // 响应拦截器已弹错误提示
   } finally {
@@ -367,7 +368,7 @@ const result = ref(null)
 const withReport = ref(true)
 
 const dialogTitle = computed(() =>
-  current.value ? `导入数据 - ${current.value.displayName}` : '导入数据'
+  current.value ? t('system.importDataOf', { name: current.value.displayName }) : t('system.importData')
 )
 
 // 失败明细是否含「数据段」列（多段导入的报告才有）
@@ -393,11 +394,11 @@ async function onDownloadTemplate(row, format) {
     const resp = await downloadImportTemplate(row.code, format)
     const ok = await saveBlobFromResponse(
       resp,
-      `导入模板-${row.displayName}`,
+      t('system.importTemplateOf', { name: row.displayName }),
       format === 'XLSX' ? 'xlsx' : 'csv',
-      '模板下载失败'
+      t('system.templateDownloadFailed')
     )
-    if (ok) ElMessage.success('模板下载成功')
+    if (ok) ElMessage.success(t('system.templateDownloaded'))
   } catch (e) {
     // 响应拦截器已弹错误提示
   } finally {
@@ -441,7 +442,7 @@ function onExceed(files) {
 
 async function onSubmit(dryRun) {
   if (!selectedFile.value) {
-    ElMessage.warning('请先选择要导入的文件')
+    ElMessage.warning(t('system.selectTheFileToImportFirst'))
     return
   }
   submitting.value = dryRun ? 'dry' : 'real'
@@ -463,9 +464,9 @@ async function onSubmit(dryRun) {
 function handleResult(res, dryRun) {
   result.value = res
   if (res.failureCount > 0) {
-    ElMessage.warning(`${dryRun ? '预检' : '导入'}完成：成功 ${res.successCount} 行，失败 ${res.failureCount} 行`)
+    ElMessage.warning(`${dryRun ? t('system.precheckNoun') : t('system.importNoun')}t('system.importDone', { successCount: res.successCount, failureCount: res.failureCount })`)
   } else {
-    ElMessage.success(dryRun ? `预检通过：${res.successCount} 行均可导入` : `导入成功：${res.successCount} 行`)
+    ElMessage.success(dryRun ? t('system.precheckPassed', { n: res.successCount }) : t('system.importSuccessN', { n: res.successCount }))
   }
 }
 
@@ -497,12 +498,12 @@ async function submitWithReport(dryRun) {
       return true
     }
     // 无法识别的响应体：交由外层提示
-    ElMessage.error('导入响应格式异常')
+    ElMessage.error(t('system.abnormalImportResponseFormat'))
     return true
   }
   // CSV 失败报告附件：触发下载，并解析报告内容回填结果区——
   // 早期该路径直接 return，对话框内的统计与失败明细表完全不展示，用户仅得一条 toast
-  const fileName = parseFileName(resp, `导入失败报告-${current.value.displayName}`, 'csv')
+  const fileName = parseFileName(resp, t('system.importFailReport', { name: current.value.displayName }), 'csv')
   saveBlob(blob, fileName)
   const { errors } = parseImportErrorReport(await blob.text())
   result.value = {
@@ -513,7 +514,7 @@ async function submitWithReport(dryRun) {
     errors,
     reportDownloaded: true
   }
-  ElMessage.warning(`存在失败行（明细 ${errors.length} 条），错误报告已下载；请按报告修复后重新导入`)
+  ElMessage.warning(t('system.importHasErrors', { n: errors.length }))
   return true
 }
 
@@ -562,9 +563,9 @@ function parseImportErrorReport(text) {
   }
   if (rows.length < 1) return { errors: [] }
   const header = rows[0].map((h) => (h || '').trim())
-  const segIdx = header.indexOf('数据段')
-  const noIdx = header.indexOf('数据行号')
-  const msgIdx = header.indexOf('失败原因')
+  const segIdx = header.indexOf(t('system.dataSegment'))
+  const noIdx = header.indexOf(t('system.dataRowNumber'))
+  const msgIdx = header.indexOf(t('monitor.failReason'))
   const data = rows.slice(1).filter((r) => r.some((x) => x !== ''))
   const errors = data.map((r) => ({
     segment: segIdx >= 0 ? (r[segIdx] || '') : '',

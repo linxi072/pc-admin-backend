@@ -1,61 +1,61 @@
 <template>
   <div>
-    <h2 class="page-title">在线用户管理</h2>
+    <h2 class="page-title">{{ t('route.onlineUser') }}</h2>
     <el-card class="page-card">
       <el-tabs v-model="activeTab" @tab-change="onTabChange">
         <!-- ============ Tab1：在线会话 ============ -->
-        <el-tab-pane label="在线会话" name="sessions">
+        <el-tab-pane :label="t('reportDashboard.onlineSession')" name="sessions">
           <!-- 搜索筛选 -->
           <div class="toolbar">
             <div class="toolbar-filters">
               <div class="filter-group">
-                <span class="filter-label">账号</span>
+                <span class="filter-label">{{ t('system.account') }}</span>
                 <el-input
                   v-model="query.username"
-                  placeholder="账号（模糊）"
+                  :placeholder="t('system.accountBlurred')"
                   clearable
                   style="width: 180px"
                   @keyup.enter="load"
                 />
               </div>
               <div class="filter-group">
-                <span class="filter-label">登录IP</span>
+                <span class="filter-label">{{ t('system.loginIp') }}</span>
                 <el-input
                   v-model="query.ip"
-                  placeholder="IP（模糊）"
+                  :placeholder="t('system.ipBlurred')"
                   clearable
                   style="width: 160px"
                   @keyup.enter="load"
                 />
               </div>
               <div class="filter-group">
-                <span class="filter-label">状态</span>
-                <el-select v-model="query.status" placeholder="状态" clearable style="width: 130px">
-                  <el-option label="在线" value="ONLINE" />
-                  <el-option label="空闲" value="IDLE" />
-                  <el-option label="已限制" value="RESTRICTED" />
+                <span class="filter-label">{{ t('common.status') }}</span>
+                <el-select v-model="query.status" :placeholder="t('common.status')" clearable style="width: 130px">
+                  <el-option :label="t('system.online')" value="ONLINE" />
+                  <el-option :label="t('system.idle')" value="IDLE" />
+                  <el-option :label="t('system.restricted')" value="RESTRICTED" />
                 </el-select>
               </div>
               <div class="filter-group">
-                <span class="filter-label">自动刷新</span>
+                <span class="filter-label">{{ t('job.autoRefresh') }}</span>
                 <el-select
                   v-model="refreshInterval"
-                  placeholder="关闭"
+                  :placeholder="t('common.close')"
                   style="width: 110px"
                   @change="onRefreshIntervalChange"
                 >
-                  <el-option label="关闭" :value="0" />
-                  <el-option label="5 秒" :value="5000" />
-                  <el-option label="10 秒" :value="10000" />
-                  <el-option label="30 秒" :value="30000" />
-                  <el-option label="60 秒" :value="60000" />
+                  <el-option :label="t('common.close')" :value="0" />
+                  <el-option :label="t('system.k5Sec')" :value="5000" />
+                  <el-option :label="t('system.k10Sec')" :value="10000" />
+                  <el-option :label="t('system.k30Sec')" :value="30000" />
+                  <el-option :label="t('system.k60Sec')" :value="60000" />
                 </el-select>
               </div>
             </div>
             <div class="toolbar-actions">
               <div class="action-buttons">
-                <el-button type="primary" :icon="Search" @click="load">查询</el-button>
-                <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+                <el-button type="primary" :icon="Search" @click="load">{{ t('common.query') }}</el-button>
+                <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
               </div>
               <div class="action-buttons">
                 <!-- 批量强制下线：勾选行后可用；含当前设备时确认框额外警示 -->
@@ -64,8 +64,7 @@
                   :icon="SwitchButton"
                   :disabled="!selection.length"
                   @click="onBatchForceLogout"
-                >
-                  强制下线<template v-if="selection.length">（{{ selection.length }}）</template>
+                >{{ t('system.forceOffline') }}<template v-if="selection.length">（{{ selection.length }}）</template>
                 </el-button>
               </div>
             </div>
@@ -79,20 +78,20 @@
             @selection-change="onSelectionChange"
           >
             <el-table-column type="selection" width="42" />
-            <el-table-column prop="username" label="账号" width="140" />
-            <el-table-column label="姓名" width="110">
+            <el-table-column prop="username" :label="t('system.account')" width="140" />
+            <el-table-column :label="t('system.name')" width="110">
               <template #default="{ row }">{{ row.displayName || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="loginIp" label="登录IP" width="140">
+            <el-table-column prop="loginIp" :label="t('system.loginIp')" width="140">
               <template #default="{ row }">{{ row.loginIp || '-' }}</template>
             </el-table-column>
-            <el-table-column label="登录时间" width="165">
+            <el-table-column :label="t('common.loginTime')" width="165">
               <template #default="{ row }">{{ formatTime(row.loginAt) }}</template>
             </el-table-column>
-            <el-table-column label="最近活跃" width="165">
+            <el-table-column :label="t('system.lastActive')" width="165">
               <template #default="{ row }">{{ formatTime(row.lastActiveAt) }}</template>
             </el-table-column>
-            <el-table-column label="会话状态" width="95">
+            <el-table-column :label="t('system.sessionStatus')" width="95">
               <template #default="{ row }">
                 <!-- 状态标签统一走 utils/status 映射 -->
                 <el-tag :type="statusTag(row.status).type" size="small" effect="dark">
@@ -100,20 +99,17 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="设备" min-width="150" show-overflow-tooltip>
+            <el-table-column :label="t('common.device')" min-width="150" show-overflow-tooltip>
               <template #default="{ row }">
-                <span v-if="isCurrentDevice(row)" class="current-device">
-                  当前设备<el-tag type="success" size="small" style="margin-left: 6px">本机</el-tag>
+                <span v-if="isCurrentDevice(row)" class="current-device">{{ t('profile.currentDevice') }}<el-tag type="success" size="small" style="margin-left: 6px">{{ t('system.thisMachine') }}</el-tag>
                 </span>
                 <span v-else class="text-muted">{{ row.userAgent || row.deviceId || '-' }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column :label="t('common.operation')" width="150" fixed="right">
               <template #default="{ row }">
-                <el-button link type="danger" :icon="SwitchButton" @click="onForceLogout([row])">
-                  强制下线
-                </el-button>
-                <el-button link type="warning" :icon="Lock" @click="openRestrict(row)">限制登录</el-button>
+                <el-button link type="danger" :icon="SwitchButton" @click="onForceLogout([row])">{{ t('system.forceOffline') }}</el-button>
+                <el-button link type="warning" :icon="Lock" @click="openRestrict(row)">{{ t('system.restrictLogin') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -132,71 +128,71 @@
         </el-tab-pane>
 
         <!-- ============ Tab2：登录限制记录（结构化操作日志） ============ -->
-        <el-tab-pane label="限制记录" name="restrictions">
+        <el-tab-pane :label="t('system.restrictionRecords')" name="restrictions">
           <div class="toolbar">
             <div class="toolbar-filters">
               <div class="filter-group">
-                <span class="filter-label">账号</span>
+                <span class="filter-label">{{ t('system.account') }}</span>
                 <el-input
                   v-model="rQuery.username"
-                  placeholder="账号（模糊）"
+                  :placeholder="t('system.accountBlurred')"
                   clearable
                   style="width: 180px"
                   @keyup.enter="loadRestrictions"
                 />
               </div>
               <div class="filter-group">
-                <span class="filter-label">状态</span>
-                <el-select v-model="rQuery.status" placeholder="状态" clearable style="width: 130px">
-                  <el-option label="生效中" value="ACTIVE" />
-                  <el-option label="已解除" value="RELEASED" />
+                <span class="filter-label">{{ t('common.status') }}</span>
+                <el-select v-model="rQuery.status" :placeholder="t('common.status')" clearable style="width: 130px">
+                  <el-option :label="t('system.active')" value="ACTIVE" />
+                  <el-option :label="t('system.removed')" value="RELEASED" />
                 </el-select>
               </div>
             </div>
             <div class="toolbar-actions">
               <div class="action-buttons">
-                <el-button type="primary" :icon="Search" @click="loadRestrictions">查询</el-button>
-                <el-button :icon="RefreshLeft" @click="resetRestrictionQuery">重置</el-button>
+                <el-button type="primary" :icon="Search" @click="loadRestrictions">{{ t('common.query') }}</el-button>
+                <el-button :icon="RefreshLeft" @click="resetRestrictionQuery">{{ t('common.reset') }}</el-button>
               </div>
             </div>
           </div>
 
           <el-table :data="rRows" v-loading="rLoading" border stripe>
-            <el-table-column prop="username" label="账号" width="140" />
-            <el-table-column label="姓名" width="100">
+            <el-table-column prop="username" :label="t('system.account')" width="140" />
+            <el-table-column :label="t('system.name')" width="100">
               <template #default="{ row }">{{ row.displayName || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="reason" label="限制原因" min-width="160" show-overflow-tooltip />
-            <el-table-column label="时长" width="90">
+            <el-table-column prop="reason" :label="t('system.restrictionReason')" min-width="160" show-overflow-tooltip />
+            <el-table-column :label="t('system.duration')" width="90">
               <template #default="{ row }">{{ durationLabel(row.durationMinutes) }}</template>
             </el-table-column>
-            <el-table-column prop="restrictedByName" label="限制人" width="100">
+            <el-table-column prop="restrictedByName" :label="t('system.restrictedBy')" width="100">
               <template #default="{ row }">{{ row.restrictedByName || '-' }}</template>
             </el-table-column>
-            <el-table-column label="限制时间" width="165">
+            <el-table-column :label="t('system.restrictedAt')" width="165">
               <template #default="{ row }">{{ formatTime(row.restrictedAt) }}</template>
             </el-table-column>
-            <el-table-column label="到期时间" width="165">
-              <template #default="{ row }">{{ row.expireAt ? formatTime(row.expireAt) : '长期' }}</template>
+            <el-table-column :label="t('workflow.dueTime')" width="165">
+              <template #default="{ row }">{{ row.expireAt ? formatTime(row.expireAt) : t('system.permanent') }}</template>
             </el-table-column>
-            <el-table-column label="解除信息" width="150">
+            <el-table-column :label="t('system.removalInfo')" width="150">
               <template #default="{ row }">
                 <template v-if="row.status === 'RELEASED'">
                   <div>{{ formatTime(row.releasedAt) }}</div>
-                  <div class="text-muted">{{ row.releaseType === 'AUTO_EXPIRED' ? '到期自动解除' : '手动解除' }}</div>
+                  <div class="text-muted">{{ row.releaseType === 'AUTO_EXPIRED' ? t('system.autoRemovedOnExpiry') : t('system.manualRemoval') }}</div>
                 </template>
                 <span v-else class="text-muted">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="90">
+            <el-table-column :label="t('common.status')" width="90">
               <template #default="{ row }">
                 <!-- 限制记录的 ACTIVE 意为「生效中」，与全局 STATUS_TAGS 的「启用」语义不同，保留本页判断 -->
                 <el-tag :type="row.status === 'ACTIVE' ? 'danger' : 'info'" size="small">
-                  {{ row.status === 'ACTIVE' ? '生效中' : '已解除' }}
+                  {{ row.status === 'ACTIVE' ? t('system.active') : t('system.removed') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="90" fixed="right">
+            <el-table-column :label="t('common.operation')" width="90" fixed="right">
               <template #default="{ row }">
                 <el-button
                   v-if="row.status === 'ACTIVE'"
@@ -227,47 +223,48 @@
     </el-card>
 
     <!-- ============ 设置临时限制登录 ============ -->
-    <el-dialog v-model="restrictVisible" title="设置临时限制登录" width="480px">
+    <el-dialog v-model="restrictVisible" :title="t('system.setTemporaryLoginRestriction')" width="480px">
       <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 12px">
         <template #title>
           限制后该用户全部在线会话将立即强制下线，且在限制期内无法登录；到期自动解除，也可手动提前解除。
         </template>
       </el-alert>
       <el-form :model="restrictForm" :rules="restrictRules" ref="restrictFormRef" label-width="90px">
-        <el-form-item label="账号">
+        <el-form-item :label="t('system.account')">
           <span>{{ restrictTarget.username }}</span>
         </el-form-item>
-        <el-form-item label="限制时长" prop="durationMinutes">
-          <el-select v-model="restrictForm.durationMinutes" style="width: 100%" placeholder="选择时长">
-            <el-option label="30 分钟" :value="30" />
-            <el-option label="1 小时" :value="60" />
-            <el-option label="12 小时" :value="720" />
-            <el-option label="1 天" :value="1440" />
-            <el-option label="3 天" :value="4320" />
-            <el-option label="7 天" :value="10080" />
-            <el-option label="长期（仅手动解除）" :value="0" />
+        <el-form-item :label="t('system.restrictionDuration')" prop="durationMinutes">
+          <el-select v-model="restrictForm.durationMinutes" style="width: 100%" :placeholder="t('system.selectDuration')">
+            <el-option :label="t('system.k30Min')" :value="30" />
+            <el-option :label="t('system.k1Hour')" :value="60" />
+            <el-option :label="t('system.k12Hours')" :value="720" />
+            <el-option :label="t('system.k1Day')" :value="1440" />
+            <el-option :label="t('system.k3Days')" :value="4320" />
+            <el-option :label="t('system.k7Days')" :value="10080" />
+            <el-option :label="t('system.permanentManualRemovalOnly')" :value="0" />
           </el-select>
         </el-form-item>
-        <el-form-item label="限制原因" prop="reason">
+        <el-form-item :label="t('system.restrictionReason')" prop="reason">
           <el-input
             v-model="restrictForm.reason"
             type="textarea"
             :rows="3"
             maxlength="255"
             show-word-limit
-            placeholder="请填写限制原因（将记入操作日志，必填）"
+            :placeholder="t('system.fillTheRestrictionReasonRecordedInTheOperationLogRequired')"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="restrictVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmitRestrict">确认限制</el-button>
+        <el-button @click="restrictVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmitRestrict">{{ t('system.confirmRestriction') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, SwitchButton, Lock } from '@element-plus/icons-vue'
@@ -311,10 +308,10 @@ const restrictFormRef = ref()
 const restrictTarget = reactive({ userId: null, username: '' })
 const restrictForm = reactive({ durationMinutes: 60, reason: '' })
 const restrictRules = {
-  durationMinutes: [{ required: true, message: '请选择限制时长', trigger: 'change' }],
+  durationMinutes: [{ required: true, message: t('system.selectRestrictionDuration'), trigger: 'change' }],
   reason: [
-    { required: true, message: '请填写限制原因', trigger: 'blur' },
-    { max: 255, message: '限制原因不能超过 255 字', trigger: 'blur' }
+    { required: true, message: t('system.fillTheRestrictionReason'), trigger: 'blur' },
+    { max: 255, message: t('system.restrictionReasonMustBe255Chars'), trigger: 'blur' }
   ]
 }
 
@@ -330,8 +327,8 @@ function formatTime(t) {
 
 /** 时长（分钟）→ 展示文案；0 为长期。 */
 function durationLabel(minutes) {
-  const map = { 30: '30 分钟', 60: '1 小时', 720: '12 小时', 1440: '1 天', 4320: '3 天', 10080: '7 天', 0: '长期' }
-  return map[minutes] || `${minutes} 分钟`
+  const map = { 30: t('system.k30Min'), 60: t('system.k1Hour'), 720: t('system.k12Hours'), 1440: t('system.k1Day'), 4320: t('system.k3Days'), 10080: t('system.k7Days'), 0: t('system.permanent') }
+  return map[minutes] || t('system.xMinutes', { minutes })
 }
 
 function isCurrentDevice(row) {
@@ -375,14 +372,14 @@ function resetQuery() {
 async function onForceLogout(targets) {
   const list = Array.isArray(targets) ? targets : [targets]
   const selfIncluded = list.some(isCurrentDevice)
-  let msg = `确认强制下线所选 ${list.length} 个会话吗？相关设备上的登录状态将立即失效，需重新登录。`
+  let msg = t('system.confirmForceOffline', { n: list.length })
   if (selfIncluded) {
-    msg += '\n注意：其中包含你当前设备的会话，下线后本页面将退出到登录页。'
+    msg += t('system.deviceSessionNote')
   }
   try {
-    await ElMessageBox.confirm(msg, '强制下线', {
-      confirmButtonText: '确认下线',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(msg, t('system.forceOffline'), {
+      confirmButtonText: t('profile.confirmOffline'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
       customClass: 'online-confirm'
     })
@@ -391,7 +388,7 @@ async function onForceLogout(targets) {
   }
   try {
     const n = await forceLogout(list.map((r) => r.id))
-    ElMessage.success(`已强制下线 ${n} 个会话`)
+    ElMessage.success(t('system.forcedOfflineSessions', { n }))
     selection.value = []
     await load()
   } catch (e) {
@@ -422,9 +419,9 @@ async function onSubmitRestrict() {
   const duration = durationLabel(restrictForm.durationMinutes)
   try {
     await ElMessageBox.confirm(
-      `确认限制账号「${restrictTarget.username}」登录吗？\n时长：${duration}\n原因：${restrictForm.reason}`,
-      '限制登录二次确认',
-      { confirmButtonText: '确认限制', cancelButtonText: '取消', type: 'warning' }
+      t('system.confirmRestrictLogin', { username: restrictTarget.username, duration, reason: restrictForm.reason }),
+      t('system.confirmLoginRestriction'),
+      { confirmButtonText: t('system.confirmRestriction'), cancelButtonText: t('common.cancel'), type: 'warning' }
     )
   } catch (e) {
     return // 用户取消
@@ -435,7 +432,7 @@ async function onSubmitRestrict() {
       durationMinutes: restrictForm.durationMinutes,
       reason: restrictForm.reason
     })
-    ElMessage.success('已设置限制登录，相关会话已强制下线')
+    ElMessage.success(t('system.loginRestrictionSetRelatedSessionsForceSignedOff'))
     restrictVisible.value = false
     await load()
   } catch (e) {
@@ -472,16 +469,16 @@ function resetRestrictionQuery() {
 async function onRelease(row) {
   try {
     await ElMessageBox.confirm(
-      `确认解除账号「${row.username}」的登录限制吗？解除后该账号可立即重新登录。`,
-      '解除限制',
-      { confirmButtonText: '确认解除', cancelButtonText: '取消', type: 'warning' }
+      t('system.confirmRemoveRestriction', { username: row.username }),
+      t('system.removeRestriction'),
+      { confirmButtonText: t('system.confirmRemoval'), cancelButtonText: t('common.cancel'), type: 'warning' }
     )
   } catch (e) {
     return // 用户取消
   }
   try {
     const n = await releaseRestriction(row.userId)
-    ElMessage.success(`已解除 ${n} 条限制`)
+    ElMessage.success(t('system.removedRestrictions', { n }))
     await loadRestrictions()
   } catch (e) {
     /* 拦截器已提示 */

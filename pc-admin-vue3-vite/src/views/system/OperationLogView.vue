@@ -1,9 +1,7 @@
 <template>
   <div>
-    <h2 class="page-title">
-      操作日志
-      <el-tag v-if="summary.sensitiveVisible" type="warning" size="small" effect="plain" class="title-badge">明文可见 · system:audit:sensitive</el-tag>
-      <el-tag v-else type="info" size="small" effect="plain" class="title-badge">已脱敏</el-tag>
+    <h2 class="page-title">{{ t('route.operationLog') }}<el-tag v-if="summary.sensitiveVisible" type="warning" size="small" effect="plain" class="title-badge">{{ t('system.plaintextVisibleSystemAuditSensitive') }}</el-tag>
+      <el-tag v-else type="info" size="small" effect="plain" class="title-badge">{{ t('system.masked') }}</el-tag>
     </h2>
 
     <el-card class="page-card" shadow="never">
@@ -11,43 +9,43 @@
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">模块</span>
-            <el-input v-model="query.moduleCode" placeholder="模块编码" clearable style="width: 140px" @keyup.enter="onSearch" />
+            <span class="filter-label">{{ t('system.module') }}</span>
+            <el-input v-model="query.moduleCode" :placeholder="t('system.moduleCode')" clearable style="width: 140px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">操作类型</span>
-            <el-select v-model="query.operationType" placeholder="全部" clearable style="width: 120px">
-              <el-option label="查询" value="QUERY" />
-              <el-option label="新增" value="CREATE" />
-              <el-option label="更新" value="UPDATE" />
-              <el-option label="删除" value="DELETE" />
-              <el-option label="导出" value="EXPORT" />
-              <el-option label="登录" value="LOGIN" />
+            <span class="filter-label">{{ t('system.operationType') }}</span>
+            <el-select v-model="query.operationType" :placeholder="t('common.all')" clearable style="width: 120px">
+              <el-option :label="t('common.query')" value="QUERY" />
+              <el-option :label="t('common.add')" value="CREATE" />
+              <el-option :label="t('system.update')" value="UPDATE" />
+              <el-option :label="t('common.delete')" value="DELETE" />
+              <el-option :label="t('common.export')" value="EXPORT" />
+              <el-option :label="t('route.loginTitle')" value="LOGIN" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">操作人</span>
-            <el-input v-model="query.operatorName" placeholder="用户名/姓名" clearable style="width: 140px" @keyup.enter="onSearch" />
+            <span class="filter-label">{{ t('system.operator') }}</span>
+            <el-input v-model="query.operatorName" :placeholder="t('system.usernameName')" clearable style="width: 140px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">结果</span>
-            <el-select v-model="query.success" placeholder="全部" clearable style="width: 110px">
-              <el-option label="成功" :value="true" />
-              <el-option label="失败" :value="false" />
+            <span class="filter-label">{{ t('job.result') }}</span>
+            <el-select v-model="query.success" :placeholder="t('common.all')" clearable style="width: 110px">
+              <el-option :label="t('common.success')" :value="true" />
+              <el-option :label="t('common.failed')" :value="false" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">关键字</span>
-            <el-input v-model="query.keyword" placeholder="操作名/请求路径/摘要" clearable style="width: 200px" @keyup.enter="onSearch" />
+            <span class="filter-label">{{ t('common.keyword') }}</span>
+            <el-input v-model="query.keyword" :placeholder="t('system.operationPathSummary')" clearable style="width: 200px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">时间范围</span>
+            <span class="filter-label">{{ t('monitor.timeRange') }}</span>
             <el-date-picker
               v-model="dateRange"
               type="datetimerange"
-              range-separator="至"
-              start-placeholder="开始时间"
-              end-placeholder="结束时间"
+              :range-separator="t('common.to')"
+              :start-placeholder="t('common.startTime')"
+              :end-placeholder="t('monitor.endTime')"
               value-format="YYYY-MM-DDTHH:mm:ss"
               :default-time="[new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]"
               style="width: 360px"
@@ -56,22 +54,22 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
             <el-divider direction="vertical" />
             <el-button
               type="success"
               :icon="Download"
               :loading="exporting === 'CSV'"
               @click="onExport('CSV')"
-            >导出 CSV</el-button>
+            >{{ t('report.exportCsv') }}</el-button>
             <el-button
               type="success"
               plain
               :icon="Download"
               :loading="exporting === 'XLSX'"
               @click="onExport('XLSX')"
-            >导出 XLSX</el-button>
+            >{{ t('system.exportXlsx') }}</el-button>
           </div>
         </div>
       </div>
@@ -85,7 +83,7 @@
         <span v-else-if="retention">
           审计日志自动清理已禁用（长期保留）；导出为脱敏归档文件，IP 一律掩码。
         </span>
-        <span v-else>正在加载留存策略…</span>
+        <span v-else>{{ t('system.loadingRetentionPolicy') }}</span>
       </div>
 
       <!-- 统计摘要（随筛选联动） -->
@@ -93,19 +91,19 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ summary.total ?? '--' }}</div>
-            <div class="stat-label">总记录</div>
+            <div class="stat-label">{{ t('system.totalRecords') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-ok">{{ summary.successCount ?? '--' }}</div>
-            <div class="stat-label">成功</div>
+            <div class="stat-label">{{ t('common.success') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ summary.failureCount ?? '--' }}</div>
-            <div class="stat-label">失败</div>
+            <div class="stat-label">{{ t('common.failed') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
@@ -117,53 +115,53 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ fmtMs(summary.avgDurationMs) }}</div>
-            <div class="stat-label">平均耗时</div>
+            <div class="stat-label">{{ t('report.avgCost') }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ fmtMs(summary.maxDurationMs) }}</div>
-            <div class="stat-label">最大耗时</div>
+            <div class="stat-label">{{ t('report.maxCost') }}</div>
           </div>
         </el-col>
       </el-row>
 
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="occurredAt" label="时间" width="180" sortable="custom" />
-        <el-table-column prop="moduleCode" label="模块" width="100" sortable="custom" />
-        <el-table-column prop="operationType" label="类型" width="90">
+        <el-table-column prop="occurredAt" :label="t('system.time')" width="180" sortable="custom" />
+        <el-table-column prop="moduleCode" :label="t('system.module')" width="100" sortable="custom" />
+        <el-table-column prop="operationType" :label="t('common.type')" width="90">
           <template #default="{ row }">
             <el-tag size="small" :type="opTagType(row.operationType)">{{ row.operationType }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="operationName" label="操作" min-width="150" show-overflow-tooltip />
-        <el-table-column label="请求" min-width="220" show-overflow-tooltip>
+        <el-table-column prop="operationName" :label="t('common.operation')" min-width="150" show-overflow-tooltip />
+        <el-table-column :label="t('system.request')" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="method">{{ row.requestMethod }}</span> {{ row.requestPath }}
           </template>
         </el-table-column>
-        <el-table-column prop="requestSummary" label="请求摘要" min-width="200" show-overflow-tooltip>
+        <el-table-column prop="requestSummary" :label="t('system.requestSummary')" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.requestSummary">{{ row.requestSummary }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="resultSummary" label="结果摘要" min-width="200" show-overflow-tooltip>
+        <el-table-column prop="resultSummary" :label="t('system.resultSummary')" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.resultSummary">{{ row.resultSummary }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="resultCode" label="错误码" width="120">
+        <el-table-column prop="resultCode" :label="t('monitor.errorCode')" width="120">
           <template #default="{ row }">
             <el-tag v-if="row.resultCode" type="danger" size="small">{{ row.resultCode }}</el-tag>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="operatorName" label="操作人" width="110" sortable="custom" />
-        <el-table-column prop="ipAddress" label="IP(已掩码)" width="140" show-overflow-tooltip />
-        <el-table-column prop="durationMs" label="耗时(ms)" width="100" sortable="custom" />
+        <el-table-column prop="operatorName" :label="t('system.operator')" width="110" sortable="custom" />
+        <el-table-column prop="ipAddress" :label="t('system.ipMasked')" width="140" show-overflow-tooltip />
+        <el-table-column prop="durationMs" :label="t('system.elapsedMs')" width="100" sortable="custom" />
         <el-table-column label="TraceId" width="150">
           <template #default="{ row }">
             <el-link v-if="row.traceId" type="primary" :underline="false" @click="openTrace(row.traceId)">
@@ -172,9 +170,9 @@
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="80" fixed="right">
+        <el-table-column :label="t('common.operation')" width="80" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="openDetail(row)">详情</el-button>
+            <el-button type="primary" link size="small" @click="openDetail(row)">{{ t('common.detail') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -197,12 +195,12 @@
     </el-card>
 
     <!-- TraceId 链路抽屉 -->
-    <el-drawer v-model="traceVisible" :title="`操作链路 · ${activeTraceId}`" size="480px">
+    <el-drawer v-model="traceVisible" :title="t('system.traceChain', { id: activeTraceId })" size="480px">
       <el-table :data="traceRows" v-loading="traceLoading" border stripe size="small">
-        <el-table-column prop="occurredAt" label="时间" width="170" />
-        <el-table-column prop="moduleCode" label="模块" width="90" />
-        <el-table-column prop="operationName" label="操作" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="resultCode" label="错误码" width="110">
+        <el-table-column prop="occurredAt" :label="t('system.time')" width="170" />
+        <el-table-column prop="moduleCode" :label="t('system.module')" width="90" />
+        <el-table-column prop="operationName" :label="t('common.operation')" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="resultCode" :label="t('monitor.errorCode')" width="110">
           <template #default="{ row }">
             <el-tag v-if="row.resultCode" type="danger" size="small">{{ row.resultCode }}</el-tag>
             <span v-else class="muted">--</span>
@@ -212,34 +210,34 @@
     </el-drawer>
 
     <!-- 单条操作日志详情抽屉 -->
-    <el-drawer v-model="detailVisible" title="操作日志详情" size="520px">
+    <el-drawer v-model="detailVisible" :title="t('system.operationLogDetail')" size="520px">
       <el-descriptions v-if="detailRow" :column="1" border>
-        <el-descriptions-item label="时间">{{ detailRow.occurredAt }}</el-descriptions-item>
-        <el-descriptions-item label="模块">{{ detailRow.moduleCode }}</el-descriptions-item>
-        <el-descriptions-item label="类型">
+        <el-descriptions-item :label="t('system.time')">{{ detailRow.occurredAt }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.module')">{{ detailRow.moduleCode }}</el-descriptions-item>
+        <el-descriptions-item :label="t('common.type')">
           <el-tag size="small" :type="opTagType(detailRow.operationType)">{{ detailRow.operationType }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="操作">{{ detailRow.operationName }}</el-descriptions-item>
-        <el-descriptions-item label="请求">
+        <el-descriptions-item :label="t('common.operation')">{{ detailRow.operationName }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.request')">
           <span class="method">{{ detailRow.requestMethod }}</span> {{ detailRow.requestPath }}
         </el-descriptions-item>
-        <el-descriptions-item label="IP(已掩码)">{{ detailRow.ipAddress }}</el-descriptions-item>
-        <el-descriptions-item label="操作人">{{ detailRow.operatorName }}</el-descriptions-item>
-        <el-descriptions-item label="耗时">{{ fmtMs(detailRow.durationMs) }}</el-descriptions-item>
-        <el-descriptions-item label="错误码">
+        <el-descriptions-item :label="t('system.ipMasked')">{{ detailRow.ipAddress }}</el-descriptions-item>
+        <el-descriptions-item :label="t('system.operator')">{{ detailRow.operatorName }}</el-descriptions-item>
+        <el-descriptions-item :label="t('monitor.elapsed')">{{ fmtMs(detailRow.durationMs) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('monitor.errorCode')">
           <el-tag v-if="detailRow.resultCode" type="danger" size="small">{{ detailRow.resultCode }}</el-tag>
           <span v-else class="muted">--</span>
         </el-descriptions-item>
         <el-descriptions-item label="TraceId">{{ detailRow.traceId || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="请求摘要">
+        <el-descriptions-item :label="t('system.requestSummary')">
           <pre class="detail-json">{{ detailRow.requestSummary || '--' }}</pre>
         </el-descriptions-item>
-        <el-descriptions-item label="结果摘要">
+        <el-descriptions-item :label="t('system.resultSummary')">
           <pre class="detail-json">{{ detailRow.resultSummary || '--' }}</pre>
         </el-descriptions-item>
-        <el-descriptions-item label="脱敏状态">
+        <el-descriptions-item :label="t('system.maskingStatus')">
           <el-tag :type="summary.sensitiveVisible ? 'warning' : 'info'" size="small">
-            {{ summary.sensitiveVisible ? '明文可见' : '已脱敏' }}
+            {{ summary.sensitiveVisible ? t('system.plaintextVisible') : t('system.masked') }}
           </el-tag>
         </el-descriptions-item>
       </el-descriptions>
@@ -248,6 +246,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft, Download, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -408,9 +407,9 @@ async function onExport(format = 'CSV') {
       resp,
       'audit-log',
       format === 'XLSX' ? 'xlsx' : 'csv',
-      '审计日志导出失败'
+      t('system.auditLogExportFailed')
     )
-    if (ok) ElMessage.success('导出成功')
+    if (ok) ElMessage.success(t('system.exported'))
   } catch (e) {
     // 响应拦截器已弹错误提示
   } finally {

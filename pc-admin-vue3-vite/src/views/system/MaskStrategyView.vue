@@ -1,70 +1,70 @@
 <template>
   <div>
-    <h2 class="page-title">脱敏策略中心</h2>
+    <h2 class="page-title">{{ t('system.maskingPolicyCenter') }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">字段键</span>
+            <span class="filter-label">{{ t('formDesigner.key') }}</span>
             <el-input
               v-model="query.fieldKey"
-              placeholder="如 audit.ip"
+              :placeholder="t('system.eGAuditIp')"
               clearable
               style="width: 200px"
               @keyup.enter="onSearch"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">脱敏类型</span>
-            <el-select v-model="query.sensitiveType" placeholder="全部" clearable style="width: 140px">
+            <span class="filter-label">{{ t('system.maskingType') }}</span>
+            <el-select v-model="query.sensitiveType" :placeholder="t('common.all')" clearable style="width: 140px">
               <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">状态</span>
-            <el-select v-model="query.enabled" placeholder="全部" clearable style="width: 120px">
-              <el-option label="启用" :value="true" />
-              <el-option label="停用" :value="false" />
+            <span class="filter-label">{{ t('common.status') }}</span>
+            <el-select v-model="query.enabled" :placeholder="t('common.all')" clearable style="width: 120px">
+              <el-option :label="t('common.enabled')" :value="true" />
+              <el-option :label="t('system.disable')" :value="false" />
             </el-select>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">查询</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-            <el-button type="success" :icon="Plus" @click="openCreate">新建策略</el-button>
-            <el-button :icon="Refresh" @click="onRefreshCache">刷新缓存</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+            <el-button type="success" :icon="Plus" @click="openCreate">{{ t('system.newPolicy') }}</el-button>
+            <el-button :icon="Refresh" @click="onRefreshCache">{{ t('system.refreshCache') }}</el-button>
           </div>
         </div>
       </div>
 
       <!-- 策略列表 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="strategyCode" label="编码" width="180" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="strategyName" label="名称" width="160" show-overflow-tooltip />
-        <el-table-column prop="fieldKey" label="字段键" width="180" show-overflow-tooltip />
-        <el-table-column label="脱敏类型" width="130">
+        <el-table-column prop="strategyCode" :label="t('system.code')" width="180" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="strategyName" :label="t('common.name')" width="160" show-overflow-tooltip />
+        <el-table-column prop="fieldKey" :label="t('formDesigner.key')" width="180" show-overflow-tooltip />
+        <el-table-column :label="t('system.maskingType')" width="130">
           <template #default="{ row }">
             <el-tag :type="typeTag(row.sensitiveType).type" size="small">{{ typeTag(row.sensitiveType).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="作用范围" width="120">
+        <el-table-column :label="t('system.scope')" width="120">
           <template #default="{ row }">
             <el-tag :type="scopeTag(row.applyScope).type" size="small" effect="plain">
               {{ scopeTag(row.applyScope).label }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="exemptRoles" label="豁免角色" min-width="150" show-overflow-tooltip>
+        <el-table-column prop="exemptRoles" :label="t('system.exemptRoles')" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.exemptRoles">{{ row.exemptRoles }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="90" sortable="custom" />
-        <el-table-column label="启用" width="90">
+        <el-table-column prop="priority" :label="t('system.priority')" width="90" sortable="custom" />
+        <el-table-column :label="t('common.enabled')" width="90">
           <template #default="{ row }">
             <el-switch
               v-model="row.enabled"
@@ -73,12 +73,12 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column :label="t('common.operation')" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-popconfirm title="确认删除该策略？" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-popconfirm :title="t('system.deleteThisPolicy')" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">删除</el-button>
+                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -97,7 +97,7 @@
         />
       </div>
       <div class="hint">
-        策略按 <b>字段键</b>（如 <code>audit.ip</code>）在序列化/导出前由 MaskStrategyResolver 统一分派：
+        策略按 <b>{{ t('formDesigner.key') }}</b>{{ t('system.eG') }}<code>audit.ip</code>）在序列化/导出前由 MaskStrategyResolver 统一分派：
         未命中时按调用方声明的回落类型脱敏（绝不泄漏明文）。作用范围 <code>ROLE_EXEMPT</code> 表示命中豁免角色看明文；
         <code>NONE</code> 为显式放行（用于已脱敏存储字段，避免二次脱敏）。同字段键多条策略时优先级数值高者胜。
       </div>
@@ -106,51 +106,51 @@
     <!-- 新建 / 编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="editingId !== null ? '编辑策略' : '新建策略'"
+      :title="editingId !== null ? t('system.editPolicy') : t('system.newPolicy')"
       width="640px"
       @closed="resetForm"
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="92px">
-        <el-form-item label="策略编码" prop="strategyCode">
+        <el-form-item :label="t('system.policyCode')" prop="strategyCode">
           <el-input
             v-model="form.strategyCode"
-            placeholder="如 AUDIT_IP_MASK（租户内唯一）"
+            :placeholder="t('system.eGAuditIpMaskUniqueWithinTenant')"
             :disabled="editingId !== null"
           />
         </el-form-item>
-        <el-form-item label="策略名称" prop="strategyName">
-          <el-input v-model="form.strategyName" placeholder="如 审计日志 IP 脱敏" />
+        <el-form-item :label="t('system.policyName')" prop="strategyName">
+          <el-input v-model="form.strategyName" :placeholder="t('system.eGAuditLogIpMasking')" />
         </el-form-item>
-        <el-form-item label="字段键" prop="fieldKey">
-          <el-input v-model="form.fieldKey" placeholder="如 audit.ip（视图/导出任务的逻辑字段键）" />
+        <el-form-item :label="t('formDesigner.key')" prop="fieldKey">
+          <el-input v-model="form.fieldKey" :placeholder="t('system.eGAuditIpLogicalFieldKeyForViewsExportJobs')" />
         </el-form-item>
-        <el-form-item label="脱敏类型" prop="sensitiveType">
+        <el-form-item :label="t('system.maskingType')" prop="sensitiveType">
           <el-select v-model="form.sensitiveType" style="width: 100%">
             <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="效果预览" v-if="form.sensitiveType">
+        <el-form-item :label="t('system.effectPreview')" v-if="form.sensitiveType">
           <div class="preview-box">
             <el-input
               v-model="previewSample"
-              placeholder="输入示例值，实时预览脱敏效果"
+              :placeholder="t('system.enterASampleValueToPreviewMaskingInRealTime')"
               style="width: 100%"
               @keyup.enter="runPreview"
             >
-              <template #prepend>示例值</template>
+              <template #prepend>{{ t('system.sampleValue') }}</template>
               <template #append>
-                <el-button :loading="previewing" :icon="View" @click="runPreview">预览</el-button>
+                <el-button :loading="previewing" :icon="View" @click="runPreview">{{ t('system.preview') }}</el-button>
               </template>
             </el-input>
             <div v-if="previewSample !== '' || previewResult !== '' || previewing" class="preview-result">
-              <code class="preview-origin">{{ previewSample === '' ? '（空）' : previewSample }}</code>
+              <code class="preview-origin">{{ previewSample === '' ? t('system.empty') : previewSample }}</code>
               <el-icon class="preview-arrow"><Right /></el-icon>
-              <code class="preview-masked">{{ previewResult === '' ? '（无结果）' : previewResult }}</code>
+              <code class="preview-masked">{{ previewResult === '' ? t('system.noResult') : previewResult }}</code>
             </div>
-            <div class="preview-tip">预览复用后端 SensitiveMasker 单一数据源，与运行时实际脱敏口径一致。</div>
+            <div class="preview-tip">{{ t('system.previewReusesTheBackendSensitivemaskerSingleSourceConsistentWithRuntimeMasking') }}</div>
           </div>
         </el-form-item>
-        <el-form-item label="作用范围" prop="applyScope">
+        <el-form-item :label="t('system.scope')" prop="applyScope">
           <el-select v-model="form.applyScope" style="width: 100%">
             <el-option
               v-for="s in scopeOptions"
@@ -160,32 +160,33 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.applyScope === 'ROLE_EXEMPT'" label="豁免角色" prop="exemptRoles">
+        <el-form-item v-if="form.applyScope === 'ROLE_EXEMPT'" :label="t('system.exemptRoles')" prop="exemptRoles">
           <el-input
             v-model="form.exemptRoles"
-            placeholder="role_code，多个用逗号/分号分隔；留空表示无人豁免"
+            :placeholder="t('system.roleCodeCommaSemicolonSeparatedBlankMeansNoOneExempt')"
           />
         </el-form-item>
-        <el-form-item label="优先级" prop="priority">
+        <el-form-item :label="t('system.priority')" prop="priority">
           <el-input-number v-model="form.priority" :min="0" :max="9999" style="width: 160px" />
-          <span class="field-hint">同字段键多条策略时，数值高者生效</span>
+          <span class="field-hint">{{ t('system.whenMultiplePoliciesShareAFieldKeyTheHigherValueWins') }}</span>
         </el-form-item>
-        <el-form-item label="启用">
+        <el-form-item :label="t('common.enabled')">
           <el-switch v-model="form.enabled" />
         </el-form-item>
-        <el-form-item label="备注">
+        <el-form-item :label="t('job.remark')">
           <el-input v-model="form.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Edit, Search, RefreshLeft, Refresh, View, Right } from '@element-plus/icons-vue'
@@ -201,41 +202,41 @@ import {
 
 // 与后端 SensitiveType 枚举一致（NONE 为显式放行标志，不在可选之列）
 const typeOptions = [
-  { value: 'MOBILE', label: '手机号' },
-  { value: 'ID_CARD', label: '身份证号' },
-  { value: 'BANK_CARD', label: '银行卡号' },
-  { value: 'EMAIL', label: '邮箱' },
-  { value: 'NAME', label: '姓名' },
-  { value: 'ADDRESS', label: '联系地址' },
-  { value: 'IP', label: 'IP 地址' },
-  { value: 'CREDENTIAL_TEXT', label: '凭证/敏感文本' }
+  { value: 'MOBILE', label: t('common.phone') },
+  { value: 'ID_CARD', label: t('system.idNumber') },
+  { value: 'BANK_CARD', label: t('system.bankCardNumber') },
+  { value: 'EMAIL', label: t('common.email') },
+  { value: 'NAME', label: t('system.name') },
+  { value: 'ADDRESS', label: t('system.contactAddress') },
+  { value: 'IP', label: t('common.ipAddress') },
+  { value: 'CREDENTIAL_TEXT', label: t('system.credentialSensitiveText') }
 ]
 const typeTag = (t) => {
   const map = {
-    MOBILE: { type: 'danger', label: '手机号' },
-    ID_CARD: { type: 'danger', label: '身份证号' },
-    BANK_CARD: { type: 'warning', label: '银行卡号' },
-    EMAIL: { type: 'primary', label: '邮箱' },
-    NAME: { type: 'success', label: '姓名' },
-    ADDRESS: { type: 'info', label: '联系地址' },
-    IP: { type: 'primary', label: 'IP 地址' },
-    CREDENTIAL_TEXT: { type: 'warning', label: '凭证/敏感文本' },
-    NONE: { type: 'info', label: '不脱敏' }
+    MOBILE: { type: 'danger', label: t('common.phone') },
+    ID_CARD: { type: 'danger', label: t('system.idNumber') },
+    BANK_CARD: { type: 'warning', label: t('system.bankCardNumber') },
+    EMAIL: { type: 'primary', label: t('common.email') },
+    NAME: { type: 'success', label: t('system.name') },
+    ADDRESS: { type: 'info', label: t('system.contactAddress') },
+    IP: { type: 'primary', label: t('common.ipAddress') },
+    CREDENTIAL_TEXT: { type: 'warning', label: t('system.credentialSensitiveText') },
+    NONE: { type: 'info', label: t('system.noMasking') }
   }
   return map[t] || { type: 'info', label: t || '--' }
 }
 
 // 与后端 MaskStrategyRules 作用范围白名单一致
 const scopeOptions = [
-  { value: 'ALL', label: 'ALL（一律脱敏）' },
-  { value: 'ROLE_EXEMPT', label: 'ROLE_EXEMPT（角色豁免）' },
-  { value: 'NONE', label: 'NONE（永不脱敏）' }
+  { value: 'ALL', label: t('system.allMaskEverything') },
+  { value: 'ROLE_EXEMPT', label: t('system.roleExemptRoleExempt') },
+  { value: 'NONE', label: t('system.noneNeverMask') }
 ]
 const scopeTag = (s) => {
   const map = {
-    ALL: { type: 'danger', label: '一律脱敏' },
-    ROLE_EXEMPT: { type: 'warning', label: '角色豁免' },
-    NONE: { type: 'info', label: '显式放行' }
+    ALL: { type: 'danger', label: t('system.maskAll') },
+    ROLE_EXEMPT: { type: 'warning', label: t('system.roleExempt') },
+    NONE: { type: 'info', label: t('system.explicitAllow') }
   }
   return map[s] || { type: 'info', label: s || '--' }
 }
@@ -310,7 +311,7 @@ async function onToggle(row, val) {
   row.__toggling = true
   try {
     await toggleMaskStrategy(row.id, val)
-    ElMessage.success(val ? '已启用' : '已停用')
+    ElMessage.success(val ? t('monitor.enabled') : t('monitor.disabled'))
   } catch (e) {
     row.enabled = !val // 失败时回滚开关
   } finally {
@@ -321,7 +322,7 @@ async function onToggle(row, val) {
 async function onDelete(row) {
   try {
     await deleteMaskStrategy(row.id)
-    ElMessage.success('已删除')
+    ElMessage.success(t('common.deleted'))
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -331,7 +332,7 @@ async function onDelete(row) {
 async function onRefreshCache() {
   try {
     const evicted = await refreshMaskStrategyCache()
-    ElMessage.success(`缓存已刷新，失效 ${evicted ?? 0} 条`)
+    ElMessage.success(t('system.cacheRefreshed', { n: evicted ?? 0 }))
   } catch (e) {
     /* 拦截器已统一提示 */
   }
@@ -354,11 +355,11 @@ const form = reactive({
   remark: ''
 })
 const rules = {
-  strategyCode: [{ required: true, message: '请输入策略编码', trigger: 'blur' }],
-  strategyName: [{ required: true, message: '请输入策略名称', trigger: 'blur' }],
-  fieldKey: [{ required: true, message: '请输入字段键', trigger: 'blur' }],
-  sensitiveType: [{ required: true, message: '请选择脱敏类型', trigger: 'change' }],
-  applyScope: [{ required: true, message: '请选择作用范围', trigger: 'change' }]
+  strategyCode: [{ required: true, message: t('system.enterPolicyCode'), trigger: 'blur' }],
+  strategyName: [{ required: true, message: t('system.enterPolicyName'), trigger: 'blur' }],
+  fieldKey: [{ required: true, message: t('system.enterFieldKey'), trigger: 'blur' }],
+  sensitiveType: [{ required: true, message: t('system.selectMaskingType'), trigger: 'change' }],
+  applyScope: [{ required: true, message: t('system.selectScope'), trigger: 'change' }]
 }
 
 function resetForm() {
@@ -433,10 +434,10 @@ async function onSubmit() {
     if (payload.applyScope !== 'ROLE_EXEMPT') payload.exemptRoles = ''
     if (editingId.value != null) {
       await updateMaskStrategy(editingId.value, payload)
-      ElMessage.success('更新成功')
+      ElMessage.success(t('system.updated'))
     } else {
       await createMaskStrategy(payload)
-      ElMessage.success('创建成功')
+      ElMessage.success(t('system.created'))
     }
     dialogVisible.value = false
     load()
