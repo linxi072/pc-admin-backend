@@ -1,16 +1,16 @@
 <template>
   <div class="panel">
-    <h3 class="panel-title">绑定与安全验证</h3>
-    <p class="panel-desc">用于接收通知与找回密码。解绑后对应的通知渠道会自动关闭。</p>
+    <h3 class="panel-title">{{ t('profile.bindSecurityTitle') }}</h3>
+    <p class="panel-desc">{{ t('profile.bindSecurityDesc') }}</p>
 
     <el-descriptions :column="1" border class="bind-list">
-      <el-descriptions-item label="手机号">
+      <el-descriptions-item :label="t('common.phone')">
         <div class="row">
           <template v-if="profile?.mobileBound">
             <span class="value">{{ maskedMobile }}</span>
-            <el-tag type="success" size="small" effect="plain">已绑定</el-tag>
+            <el-tag type="success" size="small" effect="plain">{{ t('profile.bound') }}</el-tag>
           </template>
-          <el-tag v-else type="info" size="small" effect="plain">未绑定</el-tag>
+          <el-tag v-else type="info" size="small" effect="plain">{{ t('profile.unbound') }}</el-tag>
           <span class="spacer" />
           <el-button
             v-if="profile?.mobileBound"
@@ -32,13 +32,13 @@
         </div>
       </el-descriptions-item>
 
-      <el-descriptions-item label="邮箱">
+      <el-descriptions-item :label="t('common.email')">
         <div class="row">
           <template v-if="profile?.emailBound">
             <span class="value">{{ profile.email }}</span>
-            <el-tag type="success" size="small" effect="plain">已绑定</el-tag>
+            <el-tag type="success" size="small" effect="plain">{{ t('profile.bound') }}</el-tag>
           </template>
-          <el-tag v-else type="info" size="small" effect="plain">未绑定</el-tag>
+          <el-tag v-else type="info" size="small" effect="plain">{{ t('profile.unbound') }}</el-tag>
           <span class="spacer" />
           <el-button
             v-if="profile?.emailBound"
@@ -66,13 +66,13 @@
       :closable="false"
       show-icon
       class="bind-tip"
-      title="演示环境未接入短信/邮件网关，绑定时仅校验格式与唯一性；接入后将在此发送验证码。"
+      :title="t('profile.demoSmsMailDesc')"
     />
 
     <!-- 绑定弹窗 -->
     <el-dialog
       v-model="bindVisible"
-      :title="`绑定${channelLabel}`"
+      :title="t('profile.bindingChannel', { channel: channelLabel })"
       width="420px"
       :close-on-click-modal="false"
     >
@@ -80,23 +80,24 @@
         <el-form-item :label="channelLabel" prop="contact">
           <el-input
             v-model="bindForm.contact"
-            :placeholder="channel === 'MOBILE' ? '请输入 11 位手机号' : '请输入邮箱地址'"
+            :placeholder="channel === 'MOBILE' ? t('profile.pleaseEnterMobile') : t('profile.pleaseEnterEmail')"
             clearable
           />
         </el-form-item>
-        <el-form-item label="验证码">
-          <el-input v-model="bindForm.code" placeholder="演示环境暂不校验" disabled />
+        <el-form-item :label="t('common.verificationCode')">
+          <el-input v-model="bindForm.code" :placeholder="t('profile.demoNoVerify')" disabled />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="bindVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting === 'BIND'" @click="onBind">确认绑定</el-button>
+        <el-button @click="bindVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting === 'BIND'" @click="onBind">{{ t('profile.confirmBind') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { bindContact } from '@/api/profile'
@@ -112,7 +113,7 @@ const submitting = ref('')
 const channel = ref('MOBILE')
 const bindForm = reactive({ contact: '', code: '' })
 
-const channelLabel = computed(() => (channel.value === 'MOBILE' ? '手机号' : '邮箱'))
+const channelLabel = computed(() => (channel.value === 'MOBILE' ? t('common.phone') : t('common.email')))
 
 // 个人中心默认脱敏展示完整手机号，避免旁观者窥屏
 const maskedMobile = computed(() => {
@@ -123,10 +124,10 @@ const maskedMobile = computed(() => {
 
 const bindRules = computed(() => ({
   contact: [
-    { required: true, message: `请输入${channelLabel.value}`, trigger: 'blur' },
+    { required: true, message: t('profile.pleaseEnterChannel', { channel: channelLabel.value }), trigger: 'blur' },
     channel.value === 'MOBILE'
-      ? { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
-      : { pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, message: '邮箱格式不正确', trigger: 'blur' }
+      ? { pattern: /^1[3-9]\d{9}$/, message: t('profile.mobileFormatInvalid'), trigger: 'blur' }
+      : { pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, message: t('profile.emailFormatInvalid'), trigger: 'blur' }
   ]
 }))
 
@@ -146,7 +147,7 @@ async function onBind() {
     const next = await bindContact({ channel: channel.value, contact: bindForm.contact.trim() })
     bindVisible.value = false
     emit('updated', next)
-    ElMessage.success(`${channelLabel.value}绑定成功`)
+    ElMessage.success(t('profile.channelBound', { channel: channelLabel.value }))
   } catch (e) {
     // 冲突/格式错误提示已由 http 层弹出
   } finally {
@@ -155,12 +156,12 @@ async function onBind() {
 }
 
 async function onUnbind(ch) {
-  const label = ch === 'MOBILE' ? '手机号' : '邮箱'
+  const label = ch === 'MOBILE' ? t('common.phone') : t('common.email')
   try {
     await ElMessageBox.confirm(
-      `解绑后将无法通过${label}接收通知，且${ch === 'MOBILE' ? '短信' : '邮件'}通知渠道会自动关闭。确认解绑吗？`,
-      '确认解绑',
-      { confirmButtonText: '确认解绑', cancelButtonText: '取消', type: 'warning' }
+      t('profile.unbindConfirm', { label, channel: ch === 'MOBILE' ? t('common.sms') : t('common.mail') }),
+      t('profile.confirmUnbind'),
+      { confirmButtonText: t('profile.confirmUnbind'), cancelButtonText: t('common.cancel'), type: 'warning' }
     )
   } catch (e) {
     return // 用户取消
@@ -170,7 +171,7 @@ async function onUnbind(ch) {
   try {
     const next = await bindContact({ channel: ch, contact: '' })
     emit('updated', next)
-    ElMessage.success(`${label}已解绑`)
+    ElMessage.success(t('profile.channelUnbound', { label }))
   } catch (e) {
     // 错误提示已统一处理
   } finally {

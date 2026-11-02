@@ -1,7 +1,7 @@
 <template>
   <div class="panel">
-    <h3 class="panel-title">通知与隐私偏好</h3>
-    <p class="panel-desc">控制各类通知的接收方式，以及个人信息的可见范围。</p>
+    <h3 class="panel-title">{{ t('profile.privacyPrefTitle') }}</h3>
+    <p class="panel-desc">{{ t('profile.privacyPrefDesc') }}</p>
 
     <!-- 加载态 -->
     <el-skeleton v-if="loading && !loaded" :rows="5" animated />
@@ -16,28 +16,28 @@
     >
       <template #title>偏好设置加载失败：{{ error }}</template>
       <template #default>
-        <el-button size="small" @click="load">重新加载</el-button>
+        <el-button size="small" @click="load">{{ t('common.reload') }}</el-button>
       </template>
     </el-alert>
 
     <template v-else>
       <div class="group">
-        <h4 class="group-title">通知方式</h4>
+        <h4 class="group-title">{{ t('profile.notifyMethod') }}</h4>
         <el-form label-width="140px" label-position="left">
-          <el-form-item label="站内信通知">
+          <el-form-item :label="t('profile.stationMsgNotify')">
             <el-switch v-model="form.notifySiteMessage" />
-            <span class="hint">系统消息、审批结果等重要通知</span>
+            <span class="hint">{{ t('profile.importantNoticeDesc') }}</span>
           </el-form-item>
-          <el-form-item label="邮件通知">
+          <el-form-item :label="t('profile.mailNotify')">
             <el-switch v-model="form.notifyEmail" :disabled="!profile?.emailBound" />
             <span class="hint">
-              {{ profile?.emailBound ? '发送至绑定邮箱' : '需先绑定邮箱' }}
+              {{ profile?.emailBound ? t('profile.sendToEmail') : t('profile.needBindEmail') }}
             </span>
           </el-form-item>
-          <el-form-item label="短信通知">
+          <el-form-item :label="t('profile.smsNotify')">
             <el-switch v-model="form.notifyMobile" :disabled="!profile?.mobileBound" />
             <span class="hint">
-              {{ profile?.mobileBound ? '发送至绑定手机号' : '需先绑定手机号' }}
+              {{ profile?.mobileBound ? t('profile.sendToPhone') : t('profile.needBindPhone') }}
             </span>
           </el-form-item>
         </el-form>
@@ -46,19 +46,19 @@
       <el-divider />
 
       <div class="group">
-        <h4 class="group-title">隐私设置</h4>
+        <h4 class="group-title">{{ t('profile.privacySettings') }}</h4>
         <el-form label-width="140px" label-position="left">
-          <el-form-item label="展示我的登录记录">
+          <el-form-item :label="t('profile.showLoginHistory')">
             <el-switch v-model="form.showLoginLog" />
-            <span class="hint">关闭后仅自己可见完整登录历史</span>
+            <span class="hint">{{ t('profile.loginHistoryDesc') }}</span>
           </el-form-item>
-          <el-form-item label="对外脱敏手机号">
+          <el-form-item :label="t('profile.maskPhonePublic')">
             <el-switch v-model="form.maskMobile" />
-            <span class="hint">他人查看时显示为 138****8000</span>
+            <span class="hint">{{ t('profile.maskPhoneDesc') }}</span>
           </el-form-item>
-          <el-form-item label="允许被搜索到">
+          <el-form-item :label="t('profile.allowSearch')">
             <el-switch v-model="form.discoverable" />
-            <span class="hint">关闭后其他用户无法搜索到你</span>
+            <span class="hint">{{ t('profile.allowSearchDesc') }}</span>
           </el-form-item>
         </el-form>
       </div>
@@ -67,14 +67,15 @@
         <el-button type="primary" :loading="saving" :disabled="!dirty" @click="onSave">
           保存设置
         </el-button>
-        <el-button :disabled="!dirty" @click="reset">还原</el-button>
-        <span v-if="!dirty && loaded" class="saved-tip">已保存</span>
+        <el-button :disabled="!dirty" @click="reset">{{ t('common.restore') }}</el-button>
+        <span v-if="!dirty && loaded" class="saved-tip">{{ t('common.saved') }}</span>
       </div>
     </template>
   </div>
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getPreference, updatePreference } from '@/api/profile'
@@ -129,7 +130,7 @@ async function load() {
     }
   } catch (e) {
     if (e?.code !== 'COMMON_401' && e?.response?.status !== 401) {
-      error.value = e?.message || '偏好加载失败'
+      error.value = e?.message || t('profile.prefLoadFailed')
     }
   } finally {
     loading.value = false
@@ -156,7 +157,7 @@ async function onSave() {
       discoverable: form.discoverable ? 1 : 0
     })
     snapshot.value = JSON.stringify(form)
-    ElMessage.success('偏好设置已保存')
+    ElMessage.success(t('profile.prefSaved'))
   } catch (e) {
     // 错误提示已统一处理
   } finally {

@@ -7,16 +7,16 @@
     <el-result
       v-else-if="error"
       icon="error"
-      title="资料加载失败"
+      :title="t('profile.cardLoadFailed')"
       :sub-title="error"
     >
       <template #extra>
-        <el-button type="primary" @click="$emit('retry')">重新加载</el-button>
+        <el-button type="primary" @click="$emit('retry')">{{ t('common.reload') }}</el-button>
       </template>
     </el-result>
 
     <!-- 空态：理论上不应出现（登录即有用户），仍做兜底 -->
-    <el-empty v-else-if="!profile" description="暂无个人资料" />
+    <el-empty v-else-if="!profile" :description="t('profile.noProfile')" />
 
     <template v-else>
       <div class="avatar-wrap">
@@ -30,37 +30,37 @@
           :http-request="doUpload"
           accept="image/png,image/jpeg,image/gif,image/webp"
         >
-          <el-button size="small" :icon="Camera" :loading="uploading">更换头像</el-button>
+          <el-button size="small" :icon="Camera" :loading="uploading">{{ t('profile.changeAvatar') }}</el-button>
         </el-upload>
-        <p class="avatar-tip">支持 jpg/png/gif/webp，不超过 2MB</p>
+        <p class="avatar-tip">{{ t('profile.avatarFormatDesc') }}</p>
       </div>
 
       <el-divider />
 
       <el-form label-width="72px" label-position="right" class="info-form">
-        <el-form-item label="用户名">
+        <el-form-item :label="t('common.username')">
           <span class="readonly">{{ profile.username }}</span>
         </el-form-item>
-        <el-form-item label="昵称">
+        <el-form-item :label="t('common.nickname')">
           <span class="readonly">{{ profile.displayName || '-' }}</span>
         </el-form-item>
-        <el-form-item label="角色">
+        <el-form-item :label="t('common.role')">
           <span v-if="(profile.roleNames || []).length">{{ (profile.roleNames || []).join(' / ') }}</span>
-          <span v-else class="text-muted">未分配角色</span>
+          <span v-else class="text-muted">{{ t('profile.noRole') }}</span>
         </el-form-item>
-        <el-form-item label="部门">
+        <el-form-item :label="t('common.department')">
           <span v-if="(profile.orgNames || []).length">{{ (profile.orgNames || []).join(' / ') }}</span>
-          <span v-else class="text-muted">未分配部门</span>
+          <span v-else class="text-muted">{{ t('profile.noDept') }}</span>
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="t('common.status')">
           <el-tag :type="statusType(profile.status)" size="small">
             {{ statusText(profile.status) }}
           </el-tag>
         </el-form-item>
-        <el-form-item label="最近登录">
-          <span>{{ profile.lastLoginAt || '暂无记录' }}</span>
+        <el-form-item :label="t('common.lastLogin')">
+          <span>{{ profile.lastLoginAt || t('common.noRecord') }}</span>
         </el-form-item>
-        <el-form-item label="注册时间">
+        <el-form-item :label="t('common.registerTime')">
           <span>{{ profile.createdAt || '-' }}</span>
         </el-form-item>
       </el-form>
@@ -69,6 +69,7 @@
 </template>
 
 <script setup>
+import { t } from '@/i18n'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Camera } from '@element-plus/icons-vue'
@@ -93,7 +94,7 @@ const avatarUrl = computed(() => {
 })
 
 const statusText = (s) =>
-  ({ ACTIVE: '正常', DISABLED: '已禁用', LOCKED: '已锁定' }[s] || s || '-')
+  ({ ACTIVE: t('common.normal'), DISABLED: t('common.disabled'), LOCKED: t('common.locked') }[s] || s || '-')
 const statusType = (s) =>
   ({ ACTIVE: 'success', DISABLED: 'info', LOCKED: 'danger' }[s] || 'info')
 
@@ -101,11 +102,11 @@ const statusType = (s) =>
 function beforeUpload(file) {
   const isImage = /^image\/(png|jpeg|gif|webp)$/.test(file.type)
   if (!isImage) {
-    ElMessage.error('头像仅支持 png/jpg/gif/webp 格式')
+    ElMessage.error(t('profile.avatarFormat'))
     return false
   }
   if (file.size > 2 * 1024 * 1024) {
-    ElMessage.error('头像文件不能超过 2MB')
+    ElMessage.error(t('profile.avatarSize'))
     return false
   }
   return true
@@ -116,9 +117,9 @@ async function doUpload({ file }) {
   try {
     const next = await uploadAvatar(file)
     emit('avatar-change', next)
-    ElMessage.success('头像更新成功')
+    ElMessage.success(t('profile.avatarUpdated'))
   } catch (e) {
-    ElMessage.error(e?.message || '头像上传失败')
+    ElMessage.error(e?.message || t('profile.avatarUploadFailed'))
   } finally {
     uploading.value = false
   }
