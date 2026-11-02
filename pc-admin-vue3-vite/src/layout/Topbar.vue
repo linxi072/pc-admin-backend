@@ -34,9 +34,9 @@
     <div class="right">
       <ThemeSwitcher />
       <NotificationBell />
-      <el-tooltip :content="t('topbar.accountSettings')" placement="bottom">
-        <el-button text class="icon-btn" @click="onCmd('settings')">
-          <el-icon size="18"><Setting /></el-icon>
+      <el-tooltip :content="t('topbar.themeSwitch')" placement="bottom">
+        <el-button text class="icon-btn" @click="onCycleTheme">
+          <el-icon size="18"><Brush /></el-icon>
         </el-button>
       </el-tooltip>
       <el-dropdown @command="onCmd">
@@ -81,6 +81,7 @@ import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { closeRealtime } from '@/api/realtime'
 import { t } from '@/i18n'
+import { cycleTheme } from '@/utils/theme'
 import NotificationBell from '@/components/NotificationBell.vue'
 import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 
@@ -151,6 +152,12 @@ async function openAnnouncement() {
 
 function goNotice(tab) {
   router.push({ path: '/system/notice', query: tab === 'message' ? { tab: 'message' } : {} })
+}
+
+/** 顶栏主题切换按键：循环切换主题并提示当前主题（状态由 theme.js 持久化）。 */
+function onCycleTheme() {
+  const label = cycleTheme()
+  ElMessage.success(t('topbar.themeSwitched', { theme: label }))
 }
 
 async function onCmd(cmd) {

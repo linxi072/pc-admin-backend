@@ -67,7 +67,9 @@ export default {
       expireAt: '有效期至：',
       views: '浏览：',
       pinned: '置顶',
-      longTerm: '长期有效'
+      longTerm: '长期有效',
+      themeSwitch: '主题切换',
+      themeSwitched: '已切换至「{theme}」主题'
     },
     login: {
       title: '运营管理后台',
@@ -353,7 +355,9 @@ export default {
       expireAt: 'Valid until: ',
       views: 'Views: ',
       pinned: 'Pinned',
-      longTerm: 'Long-term'
+      longTerm: 'Long-term',
+      themeSwitch: 'Theme',
+      themeSwitched: 'Switched to "{theme}" theme'
     },
     login: {
       title: 'Operations Admin',
