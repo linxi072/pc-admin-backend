@@ -1332,6 +1332,7 @@ export default {
       'unsupportedType': "不支持的文件类型：.${ext}",
     },
     workflow: {
+      loadFailedX: '加载失败',
       workflowDesign: '工作流设计',
       emptySaveOrPublish: '(暂无，请先保存或发布)',
       bpmnPreview: 'BPMN 预览',
@@ -3440,6 +3441,7 @@ export default {
       'unsupportedType': "Unsupported file type: .{ext}",
     },
     workflow: {
+      loadFailedX: 'Load failed',
       workflowDesign: 'Workflow Design',
       emptySaveOrPublish: '(None — save or publish first)',
       bpmnPreview: 'BPMN Preview',

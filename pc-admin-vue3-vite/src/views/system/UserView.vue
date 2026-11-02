@@ -254,11 +254,23 @@ function resetQuery() {
 }
 
 async function ensureRoles() {
-  if (roleOptions.value.length === 0) roleOptions.value = await listRoles()
-  if (orgOptions.value.length === 0) {
-    orgOptions.value = flattenTree(await orgTree(), { nameKey: 'orgName', labelKey: 'orgName' })
+  try {
+    if (roleOptions.value.length === 0) roleOptions.value = await listRoles()
+  } catch (e) {
+    console.error('[UserView] load role options failed', e)
   }
-  if (postOptions.value.length === 0) postOptions.value = await listPostOptions()
+  try {
+    if (orgOptions.value.length === 0) {
+      orgOptions.value = flattenTree(await orgTree(), { nameKey: 'orgName', labelKey: 'orgName' })
+    }
+  } catch (e) {
+    console.error('[UserView] load org options failed', e)
+  }
+  try {
+    if (postOptions.value.length === 0) postOptions.value = await listPostOptions()
+  } catch (e) {
+    console.error('[UserView] load post options failed', e)
+  }
 }
 
 function openCreate() {

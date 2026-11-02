@@ -541,9 +541,13 @@ async function doUnpublish() {
 }
 
 async function previewBpmn() {
-  const res = await getDefinitionBpmn(id)
-  bpmnXml.value = res.bpmnXml || t('workflow.emptySaveOrPublish')
-  bpmnVisible.value = true
+  try {
+    const res = await getDefinitionBpmn(id)
+    bpmnXml.value = res.bpmnXml || t('workflow.emptySaveOrPublish')
+    bpmnVisible.value = true
+  } catch (e) {
+    ElMessage.error(t('workflow.loadFailedX'))
+  }
 }
 
 // 前端轻量校验：至少 1 个 START / 1 个 END，无悬空连线

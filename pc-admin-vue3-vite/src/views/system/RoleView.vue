@@ -523,7 +523,13 @@ function openCreate() {
 async function openEdit(row) {
   isEdit.value = true
   resetForm()
-  const detail = await getRole(row.id)
+  let detail
+  try {
+    detail = await getRole(row.id)
+  } catch (e) {
+    ElMessage.error(t('system.loadFailedX'))
+    return
+  }
   Object.assign(form, {
     id: detail.id, roleCode: detail.roleCode, roleName: detail.roleName,
     roleType: detail.roleType, status: detail.status, sortNo: detail.sortNo,

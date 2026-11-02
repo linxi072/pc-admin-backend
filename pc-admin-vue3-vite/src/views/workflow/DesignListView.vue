@@ -176,9 +176,13 @@ async function doDelete(row) {
 }
 
 async function previewBpmn(row) {
-  const res = await getDefinitionBpmn(row.id)
-  bpmnXml.value = res.bpmnXml || t('workflow.noneParen')
-  bpmnVisible.value = true
+  try {
+    const res = await getDefinitionBpmn(row.id)
+    bpmnXml.value = res.bpmnXml || t('workflow.noneParen')
+    bpmnVisible.value = true
+  } catch (e) {
+    ElMessage.error(t('workflow.loadFailedX'))
+  }
 }
 
 onMounted(load)
