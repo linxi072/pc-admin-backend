@@ -35,7 +35,7 @@
       </el-card>
 
       <!-- 可观测指标（跨模块端口接入：N+1 疑似 + 链路追踪） -->
-      <el-card class="page-card section" header="可观测指标">
+      <el-card class="page-card section" :header="t('reportDashboard.observability')">
         <el-row :gutter="16">
           <el-col :xs="24" :md="12">
             <div class="obs-subtitle">{{ t('reportDashboard.n1Suspect') }}</div>
@@ -80,7 +80,7 @@
       >
         <template #title>
           <span>{{ trendError }}</span>
-          <el-button size="small" text type="primary" class="retry-btn" @click="loadTrend">重试</el-button>
+          <el-button size="small" text type="primary" class="retry-btn" @click="loadTrend">{{ t('dashboard.retry') }}</el-button>
         </template>
       </el-alert>
       <el-skeleton v-else-if="trendLoading" :rows="8" animated />
