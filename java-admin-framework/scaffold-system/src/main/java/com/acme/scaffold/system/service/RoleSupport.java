@@ -1,0 +1,30 @@
+package com.acme.scaffold.system.service;
+
+import com.acme.scaffold.common.error.CommonErrorCode;
+import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.system.entity.SysRoleDO;
+import org.jooq.DSLContext;
+
+/**
+ * 角色相关共享静态支撑方法。
+ *
+ * <p>{@code RoleDataScopeService} 与 {@code RoleColumnPermissionService} 原本各自内联了一份完全相同的
+ * 「校验角色存在、不存在抛 {@link CommonErrorCode#NOT_FOUND}」逻辑（均针对 {@code sys_role} 表）；
+ * 此处收敛为单一事实来源，两服务保留同名私有方法作为委托壳。</p>
+ */
+final class RoleSupport {
+
+    private RoleSupport() {
+    }
+
+    /** 校验角色存在，返回角色 ID；不存在抛 {@link CommonErrorCode#NOT_FOUND}。 */
+    static Long requireRole(DSLContext dsl, Long roleId) {
+        SysRoleDO role = JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, roleId);
+        if (role == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
+        }
+        return roleId;
+    }
+}
