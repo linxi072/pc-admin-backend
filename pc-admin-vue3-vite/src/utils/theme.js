@@ -13,7 +13,11 @@ export const THEMES = [
   { key: 'light', label: '浅色' },
   { key: 'dark', label: '深色' },
   { key: 'warm', label: '暖色调' },
-  { key: 'brand', label: '品牌色' }
+  { key: 'brand', label: '品牌色' },
+  { key: 'green', label: '薄荷绿' },
+  { key: 'rose', label: '樱粉' },
+  { key: 'cyan', label: '青蓝' },
+  { key: 'amber', label: '琥珀' }
 ]
 
 const STORAGE_KEY = 'app-theme'
@@ -82,7 +86,38 @@ export function getChartTheme() {
       text: '#2a1a3a', sub: '#7c6aa0', axis: '#d4c6ee', split: '#e6def8',
       tooltipBg: '#ffffff', tooltipBorder: '#e6def8',
       palette: ['#7c3aed', '#4c9a2a', '#d98324', '#d63a2f', '#a896c4', '#9f67f5']
+    },
+    green: {
+      text: '#14342b', sub: '#5b8a7c', axis: '#c4ddd3', split: '#dcebe5',
+      tooltipBg: '#ffffff', tooltipBorder: '#dcebe5',
+      palette: ['#10b981', '#16a34a', '#e6a23c', '#f56c6c', '#5b8a7c', '#34d399']
+    },
+    rose: {
+      text: '#4a1d33', sub: '#9d5c79', axis: '#eec6da', split: '#f6deea',
+      tooltipBg: '#ffffff', tooltipBorder: '#f6deea',
+      palette: ['#ec4899', '#db2777', '#e6a23c', '#f56c6c', '#9d5c79', '#f472b6']
+    },
+    cyan: {
+      text: '#0f3a47', sub: '#3f7e8f', axis: '#bcdce6', split: '#d6ecf2',
+      tooltipBg: '#ffffff', tooltipBorder: '#d6ecf2',
+      palette: ['#06b6d4', '#0891b2', '#e6a23c', '#f56c6c', '#3f7e8f', '#22d3ee']
+    },
+    amber: {
+      text: '#4a3411', sub: '#92704a', axis: '#e8d4b6', split: '#f3e6d2',
+      tooltipBg: '#ffffff', tooltipBorder: '#f3e6d2',
+      palette: ['#d97706', '#b45309', '#e6a23c', '#f56c6c', '#92704a', '#f59e0b']
     }
   }
   return map[currentTheme.value] || map.light
+}
+
+/**
+ * 循环切换主题：按 THEMES 顺序取下一个，并写入持久化。
+ * 供顶栏「主题切换」按键使用；返回新主题的 label 用于 toast 提示。
+ */
+export function cycleTheme() {
+  const idx = THEMES.findIndex((t) => t.key === currentTheme.value)
+  const next = THEMES[(idx + 1) % THEMES.length]
+  setTheme(next.key)
+  return next.label
 }

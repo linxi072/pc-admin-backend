@@ -33,7 +33,11 @@ const dots = {
   light: '#409eff',
   dark: '#1f2937',
   warm: '#c2410c',
-  brand: '#7c3aed'
+  brand: '#7c3aed',
+  green: '#10b981',
+  rose: '#ec4899',
+  cyan: '#06b6d4',
+  amber: '#d97706'
 }
 function dotColor(key) {
   return dots[key] || '#409eff'
