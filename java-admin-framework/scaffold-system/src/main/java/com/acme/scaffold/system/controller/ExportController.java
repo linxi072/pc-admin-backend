@@ -9,9 +9,6 @@ import com.acme.scaffold.system.export.service.ExportCenterService.ExportedFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,8 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -64,12 +59,6 @@ public class ExportController {
     }
 
     private static ResponseEntity<byte[]> fileResponse(byte[] body, String fileName, ExportFormat format) {
-        String fullName = fileName + "." + format.extension();
-        String encoded = URLEncoder.encode(fullName, StandardCharsets.UTF_8).replace("+", "%20");
-        return ResponseEntity.status(HttpStatus.OK)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded)
-                .contentType(MediaType.parseMediaType(format.contentType()))
-                .contentLength(body.length)
-                .body(body);
+        return FileResponseSupport.fileResponse(body, fileName, format.extension(), format.contentType());
     }
 }
