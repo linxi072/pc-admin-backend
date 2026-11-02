@@ -386,14 +386,10 @@ public class MessageService {
     }
 
     private Long currentUserId() {
-        return securityContextFacade.getCurrentPrincipal().map(p -> p.userId()).orElse(null);
+        return CurrentUserSupport.currentUserId(securityContextFacade);
     }
 
     private Long requireCurrentUserId() {
-        Long userId = currentUserId();
-        if (userId == null) {
-            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "未获取到当前登录用户");
-        }
-        return userId;
+        return CurrentUserSupport.requireCurrentUserId(securityContextFacade);
     }
 }
