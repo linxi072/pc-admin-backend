@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-security：认证授权与令牌域（独立模块，原属 scaffold-system 的 security.* 子包）。
+
+  内容：
+  - 认证：AuthService / Captcha / 刷新令牌 / Token 版本失效；
+  - 授权服务器：OAuth2 授权码/令牌/同意/内省端点（资源服务器复用 CompositeJwtDecoder）；
+  - 密码策略与历史、防重放、限流、数据权限（DataScope）、权限服务；
+  - 在线会话、登录日志、安全配置（SecurityConfig）；
+  - 握手鉴权适配器 security.jwt.JwtHandshakeAuthenticator（实现 realtime.port 端口）。
+
+  依赖方向：security → {common, realtime}（单向，DAG 安全，无反向依赖）。
+  注意：本模块不反向依赖 system；system 通过 scaffold-security 依赖使用其 Port 与适配器。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-security</artifactId>
+    <name>scaffold-security</name>
+    <description>认证授权与令牌域：JWT/刷新令牌/Token 版本、OAuth2 授权与资源服务器、密码策略、数据权限、限流、在线会话</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- JWT（自签发令牌） -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+        </dependency>
+        <!-- Redis（限流分布式计数） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- 基础层 -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 通信层：握手鉴权端口 -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-realtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

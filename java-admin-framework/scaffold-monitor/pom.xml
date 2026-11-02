@@ -43,5 +43,11 @@
             <artifactId>scaffold-system</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 监控查询复用 security 的 Token 版本服务与刷新令牌实体 -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-security</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 </project>

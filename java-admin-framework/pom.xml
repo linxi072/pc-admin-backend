@@ -37,6 +37,8 @@
         <module>scaffold-realtime</module>
         <module>scaffold-kafka</module>
         <module>scaffold-codegen</module>
+        <!-- 认证授权与令牌域（JWT/刷新令牌/Token 版本、OAuth2、密码策略、数据权限、限流、在线会话） -->
+        <module>scaffold-security</module>
         <!-- 框架装配层：config/observability/monitor.detection + realtime 的 WebSocket 端点注册 -->
         <module>scaffold-framework</module>
         <!-- 业务层 -->
