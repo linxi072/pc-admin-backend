@@ -104,7 +104,7 @@ class CoreApiE2eTest {
             "a@b.com", List.of(1L), List.of("管理员"), List.of("ROLE_ADMIN"),
             List.of(2L), List.of("技术部"), List.of(), List.of(), "1", LocalDateTime.now());
     private static final TaskView TASK = new TaskView("t1", "pi1", "act1", "审批", "PENDING",
-            1L, LocalDateTime.now().plusDays(1));
+            1L, LocalDateTime.now().plusDays(1), null, null);
 
     // ===================== 认证授权 =====================
 
