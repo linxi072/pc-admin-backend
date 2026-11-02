@@ -142,6 +142,185 @@
   --brand: var(--primary);
 }
 
+[data-theme='green'] {
+  --bg: #eef6f3;
+  --surface: #ffffff;
+  --surface-2: #f0f7f4;
+  --surface-hover: #e3f0eb;
+
+  --text: #14342b;
+  --text-secondary: #5b8a7c;
+  --text-muted: #88b0a4;
+  --text-faint: #b3d1c8;
+
+  --border: #dcebe5;
+  --border-strong: #c4ddd3;
+
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-active: #0d9668;
+  --on-primary: #ffffff;
+
+  --success: #16a34a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --on-danger: #ffffff;
+
+  --focus-ring: rgba(16, 185, 129, 0.35);
+  --nav-active-bg: rgba(16, 185, 129, 0.16);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* 框架铬色（始终深色） */
+  --chrome: #0d3b2e;
+  --chrome-surface: #114a39;
+  --chrome-text: #ecfdf5;
+  --chrome-text-muted: #a7d7c5;
+  --chrome-border: rgba(236, 253, 245, 0.14);
+  --chrome-hover: rgba(236, 253, 245, 0.1);
+  --chrome-active: rgba(16, 185, 129, 0.3);
+  --footer-bg: #ffffff;
+  --footer-text: #5b8a7c;
+  --footer-border: #dcebe5;
+
+  --brand: var(--primary);
+}
+
+[data-theme='rose'] {
+  --bg: #fdf2f6;
+  --surface: #ffffff;
+  --surface-2: #fcebf2;
+  --surface-hover: #f9e0ea;
+
+  --text: #4a1d33;
+  --text-secondary: #9d5c79;
+  --text-muted: #c08aa3;
+  --text-faint: #ddb8cb;
+
+  --border: #f6deea;
+  --border-strong: #eec6da;
+
+  --primary: #ec4899;
+  --primary-hover: #f472b6;
+  --primary-active: #db2777;
+  --on-primary: #ffffff;
+
+  --success: #16a34a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --on-danger: #ffffff;
+
+  --focus-ring: rgba(236, 72, 153, 0.35);
+  --nav-active-bg: rgba(236, 72, 153, 0.16);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* 框架铬色（始终深色） */
+  --chrome: #4a1230;
+  --chrome-surface: #5e1840;
+  --chrome-text: #fdf2f8;
+  --chrome-text-muted: #f0a8cf;
+  --chrome-border: rgba(253, 242, 248, 0.14);
+  --chrome-hover: rgba(253, 242, 248, 0.1);
+  --chrome-active: rgba(236, 72, 153, 0.3);
+  --footer-bg: #ffffff;
+  --footer-text: #9d5c79;
+  --footer-border: #f6deea;
+
+  --brand: var(--primary);
+}
+
+[data-theme='cyan'] {
+  --bg: #eaf7fb;
+  --surface: #ffffff;
+  --surface-2: #e6f5fa;
+  --surface-hover: #d6eef6;
+
+  --text: #0f3a47;
+  --text-secondary: #3f7e8f;
+  --text-muted: #76aab8;
+  --text-faint: #aed3dd;
+
+  --border: #d6ecf2;
+  --border-strong: #bcdce6;
+
+  --primary: #06b6d4;
+  --primary-hover: #22d3ee;
+  --primary-active: #0891b2;
+  --on-primary: #ffffff;
+
+  --success: #16a34a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --on-danger: #ffffff;
+
+  --focus-ring: rgba(6, 182, 212, 0.35);
+  --nav-active-bg: rgba(6, 182, 212, 0.16);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* 框架铬色（始终深色） */
+  --chrome: #0c3a47;
+  --chrome-surface: #114a59;
+  --chrome-text: #ecfeff;
+  --chrome-text-muted: #a5dceb;
+  --chrome-border: rgba(236, 254, 255, 0.14);
+  --chrome-hover: rgba(236, 254, 255, 0.1);
+  --chrome-active: rgba(6, 182, 212, 0.3);
+  --footer-bg: #ffffff;
+  --footer-text: #3f7e8f;
+  --footer-border: #d6ecf2;
+
+  --brand: var(--primary);
+}
+
+[data-theme='amber'] {
+  --bg: #fdf6ec;
+  --surface: #ffffff;
+  --surface-2: #fbf0e0;
+  --surface-hover: #f7e6cf;
+
+  --text: #4a3411;
+  --text-secondary: #92704a;
+  --text-muted: #bb9b72;
+  --text-faint: #dcc8a8;
+
+  --border: #f3e6d2;
+  --border-strong: #e8d4b6;
+
+  --primary: #d97706;
+  --primary-hover: #f59e0b;
+  --primary-active: #b45309;
+  --on-primary: #ffffff;
+
+  --success: #16a34a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --on-danger: #ffffff;
+
+  --focus-ring: rgba(217, 119, 6, 0.35);
+  --nav-active-bg: rgba(217, 119, 6, 0.16);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* 框架铬色（始终深色） */
+  --chrome: #3f2a0c;
+  --chrome-surface: #523614;
+  --chrome-text: #fff7ed;
+  --chrome-text-muted: #e8c79b;
+  --chrome-border: rgba(255, 247, 237, 0.14);
+  --chrome-hover: rgba(255, 247, 237, 0.1);
+  --chrome-active: rgba(217, 119, 6, 0.3);
+  --footer-bg: #ffffff;
+  --footer-text: #92704a;
+  --footer-border: #f3e6d2;
+
+  --brand: var(--primary);
+}
 [data-theme='brand'] {
   --bg: #f5f3ff;
   --surface: #ffffff;

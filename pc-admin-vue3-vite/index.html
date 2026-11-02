@@ -9,7 +9,7 @@
       (function () {
         try {
           var t = localStorage.getItem('app-theme')
-          var valid = ['light', 'dark', 'warm', 'brand']
+          var valid = ['light', 'dark', 'warm', 'brand', 'green', 'rose', 'cyan', 'amber']
           if (!valid.includes(t)) t = 'light'
           var el = document.documentElement
           el.setAttribute('data-theme', t)

@@ -13,7 +13,11 @@
 [data-theme='light'],
 [data-theme='dark'],
 [data-theme='warm'],
-[data-theme='brand'] {
+[data-theme='brand'],
+[data-theme='green'],
+[data-theme='rose'],
+[data-theme='cyan'],
+[data-theme='amber'] {
   --el-color-primary: var(--primary);
   --el-color-primary-light-3: color-mix(in srgb, var(--primary) 70%, #fff);
   --el-color-primary-light-5: color-mix(in srgb, var(--primary) 50%, #fff);
