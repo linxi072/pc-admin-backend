@@ -229,23 +229,20 @@ public class WorkflowDesignService {
     }
 
     private WfWorkflowDesignDO requireDraft(Long id) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
-        if (e == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
-        }
-        if (!"DRAFT".equals(e.getStatus())) {
-            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "仅草稿态可编辑（已发布请先取消发布）");
-        }
-        return e;
+        return requireState(id, "DRAFT", "仅草稿态可编辑（已发布请先取消发布）");
     }
 
     private WfWorkflowDesignDO requirePublished(Long id) {
+        return requireState(id, "PUBLISHED", "该设计未发布");
+    }
+
+    private WfWorkflowDesignDO requireState(Long id, String expectedStatus, String errorMessage) {
         WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
-        if (!"PUBLISHED".equals(e.getStatus())) {
-            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "该设计未发布");
+        if (!expectedStatus.equals(e.getStatus())) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, errorMessage);
         }
         return e;
     }
