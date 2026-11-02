@@ -186,13 +186,7 @@ public class MessageReadService {
 
     /** 批量装载用户显示名：userId → displayName（用户被删时缺项，视图降级展示 userId）。 */
     private Map<Long, String> loadDisplayNames(Set<Long> userIds) {
-        if (userIds.isEmpty()) {
-            return Map.of();
-        }
-        return JooqWriters.fetchList(dsl, USER, SysUserDO.class,
-                        USER.field("id", Long.class).in(userIds)).stream()
-                .filter(u -> u.getId() != null)
-                .collect(Collectors.toMap(SysUserDO::getId, SysUserDO::getDisplayName, (a, b) -> a));
+        return CurrentUserSupport.loadDisplayNames(dsl, userIds);
     }
 
     /** 单条装载发送者显示名（发件主表 sender_id 可能为 null，做防御）。 */
@@ -204,15 +198,7 @@ public class MessageReadService {
         return u == null ? null : u.getDisplayName();
     }
 
-    private Long currentUserId() {
-        return securityContextFacade.getCurrentPrincipal().map(p -> p.userId()).orElse(null);
-    }
-
     private Long requireCurrentUserId() {
-        Long userId = currentUserId();
-        if (userId == null) {
-            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "未获取到当前登录用户");
-        }
-        return userId;
+        return CurrentUserSupport.requireCurrentUserId(securityContextFacade);
     }
 }

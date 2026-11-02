@@ -212,12 +212,7 @@ public class ProfileService {
     // ==================== 内部方法 ====================
 
     private SysUserDO loadCurrentUser() {
-        Long userId = securityContextFacade.requireCurrentPrincipal().userId();
-        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
-        if (user == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
-        }
-        return user;
+        return CurrentUserSupport.loadCurrentUser(dsl, securityContextFacade);
     }
 
     /** 手机/邮箱唯一性校验：排除自身，冲突时给出可读提示。 */

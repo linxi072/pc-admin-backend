@@ -76,11 +76,6 @@ public class ProfilePasswordService {
     }
 
     private SysUserDO loadCurrentUser() {
-        Long userId = securityContextFacade.requireCurrentPrincipal().userId();
-        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
-        if (user == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
-        }
-        return user;
+        return CurrentUserSupport.loadCurrentUser(dsl, securityContextFacade);
     }
 }
