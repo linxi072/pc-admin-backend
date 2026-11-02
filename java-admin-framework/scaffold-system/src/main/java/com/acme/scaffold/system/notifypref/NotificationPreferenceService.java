@@ -8,6 +8,7 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.notifysupport.NotificationSupport;
 import com.acme.scaffold.system.notifypref.domain.SysNotificationPreferenceDO;
 import com.acme.scaffold.system.notifypref.dto.PreferenceItemRequest;
 import com.acme.scaffold.system.notifypref.dto.UpdateNotificationPreferenceRequest;
@@ -24,7 +25,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -370,30 +370,7 @@ public class NotificationPreferenceService {
      * mobile 原样 trim。absent = 无匹配用户（外部收件人，注入方按「无链接」处理）。</p>
      */
     public Map<String, Long> fetchAddressUserIds(List<String> addresses, boolean byEmail) {
-        String column = byEmail ? "email" : "mobile";
-        Field<Long> idField = USER.field("id", Long.class);
-        Field<String> addrField = USER.field(column, String.class);
-        List<String> distinct = new ArrayList<>();
-        for (String address : addresses) {
-            if (address != null && !address.isBlank() && !distinct.contains(address.trim())) {
-                distinct.add(address.trim());
-            }
-        }
-        Map<String, Long> out = new HashMap<>(distinct.size() * 2);
-        if (distinct.isEmpty()) {
-            return out;
-        }
-        dsl.select(idField, addrField).from(USER.table())
-                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(USER)))
-                .fetch()
-                .forEach(r -> {
-                    String addr = r.get(addrField);
-                    if (addr != null && !addr.isBlank()) {
-                        out.put(byEmail ? addr.trim().toLowerCase(Locale.ROOT) : addr.trim(),
-                                r.get(idField));
-                    }
-                });
-        return out;
+        return NotificationSupport.fetchUserIdsByAddress(dsl, addresses, byEmail);
     }
 
     /** 偏好行按 (渠道 → 消息类型 → 值) 分组；非法历史行忽略，不影响矩阵渲染。 */
@@ -425,19 +402,11 @@ public class NotificationPreferenceService {
     }
 
     private static NotificationMessage withReceivers(NotificationMessage message, List<Long> kept) {
-        return new NotificationMessage(message.channel(), message.title(), message.content(),
-                message.msgType(), kept, message.roleIds(), message.orgIds(),
-                message.webhookUrl(), message.extra(), message.emails(), message.mobiles());
+        return NotificationSupport.withReceivers(message, kept);
     }
 
     private static NotificationMessage withAddresses(NotificationMessage message, List<String> kept,
                                                      boolean byEmail) {
-        return byEmail
-                ? new NotificationMessage(message.channel(), message.title(), message.content(),
-                        message.msgType(), message.receiverIds(), message.roleIds(), message.orgIds(),
-                        message.webhookUrl(), message.extra(), kept, message.mobiles())
-                : new NotificationMessage(message.channel(), message.title(), message.content(),
-                        message.msgType(), message.receiverIds(), message.roleIds(), message.orgIds(),
-                        message.webhookUrl(), message.extra(), message.emails(), kept);
+        return NotificationSupport.withAddresses(message, kept, byEmail);
     }
 }

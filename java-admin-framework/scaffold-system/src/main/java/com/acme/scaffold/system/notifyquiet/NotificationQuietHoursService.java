@@ -7,14 +7,13 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.system.notifysupport.NotificationSupport;
 import com.acme.scaffold.system.notifyquiet.domain.SysNotificationQuietHoursDO;
 import com.acme.scaffold.system.notifyquiet.dto.UpdateQuietHoursRequest;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules.QuietSetting;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,8 +53,6 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class NotificationQuietHoursService {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
-
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
 
@@ -235,30 +232,7 @@ public class NotificationQuietHoursService {
      * （两处挂点共享同一反查语义，暂不抽公共层：偏好与免打扰的过滤结论相互独立）。
      */
     private Map<String, Long> fetchAddressUserIds(List<String> addresses, boolean byEmail) {
-        String column = byEmail ? "email" : "mobile";
-        Field<Long> idField = USER.field("id", Long.class);
-        Field<String> addrField = USER.field(column, String.class);
-        List<String> distinct = new ArrayList<>();
-        for (String address : addresses) {
-            if (address != null && !address.isBlank() && !distinct.contains(address.trim())) {
-                distinct.add(address.trim());
-            }
-        }
-        Map<String, Long> out = new HashMap<>(distinct.size() * 2);
-        if (distinct.isEmpty()) {
-            return out;
-        }
-        dsl.select(idField, addrField).from(USER.table())
-                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(USER)))
-                .fetch()
-                .forEach(r -> {
-                    String addr = r.get(addrField);
-                    if (addr != null && !addr.isBlank()) {
-                        out.put(byEmail ? addr.trim().toLowerCase(Locale.ROOT) : addr.trim(),
-                                r.get(idField));
-                    }
-                });
-        return out;
+        return NotificationSupport.fetchUserIdsByAddress(dsl, addresses, byEmail);
     }
 
     /** 当前是否正处于免打扰中（仅视图展示用；发送链路以 {@code LocalTime.now()} 实时判定）。 */
@@ -286,19 +260,11 @@ public class NotificationQuietHoursService {
     }
 
     private static NotificationMessage withReceivers(NotificationMessage message, List<Long> kept) {
-        return new NotificationMessage(message.channel(), message.title(), message.content(),
-                message.msgType(), kept, message.roleIds(), message.orgIds(),
-                message.webhookUrl(), message.extra(), message.emails(), message.mobiles());
+        return NotificationSupport.withReceivers(message, kept);
     }
 
     private static NotificationMessage withAddresses(NotificationMessage message, List<String> kept,
                                                      boolean byEmail) {
-        return byEmail
-                ? new NotificationMessage(message.channel(), message.title(), message.content(),
-                        message.msgType(), message.receiverIds(), message.roleIds(), message.orgIds(),
-                        message.webhookUrl(), message.extra(), kept, message.mobiles())
-                : new NotificationMessage(message.channel(), message.title(), message.content(),
-                        message.msgType(), message.receiverIds(), message.roleIds(), message.orgIds(),
-                        message.webhookUrl(), message.extra(), message.emails(), kept);
+        return NotificationSupport.withAddresses(message, kept, byEmail);
     }
 }
