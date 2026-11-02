@@ -33,8 +33,6 @@ java-admin-framework
 - 关键流程：[`docs/KEY-FLOWS.md`](docs/KEY-FLOWS.md)
 - 使用方式：[`docs/USAGE.md`](docs/USAGE.md)
 
-深度参考（保留于 `manual/`）：架构手册 `manual/architecture.md`、开发手册 `manual/development.md`、运维手册 `manual/operations.md`、部署手册 `manual/deployment.md`。
-
 ## 快速开始
 
 ```bash
