@@ -42,6 +42,12 @@ export default defineConfig({
       '/oauth2': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true
+      },
+      // OpenAPI 文档端点（springdoc 默认 /v3/api-docs，无 /api 前缀）：API 文档中心页直接消费，
+      // dev 下须与 /api、/oauth2 一同代理到本地 8080；生产由同源后端直接处理。
+      '/v3': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true
       }
     }
   },

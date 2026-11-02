@@ -155,6 +155,14 @@ const routes = [
         meta: { title: 'route.idempotency', permission: 'system:idempotency:read' }
       },
       {
+        // API 文档中心（#972）：复用 Springdoc 标准端点 /v3/api-docs，纯前端浏览器；
+        // 权限码 system:api-docs:read 由 ApiResourceAutoSyncRunner 自动登记并授予 SUPER_ADMIN（若后端新增对应 @PreAuthorize）。
+        path: 'system/api-docs',
+        name: 'apiDocs',
+        component: () => import('@/views/system/ApiDocView.vue'),
+        meta: { title: 'route.apiDocs', permission: 'system:api-docs:read' }
+      },
+      {
         // 通知模板中心（V41）：为 M6 多渠道通知提供可复用 ${var} 模板；权限码与菜单由后端驱动
         path: 'system/notification-templates',
         name: 'notificationTemplate',
