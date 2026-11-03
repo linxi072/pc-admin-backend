@@ -380,6 +380,25 @@ public final class JooqTables {
             "cover_url", "status", "view_count", "published_at", "offline_at",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
+    // ---------------- 站内消息（R6 IM，V75） ----------------
+
+    /** 会话（点对点 / 群组）。逻辑删除（deleted），乐观锁（version）。列名与 V75__im.sql 严格一致。 */
+    public static final TableRef IM_CONVERSATION = new TableRef("im_conversation",
+            "id", "tenant_id", "conversation_type", "title", "owner_id", "status",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    /** 会话成员（承载 last_read_message_id 驱动未读计数与已读回执）。逻辑删除（deleted）。列名与 V75__im.sql 严格一致。 */
+    public static final TableRef IM_CONVERSATION_MEMBER = new TableRef("im_conversation_member",
+            "id", "tenant_id", "conversation_id", "user_id", "member_role",
+            "last_read_message_id", "status", "version", "deleted",
+            "created_at", "updated_at");
+
+    /** 消息（富文本/文本）。逻辑删除（deleted），乐观锁（version）。列名与 V75__im.sql 严格一致。 */
+    public static final TableRef IM_MESSAGE = new TableRef("im_message",
+            "id", "tenant_id", "conversation_id", "sender_id", "content", "msg_type",
+            "status", "reply_to_id", "version", "deleted",
+            "created_by", "created_at", "updated_by", "updated_at");
+
     /**
      * 表引用：物理表名 + 列清单 + 类型化字段构造。
      */
