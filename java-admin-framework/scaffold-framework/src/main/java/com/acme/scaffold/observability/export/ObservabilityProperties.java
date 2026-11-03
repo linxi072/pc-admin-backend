@@ -15,6 +15,7 @@ public class ObservabilityProperties {
 
     private final Otlp otlp = new Otlp();
     private final Recorder recorder = new Recorder();
+    private final TenantMetrics tenantMetrics = new TenantMetrics();
 
     public Otlp getOtlp() {
         return otlp;
@@ -22,6 +23,10 @@ public class ObservabilityProperties {
 
     public Recorder getRecorder() {
         return recorder;
+    }
+
+    public TenantMetrics getTenantMetrics() {
+        return tenantMetrics;
     }
 
     public static class Otlp {
@@ -87,6 +92,29 @@ public class ObservabilityProperties {
 
         public void setCapacity(int capacity) {
             this.capacity = capacity;
+        }
+    }
+
+    public static class TenantMetrics {
+        /** 是否启用按租户维度的请求聚合（R14）。默认开启：纯内存 LongAdder 计数，开销极低。 */
+        private boolean enabled = true;
+        /** 留存租户维度的上限（超出后淘汰最早观测到的租户，恒定内存）。 */
+        private int maxTenants = 256;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getMaxTenants() {
+            return maxTenants;
+        }
+
+        public void setMaxTenants(int maxTenants) {
+            this.maxTenants = maxTenants;
         }
     }
 }

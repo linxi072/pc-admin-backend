@@ -20,10 +20,17 @@ public final class OtlpSpan {
     public final List<Attribute> attributes;
     public final StatusCode status;
     public final String statusMessage;
+    /** 租户维度（R14）：由 {@code TenantContext} 解析，无租户上下文时为 null（系统/内部调用）。 */
+    public final Long tenantId;
 
+    /**
+     * 完整构造器（含租户维度，R14）。
+     *
+     * @param tenantId 当前租户 ID；无租户上下文（如系统/内部调用）传 null
+     */
     public OtlpSpan(String traceId, String spanId, String parentSpanId, String name, Kind kind,
                    long startEpochNanos, long endEpochNanos, List<Attribute> attributes,
-                   StatusCode status, String statusMessage) {
+                   StatusCode status, String statusMessage, Long tenantId) {
         this.traceId = traceId;
         this.spanId = spanId;
         this.parentSpanId = parentSpanId;
@@ -34,6 +41,19 @@ public final class OtlpSpan {
         this.attributes = attributes;
         this.status = status;
         this.statusMessage = statusMessage;
+        this.tenantId = tenantId;
+    }
+
+    /**
+     * @deprecated 使用 {@link #OtlpSpan(String, String, String, String, Kind, long, long, List, StatusCode, String, Long)}，
+     * 显式传入租户维度（单租户场景传 null 亦可）。保留以兼容存量调用方。
+     */
+    @Deprecated
+    public OtlpSpan(String traceId, String spanId, String parentSpanId, String name, Kind kind,
+                   long startEpochNanos, long endEpochNanos, List<Attribute> attributes,
+                   StatusCode status, String statusMessage) {
+        this(traceId, spanId, parentSpanId, name, kind, startEpochNanos, endEpochNanos,
+                attributes, status, statusMessage, null);
     }
 
     public long durationNanos() {

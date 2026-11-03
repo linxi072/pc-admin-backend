@@ -323,6 +323,11 @@ observability:
   recorder:
     enabled: true
     capacity: 200
+  # 租户维度聚合（R14）：按租户聚合请求量 / 错误率 / 平均时延，供 APM 大盘下钻。
+  # 纯内存有界聚合（默认 256 租户），恒定占用、不落库；无租户上下文的 span 跳过。
+  tenant-metrics:
+    enabled: true
+    max-tenants: 256
 
 # 告警接收（A2）：作为 Alertmanager 的真实 webhook 接收端（应用内）。
 # token 非空时要求请求携带匹配的 X-Alert-Token 头；生产须由网络/网关层加固。

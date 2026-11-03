@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
+import com.acme.scaffold.common.tenant.TenantContext;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -62,6 +63,8 @@ public class OtlpTracingFilter extends OncePerRequestFilter {
             long endEpochNanos = startEpochNanos + (t1 - t0);
             int status = response.getStatus();
             OtlpSpan.StatusCode statusCode = status >= 500 ? OtlpSpan.StatusCode.ERROR : OtlpSpan.StatusCode.OK;
+            // R14：解析当前租户上下文（无设置时为 null，归入「无租户」维度，不污染租户视图）
+            Long tenantId = resolveTenantId();
             OtlpSpan span = new OtlpSpan(
                     traceId, spanId, null,
                     request.getMethod() + " " + safePath(request),
@@ -69,9 +72,10 @@ public class OtlpTracingFilter extends OncePerRequestFilter {
                     List.of(
                             new OtlpSpan.Attribute("http.method", request.getMethod()),
                             new OtlpSpan.Attribute("http.route", safePath(request)),
-                            new OtlpSpan.Attribute("http.status_code", String.valueOf(status))
+                            new OtlpSpan.Attribute("http.status_code", String.valueOf(status)),
+                            new OtlpSpan.Attribute("tenant.id", tenantId == null ? "" : tenantId.toString())
                     ),
-                    statusCode, status >= 500 ? "server error" : null);
+                    statusCode, status >= 500 ? "server error" : null, tenantId);
             List<OtlpSpan> batch = List.of(span);
             for (SpanExporter exporter : exporters) {
                 if (exporter.isEnabled()) {
@@ -84,6 +88,12 @@ public class OtlpTracingFilter extends OncePerRequestFilter {
     private static String safePath(HttpServletRequest request) {
         String uri = request.getRequestURI();
         return uri == null ? "/" : uri;
+    }
+
+    /** 当前租户 ID（无租户上下文时返回 null）。 */
+    private static Long resolveTenantId() {
+        TenantContext.TenantScope scope = TenantContext.current();
+        return scope == null ? null : scope.tenantId();
     }
 
     private static String randomHex(int len) {
