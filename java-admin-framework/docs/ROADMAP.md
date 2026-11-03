@@ -75,8 +75,9 @@
 
 #### R5 · 内容管理 CMS — P1
 - **动机**：后台普遍需要栏目/文章/富文本/媒体库。
-- **候选模块**：`scaffold-cms`（新），依赖 `scaffold-plugin`(R1) + `scaffold-system`(文件模块)。
-- **验收**：栏目树 + 文章 CRUD + 富文本 + 发布态；前端视图 + i18n + 菜单种子。
+- **候选模块**：`scaffold-cms`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.cms` 下 `domain`（CmsCategoryDO/CmsArticleDO）/`dto`/`service`（栏目树构建 + 文章 CRUD/发布态流转）/`controller`（栏目、文章 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）/`event`（ArticlePublishedEvent 复用 R2 事件总线）；DDL 见 V74__cms.sql（cms_category/cms_article + 菜单种子）；`JooqTables` 新增 `CMS_CATEGORY`/`CMS_ARTICLE` 常量。
+- **依赖取舍**：为保持 DAG 最小且无环，CMS 仅依赖 `common`（经 JooqWriters 持久化、R2 事件总线发发布事件），未引入 `system`/`plugin`；媒体资源以 `cover_url` 等文本列承载，避免跨模块 Service 直连（与「跨域协作经 Port/事件」铁律一致）。
+- **验收**：栏目树 + 文章 CRUD + 富文本 + 发布态（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数；双门禁全绿（11 个后端单测覆盖）；菜单种子与权限码自动登记就绪。前端视图（cms/CategoryView、cms/ArticleView）与 i18n 为后续前端补充项。
 
 #### R6 · 站内 IM / 客服 — P1
 - **动机**：基于已有 `realtime`(WebSocket) 的会话能力缺失。
