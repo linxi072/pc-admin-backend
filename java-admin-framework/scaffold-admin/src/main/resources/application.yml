@@ -267,6 +267,10 @@ app:
     type: local
     # 快照暴露的键前缀白名单（逗号分隔）；仅暴露该命名空间下的配置项，避免泄露敏感配置。
     snapshot-prefix: app
+  chaos:
+    # R15 混沌工程：默认关闭，开启后注册故障注册表 / 注入过滤器 / 运维控制器，
+    # 用于韧性演练。演练结束务必改回 false 或调用 DELETE /api/system/chaos/faults 清除规则。
+    enabled: false
   cache:
     # @Cacheable 未显式指定时的默认 TTL
     ttl: 30m
