@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-cms：内容管理域（ROADMAP R5）。
+
+  内容：
+  - cms.domain.*：栏目 / 文章实体（对应 cms_category / cms_article，DDL 见 V74__cms.sql）；
+  - cms.service.*：栏目树构建、文章 CRUD、发布/下线态流转；
+  - cms.controller.*：栏目管理 / 文章管理 REST 端点（@PreAuthorize 权限码经
+    ApiResourceAutoSyncRunner 自动登记）；
+  - cms.event.*：文章发布领域事件（复用 common.event 事件总线，R2 解耦示范）。
+
+  依赖方向：cms → {common}。依赖保持最小（不引入 system），媒体资源以 cover_url 等文本列
+  承载，避免跨模块直连；如需接入文件模块，经 Port 防腐层而非 Service 直连。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-cms</artifactId>
+    <name>scaffold-cms</name>
+    <description>内容管理：栏目树、文章 CRUD、富文本、发布态流转（ROADMAP R5）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- OpenAPI 注解（@Tag / @Operation），版本由根 POM dependencyManagement 托管 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+
+        <!-- 测试：jOOQ 经 common 传递；H2 仅测试期承载 DDL 与集成测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
