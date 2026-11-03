@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { isAuthenticated, authState } from '@/store/auth'
 
 const routes = [
@@ -455,6 +456,24 @@ router.beforeEach((to) => {
     }
   }
   return true
+})
+
+/**
+ * 路由级错误边界（关键修复）：所有业务页均经动态 import 懒加载，
+ * 若某路由组件的【静态依赖】在其被访问时加载 / 求值失败（如 ECharts 组件、抽屉组件、
+ * 或构建产物 chunk 损坏），Vue Router 会 reject 该导航 → 进入该路由后整页静默空白。
+ *
+ * <p>此处统一捕获并在控制台输出完整堆栈，同时给出可见提示与刷新重试入口，
+ * 将「白屏」转化为「可诊断、可恢复的错误」，与 main.js 的 app.config.errorHandler 协同。
+ */
+router.onError((err) => {
+  console.error('[路由加载失败]', err)
+  const msg = (err && err.message) ? err.message : String(err)
+  if (msg.includes('Failed to fetch dynamically imported module')) {
+    ElMessage.error('页面资源加载失败，请刷新页面后重试')
+  } else {
+    ElMessage.error('页面加载出错：' + msg)
+  }
 })
 
 export default router
