@@ -380,6 +380,14 @@ public final class JooqTables {
             "cover_url", "status", "view_count", "published_at", "offline_at",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
+    // ---------------- 数据看板模板库（R8，V78） ----------------
+
+    /** 数据看板模板（看板布局配置 + 发布态）。逻辑删除（deleted），乐观锁（version）。列名与 V78__dashboard_template.sql 严格一致。 */
+    public static final TableRef DASHBOARD_TEMPLATE = new TableRef("dashboard_template",
+            "id", "tenant_id", "template_code", "template_name", "description", "layout_json",
+            "status", "view_count", "version", "deleted", "created_by", "created_at",
+            "updated_by", "updated_at");
+
     // ---------------- 站内消息（R6 IM，V75） ----------------
 
     /** 会话（点对点 / 群组）。逻辑删除（deleted），乐观锁（version）。列名与 V75__im.sql 严格一致。 */
