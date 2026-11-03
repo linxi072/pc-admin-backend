@@ -53,7 +53,7 @@
 #### R2 · 领域事件总线 — P0
 - **动机**：跨域副作用（用户禁用→踢下线→清缓存→发通知）散布在各 Service，靠 Port 直连，难维护难测试。
 - **方案要点**：`common.event` 定义 `DomainEvent` + `EventPublisher`/`EventListener`，默认同步发布、可选经 `scaffold-kafka` 异步桥；`realtime`/`notification` 改为订阅事件而非直连。
-- **候选**：`common.event` 子包（优先，避免新增模块破坏 DAG）；若需独立运维再升为 `scaffold-event`。
+- **候选**：`common.event` 子包（✅ **已落地 V1.0.7**）：`DomainEvent` / `EventPublisher` / `DomainEventListener` / `DefaultEventPublisher`（错误隔离）/ `EventBridge`+`NoOpEventBridge` 已就位；并以「用户禁用 → security 踢下线」完成端到端收敛示范。若需独立运维再升为 `scaffold-event`。
 - **依赖**：Phase 0 先行，供 R1/R5/R6 解耦。
 - **验收**：用户禁用事件被 `online`/`notification` 订阅且零直连；端到端测试覆盖。
 
@@ -157,7 +157,7 @@
 | 候选模块 | 层 | 依赖（规划） | 关键包 | 对应需求 |
 |---|---|---|---|---|
 | `scaffold-plugin` | 扩展基座 | common | `plugin.spi`/`plugin.registry` | R1 |
-| `common.event` | 基础（子包） | common | `common.event` | R2 |
+| `common.event` | 基础（子包） | common | `common.event` | R2 ✅ 已落地 |
 | `scaffold-cms` | 业务域 | common, system, plugin | `cms.*` | R5 |
 | `scaffold-im` | 业务域 | common, realtime, plugin | `im.*` | R6 |
 | `scaffold-approval` | 业务域 | common, workflow, plugin | `approval.*` | R7 |
