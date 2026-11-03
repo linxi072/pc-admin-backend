@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-im：站内消息域（ROADMAP R6）。
+
+  内容：
+  - im.domain.*：会话 / 会话成员 / 消息实体（对应 im_conversation / im_conversation_member /
+    im_message，DDL 见 V75__im.sql）；
+  - im.service.*：会话管理（点对点/群组、成员、未读）、消息发送/分页/撤回、已读回执；
+  - im.controller.*：会话与消息 REST 端点（@PreAuthorize 权限码经
+    ApiResourceAutoSyncRunner 自动登记）；
+  - im 复用 common.event 事件总线：消息落库后发布 ImMessageSentEvent（供 realtime 实时推送）。
+
+  依赖方向：im → {common}。依赖保持最小（不引入 system / realtime），实时推送经事件解耦——
+  realtime 订阅 ImMessageSentEvent 自行推送，im 与 realtime 互不持有对方引用，DAG 无环。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-im</artifactId>
+    <name>scaffold-im</name>
+    <description>站内消息：会话、消息、已读回执、实时推送解耦（ROADMAP R6）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- OpenAPI 注解（@Tag / @Operation），版本由根 POM dependencyManagement 托管 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+
+        <!-- 测试：jOOQ 经 common 传递；H2 仅测试期承载 DDL 与集成测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
