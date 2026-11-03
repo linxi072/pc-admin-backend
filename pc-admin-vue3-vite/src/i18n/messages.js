@@ -2058,7 +2058,8 @@ export default {
     },
     app: {
       footer: '© 2026 运营管理后台 · 基于 Vue3 + Element Plus + Vite ·',
-      internalUseOnly: '仅供内部使用'
+      internalUseOnly: '仅供内部使用',
+      errorTitle: '页面渲染出错'
     },
     dashboard: {
       title: '工作台',
@@ -4242,7 +4243,8 @@ export default {
     },
     app: {
       footer: '© 2026 Operations Admin · Built with Vue3 + Element Plus + Vite ·',
-      internalUseOnly: 'Internal use only'
+      internalUseOnly: 'Internal use only',
+      errorTitle: 'Page render error'
     },
     dashboard: {
       title: 'Dashboard',
