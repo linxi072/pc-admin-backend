@@ -53,6 +53,8 @@
         <module>scaffold-job</module>
         <module>scaffold-workbench</module>
         <module>scaffold-workflow</module>
+        <!-- 业务域：审批中心门户（R7），编排工作流能力，依赖 common + workflow -->
+        <module>scaffold-approval</module>
         <!-- 启动装配层：依赖全部模块，产出可执行 jar -->
         <module>scaffold-admin</module>
     </modules>
