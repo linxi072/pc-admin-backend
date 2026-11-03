@@ -2,7 +2,9 @@ package com.acme.scaffold.config.web;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.tenant.TenantProperties;
+import com.acme.scaffold.config.multiregion.MultiRegionInterceptor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -32,13 +34,20 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final TenantProperties tenantProperties;
     private final SecurityContextFacade securityContextFacade;
+    private final ObjectProvider<MultiRegionInterceptor> multiRegionInterceptor;
 
     @Value("${app.upload.avatar-dir:./uploads/avatar}")
     private String avatarDir;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 租户上下文先行：MultiRegionInterceptor 依赖 TenantContext 已设置，故注册在后。
         registry.addInterceptor(tenantInterceptor());
+        // 多区域拦截器仅当 app.multiregion.enabled=true 时才作为 Bean 存在；关闭时跳过注册，零回归。
+        MultiRegionInterceptor mr = multiRegionInterceptor.getIfAvailable();
+        if (mr != null) {
+            registry.addInterceptor(mr);
+        }
     }
 
     @Bean

@@ -100,6 +100,30 @@ app:
   # 具体连接串与凭据在各 profile yml 中通过环境变量注入，不在此硬编码。
   datasources:
     primary: primary
+  # ===== 多区域 / 多集群部署支撑（R4，默认关闭） =====
+  # 启用后：租户按映射归属「部署单元（具名数据源）」，请求期自动路由到对应物理库，实现大租户物理隔离。
+  # 单元名须与 app.datasources.entries 的 key 一致；启用时建议同时设 spring.flyway.enabled=false，
+  # 改由 UnitAwareFlywayMigrator 对每个单元独立迁移（避免主库被重复迁移）。
+  multiregion:
+    enabled: false
+    # 默认单元（数据源名）；未命中映射的租户回落此处，缺省取 app.datasources.primary
+    default-unit: primary
+    # 部署单元元数据（名称 -> 区域/描述），仅用于观测与文档，单元名须对应真实数据源
+    units:
+      primary:
+        region: "cn-north"
+        description: "默认主区域"
+      unit-east:
+        region: "cn-east"
+        description: "华东大租户隔离集群"
+    # 显式租户 -> 单元（优先级最高）
+    tenant-to-unit:
+      10: unit-east
+    # 租户组区间 -> 单元（[from,to] 闭区间，优先级次之）
+    tenant-groups:
+      - from: 1000
+        to: 1999
+        unit: unit-east
   # ===== WebSocket 跨域允许来源 =====
   # 默认放开全部来源便于本地前后端分离联调；生产经环境变量 WS_ALLOWED_ORIGINS 收紧为具体前端域名。
   cors:

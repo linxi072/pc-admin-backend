@@ -57,5 +57,16 @@
             <artifactId>scaffold-realtime</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- R4 多区域：按部署单元独立执行 Flyway 迁移（主代码使用） -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <!-- 测试：H2 内存库用于多区域路由 / 迁移集成测试 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
