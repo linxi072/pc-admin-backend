@@ -49,6 +49,12 @@
             <artifactId>scaffold-codegen</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 业务域：内容管理（R5） -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-cms</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.acme.scaffold</groupId>
             <artifactId>scaffold-framework</artifactId>
@@ -82,6 +88,18 @@
         <dependency>
             <groupId>com.acme.scaffold</groupId>
             <artifactId>scaffold-workflow</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 业务域：站内消息（R6） -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-im</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- 业务域：审批中心门户（R7），编排工作流能力，依赖 common + workflow -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-approval</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!-- 扩展基座：插件化/SPI 生命周期（仅依赖 common） -->
