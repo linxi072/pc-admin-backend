@@ -14,6 +14,7 @@ public interface OnlineSessionDataPort {
     String REASON_RESTRICTED = "RESTRICTED";
     String REASON_INACTIVITY = "INACTIVITY";
     String REASON_PASSWORD_CHANGED = "PASSWORD_CHANGED";
+    String REASON_DISABLED = "DISABLED";
 
     /** 登录成功后登记在线会话（upsert）：同设备重复登录重置登录时间与会话状态。 */
     void registerSession(Long userId, String username, String displayName, String deviceId,

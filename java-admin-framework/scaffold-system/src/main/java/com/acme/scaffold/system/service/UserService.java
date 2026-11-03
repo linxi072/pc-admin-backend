@@ -3,6 +3,8 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
+import com.acme.scaffold.common.event.EventPublisher;
+import com.acme.scaffold.common.event.domain.UserDisabledEvent;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.sensitive.SensitiveType;
@@ -86,6 +88,7 @@ public class UserService {
     private final RoleColumnPermissionService roleColumnPermissionService;
     private final ColumnPermissionResourceRegistry columnRegistry;
     private final SecurityContextFacade securityContextFacade;
+    private final EventPublisher eventPublisher;
 
     /**
      * 字段级（列级）数据权限运行时脱敏总开关，默认关闭（同 M19 enforce 默认关闭策略）：
@@ -162,6 +165,8 @@ public class UserService {
             assertContactAvailable("email", request.email(), id);
             user.setEmail(request.email());
         }
+        boolean disabling = false;
+        String previousStatus = null;
         if (request.status() != null) {
             // 状态白名单：登录链路只识别 ACTIVE/DISABLED（外加锁定态由登录失败计数驱动），
             // 任意字符串可落库会成为永久数据噪声，故仅接受这两个值
@@ -169,10 +174,18 @@ public class UserService {
                 throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                         "用户状态仅支持 ACTIVE / DISABLED");
             }
+            previousStatus = user.getStatus();
+            disabling = !"DISABLED".equals(previousStatus) && "DISABLED".equals(request.status());
             user.setStatus(request.status());
             permissionChanged = true;
         }
         JooqWriters.updateById(dsl, USER, id, user);
+
+        // 跨域副作用解耦（ROADMAP R2）：用户被禁用时发布领域事件，由 security/notification 等订阅方响应
+        // （踢下线 / 发通知）。system 不再直连下游；事件总线错误隔离，订阅方故障不影响本事务提交。
+        if (disabling) {
+            publishUserDisabledEvent(id, user.getUsername(), previousStatus);
+        }
 
         // 角色 / 部门传入时整体替换原有关联
         if (request.roleIds() != null) {
@@ -197,6 +210,27 @@ public class UserService {
         if (permissionChanged) {
             tokenVersionService.bumpUser(id);
         }
+    }
+
+    /**
+     * 发布「用户被禁用」领域事件（ROADMAP R2 跨域副作用示范）。
+     *
+     * <p>仅当状态由非 DISABLED 转为 DISABLED 时触发。发布方法本身经事件总线错误隔离，
+     * 订阅方（security 踢下线 / notification 发通知）故障不会回滚本事务或影响其他订阅者。</p>
+     *
+     * @param userId         被禁用用户主键
+     * @param username       用户名
+     * @param previousStatus 禁用前状态（区分「首次禁用」与「状态回切」）
+     */
+    private void publishUserDisabledEvent(Long userId, String username, String previousStatus) {
+        String operator = null;
+        try {
+            operator = securityContextFacade.requireCurrentPrincipal().username();
+        } catch (Exception ignored) {
+            // 非认证上下文（如内部调度）无操作人，留空
+        }
+        eventPublisher.publish(new UserDisabledEvent(null, "system", userId, username,
+                previousStatus, operator, List.of()));
     }
 
     @Transactional

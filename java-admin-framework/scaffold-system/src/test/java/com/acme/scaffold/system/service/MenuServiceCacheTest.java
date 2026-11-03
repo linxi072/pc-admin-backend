@@ -92,7 +92,8 @@ class MenuServiceCacheTest {
             return new UserService(mock(DSLContext.class), mock(PasswordEncoder.class),
                     mock(TokenVersionService.class), mock(PasswordHistoryService.class),
                     mock(PostService.class), mock(RoleColumnPermissionService.class),
-                    mock(ColumnPermissionResourceRegistry.class), mock(SecurityContextFacade.class));
+                    mock(ColumnPermissionResourceRegistry.class), mock(SecurityContextFacade.class),
+                    mock(com.acme.scaffold.common.event.EventPublisher.class));
         }
     }
 
