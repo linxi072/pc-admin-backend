@@ -43,6 +43,8 @@
         <module>scaffold-realtime</module>
         <module>scaffold-kafka</module>
         <module>scaffold-codegen</module>
+        <!-- 工具（可选）：AI 辅助开发集成（R3），依赖 common + codegen -->
+        <module>scaffold-ai</module>
         <!-- 认证授权与令牌域（JWT/刷新令牌/Token 版本、OAuth2、密码策略、数据权限、限流、在线会话） -->
         <module>scaffold-security</module>
         <!-- 框架装配层：config/observability/monitor.detection + realtime 的 WebSocket 端点注册 -->

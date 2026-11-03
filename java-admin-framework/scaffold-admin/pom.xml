@@ -49,6 +49,12 @@
             <artifactId>scaffold-codegen</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 工具（可选）：AI 辅助开发集成（R3），编排 codegen 渲染实体/服务/Vue 草稿 -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-ai</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- 业务域：内容管理（R5） -->
         <dependency>
             <groupId>com.acme.scaffold</groupId>
