@@ -87,9 +87,9 @@
 
 #### R7 · 审批中心门户 — P1
 - **动机**：Flowable 待办/已办/我发起分散，缺统一工作台。
-- **候选**：`workbench` 扩展 或 `scaffold-approval`（新）。
-- **依赖**：`workflow`（已有）。
-- **验收**：统一待办列表 + 发起入口 + 图表；前端聚合页。
+- **候选模块**：`scaffold-approval`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.approval` 下 `ApprovalPortalService`（薄编排层，聚合 workflow 的待办/已办/我发起/可发起 + `WorkflowDesignService` 的已发布流程 + 统计）、`ApprovalPortalView`/`ApprovalStats`（聚合 DTO）、`ApprovalPortalController`（6 个只读 GET 端点 `/api/approval/portal/*`，统一权限码 `approval:portal:view`，@PreAuthorize 经 ApiResourceAutoSyncRunner 自动登记）；菜单种子见 V76__approval_portal.sql（审批中心目录 9501 + 审批工作台 9502）。`wf_task_ext` 补 `activity_name` 快照列（V76），待办/已办列表免回查引擎即可展示可读节点名。
+- **依赖取舍**：为保持 DAG 最小且无环，approval 仅依赖 `common` + `workflow`（经 `WorkflowService`/`WorkflowDesignService` 编排）；不反向依赖 `system`/`plugin`（与「跨域协作经 Port/事件」铁律一致）。
+- **验收**：统一待办列表 + 已办列表（按完成时间倒序 + activity_name 快照）+ 我发起 + 可发起（仅 PUBLISHED）+ 统计；双门禁全绿（workflow 10 个单测覆盖 myDoneTasks、approval 3 个单测覆盖聚合/过滤/透传）；菜单种子与权限码自动登记就绪。前端聚合页（approval/PortalView）为后续前端补充项。
 
 #### R8 · 数据看板模板库 — P2
 - **动机**：`workbench` 报表为硬编码，缺可复用模板。
@@ -161,7 +161,7 @@
 | `common.event` | 基础（子包） | common | `common.event` | R2 ✅ 已落地 |
 | `scaffold-cms` | 业务域 | common | `cms.*` | R5 ✅ 已落地 V1.0.7 |
 | `scaffold-im` | 业务域 | common | `im.*` | R6 ✅ 已落地 V1.0.7 |
-| `scaffold-approval` | 业务域 | common, workflow, plugin | `approval.*` | R7 |
+| `scaffold-approval` | 业务域 | common, workflow | `approval.*` | R7 ✅ 已落地 V1.0.7 |
 | `scaffold-lowcode` | 业务域 | common, system, plugin | `lowcode.*` | R10 |
 | `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 |
 | `packages/ui` | 前端（可选） | 无 | UI 组件库 | R11 |
