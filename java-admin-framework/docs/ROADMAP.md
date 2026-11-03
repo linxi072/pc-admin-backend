@@ -10,7 +10,7 @@
 
 - **规模**：12 个 Maven 模块，包根 `com.acme.scaffold`；里程碑 M1–M50 全部收口。
 - **已具备核心能力**：RBAC 权限、JWT/刷新令牌/Token 版本失效、OAuth2 授权+资源服务器、多租户隔离、数据权限、字段脱敏、写接口幂等、操作审计、Flowable 工作流（含管理员治理）、JobRunr 调度、WebSocket 实时、可观测探针（Micrometer + N+1/慢查询监听）、jOOQ 持久层、代码生成器（M50）、低代码设计器（M44）、API 文档中心、幂等记录管理、流程实例治理。
-- **当前缺口**：作为"脚手架"已功能完整，但**二次开发需改源码**、**跨域副作用靠 Port 直连**、**缺统一扩展点/事件机制**、**前端无组件库/移动端适配**、**追踪与 APM 不完整**。
+- **当前缺口**：作为"脚手架"已功能完整，但**前端无组件库/移动端适配**（R9/R10/R11）、**微前端拆分待评估**（R12）、**混沌/压测体系缺失**（R15）；R13/R14/R16 等运维增强已随各迭代落地，详见各章节。
 
 **目标演进**：从「功能完整的模块化单体脚手架」升级为「**可扩展、可观测、可插件化的企业级平台**」。
 
@@ -35,7 +35,7 @@
 - **Phase 1 · 扩展点与事件驱动**（技术架构核心）：R1 插件化 + R2 事件总线，是其余方向的解耦基石。
 - **Phase 2 · 业务模块扩充**：R5 CMS / R6 IM / R7 审批门户 / R8 看板模板（依赖 R1/R2）。
 - **Phase 3 · 前端能力增强**：R9 移动端 / R10 低代码深化 / R11 组件库 / R12 微前端。
-- **Phase 4 · 运维与可观测增强**：R13 追踪 / R14 APM / R15 混沌压测 / R16 配置中心（部分可与 Phase 1–3 并行）。
+- **Phase 4 · 运维与可观测增强**：R13 追踪 ✅ / R14 APM ✅ / R16 配置中心 ✅ 已落地 V1.0.7；R15 混沌压测待启动（部分可与 Phase 1–3 并行）。
 
 ---
 
@@ -128,15 +128,15 @@
 
 #### R13 · 分布式追踪（OpenTelemetry）— P1
 - **动机**：`framework` 已含 Micrometer 指标，缺 trace 串联。
-- **候选**：`framework.observability` 扩展。
+- **候选模块**：`framework.observability`（✅ **已落地 V1.0.7**）：零依赖 OTLP/HTTP 自研导出器（`OtlpSpanExporter`；离线仓库无 opentelemetry-sdk，故不自引官方 SDK）+ `OtlpTracingFilter`（每请求生成 server span，复用 MDC `traceId` 与 W3C traceparent 对齐）+ `SpanRecorder`（内存有界缓冲，双 sink 之一）+ `ObservabilityController`（`/api/observability` 回溯/摘要/指标快照）。`observability.otlp.enabled` 默认关闭，开启即导出至 Collector；`recorder` 默认开启供本地回溯。权限码 `system:observability:read|manage` 经 `ApiResourceAutoSyncRunner` 自动登记。
 - **依赖**：无强前置。
-- **验收**：跨模块请求 trace 串联并导出 OTLP；Grafana 可见。
+- **验收**：跨模块请求 trace 串联（MDC traceId 贯穿，单体进程内多模块共享同一 trace）+ 零依赖导出 OTLP；具备 Collector 时 Grafana/Jaeger 可见。
 
 #### R14 · APM 指标大盘 — P1
 - **动机**：指标与 N+1 监听未可视化。
-- **候选**：`monitor` 扩展 / 预置 Grafana dashboard JSON。
-- **依赖**：R13。
-- **验收**：慢查询/缓存命中/租户维度可见。
+- **候选模块**：`scaffold-monitor` 扩展（✅ **已落地 V1.0.7**）：`MonitorController`（`/api/system/monitor`）暴露实时运行指标（CPU/内存/磁盘/JVM）、进程内缓存统计（命中率，经 `StatisticsCacheManager`）、数据库连接池、在线会话/用户、异常日志与聚合；`NPlusOneController` + `NPlusOneService` 暴露 N+1/慢查询疑似事件（`NPlusOneSuspectRegistry` 有界留存）；`framework.monitor.detection` 的 `SlowQueryListener` / `NPlusOneListener` + `NPlusOneMetricsBridge` 将探针数据桥接进 `MetricsRegistry`。依赖 R13 的 trace 上下文。
+- **依赖**：R13（已完成）。
+- **验收**：慢查询（N+1 疑似）/ 缓存命中率 / 连接池 / 在线会话均可见（管理前端可对接）。**遗留项**：租户维度指标（按租户聚合的请求数/慢查询/缓存命中）尚未独立建模，列入后续增强；预置 Grafana dashboard JSON 为可选交付，按需补充。
 
 #### R15 · 混沌 / 压测体系 — P2
 - **动机**：`scripts/perf/PERF-TEST-PLAN.md` 已有压测计划，缺混沌。
@@ -146,9 +146,9 @@
 
 #### R16 · 配置中心接入 — P2
 - **动机**：当前配置在 `application` + Flyway，无动态刷新。
-- **候选**：`framework.config` 扩展 Nacos/Apollo 适配器（Port）。
-- **依赖**：R2 事件（动态刷新）。
-- **验收**：配置经中心下发并热更新，无需重启。
+- **候选模块**：`framework.config.center`（✅ **已落地 V1.0.7**）：`ConfigCenterPort`（防腐层，定义读取/快照/刷新/动态刷新能力）+ `LocalConfigCenterAdapter`（默认实现，读取 Spring `Environment` 的 `app.*` 命名空间，零新依赖）+ `ConfigCenterService`（刷新后发布 `ConfigRefreshedEvent` 经 R2 事件总线，订阅方可热重载运行态）+ `ConfigCenterController`（`/api/system/config-center` 状态/快照/刷新，权限码 `system:config-center:read|manage` 自动登记）。`app.config-center.enabled` 默认 false，关闭时完全不装配任何 R16 Bean，与既有行为零回归；远端类型（nacos/apollo）的 `ConfigCenterPort` 实现由外部 jar 经 R1 插件机制提供，避免离线仓库引入其 SDK。
+- **依赖**：R2 事件（动态刷新，已完成）。
+- **验收**：本地适配器下配置可快照与刷新并触发事件（热更新订阅链路已打通）；远端中心接入只需提供 `ConfigCenterPort` Bean，无需改动业务代码。无需重启即可在「本地 reload + 事件通知」语义下热刷新。
 
 ---
 
@@ -167,6 +167,7 @@
 | `scaffold-lowcode` | 业务域 | common, system, plugin | `lowcode.*` | R10 |
 | `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 ✅ 已落地 V1.0.7 |
 | `scaffold-framework/config.multiregion` | 框架装配（子包） | framework | `config.multiregion` | R4 ✅ 已落地 V1.0.7 |
+| `scaffold-framework/config.center` | 框架装配（子包） | framework, common | `config.center` | R16 ✅ 已落地 V1.0.7 |
 | `packages/ui` | 前端（可选） | 无 | UI 组件库 | R11 |
 
 ---
@@ -191,7 +192,7 @@
 | Phase 1 | R1 插件机制可用（外部 jar 注入菜单+端点） | 端到端注入测试通过 |
 | Phase 2 | R5/R6/R7 至少一个上线 + R8 设计 | 前端视图 + 菜单种子 + i18n 齐备 |
 | Phase 3 | R9 移动端自适应 + R10 低代码深化可用 | 移动端冒烟 + 表单落库 |
-| Phase 4 | R13/R14 串联可观测 + R15/R16 至少一项 | Grafana 可见 trace/指标 |
+| Phase 4 | R13/R14/R16 可观测与配置中心落地 | Grafana 可见 trace/指标；配置可热刷新（本地 reload + 事件通知） |
 
 ---
 
