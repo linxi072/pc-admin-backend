@@ -66,10 +66,11 @@
 
 #### R4 · 多区域 / 多集群部署支撑 — P2
 - **动机**：多租户已建（租户列隔离），但单实例；大租户需物理隔离。
-- **方案要点**：租户→部署单元映射配置；数据源路由按租户组；Flyway 按单元独立迁移；复用 `TenantContext`。
-- **候选**：`common` 多数据源路由子包。
-- **依赖**：R2 事件驱动 + R16 配置中心。
-- **验收**：两个租户组落不同数据源，租户隔离测试通过。
+- **方案要点**：租户→部署单元映射配置；数据源路由按租户组；Flyway 按单元独立迁移；复用 `TenantContext` 与既有 `RoutingDataSource`。
+- **候选模块**：`scaffold-framework/config/multiregion`（✅ **已落地 V1.0.7**）：在既有多数据源路由（`RoutingDataSource` / `DataSourceContextHolder` / `DataSourceRegistry`，位于 `scaffold-framework`）之上叠加「租户→部署单元」解析层 —— `TenantUnitMapping` 解析当前租户归属单元（显式映射 / 租户组区间 / 默认单元三级优先级），`MultiRegionInterceptor`（Web 层，注册在 `TenantInterceptor` 之后）与 `MultiRegionRouter`（非 Web 编程式）按解析结果写入 `DataSourceContextHolder`，使构建在 `RoutingDataSource` 之上的主 `DSLContext`（即 `JooqConfig.dslContext`）自动路由到对应物理库；`UnitAwareFlywayMigrator` 对每个注册数据源独立执行迁移；全链路零改 `JooqWriters` / `JooqConfig`。默认 `app.multiregion.enabled=false`，关闭时完全不装配任何 R4 Bean，与单实例行为零回归。
+  - **为何落在 framework 而非 common**：既有路由基础设施（DataSourceRegistry / RoutingDataSource / DataSourceContextHolder）已在 `scaffold-framework`，若放入 `common` 将产生 common→framework 反向依赖而破坏 DAG 无环；故 R4 复用 framework 既有能力，未新增模块。
+- **依赖**：R2 事件驱动（已完成）+ R16 配置中心（可选，未阻塞）。
+- **验收**：`MultiRegionRoutingIntegrationTest` 用两个 H2 内存库模拟两部署单元，验证租户组 A/B 的写入仅落对应物理库（物理隔离）；`UnitAwareFlywayMigratorTest` 验证每个单元独立迁移；门禁全绿。
 
 ### 3.2 业务模块扩充
 
@@ -164,6 +165,7 @@
 | `scaffold-approval` | 业务域 | common, workflow | `approval.*` | R7 ✅ 已落地 V1.0.7 |
 | `scaffold-lowcode` | 业务域 | common, system, plugin | `lowcode.*` | R10 |
 | `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 ✅ 已落地 V1.0.7 |
+| `scaffold-framework/config.multiregion` | 框架装配（子包） | framework | `config.multiregion` | R4 ✅ 已落地 V1.0.7 |
 | `packages/ui` | 前端（可选） | 无 | UI 组件库 | R11 |
 
 ---
