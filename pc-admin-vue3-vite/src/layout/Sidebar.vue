@@ -5,6 +5,7 @@
       :default-active="activeIndex"
       router
       class="app-menu"
+      @select="onSelect"
     >
       <!-- 菜单完全由后端「我的菜单」接口按当前用户角色动态返回，无前端硬编码 -->
       <MenuTree v-for="item in menus" :key="item.id ?? item.menuCode" :item="item" />
@@ -19,6 +20,12 @@ import { authState } from '@/store/auth'
 import MenuTree from './MenuTree.vue'
 
 const props = defineProps({ collapsed: Boolean })
+const emit = defineEmits(['navigate'])
+
+/** 选中菜单项（点击导航）时通知父级：移动端借此关闭抽屉式侧边栏。 */
+function onSelect() {
+  emit('navigate')
+}
 
 const route = useRoute()
 const activeIndex = computed(() => route.path)
