@@ -84,6 +84,12 @@
             <artifactId>scaffold-workflow</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- 扩展基座：插件化/SPI 生命周期（仅依赖 common） -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-plugin</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- 运行期直连依赖：驱动、Flyway、Actuator（management 端点配置在本模块） -->
         <dependency>
             <groupId>com.mysql</groupId>
