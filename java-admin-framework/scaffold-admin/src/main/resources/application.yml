@@ -259,6 +259,14 @@ app:
   # ===== 缓存管理（Spring Cache 抽象，Redis 实现） =====
   # 缓存为惰性能力：未使用 @Cacheable 时不产生 Redis 流量。
   # 命中率/条目数统计与清理入口见 GET /api/system/monitor/caches（进程内口径，按实例）。
+  config-center:
+    # R16 配置中心接入：默认关闭，开启后注册本地适配器（type=local）。
+    # 远端类型（nacos / apollo）需外部 jar 经 R1 插件机制提供 ConfigCenterPort 实现，
+    # 避免向离线仓库引入其 SDK 依赖。
+    enabled: false
+    type: local
+    # 快照暴露的键前缀白名单（逗号分隔）；仅暴露该命名空间下的配置项，避免泄露敏感配置。
+    snapshot-prefix: app
   cache:
     # @Cacheable 未显式指定时的默认 TTL
     ttl: 30m
