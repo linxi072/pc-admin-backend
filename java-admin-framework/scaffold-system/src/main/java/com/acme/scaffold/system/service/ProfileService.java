@@ -1,7 +1,6 @@
 package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;

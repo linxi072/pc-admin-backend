@@ -7,7 +7,6 @@ import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.permission.ColumnPermissionRules;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.entity.SysRoleColumnPermissionDO;
-import com.acme.scaffold.system.entity.SysRoleDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
