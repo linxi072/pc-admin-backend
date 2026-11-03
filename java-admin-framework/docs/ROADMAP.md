@@ -35,7 +35,7 @@
 - **Phase 1 · 扩展点与事件驱动**（技术架构核心）：R1 插件化 + R2 事件总线，是其余方向的解耦基石。
 - **Phase 2 · 业务模块扩充**：R5 CMS / R6 IM / R7 审批门户 / R8 看板模板（依赖 R1/R2）。
 - **Phase 3 · 前端能力增强**：R9 移动端 / R10 低代码深化 / R11 组件库 / R12 微前端。
-- **Phase 4 · 运维与可观测增强**：R13 追踪 ✅ / R14 APM ✅ / R16 配置中心 ✅ 已落地 V1.0.7；R15 混沌压测待启动（部分可与 Phase 1–3 并行）。
+- **Phase 4 · 运维与可观测增强**：R13 追踪 ✅ / R14 APM ✅ / R16 配置中心 ✅ / R15 混沌注入 ✅ 已落地 V1.0.7（压测脚本 `scripts/perf/` 随仓库存在，混沌叠加演练已可行）。
 
 ---
 
@@ -140,9 +140,10 @@
 
 #### R15 · 混沌 / 压测体系 — P2
 - **动机**：`scripts/perf/PERF-TEST-PLAN.md` 已有压测计划，缺混沌。
-- **候选**：接入 chaos + 持续压测流水线。
-- **依赖**：R14。
-- **验收**：注入故障后自动恢复验证；压测基线报告。
+- **候选模块（混沌）**：`framework.chaos`（✅ **已落地 V1.0.7**）：进程内故障注入，`ChaosRegistry`(内存故障规则表) + `ChaosService`(登记/解除/查询) + `ChaosFilter`(请求链路按 Ant 路径匹配并注入 LATENCY/ERROR/EXCEPTION/FAILURE 四类故障，概率触发、自动恢复) + `ChaosController`(`/api/system/chaos`，权限码 `system:chaos:manage` 自动登记)。`app.chaos.enabled` 默认 **false**，关闭时完全不装配任何 R15 Bean，零回归；故障状态仅存进程内存，重启即清空，演练安全。
+- **候选（压测）**：`scripts/perf/` 压测脚本与基线计划已随仓库存在，Chaos 模块补齐后可在压测基线上叠加故障演练。
+- **依赖**：无强前置（R14 已先行落地，二者可并行）。
+- **验收**：注入 LATENCY/ERROR 等故障后由 `ChaosFilter` 在请求链路生效、解除后自动恢复；压测基线报告由 `scripts/perf/` 产出。
 
 #### R16 · 配置中心接入 — P2
 - **动机**：当前配置在 `application` + Flyway，无动态刷新。
