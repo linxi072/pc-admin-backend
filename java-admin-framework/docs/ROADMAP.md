@@ -60,7 +60,7 @@
 #### R3 · AI 辅助开发集成 — P2
 - **动机**：`scaffold-codegen`（M50）为模板驱动，缺语义理解。
 - **方案要点**：在 `scaffold-codegen` 增"自然语言→CRUD/查询"入口，对接大模型（经 cloud-service 或本地推理），产出实体/DDL/Service/前端视图草稿，保留人工 review。
-- **候选**：`scaffold-codegen` 扩展，或独立 `scaffold-ai`（若需独立部署推理服务）。
+- **候选模块**：`scaffold-ai`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.ai` 下 `port`（`LlmProvider` 端口 + `HeuristicLlmProvider` 离线默认 / `CloudLlmProvider` `@ConditionalOnProperty` 可选）/ `service`（`AiScaffoldService` 编排 + `DdlRenderer` 引号小写迁移 SQL）/ `controller`（`AiScaffoldController` 走 `ai:scaffold:generate` 权限码）/ `dto`（TableSpec/ColumnSpec/ScaffoldResult/ScaffoldRequest）/ `config`（AiProperties 成本门禁）；复用 `scaffold-codegen` 的 `JavaTypeMapper` 与 `CodeTemplates.renderAll` 渲染实体/服务/Vue 草稿，零新依赖；启发式解析确定性可过双门禁，云大模型仅条件化可选（默认不激活，避免网络依赖破坏 `mvn -o`）。
 - **依赖**：R1 成熟后更易嵌入；注意合规与成本门禁。
 - **验收**：输入"订单表含金额/状态"产出可编译骨架 + 迁移 SQL + 前端路由；门禁绿。
 
@@ -163,7 +163,7 @@
 | `scaffold-im` | 业务域 | common | `im.*` | R6 ✅ 已落地 V1.0.7 |
 | `scaffold-approval` | 业务域 | common, workflow | `approval.*` | R7 ✅ 已落地 V1.0.7 |
 | `scaffold-lowcode` | 业务域 | common, system, plugin | `lowcode.*` | R10 |
-| `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 |
+| `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 ✅ 已落地 V1.0.7 |
 | `packages/ui` | 前端（可选） | 无 | UI 组件库 | R11 |
 
 ---
