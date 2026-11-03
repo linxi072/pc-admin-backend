@@ -366,6 +366,20 @@ public final class JooqTables {
             "for_duration_sec", "consecutive_count", "channel_type", "channel_config", "enabled",
             "remark", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
+    // ---------------- 内容管理（R5 CMS，V74） ----------------
+
+    /** 内容栏目（树形，自引用 parent_id）。逻辑删除（deleted），乐观锁（version）。列名与 V74__cms.sql 严格一致。 */
+    public static final TableRef CMS_CATEGORY = new TableRef("cms_category",
+            "id", "tenant_id", "parent_id", "category_code", "category_name", "description",
+            "sort_no", "status", "version", "deleted", "created_by", "created_at",
+            "updated_by", "updated_at");
+
+    /** 内容文章（富文本 + 发布态）。逻辑删除（deleted），乐观锁（version）。列名与 V74__cms.sql 严格一致。 */
+    public static final TableRef CMS_ARTICLE = new TableRef("cms_article",
+            "id", "tenant_id", "category_id", "title", "summary", "content", "author",
+            "cover_url", "status", "view_count", "published_at", "offline_at",
+            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
     /**
      * 表引用：物理表名 + 列清单 + 类型化字段构造。
      */
