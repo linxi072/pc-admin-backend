@@ -136,7 +136,7 @@
 - **动机**：指标与 N+1 监听未可视化。
 - **候选模块**：`scaffold-monitor` 扩展（✅ **已落地 V1.0.7**）：`MonitorController`（`/api/system/monitor`）暴露实时运行指标（CPU/内存/磁盘/JVM）、进程内缓存统计（命中率，经 `StatisticsCacheManager`）、数据库连接池、在线会话/用户、异常日志与聚合；`NPlusOneController` + `NPlusOneService` 暴露 N+1/慢查询疑似事件（`NPlusOneSuspectRegistry` 有界留存）；`framework.monitor.detection` 的 `SlowQueryListener` / `NPlusOneListener` + `NPlusOneMetricsBridge` 将探针数据桥接进 `MetricsRegistry`。依赖 R13 的 trace 上下文。
 - **依赖**：R13（已完成）。
-- **验收**：慢查询（N+1 疑似）/ 缓存命中率 / 连接池 / 在线会话均可见（管理前端可对接）。**遗留项**：租户维度指标（按租户聚合的请求数/慢查询/缓存命中）尚未独立建模，列入后续增强；预置 Grafana dashboard JSON 为可选交付，按需补充。
+- **验收**：慢查询（N+1 疑似）/ 缓存命中率 / 连接池 / 在线会话均可见（管理前端可对接）。**租户维度指标已于 V1.0.7 补全**：`TenantMetrics`（`framework.observability.recorder`，作为 `SpanExporter` sink）按租户聚合请求数/错误率/平均时延，经 `TenantMetricsController`（`/api/observability/tenant-metrics`）暴露，支持 APM 大盘按租户下钻；无租户上下文的 span 自动跳过、内存有界（默认 256 租户）。预置 Grafana dashboard JSON 为可选交付，按需补充。
 
 #### R15 · 混沌 / 压测体系 — P2
 - **动机**：`scripts/perf/PERF-TEST-PLAN.md` 已有压测计划，缺混沌。
