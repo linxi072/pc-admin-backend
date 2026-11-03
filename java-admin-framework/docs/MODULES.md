@@ -30,3 +30,22 @@
 4. 包根 `com.acme.scaffold.xxx`，遵循 `controller → service → domain` 分层（H3 规则）；
 5. 若暴露 HTTP 端点，同步补：前端路由 + i18n 键 + 菜单种子（`db/migration`）+ API 客户端；
 6. 跑双门禁（`mvn -o ... clean test` + `check-conventions.py`）确认无环、无违规。
+
+---
+
+## 7. 规划中候选模块（未创建）
+
+> 下列模块**均处于规划态，尚未创建**，详细动机 / 优先级 / 验收见 **[ROADMAP.md](ROADMAP.md)**。标注以规划 DAG 无环为前提，最终以 `scripts/check-conventions.py` H5 校验为准。
+
+| 候选模块 | 层 | 规划依赖 | 关键包 | 对应需求 |
+|---|---|---|---|---|
+| `scaffold-plugin` | 扩展基座 | common | `plugin.spi` / `plugin.registry` | R1 插件化 |
+| `common.event` | 基础（子包） | common | `common.event` | R2 领域事件 |
+| `scaffold-cms` | 业务域 | common, system, plugin | `cms.*` | R5 内容管理 |
+| `scaffold-im` | 业务域 | common, realtime, plugin | `im.*` | R6 站内 IM |
+| `scaffold-approval` | 业务域 | common, workflow, plugin | `approval.*` | R7 审批门户 |
+| `scaffold-lowcode` | 业务域 | common, system, plugin | `lowcode.*` | R10 低代码深化 |
+| `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 AI 辅助 |
+| `packages/ui` | 前端（可选） | 无 | UI 组件库 | R11 组件库 |
+
+**与"新增模块步骤"的衔接**：当上述任一候选进入实施时，严格复用 §「新增模块步骤」六步，并在第 1 步注册后、第 5 步补前端资产时同步更新本表状态（规划态 → 实施中 → 已落地）；任何新增依赖边不得与现有 12 模块形成环。
