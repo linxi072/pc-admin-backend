@@ -94,9 +94,9 @@
 
 #### R8 · 数据看板模板库 — P2
 - **动机**：`workbench` 报表为硬编码，缺可复用模板。
-- **候选**：`workbench` 扩展。
-- **依赖**：`workbench`。
-- **验收**：模板 CRUD + 拖拽配置 + 权限；复用 `DrillDrawer`。
+- **候选模块**：`scaffold-workbench` 扩展（✅ **已落地 V1.0.7**）：`com.acme.scaffold.workbench.dashboard` 下 `domain`（DashboardTemplateDO）/`dto`（TemplateSaveRequest/TemplateUpdateRequest/DashboardTemplateVO）/`service`（看板模板 CRUD + 发布态流转 DRAFT/PUBLISHED/OFFLINE + 浏览计数 + layout_json 经 Jackson 合法性校验）/`controller`（看板模板 REST 端点 `/api/dashboard/template/*`，统一权限码 `dashboard:template:manage`，@PreAuthorize 经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V78__dashboard_template.sql（dashboard_template + 菜单种子：数据看板目录 9701 + 看板模板管理 9702）。`JooqTables` 新增 `DASHBOARD_TEMPLATE` 常量。
+- **依赖取舍**：为保持 DAG 最小且无环，dashboard 仅依赖 `common` + `system`（与 workbench 既有依赖一致，经 JooqWriters 持久化）；布局配置以 `layout_json`（TEXT）承载，由前端约定结构、后端仅做 JSON 语法校验（不做语义约束），避免引入重量级表单引擎；复用现有 `workbench` 模块而非新建模块。
+- **验收**：看板模板 CRUD + 配置（layout_json 序列化）+ 发布态流转（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数 + 权限码自动登记；双门禁全绿（9 个后端单测覆盖 CRUD/发布/撤销/计数/更新/逻辑删除/分页筛选/非法 JSON 拒绝/缺失模板）。前端视图（dashboard/DashboardTemplateView）与拖拽配置器为后续前端补充项。
 
 ### 3.3 前端能力增强
 
@@ -163,6 +163,7 @@
 | `scaffold-cms` | 业务域 | common | `cms.*` | R5 ✅ 已落地 V1.0.7 |
 | `scaffold-im` | 业务域 | common | `im.*` | R6 ✅ 已落地 V1.0.7 |
 | `scaffold-approval` | 业务域 | common, workflow | `approval.*` | R7 ✅ 已落地 V1.0.7 |
+| `scaffold-workbench/dashboard` | 业务域扩展 | common, system | `workbench.dashboard.*` | R8 ✅ 已落地 V1.0.7 |
 | `scaffold-lowcode` | 业务域 | common, system, plugin | `lowcode.*` | R10 |
 | `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 ✅ 已落地 V1.0.7 |
 | `scaffold-framework/config.multiregion` | 框架装配（子包） | framework | `config.multiregion` | R4 ✅ 已落地 V1.0.7 |
