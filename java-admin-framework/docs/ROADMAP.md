@@ -10,7 +10,7 @@
 
 - **规模**：12 个 Maven 模块，包根 `com.acme.scaffold`；里程碑 M1–M50 全部收口。
 - **已具备核心能力**：RBAC 权限、JWT/刷新令牌/Token 版本失效、OAuth2 授权+资源服务器、多租户隔离、数据权限、字段脱敏、写接口幂等、操作审计、Flowable 工作流（含管理员治理）、JobRunr 调度、WebSocket 实时、可观测探针（Micrometer + N+1/慢查询监听）、jOOQ 持久层、代码生成器（M50）、低代码设计器（M44）、API 文档中心、幂等记录管理、流程实例治理。
-- **当前缺口**：作为"脚手架"已功能完整，但**前端组件库/低代码深化待沉淀**（R10/R11）、**微前端拆分待评估**（R12）；R9 移动端自适应、R13/R14/R16 运维增强、R15 混沌注入已随各迭代落地，详见各章节。
+- **当前缺口**：作为"脚手架"已功能完整，**微前端拆分待评估**（R12）；R9 移动端自适应、R10 低代码深化、R11 通用组件库、R13/R14/R16 运维增强、R15 混沌注入已随各迭代落地，详见各章节。
 
 **目标演进**：从「功能完整的模块化单体脚手架」升级为「**可扩展、可观测、可插件化的企业级平台**」。
 
@@ -34,7 +34,7 @@
 - **Phase 0 · 夯实基座**：补齐扩展点前置能力（R2 事件总线先行，为 R1/R5/R6 解耦打底）；收敛现有 12 模块的"隐式跨模块直连"为 Port/事件；与当前 `feat/V1.0.x` 并行。
 - **Phase 1 · 扩展点与事件驱动**（技术架构核心）：R1 插件化 + R2 事件总线，是其余方向的解耦基石。
 - **Phase 2 · 业务模块扩充**：R5 CMS / R6 IM / R7 审批门户 / R8 看板模板（依赖 R1/R2）。
-- **Phase 3 · 前端能力增强**：R9 移动端 ✅ / R10 低代码深化 ✅ / R11 组件库 / R12 微前端。
+- **Phase 3 · 前端能力增强**：R9 移动端 ✅ / R10 低代码深化 ✅ / R11 通用组件库 ✅ / R12 微前端。
 - **Phase 4 · 运维与可观测增强**：R13 追踪 ✅ / R14 APM ✅ / R16 配置中心 ✅ / R15 混沌注入 ✅ 已落地 V1.0.7（压测脚本 `scripts/perf/` 随仓库存在，混沌叠加演练已可行）。
 
 ---
@@ -116,9 +116,10 @@
 
 #### R11 · 通用业务组件库沉淀 — P2
 - **动机**：Table/Form/抽屉/图表在各视图重复实现。
-- **候选**：`packages/ui`（monorepo）或独立 npm 包。
+- **候选**：`packages/ui`（monorepo）或独立 npm 包（本期先以 `src/components` 内可复用原语 + `src/utils` 纯函数切入，待 R12 微前端时再评估独立包）。
 - **依赖**：无。
 - **验收**：组件库独立构建 + 文档站；被 `pc-admin` 复用。
+- **进度**：✅ **已落地 V1.0.7**（`pc-admin-vue3-vite`）：`src/utils/stat.js` 纯函数（`formatStat` 数值千分位/去尾零/单位、`trendOf` 趋势三态，含边界用例修复）；新增 `StatCard.vue`（指标卡，消费 `formatStat`/`trendOf`，支持 positive/finance 双色趋势与骨架加载）与 `CopyText.vue`（一键复制，含 `navigator.clipboard` + `execCommand` 兜底与 i18n 反馈）；建立 `src/components/index.js` barrel 统一导出既有 8 个组件 + 2 个新组件；i18n 补 `common.copy/copied/copyFailed/copyEmpty` 双 locale。已配套 9 例 `stat.test.js` 单测，前端双门禁（`node --test` 39 例全绿 + `vite build` 通过）。
 
 #### R12 · 微前端 / 模块联邦 — P2
 - **动机**：大型前台按团队拆分独立部署。
@@ -171,7 +172,7 @@
 | `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 ✅ 已落地 V1.0.7 |
 | `scaffold-framework/config.multiregion` | 框架装配（子包） | framework | `config.multiregion` | R4 ✅ 已落地 V1.0.7 |
 | `scaffold-framework/config.center` | 框架装配（子包） | framework, common | `config.center` | R16 ✅ 已落地 V1.0.7 |
-| `packages/ui` | 前端（可选） | 无 | UI 组件库 | R11 |
+| `packages/ui` | 前端（可选） | 无 | UI 组件库 | R11 ✅ 已落地 V1.0.7（src/components + src/utils 沉淀，独立包待 R12 评估） |
 
 ---
 
