@@ -58,3 +58,30 @@ admin   ← 全部模块（聚合装配，无可反依赖）
 保持子包形态是当下**唯一不破坏 929+ 测试的解**；若后续要彻底解耦，应先打破 `common↔jooq` 环（把 `JooqWriters` 所依赖的 common 类型下沉或反向整理），再逐步抽离。
 
 **验证**：`mvn -o -pl <受影响模块> -am clean test` 全绿（12 模块、测试全过）；`scripts/check-conventions.py` exit=0（仅一条 benign 警告：config/jooq 为平铺子包，属既存情况）。
+
+---
+
+## 6. 演进路线与候选模块（规划态）
+
+> 详细路线图、阶段划分、优先级与验收口径见 **[ROADMAP.md](ROADMAP.md)**。本节仅作架构层面的衔接说明。
+
+### 6.1 演进目标
+当前 12 模块已实现"功能完整的模块化单体脚手架"（M1–M50 收口）。下一阶段目标：在不破坏既有依赖 DAG 与对外契约的前提下，使之升级为**可扩展、可观测、可插件化的企业级平台**。
+
+### 6.2 规划中的候选模块（均未创建）
+| 候选 | 形态 | 规划依赖 | 说明 |
+|---|---|---|---|
+| `scaffold-plugin` | 新模块 | common | 插件化 / 扩展点（SPI）机制，承载扩展契约与生命周期 |
+| `common.event` | common 子包 | common | 领域事件总线（优先子包形态以避免新增模块破坏 DAG；必要时升为 `scaffold-event`） |
+| `scaffold-cms` | 新模块 | common, system, plugin | 内容管理（栏目/文章/富文本/媒体库） |
+| `scaffold-im` | 新模块 | common, realtime, plugin | 站内 IM / 客服（基于现有 WebSocket） |
+| `scaffold-approval` | 新模块 | common, workflow, plugin | 审批中心门户（聚合 Flowable 待办/已办） |
+| `scaffold-lowcode` | 新模块 | common, system, plugin | 低代码表单设计器深化 |
+| `scaffold-ai` | 新模块（可选） | common, codegen | AI 辅助开发集成 |
+| `packages/ui` | 前端（可选） | 无 | 通用业务组件库（monorepo 或独立 npm） |
+
+### 6.3 对既有架构约束的延续
+- **依赖 DAG 无环（H5）不可破坏**：任一候选模块加入后，须通过 `scripts/check-conventions.py` 校验；特性模块之间不互相直连 Service，协作经 **Port 防腐层** 或上层 `admin` 编排。
+- **`common ↔ jooq` 环仍在**：新增模块应避免把扩展逻辑塞回 `common`；插件机制以"外部 jar 仅经 Port/事件访问领域"为契约。
+- **双门禁与开发约定不变**：新增模块须 `mvn -o -f pom.xml -pl <module> -am clean test` 全绿 + `check-conventions` exit=0；DDL 引号、i18n 命名空间、权限码自动登记等铁律延续（详见 ROADMAP §5）。
+- **当前 §4 依赖 DAG 与 §5 重构说明为权威基线**：候选模块的依赖边不得与现有 12 模块形成环。
