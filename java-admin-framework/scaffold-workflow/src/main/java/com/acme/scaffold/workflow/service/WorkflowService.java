@@ -316,6 +316,27 @@ public class WorkflowService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 已办列表：返回当前用户作为「原审批人」已办结（status=COMPLETED）的任务，
+     * 按办结时间倒序。引擎端口仅暴露活跃任务，故已办须自查业务扩展表。
+     * 活动名取自创建期快照 {@code activity_name}，无需回查引擎。
+     */
+    public List<TaskView> myDoneTasks() {
+        CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
+        Long userId = principal.userId();
+        List<WfTaskExtDO> done = JooqWriters.fetchList(dsl, WF_TASK_EXT, WfTaskExtDO.class,
+                WF_TASK_EXT.field("status", String.class).eq("COMPLETED")
+                        .and(WF_TASK_EXT.field("original_assignee_user_id", Long.class).eq(userId)),
+                WF_TASK_EXT.field("completed_at", LocalDateTime.class).desc());
+        Map<String, Long> delegatorByTask = loadDelegators(
+                done.stream().map(WfTaskExtDO::getTaskId).toList());
+        return done.stream()
+                .map(e -> new TaskView(e.getTaskId(), e.getProcessInstanceId(), e.getActivityId(),
+                        e.getActivityName(), "COMPLETED", e.getAssigneeUserId(), e.getCompletedAt(),
+                        delegatorByTask.get(e.getTaskId()), e.getDelegationState()))
+                .collect(Collectors.toList());
+    }
+
     public List<InstanceView> myInstances() {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
         return JooqWriters.fetchList(dsl, WF_INSTANCE_EXT, WfInstanceExtDO.class,
@@ -391,6 +412,7 @@ public class WorkflowService {
         ext.setTaskId(t.taskId());
         ext.setProcessInstanceId(processInstanceId);
         ext.setActivityId(t.activityId());
+        ext.setActivityName(t.name());
         ext.setAssigneeUserId(t.assigneeUserId());
         ext.setOriginalAssigneeUserId(t.assigneeUserId());
         ext.setStatus("PENDING");

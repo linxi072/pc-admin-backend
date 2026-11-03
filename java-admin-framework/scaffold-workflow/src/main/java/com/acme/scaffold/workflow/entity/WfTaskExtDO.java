@@ -13,6 +13,8 @@ public class WfTaskExtDO {
     private String taskId;
     private String processInstanceId;
     private String activityId;
+    /** 活动名称快照：任务创建期从引擎捕获，已办列表无需回查引擎即可展示可读节点名。 */
+    private String activityName;
     private Long assigneeUserId;
     private Long originalAssigneeUserId;
     /** 委派发起人（原审批人）：任务被委派给 {@code assigneeUserId} 期间记录真正的负责人，便于办结交还。 */
