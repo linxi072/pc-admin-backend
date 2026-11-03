@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scaffold-plugin：插件化 / SPI 生命周期层（仅依赖 common）。
+
+  职责：
+  - 以独立 jar 形式交付业务扩展（菜单/路由/权限码），无需改 scaffold 源码；
+  - 启动期或运行时经 ExtensionScanner 读取 jar 内 META-INF/scaffold-extensions/extensions.json，
+    实例化 ExtensionPoint 实现，并通过 AutowireCapableBeanFactory 完成依赖注入后注册到
+    common.plugin.ExtensionRegistry。
+
+  依赖方向：plugin → common（单向，DAG 安全，无反向依赖；common 不感知 plugin 存在）。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.acme.scaffold</groupId>
+        <artifactId>java-admin-framework</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>scaffold-plugin</artifactId>
+    <name>scaffold-plugin</name>
+    <description>插件化/SPI 生命周期：外部 jar 经 META-INF/scaffold-extensions 注入扩展点实现（仅依赖 common）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-json</artifactId>
+        </dependency>
+        <!-- 基础层：SPI 契约（@Extension / ExtensionPoint / ExtensionRegistry / 贡献 DTO） -->
+        <dependency>
+            <groupId>com.acme.scaffold</groupId>
+            <artifactId>scaffold-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+</project>

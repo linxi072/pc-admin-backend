@@ -1,0 +1,15 @@
+{
+  "id": "demo-plugin",
+  "name": "Demo Plugin",
+  "version": "1.0.0",
+  "contributor": "acme",
+  "extensions": [
+    {
+      "name": "demo-menu",
+      "className": "com.acme.scaffold.plugin.fixture.DemoMenuExtension",
+      "version": "1.0.0",
+      "description": "demo",
+      "order": 0
+    }
+  ]
+}
