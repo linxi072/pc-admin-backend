@@ -75,10 +75,21 @@
           <el-form-item :label="$t('formDesigner.minLength')">
             <el-input-number v-model="current.minLength" :min="0" :max="4000" controls-position="right" style="width: 100%" />
           </el-form-item>
+          <el-form-item :label="$t('form.pattern')">
+            <el-input v-model="current.pattern" :placeholder="'^(?=.*[A-Za-z])(?=.*\\d).+$'" />
+          </el-form-item>
         </template>
         <el-form-item v-if="current.type === 'TEXTAREA'" :label="$t('formDesigner.rows')">
           <el-input-number v-model="current.rows" :min="1" :max="20" controls-position="right" style="width: 100%" />
         </el-form-item>
+        <template v-if="current.type === 'NUMBER'">
+          <el-form-item :label="$t('form.numberMin')">
+            <el-input-number v-model="current.min" controls-position="right" style="width: 100%" />
+          </el-form-item>
+          <el-form-item :label="$t('form.numberMax')">
+            <el-input-number v-model="current.max" controls-position="right" style="width: 100%" />
+          </el-form-item>
+        </template>
         <el-form-item v-if="current.type === 'SELECT' || current.type === 'RADIO'" :label="$t('formDesigner.options')">
           <div v-for="(o, oi) in current.options" :key="oi" class="fd-opt-row">
             <el-input v-model="o.label" :placeholder="$t('formDesigner.optionLabel')" size="small" />
@@ -88,6 +99,30 @@
           <el-button size="small" :icon="Plus" @click="current.options.push({ label: '', value: '' })">
             {{ $t('formDesigner.addOption') }}
           </el-button>
+        </el-form-item>
+        <el-form-item :label="$t('form.conditional')">
+          <el-switch :model-value="!!current.visibleWhen" @change="toggleVisibleWhen" />
+        </el-form-item>
+        <template v-if="current.visibleWhen">
+          <el-form-item :label="$t('form.visibleWhenField')">
+            <el-select v-model="current.visibleWhen.field" style="width: 100%">
+              <el-option v-for="o in otherFields" :key="o.key" :label="o.label" :value="o.key" />
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="$t('form.visibleWhenOp')">
+            <el-select v-model="current.visibleWhen.op" style="width: 100%">
+              <el-option v-for="(lbl, k) in opOptions" :key="k" :label="$t(lbl)" :value="k" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="!['truthy', 'falsy'].includes(current.visibleWhen.op)" :label="$t('form.visibleWhenValue')">
+            <el-input v-model="current.visibleWhen.value" />
+          </el-form-item>
+        </template>
+        <el-form-item :label="$t('form.colSpan')">
+          <el-select v-model="current.colSpan" style="width: 100%">
+            <el-option :label="'全宽'" :value="2" />
+            <el-option :label="'半宽'" :value="1" />
+          </el-select>
         </el-form-item>
       </el-form>
       <el-empty v-else :description="$t('formDesigner.noSelection')" :image-size="60" />
@@ -117,6 +152,18 @@ const emit = defineEmits(['update:modelValue'])
 
 const KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*$/
 
+const opOptions = {
+  eq: 'form.opEq',
+  ne: 'form.opNe',
+  in: 'form.opIn',
+  gt: 'form.opGt',
+  lt: 'form.opLt',
+  gte: 'form.opGte',
+  lte: 'form.opLte',
+  truthy: 'form.opTruthy',
+  falsy: 'form.opFalsy'
+}
+
 const palette = [
   { type: 'INPUT', labelKey: 'formDesigner.typeInput' },
   { type: 'TEXTAREA', labelKey: 'formDesigner.typeTextarea' },
@@ -134,6 +181,13 @@ const previewModel = ref({})
 const lastEmitted = ref('')
 
 const current = computed(() => (selected.value >= 0 && selected.value < fields.length ? fields[selected.value] : null))
+
+/** 可作为「条件可见性」依赖的其他字段（排除自身，避免自引用）。 */
+const otherFields = computed(() =>
+  fields
+    .filter((_, i) => i !== selected.value)
+    .map((f) => ({ key: f.key, label: f.label || f.key }))
+)
 
 const schemaObject = computed(() => ({ version: 1, title: title.value, fields: fields.map((f) => sanitize(f)) }))
 
@@ -168,12 +222,21 @@ function sanitize(f) {
   if (f.type === 'INPUT' || f.type === 'TEXTAREA') {
     if (Number.isInteger(f.maxLength)) out.maxLength = f.maxLength
     if (Number.isInteger(f.minLength)) out.minLength = f.minLength
+    if (f.pattern) out.pattern = String(f.pattern)
   }
   if (f.type === 'TEXTAREA' && Number.isInteger(f.rows)) out.rows = f.rows
+  if (f.type === 'NUMBER') {
+    if (typeof f.min === 'number') out.min = f.min
+    if (typeof f.max === 'number') out.max = f.max
+  }
   if (f.type === 'SELECT' || f.type === 'RADIO') {
     const opts = (f.options || []).filter((o) => o && o.value !== '' && o.label !== '')
     if (opts.length) out.options = opts
   }
+  if (f.visibleWhen && f.visibleWhen.field) {
+    out.visibleWhen = { field: f.visibleWhen.field, op: f.visibleWhen.op || 'eq', value: f.visibleWhen.value }
+  }
+  if (f.colSpan === 1) out.colSpan = 1
   return out
 }
 
@@ -195,7 +258,12 @@ function addField(type) {
     placeholder: '',
     maxLength: undefined,
     minLength: undefined,
+    pattern: '',
     rows: 3,
+    min: undefined,
+    max: undefined,
+    visibleWhen: undefined,
+    colSpan: 2,
     options: type === 'SELECT' || type === 'RADIO' ? [{ label: '', value: '' }] : undefined
   })
   fields.push(f)
@@ -206,6 +274,18 @@ function addField(type) {
 function remove(i) {
   fields.splice(i, 1)
   if (selected.value >= fields.length) selected.value = fields.length - 1
+  sync()
+}
+
+/** 开启/关闭当前字段的条件可见性：开启时初始化可见条件对象，关闭时移除。 */
+function toggleVisibleWhen(on) {
+  const f = current.value
+  if (!f) return
+  if (on) {
+    if (!f.visibleWhen) f.visibleWhen = { field: '', op: 'eq', value: '' }
+  } else {
+    delete f.visibleWhen
+  }
   sync()
 }
 

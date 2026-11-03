@@ -1,18 +1,20 @@
 <template>
-  <el-form
-    ref="formRef"
-    :model="model"
-    :rules="rules"
-    label-width="110px"
-    :disabled="disabled"
-    @submit.prevent
-  >
-    <el-form-item
-      v-for="f in fields"
-      :key="f.key"
-      :label="f.label"
-      :prop="f.key"
+    <el-form
+      ref="formRef"
+      class="df-grid"
+      :model="model"
+      :rules="rules"
+      label-width="110px"
+      :disabled="disabled"
+      @submit.prevent
     >
+      <el-form-item
+        v-for="f in fields"
+        :key="f.key"
+        :label="f.label"
+        :prop="f.key"
+        :style="f.colSpan === 1 ? 'grid-column: span 1;' : 'grid-column: 1 / -1;'"
+      >
       <!-- 单行文本 -->
       <el-input
         v-if="f.type === 'INPUT'"
@@ -36,6 +38,8 @@
         v-else-if="f.type === 'NUMBER'"
         v-model="model[f.key]"
         :placeholder="f.placeholder"
+        :min="f.min"
+        :max="f.max"
         controls-position="right"
         style="width: 100%"
       />
@@ -92,8 +96,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { t } from '@/i18n'
+import { buildRules, visibleFields, defaultValueFor } from '@/utils/formSchema'
 
 const props = defineProps({
   /** 表单 Schema（已解析对象：{ version, title, fields[] }），字段契约见后端 FormSchemaRules。 */
@@ -107,8 +112,11 @@ const emit = defineEmits(['update:modelValue'])
 
 const formRef = ref()
 
-/** 字段清单：仅渲染后端白名单内的类型，非法类型由模板显式降级提示。 */
-const fields = computed(() => (props.schema && Array.isArray(props.schema.fields)) ? props.schema.fields : [])
+/**
+ * 可见字段清单：仅渲染通过条件可见性（visibleWhen）的字段，非法类型由模板显式降级提示。
+ * 依赖 modelValue，因此条件字段变化会响应式刷新可见集合。
+ */
+const fields = computed(() => visibleFields(props.schema, props.modelValue))
 
 /** 受控模型：写回时经 update:modelValue 通知父级，保持单一数据源。 */
 const model = computed({
@@ -116,49 +124,18 @@ const model = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-/** 字段类型 → 初始值（SWITCH 默认 false，其余默认空串；SELECT/RADIO/NUMBER 不预设值）。 */
-function defaultValue(type) {
-  if (type === 'SWITCH') return false
-  if (type === 'SELECT' || type === 'RADIO' || type === 'NUMBER') return undefined
-  return ''
-}
-
 /** Schema 变化时补齐缺失字段初始值（不覆盖已有值，支持父级预填）。 */
 watch(() => props.schema, (s) => {
   if (!s || !Array.isArray(s.fields)) return
   const patch = {}
   for (const f of s.fields) {
-    if (!(f.key in props.modelValue)) patch[f.key] = defaultValue(f.type)
+    if (!(f.key in props.modelValue)) patch[f.key] = defaultValueFor(f.type)
   }
   if (Object.keys(patch).length) emit('update:modelValue', { ...props.modelValue, ...patch })
 }, { immediate: true })
 
-/** Schema → element-plus 校验规则（required/长度/数字范围；trigger 与控件交互对齐）。 */
-const rules = computed(() => {
-  const out = {}
-  for (const f of fields.value) {
-    const list = []
-    if (f.required) {
-      const msg = f.type === 'SWITCH' ? t('form.enableRequired', { label: f.label }) : t('form.required', { label: f.label })
-      list.push({ required: true, message: msg, trigger: f.type === 'SWITCH' ? 'change' : 'blur' })
-    }
-    const min = Number.isInteger(f.minLength) ? f.minLength : undefined
-    const max = Number.isInteger(f.maxLength) ? f.maxLength : undefined
-    if ((min !== undefined || max !== undefined) && (f.type === 'INPUT' || f.type === 'TEXTAREA')) {
-      list.push({
-        validator: (rule, value, callback) => {
-          const len = value == null ? 0 : String(value).length
-          if (min !== undefined && len < min) return callback(new Error(t('form.minLength', { label: f.label, min })))
-          if (max !== undefined && len > max) return callback(new Error(t('form.maxLength', { label: f.label, max })))
-          callback()
-        },
-        trigger: 'blur'
-      })
-    }
-    if (list.length) out[f.key] = list
-  }
-  return out
-})
+/** Schema → element-plus 校验规则（required/长度/数字范围/正则；trigger 与控件交互对齐）。 */
+const rules = computed(() => buildRules(fields.value, t))
 
 /** 执行校验：resolve(true) 表示通过；调用方负责 catch 兜底提示。 */
 async function validate() {
@@ -170,9 +147,21 @@ async function validate() {
 function resetFields() {
   formRef.value?.clearValidate()
   const patch = {}
-  for (const f of fields.value) patch[f.key] = defaultValue(f.type)
+  for (const f of fields.value) patch[f.key] = defaultValueFor(f.type)
   emit('update:modelValue', patch)
 }
 
 defineExpose({ validate, resetFields })
 </script>
+
+<style scoped>
+/* 响应式双列栅格：colSpan=1 占半列，其余（默认）占满整行，保持历史全宽布局不变 */
+.df-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+.df-grid :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+</style>
