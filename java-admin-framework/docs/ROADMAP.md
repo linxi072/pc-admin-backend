@@ -46,7 +46,7 @@
 #### R1 · 插件化 / 扩展点（SPI）机制 — P0
 - **动机**：当前 12 模块强耦合于 `com.acme.scaffold`，二次开发需改源码、重编译，难以独立交付与灰度。
 - **方案要点**：在 `common` 定义 `ExtensionPoint` 接口与 `ExtensionRegistry`；业务方以独立 jar 提供 `@Extension` Bean，启动期自动注册；菜单/路由/权限码经扩展点可外部注入；`scaffold-admin` 扫描外部 jar 的 `META-INF/scaffold-extensions`。
-- **候选模块**：`scaffold-plugin`（新，仅含 SPI 契约与生命周期，依赖 `common`）。
+- **候选模块**：`scaffold-plugin`（✅ **已落地 V1.0.7**）：`common.plugin` 定义 SPI 契约（`@Extension`/`ExtensionPoint`/`ExtensionRegistry`/`MenuContributor`·`RouteContributor`·`ApiResourceContributor`/`ExtensionContributionProvider` + 菜单/路由/权限码定义）；`scaffold-plugin` 承载 `ExtensionScanner`+`PluginManager`（外部 jar 经 `META-INF/scaffold-extensions` 注入扩展点）；`scaffold-admin` 加 guarded 装配（默认关，需 `scaffold.plugin.enabled=true` 才加载 `scaffold.plugin.dir` 下 `*.jar`）。
 - **依赖**：建议与 R2 同批。
 - **验收**：独立 jar 注入"外部业务菜单 + 端点"无需改 scaffold 源码；双门禁绿；端到端测试覆盖注入链路。
 
