@@ -81,9 +81,9 @@
 
 #### R6 · 站内 IM / 客服 — P1
 - **动机**：基于已有 `realtime`(WebSocket) 的会话能力缺失。
-- **候选模块**：`scaffold-im`（新）或并入 `realtime`。
-- **依赖**：R2 事件（消息已读/离线）、`notification`。
-- **验收**：点对点/群组会话、离线消息、已读回执；前端会话组件。
+- **候选模块**：`scaffold-im`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.im` 下 `domain`（ImConversationDO/ImConversationMemberDO/ImMessageDO）/`dto`/`service`（会话创建[P2P/群组]+成员管理+消息发送/未读计数/已读回执 + 会话列表）/`controller`（会话、消息 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V75__im.sql（im_conversation/im_conversation_member/im_message + 菜单种子）。`JooqTables` 复用既有常量；`ImMessageSentEvent` 落地于 `common.event.domain`（与 UserDisabledEvent 同位），由 `realtime` 的 `ImMessagePushListener` 订阅后经 WebSocket 实时推送，二者经事件解耦、无编译期依赖。
+- **依赖取舍**：为保持 DAG 最小且无环，IM 仅依赖 `common`（经 JooqWriters 持久化、R2 事件总线发消息事件）；实时推送由 `realtime` 订阅同一事件完成，IM 不反向依赖 realtime/`system`/`plugin`（与「跨域协作经 Port/事件」铁律一致）。
+- **验收**：P2P/群组会话 + 成员管理 + 消息发送 + 未读计数（按成员 last_read_message_id 推导）+ 已读回执 + 会话列表；双门禁全绿（16 个后端单测覆盖 CRUD/树/未读/回执/事件）；菜单种子与权限码自动登记就绪。前端会话组件为后续前端补充项。
 
 #### R7 · 审批中心门户 — P1
 - **动机**：Flowable 待办/已办/我发起分散，缺统一工作台。
@@ -159,8 +159,8 @@
 |---|---|---|---|---|
 | `scaffold-plugin` | 扩展基座 | common | `plugin.spi`/`plugin.registry` | R1 |
 | `common.event` | 基础（子包） | common | `common.event` | R2 ✅ 已落地 |
-| `scaffold-cms` | 业务域 | common, system, plugin | `cms.*` | R5 |
-| `scaffold-im` | 业务域 | common, realtime, plugin | `im.*` | R6 |
+| `scaffold-cms` | 业务域 | common | `cms.*` | R5 ✅ 已落地 V1.0.7 |
+| `scaffold-im` | 业务域 | common | `im.*` | R6 ✅ 已落地 V1.0.7 |
 | `scaffold-approval` | 业务域 | common, workflow, plugin | `approval.*` | R7 |
 | `scaffold-lowcode` | 业务域 | common, system, plugin | `lowcode.*` | R10 |
 | `scaffold-ai` | 工具（可选） | common, codegen | `ai.*` | R3 |
