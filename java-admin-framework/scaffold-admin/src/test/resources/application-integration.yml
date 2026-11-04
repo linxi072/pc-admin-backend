@@ -34,7 +34,7 @@ app:
   datasources:
     entries:
       primary:
-        url: ${TEST_DB_URL:${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8&createDatabaseIfNotExist=true}}
+        url: ${TEST_DB_URL:${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8&createDatabaseIfNotExist=true&rewriteBatchedStatements=true}}
         username: ${TEST_DB_USER:${SPRING_DATASOURCE_USERNAME:root}}
         password: ${TEST_DB_PASSWORD:${SPRING_DATASOURCE_PASSWORD:root}}
 

@@ -13,7 +13,7 @@ app:
   datasources:
     entries:
       primary:
-        url: ${DB_PRIMARY_URL:jdbc:mysql://localhost:3306/scaffold?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+        url: ${DB_PRIMARY_URL:jdbc:mysql://localhost:3306/scaffold?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true}
         username: ${DB_PRIMARY_USERNAME:root}
         password: ${DB_PRIMARY_PASSWORD:root}
   # 本地联调放开 Swagger 文档匿名访问（生产默认需鉴权）
