@@ -27,6 +27,7 @@
           <div class="action-buttons">
             <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.newTenant') }}</el-button>
             <el-button :icon="DataAnalysis" @click="openOverview">{{ t('system.operationsOverview') }}</el-button>
+            <el-button :icon="Operation" @click="governanceVisible = true">{{ t('system.tenantGovernance') }}</el-button>
           </div>
         </div>
       </div>
@@ -292,6 +293,9 @@
         <el-button type="primary" :loading="overviewLoading" @click="loadOverview">{{ t('common.refresh') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 租户治理（M19：跨租户数据总览 / 存量归位 / 跨租户迁移） -->
+    <TenantGovernanceDialog v-model="governanceVisible" />
   </div>
 </template>
 
@@ -299,7 +303,7 @@
 import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Edit, Delete, DataAnalysis, UserFilled } from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, DataAnalysis, UserFilled, Operation } from '@element-plus/icons-vue'
 import {
   tenantPage,
   createTenant,
@@ -309,6 +313,7 @@ import {
   provisionTenant
 } from '@/api/tenant'
 import { getTenantOverview } from '@/api/tenantOverview'
+import TenantGovernanceDialog from './TenantGovernanceDialog.vue'
 import { statusTag } from '@/utils/status'
 
 const loading = ref(false)
@@ -316,6 +321,7 @@ const saving = ref(false)
 const rows = ref([])
 const total = ref(0)
 const query = reactive({ page: 1, size: 10, tenantCode: '', status: '', sortField: '', sortDirection: '' })
+const governanceVisible = ref(false)
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
