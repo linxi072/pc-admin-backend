@@ -2,7 +2,7 @@
 
 > 范围：java-admin-framework 后端全模块（17 个 Maven 模块）功能 + 性能 + 海量数据质量验证  
 > 生成时间：2026-11-04 ｜ 分支：`feat/V1.0.7` ｜ 测试库：`java_admin`（本机 MySQL 8.4.11）  
-> 结论：双门禁（929+ 单元 + 24 集成用例）全绿；本轮**新发现 1 个中危功能缺陷 + 2 个低危设计风险**，并复利验证了 2 个历史严重缺陷已修复。
+> 结论：双门禁（929+ 单元 + 24 集成用例，本轮新增 `RecordStatusTest` 11 例）全绿；本轮**新发现 1 个中危功能缺陷 + 2 个低危设计风险**，并复利验证了 2 个历史严重缺陷已修复；F1 字段级校验已自「范式 + 首处接入」推进至「状态字段全量铺开」。
 
 ---
 
@@ -155,10 +155,12 @@
 - 现象：实测插入吞吐 ~1k–1.4k 行/s，`JooqWriters.batchInsert` 走逐行语句批处理。
 - 优化方案：JDBC URL 加 `rewriteBatchedStatements=true`，并将批量改为多值 `INSERT … VALUES (…),(…)`（或在 DSL 层用 `insertInto().values().values()…` 累加），吞吐通常可提升 3–10×。
 
-### 3.3 本轮修复与重构进展（2026-11-04 落地，本地提交未推送）
+### 3.3 本轮修复与重构进展（2026-11-04 基础落地，F1 全量铺开于本轮续做；本地提交均未推送）
 
 > 原则：不改变现有功能行为（behavior-preserving）、消除重复、统一范式；按关注点拆分提交，绝不推送远程。  
-> 新增单测 19 例（`JsonTruncatorTest` 6 + `DomainValidatorsTest` 10 + `JooqWritersTenantEnforcementTest` 3 增量），`NotificationServiceTest` 适配 5 处构造。
+> 新增单测 30 例（`JsonTruncatorTest` 6 + `DomainValidatorsTest` 10 + `JooqWritersTenantEnforcementTest` 3 增量 + `RecordStatusTest` 11 新增），`NotificationServiceTest` 适配 5 处构造。
+
+**F1 全量铺开（本轮续做）**：在 §3.3 既有 F1 范式（`DomainValidators`）与首处接入（`NotificationService.sendWithTemplate` 渠道名校验）基础上，新增 `RecordStatus` 枚举与 `normalize(String)` 归一器，将「状态字段白名单校验」推广到 8 个记录型 Service 的 create/update 写入口（菜单/组织/字典数据/字典类型/参数/角色/接口资源/岗位），并补监控指标百分比上界钳制。详见 §3.4。
 
 | 编号     | 严重度      | 根因                                             | 修复方案                                                                                                                                                                                                                              | 改动文件                                                                                                                                                                                                               | 行为保持                                                                              |
 | ------ | -------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
@@ -174,6 +176,19 @@
 
 - **F3**（导出堆内物化）：行数上限硬校验**已落地**于 `ExportCenterService`（`assertWithinMaxRows`，默认 `MAX_ROWS=10_000`），堆内峰值被稳定约束，已收敛为低危；流式写出 `HttpServletResponse` 取消 10k 上限为可选后续（需改造导出落库下载契约，见 §3.2 F3）。
 - **F5**（深翻页 OFFSET 退化）：**keyset 分页基础设施与三张最深的表（file / login_log / audit）端点已就绪**（通用 `JooqKeysetPager` + 各 `*Controller` 的 `/keyset` 端点），剩余为「默认端点切换 + 前端游标联动」的 API/前端改造，列为后续独立任务（见 §7），不在本轮 scope。其余中表 OFFSET 在百万行内延迟仍健康。
+
+### 3.4 F1 字段级校验全量铺开明细（本轮续做，本地提交未推送）
+
+> 在 §3.3 既有 F1 范式（`DomainValidators`）+ 首处接入（`NotificationService.sendWithTemplate` 渠道名校验）基础上，本轮将「状态字段白名单校验」推广到记录型实体的写入口，并补监控指标上界钳制。原则不变：behavior-preserving、按关注点拆分提交、绝不推送。
+
+| 编号             | 严重度       | 根因                                            | 修复方案                                                                                                                                                                                                                              | 改动文件                                                                                                                                                                                                                 | 行为保持                                                                                  |
+| -------------- | --------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **F1-rollout** | 中危·功能     | 记录型实体 create/update 的 `status`「非空即原样写库」，非法值（小写抖动/越界枚举如 `ZZTOP_INVALID`）原样落库 | 新增 `RecordStatus` 枚举（`ACTIVE/DISABLED/INACTIVE/LOCKED`）+ `normalize(String)`：null/空白回落 `ACTIVE`、其余 trim+大写后 `DomainValidators.requireIn` 白名单校验（非法抛 `VALIDATION_ERROR`）；8 个 Service 的 15 处 `setStatus` 写点接入——create 的 `status==null?"ACTIVE":status` 整体替换为 `normalize(...)`，update 仅对非 null 分支 normalize（null 保留 `existing.getStatus()`）；`ApiResourceService.sync` 的 `patch.setStatus(null)` 哨兵与 `PostService.create` 的 `setStatus(ACTIVE)` 默认哨兵**不动** | `scaffold-common/.../common/validation/RecordStatus.java`（新增）、`scaffold-common/.../common/validation/RecordStatusTest.java`（新增 11 例）、MenuService / OrgService / DictDataService / DictTypeService / ConfigService / RoleService / ApiResourceService / PostService 的 `setStatus` 写点 + import | ✅ 合法大写状态原样通过；null 回落 ACTIVE 与 create 原语义一致；update 非 null 分支行为不变；仅拦截此前会被原样落库的垃圾值（行为修复） |
+| **F1-metrics** | 低危·数据质量  | `RuntimeMetricsCollector.percent()` 仅拒 `<0`、无上界，OS 误报 `>100%` 原样落库失真        | `percent()` 在 `value<0→null` 之后、`setScale` 之前增加 `if (value > 100) value = 100;` 上界钳制（合法 [0,100] 区间不受影响）                                                                                                                              | `scaffold-monitor/.../monitor/service/RuntimeMetricsCollector.java`                                                                                                                                                  | ✅ 合法区间数值不变；仅越界值回落 100（防御性修复）                                                |
+
+**新增单测**：`RecordStatusTest` 11 例（null/空白回落 ACTIVE、规范值不变、大小写不敏感 + trim 归一、非法值抛 `VALIDATION_ERROR`、白名单 4 成员）。
+
+**未覆盖点（明确排除，非本轮 scope）**：`DefaultDataScopeProvider.safeType` / `ReportExportTask.parseEnum` / `JobService.*OrNull` 等 fail-open 枚举解析点自带「非法值降级/置空」防御，替换为 `requireIn` 会把 fail-open 语义变为抛错，属行为变更，维持现状。
 
 ---
 
@@ -251,7 +266,7 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 > 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变，双门禁复验全绿。
 
-1. **P1（范式续）**：F1 全量铺开——将 `DomainValidators` 应用到其余写路径（用户/角色/组织/监控指标等枚举与数值范围校验）；对 `sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底（最后守门员）。**注意**：现有其余枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）均已自带「非法值降级/置空」防御，直接替换为 `requireIn` 会把 fail-open 语义变为抛错，属行为变更，需逐处评估后再动，不在本轮 scope。
+1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
 3. **P2**：补 `NotificationIT` / `ExportIT` 独立回归用例，固化本轮走查发现。
 4. **P2**：F5 将大表列表默认端点切换为 keyset（基础设施与三表端点已就绪，待接口契约与前端游标联动）；F6 多值 INSERT 重写为可选增强（JDBC `rewriteBatchedStatements` 已给出主要收益，待 MEDIUM/LARGE 量级复测吞吐提升）。
