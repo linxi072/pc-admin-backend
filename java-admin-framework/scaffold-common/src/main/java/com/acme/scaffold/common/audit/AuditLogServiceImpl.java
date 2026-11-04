@@ -279,20 +279,9 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     private String truncate(String s, int max) {
-        if (s == null) {
-            return null;
-        }
-        if (s.length() <= max) {
-            return s;
-        }
-        // 摘要列为 JSON 类型：截断点可能落在转义序列中间产生非法 JSON（MySQL 3140），
-        // 校验失败时降级为合法字符串标量，保证审计不因摘要超长而静默丢失
-        String truncated = s.substring(0, max);
-        try {
-            objectMapper.readTree(truncated);
-            return truncated;
-        } catch (Exception e) {
-            return "\"[truncated]\"";
-        }
+        // 摘要列为 JSON 类型：截断不得破坏语法（MySQL 3140）。委托 JsonTruncator 做
+        // 三级降级（原样保留 → 紧凑化/结构化裁剪 → 文本兜底包装为字符串标量），
+        // 保证超长摘要仍为合法 JSON，不再整段丢失原文（F4）。
+        return JsonTruncator.safeTruncate(s, max, objectMapper);
     }
 }
