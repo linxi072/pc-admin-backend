@@ -143,6 +143,7 @@
 - **依赖**：R13（已完成）。
 - **验收**：慢查询（N+1 疑似）/ 缓存命中率 / 连接池 / 在线会话均可见（管理前端可对接）。**租户维度指标已于 V1.0.7 补全**：`TenantMetrics`（`framework.observability.recorder`，作为 `SpanExporter` sink）按租户聚合请求数/错误率/平均时延，经 `TenantMetricsController`（`/api/observability/tenant-metrics`）暴露，支持 APM 大盘按租户下钻；无租户上下文的 span 自动跳过、内存有界（默认 256 租户）。预置 Grafana dashboard JSON 为可选交付，按需补充。
 - **前端视图（租户维度指标 Tab）**：✅ **已落地 V1.0.7**（monitor/components/TenantMetricsTab 接入可观测中心第 7 个 Tab[请求数/错误数/错误率/平均时延/最近活跃]，复用 `system:observability:read`，403 降级空态 + api 契约测试 1 例，i18n 双 locale 补齐）。
+- **前端视图（平台跨租户治理通道）**：✅ **已落地 V1.0.7**（`TenantGovernanceController` 后端三端点 `GET /api/system/tenants/data-overview`、`POST /api/system/tenants/backfill`、`POST /api/system/tenants/reassign` 权限 `system:tenant:manage` 此前无前端视图）。补齐 `api/tenantGovernance.js`（3 函数）+ `views/system/TenantGovernanceDialog.vue`（数据总览表 + 存量归位/跨租户迁移表单 + 强确认对话框，破坏性操作二次 ElMessageBox.confirm 拦截）+ `views/system/TenantView.vue` 接入「租户治理」按钮与对话框；i18n 双 locale 补齐 `system.tenantGovernance.*` / `system.reassign*` / `system.backfill*`；api 契约测试 3 例。未新增菜单种子（作为租户管理页对话框接入，复用既有 `/system/tenants` 菜单与 `system:tenant:manage` 权限）。
 
 #### R15 · 混沌 / 压测体系 — P2
 - **动机**：`scripts/perf/PERF-TEST-PLAN.md` 已有压测计划，缺混沌。
