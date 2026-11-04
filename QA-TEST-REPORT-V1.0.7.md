@@ -134,9 +134,9 @@
 
 **F3 〔低危·性能〕导出在堆内全量物化为 `byte[]`**
 
-- 现象：`ExportCenterService.toCsv`（:86-101）经 `ByteArrayOutputStream` 构建为 `byte[]` 后整体返回 `ExportedFile`。
-- 根因：「全量物化后返回」模式；经代码走查确认各导出任务（`UserExportTask` 等）已按 **`MAX_ROWS = 10_000`** 分页拉取并截断告警（F0 残留的「CSV 不校验上限」缺陷已修复），故内存风险**已被上限约束为低危**。
-- 优化方案（可选）：改为直接流式写入 `HttpServletResponse.getOutputStream`（分块传输编码），取消 10k 上限对超大导出的限制，并进一步降低峰值堆占用。
+- 现象：`ExportCenterService` 经 `ByteArrayOutputStream` 构建为 `byte[]` 后整体返回 `ExportedFile`（:86-105）。
+- 根因：「全量物化后返回」模式；但代码走查确认 `ExportCenterService.toCsv` / `toXlsx` 已在生成前做 **`MAX_ROWS`（默认 10_000，见 `ExportProperties`）行数上限硬校验**，超出即抛 400 拒绝导出（F0 残留的「CSV 不校验上限」缺陷已修复，校验逻辑于 2026-11-04 重构为统一的 `assertWithinMaxRows` 私有方法，见 §3.3 R2）。因此堆内峰值被稳定约束在 10k 行规模，内存风险**已收敛为低危**。
+- 优化方案（可选，本轮未做）：改为直接流式写入 `HttpServletResponse.getOutputStream`（分块传输编码），取消 10k 上限对超大导出的限制，并进一步降低峰值堆占用；需同步改造「导出产物落库下载」的现有契约。
 
 **F4 〔低危·数据质量〕审计摘要超长时整体替换为字面量 `"[truncated]"`，丢失原文**
 
@@ -146,8 +146,9 @@
 
 **F5 〔低危·性能〕深翻页 OFFSET 扫描随数据量线性退化**
 
-- 现象：探针在 5k 行下 90% 偏移深翻页 10ms 健康，但 OFFSET 跳过行数随表增长线性增加。
-- 优化方案：大表列表接口默认采用 **keyset 分页**（框架已提供 `JooqKeysetPager`，部分接口已用），以「上一页末值 + 索引」替代 OFFSET。
+- 现象：探针在 5k 行下 90% 偏移深翻页 10ms 健康，但 OFFSET 跳过行数随表增长线性增加（MEDIUM 50k 行下恶化至 82ms，×8.2）。
+- 根因：列表查询默认 `LIMIT … OFFSET …`，深翻页时 OFFSET 线性跳过已排序行。
+- 优化方案与现状（2026-11-04 复核）：框架已提供通用 **`JooqKeysetPager`**（游标分页引擎），且**三张最深的表已落地 keyset 端点**——`FileService`/`FileController`（`/file/keyset`）、`LoginLogService`/`LoginLogController`（`/login-log/keyset`）、`AuditLogServiceImpl`/`AuditLogController`（`/audit/keyset`），均以「上一页末值游标 + 固定 `(时间 DESC, id DESC)` 排序键」替代 OFFSET。剩余工作仅为「将大表中列表默认端点切换为 keyset + 前端游标联动」，属 API 契约/前端改造，改动面大，列为后续独立任务（见 §7）。其余中表（用户/角色/组织等）OFFSET 在百万行内延迟仍健康（§2.3），暂无须切换。
 
 **F6 〔低危·性能〕批量写入未启用 MySQL 多值重写**
 
@@ -165,11 +166,12 @@
 | **F4** | 低危·数据质量  | 超长摘要截断后若非合法 JSON，整段替换为字面量 `"[truncated]"`，丢失原文 | 新增 `JsonTruncator`（三级降级：①原样保留 → ②紧凑化 + 结构化裁剪（对象丢空值/末位字段、数组丢末位元素）→ ③文本兜底包装为 JSON 字符串标量）；`AuditLogServiceImpl.truncate` 委托之                                                                                                         | `scaffold-common/.../common/audit/JsonTruncator.java`（新增）、`scaffold-common/.../common/audit/AuditLogServiceImpl.java`                                                                                              | ✅ 输出**必为合法 JSON 且 ≤max**；原短摘要/合法 JSON 路径完全不变                                      |
 | **F2** | 中危·性能/稳定 | 重试退避在调用线程 `Thread.sleep` 阻塞，占用业务/请求线程          | 新增 `notificationRetryScheduler` Bean（`ThreadPoolTaskScheduler`）；`dispatchWithRetry` 退避改经托管调度器 `ScheduledFuture#get()` 同步等待（语义不变，仅等待由专用线程池管理）；中断时恢复中断标志                                                                            | `scaffold-framework/.../config/observability/ObservabilityConfig.java`、`scaffold-system/.../notification/service/NotificationService.java`、`scaffold-system/.../notification/service/NotificationServiceTest.java` | ✅ 同步语义不变（仍同步返回投递结果），5 处测试构造补 `mock(TaskScheduler.class)`，`backoffMs=0` 时调度器不被真实调用 |
 | **F1** | 中危·功能    | 写入路径仅「非空即写」，缺字段级校验（枚举白名单/数值范围）                 | 新增通用校验器 `DomainValidators`（`requireIn`/`requireRange`/`requireNonNegative`，含枚举名重载）；`NotificationService.sendWithTemplate` 渠道名入口接入 `requireIn` 作范式起点（非法渠道显式抛 `VALIDATION_ERROR`，替代 `Channel.valueOf` 的 `IllegalArgumentException`） | `scaffold-common/.../common/validation/DomainValidators.java`（新增）、`scaffold-system/.../notification/service/NotificationService.java`、`scaffold-common/.../common/validation/DomainValidatorsTest.java`（新增）        | ✅ 合法渠道路径不变；非法渠道仍抛 `VALIDATION_ERROR`（错误语义更清晰、可被全局异常处理器统一处理）                       |
+| **R2** | 重构·去重    | `ExportCenterService` 的 `MAX_ROWS` 行数上限校验在 `toCsv`(单表)/`toXlsx`(单表)/`toXlsx`(多 Sheet) 三处重复，错误消息与阈值取值口径分散 | 抽取 `assertWithinMaxRows(int)`（统一抛 400 + 错误消息）与 `loadSingleTableRows(task,params)`（取数 + 校验），三处调用口径同源；行为完全不变 | `scaffold-system/.../system/export/service/ExportCenterService.java` | ✅ 校验阈值、错误消息、抛错类型（`BusinessException.badRequest`）均与重构前逐字一致；`ExportCenterServiceTest` 既有上限断言不受影响 |
 
-**F3 / F5 本轮未铺开（保持行为等价，规避回归风险）：**
+**F3 / F5 状态复核（2026-11-04）：**
 
-- **F3**（导出堆内物化）：已被 `MAX_ROWS=10_000` 上限约束为低危，本轮未改；可选后续改为流式写出 `HttpServletResponse`（取消 10k 上限、降低峰值堆）。
-- **F5**（深翻页 OFFSET 退化）：框架已提供 `JooqKeysetPager`，但将大表列表接口默认切换 keyset 涉及 API 契约与前端游标改造，改动面大；列为后续独立任务，不在本轮 scope。
+- **F3**（导出堆内物化）：行数上限硬校验**已落地**于 `ExportCenterService`（`assertWithinMaxRows`，默认 `MAX_ROWS=10_000`），堆内峰值被稳定约束，已收敛为低危；流式写出 `HttpServletResponse` 取消 10k 上限为可选后续（需改造导出落库下载契约，见 §3.2 F3）。
+- **F5**（深翻页 OFFSET 退化）：**keyset 分页基础设施与三张最深的表（file / login_log / audit）端点已就绪**（通用 `JooqKeysetPager` + 各 `*Controller` 的 `/keyset` 端点），剩余为「默认端点切换 + 前端游标联动」的 API/前端改造，列为后续独立任务（见 §7），不在本轮 scope。其余中表 OFFSET 在百万行内延迟仍健康。
 
 ---
 
@@ -245,13 +247,13 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 ## 7. 后续建议（优先级）
 
-> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已本轮落地**（详见 §3.3），双门禁复验中。
+> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 重构已落地**；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**（均详见 §3.2/§3.3）。全部改动本地提交、未推送远程。
 
-1. **P1（已落地·续）**：F1 全量铺开——将 `DomainValidators` 应用到其余写路径（用户/角色/组织/监控指标等枚举与数值范围校验），并对 `sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底（最后守门员）。
-2. **P1（已落地）**：F2 非阻塞调度 + 独立线程池已就位；可选补充退避上限与总超时熔断（CircuitBreaker）。
+1. **P1（范式续）**：F1 全量铺开——将 `DomainValidators` 应用到其余写路径（用户/角色/组织/监控指标等枚举与数值范围校验）；对 `sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底（最后守门员）。**注意**：现有其余枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）均已自带「非法值降级/置空」防御，直接替换为 `requireIn` 会把 fail-open 语义变为抛错，属行为变更，需逐处评估后再动，不在本轮 scope。
+2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
 3. **P2**：补 `NotificationIT` / `ExportIT` 独立回归用例，固化本轮走查发现。
-4. **P2**：F5 keyset 分页默认化（框架已具备 `JooqKeysetPager`，待接口契约与前端游标改造）；F6 已启用 `rewriteBatchedStatements`（待 MEDIUM/LARGE 量级复测吞吐提升）。
-5. **P3**：F3 流式导出（取消 10k 上限、降低峰值堆）；F4 已修复。
+4. **P2**：F5 将大表列表默认端点切换为 keyset（基础设施与三表端点已就绪，待接口契约与前端游标联动）；F6 多值 INSERT 重写为可选增强（JDBC `rewriteBatchedStatements` 已给出主要收益，待 MEDIUM/LARGE 量级复测吞吐提升）。
+5. **P3**：F3 流式导出（取消 10k 上限、降低峰值堆，需改造导出落库下载契约）；F4 已修复。
 
 ---
 
