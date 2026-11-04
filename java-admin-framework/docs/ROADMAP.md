@@ -10,7 +10,7 @@
 
 - **规模**：12 个 Maven 模块，包根 `com.acme.scaffold`；里程碑 M1–M50 全部收口。
 - **已具备核心能力**：RBAC 权限、JWT/刷新令牌/Token 版本失效、OAuth2 授权+资源服务器、多租户隔离、数据权限、字段脱敏、写接口幂等、操作审计、Flowable 工作流（含管理员治理）、JobRunr 调度、WebSocket 实时、可观测探针（Micrometer + N+1/慢查询监听）、jOOQ 持久层、代码生成器（M50）、低代码设计器（M44）、API 文档中心、幂等记录管理、流程实例治理。
-- **当前缺口**：作为"脚手架"已功能完整，**微前端拆分待评估**（R12）；R9 移动端自适应、R10 低代码深化、R11 通用组件库、R13/R14/R16 运维增强、R15 混沌注入已随各迭代落地，详见各章节。
+- **当前缺口**：作为"脚手架"已功能完整（R12 微前端 ✅ 已落地）；R9 移动端自适应、R10 低代码深化、R11 通用组件库、R13/R14/R16 运维增强、R15 混沌注入已随各迭代落地，详见各章节。
 
 **目标演进**：从「功能完整的模块化单体脚手架」升级为「**可扩展、可观测、可插件化的企业级平台**」。
 
@@ -34,7 +34,7 @@
 - **Phase 0 · 夯实基座**：补齐扩展点前置能力（R2 事件总线先行，为 R1/R5/R6 解耦打底）；收敛现有 12 模块的"隐式跨模块直连"为 Port/事件；与当前 `feat/V1.0.x` 并行。
 - **Phase 1 · 扩展点与事件驱动**（技术架构核心）：R1 插件化 + R2 事件总线，是其余方向的解耦基石。
 - **Phase 2 · 业务模块扩充**：R5 CMS / R6 IM / R7 审批门户 / R8 看板模板（依赖 R1/R2）。
-- **Phase 3 · 前端能力增强**：R9 移动端 ✅ / R10 低代码深化 ✅ / R11 通用组件库 ✅ / R12 微前端。
+- **Phase 3 · 前端能力增强**：R9 移动端 ✅ / R10 低代码深化 ✅ / R11 通用组件库 ✅ / R12 微前端 ✅。
 - **Phase 4 · 运维与可观测增强**：R13 追踪 ✅ / R14 APM ✅ / R16 配置中心 ✅ / R15 混沌注入 ✅ 已落地 V1.0.7（压测脚本 `scripts/perf/` 随仓库存在，混沌叠加演练已可行）。
 
 ---
@@ -78,25 +78,25 @@
 - **动机**：后台普遍需要栏目/文章/富文本/媒体库。
 - **候选模块**：`scaffold-cms`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.cms` 下 `domain`（CmsCategoryDO/CmsArticleDO）/`dto`/`service`（栏目树构建 + 文章 CRUD/发布态流转）/`controller`（栏目、文章 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）/`event`（ArticlePublishedEvent 复用 R2 事件总线）；DDL 见 V74__cms.sql（cms_category/cms_article + 菜单种子）；`JooqTables` 新增 `CMS_CATEGORY`/`CMS_ARTICLE` 常量。
 - **依赖取舍**：为保持 DAG 最小且无环，CMS 仅依赖 `common`（经 JooqWriters 持久化、R2 事件总线发发布事件），未引入 `system`/`plugin`；媒体资源以 `cover_url` 等文本列承载，避免跨模块 Service 直连（与「跨域协作经 Port/事件」铁律一致）。
-- **验收**：栏目树 + 文章 CRUD + 富文本 + 发布态（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数；双门禁全绿（11 个后端单测覆盖）；菜单种子与权限码自动登记就绪。前端视图（cms/CategoryView、cms/ArticleView）与 i18n 为后续前端补充项。
+- **验收**：栏目树 + 文章 CRUD + 富文本 + 发布态（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数；双门禁全绿（11 个后端单测覆盖）；菜单种子与权限码自动登记就绪。前端视图 ✅ **已落地 V1.0.7**（cms/CategoryView 树形栏目 + cms/ArticleView 发布/下线/详情抽屉 + api 契约测试 6 例，i18n 双 locale 补齐）。
 
 #### R6 · 站内 IM / 客服 — P1
 - **动机**：基于已有 `realtime`(WebSocket) 的会话能力缺失。
 - **候选模块**：`scaffold-im`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.im` 下 `domain`（ImConversationDO/ImConversationMemberDO/ImMessageDO）/`dto`/`service`（会话创建[P2P/群组]+成员管理+消息发送/未读计数/已读回执 + 会话列表）/`controller`（会话、消息 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V75__im.sql（im_conversation/im_conversation_member/im_message + 菜单种子）。`JooqTables` 复用既有常量；`ImMessageSentEvent` 落地于 `common.event.domain`（与 UserDisabledEvent 同位），由 `realtime` 的 `ImMessagePushListener` 订阅后经 WebSocket 实时推送，二者经事件解耦、无编译期依赖。
 - **依赖取舍**：为保持 DAG 最小且无环，IM 仅依赖 `common`（经 JooqWriters 持久化、R2 事件总线发消息事件）；实时推送由 `realtime` 订阅同一事件完成，IM 不反向依赖 realtime/`system`/`plugin`（与「跨域协作经 Port/事件」铁律一致）。
-- **验收**：P2P/群组会话 + 成员管理 + 消息发送 + 未读计数（按成员 last_read_message_id 推导）+ 已读回执 + 会话列表；双门禁全绿（16 个后端单测覆盖 CRUD/树/未读/回执/事件）；菜单种子与权限码自动登记就绪。前端会话组件为后续前端补充项。
+- **验收**：P2P/群组会话 + 成员管理 + 消息发送 + 未读计数（按成员 last_read_message_id 推导）+ 已读回执 + 会话列表；双门禁全绿（16 个后端单测覆盖 CRUD/树/未读/回执/事件）；菜单种子与权限码自动登记就绪。前端会话组件 ✅ **已落地 V1.0.7**（im/ConversationView 会话管理 + im/MessageView 消息中心[气泡/发送/撤回/已读/未读角标] + api 契约测试 6 例，i18n 双 locale 补齐）。
 
 #### R7 · 审批中心门户 — P1
 - **动机**：Flowable 待办/已办/我发起分散，缺统一工作台。
 - **候选模块**：`scaffold-approval`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.approval` 下 `ApprovalPortalService`（薄编排层，聚合 workflow 的待办/已办/我发起/可发起 + `WorkflowDesignService` 的已发布流程 + 统计）、`ApprovalPortalView`/`ApprovalStats`（聚合 DTO）、`ApprovalPortalController`（6 个只读 GET 端点 `/api/approval/portal/*`，统一权限码 `approval:portal:view`，@PreAuthorize 经 ApiResourceAutoSyncRunner 自动登记）；菜单种子见 V76__approval_portal.sql（审批中心目录 9501 + 审批工作台 9502）。`wf_task_ext` 补 `activity_name` 快照列（V76），待办/已办列表免回查引擎即可展示可读节点名。
 - **依赖取舍**：为保持 DAG 最小且无环，approval 仅依赖 `common` + `workflow`（经 `WorkflowService`/`WorkflowDesignService` 编排）；不反向依赖 `system`/`plugin`（与「跨域协作经 Port/事件」铁律一致）。
-- **验收**：统一待办列表 + 已办列表（按完成时间倒序 + activity_name 快照）+ 我发起 + 可发起（仅 PUBLISHED）+ 统计；双门禁全绿（workflow 10 个单测覆盖 myDoneTasks、approval 3 个单测覆盖聚合/过滤/透传）；菜单种子与权限码自动登记就绪。前端聚合页（approval/PortalView）为后续前端补充项。
+- **验收**：统一待办列表 + 已办列表（按完成时间倒序 + activity_name 快照）+ 我发起 + 可发起（仅 PUBLISHED）+ 统计；双门禁全绿（workflow 10 个单测覆盖 myDoneTasks、approval 3 个单测覆盖聚合/过滤/透传）；菜单种子与权限码自动登记就绪。前端聚合页 ✅ **已落地 V1.0.7**（approval/PortalView 统计卡 + 四标签页 + 流程详情抽屉[当前任务 + 审批记录时间线] + api 契约测试 5 例，i18n 双 locale 补齐）。
 
 #### R8 · 数据看板模板库 — P2
 - **动机**：`workbench` 报表为硬编码，缺可复用模板。
 - **候选模块**：`scaffold-workbench` 扩展（✅ **已落地 V1.0.7**）：`com.acme.scaffold.workbench.dashboard` 下 `domain`（DashboardTemplateDO）/`dto`（TemplateSaveRequest/TemplateUpdateRequest/DashboardTemplateVO）/`service`（看板模板 CRUD + 发布态流转 DRAFT/PUBLISHED/OFFLINE + 浏览计数 + layout_json 经 Jackson 合法性校验）/`controller`（看板模板 REST 端点 `/api/dashboard/template/*`，统一权限码 `dashboard:template:manage`，@PreAuthorize 经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V78__dashboard_template.sql（dashboard_template + 菜单种子：数据看板目录 9701 + 看板模板管理 9702）。`JooqTables` 新增 `DASHBOARD_TEMPLATE` 常量。
 - **依赖取舍**：为保持 DAG 最小且无环，dashboard 仅依赖 `common` + `system`（与 workbench 既有依赖一致，经 JooqWriters 持久化）；布局配置以 `layout_json`（TEXT）承载，由前端约定结构、后端仅做 JSON 语法校验（不做语义约束），避免引入重量级表单引擎；复用现有 `workbench` 模块而非新建模块。
-- **验收**：看板模板 CRUD + 配置（layout_json 序列化）+ 发布态流转（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数 + 权限码自动登记；双门禁全绿（9 个后端单测覆盖 CRUD/发布/撤销/计数/更新/逻辑删除/分页筛选/非法 JSON 拒绝/缺失模板）。前端视图（dashboard/DashboardTemplateView）与拖拽配置器为后续前端补充项。
+- **验收**：看板模板 CRUD + 配置（layout_json 序列化）+ 发布态流转（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数 + 权限码自动登记；双门禁全绿（9 个后端单测覆盖 CRUD/发布/撤销/计数/更新/逻辑删除/分页筛选/非法 JSON 拒绝/缺失模板）。前端视图 ✅ **已落地 V1.0.7**（dashboard/DashboardTemplateView 分页管理 + 拖拽布局配置器[卡片排序 ⇄ layout_json 双向编辑、JSON 校验阻断提交] + 预览抽屉网格渲染 + api 契约测试 7 例，i18n 双 locale 补齐）。
 
 ### 3.3 前端能力增强
 
@@ -126,6 +126,7 @@
 - **候选**：Vite Module Federation。
 - **依赖**：R11 组件库。
 - **验收**：独立子应用挂载到主壳，独立部署。
+- **进度**：✅ **已落地 V1.0.7**（`pc-admin-vue3-vite`）：采用**离线安全自研主壳方案**（离线仓库无 `@originjs/vite-plugin-federation`，不引入外部依赖）——`views/micro/MicroFrontendHost.vue` 经 `import.meta.glob('../../micro-apps/*/index.js', { eager:false })` 懒加载子应用，按 `mount(container, ctx)` / `unmount(ctx)` 契约调度（挂载/卸载生命周期对称、主壳兜底清空容器、挂载状态同步 URL query 可恢复）；子应用目录结构驱动清单（新增子应用零主壳改动）；演示子应用 `micro-apps/hello`（原生 DOM 计数器，验证任意技术栈可挂载）与 `micro-apps/notes`（localStorage 便签，验证状态独立与卸载不丢）；菜单种子 V79__micro_frontend.sql（微前端目录 9801 + 宿主 9802，权限码复用已登记的 `system:monitor:read`，参照 V42 health 先例）。配套 7 例契约测试（子应用契约/主壳调度/V79 同源校验），前端双门禁全绿。
 
 ### 3.4 运维与可观测增强
 
