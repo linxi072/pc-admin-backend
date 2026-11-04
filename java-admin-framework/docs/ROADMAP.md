@@ -63,6 +63,7 @@
 - **候选模块**：`scaffold-ai`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.ai` 下 `port`（`LlmProvider` 端口 + `HeuristicLlmProvider` 离线默认 / `CloudLlmProvider` `@ConditionalOnProperty` 可选）/ `service`（`AiScaffoldService` 编排 + `DdlRenderer` 引号小写迁移 SQL）/ `controller`（`AiScaffoldController` 走 `ai:scaffold:generate` 权限码）/ `dto`（TableSpec/ColumnSpec/ScaffoldResult/ScaffoldRequest）/ `config`（AiProperties 成本门禁）；复用 `scaffold-codegen` 的 `JavaTypeMapper` 与 `CodeTemplates.renderAll` 渲染实体/服务/Vue 草稿，零新依赖；启发式解析确定性可过双门禁，云大模型仅条件化可选（默认不激活，避免网络依赖破坏 `mvn -o`）。
 - **依赖**：R1 成熟后更易嵌入；注意合规与成本门禁。
 - **验收**：输入"订单表含金额/状态"产出可编译骨架 + 迁移 SQL + 前端路由；门禁绿。
+- **前端视图**：✅ **已落地 V1.0.7**（ai/ScaffoldView 提示词→表结构/建表 DDL/代码草稿预览[needsReview/provider/estimatedTokens 徽标] + api 契约测试 1 例，i18n 双 locale 补齐；菜单种子 V77 已就绪）。
 
 #### R4 · 多区域 / 多集群部署支撑 — P2
 - **动机**：多租户已建（租户列隔离），但单实例；大租户需物理隔离。
@@ -141,6 +142,7 @@
 - **候选模块**：`scaffold-monitor` 扩展（✅ **已落地 V1.0.7**）：`MonitorController`（`/api/system/monitor`）暴露实时运行指标（CPU/内存/磁盘/JVM）、进程内缓存统计（命中率，经 `StatisticsCacheManager`）、数据库连接池、在线会话/用户、异常日志与聚合；`NPlusOneController` + `NPlusOneService` 暴露 N+1/慢查询疑似事件（`NPlusOneSuspectRegistry` 有界留存）；`framework.monitor.detection` 的 `SlowQueryListener` / `NPlusOneListener` + `NPlusOneMetricsBridge` 将探针数据桥接进 `MetricsRegistry`。依赖 R13 的 trace 上下文。
 - **依赖**：R13（已完成）。
 - **验收**：慢查询（N+1 疑似）/ 缓存命中率 / 连接池 / 在线会话均可见（管理前端可对接）。**租户维度指标已于 V1.0.7 补全**：`TenantMetrics`（`framework.observability.recorder`，作为 `SpanExporter` sink）按租户聚合请求数/错误率/平均时延，经 `TenantMetricsController`（`/api/observability/tenant-metrics`）暴露，支持 APM 大盘按租户下钻；无租户上下文的 span 自动跳过、内存有界（默认 256 租户）。预置 Grafana dashboard JSON 为可选交付，按需补充。
+- **前端视图（租户维度指标 Tab）**：✅ **已落地 V1.0.7**（monitor/components/TenantMetricsTab 接入可观测中心第 7 个 Tab[请求数/错误数/错误率/平均时延/最近活跃]，复用 `system:observability:read`，403 降级空态 + api 契约测试 1 例，i18n 双 locale 补齐）。
 
 #### R15 · 混沌 / 压测体系 — P2
 - **动机**：`scripts/perf/PERF-TEST-PLAN.md` 已有压测计划，缺混沌。
@@ -148,12 +150,14 @@
 - **候选（压测）**：`scripts/perf/` 压测脚本与基线计划已随仓库存在，Chaos 模块补齐后可在压测基线上叠加故障演练。
 - **依赖**：无强前置（R14 已先行落地，二者可并行）。
 - **验收**：注入 LATENCY/ERROR 等故障后由 `ChaosFilter` 在请求链路生效、解除后自动恢复；压测基线报告由 `scripts/perf/` 产出。
+- **前端视图（混沌工程治理面）**：✅ **已落地 V1.0.7**（chaos/ChaosView 故障列表 + 注入表单[类型/路径匹配/延迟/错误码/概率] + 单条解除/全部清除，feature-gate 友好降级 + api 契约测试 4 例；菜单种子 V80 新增 `system:chaos:read`）。
 
 #### R16 · 配置中心接入 — P2
 - **动机**：当前配置在 `application` + Flyway，无动态刷新。
 - **候选模块**：`framework.config.center`（✅ **已落地 V1.0.7**）：`ConfigCenterPort`（防腐层，定义读取/快照/刷新/动态刷新能力）+ `LocalConfigCenterAdapter`（默认实现，读取 Spring `Environment` 的 `app.*` 命名空间，零新依赖）+ `ConfigCenterService`（刷新后发布 `ConfigRefreshedEvent` 经 R2 事件总线，订阅方可热重载运行态）+ `ConfigCenterController`（`/api/system/config-center` 状态/快照/刷新，权限码 `system:config-center:read|manage` 自动登记）。`app.config-center.enabled` 默认 false，关闭时完全不装配任何 R16 Bean，与既有行为零回归；远端类型（nacos/apollo）的 `ConfigCenterPort` 实现由外部 jar 经 R1 插件机制提供，避免离线仓库引入其 SDK。
 - **依赖**：R2 事件（动态刷新，已完成）。
 - **验收**：本地适配器下配置可快照与刷新并触发事件（热更新订阅链路已打通）；远端中心接入只需提供 `ConfigCenterPort` Bean，无需改动业务代码。无需重启即可在「本地 reload + 事件通知」语义下热刷新。
+- **前端视图（配置中心页）**：✅ **已落地 V1.0.7**（system/ConfigCenterView 状态卡 + 快照表[前缀过滤] + 热刷新，feature-gate 友好降级 + api 契约测试 3 例；菜单种子 V80 新增 `system:config-center:read`）。
 
 ---
 
