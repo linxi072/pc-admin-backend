@@ -36,20 +36,10 @@ public class WebhookNotificationAdapter implements NotificationPort {
         if (!properties.isEnabled()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "Webhook 通知渠道未启用");
         }
-        String url = resolveUrl(message);
+        String url = RobotUrlSupport.resolveUrl(message, properties.getDefaultUrl(), null,
+                "Webhook 地址缺失（消息未带且配置无默认）");
         webhookClient.post(url, buildPayload(message));
         return 1;
-    }
-
-    private String resolveUrl(NotificationMessage message) {
-        String url = (message.webhookUrl() != null && !message.webhookUrl().isBlank())
-                ? message.webhookUrl()
-                : properties.getDefaultUrl();
-        if (url == null || url.isBlank()) {
-            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
-                    "Webhook 地址缺失（消息未带且配置无默认）");
-        }
-        return url;
     }
 
     private Map<String, Object> buildPayload(NotificationMessage message) {
