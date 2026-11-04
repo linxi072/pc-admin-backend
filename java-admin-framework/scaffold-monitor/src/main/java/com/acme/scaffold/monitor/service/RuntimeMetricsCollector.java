@@ -145,6 +145,11 @@ public class RuntimeMetricsCollector {
         if (value < 0) {
             return null;
         }
+        // 上界钳制：OS 采样偶发越界（如瞬时超额订阅误报 >100%）时回落 100，
+        // 避免理论越界百分比原样落库（合法 [0,100] 区间不受影响）。
+        if (value > 100) {
+            value = 100;
+        }
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
     }
 }
