@@ -88,12 +88,7 @@ public class ExportCenterService {
         if (headers.isEmpty()) {
             return task.csv(params);
         }
-        List<List<String>> rows = task.rows(params);
-        int maxRows = exportProperties.getMaxRows();
-        if (rows.size() > maxRows) {
-            throw BusinessException.badRequest(
-                    "导出行数(" + rows.size() + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
-        }
+        List<List<String>> rows = loadSingleTableRows(task, params);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try {
             CsvExporter.write(bos, headers, rows);
@@ -112,12 +107,7 @@ public class ExportCenterService {
     private byte[] toXlsx(ExportTask task, Map<String, String> params) {
         List<String> headers = task.headers();
         if (!headers.isEmpty()) {
-            List<List<String>> rows = task.rows(params);
-            int maxRows = exportProperties.getMaxRows();
-            if (rows.size() > maxRows) {
-                throw BusinessException.badRequest(
-                        "导出行数(" + rows.size() + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
-            }
+            List<List<String>> rows = loadSingleTableRows(task, params);
             return XlsxDataExporter.export(headers, rows);
         }
         List<XlsxSheet> sheets = task.xlsxSheets(params);
@@ -126,12 +116,31 @@ public class ExportCenterService {
                     "模板「" + task.code() + "」未提供 XLSX 导出能力，请改用 CSV 导出");
         }
         int totalRows = sheets.stream().mapToInt(s -> s.rows().size()).sum();
-        int maxRows = exportProperties.getMaxRows();
-        if (totalRows > maxRows) {
-            throw BusinessException.badRequest(
-                    "导出行数(" + totalRows + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
-        }
+        assertWithinMaxRows(totalRows);
         return XlsxDataExporter.exportWorkbook(sheets);
+    }
+
+    /**
+     * 单表结构（{@code headers()} 非空）取一次数据行并完成行数上限校验（F3 缓解措施，
+     * 避免单次导出堆内物化过量）。校验不通过的拒绝由 {@link #assertWithinMaxRows(int)} 统一抛出。
+     * 多段结构（报表）由模板自产字节，不受本方法约束。
+     */
+    private List<List<String>> loadSingleTableRows(ExportTask task, Map<String, String> params) {
+        List<List<String>> rows = task.rows(params);
+        assertWithinMaxRows(rows.size());
+        return rows;
+    }
+
+    /**
+     * 行数上限校验（F3 缓解措施）：导出行数超 {@code app.export.max-rows} 时拒绝，
+     * 避免单次导出堆内物化过量导致 OOM；错误信息统一于此，三处调用（CSV 单表 / XLSX 单表 / XLSX 多 Sheet）口径同源。
+     */
+    private void assertWithinMaxRows(int rowCount) {
+        int maxRows = exportProperties.getMaxRows();
+        if (rowCount > maxRows) {
+            throw BusinessException.badRequest(
+                    "导出行数(" + rowCount + ")超出上限(" + maxRows + ")，请缩小筛选范围后分批导出");
+        }
     }
 
     /** 支持 XLSX 与否由模板声明（单表结构默认支持；多段结构提供 xlsxSheets 后支持）。 */
