@@ -158,7 +158,7 @@
 ### 3.3 本轮修复与重构进展（2026-11-04 落地，本地提交未推送）
 
 > 原则：不改变现有功能行为（behavior-preserving）、消除重复、统一范式；按关注点拆分提交，绝不推送远程。  
-> 新增单测 16 例（`JsonTruncatorTest` 6 + `DomainValidatorsTest` 10），`NotificationServiceTest` 适配 5 处构造。
+> 新增单测 19 例（`JsonTruncatorTest` 6 + `DomainValidatorsTest` 10 + `JooqWritersTenantEnforcementTest` 3 增量），`NotificationServiceTest` 适配 5 处构造。
 
 | 编号     | 严重度      | 根因                                             | 修复方案                                                                                                                                                                                                                              | 改动文件                                                                                                                                                                                                               | 行为保持                                                                              |
 | ------ | -------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
@@ -167,6 +167,8 @@
 | **F2** | 中危·性能/稳定 | 重试退避在调用线程 `Thread.sleep` 阻塞，占用业务/请求线程          | 新增 `notificationRetryScheduler` Bean（`ThreadPoolTaskScheduler`）；`dispatchWithRetry` 退避改经托管调度器 `ScheduledFuture#get()` 同步等待（语义不变，仅等待由专用线程池管理）；中断时恢复中断标志                                                                            | `scaffold-framework/.../config/observability/ObservabilityConfig.java`、`scaffold-system/.../notification/service/NotificationService.java`、`scaffold-system/.../notification/service/NotificationServiceTest.java` | ✅ 同步语义不变（仍同步返回投递结果），5 处测试构造补 `mock(TaskScheduler.class)`，`backoffMs=0` 时调度器不被真实调用 |
 | **F1** | 中危·功能    | 写入路径仅「非空即写」，缺字段级校验（枚举白名单/数值范围）                 | 新增通用校验器 `DomainValidators`（`requireIn`/`requireRange`/`requireNonNegative`，含枚举名重载）；`NotificationService.sendWithTemplate` 渠道名入口接入 `requireIn` 作范式起点（非法渠道显式抛 `VALIDATION_ERROR`，替代 `Channel.valueOf` 的 `IllegalArgumentException`） | `scaffold-common/.../common/validation/DomainValidators.java`（新增）、`scaffold-system/.../notification/service/NotificationService.java`、`scaffold-common/.../common/validation/DomainValidatorsTest.java`（新增）        | ✅ 合法渠道路径不变；非法渠道仍抛 `VALIDATION_ERROR`（错误语义更清晰、可被全局异常处理器统一处理）                       |
 | **R2** | 重构·去重    | `ExportCenterService` 的 `MAX_ROWS` 行数上限校验在 `toCsv`(单表)/`toXlsx`(单表)/`toXlsx`(多 Sheet) 三处重复，错误消息与阈值取值口径分散 | 抽取 `assertWithinMaxRows(int)`（统一抛 400 + 错误消息）与 `loadSingleTableRows(task,params)`（取数 + 校验），三处调用口径同源；行为完全不变 | `scaffold-system/.../system/export/service/ExportCenterService.java` | ✅ 校验阈值、错误消息、抛错类型（`BusinessException.badRequest`）均与重构前逐字一致；`ExportCenterServiceTest` 既有上限断言不受影响 |
+| **R3** | 重构·去重    | `JooqWriters.insert` 与 `batchInsert` 重复整段「自动填充列（id/tenant_id/deleted/version/created_at/updated_at）」逻辑，单条/批量写入口径若漂移将产生数据一致性隐患 | 抽取 `fillAutoColumns(pojo, table, values)`：统一主键生成+回填、租户隔离（enforce 时写当前租户、否则平台租户 0）、及 deleted/version/时间字段自动填充；两写入方法共用同一实现 | `scaffold-common/.../jooq/dsl/JooqWriters.java` | ✅ 渲染 SQL 与绑定值逐字不变（`JooqWritersTenantEnforcementTest` 10 例含新增 2 例全绿）；单条与批量写入的自动填充口径彻底同源 |
+| **R4** | 重构·去重    | 各读取方法（`fetchOne`/`fetchById`/`fetchList`×2/`fetchTop`×2/`page`）重复 `dsl.selectFrom(table.table()).where(withTenant(table, cond))` 租户隔离查询起点 | 抽取 `scopedSelect(dsl, table, cond)` 封装「租户作用域装饰」查询起点，全部读取方法复用；`fetchById` 由委托 `fetchOne` 改为直接复用同一起点并显式叠加逻辑删除过滤 | `scaffold-common/.../jooq/dsl/JooqWriters.java` | ✅ 生成 SQL 与 `withTenant` 注入语义完全不变（`JooqWritersTenantEnforcementTest` 新增 `fetchById` 断言覆盖 tenant_id + deleted 过滤）；`page` 等分页/排序/limit 下推行为不变 |
 
 **F3 / F5 状态复核（2026-11-04）：**
 
@@ -247,7 +249,7 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 ## 7. 后续建议（优先级）
 
-> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 重构已落地**；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**（均详见 §3.2/§3.3）。全部改动本地提交、未推送远程。
+> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变，双门禁复验全绿。
 
 1. **P1（范式续）**：F1 全量铺开——将 `DomainValidators` 应用到其余写路径（用户/角色/组织/监控指标等枚举与数值范围校验）；对 `sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底（最后守门员）。**注意**：现有其余枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）均已自带「非法值降级/置空」防御，直接替换为 `requireIn` 会把 fail-open 语义变为抛错，属行为变更，需逐处评估后再动，不在本轮 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
