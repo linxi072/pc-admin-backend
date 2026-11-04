@@ -3,6 +3,7 @@ package com.acme.scaffold.system.notification.service;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
+import com.acme.scaffold.common.validation.DomainValidators;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.common.notification.NotificationRouter;
@@ -296,6 +297,9 @@ public class NotificationService {
         if (chName == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "模板渠道非法: " + tpl.getChannel());
         }
+        // F1 范式起点：用通用校验器做枚举名白名单校验，非法渠道显式抛 VALIDATION_ERROR
+        // （替代 Channel.valueOf 抛出的 IllegalArgumentException，错误语义更清晰、可统一处理）
+        DomainValidators.requireIn(chName, Channel.values(), "模板渠道非法: " + chName);
         Channel channel = Channel.valueOf(chName);
         String title = tpl.getTitle() == null ? null : NotificationTemplateRules.render(tpl.getTitle(), vars);
         String content = NotificationTemplateRules.render(tpl.getContent(), vars);
