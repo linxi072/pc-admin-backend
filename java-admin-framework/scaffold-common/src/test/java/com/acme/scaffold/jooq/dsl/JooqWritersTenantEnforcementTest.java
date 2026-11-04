@@ -162,6 +162,27 @@ class JooqWritersTenantEnforcementTest {
     }
 
     @Test
+    @DisplayName("enforce=true 且已设租户：批量插入业务表写入当前租户（与单条 insert 口径同源）")
+    void batchInsertEnforcedWritesTenant() {
+        configure(true, true);
+        JooqWriters.batchInsert(dsl, bizTable, List.of(new OrderPojo("A"), new OrderPojo("B")));
+        Executed e = lastInsert();
+        // 校验渲染后的列集合包含 tenant_id——证明 fillAutoColumns 在批量路径同样生效（与单条 insert 同源）
+        assertTrue(e.sqlContains("tenant_id"), "批量 INSERT 列集合应包含 tenant_id（与单条 insert 口径同源）");
+    }
+
+    @Test
+    @DisplayName("enforce=true 且已设租户：按 id 查询追加 tenant_id 与逻辑删除过滤")
+    void fetchByIdEnforcedAppendsTenantAndNotDeleted() {
+        configure(true, true);
+        JooqWriters.fetchById(dsl, bizTable, OrderPojo.class, 9L);
+        Executed e = lastSelect();
+        assertTrue(e.sqlContains("tenant_id"), "SELECT WHERE 应追加 tenant_id 过滤");
+        assertTrue(e.sqlContains("deleted"), "SELECT WHERE 应追加逻辑删除过滤 deleted = 0");
+        assertTrue(e.binds(CURRENT_TENANT), "tenant_id 绑定值应为当前租户 42");
+    }
+
+    @Test
     @DisplayName("enforce=true 但未设租户作用域：读业务表不强制（非请求线程安全 no-op）")
     void enforcedButNoScopeNoInjection() {
         configure(true, false);

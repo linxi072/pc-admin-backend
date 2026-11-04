@@ -10,6 +10,8 @@ import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.OrderField;
 import org.jooq.Query;
+import org.jooq.Record;
+import org.jooq.SelectConditionStep;
 import org.jooq.impl.DSL;
 
 import java.beans.IntrospectionException;
@@ -48,20 +50,8 @@ public final class JooqWriters {
     /** 插入实体，自动填充 id / tenant_id / deleted / version / created_at / updated_at。 */
     public static <T> void insert(DSLContext dsl, JooqTables.TableRef table, T pojo) {
         Map<String, Object> values = columnValues(pojo, table);
-        // 主键回填：与 MyBatis-Plus 的 ASSIGN_ID 行为一致，insert 后 POJO 可拿到 id
-        Long id = IdGenerator.nextId();
-        setIdIfPresent(pojo, id);
-        putIfPresent(values, table, "id", id);
-        // 租户隔离：enforce 开启且当前表需隔离时，写入当前租户；否则维持既有行为（平台租户 0）
-        if (TenantEnforcement.shouldEnforce(table.name())) {
-            putIfPresent(values, table, "tenant_id", TenantEnforcement.currentTenantId());
-        } else {
-            putIfPresent(values, table, "tenant_id", 0L);
-        }
-        putIfPresent(values, table, "deleted", 0);
-        putIfPresent(values, table, "version", 0);
-        putIfPresent(values, table, "created_at", Timestamp.valueOf(LocalDateTime.now()));
-        putIfPresent(values, table, "updated_at", Timestamp.valueOf(LocalDateTime.now()));
+        // 复用与 batchInsert 一致的自动填充逻辑，保证单条/批量写入口径同源
+        fillAutoColumns(pojo, table, values);
         if (values.isEmpty()) {
             return;
         }
@@ -80,18 +70,7 @@ public final class JooqWriters {
         List<Query> queries = new ArrayList<>(pojos.size());
         for (T pojo : pojos) {
             Map<String, Object> values = columnValues(pojo, table);
-            Long id = IdGenerator.nextId();
-            setIdIfPresent(pojo, id);
-            putIfPresent(values, table, "id", id);
-            if (TenantEnforcement.shouldEnforce(table.name())) {
-                putIfPresent(values, table, "tenant_id", TenantEnforcement.currentTenantId());
-            } else {
-                putIfPresent(values, table, "tenant_id", 0L);
-            }
-            putIfPresent(values, table, "deleted", 0);
-            putIfPresent(values, table, "version", 0);
-            putIfPresent(values, table, "created_at", Timestamp.valueOf(LocalDateTime.now()));
-            putIfPresent(values, table, "updated_at", Timestamp.valueOf(LocalDateTime.now()));
+            fillAutoColumns(pojo, table, values);
             if (values.isEmpty()) {
                 continue;
             }
@@ -193,7 +172,7 @@ public final class JooqWriters {
 
     /** 按条件查询单条记录并映射为 POJO；无结果返回 null。 */
     public static <E> E fetchOne(DSLContext dsl, JooqTables.TableRef table, Class<E> type, Condition cond) {
-        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).fetchOne(new SnakeRecordMapper<>(type));
+        return scopedSelect(dsl, table, cond).fetchOne(new SnakeRecordMapper<>(type));
     }
 
     /** 按 id 查询单条记录（含逻辑删除过滤）。 */
@@ -201,14 +180,14 @@ public final class JooqWriters {
         if (!table.has("id")) {
             return null;
         }
-        return fetchOne(dsl, table, type,
-                withTenant(table, DSL.and(notDeleted(table), table.field("id", Long.class).eq(id))));
+        Condition idCond = DSL.and(notDeleted(table), table.field("id", Long.class).eq(id));
+        return scopedSelect(dsl, table, idCond).fetchOne(new SnakeRecordMapper<>(type));
     }
 
     /** 按条件查询列表。 */
     public static <E> List<E> fetchList(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
                                         Condition cond) {
-        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).fetch(new SnakeRecordMapper<>(type));
+        return scopedSelect(dsl, table, cond).fetch(new SnakeRecordMapper<>(type));
     }
 
     /** 按条件查询列表并排序。 */
@@ -217,7 +196,7 @@ public final class JooqWriters {
         if (orderBy == null || orderBy.length == 0) {
             return fetchList(dsl, table, type, cond);
         }
-        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).orderBy(orderBy)
+        return scopedSelect(dsl, table, cond).orderBy(orderBy)
                 .fetch(new SnakeRecordMapper<>(type));
     }
 
@@ -231,10 +210,10 @@ public final class JooqWriters {
                                        Condition cond, int limit, OrderField<?>... orderBy) {
         int n = Math.min(Math.max(limit, 1), 1000);
         if (orderBy == null || orderBy.length == 0) {
-            return dsl.selectFrom(table.table()).where(withTenant(table, cond)).limit(n)
+            return scopedSelect(dsl, table, cond).limit(n)
                     .fetch(new SnakeRecordMapper<>(type));
         }
-        return dsl.selectFrom(table.table()).where(withTenant(table, cond)).orderBy(orderBy).limit(n)
+        return scopedSelect(dsl, table, cond).orderBy(orderBy).limit(n)
                 .fetch(new SnakeRecordMapper<>(type));
     }
 
@@ -248,7 +227,7 @@ public final class JooqWriters {
     public static <E> PageResult<E> page(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
                                          Condition cond, PageQuery q, OrderField<?>... orderBy) {
         long total = count(dsl, table, cond);
-        var step = dsl.selectFrom(table.table()).where(withTenant(table, cond));
+        SelectConditionStep<Record> step = scopedSelect(dsl, table, cond);
         List<E> records;
         if (orderBy != null && orderBy.length > 0) {
             records = step.orderBy(orderBy)
@@ -281,6 +260,38 @@ public final class JooqWriters {
         return (cond == null) ? tenantCond : cond.and(tenantCond);
     }
 
+
+    /**
+     * 应用自动填充列（id / tenant_id / deleted / version / created_at / updated_at），
+     * 与 {@link #insert} 保持一致；id 回填至 POJO 后返回，供批量场景复用。
+     *
+     * <p>抽取自 {@code insert} / {@code batchInsert} 的重复片段，保证单条/批量写入口径同源：
+     * 主键由 {@link IdGenerator} 统一生成并回填；租户列依据强制隔离开关写入当前租户或平台租户 0。</p>
+     */
+    private static <T> void fillAutoColumns(T pojo, JooqTables.TableRef table, Map<String, Object> values) {
+        // 主键回填：与 MyBatis-Plus 的 ASSIGN_ID 行为一致，写入后 POJO 可拿到 id
+        Long id = IdGenerator.nextId();
+        setIdIfPresent(pojo, id);
+        putIfPresent(values, table, "id", id);
+        // 租户隔离：enforce 开启且当前表需隔离时写入当前租户；否则维持既有行为（平台租户 0）
+        if (TenantEnforcement.shouldEnforce(table.name())) {
+            putIfPresent(values, table, "tenant_id", TenantEnforcement.currentTenantId());
+        } else {
+            putIfPresent(values, table, "tenant_id", 0L);
+        }
+        putIfPresent(values, table, "deleted", 0);
+        putIfPresent(values, table, "version", 0);
+        putIfPresent(values, table, "created_at", Timestamp.valueOf(LocalDateTime.now()));
+        putIfPresent(values, table, "updated_at", Timestamp.valueOf(LocalDateTime.now()));
+    }
+
+    /**
+     * 租户隔离的 SELECT 起点：等价于 {@code dsl.selectFrom(table.table()).where(withTenant(table, cond))}。
+     * 集中封装「租户作用域装饰」，消除各读取方法中重复的 {@code table.table()).where(withTenant(...))} 片段。
+     */
+    private static SelectConditionStep<Record> scopedSelect(DSLContext dsl, JooqTables.TableRef table, Condition cond) {
+        return dsl.selectFrom(table.table()).where(withTenant(table, cond));
+    }
 
     /** 按列名收集 POJO 非 null 属性（跳过 id，由主键生成器统一处理）。 */
     private static <T> Map<String, Object> columnValues(T pojo, JooqTables.TableRef table) {
