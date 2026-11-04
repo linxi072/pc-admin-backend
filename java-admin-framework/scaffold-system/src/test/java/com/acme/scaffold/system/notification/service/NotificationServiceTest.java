@@ -20,6 +20,7 @@ import com.acme.scaffold.system.notifyquiet.NotificationQuietHoursService;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.scheduling.TaskScheduler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -135,7 +136,7 @@ class NotificationServiceTest {
         port = new CapturingPort();
         service = new NotificationService(List.of(port), templateService, recordRecorder,
                 preferenceService, quietHoursService, retryProperties, failoverProperties,
-                digestService);
+                digestService, mock(TaskScheduler.class));
         // 默认三道过滤/挂点均放行：原样返回入参消息（覆盖 M11/M12 各例的既有语义）
         when(quietHoursService.applyQuietHours(any(NotificationMessage.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -491,7 +492,7 @@ class NotificationServiceTest {
         backup.ret = 2;
         NotificationService multi = new NotificationService(List.of(primary, backup),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService);
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
         NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文");
 
         int delivered = multi.dispatch(msg);
@@ -511,7 +512,7 @@ class NotificationServiceTest {
         CapturingPort backup = new CapturingPort();
         NotificationService multi = new NotificationService(List.of(primary, backup),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService);
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
 
         assertThrows(IllegalStateException.class,
                 () -> multi.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
@@ -530,7 +531,7 @@ class NotificationServiceTest {
         backup.failWith = new IllegalStateException("备网关故障");
         NotificationService multi = new NotificationService(List.of(primary, backup),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService);
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> multi.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
@@ -546,7 +547,7 @@ class NotificationServiceTest {
         failoverProperties.setEnabled(true);
         NotificationService empty = new NotificationService(List.of(),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService);
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> empty.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));

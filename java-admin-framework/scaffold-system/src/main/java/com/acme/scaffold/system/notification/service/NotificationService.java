@@ -24,11 +24,14 @@ import com.acme.scaffold.system.rules.NotificationTemplateRules;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * 通知编排：按消息渠道路由到对应 {@link NotificationPort} 适配器并投递。
@@ -86,6 +89,12 @@ public class NotificationService {
     private final NotificationRetryProperties retryProperties;
     private final NotificationFailoverProperties failoverProperties;
     private final NotificationDigestService digestService;
+
+    /**
+     * 退避调度器（{@code config.observability.ObservabilityConfig#notificationRetryScheduler}）。
+     * 替代内联 {@code Thread.sleep}，使重试退避由托管线程池计时（F2）。
+     */
+    private final TaskScheduler notificationRetryScheduler;
 
     /** 投递一条消息（无模板来源），返回实际投递单元数（见各适配器语义）。 */
     public int dispatch(NotificationMessage message) {
@@ -238,7 +247,7 @@ public class NotificationService {
                 log.warn("投递失败将重试 channel={} port={} nextAttempt={}/{} err={}",
                         message.channel(), port.getClass().getSimpleName(),
                         attempt + 1, maxAttempts, ex.toString());
-                if (!sleepQuietly(DeliveryRetryRules.backoffMs(attempt, backoffMs))) {
+                if (!awaitBackoff(DeliveryRetryRules.backoffMs(attempt, backoffMs))) {
                     // 等待被中断：已恢复中断标志，停止重试并按失败处理（不切换、不伪装成功）
                     throw ex;
                 }
@@ -247,20 +256,27 @@ public class NotificationService {
     }
 
     /**
-     * 静默等待退避时长。
+     * 退避等待（F2）：经托管 {@link TaskScheduler} 计时，调用线程在 {@code ScheduledFuture#get()}
+     * 上同步等待——语义与阻塞退避一致（仍同步返回投递结果），但等待由专用线程池管理，
+     * 不再直接占用业务/请求线程做无意义休眠。中断时恢复中断标志并按失败处理。
      *
      * @return {@code true} 完整等待；{@code false} 等待被中断（已恢复中断标志）
      */
-    private static boolean sleepQuietly(long millis) {
+    private boolean awaitBackoff(long millis) {
         if (millis <= 0) {
             return true;
         }
         try {
-            Thread.sleep(millis);
+            notificationRetryScheduler
+                    .schedule(() -> {}, Instant.now().plusMillis(millis))
+                    .get();
             return true;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             return false;
+        } catch (ExecutionException ex) {
+            // 空任务体不会抛，到达即视为等待完成
+            return true;
         }
     }
 

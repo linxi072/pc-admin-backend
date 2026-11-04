@@ -7,7 +7,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -30,6 +32,23 @@ public class ObservabilityConfig {
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
+    }
+
+    /**
+     * 通知重试退避调度器（F2）：替代 {@code NotificationService} 内联的
+     * {@code Thread.sleep} 阻塞式退避。退避经本托管调度线程池计时，调用线程在
+     * {@code ScheduledFuture#get()} 上同步等待——语义与阻塞退避一致（仍同步返回投递结果），
+     * 但等待由专用线程池管理，避免直接占用业务/请求线程做无意义休眠。
+     */
+    @Bean("notificationRetryScheduler")
+    public TaskScheduler notificationRetryScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setThreadNamePrefix("notify-retry-");
+        scheduler.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.initialize();
+        return scheduler;
     }
 
     /** 统一指标过滤：屏蔽 tomcat.* / flowable.* 等高频噪声指标，避免指标污染。
