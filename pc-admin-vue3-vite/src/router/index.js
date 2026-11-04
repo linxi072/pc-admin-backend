@@ -465,6 +465,32 @@ const routes = [
         name: 'microHost',
         component: () => import('@/views/micro/MicroFrontendHost.vue'),
         meta: { title: 'route.microHost', permission: 'system:monitor:read' }
+      },
+      {
+        // AI 脚手架（R3）：提示词→表结构/建表 DDL/代码草稿预览，后端 AiScaffoldController
+        // （/api/ai/scaffold），权限由后端驱动（menu_code=ai:scaffold, permission=ai:scaffold:generate；V77 菜单种子）
+        path: 'ai/scaffold',
+        name: 'aiScaffold',
+        component: () => import('@/views/ai/ScaffoldView.vue'),
+        meta: { title: 'route.aiScaffold', permission: 'ai:scaffold:generate' }
+      },
+      {
+        // 混沌工程（R15）：故障注入治理面，后端 ChaosController（/api/system/chaos），
+        // 需 app.chaos.enabled=true（@ConditionalOnProperty 守卫），权限由后端驱动
+        // （menu_code=system:chaos, permission=system:chaos:read；V80 菜单种子）
+        path: 'system/chaos',
+        name: 'chaos',
+        component: () => import('@/views/chaos/ChaosView.vue'),
+        meta: { title: 'route.chaos', permission: 'system:chaos:read' }
+      },
+      {
+        // 配置中心（R16）：状态/快照/热刷新，后端 ConfigCenterController（/api/system/config-center），
+        // 需 app.config-center.enabled=true（@ConditionalOnProperty 守卫），权限由后端驱动
+        // （menu_code=system:config-center, permission=system:config-center:read；V80 菜单种子）
+        path: 'system/config-center',
+        name: 'configCenter',
+        component: () => import('@/views/system/ConfigCenterView.vue'),
+        meta: { title: 'route.configCenter', permission: 'system:config-center:read' }
       }
     ]
   },
