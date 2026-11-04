@@ -3,7 +3,6 @@ package com.acme.scaffold.config.center;
 import com.acme.scaffold.common.event.EventPublisher;
 import com.acme.scaffold.common.event.domain.ConfigRefreshedEvent;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,7 +20,6 @@ import java.util.Optional;
  * 避免把敏感配置（密钥、口令）回显到管理接口。</p>
  */
 @Slf4j
-@Service
 public class ConfigCenterService {
 
     private final ConfigCenterPort port;
