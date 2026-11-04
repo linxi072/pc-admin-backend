@@ -1,7 +1,5 @@
 package com.acme.scaffold.system.notification.adapter;
 
-import com.acme.scaffold.common.error.CommonErrorCode;
-import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
@@ -33,9 +31,7 @@ public class WebhookNotificationAdapter implements NotificationPort {
 
     @Override
     public int dispatch(NotificationMessage message) {
-        if (!properties.isEnabled()) {
-            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "Webhook 通知渠道未启用");
-        }
+        NotificationAdapterSupport.requireChannelEnabled(properties.isEnabled(), "Webhook");
         String url = RobotUrlSupport.resolveUrl(message, properties.getDefaultUrl(), null,
                 "Webhook 地址缺失（消息未带且配置无默认）");
         webhookClient.post(url, buildPayload(message));

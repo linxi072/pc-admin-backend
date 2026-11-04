@@ -1,13 +1,12 @@
 package com.acme.scaffold.system.notification.adapter;
 
-import com.acme.scaffold.common.error.CommonErrorCode;
-import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.EmailProperties;
 import com.acme.scaffold.system.notification.port.MailClient;
 import com.acme.scaffold.system.notification.rules.EmailRules;
+import com.acme.scaffold.system.notification.unsubscribe.rules.UnsubscribeAppendRules;
 import com.acme.scaffold.system.notification.unsubscribe.NotificationUnsubscribeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -49,9 +48,7 @@ public class EmailNotificationAdapter implements NotificationPort {
 
     @Override
     public int dispatch(NotificationMessage message) {
-        if (!properties.isEnabled()) {
-            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "邮件通知渠道未启用");
-        }
+        NotificationAdapterSupport.requireChannelEnabled(properties.isEnabled(), "邮件");
         EmailRules.MailDraft draft = EmailRules.validateAndNormalize(
                 properties.getFrom(), message.emails(), message.title(), message.content());
         Map<String, String> links =
@@ -63,18 +60,10 @@ public class EmailNotificationAdapter implements NotificationPort {
         // 逐收件人个性化：链接按用户铸造，键为归一化（小写）地址
         for (String to : draft.to()) {
             String link = links.get(to.toLowerCase(Locale.ROOT));
-            String content = withUnsubscribeFooter(draft.content(), link);
+            String content = UnsubscribeAppendRules.appendOrFallback(draft.content(), link, UNSUBSCRIBE_FOOTER, EmailRules.MAX_CONTENT_LEN);
             mailClient.send(draft.from(), List.of(to), draft.subject(), content);
         }
         return draft.to().size();
     }
 
-    /** 追加退订尾注；无链接或追加后超长（规则上限）时回落原正文，不因注入把邮件拦在门外。 */
-    private static String withUnsubscribeFooter(String content, String link) {
-        if (link == null) {
-            return content;
-        }
-        String withFooter = content + UNSUBSCRIBE_FOOTER + link;
-        return withFooter.length() > EmailRules.MAX_CONTENT_LEN ? content : withFooter;
-    }
 }

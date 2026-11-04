@@ -1,13 +1,12 @@
 package com.acme.scaffold.system.notification.adapter;
 
-import com.acme.scaffold.common.error.CommonErrorCode;
-import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.SmsProperties;
 import com.acme.scaffold.system.notification.port.SmsGateway;
 import com.acme.scaffold.system.notification.rules.SmsRules;
+import com.acme.scaffold.system.notification.unsubscribe.rules.UnsubscribeAppendRules;
 import com.acme.scaffold.system.notification.unsubscribe.NotificationUnsubscribeService;
 import com.acme.scaffold.system.smslog.SmsRecordRecorder;
 import lombok.RequiredArgsConstructor;
@@ -52,9 +51,7 @@ public class SmsNotificationAdapter implements NotificationPort {
 
     @Override
     public int dispatch(NotificationMessage message) {
-        if (!properties.isEnabled()) {
-            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "短信通知渠道未启用");
-        }
+        NotificationAdapterSupport.requireChannelEnabled(properties.isEnabled(), "短信");
         SmsRules.SmsDraft draft = SmsRules.validateAndNormalize(
                 message.mobiles(), message.content(), properties.getSignature());
         String batchNo = SmsRecordRecorder.newBatchNo();
@@ -67,7 +64,8 @@ public class SmsNotificationAdapter implements NotificationPort {
             } else {
                 for (String mobile : draft.mobiles()) {
                     gateway.send(new SmsRules.SmsDraft(List.of(mobile),
-                            withUnsubscribeSuffix(draft.content(), links.get(mobile))));
+                            UnsubscribeAppendRules.appendOrFallback(draft.content(), links.get(mobile),
+                                    " 退订请点击：", SmsRules.MAX_CONTENT_LEN)));
                 }
             }
             recorder.record(batchNo, draft.mobiles(), draft.content(), provider, true, null);
@@ -79,12 +77,4 @@ public class SmsNotificationAdapter implements NotificationPort {
         }
     }
 
-    /** 追加退订链接后缀；无链接或超长（规则上限）时回落原正文。 */
-    private static String withUnsubscribeSuffix(String content, String link) {
-        if (link == null) {
-            return content;
-        }
-        String withLink = content + " 退订请点击：" + link;
-        return withLink.length() > SmsRules.MAX_CONTENT_LEN ? content : withLink;
-    }
 }
