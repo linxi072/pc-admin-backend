@@ -26,6 +26,9 @@
         <el-tab-pane :label="t('monitor.alertRule')" name="alertRule">
           <AlertRuleTab v-if="activeTab === 'alertRule'" />
         </el-tab-pane>
+        <el-tab-pane :label="t('monitor.tenantMetrics')" name="tenantMetrics">
+          <TenantMetricsTab v-if="activeTab === 'tenantMetrics'" />
+        </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
@@ -40,6 +43,7 @@ import NPlusOneTab from './components/NPlusOneTab.vue'
 import IdempotencyTab from './components/IdempotencyTab.vue'
 import AlertTab from './components/AlertTab.vue'
 import AlertRuleTab from './components/AlertRuleTab.vue'
+import TenantMetricsTab from './components/TenantMetricsTab.vue'
 
 // 仅渲染当前 Tab（v-if）：未激活的 Tab 不发请求，避免进入页面即触发多组
 // （其中部分对普通运维角色会 403）的无效调用；同时把 403 噪声限制在用户主动查看的 Tab。
