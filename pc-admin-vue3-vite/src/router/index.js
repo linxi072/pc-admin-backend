@@ -406,6 +406,65 @@ const routes = [
         name: 'oauth2Token',
         component: () => import('@/views/system/TokenManagerView.vue'),
         meta: { title: 'route.oauth2Token', permission: 'system:oauth2-token:read' }
+      },
+      {
+        // CMS 栏目管理（R5）：树形栏目维护，后端 CmsCategoryController（/api/cms/category），
+        // 权限由后端驱动（menu_code=cms:category, permission=cms:category:manage）
+        path: 'cms/category',
+        name: 'cmsCategory',
+        component: () => import('@/views/cms/CategoryView.vue'),
+        meta: { title: 'route.cmsCategory', permission: 'cms:category:manage' }
+      },
+      {
+        // CMS 文章管理（R5）：分页列表 + 发布/下线/详情，后端 CmsArticleController（/api/cms/article），
+        // 权限由后端驱动（menu_code=cms:article, permission=cms:article:manage；发布/下线另需 cms:article:publish）
+        path: 'cms/article',
+        name: 'cmsArticle',
+        component: () => import('@/views/cms/ArticleView.vue'),
+        meta: { title: 'route.cmsArticle', permission: 'cms:article:manage' }
+      },
+      {
+        // IM 会话管理（R6）：会话列表 + 创建/加成员/退出/删除，后端 ImConversationController
+        // （/api/im/conversation），权限由后端驱动（menu_code=im:conversation, permission=im:conversation:manage）
+        path: 'im/conversation',
+        name: 'imConversation',
+        component: () => import('@/views/im/ConversationView.vue'),
+        meta: { title: 'route.imConversation', permission: 'im:conversation:manage' }
+      },
+      {
+        // IM 消息中心（R6）：会话列表 + 消息气泡/发送/撤回/已读，后端 ImMessageController
+        // （/api/im/message），权限由后端驱动（menu_code=im:message, permission=im:message:view）
+        path: 'im/message',
+        name: 'imMessage',
+        component: () => import('@/views/im/MessageView.vue'),
+        meta: { title: 'route.imMessage', permission: 'im:message:view' }
+      },
+      {
+        // 审批中心门户（R7）：待办/已办/我发起/可发起 + 统计的只读聚合页，
+        // 后端 ApprovalPortalController（/api/approval/portal），权限由后端驱动
+        // （menu_code=approval:portal, permission=approval:portal:view）
+        path: 'approval/portal',
+        name: 'approvalPortal',
+        component: () => import('@/views/approval/PortalView.vue'),
+        meta: { title: 'route.approvalPortal', permission: 'approval:portal:view' }
+      },
+      {
+        // 看板模板管理（R8）：模板 CRUD + 拖拽布局配置器（layout_json 双向编辑）+ 发布态流转，
+        // 后端 DashboardTemplateController（/api/dashboard/template），权限由后端驱动
+        // （menu_code=dashboard:template, permission=dashboard:template:manage）
+        path: 'dashboard/template',
+        name: 'dashboardTemplate',
+        component: () => import('@/views/dashboard/DashboardTemplateView.vue'),
+        meta: { title: 'route.dashboardTemplate', permission: 'dashboard:template:manage' }
+      },
+      {
+        // 微前端宿主（R12）：离线安全主壳，import.meta.glob 懒加载 src/micro-apps/*/index.js
+        // 的 mount/unmount 契约（零外部依赖，不引入 Module Federation）；
+        // 权限复用 system:monitor:read（V79 菜单种子，参照 V42 health 先例）
+        path: 'micro/host',
+        name: 'microHost',
+        component: () => import('@/views/micro/MicroFrontendHost.vue'),
+        meta: { title: 'route.microHost', permission: 'system:monitor:read' }
       }
     ]
   },

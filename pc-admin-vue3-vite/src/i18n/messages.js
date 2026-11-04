@@ -141,6 +141,13 @@ export default {
       moveUp: '上移',
       moveDown: '下移',
       task: '任务',
+      action: '操作',
+      warning: '警告',
+      statusActive: '启用',
+      statusDisabled: '停用',
+      createSuccess: '创建成功',
+      updateSuccess: '更新成功',
+      deleteSuccess: '删除成功',
     },
     profile: {
       accountSecurity: '账号安全',
@@ -369,7 +376,14 @@ export default {
       health: '健康探针',
       oauth2Token: 'OAuth2 令牌管理',
       oauth2Consent: '授权同意',
-      instanceAdmin: '流程实例治理'
+      instanceAdmin: '流程实例治理',
+      cmsCategory: 'CMS 栏目管理',
+      cmsArticle: 'CMS 文章管理',
+      imConversation: 'IM 会话管理',
+      imMessage: 'IM 消息中心',
+      approvalPortal: '审批工作台',
+      dashboardTemplate: '看板模板管理',
+      microHost: '微前端宿主'
     },
     system: {
       common: {
@@ -2210,6 +2224,200 @@ export default {
       drillStatus: '状态「{name}」趋势',
       hourlySuffix: '逐小时分布',
       windowHint: '统计窗口'
+    },
+    cms: {
+      status: {
+        draft: '草稿',
+        published: '已发布',
+        offline: '已下线'
+      },
+      category: {
+        keywordPlaceholder: '按栏目名称/编码搜索',
+        categoryName: '栏目名称',
+        categoryCode: '栏目编码',
+        description: '描述',
+        sortNo: '排序',
+        addChild: '加子栏目',
+        parent: '父栏目',
+        parentPlaceholder: '选择父栏目（可选）',
+        root: '根栏目',
+        categoryCodePlaceholder: '请输入栏目编码',
+        categoryNamePlaceholder: '请输入栏目名称',
+        descriptionPlaceholder: '请输入栏目描述',
+        categoryCodeRequired: '请输入栏目编码',
+        categoryNameRequired: '请输入栏目名称',
+        createTitle: '新增栏目',
+        editTitle: '编辑栏目',
+        deleteConfirm: '确认删除栏目「{name}」吗？若存在子栏目或关联文章，删除将被拒绝。'
+      },
+      article: {
+        title: '文章标题',
+        titlePlaceholder: '请输入文章标题',
+        category: '所属栏目',
+        categoryPlaceholder: '选择所属栏目',
+        categoryRequired: '请选择所属栏目',
+        author: '作者',
+        authorPlaceholder: '请输入作者',
+        coverUrl: '封面图',
+        coverUrlPlaceholder: '请输入封面图 URL（可选）',
+        summary: '摘要',
+        summaryPlaceholder: '请输入文章摘要（可选）',
+        content: '正文内容',
+        contentPlaceholder: '请输入文章正文',
+        contentRequired: '请输入文章正文',
+        viewCount: '浏览量',
+        publishedAt: '发布时间',
+        updatedAt: '更新时间',
+        detail: '详情',
+        publish: '发布',
+        offlineAction: '下线',
+        createTitle: '新增文章',
+        editTitle: '编辑文章',
+        publishConfirm: '确认发布文章「{title}」吗？发布后前台可见。',
+        publishSuccess: '发布成功',
+        offlineConfirm: '确认下线文章「{title}」吗？下线后前台不可见。',
+        offlineSuccess: '下线成功',
+        deleteConfirm: '确认删除文章「{title}」吗？'
+      }
+    },
+    im: {
+      type: {
+        p2p: '单聊',
+        group: '群聊'
+      },
+      conversation: {
+        keywordPlaceholder: '按会话标题/最近消息搜索',
+        typePlaceholder: '会话类型',
+        type: '类型',
+        title: '会话标题',
+        titlePlaceholder: '请输入会话标题',
+        titleRequired: '请输入会话标题',
+        typeRequired: '请选择会话类型',
+        unnamed: '（未命名会话）',
+        create: '创建会话',
+        memberCount: '成员数',
+        unread: '未读',
+        lastMessage: '最近消息',
+        lastMessageAt: '最近消息时间',
+        goMessage: '发消息',
+        addMember: '加成员',
+        memberAdded: '成员已添加',
+        memberUserId: '成员 ID',
+        userIdRequired: '请输入成员用户 ID',
+        members: '对方成员',
+        membersPlaceholder: '输入用户 ID，逗号分隔（单聊仅 1 人，群聊至少 1 人）',
+        membersRequired: '请至少输入一个成员 ID',
+        p2pSingleMember: '单聊仅允许 1 名对方成员',
+        quit: '退出',
+        quitConfirm: '确认退出该会话吗？退出后将不再接收该会话消息。',
+        quitSuccess: '已退出会话',
+        deleteConfirm: '确认删除该会话吗？仅群主可删除，删除后成员不可见。'
+      },
+      message: {
+        myConversations: '我的会话',
+        noConversations: '暂无会话',
+        noMessages: '暂无消息',
+        pickConversation: '请从左侧选择一个会话开始聊天',
+        sender: '发送者',
+        inputPlaceholder: '输入消息，Enter 发送',
+        send: '发送',
+        recall: '撤回',
+        recalled: '消息已撤回',
+        recallConfirm: '确认撤回这条消息吗？',
+        recallSuccess: '已撤回'
+      }
+    },
+    approval: {
+      stats: {
+        todo: '我的待办',
+        done: '我的已办',
+        instances: '我发起的',
+        startable: '可发起'
+      },
+      tab: {
+        todo: '待办',
+        done: '已办',
+        instances: '我发起',
+        startable: '可发起'
+      },
+      task: {
+        node: '审批节点',
+        processInstanceId: '流程实例 ID',
+        dueAt: '到期时间',
+        assignee: '办理人',
+        delegationState: '委派状态'
+      },
+      instance: {
+        title: '流程标题',
+        businessType: '业务类型',
+        startedAt: '发起时间',
+        finishedAt: '结束时间'
+      },
+      startable: {
+        processName: '流程名称',
+        processKey: '流程 Key',
+        version: '版本',
+        goStart: '去发起'
+      },
+      detail: {
+        title: '流程详情',
+        processInstanceId: '流程实例 ID',
+        starter: '发起人',
+        currentTasks: '当前活跃任务',
+        records: '审批记录'
+      }
+    },
+    dashboardTemplate: {
+      code: '模板编码',
+      codePlaceholder: '请输入模板编码',
+      codeRequired: '请输入模板编码',
+      name: '模板名称',
+      namePlaceholder: '请输入模板名称',
+      nameRequired: '请输入模板名称',
+      statusPlaceholder: '状态',
+      viewCount: '浏览量',
+      updatedAt: '更新时间',
+      preview: '预览',
+      unpublish: '撤销发布',
+      createTitle: '新建看板模板',
+      editTitle: '编辑看板模板',
+      tab: {
+        basic: '基础信息',
+        layout: '布局配置'
+      },
+      status: {
+        draft: '草稿',
+        published: '已发布',
+        offline: '已下线'
+      },
+      layoutHint: '拖拽卡片调整顺序；每张卡片可配置标题、组件标识与栅格跨度（1~24，24 为整行）；JSON 视图与卡片列表双向同步。',
+      layoutJson: '布局 JSON（layout_json）',
+      cardTitle: '卡片标题',
+      componentPlaceholder: '组件标识（如 metric-card）',
+      spanN: '跨度 {n}/24',
+      addCard: '添加卡片',
+      unnamedCard: '（未命名卡片）',
+      noComponent: '（未配置组件）',
+      emptyLayout: '布局为空，请先配置卡片',
+      jsonFormatError: '布局 JSON 须为对象且含 cards 数组，或直接为卡片数组',
+      jsonInvalid: '布局 JSON 非法：{msg}',
+      jsonFixFirst: '布局 JSON 存在错误，请先修正再提交',
+      publishConfirm: '确认发布看板模板「{name}」吗？发布后可被前台使用。',
+      publishSuccess: '发布成功',
+      unpublishConfirm: '确认撤销发布看板模板「{name}」吗？撤销后前台不可用。',
+      unpublishSuccess: '已撤销发布',
+      deleteConfirm: '确认删除看板模板「{name}」吗？'
+    },
+    micro: {
+      hint: '离线安全微前端主壳：扫描 src/micro-apps/*/index.js，按 mount/unmount 契约懒加载子应用（零外部依赖，任意技术栈可挂载）。',
+      appList: '可用子应用',
+      mountedApp: '已挂载子应用',
+      none: '无',
+      noApps: '未发现子应用（micro-apps 目录为空）',
+      pickApp: '请选择左侧子应用进行挂载',
+      appNotFound: '子应用不存在：{name}',
+      invalidContract: '子应用「{name}」缺少 mount 契约，无法挂载',
+      mountFailed: '子应用挂载失败：{msg}'
     }
   },
 
@@ -2348,6 +2556,13 @@ export default {
       moveUp: 'Move up',
       moveDown: 'Move down',
       task: 'Task',
+      action: 'Actions',
+      warning: 'Warning',
+      statusActive: 'Active',
+      statusDisabled: 'Disabled',
+      createSuccess: 'Created successfully',
+      updateSuccess: 'Updated successfully',
+      deleteSuccess: 'Deleted successfully',
     },
     profile: {
       accountSecurity: 'Account Security',
@@ -2576,7 +2791,14 @@ export default {
       health: 'Health Probe',
       oauth2Token: 'OAuth2 Token Management',
       oauth2Consent: 'Authorization Consent',
-      instanceAdmin: 'Workflow Instance Admin'
+      instanceAdmin: 'Workflow Instance Admin',
+      cmsCategory: 'CMS Category',
+      cmsArticle: 'CMS Article',
+      imConversation: 'IM Conversations',
+      imMessage: 'IM Message Center',
+      approvalPortal: 'Approval Workbench',
+      dashboardTemplate: 'Dashboard Templates',
+      microHost: 'Micro Frontend Host'
     },
     system: {
       common: {
@@ -4417,6 +4639,200 @@ export default {
       drillStatus: 'Status "{name}" trend',
       hourlySuffix: 'Hourly distribution',
       windowHint: 'Statistics Window'
+    },
+    cms: {
+      status: {
+        draft: 'Draft',
+        published: 'Published',
+        offline: 'Offline'
+      },
+      category: {
+        keywordPlaceholder: 'Search by name/code',
+        categoryName: 'Category Name',
+        categoryCode: 'Category Code',
+        description: 'Description',
+        sortNo: 'Sort',
+        addChild: 'Add Child',
+        parent: 'Parent Category',
+        parentPlaceholder: 'Select parent category (optional)',
+        root: 'Root Category',
+        categoryCodePlaceholder: 'Enter category code',
+        categoryNamePlaceholder: 'Enter category name',
+        descriptionPlaceholder: 'Enter description',
+        categoryCodeRequired: 'Category code is required',
+        categoryNameRequired: 'Category name is required',
+        createTitle: 'Create Category',
+        editTitle: 'Edit Category',
+        deleteConfirm: 'Delete category "{name}"? It will be rejected if child categories or related articles exist.'
+      },
+      article: {
+        title: 'Title',
+        titlePlaceholder: 'Enter article title',
+        category: 'Category',
+        categoryPlaceholder: 'Select category',
+        categoryRequired: 'Category is required',
+        author: 'Author',
+        authorPlaceholder: 'Enter author',
+        coverUrl: 'Cover URL',
+        coverUrlPlaceholder: 'Enter cover image URL (optional)',
+        summary: 'Summary',
+        summaryPlaceholder: 'Enter summary (optional)',
+        content: 'Content',
+        contentPlaceholder: 'Enter article content',
+        contentRequired: 'Content is required',
+        viewCount: 'Views',
+        publishedAt: 'Published At',
+        updatedAt: 'Updated At',
+        detail: 'Detail',
+        publish: 'Publish',
+        offlineAction: 'Take Offline',
+        createTitle: 'Create Article',
+        editTitle: 'Edit Article',
+        publishConfirm: 'Publish article "{title}"? It will be visible once published.',
+        publishSuccess: 'Published successfully',
+        offlineConfirm: 'Take article "{title}" offline? It will become invisible.',
+        offlineSuccess: 'Taken offline successfully',
+        deleteConfirm: 'Delete article "{title}"?'
+      }
+    },
+    im: {
+      type: {
+        p2p: 'P2P',
+        group: 'Group'
+      },
+      conversation: {
+        keywordPlaceholder: 'Search by title/last message',
+        typePlaceholder: 'Type',
+        type: 'Type',
+        title: 'Title',
+        titlePlaceholder: 'Enter conversation title',
+        titleRequired: 'Title is required',
+        typeRequired: 'Type is required',
+        unnamed: '(Unnamed)',
+        create: 'Create Conversation',
+        memberCount: 'Members',
+        unread: 'Unread',
+        lastMessage: 'Last Message',
+        lastMessageAt: 'Last Message At',
+        goMessage: 'Message',
+        addMember: 'Add Member',
+        memberAdded: 'Member added',
+        memberUserId: 'Member ID',
+        userIdRequired: 'Member user ID is required',
+        members: 'Other Members',
+        membersPlaceholder: 'User IDs separated by comma (P2P: exactly 1, GROUP: at least 1)',
+        membersRequired: 'At least one member ID is required',
+        p2pSingleMember: 'P2P allows exactly 1 other member',
+        quit: 'Quit',
+        quitConfirm: 'Quit this conversation? You will no longer receive its messages.',
+        quitSuccess: 'Quit successfully',
+        deleteConfirm: 'Delete this conversation? Owner only; members will no longer see it.'
+      },
+      message: {
+        myConversations: 'My Conversations',
+        noConversations: 'No conversations',
+        noMessages: 'No messages',
+        pickConversation: 'Select a conversation on the left to start chatting',
+        sender: 'Sender',
+        inputPlaceholder: 'Type a message, Enter to send',
+        send: 'Send',
+        recall: 'Recall',
+        recalled: 'Message recalled',
+        recallConfirm: 'Recall this message?',
+        recallSuccess: 'Recalled'
+      }
+    },
+    approval: {
+      stats: {
+        todo: 'My Todo',
+        done: 'My Done',
+        instances: 'My Instances',
+        startable: 'Startable'
+      },
+      tab: {
+        todo: 'Todo',
+        done: 'Done',
+        instances: 'My Instances',
+        startable: 'Startable'
+      },
+      task: {
+        node: 'Node',
+        processInstanceId: 'Process Instance ID',
+        dueAt: 'Due At',
+        assignee: 'Assignee',
+        delegationState: 'Delegation State'
+      },
+      instance: {
+        title: 'Title',
+        businessType: 'Business Type',
+        startedAt: 'Started At',
+        finishedAt: 'Finished At'
+      },
+      startable: {
+        processName: 'Process Name',
+        processKey: 'Process Key',
+        version: 'Version',
+        goStart: 'Go Start'
+      },
+      detail: {
+        title: 'Instance Detail',
+        processInstanceId: 'Process Instance ID',
+        starter: 'Starter',
+        currentTasks: 'Current Active Tasks',
+        records: 'Approval Records'
+      }
+    },
+    dashboardTemplate: {
+      code: 'Code',
+      codePlaceholder: 'Enter template code',
+      codeRequired: 'Template code is required',
+      name: 'Name',
+      namePlaceholder: 'Enter template name',
+      nameRequired: 'Template name is required',
+      statusPlaceholder: 'Status',
+      viewCount: 'Views',
+      updatedAt: 'Updated At',
+      preview: 'Preview',
+      unpublish: 'Unpublish',
+      createTitle: 'Create Dashboard Template',
+      editTitle: 'Edit Dashboard Template',
+      tab: {
+        basic: 'Basic',
+        layout: 'Layout'
+      },
+      status: {
+        draft: 'Draft',
+        published: 'Published',
+        offline: 'Offline'
+      },
+      layoutHint: 'Drag cards to reorder; each card has title, component key and grid span (1-24, 24 = full row); JSON view syncs with the card list.',
+      layoutJson: 'Layout JSON (layout_json)',
+      cardTitle: 'Card Title',
+      componentPlaceholder: 'Component key (e.g. metric-card)',
+      spanN: 'Span {n}/24',
+      addCard: 'Add Card',
+      unnamedCard: '(Untitled card)',
+      noComponent: '(No component)',
+      emptyLayout: 'Empty layout, configure cards first',
+      jsonFormatError: 'Layout JSON must be an object with a cards array, or a card array',
+      jsonInvalid: 'Invalid layout JSON: {msg}',
+      jsonFixFirst: 'Layout JSON has errors, fix them before submitting',
+      publishConfirm: 'Publish dashboard template "{name}"? It becomes available once published.',
+      publishSuccess: 'Published successfully',
+      unpublishConfirm: 'Unpublish dashboard template "{name}"? It becomes unavailable.',
+      unpublishSuccess: 'Unpublished successfully',
+      deleteConfirm: 'Delete dashboard template "{name}"?'
+    },
+    micro: {
+      hint: 'Offline-safe micro frontend host: scans src/micro-apps/*/index.js and lazily mounts sub-apps via the mount/unmount contract (zero external dependency, any tech stack).',
+      appList: 'Available Apps',
+      mountedApp: 'Mounted App',
+      none: 'None',
+      noApps: 'No sub-apps found (micro-apps directory is empty)',
+      pickApp: 'Select a sub-app on the left to mount',
+      appNotFound: 'Sub-app not found: {name}',
+      invalidContract: 'Sub-app "{name}" lacks the mount contract and cannot be mounted',
+      mountFailed: 'Failed to mount sub-app: {msg}'
     }
   }
 }
