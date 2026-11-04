@@ -33,6 +33,7 @@
             <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">{{ $t('oauth2Token.reset') }}</el-button>
             <el-button :icon="Refresh" :loading="loading" @click="load">{{ $t('oauth2Token.refresh') }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
           </div>
         </div>
       </div>
@@ -117,8 +118,9 @@
 import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, RefreshLeft, Refresh, CircleClose } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, Refresh, CircleClose, Download } from '@element-plus/icons-vue'
 import { pageActiveTokens, revokeToken } from '@/api/oauth2token'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
 const rows = ref([])
@@ -187,6 +189,36 @@ async function onRevoke(row) {
   } catch (e) {
     /* 拦截器已统一提示 */
   }
+}
+
+// ---------------- 导出当前页 CSV ----------------
+const exportColumns = [
+  { label: t('oauth2Token.jti'), get: (r) => r.jti },
+  { label: t('oauth2Token.clientId'), get: (r) => r.clientId },
+  { label: t('oauth2Token.userId'), get: (r) => r.userId || '--' },
+  { label: t('oauth2Token.username'), get: (r) => r.username || '--' },
+  { label: t('oauth2Token.scopes'), get: (r) => splitScopes(r.scope).join(' / ') },
+  {
+    label: t('oauth2Token.type'),
+    get: (r) => (r.tokenType === 'USER' ? t('oauth2Token.typeUser') : t('oauth2Token.typeClient'))
+  },
+  { label: t('oauth2Token.issuedAt'), get: (r) => formatTime(r.issuedAt) },
+  { label: t('oauth2Token.expiresAt'), get: (r) => formatTime(r.expiresAt) },
+  {
+    label: t('oauth2Token.status'),
+    get: (r) => (r.status === 'ACTIVE' ? t('oauth2Token.active') : t('oauth2Token.revoked'))
+  }
+]
+
+function onExportCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = exportColumns.map((c) => c.label)
+  const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
+  downloadCsv(`token-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
 }
 
 onMounted(load)

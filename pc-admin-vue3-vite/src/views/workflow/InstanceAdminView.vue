@@ -29,6 +29,7 @@
           <div class="action-buttons">
             <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
           </div>
         </div>
       </div>
@@ -187,9 +188,10 @@
 import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, RefreshLeft, VideoPause, VideoPlay, Switch, Promotion } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, VideoPause, VideoPlay, Switch, Promotion, Download } from '@element-plus/icons-vue'
 import { runningInstances, suspendInstance, resumeInstance, reassignInstance, migrateInstance, listDefinitions } from '@/api/workflow'
 import { pageUsers } from '@/api/user'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
 const rows = ref([])
@@ -391,6 +393,29 @@ async function submitMigrate() {
     submitting.value = false
     acting.value = ''
   }
+}
+
+const exportColumns = [
+  { label: t('common.processInstance'), get: (r) => r.processInstanceId },
+  { label: t('common.title'), get: (r) => r.title },
+  { label: t('common.businessType'), get: (r) => r.businessType || '--' },
+  { label: t('workflow.businessNo'), get: (r) => r.businessId || '--' },
+  { label: t('common.status'), get: (r) => statusTag(r.status).label },
+  { label: t('workflow.instanceAdmin.suspended'), get: (r) => (isSuspended(r) ? t('workflow.instanceAdmin.suspended') : '--') },
+  { label: t('workflow.currentNode'), get: (r) => r.currentActivityId || '--' },
+  { label: t('workflow.initiator'), get: (r) => r.starterUsername || `#${r.starterUserId}` },
+  { label: t('workflow.startTime'), get: (r) => r.startedAt || '--' },
+  { label: t('workflow.stay'), get: (r) => formatMinutes(r.stayedMinutes) }
+]
+function onExportCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = exportColumns.map((c) => c.label)
+  const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
+  downloadCsv(`instance-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
 }
 
 onMounted(load)

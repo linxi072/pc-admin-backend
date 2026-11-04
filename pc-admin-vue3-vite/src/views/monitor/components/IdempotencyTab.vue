@@ -90,6 +90,7 @@
               <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
               <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
               <el-button type="danger" :icon="Delete" @click="onPurge">{{ t('monitor.cleanExpired') }}</el-button>
+              <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
             </div>
           </div>
         </div>
@@ -153,9 +154,10 @@
 import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, RefreshLeft, Delete } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, Delete, Download } from '@element-plus/icons-vue'
 import { pageIdempotencyRecords, getIdempotencySummary, purgeIdempotencyRecords } from '@/api/idempotencyRecord'
 import { fmtDateTime, isForbidden } from './format'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 const rows = ref([])
 const summary = ref({})
@@ -250,6 +252,28 @@ async function onPurge() {
   } catch (e) {
     // 拦截器已提示
   }
+}
+
+const exportColumns = [
+  { label: t('monitor.idempotencyKey'), get: (r) => r.idempotencyKey },
+  { label: t('monitor.interfaceDomain'), get: (r) => r.apiScope },
+  { label: t('common.status'), get: (r) => r.status },
+  { label: t('monitor.user'), get: (r) => r.userId ?? t('monitor.anonymous') },
+  { label: t('monitor.errorCode'), get: (r) => r.errorCode || '--' },
+  { label: t('monitor.expireTime'), get: (r) => fmtDateTime(r.expiresAt) },
+  { label: t('monitor.registerTime'), get: (r) => fmtDateTime(r.createdAt) },
+  { label: t('monitor.requestFingerprint'), get: (r) => r.requestFingerprint || '--' },
+  { label: t('monitor.failReason'), get: (r) => r.errorMessage || '--' }
+]
+function onExportCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = exportColumns.map((c) => c.label)
+  const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
+  downloadCsv(`idempotency-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
 }
 
 onMounted(load)

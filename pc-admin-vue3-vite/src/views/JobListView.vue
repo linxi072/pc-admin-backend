@@ -53,6 +53,7 @@
         <div class="action-buttons">
           <el-button :loading="loading" @click="onSearch">{{ t('common.query') }}</el-button>
           <el-button @click="reset">{{ t('common.reset') }}</el-button>
+          <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
           <el-switch v-model="autoRefresh" :active-text="t('job.autoRefresh')" inline-prompt />
         </div>
         <div class="action-buttons">
@@ -316,12 +317,14 @@
 import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
 import BaseChart from '@/components/BaseChart.vue'
 import {
   jobMeta, jobHandlers, jobPage,
   jobCreate, jobUpdate, jobStart, jobPause, jobDelete, jobLogs,
   jobTriggerDownstream
 } from '@/api/job'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
 const rows = ref([])
@@ -374,6 +377,47 @@ function ruleText(row) {
   if (row.triggerType === 'SIMPLE') return row.intervalLabel || '—'
   if (row.triggerType === 'ONE_TIME') return fmtTime(row.oneTimeAt)
   return '—'
+}
+
+// ---------------- 导出当前页 CSV ----------------
+const exportColumns = [
+  { label: t('job.taskName'), get: (r) => r.jobName },
+  { label: t('job.taskGroup'), get: (r) => r.jobGroup || '' },
+  { label: t('job.processor'), get: (r) => r.taskKeyName || r.taskKey },
+  {
+    label: t('job.triggerRule'),
+    get: (r) => {
+      const trig = r.triggerTypeLabel || r.triggerType
+      const rule = ruleText(r)
+      return rule && rule !== '—' ? `${trig} ${rule}` : trig
+    }
+  },
+  { label: t('common.status'), get: (r) => r.statusLabel || r.status },
+  { label: t('job.lastExec'), get: (r) => fmtTime(r.lastFireTime) },
+  {
+    label: t('job.result'),
+    get: (r) =>
+      r.lastStatus
+        ? (r.lastStatus === 'SUCCESS' ? t('common.success') : t('common.failed'))
+        : ''
+  },
+  { label: t('job.nextExec'), get: (r) => fmtTime(r.nextFireTime) },
+  {
+    label: t('job.execCount'),
+    get: (r) =>
+      `${r.totalRuns ?? 0}（${t('common.success')} ${r.successRuns ?? 0} / ${t('common.failed')} ${r.failureRuns ?? 0}）`
+  }
+]
+
+function onExportCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = exportColumns.map((c) => c.label)
+  const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
+  downloadCsv(`job-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
 }
 
 // ---------------- 数据加载 ----------------

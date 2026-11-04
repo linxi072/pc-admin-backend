@@ -21,6 +21,7 @@
               </div>
               <div class="action-buttons">
                 <el-button type="primary" :icon="Promotion" @click="openSend">{{ t('system.sendInSiteMessage') }}</el-button>
+                <el-button :icon="Download" @click="onExportMine">{{ t('common.exportCurrentPageCsv') }}</el-button>
               </div>
             </div>
           </div>
@@ -76,6 +77,13 @@
       <!-- 我发出的 -->
       <el-tab-pane :label="t('system.sentByMe')" name="sent">
         <el-card class="page-card">
+          <div class="toolbar">
+            <div class="toolbar-actions">
+              <div class="action-buttons">
+                <el-button :icon="Download" @click="onExportSent">{{ t('common.exportCurrentPageCsv') }}</el-button>
+              </div>
+            </div>
+          </div>
           <el-table :data="sentList" v-loading="sentLoading" border stripe>
             <el-table-column prop="title" :label="t('common.title')" min-width="180" show-overflow-tooltip />
             <el-table-column prop="msgType" :label="t('common.type')" width="90">
@@ -305,7 +313,7 @@
 import { t } from '@/i18n'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Promotion, Select, Reading, Bell, Search } from '@element-plus/icons-vue'
+import { Promotion, Select, Reading, Bell, Search, Download } from '@element-plus/icons-vue'
 import {
   sendMessage,
   pageMyMessages,
@@ -318,6 +326,7 @@ import {
   remindMessageUnread
 } from '@/api/message'
 import { sendNotification } from '@/api/notification'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 // 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
 defineProps({ embedded: { type: Boolean, default: false } })
@@ -451,6 +460,44 @@ function onTabChange(name) {
 function onSearch() {
   query.page = 1
   load()
+}
+
+// ---- 导出当前页 CSV（收件箱 / 我发出的）----
+const mineExportColumns = [
+  { label: t('common.title'), get: (r) => r.title },
+  { label: t('common.type'), get: (r) => typeText(r.msgType) },
+  { label: t('system.sender'), get: (r) => r.senderName || t('system.system') },
+  { label: t('system.sentAt'), get: (r) => r.sentAt || '--' },
+  { label: t('common.status'), get: (r) => (r.isRead ? t('system.read') : t('system.unread')) },
+  { label: t('system.readAt'), get: (r) => r.readAt || '--' }
+]
+function onExportMine() {
+  if (!list.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = mineExportColumns.map((c) => c.label)
+  const data = list.value.map((r) => mineExportColumns.map((c) => c.get(r)))
+  downloadCsv(`message-mine-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+}
+
+const sentExportColumns = [
+  { label: t('common.title'), get: (r) => r.title },
+  { label: t('common.type'), get: (r) => typeText(r.msgType) },
+  { label: t('system.recipient'), get: (r) => r.totalCount ?? 0 },
+  { label: t('system.readUnread'), get: (r) => `${r.readCount ?? 0}/${r.totalCount ?? 0}` },
+  { label: t('system.sentAt'), get: (r) => r.sentAt || '--' }
+]
+function onExportSent() {
+  if (!sentList.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = sentExportColumns.map((c) => c.label)
+  const data = sentList.value.map((r) => sentExportColumns.map((c) => c.get(r)))
+  downloadCsv(`message-sent-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
 }
 
 async function onRead(row) {
