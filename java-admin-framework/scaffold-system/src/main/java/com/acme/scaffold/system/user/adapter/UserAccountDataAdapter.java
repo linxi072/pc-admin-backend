@@ -2,6 +2,7 @@ package com.acme.scaffold.system.user.adapter;
 
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
 import com.acme.scaffold.security.user.UserAccountPatch;
@@ -67,7 +68,11 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         p.setLockedUntil(patch.lockedUntil());
         p.setTokenVersion(patch.tokenVersion());
         p.setLastLoginAt(patch.lastLoginAt());
-        p.setStatus(patch.status());
+        // 状态经 F1 通用归一器白名单校验（仅非空时；null 表示本次补丁不改状态，保持既有语义）。
+        // 安全层仅产出 ACTIVE/DISABLED/LOCKED，归一为 no-op；异常值在此即被拦截（纵深防御）
+        if (patch.status() != null) {
+            p.setStatus(RecordStatus.normalize(patch.status()));
+        }
         JooqWriters.updateById(dsl, USER, id, p);
     }
 }

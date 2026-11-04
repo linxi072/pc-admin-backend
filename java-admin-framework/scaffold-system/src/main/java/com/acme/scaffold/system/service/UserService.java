@@ -7,6 +7,8 @@ import com.acme.scaffold.common.event.EventPublisher;
 import com.acme.scaffold.common.event.domain.UserDisabledEvent;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
+import com.acme.scaffold.common.validation.DomainValidators;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
@@ -127,7 +129,7 @@ public class UserService {
         user.setDisplayName(request.displayName());
         user.setMobile(request.mobile());
         user.setEmail(request.email());
-        user.setStatus("ACTIVE");
+        user.setStatus(RecordStatus.DEFAULT);
         user.setPasswordChangedAt(LocalDateTime.now());
         // 设计文档 §5.3：首次登录强制改密（password_expired=1），新用户必须先改密再进入系统
         user.setPasswordExpired(1);
@@ -168,12 +170,10 @@ public class UserService {
         boolean disabling = false;
         String previousStatus = null;
         if (request.status() != null) {
-            // 状态白名单：登录链路只识别 ACTIVE/DISABLED（外加锁定态由登录失败计数驱动），
-            // 任意字符串可落库会成为永久数据噪声，故仅接受这两个值
-            if (!"ACTIVE".equals(request.status()) && !"DISABLED".equals(request.status())) {
-                throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
-                        "用户状态仅支持 ACTIVE / DISABLED");
-            }
+            // 状态白名单：登录链路只识别 ACTIVE/DISABLED（锁定态由登录失败计数驱动，不经此入口），
+            // 其余字符串落库即永久数据噪声；复用 F1 通用校验器作白名单校验（行为不变）
+            DomainValidators.requireIn(request.status(), new String[]{"ACTIVE", "DISABLED"},
+                    "用户状态仅支持 ACTIVE / DISABLED");
             previousStatus = user.getStatus();
             disabling = !"DISABLED".equals(previousStatus) && "DISABLED".equals(request.status());
             user.setStatus(request.status());
