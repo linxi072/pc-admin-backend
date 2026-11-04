@@ -201,6 +201,16 @@
 
 **说明**：`UserService` 的状态域本就是 {ACTIVE,DISABLED} 严格子集（锁定态由登录失败计数驱动、不经 API 入口），故 **不** 套用 `RecordStatus.normalize`（其接受 4 值会扩大接受集，属行为变更），而是复用 `DomainValidators.requireIn` 守住原接受集——这是 §3.4「不改变现有功能行为」原则的延续。`OpenApiClientService`（`OpenApiClientRules.normalizeStatus`）、`TenantService`（`TenantRules.normalizeTenantStatus`）各有独立状态域，维持现状。
 
+### 3.6 通知机器人适配器/配置类去重重构（R5，本轮续做，本地提交未推送）
+
+> 在 §3.3 R2/R3/R4 去重范式基础上，继续消除通知渠道层「两个机器人适配器 + 两个机器人配置类」的逐字重复；原则不变：behavior-preserving、按关注点拆分提交、绝不推送。URL 解析（`RobotUrlSupport`）与加签（`RobotSigningRules`）已是独立共享工具，本次仅收敛「适配器骨架」与「配置类字段」两处重复。
+
+| 编号 | 严重度 | 根因 | 修复方案 | 改动文件 | 行为保持 |
+|------|--------|------|----------|----------|----------|
+| **R5** | 重构·去重 | ① `WecomRobotProperties`/`DingtalkRobotProperties` 配置类：`enabled`/`webhookUrl`/`secret` 三字段与 getter/setter **逐字相同**，仅 `@ConfigurationProperties(prefix=…)` 前缀不同；② `WecomRobotAdapter`/`DingtalkRobotAdapter` 适配器：`dispatch/isEnabled/resolveUrl/configValue` 与 `supports` 骨架**逐字相同**，仅支持渠道、参数中心键、未启用报错文案、加签算法（buildWecomUrl / buildDingtalkUrl）四处差异。 | ① 提取 `AbstractRobotProperties`（承载三字段 + getter/setter），两子类改为 `extends` 并仅保留各自 `prefix` 注解（Spring 仍对继承字段完成绑定）；② 提取 `AbstractRobotAdapter<P extends AbstractRobotProperties>`（承载共享 `dispatch/isEnabled/resolveUrl/configValue/supports`），差异点经**构造参数**（`supportedChannel`/`enabledKey`/`webhookUrlKey`/`disabledMessage`/`missingUrlMessage`）+ **抽象方法** `buildSignedUrl(baseUrl, secret, ts)` 下放到子类；③ **保留 `new XxxAdapter(WebhookClient, P, ConfigService)` 三参构造器**以维持既有单测。 | `scaffold-system/.../notification/config/AbstractRobotProperties.java`（新增）、`scaffold-system/.../notification/adapter/AbstractRobotAdapter.java`（新增）、`scaffold-system/.../notification/config/WecomRobotProperties.java`、`scaffold-system/.../notification/config/DingtalkRobotProperties.java`、`scaffold-system/.../notification/adapter/WecomRobotAdapter.java`、`scaffold-system/.../notification/adapter/DingtalkRobotAdapter.java` | ✅ `dispatch` 流程、返回值（1）、异常类型（`VALIDATION_ERROR`）与消息逐字一致；3-arg 构造器保留，`WecomRobotAdapterTest`/`DingtalkRobotAdapterTest` **零改动全绿**；参数中心热更新（KEY_ENABLED/KEY_WEBHOOK_URL + `configService.getByKey`）语义不变；`@Component` 仍落在两具体子类，Spring 上下文装配无变化 |
+
+**验证**：双门禁复验全绿——`mvn -o -pl scaffold-system -am clean test` **713 例单测 0 失败**（含 R5 直接相关的 `WecomRobotAdapterTest`/`DingtalkRobotAdapterTest`）；`scripts/check-conventions.py` EXIT=0（仅 1 条模块分层概览 INFO 级提示，非违规）。
+
 ---
 
 ## 4. 性能测试结论
@@ -275,7 +285,7 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 ## 7. 后续建议（优先级）
 
-> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变，双门禁复验全绿。
+> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**R5 通知机器人适配器/配置类去重重构已落地**（详见 §3.6）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变；R5 为通知机器人层去重，dispatch 流程与测试零改动，双门禁复验全绿。
 
 1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。`UserService` / `UserAccountDataAdapter` 状态校验已对齐至 `DomainValidators`/`RecordStatus` 范式（见 §3.5 `F1-align-1/2`）。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
