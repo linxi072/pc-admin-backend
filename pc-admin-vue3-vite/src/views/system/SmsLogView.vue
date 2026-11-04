@@ -42,6 +42,7 @@
           <div class="action-buttons">
             <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
           </div>
         </div>
       </div>
@@ -129,8 +130,10 @@
 <script setup>
 import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
-import { Search, RefreshLeft } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Search, RefreshLeft, Download } from '@element-plus/icons-vue'
 import { pageSmsRecords, smsRecordSummary } from '@/api/smsLog'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
 const rows = ref([])
@@ -218,6 +221,30 @@ const fmtPct = (v) => {
   return `${(Number(v) * 100).toFixed(2)}%`
 }
 const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '--')
+
+/** 导出当前页为 CSV：仅导出已加载的明细，不触发后端请求。 */
+const exportColumns = [
+  { label: t('system.time'), get: (r) => r.sentAt },
+  { label: t('system.batchNoSys'), get: (r) => r.batchNo },
+  { label: t('system.recvNumberMasked'), get: (r) => r.mobilesMasked },
+  { label: t('system.numberCountSys'), get: (r) => r.mobileCount },
+  { label: t('system.contentSummary'), get: (r) => r.contentSummary },
+  { label: t('system.gatewaySys'), get: (r) => r.provider },
+  { label: t('job.result'), get: (r) => r.status },
+  { label: t('monitor.failReason'), get: (r) => r.errorMessage },
+  { label: t('system.operator'), get: (r) => r.operatorName },
+  { label: 'TraceId', get: (r) => r.traceId }
+]
+function onExportCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = exportColumns.map((c) => c.label)
+  const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
+  downloadCsv(`sms-log-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+}
 
 onMounted(load)
 </script>

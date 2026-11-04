@@ -43,6 +43,7 @@
           <div class="action-buttons">
             <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
             <el-button type="warning" :icon="Delete" :loading="purging" @click="onPurge">{{ t('system.idempotency.purge') }}</el-button>
           </div>
         </div>
@@ -152,8 +153,9 @@
 import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, RefreshLeft, Delete } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, Delete, Download } from '@element-plus/icons-vue'
 import { pageIdempotencyRecords, getIdempotencySummary, purgeIdempotencyRecords } from '@/api/idempotencyRecord'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
 const purging = ref(false)
@@ -272,6 +274,31 @@ const fmtPct = (v) => {
   return `${(Number(v) * 100).toFixed(2)}%`
 }
 const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '--')
+
+/** 导出当前页为 CSV：仅导出已加载的明细，不触发后端请求。 */
+const exportColumns = [
+  { label: t('system.idempotency.key'), get: (r) => r.idempotencyKey },
+  { label: t('system.idempotency.scope'), get: (r) => r.apiScope },
+  { label: t('system.idempotency.userId'), get: (r) => r.userId },
+  { label: t('system.idempotency.fingerprint'), get: (r) => r.requestFingerprint },
+  { label: t('system.idempotency.status'), get: (r) => r.status },
+  { label: t('system.idempotency.errorCode'), get: (r) => r.errorCode },
+  { label: t('system.idempotency.errorMsg'), get: (r) => r.errorMessage },
+  { label: t('system.idempotency.expiresAt'), get: (r) => r.expiresAt },
+  { label: t('system.idempotency.createdAt'), get: (r) => r.createdAt },
+  { label: t('system.idempotency.updatedAt'), get: (r) => r.updatedAt },
+  { label: t('system.idempotency.expired'), get: (r) => r.expired }
+]
+function onExportCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = exportColumns.map((c) => c.label)
+  const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
+  downloadCsv(`idempotency-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+}
 
 onMounted(load)
 </script>

@@ -56,6 +56,7 @@
               <div class="action-buttons">
                 <el-button type="primary" :icon="Search" @click="load">{{ t('common.query') }}</el-button>
                 <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+                <el-button :icon="Download" @click="onExportSessionsCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
               </div>
               <div class="action-buttons">
                 <!-- 批量强制下线：勾选行后可用；含当前设备时确认框额外警示 -->
@@ -153,6 +154,7 @@
               <div class="action-buttons">
                 <el-button type="primary" :icon="Search" @click="loadRestrictions">{{ t('common.query') }}</el-button>
                 <el-button :icon="RefreshLeft" @click="resetRestrictionQuery">{{ t('common.reset') }}</el-button>
+                <el-button :icon="Download" @click="onExportRestrictionsCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
               </div>
             </div>
           </div>
@@ -267,7 +269,7 @@
 import { t } from '@/i18n'
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, RefreshLeft, SwitchButton, Lock } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, SwitchButton, Lock, Download } from '@element-plus/icons-vue'
 import {
   pageOnlineUsers,
   pageRestrictions,
@@ -277,6 +279,7 @@ import {
 } from '@/api/onlineUser'
 // 状态标签映射统一到 utils
 import { statusTag } from '@/utils/status'
+import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -491,6 +494,49 @@ async function onRelease(row) {
 
 function onTabChange(name) {
   if (name === 'restrictions' && !rRows.value.length) loadRestrictions()
+}
+
+/** 导出当前 Tab（在线会话）已加载数据为 CSV。 */
+const sessionColumns = [
+  { label: t('system.account'), get: (r) => r.username },
+  { label: t('system.name'), get: (r) => r.displayName },
+  { label: t('system.loginIp'), get: (r) => r.loginIp },
+  { label: t('common.loginTime'), get: (r) => r.loginAt },
+  { label: t('system.lastActive'), get: (r) => r.lastActiveAt },
+  { label: t('system.sessionStatus'), get: (r) => statusTag(r.status).label },
+  { label: t('common.device'), get: (r) => r.userAgent || r.deviceId || '' }
+]
+function onExportSessionsCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = sessionColumns.map((c) => c.label)
+  const data = rows.value.map((r) => sessionColumns.map((c) => c.get(r)))
+  downloadCsv(`online-sessions-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+}
+
+/** 导出当前 Tab（登录限制记录）已加载数据为 CSV。 */
+const restrictionColumns = [
+  { label: t('system.account'), get: (r) => r.username },
+  { label: t('system.name'), get: (r) => r.displayName },
+  { label: t('system.restrictionReason'), get: (r) => r.reason },
+  { label: t('system.duration'), get: (r) => durationLabel(r.durationMinutes) },
+  { label: t('system.restrictedBy'), get: (r) => r.restrictedByName },
+  { label: t('system.restrictedAt'), get: (r) => r.restrictedAt },
+  { label: t('workflow.dueTime'), get: (r) => r.expireAt || '' },
+  { label: t('common.status'), get: (r) => (r.status === 'ACTIVE' ? t('system.active') : t('system.removed')) }
+]
+function onExportRestrictionsCsv() {
+  if (!rRows.value.length) {
+    ElMessage.warning(t('common.exportEmpty'))
+    return
+  }
+  const headers = restrictionColumns.map((c) => c.label)
+  const data = rRows.value.map((r) => restrictionColumns.map((c) => c.get(r)))
+  downloadCsv(`login-restrictions-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
+  ElMessage.success(t('common.exportSuccess', { n: data.length }))
 }
 
 function startRefresh() {
