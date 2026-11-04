@@ -190,6 +190,17 @@
 
 **未覆盖点（明确排除，非本轮 scope）**：`DefaultDataScopeProvider.safeType` / `ReportExportTask.parseEnum` / `JobService.*OrNull` 等 fail-open 枚举解析点自带「非法值降级/置空」防御，替换为 `requireIn` 会把 fail-open 语义变为抛错，属行为变更，维持现状。
 
+### 3.5 F1 范式对齐续做（本轮续做，本地提交未推送）
+
+> 在 §3.4 F1 全量铺开基础上，将状态校验范式进一步对齐到 `UserService` 与跨模块适配器 `UserAccountDataAdapter`（行为保持，不改变现有功能行为）。
+
+| 编号 | 严重度 | 根因 | 修复方案 | 改动文件 | 行为保持 |
+|------|--------|------|----------|----------|----------|
+| **F1-align-1** | 低危·一致性 | `UserService.create` 用魔法串 `"ACTIVE"`；`UserService.update` 内联 `if (!"ACTIVE"... && !"DISABLED"...)` 手写白名单，与 §3.4 已建立的 `DomainValidators`/`RecordStatus` 范式不一致，存在 idiom 漂移 | `create`：`"ACTIVE"` → `RecordStatus.DEFAULT`（共享常量）；`update`：内联白名单 → `DomainValidators.requireIn(request.status(), {"ACTIVE","DISABLED"}, msg)`（与 §3.4 同一校验原语，接受集与错误消息逐字一致） | `scaffold-system/.../service/UserService.java` | ✅ 接受集 {ACTIVE,DISABLED} 与错误消息不变；`requireIn` 用 `Objects.equals` 精确匹配（大小写敏感），与原 `String.equals` 语义一致；仅锁定态（由登录失败计数驱动）不经此 API 入口 |
+| **F1-align-2** | 低危·纵深防御 | `UserAccountDataAdapter.updateById` 直接 `p.setStatus(patch.status())`，未走任何白名单校验；当前唯一生产者 `AuthService.handleLoginFailure` 仅产出 ACTIVE/DISABLED/LOCKED（均合法），但缺少与 F1 一致的最后一道守门 | 改为 null-safe 归一：`if (patch.status() != null) p.setStatus(RecordStatus.normalize(patch.status()))`——null（部分补丁不改状态）保持既有语义；非空合法值归一为 no-op；异常值在此即被拦截（纵深防御，今日不触发） | `scaffold-system/.../system/user/adapter/UserAccountDataAdapter.java` | ✅ null 不改状态（与 `JooqWriters.updateById` 跳过 null 语义一致）；合法值原样通过；仅新增对垃圾值的拦截（行为修复） |
+
+**说明**：`UserService` 的状态域本就是 {ACTIVE,DISABLED} 严格子集（锁定态由登录失败计数驱动、不经 API 入口），故 **不** 套用 `RecordStatus.normalize`（其接受 4 值会扩大接受集，属行为变更），而是复用 `DomainValidators.requireIn` 守住原接受集——这是 §3.4「不改变现有功能行为」原则的延续。`OpenApiClientService`（`OpenApiClientRules.normalizeStatus`）、`TenantService`（`TenantRules.normalizeTenantStatus`）各有独立状态域，维持现状。
+
 ---
 
 ## 4. 性能测试结论
@@ -266,7 +277,7 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 > 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变，双门禁复验全绿。
 
-1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
+1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。`UserService` / `UserAccountDataAdapter` 状态校验已对齐至 `DomainValidators`/`RecordStatus` 范式（见 §3.5 `F1-align-1/2`）。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
 3. **P2〔本轮已落地〕**：补 `NotificationIT` / `ExportIT` 独立回归用例已就位并双门禁复验全绿——`NotificationIT` 覆盖「非法渠道模板创建即拒 400 / 合法 IN_APP 模板按模板发送实际投递（delivered≥1）/ 未知模板编码 404」；`ExportIT` 覆盖「已知 users 模板 CSV 导出返回非空字节 / 未知模板 404 / 不支持格式 400」。详见 §5 模块覆盖矩阵（notification / export 行已由 ⚠️ 升级为 ✅）。
 4. **P2**：F5 将大表列表默认端点切换为 keyset（基础设施与三表端点已就绪，待接口契约与前端游标联动）；F6 多值 INSERT 重写为可选增强（JDBC `rewriteBatchedStatements` 已给出主要收益，待 MEDIUM/LARGE 量级复测吞吐提升）。
