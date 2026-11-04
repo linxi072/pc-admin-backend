@@ -225,8 +225,8 @@
 | 工作流 workflow | WorkflowTaskIT / InstanceIntegrationIT / LeaveApprovalWorkflowIT | ✅ |
 | 定时任务 job | JobManagementIT | ✅ |
 | 在线用户 online | OnlineUserIT | ✅ |
-| 通知 notification | 代码走查（F1/F2）+ 数据注入 | ⚠️（无独立 IT，建议补）|
-| 导出 export | 代码走查（F3）+ MAX_ROWS 确认 | ⚠️（无独立 IT，建议补）|
+| 通知 notification | 代码走查（F1/F2）+ 数据注入 + **NotificationIT**（非法渠道模板创建即拒 / IN_APP 按模板发送实际投递 / 未知模板编码 404）| ✅ |
+| 导出 export | 代码走查（F3）+ MAX_ROWS 确认 + **ExportIT**（已知模板 CSV 导出非空 / 未知模板 404 / 不支持格式 400）| ✅ |
 | 性能 perf | BackendPerfIT + MassDataSeedIT 探针 | ✅ |
 | 数据质量 | **MassDataSeedIT（新增）** 异常注入 | ✅（F1 暴露缺口）|
 
@@ -264,11 +264,11 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 ## 7. 后续建议（优先级）
 
-> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变，双门禁复验全绿。
+> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变，双门禁复验全绿。
 
 1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
-3. **P2**：补 `NotificationIT` / `ExportIT` 独立回归用例，固化本轮走查发现。
+3. **P2〔本轮已落地〕**：补 `NotificationIT` / `ExportIT` 独立回归用例已就位并双门禁复验全绿——`NotificationIT` 覆盖「非法渠道模板创建即拒 400 / 合法 IN_APP 模板按模板发送实际投递（delivered≥1）/ 未知模板编码 404」；`ExportIT` 覆盖「已知 users 模板 CSV 导出返回非空字节 / 未知模板 404 / 不支持格式 400」。详见 §5 模块覆盖矩阵（notification / export 行已由 ⚠️ 升级为 ✅）。
 4. **P2**：F5 将大表列表默认端点切换为 keyset（基础设施与三表端点已就绪，待接口契约与前端游标联动）；F6 多值 INSERT 重写为可选增强（JDBC `rewriteBatchedStatements` 已给出主要收益，待 MEDIUM/LARGE 量级复测吞吐提升）。
 5. **P3**：F3 流式导出（取消 10k 上限、降低峰值堆，需改造导出落库下载契约）；F4 已修复。
 
