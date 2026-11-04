@@ -212,6 +212,17 @@
 
 **验证**：双门禁复验全绿——`mvn -o -pl scaffold-system -am clean test` **713 例单测 0 失败**（含 R5 直接相关的 `WecomRobotAdapterTest`/`DingtalkRobotAdapterTest` 与 R5-W 相关的 `WebhookNotificationAdapterTest`）；`scripts/check-conventions.py` EXIT=0（仅 1 条模块分层概览 INFO 级提示，非违规）。
 
+### 3.7 通知适配器「启用校验」与「退订链接追加」样板去重（R6，本轮续做，本地提交未推送）
+
+> 在 §3.6 R5/R5-W 收敛「适配器骨架 / URL 解析」基础上，继续消除三个简单通知适配器（Webhook / 短信 / 邮件）内部的两处逐字重复 idiom；原则不变：behavior-preserving、按关注点拆分提交、绝不推送。
+
+| 编号 | 严重度 | 根因 | 修复方案 | 改动文件 | 行为保持 |
+|------|--------|------|----------|----------|----------|
+| **R6-A** | 重构·去重 | `WebhookNotificationAdapter`/`SmsNotificationAdapter`/`EmailNotificationAdapter` 三处 `dispatch` 内各持一段**逐字相同**的「渠道未启用 → 抛 `VALIDATION_ERROR`」样板（`if (!properties.isEnabled()) throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "<渠道> 通知渠道未启用")`），错误信息串仅渠道名差异。 | 提取包级 `NotificationAdapterSupport.requireChannelEnabled(boolean, String)`，三适配器改调之；错误信息串（如「Webhook 通知渠道未启用」「短信通知渠道未启用」「邮件通知渠道未启用」）**逐字不变**。三处去除无用 `CommonErrorCode`/`BusinessException` import。 | `scaffold-system/.../notification/adapter/NotificationAdapterSupport.java`（新增）、`scaffold-system/.../notification/adapter/WebhookNotificationAdapter.java`、`scaffold-system/.../notification/adapter/SmsNotificationAdapter.java`、`scaffold-system/.../notification/adapter/EmailNotificationAdapter.java` | ✅ 抛错类型（`VALIDATION_ERROR`）、消息串逐字一致；`WebhookNotificationAdapterTest` 的 `throwsWhenDisabled` 等用例**零改动全绿** |
+| **R6-B** | 重构·去重 | `SmsNotificationAdapter.withUnsubscribeSuffix` 与 `EmailNotificationAdapter.withUnsubscribeFooter` 两私有方法**逐字同构**（无链接/超长→回落原正文，仅 suffix 字面量与 `MAX_CONTENT_LEN` 阈值参数不同），属退订链接追加职责的多份实现。 | 提取 `UnsubscribeAppendRules.appendOrFallback(String content, String link, String suffix, int maxLen)` 公共工具，两适配器删除各自私有方法改调之；Sms 的 `" 退订请点击："` 以字面量内联、Email 的 `UNSUBSCRIBE_FOOTER` 常量保留并传参；阈值分别取 `SmsRules.MAX_CONTENT_LEN` / `EmailRules.MAX_CONTENT_LEN`。 | `scaffold-system/.../notification/unsubscribe/rules/UnsubscribeAppendRules.java`（新增）、`scaffold-system/.../notification/adapter/SmsNotificationAdapter.java`、`scaffold-system/.../notification/adapter/EmailNotificationAdapter.java` | ✅ 链路等价：链接为空 → 原样返回；追加后超长 → 回落原正文；未超长 → 原 `content + suffix + link`。`NotificationUnsubscribeServiceTest`/`SmsNotificationAdapter`/`EmailNotificationAdapter` 相关用例**零改动全绿** |
+
+**验证**：双门禁复验全绿——`mvn -o -pl scaffold-system -am clean test` **713 例单测 0 失败**（继承 §3.6 验证范围，含 `WebhookNotificationAdapterTest`/`SmsNotificationAdapter`/`EmailNotificationAdapter` 相关用例）；`scripts/check-conventions.py` EXIT=0（仅 1 条模块分层概览 INFO 级提示，非违规）。commit `7205f95`（5 files, +63/−33）。
+
 ---
 
 ## 4. 性能测试结论
@@ -286,7 +297,7 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 ## 7. 后续建议（优先级）
 
-> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**R5 通知机器人适配器/配置类去重重构已落地**（详见 §3.6）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变；R5 为通知机器人层去重，dispatch 流程与测试零改动；**R5-W 进一步将 Webhook 适配器自有的私有 `resolveUrl` 收敛到共享 `RobotUrlSupport`**（URL 解析单一事实来源），双门禁复验全绿。
+> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**R5 通知机器人适配器/配置类去重重构已落地**（详见 §3.6）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变；R5 为通知机器人层去重，dispatch 流程与测试零改动；**R5-W 进一步将 Webhook 适配器自有的私有 `resolveUrl` 收敛到共享 `RobotUrlSupport`**（URL 解析单一事实来源）；**R6 进一步将三个简单通知适配器（Webhook/短信/邮件）内的「渠道未启用」throw 样板收敛到 `NotificationAdapterSupport.requireChannelEnabled`、将「退订链接追加」同构逻辑收敛到 `UnsubscribeAppendRules.appendOrFallback`**，双门禁复验全绿（详见 §3.7）。
 
 1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。`UserService` / `UserAccountDataAdapter` 状态校验已对齐至 `DomainValidators`/`RecordStatus` 范式（见 §3.5 `F1-align-1/2`）。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
