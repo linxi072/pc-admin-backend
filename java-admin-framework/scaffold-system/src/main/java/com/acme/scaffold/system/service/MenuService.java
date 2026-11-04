@@ -3,6 +3,7 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tree.TreeBuilder;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
@@ -163,7 +164,7 @@ public class MenuService {
         menu.setIcon(request.icon());
         menu.setVisible(request.visible() == null ? 1 : request.visible());
         menu.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
-        menu.setStatus(request.status() == null ? "ACTIVE" : request.status());
+        menu.setStatus(RecordStatus.normalize(request.status()));
         JooqWriters.insert(dsl, MENU, menu);
         return menu.getId();
     }
@@ -227,7 +228,7 @@ public class MenuService {
         menu.setIcon(request.icon());
         menu.setVisible(request.visible() == null ? existing.getVisible() : request.visible());
         menu.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
-        menu.setStatus(request.status() == null ? existing.getStatus() : request.status());
+        menu.setStatus(request.status() == null ? existing.getStatus() : RecordStatus.normalize(request.status()));
         JooqWriters.updateById(dsl, MENU, id, menu);
     }
 

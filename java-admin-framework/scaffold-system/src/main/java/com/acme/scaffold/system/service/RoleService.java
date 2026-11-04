@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
@@ -50,7 +51,7 @@ public class RoleService {
         role.setRoleCode(request.roleCode());
         role.setRoleName(request.roleName());
         role.setRoleType(request.roleType() == null ? "BUSINESS" : request.roleType());
-        role.setStatus(request.status() == null ? "ACTIVE" : request.status());
+        role.setStatus(RecordStatus.normalize(request.status()));
         role.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
         JooqWriters.insert(dsl, ROLE, role);
         assignMenus(role.getId(), request.menuIds());
@@ -71,7 +72,7 @@ public class RoleService {
             role.setRoleType(request.roleType());
         }
         if (request.status() != null) {
-            role.setStatus(request.status());
+            role.setStatus(RecordStatus.normalize(request.status()));
         }
         if (request.sortNo() != null) {
             role.setSortNo(request.sortNo());

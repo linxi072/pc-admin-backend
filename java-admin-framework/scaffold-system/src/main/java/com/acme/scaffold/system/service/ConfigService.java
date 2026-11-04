@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.ConfigGroupVO;
@@ -113,7 +114,7 @@ public class ConfigService {
         c.setConfigType(req.configType() == null ? "STRING" : req.configType());
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? 1 : req.editable());
-        c.setStatus(req.status() == null ? "ACTIVE" : req.status());
+        c.setStatus(RecordStatus.normalize(req.status()));
         JooqWriters.insert(dsl, CONFIG, c);
         cache.put(req.configKey(), toVO(c));
         return c.getId();
@@ -137,7 +138,7 @@ public class ConfigService {
         c.setConfigType(req.configType() == null ? existing.getConfigType() : req.configType());
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? existing.getEditable() : req.editable());
-        c.setStatus(req.status() == null ? existing.getStatus() : req.status());
+        c.setStatus(req.status() == null ? existing.getStatus() : RecordStatus.normalize(req.status()));
         JooqWriters.updateById(dsl, CONFIG, id, c);
         cache.remove(oldKey);
         cache.put(req.configKey(), toVO(c));

@@ -3,6 +3,7 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
@@ -166,7 +167,7 @@ public class PostService {
             post.setPostSort(request.postSort());
         }
         if (request.status() != null) {
-            post.setStatus(request.status().trim());
+            post.setStatus(RecordStatus.normalize(request.status()));
         }
         if (request.remark() != null) {
             post.setRemark(request.remark());

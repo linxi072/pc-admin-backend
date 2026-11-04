@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.ApiResourceScanResult;
@@ -94,7 +95,7 @@ public class ApiResourceService {
         api.setHttpMethod(request.httpMethod().toUpperCase());
         api.setPathPattern(request.pathPattern());
         api.setAuthMode(request.authMode() == null ? existing.getAuthMode() : request.authMode());
-        api.setStatus(request.status() == null ? existing.getStatus() : request.status());
+        api.setStatus(request.status() == null ? existing.getStatus() : RecordStatus.normalize(request.status()));
         api.setRiskLevel(request.riskLevel() == null ? existing.getRiskLevel() : request.riskLevel());
         JooqWriters.updateById(dsl, AR, id, api);
     }

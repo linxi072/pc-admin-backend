@@ -3,6 +3,7 @@ package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tree.TreeBuilder;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.permission.DataScope;
@@ -150,7 +151,7 @@ public class OrgService {
         org.setOrgType(request.orgType() == null ? "DEPARTMENT" : request.orgType());
         org.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
         org.setLeaderUserId(request.leaderUserId());
-        org.setStatus(request.status() == null ? "ACTIVE" : request.status());
+        org.setStatus(RecordStatus.normalize(request.status()));
         if (parentId != 0L) {
             SysOrgDO parent = JooqWriters.fetchById(dsl, ORG, SysOrgDO.class, parentId);
             org.setAncestors(parent == null ? "0" : parent.getAncestors() + "," + parentId);
@@ -204,7 +205,7 @@ public class OrgService {
         org.setOrgType(request.orgType() == null ? "DEPARTMENT" : request.orgType());
         org.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
         org.setLeaderUserId(request.leaderUserId());
-        org.setStatus(request.status() == null ? existing.getStatus() : request.status());
+        org.setStatus(request.status() == null ? existing.getStatus() : RecordStatus.normalize(request.status()));
         if (request.leaderUserId() == null) {
             // 清除负责人：updateById 的 NOT_NULL 策略会跳过 null 字段导致旧值残留，
             // 须显式置空（与 ProfileService 解绑手机号/邮箱同一范式）

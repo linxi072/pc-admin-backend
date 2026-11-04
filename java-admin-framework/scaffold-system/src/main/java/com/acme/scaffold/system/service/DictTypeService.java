@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateDictTypeRequest;
@@ -45,7 +46,7 @@ public class DictTypeService {
         SysDictTypeDO t = new SysDictTypeDO();
         t.setDictCode(req.dictCode());
         t.setDictName(req.dictName());
-        t.setStatus(req.status() == null ? "ACTIVE" : req.status());
+        t.setStatus(RecordStatus.normalize(req.status()));
         t.setSortNo(req.sortNo() == null ? 0 : req.sortNo());
         t.setRemark(req.remark());
         JooqWriters.insert(dsl, TYPE, t);
@@ -64,7 +65,7 @@ public class DictTypeService {
         SysDictTypeDO t = new SysDictTypeDO();
         t.setDictCode(req.dictCode());
         t.setDictName(req.dictName());
-        t.setStatus(req.status() == null ? existing.getStatus() : req.status());
+        t.setStatus(req.status() == null ? existing.getStatus() : RecordStatus.normalize(req.status()));
         t.setSortNo(req.sortNo() == null ? existing.getSortNo() : req.sortNo());
         t.setRemark(req.remark());
         JooqWriters.updateById(dsl, TYPE, id, t);

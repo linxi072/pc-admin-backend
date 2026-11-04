@@ -2,6 +2,7 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.system.dto.CreateDictDataRequest;
@@ -87,7 +88,7 @@ public class DictDataService {
         d.setDictLabel(req.dictLabel());
         d.setDictValue(req.dictValue());
         d.setDictSort(req.dictSort() == null ? 0 : req.dictSort());
-        d.setStatus(req.status() == null ? "ACTIVE" : req.status());
+        d.setStatus(RecordStatus.normalize(req.status()));
         d.setRemark(req.remark());
         JooqWriters.insert(dsl, DATA, d);
         return d.getId();
@@ -113,7 +114,7 @@ public class DictDataService {
         d.setDictLabel(req.dictLabel());
         d.setDictValue(req.dictValue());
         d.setDictSort(req.dictSort() == null ? existing.getDictSort() : req.dictSort());
-        d.setStatus(req.status() == null ? existing.getStatus() : req.status());
+        d.setStatus(req.status() == null ? existing.getStatus() : RecordStatus.normalize(req.status()));
         d.setRemark(req.remark());
         JooqWriters.updateById(dsl, DATA, id, d);
     }
