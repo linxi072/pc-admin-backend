@@ -49,6 +49,10 @@ public class RateLimitConfig {
         }
         StringRedisTemplate redisTemplate = redisTemplateProvider.getIfAvailable();
         if (redisTemplate == null) {
+            if (properties.isFailClosed()) {
+                log.warn("未检测到 StringRedisTemplate 且 fail-closed 开启，限流拒绝全部请求");
+                return new DenyRateLimiter();
+            }
             log.warn("未检测到 StringRedisTemplate，限流回落进程内内存计数");
             return fallback;
         }

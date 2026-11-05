@@ -67,11 +67,20 @@ public class RedisRateLimiter implements RateLimiter {
             // 序列化 Long 触发 ClassCastException（java.lang.Long cannot be cast to java.lang.String）。
             Long count = redisTemplate.execute(FIXED_WINDOW_SCRIPT, List.of(redisKey), String.valueOf(windowMillis));
             if (count == null) {
+                if (properties.isFailClosed()) {
+                    log.warn("Redis 限流计数返回空（key={}），fail-closed 拒绝请求", redisKey);
+                    return false;
+                }
                 log.warn("Redis 限流计数返回空（key={}），回落本地计数", redisKey);
                 return fallback.tryAcquire(key, max, windowSeconds, nowMillis);
             }
             return count <= max;
         } catch (DataAccessException ex) {
+            if (properties.isFailClosed()) {
+                // Redis 不可用且 fail-closed：拒绝服务，避免限流失效被绕过（安全性优先于可用性）
+                log.warn("Redis 不可用，fail-closed 拒绝请求（key={}）: {}", redisKey, ex.toString());
+                return false;
+            }
             // Redis 不可用：fail-open 回落本地计数，避免限流自身阻断业务
             log.warn("Redis 不可用，限流回落本地计数（key={}）: {}", redisKey, ex.toString());
             return fallback.tryAcquire(key, max, windowSeconds, nowMillis);

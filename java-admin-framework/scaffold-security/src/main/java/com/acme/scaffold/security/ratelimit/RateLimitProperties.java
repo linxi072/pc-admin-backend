@@ -18,6 +18,22 @@ public class RateLimitProperties {
     /** Redis 键前缀，用于隔离限流计数与其它键空间。 */
     private String keyPrefix = "ratelimit";
 
+    /**
+     * Redis 不可用时是否 fail-closed（拒绝服务）而非 fail-open 回落本地计数。
+     * 默认 false（兼容旧语义：Redis 不可用时限流失效但不阻断业务）；
+     * 设为 true 后，Redis 不可用（或计数异常）将拒绝全部请求（429），
+     * 适用于「限流失效比限流误杀更不可接受」的高安全场景（如防爆破）。
+     */
+    private boolean failClosed = false;
+
+    public boolean isFailClosed() {
+        return failClosed;
+    }
+
+    public void setFailClosed(boolean failClosed) {
+        this.failClosed = failClosed;
+    }
+
     public enum Store {
         /** 进程内内存计数（单实例 / 不依赖 Redis）。 */
         LOCAL,
