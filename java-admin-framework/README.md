@@ -4,12 +4,12 @@
 
 > 本脚手架已完成**技术栈迁移**：持久层由 MyBatis-Plus → jOOQ，任务调度由 XXL-JOB → JobRunr；迁移后功能与原实现保持一致（表结构、接口契约、权限码、流程语义均未变更），且**全流程不使用 Docker**（构建与部署均以原生进程方式运行）。
 >
-> V1.0.3 起工程按功能维度拆分为 **12 个 Maven 模块**（参照 RuoYi-Vue 模块化单体思路），模块职责、依赖 DAG 与命名规范见 **[`docs/MODULES.md`](docs/MODULES.md)**；架构 / 关键流程 / 使用方式见 `docs/` 下新生成的核心文档。
+> V1.0.3 起工程按功能维度拆分为 **17 个 Maven 模块**（参照 RuoYi-Vue 模块化单体思路；权威模块清单以根 `pom.xml` 的 `<modules>` 为准），模块职责、依赖 DAG 与命名规范见 **[`docs/MODULES.md`](docs/MODULES.md)**；架构 / 关键流程 / 使用方式见 `docs/` 下新生成的核心文档。
 
 ## 模块结构
 
 ```
-java-admin-framework
+java-admin-framework（17 个 Maven 模块）
 ├── scaffold-admin        # 启动装配层：应用入口、运行期配置、Flyway 迁移、集成测试（唯一可部署模块）
 ├── scaffold-common       # 基础层：统一响应/异常/分页、i18n、审计/幂等切面、导出/导入、jOOQ DSL
 ├── scaffold-realtime     # 通信层：WebSocket 握手鉴权端口与会话管理
@@ -21,7 +21,12 @@ java-admin-framework
 ├── scaffold-monitor      # 业务层：告警收件箱、健康探针、监控查询
 ├── scaffold-job          # 业务层：任务定义管理与周期任务注册（JobRunr）
 ├── scaffold-workbench    # 业务层：工作台看板与报表
-└── scaffold-workflow     # 业务层：Flowable 对接、任务认领/转办/完成
+├── scaffold-workflow     # 业务层：Flowable 对接、任务认领/转办/完成
+├── scaffold-approval     # 业务层：审批中心门户（编排 workflow 能力）
+├── scaffold-cms          # 业务层：内容管理（启发式/占位实现）
+├── scaffold-im           # 业务层：即时通讯（启发式/占位实现）
+├── scaffold-plugin       # 工具层：插件扩展点（启发式/占位实现）
+└── scaffold-ai           # 业务层：AI 接入（默认关闭，占位实现）
 ```
 
 ## 文档
