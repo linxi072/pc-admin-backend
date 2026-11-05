@@ -142,6 +142,12 @@ public class WorkflowService {
     @Idempotent(scope = "workflow:task:complete", requireKey = true)
     @Transactional
     public void completeTask(CompleteTaskRequest request) {
+        // TRANSFER 属于「转办」而非审批动作：complete 只区分 REJECT/非 REJECT，若放任其直达
+        // 会被静默当作一次普通通过（任务被办结却不产生转办记录），属于业务语义事故，故显式拦截。
+        if (request.action() == ApprovalAction.TRANSFER) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                    "TRANSFER 不是审批动作，请调用转办接口 /api/workflow/tasks/transfer");
+        }
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
         if (existsOperation(request.operationId())) {
             log.info("审批操作幂等命中 operationId={}", request.operationId());
