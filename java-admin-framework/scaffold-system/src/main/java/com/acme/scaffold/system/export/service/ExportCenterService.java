@@ -10,6 +10,8 @@ import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.system.dto.ExportTemplateView;
 import com.acme.scaffold.system.export.config.ExportProperties;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -17,6 +19,8 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * 导出中心编排服务（D3：将 {@code ExportController} 内的导出编排逻辑下沉至此）。
@@ -33,6 +37,26 @@ public class ExportCenterService {
     public ExportCenterService(List<ExportTask> exportTasks, ExportProperties exportProperties) {
         this.exportTasks = exportTasks;
         this.exportProperties = exportProperties;
+    }
+
+    /**
+     * 异步离场导出（P1-5）：在独立导出线程池（{@code exportExecutor}）上执行 {@link #download}，
+     * 与请求线程隔离，避免大结果集导出的查询/物化长时间占用 HTTP 请求线程。
+     * 未注入导出执行器（如单元测试直构造）时回落调用方线程，行为等价于同步 {@link #download}。
+     */
+    @Autowired(required = false)
+    @Qualifier("exportExecutor")
+    private Executor exportExecutor;
+
+    /** 同步导出（薄服务编排，详见 {@link #download(Map)}）。 */
+    public ExportedFile downloadSync(Map<String, String> allParams) {
+        return download(allParams);
+    }
+
+    /** 异步导出：返回 future；失败以异常完成，由调用方决定降级（重试/提示）。 */
+    public CompletableFuture<ExportedFile> downloadAsync(Map<String, String> allParams) {
+        Executor ex = exportExecutor != null ? exportExecutor : Runnable::run;
+        return CompletableFuture.supplyAsync(() -> download(allParams), ex);
     }
 
     /** 列出全部已注册模板及其支持的格式。 */
