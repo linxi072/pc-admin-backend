@@ -55,4 +55,29 @@ class RecordStatusTest {
     void namesWhitelistHasFourMembers() {
         assertEquals(4, RecordStatus.NAMES.size());
     }
+
+    @Test
+    void mergeOrKeepKeepsExistingWhenIncomingNull() {
+        // update 场景：未传状态 → 保留原值（而非回落 DEFAULT）
+        assertEquals("LOCKED", RecordStatus.mergeOrKeep(null, "LOCKED"));
+        assertEquals("DISABLED", RecordStatus.mergeOrKeep(null, "DISABLED"));
+    }
+
+    @Test
+    void mergeOrKeepNormalizesNonBlankIncoming() {
+        assertEquals("ACTIVE", RecordStatus.mergeOrKeep("active", "LOCKED"));
+        assertEquals("DISABLED", RecordStatus.mergeOrKeep("  Disabled ", "ACTIVE"));
+    }
+
+    @Test
+    void mergeOrKeepBlankIncomingFallsBackToActiveNotExisting() {
+        // 空白非 null，走 normalize → DEFAULT，而非保留 existing
+        assertEquals("ACTIVE", RecordStatus.mergeOrKeep("", "LOCKED"));
+        assertEquals("ACTIVE", RecordStatus.mergeOrKeep("   ", "DISABLED"));
+    }
+
+    @Test
+    void mergeOrKeepThrowsForIllegalIncoming() {
+        assertThrows(BusinessException.class, () -> RecordStatus.mergeOrKeep("FOO", "ACTIVE"));
+    }
 }

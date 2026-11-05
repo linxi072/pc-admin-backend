@@ -205,7 +205,7 @@ public class OrgService {
         org.setOrgType(request.orgType() == null ? "DEPARTMENT" : request.orgType());
         org.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
         org.setLeaderUserId(request.leaderUserId());
-        org.setStatus(request.status() == null ? existing.getStatus() : RecordStatus.normalize(request.status()));
+        org.setStatus(RecordStatus.mergeOrKeep(request.status(), existing.getStatus()));
         if (request.leaderUserId() == null) {
             // 清除负责人：updateById 的 NOT_NULL 策略会跳过 null 字段导致旧值残留，
             // 须显式置空（与 ProfileService 解绑手机号/邮箱同一范式）

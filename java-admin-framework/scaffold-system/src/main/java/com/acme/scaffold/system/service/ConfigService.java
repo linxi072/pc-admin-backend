@@ -136,7 +136,7 @@ public class ConfigService {
         c.setConfigType(req.configType() == null ? existing.getConfigType() : req.configType());
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? existing.getEditable() : req.editable());
-        c.setStatus(req.status() == null ? existing.getStatus() : RecordStatus.normalize(req.status()));
+        c.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
         JooqWriters.updateById(dsl, CONFIG, id, c);
         cache.remove(oldKey);
         cache.put(req.configKey(), toVO(c));

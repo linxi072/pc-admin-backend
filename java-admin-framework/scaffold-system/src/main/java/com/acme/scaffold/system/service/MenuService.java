@@ -223,7 +223,7 @@ public class MenuService {
         menu.setIcon(request.icon());
         menu.setVisible(request.visible() == null ? existing.getVisible() : request.visible());
         menu.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
-        menu.setStatus(request.status() == null ? existing.getStatus() : RecordStatus.normalize(request.status()));
+        menu.setStatus(RecordStatus.mergeOrKeep(request.status(), existing.getStatus()));
         JooqWriters.updateById(dsl, MENU, id, menu);
     }
 

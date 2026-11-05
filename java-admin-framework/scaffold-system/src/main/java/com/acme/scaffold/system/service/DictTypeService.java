@@ -63,7 +63,7 @@ public class DictTypeService {
         SysDictTypeDO t = new SysDictTypeDO();
         t.setDictCode(req.dictCode());
         t.setDictName(req.dictName());
-        t.setStatus(req.status() == null ? existing.getStatus() : RecordStatus.normalize(req.status()));
+        t.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
         t.setSortNo(req.sortNo() == null ? existing.getSortNo() : req.sortNo());
         t.setRemark(req.remark());
         JooqWriters.updateById(dsl, TYPE, id, t);

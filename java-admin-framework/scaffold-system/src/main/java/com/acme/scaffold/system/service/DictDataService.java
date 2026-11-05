@@ -112,7 +112,7 @@ public class DictDataService {
         d.setDictLabel(req.dictLabel());
         d.setDictValue(req.dictValue());
         d.setDictSort(req.dictSort() == null ? existing.getDictSort() : req.dictSort());
-        d.setStatus(req.status() == null ? existing.getStatus() : RecordStatus.normalize(req.status()));
+        d.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
         d.setRemark(req.remark());
         JooqWriters.updateById(dsl, DATA, id, d);
     }

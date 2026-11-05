@@ -56,4 +56,19 @@ public enum RecordStatus {
                 "记录状态非法（须为 ACTIVE/DISABLED/INACTIVE/LOCKED）");
         return normalized;
     }
+
+    /**
+     * 合并状态：update 场景中「入参状态为 null 则保留原值，否则按白名单归一」。
+     *
+     * <p>等价于 {@code incoming == null ? existing : normalize(incoming)}，仅作样板收敛。
+     * 注意：与 {@link #normalize} 不同，本方法对 null 入参回落 {@code existing}（保留原值），
+     * 而非回落 {@link #DEFAULT}——这正是 update「未传状态即不动」语义所需要的。</p>
+     *
+     * @param incoming 入参状态（允许 null，此时保留 existing）
+     * @param existing 既有状态（回落值）
+     * @return 规范大写状态名，或 incoming 为 null 时的 existing
+     */
+    public static String mergeOrKeep(String incoming, String existing) {
+        return incoming == null ? existing : normalize(incoming);
+    }
 }

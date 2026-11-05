@@ -88,7 +88,7 @@ public class ApiResourceService {
         api.setHttpMethod(request.httpMethod().toUpperCase());
         api.setPathPattern(request.pathPattern());
         api.setAuthMode(request.authMode() == null ? existing.getAuthMode() : request.authMode());
-        api.setStatus(request.status() == null ? existing.getStatus() : RecordStatus.normalize(request.status()));
+        api.setStatus(RecordStatus.mergeOrKeep(request.status(), existing.getStatus()));
         api.setRiskLevel(request.riskLevel() == null ? existing.getRiskLevel() : request.riskLevel());
         JooqWriters.updateById(dsl, AR, id, api);
     }
