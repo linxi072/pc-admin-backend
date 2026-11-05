@@ -2,18 +2,22 @@
 
 > 配套文档：`LAUNCH-READINESS-ASSESSMENT-V1.1.0.md`（复评报告，含「标准—评估—整改」清单）。
 > 分支：`feat/V1.0.7`（本地提交，未推送 origin；由用户本机评审后推送）。
-> 范围：报告标记为「未达标 / 部分达标」的功能项 **P4、P7、C6、C9、S10、ST5、F5**；F4 列为后续迭代（仅在本说明中标注，不实现功能代码）。
+> 范围：首轮整改报告标记为「未达标 / 部分达标」的 **P4、P7、C6、C9、S10、ST5、F5**；
+> 续作按「剩余业务功能逻辑」要求补齐 **F4**（详见 §8）。至此清单 8 项全部收口。
 
 ---
 
 ## 0. 双门禁复验结果（整改后）
 
-| 门禁 | 命令 | 结果 |
+| 门禁 | 命令 | 结果（F4 续作后复验） |
 | --- | --- | --- |
-| 单元测试全量 | `mvn -o clean test`（JDK 21，离线） | **BUILD SUCCESS**，17 个模块全绿，0 失败 0 错误 |
-| 约定校验 | `scripts/check-conventions.py` | **EXIT=0**，无 H1–H5 硬违规（仅 1 项 W* 模块分层提示，非阻断） |
+| 单元测试全量 | `mvn -o clean test`（JDK 21，离线，17 模块） | **BUILD SUCCESS / EXIT=0**，**2040 例**：0 失败 0 错误 0 跳过 |
+| 约定校验 | `scripts/check-conventions.py` | **EXIT=0**，扫描 978 个 Java 文件，无 H1–H5 硬违规（仅 1 项 W* 模块分层提示，非阻断） |
+| 前端单测 | `npm test`（node:test） | **91/91 通过**（含新增 `approvalActions.test.js` 6 例） |
+| 前端构建 | `npm run build`（vite） | **EXIT=0** |
 
-> 注：前端 `pc-admin-vue3-vite` 本轮未改动，未重复 `vite build`；后端双门禁为本次验收阈值。
+> 注：首轮整改前端未改动；F4 续作涉及 `pc-admin-vue3-vite`（审批工作台 UI / API / i18n），
+> 故前端单测与 `vite build` 一并纳入本轮验收阈值。
 
 ---
 
@@ -79,10 +83,42 @@
 
 涉及文件：`LlmNotImplementedException.java`（新）、`AiExceptionAdvice.java`（新）、`CloudLlmProvider.java`。
 
-## 8. F4 — 占位/启发式模块（后续迭代，本轮不实现）
+## 8. F4 — 剩余业务功能逻辑补齐（续作收口）
 
 - **原评估（部分达标，沿用 V1.0.7）**：`ai`/`im`/`cms`/`approval`/`plugin`/`codegen` 部分占位/启发式，单测薄弱、无独立 IT。
-- **本轮处置**：按任务范围列为后续迭代，**未改动功能代码**；仅随全量双门禁复验确保其既有测试仍绿（本次 `mvn -o clean test` 中 cms/im/plugin/codegen/ai 模块均 SUCCESS）。建议在首版后迭代中补齐最小可用实现与独立 IT，并在对外暴露前标注「实验性/非 GA」。
+- **复核结论**：逐模块盘点后，`ai`（启发式 DDL/代码生成 + 空提示词/超长提示词门禁）、`cms`、`im` 已有独立 H2 集成测试与较完整 CRUD；`plugin`/`codegen` 已有单测。真正的缺口不是「没有实现」，而是 ① `approval` 仅只读聚合、缺可操作写动作；② 若干**业务状态机与边界**缺陷。故本轮不做机械重写，按「薄编排 + 边界补全 + 门禁可执行的集成测试」收口，且保持既有达标功能行为不变。
+
+### 8.1 approval：只读门户 → 可操作审批工作台
+
+- 新增 `ApprovalActionService`（薄门面，委托 `WorkflowService`，不重复实现引擎）与 `ApprovalActionController`（`/api/approval/actions/**`），覆盖 **发起 / 审批 / 转办 / 委派 / 办结委派 / 认领** 6 个写动作；权限码 `approval:action:*` 由 `ApiResourceAutoSyncRunner` 扫描 `@PreAuthorize` 自动登记并授予 SUPER_ADMIN，各端点带 `@AuditOperation`。
+- 业务边界：① 发起仅允许门户「可发起（PUBLISHED）」流程，且同时校验 `processKey` **与** `status`（上游混入草稿/停用时由门面自行守门）；设计目录为空时放行 `workflow` 兜底，保证空数据环境可用；② 拦截 `ApprovalAction.TRANSFER` 作为审批动作提交；③ `taskId` / `operationId` / 目标用户前置非空校验（保护非 HTTP 内部调用）。
+- **同源缺陷修复**：`WorkflowService.completeTask` 引擎层同样拦截 `TRANSFER`——原实现只区分 `REJECT`/非 `REJECT`，传入 `TRANSFER` 会被静默当作一次普通通过（任务办结却不产生转办记录），`/api/workflow/tasks/complete` 端点亦受影响。
+- 前端：新增独立 `api/approvalActions.js`（**不改动** `approval.js`，保持门户只读契约测试 `approval.test.js` 断言不变），4 个幂等写动作携带 `Idempotency-Key` 请求头且与 `body.operationId` 同值，对齐 `@Idempotent(requireKey=true)` 的双重去重；`PortalView.vue` 待办页接入通过/驳回/转办/委派/办结委派/认领，可发起页接入发起流程，中英 i18n 键补齐。
+- 验证：`ApprovalActionServiceTest` 10 例（委托 + 边界拒绝）+ 既有 `ApprovalPortalServiceTest` 3 例全绿；前端 `approvalActions.test.js` 6 例契约测试全绿。
+
+### 8.2 cms：发布状态机幂等与事件一致性
+
+- 缺陷：`publish()` 每次调用都刷新 `publishedAt` 并广播 `ArticlePublishedEvent`（重复发布会让下游通知/检索重复消费）；`setOfflineAt(null)` 因 `JooqWriters.updateById` 跳过 null 字段**从未落库**，重新发布后残留下线时间；`create`/`update` 可绕过 `publish` 直接置 PUBLISHED 却没有发布时间与事件。
+- 整改：抽出统一 `publishEvent(...)` 出口；`publish`/`offline` 幂等（已处于目标态直接返回）；重新发布改走 `updateByIdWithNulls(..., Set.of("offline_at"))` 显式清空；`create` 直接 PUBLISHED、`update` 由非 PUBLISHED 转入 PUBLISHED 时同样补登 `publishedAt` 并广播**恰好一次**；`update` 转出 OFFLINE 时清 `offline_at`。
+- 验证：新增 H2 集成测试 `CmsArticlePublishFlowTest` 7 例，精确断言事件次数、`publishedAt` 稳定性、`offlineAt` 清空与完整状态机 happy path。
+
+### 8.3 im：会话/消息业务边界
+
+| # | 缺陷 | 整改 |
+| --- | --- | --- |
+| 1 | `addMember` 对曾被移除的成员直接 INSERT 会撞唯一键 `(tenant_id, conversation_id, user_id)`（唯一键不区分逻辑删除） | 先按「含已删除」条件查找并**复活**旧行（恢复 ACTIVE/MEMBER/deleted=0），未命中才新建 |
+| 2 | `createConversation` 允许把创建者本人列为对端，去重后产生单人 P2P / 人数不足的群 | 前置拦截 `peers.contains(ownerId)` |
+| 3 | 群主退群须转交「最早剩余成员」，但查询无 ORDER BY，交接对象不确定 | 补 `MEMBER.field("id").asc()`，注释与实现对齐 |
+| 4 | `markRead` 在会话内无消息时把已读游标置为 null，历史已读状态回退成未读 | 改为**只前进不回退**：`maxId == null` 或 ≤ 现有游标时直接返回 |
+| 5 | 已撤回消息正文已清空却仍计入未读 | `ImMessageService` / `ImConversationService` 两处 `computeUnread` 统一排除 `RECALLED` |
+
+- 验证：新增 H2 集成测试 `ImBoundaryFlowTest` 9 例，覆盖上述 5 点及非成员发送 / 空内容拒绝。
+
+### 8.4 关于「无独立 IT」口径的澄清
+
+本仓 `*IT` 由 failsafe 在 `verify` 阶段执行且本地默认跳过（根 pom 注释明确「集成测试默认跳过：`mvn test/verify` 不触发 `*IT`」），因此命名为 `*IT` 的用例在 `mvn -o clean test` 门禁中**根本不会被执行**。本轮新增集成测试统一采用 `*Test` 命名 + 独立 H2 内存库夹具（`CmsH2` / `ImH2`），确保被 surefire 覆盖、门禁真实执行——这比新增不被执行的 `*IT` 更符合「完全通过对应测试或验收」的要求。
+
+涉及文件：`ApprovalActionService.java`（新）、`ApprovalActionController.java`（新）、`ApprovalActionServiceTest.java`（新）、`ApprovalPortalController.java`、`scaffold-approval/pom.xml`、`WorkflowService.java`、`api/approvalActions.js`（新）、`api/__tests__/approvalActions.test.js`（新）、`views/approval/PortalView.vue`、`i18n/messages.js`、`CmsArticleService.java`、`CmsArticlePublishFlowTest.java`（新）、`ImConversationService.java`、`ImMessageService.java`、`ImBoundaryFlowTest.java`（新）。
 
 ---
 
@@ -98,11 +134,20 @@
 | 6 | feat(framework) | ST5 N+1 探测 fail 模式 |
 | 7 | feat(ai) | F5 云模型未就绪返回 501 |
 | 8 | docs | 本整改核对说明 + 复评报告归档 |
+| 9 | feat(approval) | F4-1 审批中心动作门面（6 个写动作 + 边界校验 + 权限/审计） |
+| 10 | fix(workflow) | F4-1 同源缺陷：`completeTask` 拦截 TRANSFER 被静默当作通过 |
+| 11 | feat(frontend) | F4-1 审批工作台 UI 接入动作 API + i18n + 契约测试 |
+| 12 | feat(cms) | F4-2 文章发布状态机幂等与事件一致性 |
+| 13 | feat(im) | F4-3 会话/消息 5 项业务边界修复 |
+| 14 | test | F4 集成与契约测试（approval/cms/im H2 + 前端 API） |
+| 15 | docs | 回填 F4 闭环与四门禁复验结果 |
+
+> 全部为本地提交，**未推送 origin**（`feat/V1.0.7`），由用户本机评审后推送。
 
 ---
 
 ## 10. 遗留与后续
 
 - **C9 真实 CVE 扫描**：需联网/已缓存 NVD 的 CI 环境执行 `mvn -Psca verify` 获取真实报告，据结果补充 `dependency-check-suppressions.xml` 具体条目（当前为策略模板）。
-- **F4**：首版后迭代补齐 `ai/im/cms/approval/plugin/codegen` 最小可用实现与独立 IT。
 - **P4 存量 OFFSET 端点**：`user`/`message` 主列表仍提供 OFFSET 端点（保留前端契约），深翻页统一引导至 keyset 端点，属渐进收敛，非阻断。
+- **F4 已收口**：`approval` 可写动作门面、cms 发布状态机、im 会话/消息边界均补齐并有 surefire 可执行的 H2 集成测试；`ai`/`plugin`/`codegen` 沿用既有启发式实现与单测，若后续要对外宣称 GA，仍需按 §4.6 建议补更完整的端到端 IT。
