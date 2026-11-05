@@ -2,7 +2,8 @@ name: CI
 
 # G4 质量门禁：push / PR 触发；编码约定（convention-check，H1-H4 硬违规即失败并输出失败原因）、
 # 单元（surefire *Test）与集成（failsafe *IT，MySQL 服务容器）全绿方可通过；
-# 任一测试失败即流水线失败并阻断合并。静态扫描（SCA）作为非阻塞 advisory 作业。
+# 任一测试失败即流水线失败并阻断合并。SCA（OWASP dependency-check，经 -Psca 激活 pom 内 sca profile 策略）对 CVSS>=9 高危 CVE 失败阻断；
+# 低/中危仅入报告。suppression 清单（scripts/dependency-check-suppressions.xml）须逐条注明 CVE 与抑制理由，禁止无理由全盘抑制。
 on:
   push:
     branches: ["**"]
@@ -84,10 +85,12 @@ jobs:
         run: mvn -B verify -DskipITs=false
 
   sca:
-    name: Dependency SCA (advisory)
+    name: Dependency SCA (block on CVSS>=9)
     runs-on: ubuntu-latest
-    # 可选静态扫描门禁：非阻塞，失败不阻断合并（G4「可选覆盖率/静态扫描门禁」）
-    continue-on-error: true
+    # SCA 门禁：经 -Psca 激活 pom 内 sca profile（failBuildOnCVSS=9 + suppressionFile），
+    # 对 CVSS>=9 高危依赖漏洞失败阻断合并；低/中危仅入报告。离线/无 NVD 网络时本作业会因无法拉取
+    # NVD 数据而失败——dataDirectory 已锁定至 ~/.m2/repository/org/owasp/dependency-check-data，
+    # CI 经 actions/cache 复用该目录以实现可复现扫描（离线私服须预置 NVD 镜像）。
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -96,8 +99,15 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: OWASP dependency-check
-        run: mvn -B org.owasp:dependency-check-maven:10.0.4:check -DfailOnError=false
+      - name: Cache dependency-check NVD data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: ${{ runner.os }}-dc-nvd-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-dc-nvd-
+      - name: OWASP dependency-check (block on CVSS>=9)
+        run: mvn -B -Psca -DskipTests -DskipITs verify
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4

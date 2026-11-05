@@ -18,5 +18,12 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: OWASP Dependency-Check
-        run: mvn -B -DskipTests org.owasp:dependency-check-maven:check
+      - name: Cache dependency-check NVD data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: ${{ runner.os }}-dc-nvd-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-dc-nvd-
+      - name: OWASP Dependency-Check (block on CVSS>=9 via -Psca)
+        run: mvn -B -Psca -DskipTests -DskipITs verify

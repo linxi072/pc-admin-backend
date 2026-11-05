@@ -368,6 +368,7 @@
                             <failBuildOnCVSS>9</failBuildOnCVSS>
                             <suppressionFile>scripts/dependency-check-suppressions.xml</suppressionFile>
                             <excludeScope>test</excludeScope>
+                            <dataDirectory>${user.home}/.m2/repository/org/owasp/dependency-check-data</dataDirectory>
                         </configuration>
                         <executions>
                             <execution>
