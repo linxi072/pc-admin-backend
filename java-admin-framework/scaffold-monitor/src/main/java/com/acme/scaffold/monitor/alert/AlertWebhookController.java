@@ -43,7 +43,12 @@ public class AlertWebhookController {
                     .body(Result.error("ALERT_WEBHOOK_DISABLED", "告警接收端未启用"));
         }
         String expected = props.getWebhook().getToken();
-        if (expected != null && !expected.isBlank() && !expected.equals(token)) {
+        if (expected == null || expected.isBlank()) {
+            // 令牌未配置：拒绝启用端点（fail-closed），避免默认空令牌下匿名开放、外部伪造告警注入
+            return ResponseEntity.status(503)
+                    .body(Result.error("ALERT_WEBHOOK_TOKEN_MISSING", "告警接收端未配置令牌，拒绝启用"));
+        }
+        if (!expected.equals(token)) {
             return ResponseEntity.status(401)
                     .body(Result.error("ALERT_TOKEN_INVALID", "告警令牌不匹配"));
         }
