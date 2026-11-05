@@ -15,9 +15,7 @@
             <maxHistory>30</maxHistory>
             <totalSizeCap>5GB</totalSizeCap>
         </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
+        <encoder class="com.acme.scaffold.admin.logging.JsonLogEncoder"/>
     </appender>
 
     <root level="INFO">
@@ -25,7 +23,8 @@
         <appender-ref ref="FILE"/>
     </root>
 
-    <logger name="com.acme.scaffold" level="DEBUG"/>
+    <!-- P1-9：生产环境收敛到 INFO，避免 DEBUG 噪声淹没结构化日志与监控 -->
+    <logger name="com.acme.scaffold" level="INFO"/>
     <logger name="org.flowable" level="WARN"/>
     <logger name="org.jobrunr" level="INFO"/>
 </configuration>

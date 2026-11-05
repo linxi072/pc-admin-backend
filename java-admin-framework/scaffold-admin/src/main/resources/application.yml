@@ -42,6 +42,10 @@ spring:
 
 server:
   port: 8080
+  # API 版本段（P2-2）：经环境变量注入统一前缀，演进期 Breaking Change 可隔离。
+  # 默认空（与既有集成测试/网关兼容）；生产/容器部署建议置 /api/v1（见 deploy/docker-compose.yml）。
+  servlet:
+    context-path: ${APP_API_CONTEXT_PATH:}
   shutdown: graceful
   forward-headers-strategy: framework
 
@@ -317,6 +321,9 @@ app:
 #       与既有 W3C traceparent / MDC traceId 对齐；联网环境可平滑切换至官方 SDK（-Potel）。
 observability:
   otlp:
+    # P1-9：OTLP/HTTP span 导出（零依赖自研导出器）。默认关闭，避免本地/测试环境无 Collector 时噪声；
+    # 生产/容器部署经环境变量 OBSERVABILITY_OTLP_ENABLED=true（见 deploy/docker-compose.yml）开启，
+    # 并指向实际 Collector 端点 OTLP_ENDPOINT。
     enabled: false
     endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
     service-name: ${spring.application.name}
@@ -413,4 +420,4 @@ secret:
 logging:
   level:
     root: INFO
-    com.acme.scaffold: DEBUG
+    com.acme.scaffold: INFO
