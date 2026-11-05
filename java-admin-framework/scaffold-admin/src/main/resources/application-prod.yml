@@ -9,6 +9,10 @@ spring:
     baseline-on-migrate: false
 
 app:
+  # 限流 fail-closed（S10）：分布式部署下 Redis 不可用时拒绝请求（429）而非 fail-open 回落本地计数，
+  # 避免限流失效被绕过（如防爆破）。单实例或非安全场景可显式置 false。
+  ratelimit:
+    fail-closed: true
   datasources:
     entries:
       primary:
