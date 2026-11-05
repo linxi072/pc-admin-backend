@@ -1,0 +1,59 @@
+# 本地/单机可复现部署编排：应用 + MySQL 8.4 + Prometheus（运维观测）。
+# 用法：在仓库根目录执行 `docker compose -f deploy/docker-compose.yml up -d`
+# 敏感变量（JWT_SECRET / ALERT_WEBHOOK_TOKEN / 数据库口令）经 .env 注入，禁止写入本文件。
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"   # 业务端口
+      - "9090:9090"   # management 端口（health/metrics/prometheus）
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # API 版本段（P2-2）：生产统一前缀 /api/v1，演进期 Breaking Change 可隔离
+      APP_API_CONTEXT_PATH: /api/v1
+      # 开启 OTLP/HTTP span 导出（P1-9）：指向实际 Collector 端点（默认 localhost:4318）
+      OBSERVABILITY_OTLP_ENABLED: "true"
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://localhost:4318/v1/traces}
+      # 多数据源等连接串经环境变量外部化（见 scripts/init/env.template）
+      DB_PRIMARY_HOST: mysql
+      DB_PRIMARY_PORT: "3306"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      ALERT_WEBHOOK_TOKEN: ${ALERT_WEBHOOK_TOKEN:?ALERT_WEBHOOK_TOKEN required (P0-2 必填)}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: on-failure
+
+  mysql:
+    image: mysql:8.4
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-java_admin}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: on-failure
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: on-failure
+
+volumes:
+  mysql-data:

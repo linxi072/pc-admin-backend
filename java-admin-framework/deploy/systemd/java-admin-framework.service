@@ -1,0 +1,26 @@
+[Unit]
+Description=java-admin-framework (Spring Boot 模块化单体)
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=app
+Group=app
+WorkingDirectory=/opt/java-admin-framework
+# 运行期变量（JAVA_OPTS / DB_* / JWT_SECRET / ALERT_WEBHOOK_TOKEN 等）集中于此
+EnvironmentFile=/opt/java-admin-framework/env
+ExecStartPre=/bin/sh -c 'test -f /opt/java-admin-framework/app.jar'
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/java-admin-framework/app.jar
+# 优雅停机：SIGTERM 由 Spring（server.shutdown=graceful）承接，143 视为正常退出
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+# 资源与安全加固
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/java-admin-framework /var/log/java-admin-framework
+
+[Install]
+WantedBy=multi-user.target
