@@ -1,6 +1,8 @@
 package com.acme.scaffold.jooq.dsl;
 
 import com.acme.scaffold.common.IdGenerator;
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.tenant.TenantEnforcement;
@@ -228,16 +230,18 @@ public final class JooqWriters {
                                          Condition cond, PageQuery q, OrderField<?>... orderBy) {
         long total = count(dsl, table, cond);
         SelectConditionStep<Record> step = scopedSelect(dsl, table, cond);
+        int size = Math.min(Math.max(q.size(), 1), PageQuery.MAX_SIZE);
+        long offset = (long) (q.page() - 1) * size;
         List<E> records;
         if (orderBy != null && orderBy.length > 0) {
             records = step.orderBy(orderBy)
-                    .limit(q.size()).offset(q.offset())
+                    .limit(size).offset(offset)
                     .fetch(new SnakeRecordMapper<>(type));
         } else {
-            records = step.limit(q.size()).offset(q.offset())
+            records = step.limit(size).offset(offset)
                     .fetch(new SnakeRecordMapper<>(type));
         }
-        return new PageResult<>(q.page(), q.size(), total, records);
+        return new PageResult<>(q.page(), size, total, records);
     }
 
     // ------------------------------------------------------------------

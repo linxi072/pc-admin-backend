@@ -81,6 +81,17 @@ public final class JooqKeysetPager {
     }
 
     /**
+     * keyset 分页入口别名：等价于 {@link #query}，仅作语义化命名，便于在 writer 层与
+     * {@code JooqWriters.page} 对照使用，同时规避 {@code jooq.dsl} 包反向依赖本包造成的包级循环。
+     */
+    public static <E> KeysetPageResult<E> pageKeyset(
+            DSLContext dsl, JooqTables.TableRef table, Class<E> type, Condition cond,
+            KeysetPageQuery q, Function<E, Object[]> keyExtractor,
+            Field<?>[] keyFields, boolean[] ascending) {
+        return query(dsl, table, type, cond, q, keyExtractor, keyFields, ascending);
+    }
+
+    /**
      * 构建 keyset 查询（含 seek + limit），不执行；供 {@link #query} 复用，亦便于离线渲染/测试。
      */
     static Select<Record> buildSelect(
