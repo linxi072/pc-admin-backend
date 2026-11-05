@@ -38,8 +38,11 @@ public final class DeliveryRetryRules {
         return Math.max(0, baseMs) * Math.max(1, attempt);
     }
 
-    /** 尝试次数钳制：配置小于 1 按 1 处理（至少原样投递一次，不静默跳过）。 */
+    /** 重试次数硬上界：防止 maxAttempts 误配极大值导致持续重试、拖垮线程（P0-3）。 */
+    public static final int MAX_ATTEMPTS_CAP = 10;
+
+    /** 尝试次数钳制：配置小于 1 按 1 处理（至少原样投递一次，不静默跳过）；大于 {@link #MAX_ATTEMPTS_CAP} 按上界处理。 */
     public static int clampAttempts(int maxAttempts) {
-        return Math.max(1, maxAttempts);
+        return Math.min(MAX_ATTEMPTS_CAP, Math.max(1, maxAttempts));
     }
 }

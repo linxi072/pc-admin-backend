@@ -26,6 +26,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -136,7 +139,7 @@ class NotificationServiceTest {
         port = new CapturingPort();
         service = new NotificationService(List.of(port), templateService, recordRecorder,
                 preferenceService, quietHoursService, retryProperties, failoverProperties,
-                digestService, mock(TaskScheduler.class));
+                digestService, mock(TaskScheduler.class), r -> r.run());
         // 默认三道过滤/挂点均放行：原样返回入参消息（覆盖 M11/M12 各例的既有语义）
         when(quietHoursService.applyQuietHours(any(NotificationMessage.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -492,7 +495,7 @@ class NotificationServiceTest {
         backup.ret = 2;
         NotificationService multi = new NotificationService(List.of(primary, backup),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class), r -> r.run());
         NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文");
 
         int delivered = multi.dispatch(msg);
@@ -512,7 +515,7 @@ class NotificationServiceTest {
         CapturingPort backup = new CapturingPort();
         NotificationService multi = new NotificationService(List.of(primary, backup),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class), r -> r.run());
 
         assertThrows(IllegalStateException.class,
                 () -> multi.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
@@ -531,7 +534,7 @@ class NotificationServiceTest {
         backup.failWith = new IllegalStateException("备网关故障");
         NotificationService multi = new NotificationService(List.of(primary, backup),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class), r -> r.run());
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> multi.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
@@ -547,7 +550,7 @@ class NotificationServiceTest {
         failoverProperties.setEnabled(true);
         NotificationService empty = new NotificationService(List.of(),
                 templateService, recordRecorder, preferenceService, quietHoursService,
-                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class));
+                retryProperties, failoverProperties, digestService, mock(TaskScheduler.class), r -> r.run());
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> empty.dispatch(new NotificationMessage(Channel.EMAIL, "标题", "正文")));
@@ -555,6 +558,20 @@ class NotificationServiceTest {
         assertTrue(ex.getMessage().contains("不支持的通知渠道"));
         verify(recordRecorder).record(any(NotificationMessage.class), isNull(), eq(0), eq(false),
                 contains("不支持的通知渠道"));
+    }
+
+    @Test
+    @DisplayName("dispatchAsync：非阻塞投递返回 future 且结果正确（P0-3）")
+    void dispatchAsync_returnsFutureWithResult() throws Exception {
+        NotificationService asyncService = new NotificationService(List.of(port), templateService, recordRecorder,
+                preferenceService, quietHoursService, retryProperties, failoverProperties,
+                digestService, mock(TaskScheduler.class), r -> r.run());
+        NotificationMessage msg = new NotificationMessage(Channel.EMAIL, "标题", "正文");
+
+        CompletableFuture<Integer> f = asyncService.dispatchAsync(msg);
+
+        assertEquals(1, f.get(2, TimeUnit.SECONDS));
+        verify(recordRecorder).record(eq(msg), isNull(), eq(1), eq(true), isNull());
     }
 
     // ------------------------------------------------------------------

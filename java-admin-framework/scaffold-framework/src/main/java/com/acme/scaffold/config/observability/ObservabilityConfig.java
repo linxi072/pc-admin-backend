@@ -51,6 +51,43 @@ public class ObservabilityConfig {
         return scheduler;
     }
 
+    /**
+     * 通知异步投递线程池（P0-3）：与业务/请求线程隔离，承接 {@code NotificationService.dispatchAsync}
+     * 的实际投递与重试退避等待，使调用方（典型为 HTTP 请求线程）不被 {@code .get()} 同步阻塞。
+     * 有界队列 + CallerRunsPolicy 兜底，避免异步任务无限堆积压垮内存。
+     */
+    @Bean("notificationExecutor")
+    public Executor notificationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("notify-async-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * 导出线程池（P1-5）：与请求/业务线程隔离，承接大结果集导出的查询与字节生成，
+     * 避免占用 HTTP 请求线程做长时间 IO / 物化（F3 堆内行数上限之外的时间维隔离）。
+     * 有界队列 + CallerRunsPolicy：队列满时由调用方线程兜底执行，避免任务丢失或无限堆积。
+     * 控制器可改用 {@code ExportCenterService#downloadAsync} 离场到本池。
+     */
+    @Bean("exportExecutor")
+    public Executor exportExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("export-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.initialize();
+        return executor;
+    }
+
     /** 统一指标过滤：屏蔽 tomcat.* / flowable.* 等高频噪声指标，避免指标污染。
      *  作为 MeterFilter Bean，由 Spring Boot 自动应用到所有 MeterRegistry。 */
     @Bean

@@ -7,6 +7,7 @@ import com.acme.scaffold.common.validation.DomainValidators;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.common.notification.NotificationRouter;
+import com.acme.scaffold.common.resilience.CircuitBreaker;
 import com.acme.scaffold.system.entity.SysNotificationTemplateDO;
 import com.acme.scaffold.system.notification.config.NotificationFailoverProperties;
 import com.acme.scaffold.system.notification.config.NotificationRetryProperties;
@@ -25,6 +26,8 @@ import com.acme.scaffold.system.rules.NotificationTemplateRules;
 import com.acme.scaffold.system.service.NotificationTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
@@ -32,7 +35,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 通知编排：按消息渠道路由到对应 {@link NotificationPort} 适配器并投递。
@@ -96,6 +102,20 @@ public class NotificationService {
      * 替代内联 {@code Thread.sleep}，使重试退避由托管线程池计时（F2）。
      */
     private final TaskScheduler notificationRetryScheduler;
+
+    /**
+     * 异步投递线程池（P0-3）：与请求/业务线程隔离，承接 {@link #dispatchAsync} 与重试退避等待，
+     * 调用方（典型为 HTTP 请求线程）不再被 {@code .get()} 同步阻塞。
+     */
+    @Qualifier("notificationExecutor")
+    private final Executor notificationExecutor;
+
+    /**
+     * 投递下游熔断器（P1-6）：下游通道/网关持续故障时快速失败，避免重试在异步线程上堆积拖垮线程池。
+     * 可选注入（{@code required=false}）：手动 {@code new} 单元测试中不注入，走直连投递，门禁零回归。
+     */
+    @Autowired(required = false)
+    private CircuitBreaker dispatchBreaker;
 
     /** 投递一条消息（无模板来源），返回实际投递单元数（见各适配器语义）。 */
     public int dispatch(NotificationMessage message) {
@@ -308,5 +328,37 @@ public class NotificationService {
                 request.receiverIds(), request.roleIds(), request.orgIds(),
                 request.webhookUrl(), null, request.emails(), request.mobiles());
         return dispatch(msg, request.templateCode());
+    }
+
+    /**
+     * 非阻塞投递（P0-3）：立即返回 {@link CompletableFuture}，退避等待与适配投递在
+     * {@code notificationExecutor} 线程池执行，调用线程（典型为 HTTP 请求线程）不再被
+     * {@code .get()} 同步阻塞。相较 QA 报告的「名义非阻塞」修复——仅把等待交给调度线程池、
+     * 调用方仍 {@code .get()} 阻塞——本方法真正解耦调用方与等待。
+     *
+     * <p>同步 {@link #dispatch} 仍保留（既有调用方不变），其内部经
+     * {@code notificationRetryScheduler} 计时退避、在调用线程上等待，等价于本异步方法的
+     * {@code .join()} 包装。</p>
+     *
+     * @return 完成时包含实际投递单元数的 future；超过 {@code app.notifications.retry.timeout-ms}
+     *         总预算则以 {@link java.util.concurrent.TimeoutException} 异常完成
+     */
+    public CompletableFuture<Integer> dispatchAsync(NotificationMessage message) {
+        return dispatchAsync(message, null);
+    }
+
+    public CompletableFuture<Integer> dispatchAsync(NotificationMessage message, String templateCode) {
+        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> {
+            if (dispatchBreaker != null) {
+                // 熔断开启时 execute 直接抛 CircuitBreakerOpenException 快速失败，不占用下游
+                return dispatchBreaker.execute(() -> dispatch(message, templateCode));
+            }
+            return dispatch(message, templateCode);
+        }, notificationExecutor);
+        long timeoutMs = retryProperties.getTimeoutMs();
+        if (timeoutMs > 0) {
+            future = future.orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
+        }
+        return future;
     }
 }

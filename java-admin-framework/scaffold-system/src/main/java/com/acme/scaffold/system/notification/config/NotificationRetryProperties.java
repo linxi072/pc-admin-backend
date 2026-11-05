@@ -12,6 +12,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *       小于 1 按 1 处理）；</li>
  *   <li>{@code backoff-ms}：重试基准退避（默认 200ms，第 n 次重试前等待 {@code n × backoff-ms}，
  *       线性增长且有上界（{@code (maxAttempts-1) × backoff-ms}），不会指数爆炸）。</li>
+ *   <li>{@code timeout-ms}：单次投递（含全部重试退避）的总超时预算（默认 5000ms）；异步
+ *       {@code dispatchAsync} 超过此预算即以 {@link java.util.concurrent.TimeoutException} 异常完成，
+ *       防止下游长时间不可用时任务无限悬挂（P0-3）。设 0 表示不设总超时。</li>
  * </ul>
  *
  * <p><b>重试范围</b>：仅对<b>非</b> {@code BusinessException} 的运行时异常重试——
@@ -28,6 +31,7 @@ public class NotificationRetryProperties {
     private boolean enabled = true;
     private int maxAttempts = 3;
     private long backoffMs = 200;
+    private long timeoutMs = 5000;
 
     public boolean isEnabled() {
         return enabled;
@@ -51,5 +55,13 @@ public class NotificationRetryProperties {
 
     public void setBackoffMs(long backoffMs) {
         this.backoffMs = backoffMs;
+    }
+
+    public long getTimeoutMs() {
+        return timeoutMs;
+    }
+
+    public void setTimeoutMs(long timeoutMs) {
+        this.timeoutMs = timeoutMs;
     }
 }
