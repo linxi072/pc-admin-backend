@@ -1,0 +1,59 @@
+ENV|jdk=21.0.12.1|os=Mac OS X x86_64|cpu=8|maxHeapMB=4096
+ENV|dataset=java_admin_perf|threshold=keyset首页p95<150.0ms; keyset深页p95/首页p95<2.0; 错误率<1.0%; 功能用例通过率=100%; 数据规模>=10000000行
+ENV|mysql=8.4.11
+CASE|F-01 数据规模 >= 1000 万（精确 COUNT）|正常/规模|PASS|2457.87ms|7 表精确 COUNT 合计=14000004
+CASE|F-02 主表 1280 万行且边界行存在|正常/规模|PASS|1925.98ms|主表=12800004, 边界行=4
+CASE|F-03 keyset 首页返回 size 条且 nextCursor 非空|正常|PASS|54.30ms|records=20, nextCursor=OTAwMDAwMDAwMDEyNzk5OTg1
+CASE|F-04 keyset 连续翻页 200 页无重复无遗漏且 id 严格递减|正常|PASS|660.32ms|连续 200 页 / 4000 条，id 唯一且严格递减
+CASE|F-05 keyset 深页（第 100 万行附近）结果正确|边界/深翻页|PASS|2.00ms|深页 20 条全部位于游标之后
+CASE|F-06 keyset 游标不透明且可解码|正常|PASS|2.11ms|base64url 编码，解码后字段数=1
+CASE|F-07 size 边界：0/负数钳到 1，>100 钳到 100|边界|PASS|0.84ms|KeysetPageQuery[1,100] 与 PageQuery[MAX_PAGE=100000] 钳制生效
+CASE|F-08 非法游标（乱码）静默降级首页|异常|PASS|2.50ms|乱码游标按首页处理，无异常
+CASE|F-09 游标字段数与排序键不符 → BusinessException|异常|PASS|6.52ms|按预期拒绝: 游标字段数与排序键不一致（预期 1，实际 3）
+CASE|F-10 条件过滤（tenant + module）结果全部满足条件|正常|PASS|5.58ms|50 条全部 tenant_id=3 且 module_code=USER
+CASE|F-11 JooqWriters.count 与 SQL COUNT 一致|正常|PASS|9945.83ms|count=12205057
+CASE|F-12 fetchTop 上限钳制（limit>1000 只返回 1000）|边界|PASS|21.41ms|请求 5000，实返 1000（P4 有界加载护栏）
+CASE|F-13 fetchListBounded 不钳制且严格下推 LIMIT|边界|PASS|25.97ms|请求 1500，实返 1500
+CASE|F-14 OFFSET 分页首页/深页结果互不相交|正常|PASS|6265.94ms|首页与 offset=999980 的结果无交集
+CASE|F-15 边界值行（1970/2099/emoji/极大数值）可正确映射|边界|FAIL|9.49ms|AssertionFailedError: 边界值丢失: emoji=true future=false huge=true ==> expected: <true> but was: <false>
+CASE|F-16 异常语义行不污染合法枚举过滤|异常|PASS|1266.65ms|非法枚举 1 行被隔离；合法 USER=2560002
+CASE|F-17 恒假条件返回空且 keyset 无下一页|边界|PASS|5.55ms|空结果集，nextCursor=null
+CASE|F-18 批量写入 batchInsert 后回读一致并清理|正常/写入|PASS|556.76ms|写入 500 行 → 回读 500 → 清理 500
+CASE|F-19 单条 insert / updateById / notDeleted 语义|正常/写入|PASS|27.24ms|insert 回填 id / fetchById / updateById 全链路一致
+CASE|F-20 约束异常：超长 operation_name 被 DB 拒绝|异常|PASS|27.45ms|DB 按预期拒绝: DataException
+CASE|F-21 跨表关联聚合（消息 × 回执）正确性|正常/跨模块|PASS|101.84ms|回执=300000, 未读=150000
+CASE|F-22 其余 6 张业务表规模与聚合正确|正常/全模块|PASS|2096.17ms|{sys_user=100000, sys_login_log=400000, sys_operation_log=12800004, sys_notification_record=200000, sys_message=100000, sys_message_receipt=300000, sys_monitor_sample=100000}
+CASE|F-23 无索引列过滤结果正确（正确性而非性能）|正常|PASS|14.44ms|命中 operator1，结果全部满足条件
+CASE|F-24 并发查询无异常（16 线程 × 20 次）|异常/并发|PASS|166.67ms|320 次并发 keyset 查询，0 异常
+METRIC|P-01 keyset 首页（主键索引）|samples=100|p50=1.00ms|p95=1.00ms|p99=1.00ms|avg=0.96ms|min=0.00ms|max=2.00ms|throughput=763.01|errors=0|total=100|warmup=50, elapsedMs=131
+METRIC|P-02 keyset 深页（第 1180 万行附近）|samples=100|p50=1.00ms|p95=1.00ms|p99=2.00ms|avg=1.04ms|min=1.00ms|max=3.00ms|throughput=710.62|errors=0|total=100|warmup=50, elapsedMs=140
+VERDICT|keyset首页p95=1.00ms|keyset深页p95=1.00ms|深页/首页p95=1.00|阈值p95<150.0ms 且比值<2.0|结论=达标
+METRIC|P-03 OFFSET 首页 offset=0|samples=50|p50=0.00ms|p95=1.00ms|p99=1.00ms|avg=0.26ms|min=0.00ms|max=1.00ms|throughput=1196.02|errors=0|total=50|warmup=20, elapsedMs=41
+METRIC|P-04 OFFSET 深页 offset=1,000,000|samples=5|p50=936.00ms|p95=1090.00ms|p99=1090.00ms|avg=964.00ms|min=922.00ms|max=1090.00ms|throughput=1.04|errors=0|total=5|warmup=1, elapsedMs=4822
+VERDICT|OFFSET深页p95=1090.00ms|首页p95=1.00ms|退化倍数=1090.00|阈值<150.0ms|结论=未达标
+METRIC|P-05 索引覆盖过滤（idx_module_time）|samples=30|p50=3.00ms|p95=3.00ms|p99=4.00ms|avg=2.73ms|min=2.00ms|max=4.00ms|throughput=312.21|errors=0|total=30|warmup=10, elapsedMs=96
+METRIC|P-06 无索引列过滤（operator_name 全表扫描）|samples=5|p50=4708.00ms|p95=4827.00ms|p99=4827.00ms|avg=4747.40ms|min=4690.00ms|max=4827.00ms|throughput=0.21|errors=0|total=5|warmup=1, elapsedMs=23739
+VERDICT|无索引全表扫描p95=4827.00ms|阈值<150.0ms|结论=未达标
+METRIC|P-07 全表 COUNT(*) 聚合|samples=5|p50=1911.00ms|p95=1983.00ms|p99=1983.00ms|avg=1902.40ms|min=1822.00ms|max=1983.00ms|throughput=0.53|errors=0|total=5|warmup=1, elapsedMs=9514
+METRIC|P-08 GROUP BY module_code 聚合|samples=5|p50=6741.00ms|p95=7098.00ms|p99=7098.00ms|avg=6836.20ms|min=6718.00ms|max=7098.00ms|throughput=0.15|errors=0|total=5|warmup=1, elapsedMs=34182
+METRIC|P-09 批量写入 batchInsert(1000行/批)|samples=10|p50=552.00ms|p95=709.00ms|p99=709.00ms|avg=581.80ms|min=529.00ms|max=709.00ms|throughput=1714.83|errors=0|total=10|总写入=10000行, 吞吐单位=rows/s, elapsedMs=5831
+STABILITY|durationSec=30|threads=16|operations=188452|errors=0|errorRate=0.00%|throughput=6269.02ops/s|p50=0.00ms|p95=3.00ms|p99=42.00ms
+STABILITY_SAMPLE@5s|heapUsedMB=125|heapMaxMB=4096|nonHeapMB=54|threads=25|gcCount=60|gcTimeMs=125|ops=26436|errors=0
+STABILITY_SAMPLE@10s|heapUsedMB=202|heapMaxMB=4096|nonHeapMB=54|threads=25|gcCount=81|gcTimeMs=191|ops=55724|errors=0
+STABILITY_SAMPLE@15s|heapUsedMB=130|heapMaxMB=4096|nonHeapMB=54|threads=25|gcCount=102|gcTimeMs=277|ops=87537|errors=0
+STABILITY_SAMPLE@20s|heapUsedMB=113|heapMaxMB=4096|nonHeapMB=55|threads=25|gcCount=122|gcTimeMs=345|ops=122396|errors=0
+STABILITY_SAMPLE@25s|heapUsedMB=174|heapMaxMB=4096|nonHeapMB=55|threads=25|gcCount=141|gcTimeMs=410|ops=156078|errors=0
+VERDICT|稳定性错误率=0.00%|阈值<1.0%|结论=达标
+CASE|F-25 持续 30s / 16 线程混合负载错误率 < 1%|稳定性|PASS|2.67ms|ops=188452, errors=0, throughput=6269.02 ops/s
+RESOURCE|FINAL|heapUsedMB=99|heapMaxMB=4096|nonHeapMB=55|threads=9|gcCount=159|gcTimeMs=491|ops=0|errors=0
+RESOURCE_TABLE|sys_login_log|dataMB=50.6|indexMB=70.8
+RESOURCE_TABLE|sys_message|dataMB=25.6|indexMB=4.5
+RESOURCE_TABLE|sys_message_receipt|dataMB=0.0|indexMB=0.0
+RESOURCE_TABLE|sys_monitor_sample|dataMB=0.0|indexMB=0.0
+RESOURCE_TABLE|sys_notification_record|dataMB=26.6|indexMB=28.6
+RESOURCE_TABLE|sys_operation_log|dataMB=1902.0|indexMB=0.0
+RESOURCE_TABLE|sys_user|dataMB=23.6|indexMB=18.1
+RESOURCE|mysqlThreadsConnected=1
+SUMMARY|functionalTotal=25|functionalPassed=24|functionalFailed=1
+SUMMARY|functionalTotal=25|functionalPassed=24|functionalFailed=1
+SUMMARY|resultsFile=/tmp/ten-million-perf-results.txt
