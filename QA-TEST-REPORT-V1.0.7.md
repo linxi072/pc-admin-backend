@@ -247,6 +247,18 @@
 
 ---
 
+### 3.10 update 字段合并守卫收敛（R9，本轮续做，本地提交未推送）
+
+> 在 §3.9 标记的「无归一合并或保留」后续候选基础上，将各 Service update 中「入参非 null 用入参、否则保留实体当前值」的内联三元收敛为独立泛型工具；原则不变：behavior-preserving、按关注点拆分提交、绝不推送。
+
+| 编号 | 严重度 | 根因 | 修复方案 | 改动文件 | 行为保持 |
+|------|--------|------|----------|----------|----------|
+| **R9** | 重构·去重 | `NotificationTemplateService`(4)/`MaskStrategyService`(7)/`TenantService`(7)/`OpenApiClientService`(5)/`AnnouncementService`(2) 共约 25 处 update 内联「`incoming != null ? incoming : existing.getXxx()`」三段三元，语义逐字相同（仅 `req`/`request`、`existing`/`exist` 变量名差异），属「字段合并」idiom 的多份实现。 | 新增 `MergeFields.orKeep(Supplier<T> incoming, Supplier<T> existing)`（短路求值：`v=incoming.get(); return v!=null ? v : existing.get()`），25 处改为 `MergeFields.orKeep(req::xxx, existing::getXxx)`（局部变量用 `() -> publishAt` lambda）；`existing`/`exist` 均由 `requireById`/`getDO` 保证非 null。**关键语义**：短路版与原三元行为逐字等价（`existing` 供应方仅当入参为 null 时被调用，即使实体为 null 亦不触发 NPE，与原式短路一致）；`TenantService`/`OpenApiClientService` 的 `status` 字段保持「纯合并、不归一」，与 §3.9 的 `RecordStatus.mergeOrKeep` 带归一互补、互不冲突。已排查无 `mockStatic(MergeFields)`，测试零改动全绿。 | `scaffold-common/.../common/util/MergeFields.java`（新增）、`scaffold-system/.../service/NotificationTemplateService.java`、`scaffold-system/.../maskstrategy/MaskStrategyService.java`、`scaffold-system/.../tenant/TenantService.java`、`scaffold-system/.../openapi/OpenApiClientService.java`、`scaffold-system/.../service/AnnouncementService.java` | ✅ 合并结果、回落原值语义逐字一致；25 处改写单测**全绿**；无 unused-import（5 文件均已补 `MergeFields` import） |
+
+**验证**：双门禁复验全绿——`mvn -o -pl scaffold-system -am clean test` **713 例单测 0 失败 0 错误**（继承 §3.9 验证范围，含 R9 直接相关的 `NotificationTemplateServiceTest`/`MaskStrategyServiceTest`/`TenantServiceTest`/`OpenApiClientServiceTest`/`AnnouncementServiceTest`）；`scripts/check-conventions.py` PY_EXIT=0（仅 1 条模块分层概览 INFO 级提示，非违规）。commit `8f1178d`（6 files, +63/−25，含 1 新增 `MergeFields.java`）。
+
+---
+
 ## 4. 性能测试结论
 
 | 指标          | 实测                                                     | 评价                               |
@@ -319,7 +331,7 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 ## 7. 后续建议（优先级）
 
-> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**R5 通知机器人适配器/配置类去重重构已落地**（详见 §3.6）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变；R5 为通知机器人层去重，dispatch 流程与测试零改动；**R5-W 进一步将 Webhook 适配器自有的私有 `resolveUrl` 收敛到共享 `RobotUrlSupport`**（URL 解析单一事实来源）；**R6 进一步将三个简单通知适配器（Webhook/短信/邮件）内的「渠道未启用」throw 样板收敛到 `NotificationAdapterSupport.requireChannelEnabled`、将「退订链接追加」同构逻辑收敛到 `UnsubscribeAppendRules.appendOrFallback`**，双门禁复验全绿（详见 §3.7）；**R7 进一步将各 Service 内约 33 处「`fetchById` 后判空抛 `NOT_FOUND`」三段样板收敛到不被 mock 的 `FetchSupport.requirePresent`**（生产仍直接调用 `JooqWriters.fetchById`，规避 mockStatic 默认返回 null 的 NPE 陷阱，7 个曾失败的测试类零改动全绿，详见 §3.8）；**R8 进一步将 6 个 Service 内「update 状态合并」的内联三元（`x.status() == null ? existing.getStatus() : RecordStatus.normalize(x.status())`）收敛到 `RecordStatus.mergeOrKeep`**（新增静态方法，null 入参回落原值而非 DEFAULT，与 update「未传状态即不动」语义一致，零测试改动全绿，详见 §3.9）。
+> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**R5 通知机器人适配器/配置类去重重构已落地**（详见 §3.6）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变；R5 为通知机器人层去重，dispatch 流程与测试零改动；**R5-W 进一步将 Webhook 适配器自有的私有 `resolveUrl` 收敛到共享 `RobotUrlSupport`**（URL 解析单一事实来源）；**R6 进一步将三个简单通知适配器（Webhook/短信/邮件）内的「渠道未启用」throw 样板收敛到 `NotificationAdapterSupport.requireChannelEnabled`、将「退订链接追加」同构逻辑收敛到 `UnsubscribeAppendRules.appendOrFallback`**，双门禁复验全绿（详见 §3.7）；**R7 进一步将各 Service 内约 33 处「`fetchById` 后判空抛 `NOT_FOUND`」三段样板收敛到不被 mock 的 `FetchSupport.requirePresent`**（生产仍直接调用 `JooqWriters.fetchById`，规避 mockStatic 默认返回 null 的 NPE 陷阱，7 个曾失败的测试类零改动全绿，详见 §3.8）；**R8 进一步将 6 个 Service 内「update 状态合并」的内联三元（`x.status() == null ? existing.getStatus() : RecordStatus.normalize(x.status())`）收敛到 `RecordStatus.mergeOrKeep`**（新增静态方法，null 入参回落原值而非 DEFAULT，与 update「未传状态即不动」语义一致，零测试改动全绿，详见 §3.9）；**R9 进一步将 5 个 Service 内约 25 处「update 字段合并」的内联三元（`incoming != null ? incoming : existing.getXxx()`）收敛到新增泛型工具 `MergeFields.orKeep`**（短路求值与原三元行为逐字等价，`existing` 供应方仅当入参为 null 时调用，规避 NPE 语义变化；`TenantService`/`OpenApiClientService` 的 `status` 字段保持「纯合并、不归一」，与 R8 的 `RecordStatus.mergeOrKeep` 带归一互补、互不冲突，零测试改动全绿，详见 §3.10）。
 
 1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。`UserService` / `UserAccountDataAdapter` 状态校验已对齐至 `DomainValidators`/`RecordStatus` 范式（见 §3.5 `F1-align-1/2`）。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
