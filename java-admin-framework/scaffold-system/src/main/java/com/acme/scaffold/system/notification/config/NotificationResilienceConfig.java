@@ -2,6 +2,7 @@ package com.acme.scaffold.system.notification.config;
 
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.resilience.CircuitBreaker;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -59,14 +60,17 @@ public class NotificationResilienceConfig {
     /**
      * 按渠道路由的熔断器映射，供 {@code NotificationService} 在适配器投递层按渠道包裹。
      * 仅覆盖外部通道；站内信 / WebSocket 等进程内通道不在此列（无下游故障面）。
+     *
+     * <p>每个参数显式 {@code @Qualifier}：容器中同名类型 Bean 共 6 个，若依赖方法参数名
+     * 隐式解析，会受编译器 {@code -parameters} 开关影响；显式限定保证任意构建配置下装配稳定。</p>
      */
     @Bean
     public Map<Channel, CircuitBreaker> externalChannelBreakers(
-            CircuitBreaker smsDispatchBreaker,
-            CircuitBreaker emailDispatchBreaker,
-            CircuitBreaker webhookDispatchBreaker,
-            CircuitBreaker wecomDispatchBreaker,
-            CircuitBreaker dingtalkDispatchBreaker) {
+            @Qualifier("smsDispatchBreaker") CircuitBreaker smsDispatchBreaker,
+            @Qualifier("emailDispatchBreaker") CircuitBreaker emailDispatchBreaker,
+            @Qualifier("webhookDispatchBreaker") CircuitBreaker webhookDispatchBreaker,
+            @Qualifier("wecomDispatchBreaker") CircuitBreaker wecomDispatchBreaker,
+            @Qualifier("dingtalkDispatchBreaker") CircuitBreaker dingtalkDispatchBreaker) {
         return Map.of(
                 Channel.SMS, smsDispatchBreaker,
                 Channel.EMAIL, emailDispatchBreaker,

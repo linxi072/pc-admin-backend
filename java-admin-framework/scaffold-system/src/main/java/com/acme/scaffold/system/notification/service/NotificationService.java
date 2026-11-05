@@ -113,8 +113,13 @@ public class NotificationService {
     /**
      * 投递下游熔断器（P1-6）：下游通道/网关持续故障时快速失败，避免重试在异步线程上堆积拖垮线程池。
      * 可选注入（{@code required=false}）：手动 {@code new} 单元测试中不注入，走直连投递，门禁零回归。
+     *
+     * <p>必须按名称限定为「总闸」：P7 起容器中共有 6 个 {@link CircuitBreaker}（总闸 +
+     * 5 个外部通道分闸），纯按类型注入会因多候选抛 {@code NoUniqueBeanDefinitionException}，
+     * 导致完整 Spring 上下文启动失败（required=false 仅在零候选时跳过，无法消除歧义）。</p>
      */
     @Autowired(required = false)
+    @Qualifier("notificationDispatchBreaker")
     private CircuitBreaker dispatchBreaker;
 
     /**
