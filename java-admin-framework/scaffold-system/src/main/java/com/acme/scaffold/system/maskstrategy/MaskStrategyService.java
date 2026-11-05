@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.maskstrategy;
+import com.acme.scaffold.common.util.MergeFields;
 import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
@@ -181,13 +182,13 @@ public class MaskStrategyService {
      */
     public void update(Long id, UpdateMaskStrategyRequest req) {
         SysMaskStrategyDO existing = requireById(id);
-        String code = req.strategyCode() != null ? req.strategyCode() : existing.getStrategyCode();
-        String name = req.strategyName() != null ? req.strategyName() : existing.getStrategyName();
-        String fieldKey = req.fieldKey() != null ? req.fieldKey() : existing.getFieldKey();
-        String type = req.sensitiveType() != null ? req.sensitiveType() : existing.getSensitiveType();
-        String scope = req.applyScope() != null ? req.applyScope() : existing.getApplyScope();
-        String exempt = req.exemptRoles() != null ? req.exemptRoles() : existing.getExemptRoles();
-        Integer priority = req.priority() != null ? req.priority() : existing.getPriority();
+        String code = MergeFields.orKeep(req::strategyCode, existing::getStrategyCode);
+        String name = MergeFields.orKeep(req::strategyName, existing::getStrategyName);
+        String fieldKey = MergeFields.orKeep(req::fieldKey, existing::getFieldKey);
+        String type = MergeFields.orKeep(req::sensitiveType, existing::getSensitiveType);
+        String scope = MergeFields.orKeep(req::applyScope, existing::getApplyScope);
+        String exempt = MergeFields.orKeep(req::exemptRoles, existing::getExemptRoles);
+        Integer priority = MergeFields.orKeep(req::priority, existing::getPriority);
         List<String> errors = MaskStrategyRules.validate(
                 code, name, fieldKey, type, scope, exempt, priority);
         if (!errors.isEmpty()) {

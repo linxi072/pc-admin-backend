@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.common.util.MergeFields;
 import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -182,8 +183,8 @@ public class AnnouncementService {
         if (PUBLISHED.equals(exist.getStatus())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "公告已是已发布状态");
         }
-        LocalDateTime effectiveAt = publishAt != null ? publishAt : exist.getPublishAt();
-        LocalDateTime expire = expireAt != null ? expireAt : exist.getExpireAt();
+        LocalDateTime effectiveAt = MergeFields.orKeep(() -> publishAt, exist::getPublishAt);
+        LocalDateTime expire = MergeFields.orKeep(() -> expireAt, exist::getExpireAt);
         validatePeriod(effectiveAt, expire);
 
         SysAnnouncementDO a = new SysAnnouncementDO();

@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.common.util.MergeFields;
 import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
@@ -152,10 +153,10 @@ public class NotificationTemplateService {
      */
     public void update(Long id, UpdateNotificationTemplateRequest req) {
         SysNotificationTemplateDO existing = requireById(id);
-        String code = req.templateCode() != null ? req.templateCode() : existing.getTemplateCode();
-        String name = req.templateName() != null ? req.templateName() : existing.getTemplateName();
-        String channel = req.channel() != null ? req.channel() : existing.getChannel();
-        String content = req.content() != null ? req.content() : existing.getContent();
+        String code = MergeFields.orKeep(req::templateCode, existing::getTemplateCode);
+        String name = MergeFields.orKeep(req::templateName, existing::getTemplateName);
+        String channel = MergeFields.orKeep(req::channel, existing::getChannel);
+        String content = MergeFields.orKeep(req::content, existing::getContent);
         List<String> errors = NotificationTemplateRules.validate(code, name, channel, content);
         if (!errors.isEmpty()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, String.join("；", errors));

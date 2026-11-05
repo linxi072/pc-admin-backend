@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.tenant;
+import com.acme.scaffold.common.util.MergeFields;
 import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
@@ -136,13 +137,13 @@ public class TenantService {
     public void update(Long id, UpdateTenantRequest req) {
         SysTenantDO existing = requireById(id);
         String code = existing.getTenantCode();
-        String name = req.tenantName() != null ? req.tenantName() : existing.getTenantName();
-        String contactName = req.contactName() != null ? req.contactName() : existing.getContactName();
-        String contactPhone = req.contactPhone() != null ? req.contactPhone() : existing.getContactPhone();
-        String contactEmail = req.contactEmail() != null ? req.contactEmail() : existing.getContactEmail();
-        String status = req.status() != null ? req.status() : existing.getStatus();
-        LocalDateTime expireAt = req.expireAt() != null ? req.expireAt() : existing.getExpireAt();
-        String remark = req.remark() != null ? req.remark() : existing.getRemark();
+        String name = MergeFields.orKeep(req::tenantName, existing::getTenantName);
+        String contactName = MergeFields.orKeep(req::contactName, existing::getContactName);
+        String contactPhone = MergeFields.orKeep(req::contactPhone, existing::getContactPhone);
+        String contactEmail = MergeFields.orKeep(req::contactEmail, existing::getContactEmail);
+        String status = MergeFields.orKeep(req::status, existing::getStatus);
+        LocalDateTime expireAt = MergeFields.orKeep(req::expireAt, existing::getExpireAt);
+        String remark = MergeFields.orKeep(req::remark, existing::getRemark);
         List<String> errors = TenantRules.validateTenant(code, name, status, contactPhone,
                 contactEmail, expireAt);
         if (!errors.isEmpty()) {

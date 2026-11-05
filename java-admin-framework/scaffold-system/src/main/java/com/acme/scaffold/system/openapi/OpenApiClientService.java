@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.openapi;
+import com.acme.scaffold.common.util.MergeFields;
 import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
@@ -127,11 +128,11 @@ public class OpenApiClientService {
      */
     public void update(Long id, UpdateOpenApiClientRequest req) {
         OpenApiClientDO existing = requireById(id);
-        String name = req.clientName() != null ? req.clientName() : existing.getClientName();
-        String scopes = req.scopes() != null ? req.scopes() : existing.getScopes();
-        String status = req.status() != null ? req.status() : existing.getStatus();
-        LocalDateTime expiredAt = req.expiredAt() != null ? req.expiredAt() : existing.getExpiredAt();
-        String redirectUris = req.redirectUris() != null ? req.redirectUris() : existing.getRedirectUris();
+        String name = MergeFields.orKeep(req::clientName, existing::getClientName);
+        String scopes = MergeFields.orKeep(req::scopes, existing::getScopes);
+        String status = MergeFields.orKeep(req::status, existing::getStatus);
+        LocalDateTime expiredAt = MergeFields.orKeep(req::expiredAt, existing::getExpiredAt);
+        String redirectUris = MergeFields.orKeep(req::redirectUris, existing::getRedirectUris);
         List<String> errors = OpenApiClientRules.validate(existing.getClientId(), name, scopes,
                 status, expiredAt);
         errors.addAll(OpenApiClientRules.validateRedirectUris(redirectUris));
