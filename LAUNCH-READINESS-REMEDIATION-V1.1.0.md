@@ -18,6 +18,11 @@
 
 > 注：首轮整改前端未改动；F4 续作涉及 `pc-admin-vue3-vite`（审批工作台 UI / API / i18n），
 > 故前端单测与 `vite build` 一并纳入本轮验收阈值。本轮虽无前端改动，四门禁仍全量复验。
+>
+> **后续累计复验（2026-11-05）**：§8.1 时区闭环新增 10 例契约回归 → 后端 **2,062 例全绿**；
+> 千万级 L4 HTTP 压测首次拉起完整 Spring 上下文，暴露并修复 P7 熔断器 Bean 装配歧义、
+> 再新增 5 例纯 JVM 装配契约回归 → 最终 **2,067 例 / 0 失败 / 0 错误 / 0 跳过**（详见 §2、§11）。
+> 其余三项门禁结果不变（`check-conventions.py` EXIT=0、前端 91/91、`vite build` EXIT=0）。
 
 ---
 
@@ -37,8 +42,12 @@
 - **原评估（部分达标）**：自研 `CircuitBreaker` 已用于通知/登录日志/文件/审计，但读多写少的核心外发通道（短信/邮件/Webhook/企微/钉钉）未系统性包裹。
 - **整改**：`NotificationResilienceConfig` 新增 5 个独立 `CircuitBreaker`（阈值 5、OPEN 30s）并聚为 `Map<Channel, CircuitBreaker> externalChannelBreakers`；`NotificationService.dispatchInternal` 对进程外通道经对应熔断器 `execute` 包裹（进程内通道不包裹）。字段以 `@Autowired(required=false)` 注入，保障既有 `new` 直接构造的单元测试零回归。
 - **验证**：`mvn -o clean test` 通过（含 `CoreApiE2eTest` 等 mock 场景）。
+- **千万级 L4 压测暴露的真实启动缺陷（2026-11-05 追加修复）**：首次拉起完整 Spring Boot 上下文报 `NoUniqueBeanDefinitionException`——5 个渠道分闸 Bean 加入后容器内同类型 `CircuitBreaker` 变为 6 个，而 `NotificationService.dispatchBreaker` 仍是纯按类型 `@Autowired(required=false)` 注入。常规 2,062 例均为 mock 单测、不拉起真实上下文，且 `*IT` 本地默认跳过（failsafe 在 `verify` 阶段），故该缺陷直到 L4 全链路压测才暴露，属于**测试层次覆盖缺口**。
+  - **决策**：**不**给总闸加 `@Primary`——那会让 5 个渠道分闸参数误注入同一个总闸实例，直接破坏 P7「单一下游故障隔离」语义；改为**逐点精确限定**：`dispatchBreaker` 加 `@Qualifier("notificationDispatchBreaker")`，`externalChannelBreakers(...)` 的 5 个 `CircuitBreaker` 参数各加对应 `@Qualifier`（不依赖 `-parameters` 编译参数名解析）。
+  - **回归断言**：新增 `NotificationResilienceWiringTest`（5 例，纯 JVM `AnnotationConfigApplicationContext`，无需 MySQL/Boot 全上下文，进常规 surefire），覆盖 6 个 Bean 注册且两两独立、5 渠道映射绑定到正确分闸实例（防 `@Qualifier` 串线）、生产字段注解未被移除、生产式限定注入在 6 候选下成功、以及「无 `@Qualifier` 必然失败」的负向契约。
+  - **修复后验证**：L4 上下文正常启动、`BUILD SUCCESS`、5/5 场景完成、`VERDICT=PASS`；四门禁 2,067 例全绿。详见 `QA-TEST-REPORT-TEN-MILLION-V1.1.0.md` §8.8。
 
-涉及文件：`NotificationResilienceConfig.java`、`NotificationService.java`。
+涉及文件：`NotificationResilienceConfig.java`、`NotificationService.java`、`NotificationResilienceWiringTest.java`（新增）。
 
 ## 3. C6 — 补齐 OTLP Collector（trace 汇聚可达）
 
@@ -162,6 +171,8 @@
 - **F4 已收口（含测试覆盖补齐）**：`approval` 可写动作门面、cms 发布状态机、im 会话/消息边界均补齐并有 surefire 可执行的 H2 集成测试；`ai`/`plugin`/`codegen` 复核后确认并非「无独立 IT」——`plugin` 已有真实 jar + Spring 上下文集成测试，本轮另补 `AiCloudNotReadyTest`（F5 501 语义）与 `CodeGenFlowTest`（元数据 → 预览 → ZIP 全链路）。若后续对外宣称 GA，仍需按复评报告 §4.6 补跨进程 / 真实 MySQL 的 E2E IT。
 - **C9 / P4 两项遗留不变**：真实 CVE 扫描依赖联网 NVD，存量 OFFSET 端点为保留前端契约的渐进收敛，均非阻断。
 - **新增中危配置风险（千万级测试发现，2026-11-05）→ 已闭环**：数据源 URL 统一使用 `serverTimezone=UTC`，若生产 JVM 时区非 UTC（`Asia/Shanghai`），MySQL DATETIME 读回整体 +8h，临界值会跨日跨年。详见 `QA-TEST-REPORT-TEN-MILLION-V1.1.0.md` §8.1。**闭环措施**：Dockerfile/compose/CI 统一 UTC（含 MySQL `--default-time-zone=+00:00`）、`DataSourceTimeZoneGuard`（prod 启动 fail-fast）、`DataSourceTimeZoneGuardTest`（10 例，含真实映射器 1970/2099 边界往返）、env.template 与 application-prod.yml 显式约束；闭环后四门禁 **2,062 例全绿**。自管部署仍须按同一口径核对。
+- **新增高危性能阻断项（千万级 L4 实测，2026-11-05）→ 待治理，阻断上线**：在 1280 万行 `sys_operation_log` 上，`GET /api/system/monitor/error-logs`（含深页）、`GET /api/system/monitor/error-summary`、`GET /api/system/dashboard/overview` 的 p95 分别为 **20,855 / 21,505 / 6,353 / 3,024 ms**，吞吐 0.07~1.34 req/s，按交互级 `p95<150ms` 口径**明确不达标**；少量并发即可占满 Tomcat 工作线程造成级联不可用。根因是 `JooqWriters.page` 的 `COUNT+OFFSET`、全表 `GROUP BY` 与 `operationCount()` 全表 `COUNT`，且 **P4 的偏移护栏未覆盖 monitor 端点**（`page=1000` / offset=19,980 未被拦截）。**上线前须完成止血**：强制时间窗口上限、最大 offset 护栏覆盖 monitor、SQL 查询超时、大表查询线程池隔离，并按报告 §2 复测达标；结构性改造（keyset / 预聚合）可随后续迭代。详见报告 §4.1 / §8.7 / §9。**此为整改核对说明中唯一尚未收口的新增阻断项**，其余清单项均已闭环。
+- **P7 装配歧义（L4 首次暴露）→ 已闭环**：见 §2；修复后四门禁 **2,067 例全绿**。
 
 ---
 
@@ -173,3 +184,9 @@
 - 4 项诊断对照场景（OFFSET 深页 1,014ms、无索引全表扫描 5,192ms、全表 COUNT 1,940ms、GROUP BY 9,490ms）超 150ms，均非推荐生产路径且已有替代与护栏，不构成上线阻断。
 - 完整范围、指标、未通过项、瓶颈风险与明确结论见 **`QA-TEST-REPORT-TEN-MILLION-V1.1.0.md`**；原始结果归档于 `java-admin-framework/scripts/perf/results/`。
 - **§8.1 中危时区风险已闭环（同日追加）**：容器/CI 统一 UTC、生产启动期 `DataSourceTimeZoneGuard` fail-fast、10 例契约与边界时间回归断言；闭环后四门禁复验后端 **2,062 例 0 失败**、`check-conventions.py` EXIT=0、前端 91/91、`vite build` EXIT=0。
+- **L4 千万级 HTTP 全链路压测已补齐（同日追加）**：新增隔离库 `java_admin_perf_l4` = `java_admin` 完整 110 表结构与种子 + 12,800,004 行主表（`BIT_XOR(CRC32(id))` 与源库一致）；`TenMillionHttpPerf` 以真实 Spring Boot 上下文 + 随机端口 Tomcat + `TestRestTemplate` 跑 5 场景，`BUILD SUCCESS` / `VERDICT=PASS`。
+  - **功能达标**：5/5 场景、222 个统计请求全 2xx、错误率 **0.00%**；框架基线 `ping` p95 109ms / 671.20 req/s。
+  - **性能不达标（阻断项）**：`error-logs` 首页 20,855ms、深页 21,505ms、`dashboard/overview` 3,024ms、`error-summary` 6,353ms，吞吐 0.07~1.34 req/s。故报告结论由「达标」修正为 **「有条件达标」**，放行条件见报告 §8.7 / §9（P0 止血 + 治理后复测）。
+  - **附带发现并修复**：L4 首次拉起完整上下文暴露 P7 熔断器 Bean 装配歧义（§2），已逐点 `@Qualifier` 修复并补 5 例装配契约回归。
+  - **交付物**：`scripts/perf/seed-l4-db.sh`、`TenMillionHttpPerf.java`（逐场景增量落盘 + `ConcurrentLinkedQueue` 并发收集）、`results/TEN-MILLION-HTTP-L4.txt`、`results/TEN-MILLION-HTTP-L4-SLOWSQL.txt`（41 条慢 SQL、去重 28 条）。
+  - **最终四门禁**：后端 **2,067 例 / 0 失败 / 0 错误 / 0 跳过**、`check-conventions.py` EXIT=0、前端 91/91、`vite build` EXIT=0。
