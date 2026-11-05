@@ -31,22 +31,27 @@ import java.util.stream.Collectors;
 public class DefaultDataScopeProvider implements DataScopeProvider {
 
     private final DataScopeDataPort port;
+    private final DataScopeProperties properties;
 
     @Override
     public DataScopeResult resolve(Long userId, String resourceCode) {
         if (userId == null) {
-            return DataScopeResult.all();
+            log.warn("数据权限解析 userId 为空，按默认兜底策略 {} 处理（fail-closed：配置缺失即最小可见）",
+                    properties.getDefaultPolicy());
+            return DataScopeResult.ofPolicy(properties.getDefaultPolicy());
         }
         // 多对多：用户角色来自 sys_user_role 关联表（并集）。
         Set<Long> roleIds = port.roleIdsOfUser(userId);
         if (roleIds.isEmpty()) {
-            return DataScopeResult.all(); // 无角色 => 按不限制兜底（与 V6 语义一致）
+            // 无角色 => 按默认兜底策略（默认 SELF=fail-closed，最小可见）；显式配置 ALL 才不限制
+            return DataScopeResult.ofPolicy(properties.getDefaultPolicy());
         }
 
         // ruleId -> scopeType；无规则 => 不限制。
         Map<Long, String> scopes = port.dataScopesOfRoles(roleIds, resourceCode);
         if (scopes.isEmpty()) {
-            return DataScopeResult.all(); // 无规则 => 不限制
+            // 无规则 => 按默认兜底策略（默认 SELF=fail-closed，最小可见）
+            return DataScopeResult.ofPolicy(properties.getDefaultPolicy());
         }
 
         // 主部门由 sys_user_org 中 is_primary=1 推导（多部门时取主部门用于 DEPT 类数据范围）。
@@ -87,7 +92,7 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
      *   <li>任一规则为 ALL ⇒ 整体不限（最高优先级）；</li>
      *   <li>否则任一规则为 SELF ⇒ 本人（优先于机构类规则）；</li>
      *   <li>其余机构类规则（DEPT / DEPT_AND_CHILD / CUSTOM）取并集；</li>
-     *   <li>存在机构类规则却解析不出任何机构 ⇒ 降级「不限制」并告警（故意 fail-open，可见性优先）。</li>
+     *   <li>存在机构类规则却解析不出任何机构 ⇒ 降级到默认兜底策略（默认 SELF=fail-closed，最小可见）并告警。</li>
      * </ul>
      * 先收集全部规则类型再统一裁决，避免某角色的 SELF/ALL 提前 return 短路、漏掉另一角色的相反语义
      * （该缺陷在纯 N:N 多角色后才会暴露，单角色时代遍历顺序不影响结果）。
@@ -118,28 +123,39 @@ public class DefaultDataScopeProvider implements DataScopeProvider {
         if (anySelf) {
             return DataScopeResult.self();
         }
-        // 配了机构类规则但解析不出任何机构（如用户未挂部门）：降级为「不限制」并告警（故意 fail-open，
-        // 可见性优先于安全性），否则该角色会一条数据都看不到；告警指向配置问题而非静默生效。
-        // 若产品要求「看不到任何数据」语义，请在此改为 return DataScopeResult.self()。
+        // 配了机构类规则但解析不出任何机构（如用户未挂部门）：降级到默认兜底策略（默认 SELF=fail-closed，
+        // 最小可见）并告警；告警指向配置问题而非静默生效。如需「看不到任何数据」语义，将默认策略设为 NONE
+        // （当前 DataScopeResult 仅支持 ALL/SELF，NONE 需下游谓词配合，故以 SELF 作为最小可见默认）。
         if (hasOrgRule && resolvedOrgIds.isEmpty()) {
-            log.warn("数据权限解析为空，按不限制处理；请检查用户是否已绑定部门或 CUSTOM 规则是否配置了机构。"
-                    + "resourceCode={}, roleIds={}, orgId={}", resourceCode, roleIds, primaryOrgId);
-            return DataScopeResult.all();
+            log.warn("数据权限机构类规则解析为空，按默认兜底策略 {} 处理；请检查用户是否已绑定部门或 CUSTOM 规则是否配置了机构。"
+                    + "resourceCode={}, roleIds={}, orgId={}", properties.getDefaultPolicy(),
+                    resourceCode, roleIds, primaryOrgId);
+            return DataScopeResult.ofPolicy(properties.getDefaultPolicy());
         }
         return DataScopeResult.ofOrgs(resolvedOrgIds);
     }
 
-    /** scope_type 取值非法或为空时按 ALL 兜底并告警，避免一条脏数据让整个角色查不到数据。 */
+    /**
+     * 兜底 scope_type：按默认兜底策略映射。SELF 策略下脏/空 scope_type 回落 SELF（最小可见），
+     * ALL 策略下回落 ALL（fail-open，兼容旧语义）。避免一条脏数据让整个角色查不到数据，
+     * 同时把「配置缺失」收敛到统一的最小可见默认。
+     */
+    private DataScopeType defaultScopeType() {
+        return properties.getDefaultPolicy() == DataScopeDefaultPolicy.SELF
+                ? DataScopeType.SELF : DataScopeType.ALL;
+    }
+
+    /** scope_type 取值非法或为空时按兜底策略回落并告警，避免一条脏数据让整个角色查不到数据。 */
     private DataScopeType safeType(String s, Long ruleId) {
         if (s == null || s.isBlank()) {
             log.warn("数据权限规则 scope_type 为空，ruleId={}，按 ALL 处理", ruleId);
-            return DataScopeType.ALL;
+            return defaultScopeType();
         }
         try {
             return DataScopeType.valueOf(s);
         } catch (IllegalArgumentException e) {
             log.warn("数据权限规则 scope_type 非法：{}，ruleId={}，按 ALL 处理", s, ruleId);
-            return DataScopeType.ALL;
+            return defaultScopeType();
         }
     }
 }

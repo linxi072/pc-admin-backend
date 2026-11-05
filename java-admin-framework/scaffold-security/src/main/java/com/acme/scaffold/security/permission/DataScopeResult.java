@@ -30,6 +30,16 @@ public record DataScopeResult(DataScopeType type, Set<Long> orgIds) {
     }
 
     /**
+     * 按默认兜底策略产出结果（P0-1，fail-closed 改造）。
+     *
+     * @param policy {@link DataScopeDefaultPolicy#SELF} 回落仅本人（最小可见）；
+     *               {@link DataScopeDefaultPolicy#ALL} 回落不限制（fail-open）
+     */
+    public static DataScopeResult ofPolicy(DataScopeDefaultPolicy policy) {
+        return policy == DataScopeDefaultPolicy.SELF ? self() : all();
+    }
+
+    /**
      * 限定在给定机构集合内。
      *
      * @param orgIds 机构集合；为空时降级为 {@link #all()}，避免「配置了机构规则但集合为空」导致查不到任何数据

@@ -3,6 +3,7 @@ package com.acme.scaffold.security.permission;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class DefaultDataScopeProviderTest {
 
-    private final DefaultDataScopeProvider provider = new DefaultDataScopeProvider(null);
+    private final DefaultDataScopeProvider provider = new DefaultDataScopeProvider(null, new DataScopeProperties());
 
     private DataScopeResult merge(DataScopeType... types) {
         return provider.mergeRules(Set.of(1L, 2L), 10L, List.of(types), Set.of(), "res:x");
@@ -59,20 +60,47 @@ class DefaultDataScopeProviderTest {
     }
 
     @Test
-    void orgRuleWithEmptyResolvedDegradesToAll() {
-        // 存在机构类规则却解析不出任何机构（如用户未挂部门）：fail-open 降级为不限并告警
+    void orgRuleWithEmptyResolvedDegradesToDefaultPolicy() {
+        // 默认策略 SELF：机构类规则解析不出机构时 fail-closed 降级为仅本人（最小可见），不再不限
         DataScopeResult r = provider.mergeRules(
                 Set.of(1L), null,
                 List.of(DataScopeType.DEPT), Set.of(), "res:x");
-        assertTrue(r.unrestricted(), "机构类规则解析为空应 fail-open 为不限");
+        assertTrue(r.selfOnly(), "机构类规则解析为空应 fail-closed 为仅本人（默认 SELF）");
     }
 
     @Test
-    void customRuleWithEmptyResolvedDegradesToAll() {
+    void customRuleWithEmptyResolvedDegradesToDefaultPolicy() {
         DataScopeResult r = provider.mergeRules(
                 Set.of(1L), 10L,
                 List.of(DataScopeType.CUSTOM), Set.of(), "res:x");
-        assertTrue(r.unrestricted(), "CUSTOM 规则无机构应 fail-open 为不限");
+        assertTrue(r.selfOnly(), "CUSTOM 规则无机构应 fail-closed 为仅本人（默认 SELF）");
+    }
+
+    @Test
+    void emptyResolvedHonorsAllPolicyWhenExplicitlyConfigured() {
+        // 显式配置 ALL：退化兜底回落不限制（兼容旧语义，须显式 opt-in）
+        DataScopeProperties all = new DataScopeProperties();
+        all.setDefaultPolicy(DataScopeDefaultPolicy.ALL);
+        DefaultDataScopeProvider allProvider = new DefaultDataScopeProvider(null, all);
+        DataScopeResult r = allProvider.mergeRules(
+                Set.of(1L), null,
+                List.of(DataScopeType.DEPT), Set.of(), "res:x");
+        assertTrue(r.unrestricted(), "显式 ALL 策略下机构类规则解析为空应不限制");
+    }
+
+    @Test
+    void resolveFallsBackToDefaultPolicyOnNoRoles() {
+        // 用户无角色 => 按默认兜底策略（SELF）而非不限
+        DataScopeDataPort stub = new DataScopeDataPort() {
+            @Override public Set<Long> roleIdsOfUser(Long userId) { return Set.of(); }
+            @Override public Map<Long, String> dataScopesOfRoles(Set<Long> roleIds, String resourceCode) { return Map.of(); }
+            @Override public Long primaryOrgIdOfUser(Long userId) { return null; }
+            @Override public Set<Long> childOrgIds(Long orgId) { return Set.of(); }
+            @Override public Set<Long> customOrgIds(Long ruleId) { return Set.of(); }
+        };
+        DefaultDataScopeProvider p = new DefaultDataScopeProvider(stub, new DataScopeProperties());
+        DataScopeResult r = p.resolve(42L, "system:user");
+        assertTrue(r.selfOnly(), "无角色用户应 fail-closed 为仅本人");
     }
 
     @Test
