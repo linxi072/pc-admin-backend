@@ -1,6 +1,7 @@
 package com.acme.scaffold.ai.port;
 
 import com.acme.scaffold.ai.AiScaffoldException;
+import com.acme.scaffold.ai.LlmNotImplementedException;
 import com.acme.scaffold.ai.dto.TableSpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,9 +34,12 @@ public class CloudLlmProvider implements LlmProvider {
     @Override
     public TableSpec parse(String prompt) {
         if (endpoint == null || endpoint.isBlank()) {
-            throw new AiScaffoldException("云大模型未配置 ai.llm.endpoint，无法生成表结构");
+            // 未配置端点：能力不可用，映射 501（F5），而非笼统 500
+            throw new LlmNotImplementedException(
+                    "云大模型未配置 ai.llm.endpoint，无法生成表结构（请配置后重试）");
         }
         // TODO 真实大模型调用：POST endpoint，解析 JSON 为 TableSpec。
-        throw new AiScaffoldException("云大模型接入尚未实现（占位）：请基于 endpoint=" + endpoint + " 补齐调用");
+        throw new LlmNotImplementedException(
+                "云大模型接入尚未实现（占位）：请基于 endpoint=" + endpoint + " 补齐调用");
     }
 }
