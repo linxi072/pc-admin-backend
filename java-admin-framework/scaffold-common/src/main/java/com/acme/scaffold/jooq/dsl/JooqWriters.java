@@ -219,6 +219,24 @@ public final class JooqWriters {
                 .fetch(new SnakeRecordMapper<>(type));
     }
 
+    /**
+     * 按条件查询列表并排序，限制条数（允许超过 {@link #fetchTop} 的 1000 硬上限）。
+     *
+     * <p>用于机构树等「需大体量但必须设防」的场景：下推 {@code LIMIT} 避免异常数据增长时把全表
+     * 拖入堆内造成 OOM（与 P4「role/org 全量加载无分页」整改一致）。调用方应关注返回量是否触顶
+     * （触顶即可能不完整）。limit 非法时按 1 处理，不做额外钳制。</p>
+     */
+    public static <E> List<E> fetchListBounded(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
+                                               Condition cond, int limit, OrderField<?>... orderBy) {
+        int n = Math.max(limit, 1);
+        if (orderBy == null || orderBy.length == 0) {
+            return scopedSelect(dsl, table, cond).limit(n)
+                    .fetch(new SnakeRecordMapper<>(type));
+        }
+        return scopedSelect(dsl, table, cond).orderBy(orderBy).limit(n)
+                .fetch(new SnakeRecordMapper<>(type));
+    }
+
     /** 按条件统计数量。 */
     public static long count(DSLContext dsl, JooqTables.TableRef table, Condition cond) {
         Integer total = dsl.selectCount().from(table.table()).where(withTenant(table, cond)).fetchOne(0, int.class);

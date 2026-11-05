@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.controller;
 
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
@@ -44,6 +45,19 @@ public class UserController {
                                             @RequestParam(required = false) String sortDirection) {
         return Result.success(userService.list(
                 new UserQuery(page, size, username, status, orgId, roleId, sortField, sortDirection)));
+    }
+
+    @Operation(summary = "游标（keyset）分页查询用户：深翻页性能稳定，不随偏移退化")
+    @GetMapping("/page-keyset")
+    @PreAuthorize("hasAuthority('system:user:read')")
+    @AuditOperation(module = "system", type = "QUERY", name = "游标查询用户列表")
+    public Result<KeysetPageResult<UserView>> pageKeyset(@RequestParam(defaultValue = "20") int size,
+                                                         @RequestParam(required = false) String cursor,
+                                                         @RequestParam(required = false) String username,
+                                                         @RequestParam(required = false) String status,
+                                                         @RequestParam(required = false) Long orgId,
+                                                         @RequestParam(required = false) Long roleId) {
+        return Result.success(userService.listKeyset(size, cursor, username, status, orgId, roleId));
     }
 
     @Operation(summary = "用户详情")

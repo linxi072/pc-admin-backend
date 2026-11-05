@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.controller;
 
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
@@ -47,6 +48,15 @@ public class MessageController {
         return Result.success(messageService.pageMine(page, size, onlyUnread));
     }
 
+    @Operation(summary = "我的消息游标（keyset）分页：深翻页性能稳定")
+    @GetMapping("/mine-keyset")
+    @AuditOperation(module = "system", type = "QUERY", name = "游标查询我的站内信")
+    public Result<KeysetPageResult<MessageView>> mineKeyset(@RequestParam(defaultValue = "20") int size,
+                                                           @RequestParam(required = false) String cursor,
+                                                           @RequestParam(defaultValue = "false") boolean onlyUnread) {
+        return Result.success(messageService.pageMineKeyset(size, cursor, onlyUnread));
+    }
+
     @Operation(summary = "我的未读数量（用于未读提醒徽标）")
     @GetMapping("/unread-count")
     public Result<Map<String, Long>> unreadCount() {
@@ -75,5 +85,14 @@ public class MessageController {
     public Result<PageResult<SysMessageDO>> sent(@RequestParam(defaultValue = "1") int page,
                                                  @RequestParam(defaultValue = "20") int size) {
         return Result.success(messageService.pageSent(page, size));
+    }
+
+    @Operation(summary = "我发出的消息游标（keyset）分页：深翻页性能稳定")
+    @GetMapping("/sent-keyset")
+    @PreAuthorize("hasAuthority('system:message:read')")
+    @AuditOperation(module = "system", type = "QUERY", name = "游标查询已发送站内信")
+    public Result<KeysetPageResult<SysMessageDO>> sentKeyset(@RequestParam(defaultValue = "20") int size,
+                                                           @RequestParam(required = false) String cursor) {
+        return Result.success(messageService.pageSentKeyset(size, cursor));
     }
 }

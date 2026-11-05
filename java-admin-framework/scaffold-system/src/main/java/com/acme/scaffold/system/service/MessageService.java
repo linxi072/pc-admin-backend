@@ -1,5 +1,7 @@
 package com.acme.scaffold.system.service;
 
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -7,6 +9,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooq.paging.JooqKeysetPager;
 import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageView;
@@ -18,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.Record2;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
@@ -201,7 +205,15 @@ public class MessageService {
      *
      * @param onlyUnread true 时仅返回未读
      */
+    /** 站内信收件箱 OFFSET 深翻页偏移上限（行）：超过则要求改用游标分页接口。 */
+    private static final long MAX_MESSAGE_OFFSET = 5000;
+
     public PageResult<MessageView> pageMine(int page, int size, boolean onlyUnread) {
+        long offset = (long) Math.max(page - 1, 0) * Math.min(Math.max(size, 1), 100);
+        if (offset > MAX_MESSAGE_OFFSET) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                    "站内信分页偏移过大（超过 " + MAX_MESSAGE_OFFSET + " 行），请改用游标分页接口 /api/system/messages/mine-keyset");
+        }
         Long userId = requireCurrentUserId();
         List<Condition> conds = new ArrayList<>();
         conds.add(RC.field("user_id", Long.class).eq(userId));
@@ -223,34 +235,71 @@ public class MessageService {
                 .limit(q.limit()).offset(q.offset())
                 .fetch();
 
-        List<MessageView> views = new ArrayList<>();
-        if (!receipts.isEmpty()) {
-            Set<Long> msgIds = receipts.stream().map(Record2::value1).collect(Collectors.toSet());
-            Map<Long, SysMessageDO> msgMap = JooqWriters.fetchList(dsl, MSG,
-                            SysMessageDO.class,
-                            DSL.and(JooqWriters.notDeleted(MSG),
-                                    MSG.field("id", Long.class).in(msgIds)))
-                    .stream().collect(Collectors.toMap(SysMessageDO::getId, m -> m));
+        List<Long> msgIds = receipts.stream().map(Record2::value1).toList();
+        Map<Long, Integer> isReadMap = receipts.stream()
+                .collect(Collectors.toMap(Record2::value1, r -> r.value2() == null ? 0 : r.value2()));
+        return new PageResult<>(page, size, total, buildMineViews(msgIds, isReadMap, userId));
+    }
 
-            Set<Long> senderIds = msgMap.values().stream().map(SysMessageDO::getSenderId)
-                    .filter(Objects::nonNull).collect(Collectors.toSet());
-            Map<Long, String> senderNames = loadSenderNames(senderIds);
-
-            // 批量装载本页回执（避免逐条查询 readAt 造成 N+1）
-            Map<Long, LocalDateTime> readAtMap = loadReadAtMap(msgIds, userId);
-
-            for (Record2<Long, Integer> r : receipts) {
-                SysMessageDO m = msgMap.get(r.value1());
-                if (m == null) {
-                    continue;
-                }
-                boolean isRead = r.value2() != null && r.value2() == 1;
-                views.add(new MessageView(m.getId(), m.getTitle(), m.getContent(), m.getMsgType(),
-                        m.getSenderId(), senderNames.get(m.getSenderId()), m.getSentAt(),
-                        isRead, isRead ? readAtMap.get(m.getId()) : null));
-            }
+    /**
+     * 站内信收件箱游标（keyset）分页：深翻页性能稳定，不随偏移退化。
+     * 排序键服务端固定为 (is_read ASC, id DESC)，游标不透明编码；不返回 total。
+     */
+    public KeysetPageResult<MessageView> pageMineKeyset(int size, String cursor, boolean onlyUnread) {
+        Long userId = requireCurrentUserId();
+        List<Condition> conds = new ArrayList<>();
+        conds.add(RC.field("user_id", Long.class).eq(userId));
+        if (onlyUnread) {
+            conds.add(RC.field("is_read", Integer.class).eq(0));
         }
-        return new PageResult<>(page, size, total, views);
+        KeysetPageQuery q = new KeysetPageQuery(size, cursor == null ? "" : cursor);
+        Field<?>[] keyFields = new Field<?>[]{
+                RC.field("is_read", Integer.class),
+                RC.field("id", Long.class)
+        };
+        boolean[] ascending = {true, false}; // is_read ASC, id DESC
+        KeysetPageResult<SysMessageReceiptDO> raw = JooqKeysetPager.query(dsl, RC, SysMessageReceiptDO.class,
+                DSL.and(conds), q,
+                r -> new Object[]{r.getIsRead(), r.getId()}, keyFields, ascending);
+        List<Long> msgIds = raw.records().stream().map(SysMessageReceiptDO::getMessageId).toList();
+        Map<Long, Integer> isReadMap = raw.records().stream()
+                .collect(Collectors.toMap(SysMessageReceiptDO::getMessageId,
+                        r -> r.getIsRead() == null ? 0 : r.getIsRead()));
+        return KeysetPageResult.of(raw.size(), buildMineViews(msgIds, isReadMap, userId), raw.nextCursor());
+    }
+
+    /** 由本页消息 id 集合与已读标记构造消息视图（批量装载发件人姓名与已读回执时间，避免 N+1）。 */
+    private List<MessageView> buildMineViews(List<Long> orderedMsgIds, Map<Long, Integer> isReadMap, Long userId) {
+        List<MessageView> views = new ArrayList<>();
+        if (orderedMsgIds.isEmpty()) {
+            return views;
+        }
+        Set<Long> msgIds = new LinkedHashSet<>(orderedMsgIds);
+        Map<Long, SysMessageDO> msgMap = JooqWriters.fetchList(dsl, MSG,
+                        SysMessageDO.class,
+                        DSL.and(JooqWriters.notDeleted(MSG),
+                                MSG.field("id", Long.class).in(msgIds)))
+                .stream().collect(Collectors.toMap(SysMessageDO::getId, m -> m));
+
+        Set<Long> senderIds = msgMap.values().stream().map(SysMessageDO::getSenderId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> senderNames = loadSenderNames(senderIds);
+
+        // 批量装载本页回执（避免逐条查询 readAt 造成 N+1）
+        Map<Long, LocalDateTime> readAtMap = loadReadAtMap(msgIds, userId);
+
+        for (Long msgId : orderedMsgIds) {
+            SysMessageDO m = msgMap.get(msgId);
+            if (m == null) {
+                continue;
+            }
+            Integer flag = isReadMap.get(msgId);
+            boolean isRead = flag != null && flag == 1;
+            views.add(new MessageView(m.getId(), m.getTitle(), m.getContent(), m.getMsgType(),
+                    m.getSenderId(), senderNames.get(m.getSenderId()), m.getSentAt(),
+                    isRead, isRead ? readAtMap.get(m.getId()) : null));
+        }
+        return views;
     }
 
     /** 我的未读数量（用于顶部提醒徽标）。 */
@@ -341,12 +390,31 @@ public class MessageService {
 
     /** 我发出的消息分页（含已读/未读统计）。 */
     public PageResult<SysMessageDO> pageSent(int page, int size) {
+        long offset = (long) Math.max(page - 1, 0) * Math.min(Math.max(size, 1), 100);
+        if (offset > MAX_MESSAGE_OFFSET) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                    "已发送消息分页偏移过大（超过 " + MAX_MESSAGE_OFFSET + " 行），请改用游标分页接口 /api/system/messages/sent-keyset");
+        }
         Long userId = requireCurrentUserId();
         var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
         return JooqWriters.page(dsl, MSG, SysMessageDO.class,
                 DSL.and(JooqWriters.notDeleted(MSG),
                         MSG.field("sender_id", Long.class).eq(userId)),
                 q, MSG.field("id", Long.class).desc());
+    }
+
+    /**
+     * 我发出的消息游标（keyset）分页：深翻页性能稳定。排序键服务端固定为 id DESC。
+     */
+    public KeysetPageResult<SysMessageDO> pageSentKeyset(int size, String cursor) {
+        Long userId = requireCurrentUserId();
+        KeysetPageQuery q = new KeysetPageQuery(size, cursor == null ? "" : cursor);
+        Field<?>[] keyFields = new Field<?>[]{ MSG.field("id", Long.class) };
+        boolean[] ascending = {false}; // id DESC
+        return JooqKeysetPager.query(dsl, MSG, SysMessageDO.class,
+                DSL.and(JooqWriters.notDeleted(MSG),
+                        MSG.field("sender_id", Long.class).eq(userId)),
+                q, m -> new Object[]{ m.getId() }, keyFields, ascending);
     }
 
     // ------------------------------------------------------------------

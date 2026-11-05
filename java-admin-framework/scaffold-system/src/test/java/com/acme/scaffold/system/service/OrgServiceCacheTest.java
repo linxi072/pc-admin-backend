@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -124,29 +125,36 @@ class OrgServiceCacheTest {
         writers.when(() -> JooqWriters.fetchList(any(), any(), eq(SysUserDO.class), any()))
                 .thenReturn(List.of(user(1L, "管理员")));
         writers.when(() -> JooqWriters.fetchList(any(), any(), eq(SysOrgDO.class), any(), any(OrderField[].class)))
-                .thenAnswer(inv -> {
-                    DataScopeContext.Scope scope = DataScopeContext.current();
-                    if (scope == null || scope.result() == null || scope.result().unrestricted()) {
-                        // 不限制：完整树
-                        return List.of(org(1L, 0L, "c1", "总部", 1),
-                                org(2L, 1L, "c2", "研发", 2),
-                                org(3L, 1L, "c3", "市场", 3));
-                    }
-                    if (scope.result().selfOnly()) {
-                        // 仅本人：仅主部门
-                        return List.of(org(1L, 0L, "c1", "总部", 1));
-                    }
-                    Set<Long> ids = scope.result().orgIds();
-                    if (ids == null || ids.isEmpty()) {
-                        return List.of(org(1L, 0L, "c1", "总部", 1),
-                                org(2L, 1L, "c2", "研发", 2),
-                                org(3L, 1L, "c3", "市场", 3));
-                    }
-                    // 机构集合：仅返回可见机构
-                    return ids.stream()
-                            .map(id -> org(id, id == 1L ? 0L : 1L, "c" + id, "部门" + id, (int) (long) id))
-                            .toList();
-                });
+                .thenAnswer(inv -> orgListByScope());
+        // P4：tree()/loadAll() 经 loadAllOrgs 改走 fetchListBounded（下推 LIMIT 防御异常数据增长），
+        // 此处一并打桩以保证「范围 → 数据 → 缓存键」行为不变。
+        writers.when(() -> JooqWriters.fetchListBounded(any(), any(), eq(SysOrgDO.class), any(), anyInt(), any(OrderField[].class)))
+                .thenAnswer(inv -> orgListByScope());
+    }
+
+    /** 按当前数据权限范围返回对应机构集合（模拟 DataScopeConditions 的 SQL 过滤效果），供 fetchList / fetchListBounded 共用。 */
+    private static List<SysOrgDO> orgListByScope() {
+        DataScopeContext.Scope scope = DataScopeContext.current();
+        if (scope == null || scope.result() == null || scope.result().unrestricted()) {
+            // 不限制：完整树
+            return List.of(org(1L, 0L, "c1", "总部", 1),
+                    org(2L, 1L, "c2", "研发", 2),
+                    org(3L, 1L, "c3", "市场", 3));
+        }
+        if (scope.result().selfOnly()) {
+            // 仅本人：仅主部门
+            return List.of(org(1L, 0L, "c1", "总部", 1));
+        }
+        Set<Long> ids = scope.result().orgIds();
+        if (ids == null || ids.isEmpty()) {
+            return List.of(org(1L, 0L, "c1", "总部", 1),
+                    org(2L, 1L, "c2", "研发", 2),
+                    org(3L, 1L, "c3", "市场", 3));
+        }
+        // 机构集合：仅返回可见机构
+        return ids.stream()
+                .map(id -> org(id, id == 1L ? 0L : 1L, "c" + id, "部门" + id, (int) (long) id))
+                .toList();
     }
 
     private void stubOrgWrites(MockedStatic<JooqWriters> writers) {

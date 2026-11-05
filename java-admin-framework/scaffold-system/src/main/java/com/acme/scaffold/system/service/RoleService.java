@@ -103,9 +103,18 @@ public class RoleService {
                 role.getStatus(), role.getSortNo(), menuIds, apiIds);
     }
 
+    /**
+     * 角色全量列表（下拉/授权场景使用）。
+     *
+     * <p>角色为低基数主数据，正常规模下仅数十至数百条；此处下推 {@code LIMIT} 上限作为防御：
+     * 避免异常数据增长时一次性把全表拖入堆内（与 P4「role/org 全量加载无分页」整改一致）。
+     * 正常规模不会触顶；若触顶说明角色数据异常，需治理而非无限加载。</p>
+     */
+    private static final int MAX_ROLE_ROWS = 1000;
+
     public List<RoleView> list() {
-        return JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
-                        JooqWriters.notDeleted(ROLE),
+        return JooqWriters.fetchTop(dsl, ROLE, SysRoleDO.class,
+                        JooqWriters.notDeleted(ROLE), MAX_ROLE_ROWS,
                         ROLE.field("sort_no", Integer.class).asc())
                 .stream().map(RoleView::from).collect(Collectors.toList());
     }

@@ -13,7 +13,10 @@ import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.jooq.dsl.JooqSorts;
 import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.common.api.dto.KeysetPageQuery;
+import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.jooq.paging.JooqKeysetPager;
 import com.acme.scaffold.security.permission.ColumnField;
 import com.acme.scaffold.security.permission.ColumnPermission;
 import com.acme.scaffold.security.permission.ColumnPermissionFieldView;
@@ -39,6 +42,7 @@ import com.acme.scaffold.system.service.RoleColumnPermissionService;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -82,6 +86,9 @@ public class UserService {
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
             JooqTables.SYS_ROLE;
+
+    /** 用户列表 OFFSET 深翻页偏移上限（行）：超过则要求改用游标分页，杜绝 LIMIT/OFFSET 随偏移线性退化。 */
+    private static final long MAX_USER_LIST_OFFSET = 5000;
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
@@ -325,6 +332,23 @@ public class UserService {
                         sensitiveType = SensitiveType.EMAIL)
             })
     public PageResult<UserView> list(UserQuery query) {
+        // 深翻页护栏：OFFSET 分页在偏移过大时随偏移线性退化，超过上限强制要求改用游标分页接口。
+        long offset = (long) Math.max(query.page() - 1, 0) * Math.min(Math.max(query.size(), 1), 100);
+        if (offset > MAX_USER_LIST_OFFSET) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                    "用户列表分页偏移过大（超过 " + MAX_USER_LIST_OFFSET + " 行），请改用游标分页接口 /api/system/users/page-keyset");
+        }
+        List<Condition> conds = buildUserListConds(query);
+        var pageQuery = query.toPageQuery();
+        PageResult<SysUserDO> page = JooqWriters.page(dsl, USER, SysUserDO.class,
+                DSL.and(conds), pageQuery,
+                JooqSorts.resolve(USER, pageQuery, USER_SORT_FIELDS,
+                        USER.field("id", Long.class).desc()));
+        return new PageResult<>(page.page(), page.size(), page.total(), toUserViews(page.records()));
+    }
+
+    /** 构造用户列表查询条件（含数据权限），供 OFFSET 与 keyset 两种分页复用。 */
+    private List<Condition> buildUserListConds(UserQuery query) {
         List<Condition> conds = new ArrayList<>();
         conds.add(JooqWriters.notDeleted(USER));
         if (StringUtils.hasText(query.username())) {
@@ -351,21 +375,52 @@ public class UserService {
         // 数据权限：SELF -> id = 当前用户；DEPT/DEPT_AND_CHILD/CUSTOM -> 主部门所在机构集合；ALL -> 不加条件。
         // sys_user 已无 org_id 单列，DataScopeConditions 内部改走 sys_user_org 关联表。
         conds.add(DataScopeConditions.of(USER, "org_id", "id"));
+        return conds;
+    }
 
-        var pageQuery = query.toPageQuery();
-        PageResult<SysUserDO> page = JooqWriters.page(dsl, USER, SysUserDO.class,
-                DSL.and(conds), pageQuery,
-                JooqSorts.resolve(USER, pageQuery, USER_SORT_FIELDS,
-                        USER.field("id", Long.class).desc()));
+    /**
+     * 用户列表游标（keyset）分页：深翻页性能稳定，不随偏移退化，替代 {@link #list} 的 OFFSET 路径。
+     *
+     * <p>排序键服务端固定为 {@code (created_at DESC, id DESC)}（含唯一 tie-breaker id），与 orderBy 完全一致
+     * 以保证 seek 正确；游标不透明编码（{@link com.acme.scaffold.common.api.CursorCodec}），客户端不可伪造排序。
+     * 不返回 total（keyset 不廉价计算总数）。筛选口径与 {@link #list} 一致。</p>
+     */
+    @ColumnPermission(resourceCode = UserQuery.RESOURCE_CODE, name = "用户管理",
+            fields = {
+                @ColumnField(name = "mobile", label = "手机号", strategy = ColumnStrategy.MASK,
+                        sensitiveType = SensitiveType.MOBILE),
+                @ColumnField(name = "email", label = "邮箱", strategy = ColumnStrategy.MASK,
+                        sensitiveType = SensitiveType.EMAIL)
+            })
+    public KeysetPageResult<UserView> listKeyset(int size, String cursor,
+            String username, String status, Long orgId, Long roleId) {
+        UserQuery query = new UserQuery(1, size, username, status, orgId, roleId, null, null);
+        List<Condition> conds = buildUserListConds(query);
+        KeysetPageQuery q = new KeysetPageQuery(size, cursor == null ? "" : cursor);
+        Field<?>[] keyFields = new Field<?>[]{
+                USER.field("created_at", LocalDateTime.class),
+                USER.field("id", Long.class)
+        };
+        boolean[] ascending = {false, false}; // created_at DESC, id DESC
+        KeysetPageResult<SysUserDO> raw = JooqKeysetPager.query(dsl, USER, SysUserDO.class,
+                DSL.and(conds), q,
+                u -> new Object[]{u.getCreatedAt(), u.getId()}, keyFields, ascending);
+        return KeysetPageResult.of(raw.size(), toUserViews(raw.records()), raw.nextCursor());
+    }
 
-        Map<Long, List<RoleInfo>> roleMap = loadUserRoles(page.records());
-        Map<Long, List<OrgInfo>> orgMap = loadUserOrgs(page.records());
+    /** 批量映射用户 DO → 视图（含角色 / 部门 / 岗位与字段级脱敏），供两种分页复用。 */
+    private List<UserView> toUserViews(List<SysUserDO> users) {
+        if (users.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, List<RoleInfo>> roleMap = loadUserRoles(users);
+        Map<Long, List<OrgInfo>> orgMap = loadUserOrgs(users);
         Map<Long, Map<Long, String>> postMap = postService.loadPostNamesByUserIds(
-                page.records().stream().map(SysUserDO::getId).toList());
-        List<UserView> records = page.records().stream()
-                .map(u -> toView(u, roleMap, orgMap, postMap, currentGrantedColumnCodes()))
+                users.stream().map(SysUserDO::getId).toList());
+        Set<String> granted = currentGrantedColumnCodes();
+        return users.stream()
+                .map(u -> toView(u, roleMap, orgMap, postMap, granted))
                 .collect(Collectors.toList());
-        return new PageResult<>(page.page(), page.size(), page.total(), records);
     }
 
     /** 校验角色存在且未删除，返回角色ID（用于绑定前校验）。 */

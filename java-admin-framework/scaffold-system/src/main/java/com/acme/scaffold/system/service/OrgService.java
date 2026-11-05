@@ -16,6 +16,8 @@ import com.acme.scaffold.system.dto.UpdateOrgRequest;
 import com.acme.scaffold.system.entity.SysOrgDO;
 import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.springframework.cache.annotation.CacheEvict;
@@ -38,8 +40,12 @@ import java.util.stream.Collectors;
  * 机构服务：机构树与维护（ancestors 物化路径）。持久层由 MyBatis-Plus 迁移为 jOOQ。
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class OrgService {
+
+    /** 机构全量加载安全上限：机构树/祖先重算等需大体量但必须设防，避免异常数据增长 OOM（P4 整改）。 */
+    private static final int MAX_ORG_ROWS = 5000;
     private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 部门资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。 */
@@ -67,10 +73,8 @@ public class OrgService {
     @DataScope(resourceCode = RESOURCE_CODE, name = "部门管理")
     @Cacheable(cacheNames = ORG_TREE_CACHE, key = "#root.target.orgScopeKey()")
     public List<OrgTreeVO> tree() {
-        List<SysOrgDO> all = JooqWriters.fetchList(dsl, ORG, SysOrgDO.class,
-                DSL.and(JooqWriters.notDeleted(ORG),
-                        DataScopeConditions.of(ORG, "id")),
-                JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
+        List<SysOrgDO> all = loadAllOrgs(DSL.and(JooqWriters.notDeleted(ORG),
+                DataScopeConditions.of(ORG, "id")));
         // 负责人姓名映射：一次 IN 批量查询（displayName 优先、回落 username），
         // 避免逐节点按 leaderUserId 回查用户表形成 N+1
         Map<Long, String> leaderNames = loadLeaderNames(all.stream()
@@ -228,9 +232,18 @@ public class OrgService {
     }
 
     private List<SysOrgDO> loadAll() {
-        return JooqWriters.fetchList(dsl, ORG, SysOrgDO.class,
-                JooqWriters.notDeleted(ORG),
+        return loadAllOrgs(JooqWriters.notDeleted(ORG));
+    }
+
+    /** 有界加载全量机构：下推 LIMIT 防御异常数据增长 OOM；触顶告警（可能不完整，需治理而非无限加载）。 */
+    private List<SysOrgDO> loadAllOrgs(Condition cond) {
+        List<SysOrgDO> all = JooqWriters.fetchListBounded(dsl, ORG, SysOrgDO.class,
+                cond, MAX_ORG_ROWS,
                 JooqTables.SYS_ORG.field("sort_no", Integer.class).asc());
+        if (all.size() >= MAX_ORG_ROWS) {
+            log.warn("机构数量触达安全上限 {}，机构树/祖先重算可能不完整，请核查是否为异常数据增长", MAX_ORG_ROWS);
+        }
+        return all;
     }
 
     // 收集节点及其全部子孙的 id 集合（用于层级移动的防环校验）
