@@ -1,6 +1,7 @@
 package com.acme.scaffold.config.cache;
 
 import org.springframework.cache.Cache;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 
 import java.util.Locale;
 import java.util.Map;
@@ -23,6 +24,10 @@ import java.util.concurrent.atomic.LongAdder;
  *   <li>{@code evict(key)} 与 {@code clear()} 各记一次淘汰事件（不展开具体条目数）；</li>
  *   <li>{@code put} / {@code putIfAbsent} 不计入（写入非读取，不计命中率分母）。</li>
  * </ul>
+ *
+ * <p><b>防雪崩（P1-3）</b>：所有委托操作包 try-catch，异常路由到 {@link LoggingCacheErrorHandler} 并降级
+ * （读取失败回落数据源、写入/淘汰/清空失败静默丢弃），不向上抛，避免缓存层故障穿透业务事务。
+ * 计数旁路观测与降级互不干扰。</p>
  */
 public class StatisticsCache implements Cache {
 
@@ -34,6 +39,7 @@ public class StatisticsCache implements Cache {
 
     private final Cache delegate;
     private final String type;
+    private final CacheErrorHandler errorHandler = LoggingCacheErrorHandler.INSTANCE;
     private final LongAdder hitCount = new LongAdder();
     private final LongAdder missCount = new LongAdder();
     private final LongAdder evictCount = new LongAdder();
@@ -85,52 +91,92 @@ public class StatisticsCache implements Cache {
 
     @Override
     public ValueWrapper get(Object key) {
-        ValueWrapper wrapper = delegate.get(key);
-        countRead(wrapper != null);
-        return wrapper;
+        try {
+            ValueWrapper wrapper = delegate.get(key);
+            countRead(wrapper != null);
+            return wrapper;
+        } catch (RuntimeException e) {
+            // 读取失败：降级为未命中，回落数据源
+            errorHandler.handleCacheGetError(e, this, key);
+            return null;
+        }
     }
 
     @Override
     public <T> T get(Object key, Class<T> type) {
-        T value = delegate.get(key, type);
-        countRead(value != null);
-        return value;
+        try {
+            T value = delegate.get(key, type);
+            countRead(value != null);
+            return value;
+        } catch (RuntimeException e) {
+            errorHandler.handleCacheGetError(e, this, key);
+            return null;
+        }
     }
 
     @Override
     public <T> T get(Object key, Callable<T> valueLoader) {
         // 包装 loader 以区分「命中」与「未命中后加载」：loader 未被触发即命中，
         // 触发即未命中（加载不算命中，否则命中率被稀释语义污染）。
-        boolean[] loaded = {false};
-        Callable<T> tracking = () -> {
-            loaded[0] = true;
-            return valueLoader.call();
-        };
-        T value = delegate.get(key, tracking);
-        countRead(!loaded[0]);
-        return value;
+        try {
+            boolean[] loaded = {false};
+            Callable<T> tracking = () -> {
+                loaded[0] = true;
+                return valueLoader.call();
+            };
+            T value = delegate.get(key, tracking);
+            countRead(!loaded[0]);
+            return value;
+        } catch (RuntimeException e) {
+            // 缓存读取失败：降级为直接回源加载，保证业务可用（不计命中）
+            errorHandler.handleCacheGetError(e, this, key);
+            try {
+                T value = valueLoader.call();
+                countRead(false);
+                return value;
+            } catch (Exception ex) {
+                throw new Cache.ValueRetrievalException(key, valueLoader, ex);
+            }
+        }
     }
 
     @Override
     public void put(Object key, Object value) {
-        delegate.put(key, value);
+        try {
+            delegate.put(key, value);
+        } catch (RuntimeException e) {
+            errorHandler.handleCachePutError(e, this, key, value);
+        }
     }
 
     @Override
     public ValueWrapper putIfAbsent(Object key, Object value) {
-        return delegate.putIfAbsent(key, value);
+        try {
+            return delegate.putIfAbsent(key, value);
+        } catch (RuntimeException e) {
+            errorHandler.handleCachePutError(e, this, key, value);
+            return null;
+        }
     }
 
     @Override
     public void evict(Object key) {
-        delegate.evict(key);
-        evictCount.increment();
+        try {
+            delegate.evict(key);
+            evictCount.increment();
+        } catch (RuntimeException e) {
+            errorHandler.handleCacheEvictError(e, this, key);
+        }
     }
 
     @Override
     public void clear() {
-        delegate.clear();
-        // 全量清理记一次淘汰事件：具体条目数对 Redis 不可知，对本地映射也以事件语义统一
-        evictCount.increment();
+        try {
+            delegate.clear();
+            // 全量清理记一次淘汰事件：具体条目数对 Redis 不可知，对本地映射也以事件语义统一
+            evictCount.increment();
+        } catch (RuntimeException e) {
+            errorHandler.handleCacheClearError(e, this);
+        }
     }
 }

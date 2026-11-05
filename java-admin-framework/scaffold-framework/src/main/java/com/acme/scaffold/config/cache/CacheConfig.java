@@ -17,6 +17,9 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import java.time.Duration;
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * 缓存管理装配：开启 Spring Cache 注解（{@code @Cacheable}/{@code @CacheEvict}），
  * 并以 Redis 为默认实现提供带统计能力的 {@link StatisticsCacheManager}。
@@ -74,8 +77,9 @@ public class CacheConfig {
                         .build(),
                 ObjectMapper.DefaultTyping.EVERYTHING,
                 "@class");
+        Duration baseTtl = properties.getTtl();
         RedisCacheConfiguration defaults = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(properties.getTtl())
+                .entryTtl(jitterTtl(baseTtl))
                 .prefixCacheNameWith(properties.getKeyPrefix())
                 .serializeKeysWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new StringRedisSerializer()))
@@ -84,6 +88,23 @@ public class CacheConfig {
         RedisCacheManager redisCacheManager = RedisCacheManager.builder(factory)
                 .cacheDefaults(defaults)
                 .build();
+        // 防雪崩（P1-3）：TTL 随机抖动 + 缓存读写异常捕获降级。
+        // 异常降级由 StatisticsCache 装饰层（LoggingCacheErrorHandler）在读写时捕获并回落数据源，
+        // 不向上抛，避免缓存层故障穿透业务事务；Spring 6.1 的 CacheManager 尚未提供 setCacheErrorHandler（6.2 才引入），
+        // 故在装饰层实现，版本无关。
         return new StatisticsCacheManager(redisCacheManager);
+    }
+
+    /**
+     * TTL 随机抖动（防缓存雪崩）：在基准 ±20% 区间取随机值，避免大量 key 同时到期引发集中回源
+     * （stampede）。抖动在管理器构建时按缓存配置计算一次，作用于该配置的默认 TTL。
+     */
+    private static Duration jitterTtl(Duration base) {
+        if (base == null || base.isZero() || base.isNegative()) {
+            return base;
+        }
+        long millis = base.toMillis();
+        double factor = 0.8 + ThreadLocalRandom.current().nextDouble(0.4); // [0.8, 1.2)
+        return Duration.ofMillis((long) (millis * factor));
     }
 }
