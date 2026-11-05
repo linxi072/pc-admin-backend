@@ -100,6 +100,19 @@ TYPE_RE = re.compile(
 IMPORT_RE = re.compile(r"^import\s+(com\.acme\.scaffold\.[\w\.]+)\s*;", re.M)
 
 
+def strip_java_comments(src):
+    """移除 Java 行注释与块注释后再做静态扫描，避免注释中的文本被误判为类型/导入声明。
+
+    例：Javadoc 中“record 不可变”会被 TYPE_RE 误识为类名为“不可变”的重复类，或
+    “class Foo”式注释噪声。注释不是代码，应在扫描前剥离。
+    """
+    # 块注释 /* ... */（含 Javadoc /** ... */，可跨行）
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.DOTALL)
+    # 行注释 // ...
+    src = re.sub(r"//[^\n]*", "", src)
+    return src
+
+
 def iter_java(src):
     for dp, _, fs in os.walk(src):
         for f in fs:
@@ -297,7 +310,7 @@ def main(argv=None):
 
     for fp in files:
         with open(fp, encoding="utf-8", errors="ignore") as fh:
-            txt = fh.read()
+            txt = strip_java_comments(fh.read())
         pm = PKG_RE.search(txt)
         if not pm:
             warnings.append(f"无 package 声明: {fp}")
