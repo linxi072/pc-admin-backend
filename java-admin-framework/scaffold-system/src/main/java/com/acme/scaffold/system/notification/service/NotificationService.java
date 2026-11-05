@@ -117,6 +117,13 @@ public class NotificationService {
     @Autowired(required = false)
     private CircuitBreaker dispatchBreaker;
 
+    /**
+     * 按渠道注入的外部通道熔断器映射（P7）：短信 / 邮件 / Webhook / 企业微信 / 钉钉各自独立。
+     * 可选注入：手动 {@code new} 的单元测试不注入，走直连投递，门禁零回归。
+     */
+    @Autowired(required = false)
+    private Map<Channel, CircuitBreaker> externalChannelBreakers;
+
     /** 投递一条消息（无模板来源），返回实际投递单元数（见各适配器语义）。 */
     public int dispatch(NotificationMessage message) {
         return dispatch(message, null);
@@ -226,7 +233,14 @@ public class NotificationService {
         RuntimeException lastFailure = null;
         for (NotificationPort port : candidates) {
             try {
-                return dispatchWithRetry(port, message);
+                // P7：外部通道（短信/邮件/Webhook/企微/钉钉）按渠道包裹独立熔断器，
+                // 单一下游持续故障进入 OPEN 后快速失败，隔离级联影响；进程内通道不包裹。
+                CircuitBreaker breaker = externalChannelBreakers == null
+                        ? null : externalChannelBreakers.get(message.channel());
+                if (breaker == null) {
+                    return dispatchWithRetry(port, message);
+                }
+                return breaker.execute(() -> dispatchWithRetry(port, message));
             } catch (RuntimeException ex) {
                 lastFailure = ex;
                 log.warn("渠道投递失败 channel={} port={} err={}",
