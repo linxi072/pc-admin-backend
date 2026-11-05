@@ -233,6 +233,18 @@
 
 **验证**：双门禁复验全绿——`mvn -o -pl scaffold-system -am clean test` **713 例单测 0 失败 0 错误**（含 R7 直接相关的 `FormDefinitionServiceTest`/`FormSubmissionAdminServiceTest`/`AnnouncementReadServiceTest`/`DictDataServiceCacheTest`/`MenuServiceCacheTest`/`MessageReadServiceTest`/`PostServiceTest`，较 §3.7 新增 7 个测试类全绿）；`scripts/check-conventions.py` PY_EXIT=0（仅 1 条模块分层概览 INFO 级提示，非违规）。commit `b82b4ab`（22 files, +86/−143，含 1 新增 `FetchSupport.java`）。
 
+### 3.9 update 状态合并守卫收敛（R8，本轮续做，本地提交未推送）
+
+> 在 §3.4 `RecordStatus.normalize` 范式基础上，继续消除 6 个 Service 中「update 状态合并」的内联三元；原则不变：behavior-preserving、按关注点拆分提交、绝不推送。
+
+| 编号 | 严重度 | 根因 | 修复方案 | 改动文件 | 行为保持 |
+|------|--------|------|----------|----------|----------|
+| **R8** | 重构·去重 | `ConfigService`/`DictTypeService`/`DictDataService`/`ApiResourceService`/`OrgService`/`MenuService` 六处 update 内联「`x.status() == null ? existing.getStatus() : RecordStatus.normalize(x.status())`」三段三元，语义逐字相同（仅变量名 `req`/`request` 差异），属「状态合并」idiom 的多份实现。 | 新增 `RecordStatus.mergeOrKeep(String incoming, String existing)`（等价 `incoming == null ? existing : normalize(incoming)`），6 处改为 `x.setStatus(RecordStatus.mergeOrKeep(x.status(), existing.getStatus()))` 单行调用；`RecordStatusTest` 增补 4 个用例（null 保留原值 / 非空白归一 / 空白回落 ACTIVE / 非法抛错）。**关键语义**：`mergeOrKeep` 对 null 入参回落 `existing`（保留原值）而非 `normalize` 的 `DEFAULT`，这正是 update「未传状态即不动」语义；空白非 null 入参仍走 `normalize`→`DEFAULT`，与原式一致。已排查无 `mockStatic(RecordStatus)`，新增静态方法不会触发 R7 类 mockStatic 陷阱，测试零改动全绿。 | `scaffold-common/.../common/validation/RecordStatus.java`（新增方法）、`scaffold-common/.../common/validation/RecordStatusTest.java`（+4 用例）、`scaffold-system/.../service/ConfigService.java`、`scaffold-system/.../service/DictTypeService.java`、`scaffold-system/.../service/DictDataService.java`、`scaffold-system/.../service/ApiResourceService.java`、`scaffold-system/.../service/OrgService.java`、`scaffold-system/.../service/MenuService.java` | ✅ 抛错类型（`VALIDATION_ERROR`）、归一规则、保留原值语义逐字一致；6 处改写与 `RecordStatusTest` 用例**全绿**；无 unused-import（`RecordStatus` 已在 6 文件 import） |
+
+> 注：扫描同时发现更广的「合并或保留」家族（无归一，如 `editable`/`dictSort`/`authMode`/`sortNo`/`visible` 的 `x == null ? existing.getX() : x`），其语义为「原样保留/覆盖」、与归一无关，若纳入收敛需新增独立泛型工具（如 `MergeFields.orKeep`），属更大 scope 且引入额外行为假设，本轮未纳入，列为后续候选。
+
+**验证**：双门禁复验全绿——`mvn -o -pl scaffold-system -am clean test` **713 例单测 0 失败 0 错误**（继承 §3.8 验证范围）；`scripts/check-conventions.py` PY_EXIT=0（仅 1 条模块分层概览 INFO 级提示，非违规）。commit `6c9faf4`（8 files, +46/−6）。
+
 ---
 
 ## 4. 性能测试结论
@@ -307,7 +319,7 @@ $MVN -o -f pom.xml -pl scaffold-admin -am clean test    # 单测 + 约定检查
 
 ## 7. 后续建议（优先级）
 
-> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**R5 通知机器人适配器/配置类去重重构已落地**（详见 §3.6）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变；R5 为通知机器人层去重，dispatch 流程与测试零改动；**R5-W 进一步将 Webhook 适配器自有的私有 `resolveUrl` 收敛到共享 `RobotUrlSupport`**（URL 解析单一事实来源）；**R6 进一步将三个简单通知适配器（Webhook/短信/邮件）内的「渠道未启用」throw 样板收敛到 `NotificationAdapterSupport.requireChannelEnabled`、将「退订链接追加」同构逻辑收敛到 `UnsubscribeAppendRules.appendOrFallback`**，双门禁复验全绿（详见 §3.7）；**R7 进一步将各 Service 内约 33 处「`fetchById` 后判空抛 `NOT_FOUND`」三段样板收敛到不被 mock 的 `FetchSupport.requirePresent`**（生产仍直接调用 `JooqWriters.fetchById`，规避 mockStatic 默认返回 null 的 NPE 陷阱，7 个曾失败的测试类零改动全绿，详见 §3.8）。
+> 状态更新（2026-11-04）：**F1（范式+首处接入）/ F2 / F4 / F6 已落地**；**R2 / R3 / R4 重构已落地**（详见 §3.3）；**R5 通知机器人适配器/配置类去重重构已落地**（详见 §3.6）；**F3 已收敛（MAX_ROWS 硬校验就位）、F5 基础设施已就绪（file/login_log/audit 三表 keyset 端点）**；**P2 回归用例 `NotificationIT` / `ExportIT` 已补并就位，双门禁复验全绿**。全部改动本地提交、未推送远程。R3/R4 为 `JooqWriters` 内部去重，渲染 SQL 与绑定值逐字不变；R5 为通知机器人层去重，dispatch 流程与测试零改动；**R5-W 进一步将 Webhook 适配器自有的私有 `resolveUrl` 收敛到共享 `RobotUrlSupport`**（URL 解析单一事实来源）；**R6 进一步将三个简单通知适配器（Webhook/短信/邮件）内的「渠道未启用」throw 样板收敛到 `NotificationAdapterSupport.requireChannelEnabled`、将「退订链接追加」同构逻辑收敛到 `UnsubscribeAppendRules.appendOrFallback`**，双门禁复验全绿（详见 §3.7）；**R7 进一步将各 Service 内约 33 处「`fetchById` 后判空抛 `NOT_FOUND`」三段样板收敛到不被 mock 的 `FetchSupport.requirePresent`**（生产仍直接调用 `JooqWriters.fetchById`，规避 mockStatic 默认返回 null 的 NPE 陷阱，7 个曾失败的测试类零改动全绿，详见 §3.8）；**R8 进一步将 6 个 Service 内「update 状态合并」的内联三元（`x.status() == null ? existing.getStatus() : RecordStatus.normalize(x.status())`）收敛到 `RecordStatus.mergeOrKeep`**（新增静态方法，null 入参回落原值而非 DEFAULT，与 update「未传状态即不动」语义一致，零测试改动全绿，详见 §3.9）。
 
 1. **P1（范式续）〔本轮已落地〕**：F1 状态字段全量铺开已完成——新增 `RecordStatus` 枚举，将状态白名单校验推广到 8 个记录型 Service 的 create/update 写入口（见 §3.4 `F1-rollout`），并补监控指标百分比上界钳制（`F1-metrics`）；用户/角色等其余枚举与数值范围校验原则上可复用同一范式续做。`UserService` / `UserAccountDataAdapter` 状态校验已对齐至 `DomainValidators`/`RecordStatus` 范式（见 §3.5 `F1-align-1/2`）。剩余纵深防御（`sys_operation_log`/`sys_monitor_sample` 加 DB `CHECK` 或生成列兜底）仍建议后续补。**注意**：其余 fail-open 枚举解析点（`DefaultDataScopeProvider.safeType`、`ReportExportTask.parseEnum`、`JobService.*OrNull`）自带降级语义，替换即行为变更，仍不在 scope。
 2. **P1（已落地·可选增强）**：F2 非阻塞调度 + 独立线程池 + `maxAttempts` 有界重试已就位；可选补充退避总超时熔断（CircuitBreaker）。
