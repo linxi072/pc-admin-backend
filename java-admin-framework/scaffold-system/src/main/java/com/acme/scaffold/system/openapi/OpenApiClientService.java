@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.openapi;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -196,11 +197,7 @@ public class OpenApiClientService {
     // ------------------------------------------------------------------
 
     private OpenApiClientDO requireById(Long id) {
-        OpenApiClientDO d = JooqWriters.fetchById(dsl, JooqTables.OPENAPI_CLIENT,
-                OpenApiClientDO.class, id);
-        if (d == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "开放平台客户端不存在");
-        }
+        OpenApiClientDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.OPENAPI_CLIENT, OpenApiClientDO.class, id), "开放平台客户端不存在");
         return d;
     }
 

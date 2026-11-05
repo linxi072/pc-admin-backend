@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -43,10 +44,7 @@ final class CurrentUserSupport {
     /** 当前登录用户实体（不存在抛 {@link CommonErrorCode#NOT_FOUND}）。 */
     static SysUserDO loadCurrentUser(DSLContext dsl, SecurityContextFacade facade) {
         Long userId = facade.requireCurrentPrincipal().userId();
-        SysUserDO user = JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId);
-        if (user == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
-        }
+        SysUserDO user = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId), "用户不存在");
         return user;
     }
 

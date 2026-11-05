@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -71,22 +72,14 @@ public class ApiResourceService {
 
     @Transactional
     public void delete(Long id) {
-        SysApiResourceDO api = JooqWriters.fetchById(dsl, AR,
-                SysApiResourceDO.class, id);
-        if (api == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "接口资源不存在");
-        }
+        SysApiResourceDO api = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, AR, SysApiResourceDO.class, id), "接口资源不存在");
         // 该表无 deleted 列，保持与迁移前一致的物理删除语义
         JooqWriters.delete(dsl, AR, id, false);
     }
 
     @Transactional
     public void update(Long id, UpdateApiResourceRequest request) {
-        SysApiResourceDO existing = JooqWriters.fetchById(dsl, AR,
-                SysApiResourceDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "接口资源不存在");
-        }
+        SysApiResourceDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, AR, SysApiResourceDO.class, id), "接口资源不存在");
         // 该表无 deleted 列；tenant_id 维持原值
         SysApiResourceDO api = new SysApiResourceDO();
         api.setTenantId(existing.getTenantId());

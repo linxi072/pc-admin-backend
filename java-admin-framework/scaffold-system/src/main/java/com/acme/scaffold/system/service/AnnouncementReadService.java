@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -88,11 +89,7 @@ public class AnnouncementReadService {
     @Transactional
     public void markRead(Long announcementId) {
         Long userId = requireCurrentUserId();
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT,
-                SysAnnouncementDO.class, announcementId);
-        if (a == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
-        }
+        SysAnnouncementDO a = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, announcementId), "公告不存在");
         if (!PUBLISHED.equals(a.getStatus())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "公告未发布，无需确认已读");
         }
@@ -178,11 +175,7 @@ public class AnnouncementReadService {
      */
     @Transactional
     public int remindUnread(Long announcementId, Integer limit) {
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT,
-                SysAnnouncementDO.class, announcementId);
-        if (a == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
-        }
+        SysAnnouncementDO a = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, announcementId), "公告不存在");
         if (!AnnouncementReadRules.isRemindable(a.getStatus())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "仅已发布的公告可以催办");
         }
@@ -258,11 +251,7 @@ public class AnnouncementReadService {
 
     /** 单条公告已读统计（分子分母与推导值一次齐备）。 */
     public AnnouncementReadStatsView stats(Long announcementId) {
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT,
-                SysAnnouncementDO.class, announcementId);
-        if (a == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
-        }
+        SysAnnouncementDO a = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, announcementId), "公告不存在");
         return AnnouncementReadStatsView.of(a);
     }
 

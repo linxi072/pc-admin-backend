@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -21,10 +22,7 @@ final class RoleSupport {
 
     /** 校验角色存在，返回角色 ID；不存在抛 {@link CommonErrorCode#NOT_FOUND}。 */
     static Long requireRole(DSLContext dsl, Long roleId) {
-        SysRoleDO role = JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, roleId);
-        if (role == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
-        }
+        SysRoleDO role = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.SYS_ROLE, SysRoleDO.class, roleId), "角色不存在");
         return roleId;
     }
 }

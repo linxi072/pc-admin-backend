@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -264,10 +265,7 @@ public class AnnouncementService {
     }
 
     private SysAnnouncementDO getDO(Long id) {
-        SysAnnouncementDO a = JooqWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, id);
-        if (a == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "公告不存在");
-        }
+        SysAnnouncementDO a = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, id), "公告不存在");
         return a;
     }
 

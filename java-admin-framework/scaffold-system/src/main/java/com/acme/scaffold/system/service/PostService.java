@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -258,10 +259,7 @@ public class PostService {
     // ------------------------------------------------------------------
 
     private SysPostDO getDO(Long id) {
-        SysPostDO post = JooqWriters.fetchById(dsl, POST, SysPostDO.class, id);
-        if (post == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "岗位不存在");
-        }
+        SysPostDO post = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, POST, SysPostDO.class, id), "岗位不存在");
         return post;
     }
 

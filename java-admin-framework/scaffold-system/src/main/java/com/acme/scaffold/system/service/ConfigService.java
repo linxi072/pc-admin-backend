@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -122,10 +123,7 @@ public class ConfigService {
 
     @Transactional
     public void update(Long id, UpdateConfigRequest req) {
-        SysConfigDO existing = JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "配置不存在");
-        }
+        SysConfigDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id), "配置不存在");
         if (!existing.getConfigKey().equals(req.configKey()) && existsByKey(req.configKey())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "配置键已存在");
         }
@@ -146,10 +144,7 @@ public class ConfigService {
 
     @Transactional
     public void delete(Long id) {
-        SysConfigDO existing = JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "配置不存在");
-        }
+        SysConfigDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id), "配置不存在");
         JooqWriters.delete(dsl, CONFIG, id, true);
         cache.remove(existing.getConfigKey());
     }

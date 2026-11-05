@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.maskstrategy;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -249,11 +250,7 @@ public class MaskStrategyService {
     // ------------------------------------------------------------------
 
     private SysMaskStrategyDO requireById(Long id) {
-        SysMaskStrategyDO d = JooqWriters.fetchById(dsl, JooqTables.MASK_STRATEGY,
-                SysMaskStrategyDO.class, id);
-        if (d == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "脱敏策略不存在");
-        }
+        SysMaskStrategyDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.MASK_STRATEGY, SysMaskStrategyDO.class, id), "脱敏策略不存在");
         return d;
     }
 

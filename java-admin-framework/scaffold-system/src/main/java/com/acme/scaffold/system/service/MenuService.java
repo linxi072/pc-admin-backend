@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -192,10 +193,7 @@ public class MenuService {
     @CacheEvict(cacheNames = {MENU_TREE_CACHE, USER_MENUS_CACHE}, allEntries = true)
     @Transactional
     public void update(Long id, UpdateMenuRequest request) {
-        SysMenuDO existing = JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "菜单不存在");
-        }
+        SysMenuDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, id), "菜单不存在");
         Long newParentId = request.parentId() == null ? 0L : request.parentId();
         // 层级移动校验：parent_id 不变时跳过；变更时禁止挂到自身或其子孙之下（防环）
         if (!newParentId.equals(existing.getParentId())) {
@@ -203,10 +201,7 @@ public class MenuService {
                 throw new BusinessException(CommonErrorCode.CONFLICT, "不能将菜单挂到自身之下");
             }
             if (newParentId != 0L) {
-                SysMenuDO parent = JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, newParentId);
-                if (parent == null) {
-                    throw new BusinessException(CommonErrorCode.NOT_FOUND, "父菜单不存在");
-                }
+                SysMenuDO parent = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, newParentId), "父菜单不存在");
                 List<SysMenuDO> all = JooqWriters.fetchList(dsl, MENU, SysMenuDO.class,
                         JooqWriters.notDeleted(MENU));
                 if (collectDescendantIds(all, id).contains(newParentId)) {
@@ -249,10 +244,7 @@ public class MenuService {
             return;
         }
         for (MenuSortItem item : items) {
-            SysMenuDO existing = JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, item.id());
-            if (existing == null) {
-                throw new BusinessException(CommonErrorCode.NOT_FOUND, "菜单不存在: " + item.id());
-            }
+            SysMenuDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, item.id()), "菜单不存在: " + item.id());
             // 复制现有行，仅覆盖 sortNo（version/tenant_id 维持原值，与 update() 一致）
             SysMenuDO menu = new SysMenuDO();
             menu.setParentId(existing.getParentId());

@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -55,10 +56,7 @@ public class DictTypeService {
 
     @Transactional
     public void update(Long id, UpdateDictTypeRequest req) {
-        SysDictTypeDO existing = JooqWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "字典类型不存在");
-        }
+        SysDictTypeDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id), "字典类型不存在");
         if (!existing.getDictCode().equals(req.dictCode()) && existsByCode(req.dictCode())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "字典编码已存在");
         }
@@ -73,10 +71,7 @@ public class DictTypeService {
 
     @Transactional
     public void delete(Long id) {
-        SysDictTypeDO existing = JooqWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "字典类型不存在");
-        }
+        SysDictTypeDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id), "字典类型不存在");
         long dataCount = JooqWriters.count(dsl, DATA,
                 DSL.and(JooqWriters.notDeleted(DATA),
                         JooqTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(existing.getDictCode())));

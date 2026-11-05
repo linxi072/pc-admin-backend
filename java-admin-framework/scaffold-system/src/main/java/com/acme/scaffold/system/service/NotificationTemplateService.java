@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -210,11 +211,7 @@ public class NotificationTemplateService {
     // ------------------------------------------------------------------
 
     private SysNotificationTemplateDO requireById(Long id) {
-        SysNotificationTemplateDO d = JooqWriters.fetchById(dsl, TEMPLATE,
-                SysNotificationTemplateDO.class, id);
-        if (d == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "通知模板不存在");
-        }
+        SysNotificationTemplateDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, TEMPLATE, SysNotificationTemplateDO.class, id), "通知模板不存在");
         return d;
     }
 

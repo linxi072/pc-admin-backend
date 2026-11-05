@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -100,10 +101,7 @@ public class LoginRestrictionService {
      */
     @Transactional
     public Long restrict(Long userId, RestrictLoginRequest request) {
-        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
-        if (user == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
-        }
+        SysUserDO user = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId), "用户不存在");
         if (!RestrictionRules.isAllowedDuration(request.durationMinutes())) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "限制时长不合法");
         }

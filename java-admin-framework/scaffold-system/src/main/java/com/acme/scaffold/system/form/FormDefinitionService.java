@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.form;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -56,10 +57,7 @@ public class FormDefinitionService {
 
     /** 按 id 取表单定义（含停用；不存在抛 NOT_FOUND）。 */
     public FormDefinitionView getById(Long id) {
-        FormDefinitionDO d = JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, id);
-        if (d == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "表单定义不存在");
-        }
+        FormDefinitionDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
         return FormDefinitionView.of(d);
     }
 
@@ -117,11 +115,7 @@ public class FormDefinitionService {
     /** 更新表单定义：存在性 + 编码唯一性（编码变更时）+ Schema 校验 + 绑定目标归一，写库后失效缓存。 */
     @Transactional
     public void update(Long id, UpdateFormDefinitionRequest req) {
-        FormDefinitionDO existing = JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION,
-                FormDefinitionDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "表单定义不存在");
-        }
+        FormDefinitionDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
         if (!existing.getFormCode().equals(req.formCode()) && existsByCode(req.formCode())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "表单编码已存在");
         }
@@ -149,11 +143,7 @@ public class FormDefinitionService {
     /** 删除表单定义（逻辑删除），写库后失效缓存。 */
     @Transactional
     public void remove(Long id) {
-        FormDefinitionDO existing = JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION,
-                FormDefinitionDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "表单定义不存在");
-        }
+        FormDefinitionDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
         JooqWriters.delete(dsl, JooqTables.FORM_DEFINITION, id, true);
         refreshCache();
     }

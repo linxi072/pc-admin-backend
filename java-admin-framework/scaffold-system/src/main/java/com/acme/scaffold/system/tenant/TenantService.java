@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.tenant;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -195,10 +196,7 @@ public class TenantService {
     // ------------------------------------------------------------------
 
     private SysTenantDO requireById(Long id) {
-        SysTenantDO d = JooqWriters.fetchById(dsl, TN, SysTenantDO.class, id);
-        if (d == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "租户不存在");
-        }
+        SysTenantDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, TN, SysTenantDO.class, id), "租户不存在");
         return d;
     }
 

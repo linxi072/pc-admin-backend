@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -101,10 +102,7 @@ public class DictDataService {
     @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     @Transactional
     public void update(Long id, UpdateDictDataRequest req) {
-        SysDictDataDO existing = JooqWriters.fetchById(dsl, DATA, SysDictDataDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "字典数据不存在");
-        }
+        SysDictDataDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, DATA, SysDictDataDO.class, id), "字典数据不存在");
         if (!existing.getDictValue().equals(req.dictValue())
                 && existsByTypeAndValue(req.dictTypeCode(), req.dictValue(), id)) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "该字典类型下字典值已存在");

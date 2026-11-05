@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -169,10 +170,7 @@ public class RoleService {
     }
 
     private SysRoleDO get(Long id) {
-        SysRoleDO role = JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, id);
-        if (role == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
-        }
+        SysRoleDO role = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, id), "角色不存在");
         return role;
     }
 }

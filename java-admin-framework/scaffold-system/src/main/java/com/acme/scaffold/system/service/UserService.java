@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -372,10 +373,7 @@ public class UserService {
         if (roleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "角色不能为空");
         }
-        SysRoleDO role = JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, roleId);
-        if (role == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "角色不存在");
-        }
+        SysRoleDO role = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, roleId), "角色不存在");
         if (!"ACTIVE".equals(role.getStatus())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "角色已停用，无法绑定");
         }
@@ -387,10 +385,7 @@ public class UserService {
         if (orgId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "部门不能为空");
         }
-        SysOrgDO org = JooqWriters.fetchById(dsl, JooqTables.SYS_ORG, SysOrgDO.class, orgId);
-        if (org == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "部门不存在");
-        }
+        SysOrgDO org = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.SYS_ORG, SysOrgDO.class, orgId), "部门不存在");
     }
 
     /** 整体替换用户角色关联：删除旧关联后按新集合写入，primaryRoleId 标记主角色（为空取首位）。 */
@@ -562,10 +557,7 @@ public class UserService {
     }
 
     private SysUserDO get(Long id) {
-        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, id);
-        if (user == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
-        }
+        SysUserDO user = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, USER, SysUserDO.class, id), "用户不存在");
         return user;
     }
 

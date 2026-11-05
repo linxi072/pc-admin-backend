@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.form;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -134,10 +135,7 @@ public class FormSubmissionService {
      * @return 管理视图（含表单名称），不存在抛 NOT_FOUND
      */
     public FormSubmissionManageView getManageById(Long id) {
-        FormSubmissionDO d = JooqWriters.fetchById(dsl, JooqTables.FORM_SUBMISSION, FormSubmissionDO.class, id);
-        if (d == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "表单提交记录不存在");
-        }
+        FormSubmissionDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_SUBMISSION, FormSubmissionDO.class, id), "表单提交记录不存在");
         Map<String, String> nameByCode = formNameByCode();
         return FormSubmissionManageView.of(d, nameByCode.getOrDefault(d.getFormCode(), d.getFormCode()));
     }
@@ -148,11 +146,7 @@ public class FormSubmissionService {
      * @param id 提交记录 ID
      */
     public void removeSubmission(Long id) {
-        FormSubmissionDO existing = JooqWriters.fetchById(dsl, JooqTables.FORM_SUBMISSION,
-                FormSubmissionDO.class, id);
-        if (existing == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "表单提交记录不存在");
-        }
+        FormSubmissionDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_SUBMISSION, FormSubmissionDO.class, id), "表单提交记录不存在");
         JooqWriters.delete(dsl, JooqTables.FORM_SUBMISSION, id, true);
     }
 

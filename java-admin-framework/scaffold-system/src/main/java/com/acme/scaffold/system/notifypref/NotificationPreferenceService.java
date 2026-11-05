@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.notifypref;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -69,10 +70,7 @@ public class NotificationPreferenceService {
     /** 我的订阅矩阵（4 渠道 × 4 消息类型 = 16 格，每格带生效值与来源）。 */
     public NotificationPreferenceMatrix mine() {
         Long userId = currentUserId();
-        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
-        if (user == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "用户不存在");
-        }
+        SysUserDO user = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId), "用户不存在");
         Map<Channel, Boolean> master = new LinkedHashMap<>();
         master.put(Channel.IN_APP, NotificationPreferenceRules.channelSwitch(
                 user.getNotifySiteMessage(), Channel.IN_APP));

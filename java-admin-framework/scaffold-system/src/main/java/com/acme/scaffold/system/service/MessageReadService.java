@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.service;
+import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -162,10 +163,7 @@ public class MessageReadService {
      * 站内信是一对多私信，已读统计/催办仅对发送者开放，避免 ID 遍历他人消息的未读名单。
      */
     private SysMessageDO requireOwnedMessage(Long messageId) {
-        SysMessageDO m = JooqWriters.fetchById(dsl, MSG, SysMessageDO.class, messageId);
-        if (m == null) {
-            throw new BusinessException(CommonErrorCode.NOT_FOUND, "站内信不存在");
-        }
+        SysMessageDO m = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MSG, SysMessageDO.class, messageId), "站内信不存在");
         Long me = requireCurrentUserId();
         if (m.getSenderId() == null || !m.getSenderId().equals(me)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN, "只能查看自己发出的站内信的已读情况");
