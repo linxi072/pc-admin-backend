@@ -161,3 +161,14 @@
 - **P4 存量 OFFSET 端点**：`user`/`message` 主列表仍提供 OFFSET 端点（保留前端契约），深翻页统一引导至 keyset 端点，属渐进收敛，非阻断。
 - **F4 已收口（含测试覆盖补齐）**：`approval` 可写动作门面、cms 发布状态机、im 会话/消息边界均补齐并有 surefire 可执行的 H2 集成测试；`ai`/`plugin`/`codegen` 复核后确认并非「无独立 IT」——`plugin` 已有真实 jar + Spring 上下文集成测试，本轮另补 `AiCloudNotReadyTest`（F5 501 语义）与 `CodeGenFlowTest`（元数据 → 预览 → ZIP 全链路）。若后续对外宣称 GA，仍需按复评报告 §4.6 补跨进程 / 真实 MySQL 的 E2E IT。
 - **C9 / P4 两项遗留不变**：真实 CVE 扫描依赖联网 NVD，存量 OFFSET 端点为保留前端契约的渐进收敛，均非阻断。
+- **新增中危配置风险（千万级测试发现，2026-11-05）**：数据源 URL 统一使用 `serverTimezone=UTC`，若生产 JVM 时区非 UTC（`Asia/Shanghai`），MySQL DATETIME 读回整体 +8h，临界值会跨日跨年。上线前须核对容器 `TZ` 与数据源时区配置，并补真实 MySQL 的边界时间集成断言。详见 `QA-TEST-REPORT-TEN-MILLION-V1.1.0.md` §8.1。
+
+---
+
+## 11. 千万级功能与性能测试（2026-11-05 追加）
+
+- 独立隔离库 `java_admin_perf`，7 张生产同构表，精确 COUNT 合计 **14,000,004 行**（主表 `sys_operation_log` 12,800,004 行），未触碰 `java_admin`。
+- 新增 `TenMillionScalePerf`（25 功能用例 + 9 性能场景 + 30s/16 线程稳定性 + 资源采样），显式 `-Dtest=` 触发，不拖慢常规 2,052 例回归。
+- 结果：**功能 25/25 通过**；keyset 首页/深页 p95 均 2.00ms（深页/首页=1.00，无退化）；稳定性 167,038 次操作 **0 错误** / 5,555.19 ops/s；四门禁复验全绿（后端 2,052 例、约定 EXIT=0、前端 91/91、`vite build` EXIT=0）。
+- 4 项诊断对照场景（OFFSET 深页 1,014ms、无索引全表扫描 5,192ms、全表 COUNT 1,940ms、GROUP BY 9,490ms）超 150ms，均非推荐生产路径且已有替代与护栏，不构成上线阻断。
+- 完整范围、指标、未通过项、瓶颈风险与明确结论见 **`QA-TEST-REPORT-TEN-MILLION-V1.1.0.md`**；原始结果归档于 `java-admin-framework/scripts/perf/results/`。
