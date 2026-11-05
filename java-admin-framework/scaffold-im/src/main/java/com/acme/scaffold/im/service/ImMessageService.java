@@ -136,7 +136,7 @@ public class ImMessageService {
         JooqWriters.updateByIdWithNulls(dsl, MESSAGE, id, msg, Set.of("content"));
     }
 
-    /** 标记会话已读（当前用户）：把已读游标置为会话内最大消息 id。 */
+    /** 标记会话已读（当前用户）：把已读游标推进到会话内最大消息 id，且只前进不回退。 */
     @Transactional
     public void markRead(Long conversationId) {
         Long userId = currentUserId();
@@ -147,6 +147,16 @@ public class ImMessageService {
                         .and(JooqWriters.notDeleted(MESSAGE)))
                 .fetchOne(0, Long.class);
         ImConversationMemberDO member = fetchMember(conversationId, userId);
+        if (maxId == null) {
+            // 会话内已无消息（全部撤回/删除）：保留既有游标，不能把它清空成 null，
+            // 否则历史已读状态会回退，旧消息重新变成未读。
+            return;
+        }
+        Long current = member.getLastReadMessageId();
+        if (current != null && current >= maxId) {
+            // 重复标记已读或游标已超过当前最大消息 id：幂等返回，不回退。
+            return;
+        }
         member.setLastReadMessageId(maxId);
         member.setUpdatedAt(LocalDateTime.now());
         JooqWriters.updateById(dsl, MEMBER, member.getId(), member);
@@ -172,7 +182,9 @@ public class ImMessageService {
     long computeUnread(Long conversationId, Long userId, Long lastReadId) {
         Condition cond = MESSAGE.field("conversation_id", Long.class).eq(conversationId)
                 .and(JooqWriters.notDeleted(MESSAGE))
-                .and(MESSAGE.field("sender_id", Long.class).ne(userId));
+                .and(MESSAGE.field("sender_id", Long.class).ne(userId))
+                // 与 ImConversationService 口径一致：已撤回消息不计入未读总数
+                .and(MESSAGE.field("status", String.class).ne(ImStatus.MSG_STATUS_RECALLED));
         if (lastReadId != null) {
             cond = cond.and(MESSAGE.field("id", Long.class).gt(lastReadId));
         }

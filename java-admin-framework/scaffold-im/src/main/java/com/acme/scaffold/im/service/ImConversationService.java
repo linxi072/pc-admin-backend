@@ -61,6 +61,11 @@ public class ImConversationService {
             throw BusinessException.badRequest("群组会话至少需要 1 名成员");
         }
         Long ownerId = currentUserId();
+        if (peers.contains(ownerId)) {
+            // 创建者会自动作为 OWNER 入会；若对端列表又包含自己，去重后会得到「单人 P2P」
+            // 或人数少于预期的群，属于无意义的会话数据，前置拦截。
+            throw BusinessException.badRequest("会话成员不能包含创建者本人");
+        }
         Set<Long> userIds = new LinkedHashSet<>();
         userIds.add(ownerId);
         userIds.addAll(peers);
@@ -130,15 +135,35 @@ public class ImConversationService {
         return toView(conv, fetchMember(id, userId));
     }
 
-    /** 添加群成员（仅群主）。 */
+    /**
+     * 添加群成员（仅群主）。
+     *
+     * <p>唯一键 {@code (tenant_id, conversation_id, user_id)} 不区分逻辑删除：曾被移除/退群的
+     * 用户会留下 deleted=1 的成员行，若直接 INSERT 会撞唯一键报错。故先按「含已删除」条件查找，
+     * 命中则复活该行（恢复 ACTIVE / MEMBER / deleted=0），未命中才新建。</p>
+     */
     @Transactional
     public void addMember(Long conversationId, Long userId) {
         Long operator = currentUserId();
         requireGroupConversation(conversationId);
         requireOwner(requireConversation(conversationId), operator);
-        if (fetchMember(conversationId, userId) != null) {
-            throw BusinessException.conflict("该用户已是会话成员");
+
+        ImConversationMemberDO existing = JooqWriters.fetchOne(dsl, MEMBER, ImConversationMemberDO.class,
+                MEMBER.field("conversation_id", Long.class).eq(conversationId)
+                        .and(MEMBER.field("user_id", Long.class).eq(userId)));
+        if (existing != null) {
+            if (existing.getDeleted() == null || existing.getDeleted() == 0) {
+                throw BusinessException.conflict("该用户已是会话成员");
+            }
+            existing.setMemberRole(ImStatus.ROLE_MEMBER);
+            existing.setStatus(ImStatus.STATUS_ACTIVE);
+            existing.setDeleted(0);
+            existing.setUpdatedAt(LocalDateTime.now());
+            JooqWriters.updateById(dsl, MEMBER, existing.getId(), existing);
+            log.info("会话成员已复活 conversationId={} userId={}", conversationId, userId);
+            return;
         }
+
         ImConversationMemberDO m = new ImConversationMemberDO();
         m.setConversationId(conversationId);
         m.setUserId(userId);
@@ -187,7 +212,10 @@ public class ImConversationService {
                     MEMBER.field("conversation_id", Long.class).eq(conversationId)
                             .and(JooqWriters.notDeleted(MEMBER))
                             .and(MEMBER.field("user_id", Long.class).ne(userId))
-                            .and(MEMBER.field("status", String.class).eq(ImStatus.STATUS_ACTIVE)));
+                            .and(MEMBER.field("status", String.class).eq(ImStatus.STATUS_ACTIVE)),
+                    // 明确按成员行 id 升序取「最早剩余成员」，避免无排序时数据库返回次序不定
+                    // 导致群主交接对象不可预期（注释与实现此前不一致）。
+                    MEMBER.field("id", Long.class).asc());
             if (!others.isEmpty()) {
                 ImConversationMemberDO newOwner = others.get(0);
                 newOwner.setMemberRole(ImStatus.ROLE_OWNER);
@@ -253,7 +281,9 @@ public class ImConversationService {
     long computeUnread(Long conversationId, Long userId, Long lastReadId) {
         Condition cond = MESSAGE.field("conversation_id", Long.class).eq(conversationId)
                 .and(JooqWriters.notDeleted(MESSAGE))
-                .and(MESSAGE.field("sender_id", Long.class).ne(userId));
+                .and(MESSAGE.field("sender_id", Long.class).ne(userId))
+                // 已撤回消息正文被清空且不应再打扰接收方，不得计入未读数
+                .and(MESSAGE.field("status", String.class).ne(ImStatus.MSG_STATUS_RECALLED));
         if (lastReadId != null) {
             cond = cond.and(MESSAGE.field("id", Long.class).gt(lastReadId));
         }
