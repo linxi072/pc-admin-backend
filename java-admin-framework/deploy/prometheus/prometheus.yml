@@ -9,3 +9,8 @@ scrape_configs:
       # 应用 management 端口 9090。Prometheus 以原生进程方式运行（不使用 Docker），
       # 因此直接抓取 localhost 即可。
       - targets: ['localhost:9090']
+
+  # C6：抓取 OpenTelemetry Collector 暴露的 trace 派生指标（otlp → prometheus exporter :8889）
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8889']

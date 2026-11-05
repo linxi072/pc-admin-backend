@@ -13,9 +13,10 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       # API 版本段（P2-2）：生产统一前缀 /api/v1，演进期 Breaking Change 可隔离
       APP_API_CONTEXT_PATH: /api/v1
-      # 开启 OTLP/HTTP span 导出（P1-9）：指向实际 Collector 端点（默认 localhost:4318）
+      # 开启 OTLP/HTTP span 导出（P1-9 / C6）：指向容器内的 OpenTelemetry Collector，
+      # 集中观测链路（trace 汇聚 + Prometheus 抓取派生指标）。仍支持经 OTLP_ENDPOINT 覆盖为外部 Collector。
       OBSERVABILITY_OTLP_ENABLED: "true"
-      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://localhost:4318/v1/traces}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://otel-collector:4318/v1/traces}
       # 多数据源等连接串经环境变量外部化（见 scripts/init/env.template）
       DB_PRIMARY_HOST: mysql
       DB_PRIMARY_PORT: "3306"
@@ -24,6 +25,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/actuator/health/liveness"]
       interval: 30s
@@ -53,6 +56,18 @@ services:
       - "9091:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: on-failure
+
+  # 集中观测采集端（C6）：接收应用经 OTLP/HTTP 发来的 span，汇聚后由 prometheus 抓取派生指标，
+  # 并在容器日志输出调试信息；使「开启 OTLP 即有用」而非指向不可达的 localhost。
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    command: ["--config=/etc/otel/config.yaml"]
+    ports:
+      - "8889:8889"   # prometheus exporter（trace 派生指标）
+      - "4318:4318"   # OTLP/HTTP 接收（便于本机直连调试）
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel/config.yaml:ro
     restart: on-failure
 
 volumes:
