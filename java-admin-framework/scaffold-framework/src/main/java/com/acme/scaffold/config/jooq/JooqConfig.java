@@ -34,8 +34,11 @@ import javax.sql.DataSource;
 public class JooqConfig {
 
     @Bean
-    public NPlusOneProbe nPlusOneProbe(@Value("${app.jooq.nplus1-threshold:10}") int threshold) {
-        return new NPlusOneProbe(threshold);
+    public NPlusOneProbe nPlusOneProbe(@Value("${app.jooq.nplus1-threshold:10}") int threshold,
+                                     @Value("${app.jooq.nplus1-fail-on-threshold:false}") boolean failOnThreshold) {
+        // ST5：fail 模式默认关闭（仅告警）；CI/IT 门禁可经 app.jooq.nplus1-fail-on-threshold=true 开启，
+        // 将 N+1 反模式升级为构建/测试失败。
+        return new NPlusOneProbe(threshold, failOnThreshold);
     }
 
     @Bean

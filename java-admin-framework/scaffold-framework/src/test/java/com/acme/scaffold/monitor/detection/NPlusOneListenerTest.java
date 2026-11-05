@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -82,5 +83,29 @@ class NPlusOneListenerTest {
         listener.executeEnd(ctx(null));
         listener.executeEnd(ctx(null));
         assertEquals(0, registry.size());
+    }
+
+    @Test
+    @DisplayName("ST5 门禁：fail 模式下越阈值即抛 NPlusOneThresholdExceededException")
+    void failModeThrowsOnBreach() {
+        NPlusOneProbe probe = new NPlusOneProbe(2, true);
+        NPlusOneSuspectRegistry registry = new NPlusOneSuspectRegistry(10);
+        NPlusOneListener listener = new NPlusOneListener(probe, registry);
+        String sql = "select * from sys_user where id = 1";
+        listener.executeEnd(ctx(sql)); // 1：未越限
+        // 第 2 次跨越阈值：fail 模式必须抛异常（CI 门禁据此失败）
+        assertThrows(NPlusOneThresholdExceededException.class, () -> listener.executeEnd(ctx(sql)));
+    }
+
+    @Test
+    @DisplayName("ST5 门禁：非 fail 模式越阈值仅告警不抛错（默认行为不变）")
+    void nonFailModeDoesNotThrow() {
+        NPlusOneProbe probe = new NPlusOneProbe(2, false);
+        NPlusOneSuspectRegistry registry = new NPlusOneSuspectRegistry(10);
+        NPlusOneListener listener = new NPlusOneListener(probe, registry);
+        String sql = "select * from sys_user where id = 1";
+        listener.executeEnd(ctx(sql));
+        listener.executeEnd(ctx(sql)); // 越限但不抛错
+        assertEquals(1, registry.size());
     }
 }

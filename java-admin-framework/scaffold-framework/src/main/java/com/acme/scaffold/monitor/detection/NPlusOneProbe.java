@@ -23,18 +23,29 @@ public class NPlusOneProbe {
     private static final String TOKEN = "?";
 
     private final int threshold;
+    /** fail 模式：跨越阈值时不仅告警，还抛出 {@link NPlusOneThresholdExceededException}，供 CI/IT 门禁拦截。默认关闭。 */
+    private final boolean failMode;
     private final ThreadLocal<Map<String, Integer>> counts = ThreadLocal.withInitial(ConcurrentHashMap::new);
 
     public NPlusOneProbe() {
-        this(DEFAULT_THRESHOLD);
+        this(DEFAULT_THRESHOLD, false);
     }
 
     public NPlusOneProbe(int threshold) {
+        this(threshold, false);
+    }
+
+    public NPlusOneProbe(int threshold, boolean failMode) {
         this.threshold = Math.max(2, threshold);
+        this.failMode = failMode;
     }
 
     public int threshold() {
         return threshold;
+    }
+
+    public boolean isFailMode() {
+        return failMode;
     }
 
     /** 归一化 SQL 为同构指纹（折叠空白 + 小写 + 字面量/数字替换为占位符 + 压缩 = 两侧空白）。 */

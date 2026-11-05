@@ -36,6 +36,10 @@ public class NPlusOneListener extends DefaultExecuteListener {
                 // 观测旁路绝不因自身异常影响主链路
                 log.debug("N+1 疑似事件登记失败: {}", ex.toString());
             }
+            // ST5：fail 模式下，阈值跨越即抛异常，使 CI/IT 门禁可将 N+1 反模式升级为构建失败
+            if (probe.isFailMode()) {
+                throw new NPlusOneThresholdExceededException(probe.threshold(), NPlusOneProbe.normalize(sql));
+            }
         }
     }
 }
