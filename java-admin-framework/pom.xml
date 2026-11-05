@@ -65,6 +65,8 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <!-- P1-7：锁定 release，固定 bootstrap classpath，避免误引 JDK21 专属 API（构建 JDK21 / 运行 JDK17 不一致） -->
+        <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <flowable.version>7.1.0</flowable.version>
         <jooq.version>3.19.11</jooq.version>
@@ -342,6 +344,41 @@
                     <version>${otel.instrumentation.version}</version>
                 </dependency>
             </dependencies>
+        </profile>
+
+        <!--
+          P2-4：软件成分分析（SCA）门禁（默认不激活）。
+          仅在有网络 / 已缓存 NVD 镜像的环境中经 -Psca 激活，对全模块依赖做 OWASP
+          Dependency-Check 漏洞扫描，阻断高危 CVE。默认构建保持离线纯净、不打 NVD 库，
+          以免破坏 mvn -o 离线编译/门禁（与 otel profile 同策略）。
+          版本须对齐 CVE 数据库；激活前请确保本地/私服已缓存 dependency-check 插件与 NVD 数据。
+        -->
+        <profile>
+            <id>sca</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>10.0.4</version>
+                        <configuration>
+                            <failBuildOnCVSS>9</failBuildOnCVSS>
+                            <suppressionFile>scripts/dependency-check-suppressions.xml</suppressionFile>
+                            <excludeScope>test</excludeScope>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

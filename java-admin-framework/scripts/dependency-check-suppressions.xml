@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWASP Dependency-Check 抑制规则（P2-4）。
+  默认构建不激活 SCA（-Psca 才启用）；本文件用于收敛误报与可接受的中危项。
+  格式见 https://jeremylong.github.io/dependency-check/general/suppression.html
+  规则应在激活 -Psca 后，依据实际 CVE 报告审慎追加，禁止无理由全盘抑制。
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!-- 示例占位：真实规则在首次 -Psca 扫描后据报告补充 -->
+</suppressions>
