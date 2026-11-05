@@ -3,7 +3,7 @@
 > 范围：`java-admin-framework` 后端 17 个 Maven 模块 + 前端契约；千万级数据集上的全链路功能/性能/稳定性验证  
 > 生成时间：2026-11-05 ｜ 分支：`feat/V1.0.7` ｜ 被测库：`java_admin_perf`（隔离库，未触碰 `java_admin`）  
 > 判定标准：延续 `scripts/perf/PERF-TEST-PLAN.md` §3/§4（p50/p95/p99、吞吐、错误率、预热、`<1%` 错误率、交互级 `p95<150ms`），并叠加本次 DB 层阈值  
-> **结论：达标。** 判定标准中 5 项硬性阈值全部满足（数据规模、功能用例通过率、keyset 首页/深页 p95、深页退化比、稳定性错误率），四门禁全绿；另有 4 项「诊断对照」场景实测超 150ms、1 项中危配置风险，均非阻断但须纳入上线治理清单（§7、§8）。
+> **结论：达标。** 判定标准中 5 项硬性阈值全部满足（数据规模、功能用例通过率、keyset 首页/深页 p95、深页退化比、稳定性错误率），四门禁全绿；另有 4 项「诊断对照」场景实测超 150ms（非阻断）；1 项中危时区配置风险已于 2026-11-05 追加整改闭环（§8.1），闭环后四门禁复验 2,062 例全绿。
 
 ---
 
@@ -21,9 +21,11 @@
 | 前端契约 + 生产构建 | 全通过 | 91/91 + `vite build` **EXIT=0**（15.25s） | 达标 |
 | 诊断对照场景（非 SLA） | — | 4 项超 150 ms（§7） | 未达标·非阻断 |
 
+> 注：上表四门禁为千万级基准执行时点实测（2,052 例）；§8.1 时区闭环新增 10 例后复验为 **2,062 例 / 0 失败**。
+
 **明确结论**：本次千万级功能与性能测试 **达标**，准予继续 V1.1.0 上线准备。但结论**不是无条件放行**：
 
-1. §8.1 的 JDBC `serverTimezone=UTC` 与 JVM 时区不一致风险为中危，上线前必须核对生产容器 `TZ` 与数据源 URL；
+1. §8.1 的 JDBC `serverTimezone=UTC` 与 JVM 时区不一致风险原为中危，**已闭环**：容器/CI 统一 UTC、生产启动 fail-fast 校验、10 例契约回归断言（见 §8.1）；不使用本仓库镜像/compose 的自管部署仍需按同一口径核对；
 2. 若业务要求「千万级大表任意列即席查询 / 全量 GROUP BY 达到交互级延迟」，则**该子项不达标**，须按 §8 方案整改后复测；
 3. 报告结论仅对 §1.1 声明的测试范围有效，覆盖局限见 §8.6。
 
@@ -251,7 +253,13 @@ keyset 首页 p95=2.00ms | 深页 p95=2.00ms | 深页/首页 p95=1.00
 - **根因**：数据源 URL 声明 `serverTimezone=UTC`（`application-local.yml`、CI `ci.yml`、`application-integration.yml` 均如此），而 JVM 默认 `Asia/Shanghai`；Connector/J 将 DATETIME 按连接时区解释后换算到 JVM 本地时区，`SnakeRecordMapper` 的 `Timestamp → LocalDateTime` 转换本身正确。
 - **影响**：所有 DATETIME 读取/展示/导出在 JVM 非 UTC 的部署下整体偏移，且临界值会跨日跨年；H2 单测无法暴露（仅真实 MySQL 路径）。
 - **处置建议**：① 容器统一 `TZ=UTC`；或 ② JDBC URL 改用 `connectionTimeZone=SERVER` + `forceConnectionTimeZoneToSession=true` 并统一 JVM 时区；③ 补一条真实 MySQL 的边界时间集成断言（1970/2099 临界值）防止回归。
-- **本次基准处理**：`TenMillionScalePerf.setUp()` 内显式 `TimeZone.setDefault(UTC)`，与标准容器部署对齐，保证任意开发机可复现；该风险本身**仍需在上线前核对生产配置**。
+- **本次基准处理**：`TenMillionScalePerf.setUp()` 内显式 `TimeZone.setDefault(UTC)`，与标准容器部署对齐，保证任意开发机可复现。
+- **闭环落地（2026-11-05 追加，原 P0「上线前核对」项已完成）**：
+  - **运行期显式 UTC**：`deploy/Dockerfile` 增加 `TZ=UTC` 与 `JAVA_OPTS` 的 `-Duser.timezone=UTC`；`deploy/docker-compose.yml` 的 app/MySQL 均设 `TZ: UTC`，MySQL 追加 `--default-time-zone=+00:00`（使 `NOW()`/`CURRENT_TIMESTAMP` 与 JDBC 语义一致）；`.github/workflows/ci.yml` 的单元与集成 job 均设 `TZ: UTC`。
+  - **生产 fail-fast**：新增 `scaffold-admin/src/main/java/com/acme/scaffold/admin/config/DataSourceTimeZoneGuard.java`（仅 `@Profile("prod")`），启动时解析 JDBC URL 的 `serverTimezone`/`connectionTimeZone` 并与 JVM `getRawOffset()` 比对，不一致即拒绝启动并输出修复指引；未声明、声明 `SERVER` 或值无法解析时只告警、不误伤；可用 `app.timezone.guard.enabled=false` 关闭。`application-prod.yml` 显式启用，`scripts/init/env.template` 标注不可删除 `serverTimezone=UTC`。
+  - **回归断言**：新增 `DataSourceTimeZoneGuardTest`（10 例，进常规 surefire）：覆盖 UTC 对齐放行、`Asia/Shanghai` 错配 fail-fast、运维注入错配、逃生开关、`spring.datasource.url` 回退、参数别名解析；并用真实 `SnakeRecordMapper` 固化「UTC 下 1970/2099 临界 DATETIME 零偏移、非 UTC 下精确 +8h」的根因语义；另设部署配置契约断言，防止 Dockerfile/compose/CI/环境模板的 UTC 配置漂移。
+  - **闭环后四门禁**：后端 **2,062 例 / 0 失败 / 0 错误 / 0 跳过**、`check-conventions.py` EXIT=0、前端 91/91、`vite build` EXIT=0。
+  - **边界**：自管部署（不使用本仓库镜像/compose）或外部注入 `DB_PRIMARY_URL` 时，仍须按同一口径设置容器 `TZ` 与 JVM 时区；guard 只拦截「显式且可解析」的错配声明，无法静态解析的声明仍为告警。
 
 ### 8.2 OFFSET 深翻页线性退化
 1,280 万行下 offset=1,000,000 的 p95 达 1,014ms，是首页的约 1,014 倍。P4 整改提供的 keyset 端点与偏移护栏是必要兜底；建议逐步把仍在使用 OFFSET 的存量列表接口收敛到 keyset。
@@ -281,7 +289,7 @@ P-06 5,192ms、P-08 9,490ms、P-07 1,940ms 表明：千万级表上任何「未�
 2. 四门禁全绿：后端 `mvn -o clean test` **2,052 例 0 失败**、`check-conventions.py` **EXIT=0**（仅 1 条 W* 分层提示）、前端 `npm test` **91/91**、前端 `vite build` **EXIT=0**（产物完整，15.25s）。
 3. 30s / 16 线程混合负载 167,038 次操作 **0 错误**，吞吐 5,555 ops/s，堆与线程稳定，无泄漏迹象。
 4. §7 的 4 项超阈值场景均为**诊断对照**，用于量化瓶颈，不是推荐生产路径；系统已通过 keyset 分页、偏移护栏、有界加载提供替代路径，因此**不构成上线阻断**。若业务把「任意列即席查询 / 在线全量聚合」列入 SLA，则该子项**不达标**，须按 §8.3 整改后复测。
-5. §8.1 的时区配置风险为**中危且需上线前核对**，建议作为上线检查单的必选项；不影响本次功能/性能达标判定，但不应带病上线。
+5. §8.1 的时区配置风险原为**中危且需上线前核对**，现已通过「部署统一 UTC + 生产 fail-fast + 10 例契约回归」闭环（闭环后 2,062 例全绿）；不影响本次功能/性能达标判定。自管部署仍须按同一口径核对（§8.1 边界）。
 
 ---
 
@@ -296,6 +304,8 @@ P-06 5,192ms、P-08 9,490ms、P-07 1,940ms 表明：千万级表上任何「未�
 | `java-admin-framework/scripts/perf/results/TEN-MILLION-FINAL.txt` | 最终完整原始结果（BUILD SUCCESS / 25-25） |
 | `java-admin-framework/scripts/perf/results/TEN-MILLION-FIRST-RUN.txt` | 首轮原始结果（含 F-15 时区失败证据） |
 | `java-admin-framework/scripts/perf/results/RESOURCE-AFTER-ANALYZE.txt` | `ANALYZE TABLE` 后的准确落盘统计 |
+| `java-admin-framework/scaffold-admin/src/main/java/com/acme/scaffold/admin/config/DataSourceTimeZoneGuard.java` | §8.1 风险闭环：生产启动期时区一致性 fail-fast |
+| `java-admin-framework/scaffold-admin/src/test/java/com/acme/scaffold/admin/config/DataSourceTimeZoneGuardTest.java` | §8.1 风险闭环：10 例契约与边界时间回归断言 |
 
 ---
 
@@ -303,7 +313,7 @@ P-06 5,192ms、P-08 9,490ms、P-07 1,940ms 表明：千万级表上任何「未�
 
 | 优先级 | 事项 | 建议角色 |
 | --- | --- | --- |
-| P0（上线前核对） | 生产容器 `TZ` 与数据源 `serverTimezone` 对齐，补边界时间集成断言（§8.1） | 后端 / 运维 |
+| P0（已完成 2026-11-05） | 容器/CI 统一 UTC、生产启动 fail-fast、10 例边界时间契约断言（§8.1）；仅自管部署仍需按同一口径核对 | 已完成 |
 | P1 | 报表 / 大屏全量聚合改预聚合或离线任务；禁止无索引列在线查询（§8.3） | 后端 / 数据 |
 | P1 | 存量 OFFSET 列表接口继续收敛至 keyset（§8.2） | 后端 / 前端 |
 | P2 | 千万级表容量规划：索引 1.29 GB、整库 3.48 GB，评估归档/分区（§8.4） | 运维 / DBA |
