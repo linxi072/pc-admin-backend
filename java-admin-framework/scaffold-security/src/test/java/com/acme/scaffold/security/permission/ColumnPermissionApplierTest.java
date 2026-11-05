@@ -10,10 +10,11 @@ import java.util.function.Predicate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 字段级数据权限执行器测试：校验按当前主体列权限对受控字段脱敏/隐藏，
- * 以及无权限时回落通用掩码、集合批量处理、不可变类型跳过等失败安全行为。
+ * 以及无权限时回落通用掩码、集合批量处理、record 重建脱敏副本等失败安全行为。
  */
 class ColumnPermissionApplierTest {
 
@@ -115,14 +116,33 @@ class ColumnPermissionApplierTest {
     }
 
     @Test
-    void apply_recordTarget_skipsImmutableFieldWithoutThrowing() {
-        // record 不可变：执行器应跳过且不抛异常（仅记 WARN）
+    void apply_recordTarget_rebuildsMaskedCopy() {
+        // record 不可变：执行器经规范构造器重建脱敏副本并返回，原对象保持不变
         record Profile(String mobile, String username) {
         }
         ColumnPermissionApplier applier = applierWithRegistry();
         Profile p = new Profile("13800001234", "alice");
-        // 不抛异常即通过；record 字段无法写入，值保持原样
-        applier.apply(p, "system:account", FIELDS, code -> false);
+        Profile masked = applier.apply(p, "system:account", FIELDS, code -> false);
+        // 原 record 不变
         assertEquals("13800001234", p.mobile());
+        // 返回的是脱敏副本（与原文非同一实例）
+        assertTrue(p != masked, "record 脱敏应返回新实例，原对象不变");
+        assertEquals("138****1234", masked.mobile());
+    }
+
+    @Test
+    void applyAll_recordElementsRebuilt() {
+        // 集合中的 record 元素同样走重建副本路径
+        record Profile(String mobile, String username) {
+        }
+        ColumnPermissionApplier applier = applierWithRegistry();
+        Profile a = new Profile("13800001234", "alice");
+        Profile b = new Profile("13900008888", "bob");
+        List<Profile> out = applier.applyAll(List.of(a, b), "system:account", FIELDS, code -> false);
+        assertEquals(2, out.size());
+        assertEquals("138****1234", out.get(0).mobile());
+        assertEquals("139****8888", out.get(1).mobile());
+        // 原元素不变
+        assertEquals("13800001234", a.mobile());
     }
 }

@@ -7,10 +7,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -21,9 +25,10 @@ import java.util.function.Predicate;
  * 无权限的字段按策略处理：{@code MASK} 经 {@link SensitiveMasker} 脱敏（未指定敏感类型回落通用掩码），
  * {@code HIDE} 置空（null）。</p>
  *
- * <p><b>目标对象须为可变对象</b>：本执行器用反射读写字段；对 {@code record} 等不可变类型无法就地修改，
- * 会跳过该字段并记 WARN（建议对 record 视图改用「构造前脱敏」或 Jackson 序列化期脱敏）。
- * 集合入参会逐元素处理（批次端点友好）。</p>
+ * <p><b>可变对象</b>：用反射就地读写字段脱敏/隐藏。<b>不可变 {@code record}</b>：本执行器不会就地改写，
+ * 而是按受控字段清单经其规范构造器<b>重建一个脱敏副本</b>并返回（原 record 不变），调用方须使用返回值；
+ * 重建失败（反射异常）时记 WARN 并回落原对象，不抛异常、不影响其它字段。</p>
+ * <p>集合入参会逐元素处理（批次端点友好）。record 元素同样走重建副本路径。</p>
  *
  * <p><b>失败安全</b>：字段不存在/不可访问/类型为 record 不可写时仅跳过该字段，不抛异常、不影响其它字段。</p>
  */
@@ -81,6 +86,10 @@ public class ColumnPermissionApplier {
         if (target == null || fields == null || fields.isEmpty()) {
             return target;
         }
+        // record 不可变：经规范构造器重建脱敏副本（原对象不变），调用方须使用返回值。
+        if (target.getClass().isRecord()) {
+            return applyRecord(target, resourceCode, fields, hasColumnPermission);
+        }
         for (ColumnPermissionFieldView f : fields) {
             String code = ColumnPermissionRules.columnPermissionCode(resourceCode, f.field());
             if (hasColumnPermission != null && hasColumnPermission.test(code)) {
@@ -89,6 +98,49 @@ public class ColumnPermissionApplier {
             maskField(target, f);
         }
         return target;
+    }
+
+    /**
+     * record 重建路径：经规范构造器重建一个脱敏副本（原 record 不可变、不被改写）。
+     * 逐组件读取当前值，对受控且无权限的字段按策略脱敏/隐藏，其余原样传回构造器。
+     */
+    @SuppressWarnings("unchecked")
+    private <T> T applyRecord(T target, String resourceCode, List<ColumnPermissionFieldView> fields,
+                             Predicate<String> hasColumnPermission) {
+        Class<?> clazz = target.getClass();
+        RecordComponent[] components = clazz.getRecordComponents();
+        if (components.length == 0) {
+            return target;
+        }
+        Map<String, ColumnPermissionFieldView> byName = new LinkedHashMap<>();
+        for (ColumnPermissionFieldView f : fields) {
+            byName.put(f.field(), f);
+        }
+        Object[] args = new Object[components.length];
+        try {
+            for (int i = 0; i < components.length; i++) {
+                RecordComponent rc = components[i];
+                Object value = rc.getAccessor().invoke(target);
+                ColumnPermissionFieldView f = byName.get(rc.getName());
+                if (f != null) {
+                    String code = ColumnPermissionRules.columnPermissionCode(resourceCode, f.field());
+                    if (hasColumnPermission == null || !hasColumnPermission.test(code)) {
+                        value = switch (f.strategy()) {
+                            case HIDE -> null;
+                            case MASK -> maskValue(value, f.sensitiveType());
+                            default -> value;
+                        };
+                    }
+                }
+                args[i] = value;
+            }
+            Constructor<?> ctor = clazz.getDeclaredConstructors()[0];
+            ctor.setAccessible(true);
+            return (T) ctor.newInstance(args);
+        } catch (Exception e) {
+            log.warn("字段级权限：record 重建失败（{}），回落原对象不脱敏: {}", clazz.getName(), e.getMessage());
+            return target;
+        }
     }
 
     private void maskField(Object target, ColumnPermissionFieldView f) {
