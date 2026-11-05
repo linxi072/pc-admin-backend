@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 文章服务：文章 CRUD、发布/下线态流转、浏览计数，并在发布时经 R2 事件总线广播
@@ -55,7 +56,12 @@ public class CmsArticleService {
     private final SecurityContextFacade securityContextFacade;
     private final EventPublisher eventPublisher;
 
-    /** 创建文章；默认进入 DRAFT 草稿态，所属栏目须存在。 */
+    /**
+     * 创建文章；默认进入 DRAFT 草稿态，所属栏目须存在。
+     *
+     * <p>若请求直接以 PUBLISHED 创建，则与 {@link #publish} 保持同一发布语义（补登发布时间 +
+     * 广播一次发布事件），避免出现「状态已发布但 publishedAt 为空 / 下游未收到事件」的不一致。</p>
+     */
     @Transactional
     public Long create(ArticleCreateRequest req) {
         requireCategory(req.getCategoryId());
@@ -67,14 +73,24 @@ public class CmsArticleService {
         entity.setAuthor(req.getAuthor() != null ? req.getAuthor() : currentOperator());
         entity.setCoverUrl(req.getCoverUrl());
         entity.setStatus(req.getStatus() == null ? "DRAFT" : req.getStatus());
+        boolean published = "PUBLISHED".equals(entity.getStatus());
+        if (published) {
+            entity.setPublishedAt(LocalDateTime.now());
+        }
         entity.setViewCount(0L);
         entity.setCreatedBy(currentOperator());
         entity.setUpdatedBy(currentOperator());
         JooqWriters.insert(dsl, ARTICLE, entity);
+        if (published) {
+            publishEvent(entity);
+        }
         return entity.getId();
     }
 
-    /** 更新文章（按 id 选择性更新）。若栏目变更须存在；若置为 PUBLISHED 且未记录发布时间则补登。 */
+    /**
+     * 更新文章（按 id 选择性更新）。栏目变更须存在；状态流转与 {@link #publish}/{@link #offline}
+     * 共用同一套语义：转入 PUBLISHED 时补登发布时间并广播一次事件，转出 OFFLINE 时清空下线时间。
+     */
     @Transactional
     public void update(ArticleUpdateRequest req) {
         CmsArticleDO existing = requireExisting(req.getId());
@@ -85,37 +101,68 @@ public class CmsArticleService {
         existing.setContent(req.getContent());
         existing.setAuthor(req.getAuthor());
         existing.setCoverUrl(req.getCoverUrl());
+        boolean becamePublished = false;
+        boolean clearOfflineAt = false;
         if (req.getStatus() != null) {
+            becamePublished = "PUBLISHED".equals(req.getStatus())
+                    && !"PUBLISHED".equals(existing.getStatus());
             existing.setStatus(req.getStatus());
-            if ("PUBLISHED".equals(req.getStatus()) && existing.getPublishedAt() == null) {
+            if (becamePublished) {
                 existing.setPublishedAt(LocalDateTime.now());
+            }
+            if (!"OFFLINE".equals(req.getStatus())) {
+                existing.setOfflineAt(null);
+                clearOfflineAt = true;
             }
         }
         existing.setUpdatedBy(currentOperator());
-        JooqWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
+        if (clearOfflineAt) {
+            // updateById 跳过 null 字段，清空 offline_at 必须显式声明置空列。
+            JooqWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
+        } else {
+            JooqWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
+        }
+        if (becamePublished) {
+            publishEvent(existing);
+        }
     }
 
     /**
      * 发布文章：DRAFT/OFFLINE → PUBLISHED，记录发布时间、清除下线时间，
-     * 并经 R2 事件总线广播 {@link ArticlePublishedEvent}（订阅方错误隔离，无订阅者时安全忽略）。
+     * 并经 R2 事件总线广播一次 {@link ArticlePublishedEvent}（订阅方错误隔离）。
+     *
+     * <p><b>幂等</b>：已处于 PUBLISHED 时直接返回，不刷新 {@code publishedAt}、不重复广播事件，
+     * 避免下游通知/检索订阅方对同一篇文章重复消费。重复发布请先 {@link #offline} 下线。</p>
      */
     @Transactional
     public void publish(Long id) {
         CmsArticleDO existing = requireExisting(id);
+        if ("PUBLISHED".equals(existing.getStatus())) {
+            log.info("文章已处于发布态，跳过重复发布 articleId={}", id);
+            return;
+        }
         existing.setStatus("PUBLISHED");
         existing.setPublishedAt(LocalDateTime.now());
         existing.setOfflineAt(null);
         existing.setUpdatedBy(currentOperator());
-        JooqWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
-        eventPublisher.publish(new ArticlePublishedEvent(
-                existing.getTenantId(), "cms", existing.getId(), existing.getTitle(), existing.getCategoryId()));
+        // 重新发布（OFFLINE → PUBLISHED）必须清除下线时间；updateById 跳过 null，故显式置空。
+        JooqWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
+        publishEvent(existing);
         log.info("文章已发布 articleId={} title={}", existing.getId(), existing.getTitle());
     }
 
-    /** 下线文章：PUBLISHED → OFFLINE，记录下线时间。 */
+    /**
+     * 下线文章：PUBLISHED → OFFLINE，记录下线时间。
+     *
+     * <p><b>幂等</b>：已处于 OFFLINE 时直接返回，不重复刷新 {@code offlineAt}。</p>
+     */
     @Transactional
     public void offline(Long id) {
         CmsArticleDO existing = requireExisting(id);
+        if ("OFFLINE".equals(existing.getStatus())) {
+            log.info("文章已处于下线态，跳过重复下线 articleId={}", id);
+            return;
+        }
         existing.setStatus("OFFLINE");
         existing.setOfflineAt(LocalDateTime.now());
         existing.setUpdatedBy(currentOperator());
@@ -196,6 +243,12 @@ public class CmsArticleService {
                 categoryId) == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "所属栏目不存在: " + categoryId);
         }
+    }
+
+    /** 统一发布事件出口：所有「转入 PUBLISHED」的路径共用，保证事件字段与次数一致。 */
+    private void publishEvent(CmsArticleDO entity) {
+        eventPublisher.publish(new ArticlePublishedEvent(
+                entity.getTenantId(), "cms", entity.getId(), entity.getTitle(), entity.getCategoryId()));
     }
 
     private ArticleView toView(CmsArticleDO e) {
