@@ -20,7 +20,8 @@ import java.util.List;
  * 审批中心门户接口：统一待办、已办、我发起、可发起与统计入口。
  *
  * <p>权限码 {@code approval:portal:view} 由 {@code ApiResourceAutoSyncRunner} 扫描
- * {@code @PreAuthorize} 自动登记并授予 SUPER_ADMIN；门户为只读聚合，不含写操作。</p>
+ * {@code @PreAuthorize} 自动登记并授予 SUPER_ADMIN；门户保持只读聚合，写操作统一收敛到
+ * {@link ApprovalActionController}（{@code /api/approval/actions/**}），二者共用同一工作流引擎。</p>
  */
 @Tag(name = "审批中心门户")
 @RestController

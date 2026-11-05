@@ -2,11 +2,12 @@
 <!--
   scaffold-approval：审批中心门户（R7）。
 
-  内容：approval.ApprovalPortalService（薄编排层，仅聚合既有工作流能力）/
-  approval.ApprovalPortalController（统一待办/已办/我发起/可发起/统计入口）。
+  内容：approval.ApprovalPortalService/ApprovalPortalController（只读聚合：待办/已办/
+  我发起/可发起/统计/详情）与 approval.ApprovalActionService/ApprovalActionController
+  （动作门面：发起/审批/转办/委派/办结委派/认领，委托 workflow 引擎，不重复实现）。
 
   依赖方向：approval → {common, workflow}。本模块不持表、不直连引擎，仅编排；
-  统计与权限码经 ApiResourceAutoSyncRunner 自动登记。
+  权限码经 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动登记。
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
