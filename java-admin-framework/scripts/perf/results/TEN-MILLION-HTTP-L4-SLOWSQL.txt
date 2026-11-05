@@ -1,0 +1,27 @@
+13207 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+13527 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+13716 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+15487 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+15491 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+15492 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+15636 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+15637 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+16488 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+16489 ms | select * from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) order by occurred_at desc limit ? offset ?
+2445 ms | select count(*) from sys_operation_log
+2822 ms | select count(*) from sys_operation_log
+2823 ms | select count(*) from sys_operation_log
+2904 ms | select count(*) from sys_operation_log
+3338 ms | select count(*) from sys_operation_log
+3492 ms | select count(*) from sys_operation_log
+4628 ms | select count(*) from sys_operation_log where success = ?
+4719 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+4883 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+4941 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+4942 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+4969 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+4987 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+5189 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+5191 ms | select count(*) from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?)
+6226 ms | select module_code, result_code, count(*) as cnt from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) group by module_code, result_code
+6339 ms | select module_code, result_code, count(*) as cnt from sys_operation_log where (success = ? and occurred_at >= ? and occurred_at <= ?) group by module_code, result_code
