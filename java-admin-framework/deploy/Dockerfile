@@ -14,7 +14,11 @@ WORKDIR /app
 # 复制构建产物（版本无关通配）
 COPY --from=build /workspace/scaffold-admin/target/scaffold-admin-*.jar /app/app.jar
 # 运行期配置（生产激活 prod profile，敏感项经环境变量注入）
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Dspring.profiles.active=prod" \
+# 时区一致性（千万级测试报告 §8.1）：所有 JDBC URL 声明 serverTimezone=UTC，
+# JVM 默认时区必须同为 UTC，否则 Connector/J 会把 MySQL DATETIME 读回整体 +8h。
+# TZ 供基础镜像/系统库读取，-Duser.timezone 显式钉死 JVM 默认时区（不依赖镜像默认值）。
+ENV TZ=UTC \
+    JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Dspring.profiles.active=prod -Duser.timezone=UTC" \
     SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080 9090
 # 存活探针：management 端口 9090 的 liveness（与 application.yml 配置一致）

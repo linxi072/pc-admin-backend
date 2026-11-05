@@ -16,9 +16,16 @@ app:
   datasources:
     entries:
       primary:
+        # 必须带 serverTimezone=UTC，且容器 TZ=UTC / JAVA_OPTS 含 -Duser.timezone=UTC。
+        # 生产启动时 DataSourceTimeZoneGuard 会校验二者一致，不一致直接 fail-fast（§8.1）。
         url: ${DB_PRIMARY_URL}
         username: ${DB_PRIMARY_USERNAME}
         password: ${DB_PRIMARY_PASSWORD}
+  # 数据源时区一致性校验（prod 生效）：JDBC 声明时区与 JVM 默认时区不一致时拒绝启动，
+  # 避免 MySQL DATETIME 整体偏移；特殊部署确需关闭时置 false 并自行保证时区对齐。
+  timezone:
+    guard:
+      enabled: true
   # WebSocket 跨域允许来源：生产收紧为具体前端域名（经环境变量覆盖，避免硬编码）
   cors:
     allowed-origins: ${WS_ALLOWED_ORIGINS:https://admin.example.com}

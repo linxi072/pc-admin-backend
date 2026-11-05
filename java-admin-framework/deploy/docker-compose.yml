@@ -11,6 +11,9 @@ services:
       - "9090:9090"   # management 端口（health/metrics/prometheus）
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # 时区一致性（§8.1）：与 JDBC serverTimezone=UTC 对齐，避免 DATETIME 整体偏移；
+      # Dockerfile 的 JAVA_OPTS 已带 -Duser.timezone=UTC，此处同时固定容器级 TZ。
+      TZ: UTC
       # API 版本段（P2-2）：生产统一前缀 /api/v1，演进期 Breaking Change 可隔离
       APP_API_CONTEXT_PATH: /api/v1
       # 开启 OTLP/HTTP span 导出（P1-9 / C6）：指向容器内的 OpenTelemetry Collector，
@@ -37,10 +40,13 @@ services:
 
   mysql:
     image: mysql:8.4
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    # --default-time-zone=+00:00 使 MySQL 会话时区与 JDBC serverTimezone=UTC 一致，
+    # 避免 NOW()/CURRENT_TIMESTAMP 与应用侧 DATETIME 语义分叉（§8.1）。
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci --default-time-zone=+00:00
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD required}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-java_admin}
+      TZ: UTC
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:

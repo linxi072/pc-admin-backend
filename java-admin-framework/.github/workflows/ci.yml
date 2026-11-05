@@ -37,6 +37,9 @@ jobs:
   build-and-unit-test:
     name: Build & Unit Tests
     runs-on: ubuntu-latest
+    env:
+      # 与 JDBC serverTimezone=UTC 对齐（千万级测试报告 §8.1），保持 CI 与容器时区口径一致
+      TZ: UTC
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -68,6 +71,9 @@ jobs:
           --health-retries=10
     env:
       SPRING_PROFILES_ACTIVE: ci
+      # 关键：surefire/failsafe fork 出的 JVM 读取 TZ，必须与下方 URL 的 serverTimezone=UTC 一致，
+      # 否则 *IT 中真实 MySQL 的 DATETIME 断言会整体 +8h（§8.1）。
+      TZ: UTC
       SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ci_root_pwd
