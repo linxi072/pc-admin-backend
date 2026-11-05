@@ -7,17 +7,17 @@
 
 ---
 
-## 0. 双门禁复验结果（整改后）
+## 0. 四门禁复验结果（整改后）
 
-| 门禁 | 命令 | 结果（F4 续作后复验） |
+| 门禁 | 命令 | 结果（F4 测试补齐后复验，2026-11-05） |
 | --- | --- | --- |
-| 单元测试全量 | `mvn -o clean test`（JDK 21，离线，17 模块） | **BUILD SUCCESS / EXIT=0**，**2040 例**：0 失败 0 错误 0 跳过 |
-| 约定校验 | `scripts/check-conventions.py` | **EXIT=0**，扫描 978 个 Java 文件，无 H1–H5 硬违规（仅 1 项 W* 模块分层提示，非阻断） |
+| 单元测试全量 | `mvn -o clean test`（JDK 21，离线，17 模块） | **BUILD SUCCESS / EXIT=0**，**2052 例**：0 失败 0 错误 0 跳过（较 F4 续作 +12 例） |
+| 约定校验 | `scripts/check-conventions.py` | **EXIT=0**，无 H1–H5 硬违规（仅 1 项 W* 模块分层提示，非阻断） |
 | 前端单测 | `npm test`（node:test） | **91/91 通过**（含新增 `approvalActions.test.js` 6 例） |
-| 前端构建 | `npm run build`（vite） | **EXIT=0** |
+| 前端构建 | `npm run build`（vite） | **EXIT=0**（`✓ built in 15.67s`） |
 
 > 注：首轮整改前端未改动；F4 续作涉及 `pc-admin-vue3-vite`（审批工作台 UI / API / i18n），
-> 故前端单测与 `vite build` 一并纳入本轮验收阈值。
+> 故前端单测与 `vite build` 一并纳入本轮验收阈值。本轮虽无前端改动，四门禁仍全量复验。
 
 ---
 
@@ -79,9 +79,9 @@
 
 - **原评估（部分达标）**：`CloudLlmProvider` 云接入仍为占位异常（默认关闭，可接受但「功能未就绪」语义不清）。
 - **整改**：新增 `LlmNotImplementedException`（`@ResponseStatus(NOT_IMPLEMENTED)`）；新增 `AiExceptionAdvice`（`@RestControllerAdvice(basePackages="com.acme.scaffold.ai")`、`@Order(HIGHEST_PRECEDENCE)`），确保云模型未配置/未实现时返回 **501** 而非被全局 catch-all 改写为 500；`CloudLlmProvider.parse()` 两处抛此异常。
-- **验证**：全量 `mvn -o clean test` 通过（含 `scaffold-ai` 模块编译与既有测试）。
+- **验证**：新增 `AiCloudNotReadyTest` 5 例独立集成测试（Docker-free，surefire 可执行）：① 云 provider 未配置 endpoint；② 已配置 endpoint 但真实接入仍为占位——两者均显式抛 501 且给出可定位提示；③ `AiScaffoldService` 在云 provider 已装配时**不静默回退启发式**产出「看似成功」的草稿；④ `AiExceptionAdvice` 返回结构化 501（`error`/`message`/`status`）且 `@Order(HIGHEST_PRECEDENCE)`、`basePackages` 限定 ai 模块；⑤ MockMvc 故意先注册全局 `Exception → 500` 兜底 advice，仍断言 HTTP 层 501 未被改写、body 结构正确。全量 `mvn -o clean test` 通过。
 
-涉及文件：`LlmNotImplementedException.java`（新）、`AiExceptionAdvice.java`（新）、`CloudLlmProvider.java`。
+涉及文件：`LlmNotImplementedException.java`（新）、`AiExceptionAdvice.java`（新）、`CloudLlmProvider.java`、`AiCloudNotReadyTest.java`（新）。
 
 ## 8. F4 — 剩余业务功能逻辑补齐（续作收口）
 
@@ -118,7 +118,13 @@
 
 本仓 `*IT` 由 failsafe 在 `verify` 阶段执行且本地默认跳过（根 pom 注释明确「集成测试默认跳过：`mvn test/verify` 不触发 `*IT`」），因此命名为 `*IT` 的用例在 `mvn -o clean test` 门禁中**根本不会被执行**。本轮新增集成测试统一采用 `*Test` 命名 + 独立 H2 内存库夹具（`CmsH2` / `ImH2`），确保被 surefire 覆盖、门禁真实执行——这比新增不被执行的 `*IT` 更符合「完全通过对应测试或验收」的要求。
 
-涉及文件：`ApprovalActionService.java`（新）、`ApprovalActionController.java`（新）、`ApprovalActionServiceTest.java`（新）、`ApprovalPortalController.java`、`scaffold-approval/pom.xml`、`WorkflowService.java`、`api/approvalActions.js`（新）、`api/__tests__/approvalActions.test.js`（新）、`views/approval/PortalView.vue`、`i18n/messages.js`、`CmsArticleService.java`、`CmsArticlePublishFlowTest.java`（新）、`ImConversationService.java`、`ImMessageService.java`、`ImBoundaryFlowTest.java`（新）。
+### 8.5 ai / plugin / codegen 测试覆盖补齐（复核结论修正）
+
+- **复核纠偏**：复评报告「单测薄弱、无独立 IT」需按实物修正——`AiScaffoldServiceTest` 已覆盖 ai→codegen 端到端渲染；`PluginManagerTest` 已是真实 jar + 真实 Spring 上下文 + 真实类加载器的端到端集成测试。真正未覆盖的是 ① **F5 501 语义**（见 §7）；② **codegen 元数据读取 → 编排 → 打包链路**（此前 3 个测试均为模板片段 / DTO / 配置纯单测）。
+- 新增 `CodeGenFlowTest` 8 例独立集成测试（Docker-free，surefire 可执行）：以 jOOQ `MockConnection` 在内存模拟 MySQL `information_schema` 结果集，驱动**真实** `TableSchemaService`（原生 SQL → 列元数据 → Java 类型映射）、`CodeGenService`（preview / downloadZip）与 `CodeTemplates` 模板渲染全链路。断言：`DATABASE()` 限定当前库防跨库串表、`ORDINAL_POSITION` 保证列序稳定、主键 / 自增 / `tinyint(1) → Boolean` / 下划线转驼峰 / `ToStringSerializer` 雪花主键映射；`withFrontend=true` 产出 8 个路径不重复的文件且中文列注释无损；ZIP 条目与预览**逐字一致**且 UTF-8 不乱码；边界拒绝覆盖「表不存在 → NOT_FOUND」「表无字段 → VALIDATION_ERROR」「空表名短路不触发任何 SQL」「列表排除视图并按表名排序」。
+- 生产 SQL 使用 MySQL 专有 `TABLE_COMMENT` / `DATABASE()`，H2 不兼容，故以返回结果集隔离「数据库」这一层，其余均为生产对象真实协作；同样采用 `*Test` 命名确保被门禁执行（口径见 §8.4）。
+
+涉及文件：`ApprovalActionService.java`（新）、`ApprovalActionController.java`（新）、`ApprovalActionServiceTest.java`（新）、`ApprovalPortalController.java`、`scaffold-approval/pom.xml`、`WorkflowService.java`、`api/approvalActions.js`（新）、`api/__tests__/approvalActions.test.js`（新）、`views/approval/PortalView.vue`、`i18n/messages.js`、`CmsArticleService.java`、`CmsArticlePublishFlowTest.java`（新）、`ImConversationService.java`、`ImMessageService.java`、`ImBoundaryFlowTest.java`（新）、`AiCloudNotReadyTest.java`（新）、`CodeGenFlowTest.java`（新）。
 
 ---
 
@@ -141,6 +147,9 @@
 | 13 | feat(im) | F4-3 会话/消息 5 项业务边界修复 |
 | 14 | test | F4 集成与契约测试（approval/cms/im H2 + 前端 API） |
 | 15 | docs | 回填 F4 闭环与四门禁复验结果 |
+| 16 | test(ai) | F5 云模型 501 语义与 Advice 契约独立集成测试 |
+| 17 | test(codegen) | codegen 元数据 → 编排 → ZIP 端到端集成测试 |
+| 18 | docs | 回填 F4/F5 测试闭环与 2052 例四门禁复验结果 |
 
 > 全部为本地提交，**未推送 origin**（`feat/V1.0.7`），由用户本机评审后推送。
 
@@ -150,4 +159,5 @@
 
 - **C9 真实 CVE 扫描**：需联网/已缓存 NVD 的 CI 环境执行 `mvn -Psca verify` 获取真实报告，据结果补充 `dependency-check-suppressions.xml` 具体条目（当前为策略模板）。
 - **P4 存量 OFFSET 端点**：`user`/`message` 主列表仍提供 OFFSET 端点（保留前端契约），深翻页统一引导至 keyset 端点，属渐进收敛，非阻断。
-- **F4 已收口**：`approval` 可写动作门面、cms 发布状态机、im 会话/消息边界均补齐并有 surefire 可执行的 H2 集成测试；`ai`/`plugin`/`codegen` 沿用既有启发式实现与单测，若后续要对外宣称 GA，仍需按 §4.6 建议补更完整的端到端 IT。
+- **F4 已收口（含测试覆盖补齐）**：`approval` 可写动作门面、cms 发布状态机、im 会话/消息边界均补齐并有 surefire 可执行的 H2 集成测试；`ai`/`plugin`/`codegen` 复核后确认并非「无独立 IT」——`plugin` 已有真实 jar + Spring 上下文集成测试，本轮另补 `AiCloudNotReadyTest`（F5 501 语义）与 `CodeGenFlowTest`（元数据 → 预览 → ZIP 全链路）。若后续对外宣称 GA，仍需按复评报告 §4.6 补跨进程 / 真实 MySQL 的 E2E IT。
+- **C9 / P4 两项遗留不变**：真实 CVE 扫描依赖联网 NVD，存量 OFFSET 端点为保留前端契约的渐进收敛，均非阻断。
