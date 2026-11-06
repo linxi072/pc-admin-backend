@@ -15,6 +15,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -86,9 +87,28 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<Result<Void>> handleNotFound(NoResourceFoundException ex) {
+    public ResponseEntity<Result<Void>> handleNotFound(NoResourceFoundException ex, HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // D6：特性开关关闭时相关控制器不注册，菜单链接命中 404。
+        // 识别禁用特性路径，返回明确的「功能未启用」包络，而非裸 404。
+        if (path != null && (path.startsWith("/api/system/chaos")
+                || path.startsWith("/api/system/config-center"))) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Result.error(CommonErrorCode.FEATURE_DISABLED.code(),
+                            CommonErrorCode.FEATURE_DISABLED.message()));
+        }
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Result.error(CommonErrorCode.NOT_FOUND.code(), i18n.getMessage("error.not_found")));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Result<Void>> handleMissingParameter(MissingServletRequestParameterException ex) {
+        // D4：下钻等端点必填参数缺失时，Spring 抛 MissingServletRequestParameterException，
+        // 未处理会返回裸 400。统一包络为校验失败，提示缺失参数名。
+        log.debug("缺少必填请求参数: {}", ex.getParameterName());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Result.error(CommonErrorCode.VALIDATION_ERROR.code(),
+                        "缺少必填请求参数: " + ex.getParameterName()));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

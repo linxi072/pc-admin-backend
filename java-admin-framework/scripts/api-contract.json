@@ -40,7 +40,8 @@
     { "code": "COMMON_422", "httpStatus": 422, "messageZh": "业务处理失败", "messageEn": "Business processing failed" },
     { "code": "COMMON_429", "httpStatus": 429, "messageZh": "请求过于频繁，请稍后再试", "messageEn": "Too many requests, please retry later" },
     { "code": "COMMON_500", "httpStatus": 500, "messageZh": "系统内部错误", "messageEn": "Internal server error" },
-    { "code": "COMMON_504", "httpStatus": 504, "messageZh": "请求超时，请稍后重试", "messageEn": "Request timed out, please retry later" }
+    { "code": "COMMON_504", "httpStatus": 504, "messageZh": "请求超时，请稍后重试", "messageEn": "Request timed out, please retry later" },
+    { "code": "COMMON_470", "httpStatus": 404, "messageZh": "功能已通过配置关闭，暂不可用", "messageEn": "Feature is disabled by configuration" }
   ],
   "resources": {
     "demoItem": {

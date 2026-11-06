@@ -116,10 +116,10 @@ test('契约结构：envelope 必含 code/message/data/traceId/timestamp', () =>
   }
 })
 
-test('契约结构：successCodes 含 "0" 与 0，errorCodes 为 9 项', () => {
+test('契约结构：successCodes 含 "0" 与 0，errorCodes 为 10 项', () => {
   assert.ok(successCodes.includes('0'), 'successCodes 含字符串 "0"')
   assert.ok(successCodes.includes(0), 'successCodes 含数字 0')
-  assert.equal(errorCodes.length, 9, '通用错误码应为 9 个')
+  assert.equal(errorCodes.length, 10, '通用错误码应为 10 个')
 })
 
 test('契约结构：每个错误码具备 code/httpStatus/messageZh/messageEn', () => {
