@@ -33,6 +33,16 @@ public class ProbeController {
         return ResponseEntity.status(toHttpStatus(result)).body(result);
     }
 
+    /**
+     * 健康端点别名（D7）：部分调用方习惯访问 {@code /api/system/health}，此前因无对应路由而 404。
+     * 此处提供别名并复用就绪探针逻辑，统一在 {@code SecurityConfig} 中 permitAll。
+     */
+    @GetMapping("/api/system/health")
+    public ResponseEntity<ProbeResult> health() {
+        ProbeResult result = readinessService.check();
+        return ResponseEntity.status(toHttpStatus(result)).body(result);
+    }
+
     private static int toHttpStatus(ProbeResult result) {
         return result.status() == ProbeStatus.UP ? 200 : 503;
     }
