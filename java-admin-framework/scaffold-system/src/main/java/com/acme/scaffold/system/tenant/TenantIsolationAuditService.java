@@ -39,6 +39,12 @@ public class TenantIsolationAuditService {
     public List<TenantIsolationTableViolation> scanViolations() {
         List<TenantIsolationTableViolation> result = new ArrayList<>();
         for (var ref : TenantTables.businessTableRefs()) {
+            // D1 修复：表无 tenant_id 列（如 wf_node_config）不可套用租户过滤，否则生成非法 SQL
+            // （Unknown column 'tenant_id'）。跳过查询、以 0 违规计入，保持计数契约与报表总数一致。
+            if (!ref.has("tenant_id")) {
+                result.add(new TenantIsolationTableViolation(ref.name(), 0L));
+                continue;
+            }
             Field<Long> tenantId = ref.field("tenant_id", Long.class);
             Condition condition = tenantId.isNull().or(tenantId.eq(0L));
             if (ref.has("deleted")) {

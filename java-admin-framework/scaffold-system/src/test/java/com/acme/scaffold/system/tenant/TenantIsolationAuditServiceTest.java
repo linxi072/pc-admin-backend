@@ -42,14 +42,22 @@ class TenantIsolationAuditServiceTest {
     }
 
     @Test
-    @DisplayName("单表查询异常时以 -1 标记检查失败，不影响其余表统计")
+    @DisplayName("单表查询异常时以 -1 标记检查失败；无 tenant_id 表以 0 违规计入，不影响其余表统计")
     void marksFailedTableAsUnknown() {
         when(dsl.fetchCount(any(Table.class), any(Condition.class)))
                 .thenThrow(new DataAccessException("boom") {});
 
         List<TenantIsolationTableViolation> violations = service.scanViolations();
 
+        // 应覆盖 JooqTables 反射收集的全部业务表（新增表自动纳入）
         assertEquals(TenantTables.businessTableNames().size(), violations.size());
-        assertTrue(violations.stream().allMatch(v -> v.violatedRows() == -1L));
+        // 无 tenant_id 列的表（如 wf_node_config）跳过查询、记为 0 违规
+        long noTenantIdTables = TenantTables.businessTableRefs().stream()
+                .filter(ref -> !ref.has("tenant_id")).count();
+        long zeroCount = violations.stream().filter(v -> v.violatedRows() == 0L).count();
+        long minusOneCount = violations.stream().filter(v -> v.violatedRows() == -1L).count();
+        assertEquals(noTenantIdTables, zeroCount, "无 tenant_id 表应为 0 违规");
+        assertEquals(TenantTables.businessTableNames().size() - noTenantIdTables, minusOneCount,
+                "有 tenant_id 且查询异常的表应全部 -1");
     }
 }
