@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.permission;
 
+import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,11 @@ import org.springframework.stereotype.Component;
  * <p>无登录主体（定时任务、内部调用）按「不限制」处理并记 DEBUG 日志：
  * 这类调用没有"谁在看"的语义，强行套用用户范围反而会让定时任务查不到数据。
  *
+ * <p>超管放行（D1 修复）：主体持有 {@code SUPER_ADMIN} 角色时直接按「不限制」处理，不再走规则解析。
+ * 起因是各资源默认未预置 {@code sys_role_data_scope} 规则，默认兜底策略 SELF 会让超管
+ * 只能看到自己名下数据——新建用户/部门后列表为空、详情 404。超管已持有全部权限码，
+ * 放行不扩大其可访问面；规则解析仍对普通角色生效，fail-closed 语义不变。
+ *
  * <p>{@link Order#HIGHEST_PRECEDENCE}：本切面须为最外层通知。机构树等热点读在
  * {@code @Cacheable} 上以「数据权限范围签名」为键，缓存键在缓存拦截器内计算，
  * 必须保证此时 {@link DataScopeContext} 已由本切面写入；若切面晚于缓存拦截器执行，
@@ -36,6 +42,7 @@ public class DataScopeAspect {
 
     private final DataScopeProvider dataScopeProvider;
     private final SecurityContextFacade securityContextFacade;
+    private final DataScopeProperties properties;
 
     // 单点 @annotation 绑定 + 手动解析注解（含类级别），避免 "@annotation(x) || @within(x)" 这种
     // OR 组合绑定切点带来的参数绑定失败：当连接点仅经 @within 命中（类级别标注）时，AspectJ 无法
@@ -61,12 +68,32 @@ public class DataScopeAspect {
         }
     }
 
-    private DataScopeResult resolve(String resourceCode) {
+    /** 包级可见以便单测直接验证「超管放行 / 普通角色走规则解析」两条分支。 */
+    DataScopeResult resolve(String resourceCode) {
         return securityContextFacade.getCurrentPrincipal()
-                .map(p -> dataScopeProvider.resolve(p.userId(), resourceCode))
+                .map(p -> isSuperAdmin(p)
+                        ? bypassForSuperAdmin(p, resourceCode)
+                        : dataScopeProvider.resolve(p.userId(), resourceCode))
                 .orElseGet(() -> {
                     log.debug("无登录主体，数据范围按不限制处理: resourceCode={}", resourceCode);
                     return DataScopeResult.all();
                 });
+    }
+
+    /**
+     * 超管判定：持有配置的超管角色码（默认 {@code SUPER_ADMIN}）即放行。
+     * 关闭 {@code app.datascope.super-admin-bypass} 后超管同样走规则解析。
+     */
+    private boolean isSuperAdmin(CurrentPrincipal principal) {
+        if (!properties.isSuperAdminBypass()) {
+            return false;
+        }
+        String roleCode = properties.getSuperAdminRoleCode();
+        return roleCode != null && principal.roles() != null && principal.roles().contains(roleCode);
+    }
+
+    private DataScopeResult bypassForSuperAdmin(CurrentPrincipal principal, String resourceCode) {
+        log.debug("超管数据范围放行: userId={} resourceCode={}", principal.userId(), resourceCode);
+        return DataScopeResult.all();
     }
 }
