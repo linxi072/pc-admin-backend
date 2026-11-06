@@ -62,6 +62,10 @@ public class AuditLogServiceImpl implements AuditLogService {
     /** 摘要截断的 JSON 合法性校验（两个摘要列均为 JSON 类型，截断不得破坏语法）。 */
     private final ObjectMapper objectMapper;
 
+    /** 事务内审计缓冲：同一业务事务内的多次 {@code saveAsync} 先入此缓冲，
+     *  事务提交后合并为单次批量插入（{@link JooqWriters#batchInsert}），消除 N+1 同构 INSERT 告警。 */
+    private static final ThreadLocal<List<AuditRecord>> TX_BUFFER = ThreadLocal.withInitial(ArrayList::new);
+
     /**
      * 显式构造器：{@code Executor} 在容器中存在多个实现，需按 Bean 名精确注入审计线程池。
      */
@@ -84,60 +88,109 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     public void saveAsync(AuditRecord record) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    submit(record);
-                }
-
-                @Override
-                public void afterCompletion(int status) {
-                    if (status != STATUS_COMMITTED) {
-                        log.debug("业务事务未提交(status={})，跳过审计落库: module={} type={}",
-                                status, record.getModuleCode(), record.getOperationType());
+            // 同一业务事务内的多条审计记录先缓冲到线程局部，事务提交后<b>合并为单次批量插入</b>，
+            // 消除 N+1（同一事务内多次 @AuditOperation 各注册 afterCommit 会触发同构 INSERT 告警）。
+            List<AuditRecord> buffer = TX_BUFFER.get();
+            boolean first = buffer.isEmpty();
+            buffer.add(record);
+            if (first) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        flushBuffer();
                     }
-                }
-            });
+
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status != STATUS_COMMITTED) {
+                            log.debug("业务事务未提交(status={})，跳过审计落库: module={} type={}",
+                                    status, record.getModuleCode(), record.getOperationType());
+                        }
+                        TX_BUFFER.remove();
+                    }
+                });
+            }
         } else {
-            submit(record);
+            submit(List.of(record));
         }
     }
 
     /**
-     * 投递插入任务到审计线程池；线程池拒绝时退化为同步写入——审计属于合规留痕，
-     * 宁可占用一次调用方线程，也不能因为队列满而整条丢失。
+     * 事务提交后：把缓冲的审计记录合并为单次批量插入并投递给审计线程池。
+     * 线程池拒绝时退化为同步写入——审计属于合规留痕，宁可占用调用方线程也不能整条丢失。
      */
-    private void submit(AuditRecord record) {
+    private void flushBuffer() {
         try {
-            auditExecutor.execute(() -> doInsert(record));
+            List<AuditRecord> buffer = TX_BUFFER.get();
+            if (buffer.isEmpty()) {
+                return;
+            }
+            List<AuditRecord> snapshot = new ArrayList<>(buffer);
+            submit(snapshot);
+        } finally {
+            TX_BUFFER.remove();
+        }
+    }
+
+    /**
+     * 投递批量插入任务到审计线程池；线程池拒绝时退化为同步写入。
+     */
+    private void submit(List<AuditRecord> records) {
+        try {
+            auditExecutor.execute(() -> doInsertBatch(records));
         } catch (Exception e) {
-            log.warn("审计线程池提交失败，退化为同步写入: module={}", record.getModuleCode(), e);
-            doInsert(record);
+            log.warn("审计线程池提交失败，退化为同步写入: size={}", records.size(), e);
+            doInsertBatch(records);
+        }
+    }
+
+    /**
+     * 批量落库：多条记录合并为单次 INSERT（{@link JooqWriters#batchInsert}），
+     * 单条记录退化为 {@link #doInsert} 与原行为一致。
+     */
+    private void doInsertBatch(List<AuditRecord> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        if (records.size() == 1) {
+            doInsert(records.get(0));
+            return;
+        }
+        try {
+            List<SysOperationLogDO> entities = records.stream().map(this::toEntity).toList();
+            JooqWriters.batchInsert(dsl, JooqTables.SYS_OPERATION_LOG, entities);
+        } catch (Exception e) {
+            log.error("批量写入审计日志失败 size={}", records.size(), e);
         }
     }
 
     private void doInsert(AuditRecord record) {
         try {
-            SysOperationLogDO entity = new SysOperationLogDO();
-            entity.setTenantId(0L);
-            entity.setModuleCode(record.getModuleCode());
-            entity.setOperationType(record.getOperationType());
-            entity.setOperationName(record.getOperationName());
-            entity.setOperatorId(record.getOperatorId());
-            entity.setOperatorName(record.getOperatorName());
-            entity.setRequestMethod(record.getRequestMethod());
-            entity.setRequestPath(record.getRequestPath());
-            entity.setRequestSummary(truncate(record.getRequestSummary(), 2000));
-            entity.setResultSummary(truncate(record.getResultSummary(), 2000));
-            entity.setResultCode(record.getResultCode());
-            entity.setDurationMs(record.getDurationMs());
-            entity.setIpAddress(record.getIpAddress());
-            entity.setTraceId(record.getTraceId());
-            entity.setSuccess(record.isSuccess() ? 1 : 0);
-            JooqWriters.insert(dsl, JooqTables.SYS_OPERATION_LOG, entity);
+            JooqWriters.insert(dsl, JooqTables.SYS_OPERATION_LOG, toEntity(record));
         } catch (Exception e) {
             log.error("写入审计日志失败 module={} type={}", record.getModuleCode(), record.getOperationType(), e);
         }
+    }
+
+    /** 将审计承载对象映射为持久化 DO（含摘要 JSON 合法性截断）。 */
+    private SysOperationLogDO toEntity(AuditRecord record) {
+        SysOperationLogDO entity = new SysOperationLogDO();
+        entity.setTenantId(0L);
+        entity.setModuleCode(record.getModuleCode());
+        entity.setOperationType(record.getOperationType());
+        entity.setOperationName(record.getOperationName());
+        entity.setOperatorId(record.getOperatorId());
+        entity.setOperatorName(record.getOperatorName());
+        entity.setRequestMethod(record.getRequestMethod());
+        entity.setRequestPath(record.getRequestPath());
+        entity.setRequestSummary(truncate(record.getRequestSummary(), 2000));
+        entity.setResultSummary(truncate(record.getResultSummary(), 2000));
+        entity.setResultCode(record.getResultCode());
+        entity.setDurationMs(record.getDurationMs());
+        entity.setIpAddress(record.getIpAddress());
+        entity.setTraceId(record.getTraceId());
+        entity.setSuccess(record.isSuccess() ? 1 : 0);
+        return entity;
     }
 
     // ------------------------------------------------------------------
