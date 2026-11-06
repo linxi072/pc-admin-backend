@@ -18,6 +18,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
@@ -121,6 +123,35 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Result.error(CommonErrorCode.VALIDATION_ERROR.code(), i18n.getMessage("error.unreadable")));
+    }
+
+    /**
+     * 文件上传请求不合法（D2）：请求未声明 multipart/form-data、缺少同名 part，或超出上传体积上限。
+     *
+     * <p>此前无此映射，异常落到兜底 handler 变 500「系统内部错误」——而这类请求是典型的调用方
+     * 用法错误，控制器内的 {@code file.isEmpty()} 校验根本没机会执行。统一按 400 返回可自解释的文案。
+     * {@code MaxUploadSizeExceededException} 同为本类子类，一并归入 400（提示文件过大）。
+     */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<Result<Void>> handleMultipart(MultipartException ex) {
+        log.warn("文件上传请求不合法: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Result.error(CommonErrorCode.VALIDATION_ERROR.code(), i18n.getMessage("error.multipart")));
+    }
+
+    /**
+     * 请求参数类型不匹配（D3）：如路径变量 {@code /messages/abc/read} 的 {@code abc} 无法转为 Long。
+     *
+     * <p>此前无此映射，异常落到兜底 handler 变 500，掩盖了「参数用错」这一调用方错误。
+     * 现按 400 返回，并在文案中带上参数名与期望类型，便于前端定位。
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Result<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String expected = ex.getRequiredType() == null ? "-" : ex.getRequiredType().getSimpleName();
+        log.warn("请求参数类型不匹配: name={} value={} expected={}", ex.getName(), ex.getValue(), expected);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Result.error(CommonErrorCode.VALIDATION_ERROR.code(),
+                        i18n.getMessage("error.argument_type", ex.getName(), expected)));
     }
 
     @ExceptionHandler(Exception.class)

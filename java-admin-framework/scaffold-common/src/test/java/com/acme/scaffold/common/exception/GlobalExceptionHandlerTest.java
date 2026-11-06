@@ -10,6 +10,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -79,5 +81,35 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals(CommonErrorCode.NOT_FOUND.code(), response.getBody().code());
+    }
+
+    @Test
+    @DisplayName("D2：非 multipart 上传请求返回 400 而非 500，并给出可自解释文案")
+    void multipartException_returnsBadRequest() {
+        when(i18n.getMessage("error.multipart")).thenReturn("请以 multipart/form-data 提交文件上传请求");
+
+        ResponseEntity<Result<Void>> response =
+                handler.handleMultipart(new MultipartException("Current request is not a multipart request"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(CommonErrorCode.VALIDATION_ERROR.code(), response.getBody().code());
+        assertTrue(response.getBody().message().contains("multipart"),
+                "文案应指明正确的提交方式: " + response.getBody().message());
+    }
+
+    @Test
+    @DisplayName("D3：路径变量类型不匹配返回 400，文案带参数名与期望类型")
+    void argumentTypeMismatch_returnsBadRequestWithParameterName() {
+        when(i18n.getMessage("error.argument_type", "messageId", "Long"))
+                .thenReturn("请求参数 messageId 类型不正确，期望 Long");
+        MethodArgumentTypeMismatchException ex =
+                new MethodArgumentTypeMismatchException("abc", Long.class, "messageId", null, null);
+
+        ResponseEntity<Result<Void>> response = handler.handleTypeMismatch(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(CommonErrorCode.VALIDATION_ERROR.code(), response.getBody().code());
+        assertTrue(response.getBody().message().contains("messageId"),
+                "文案应指明出错的参数名: " + response.getBody().message());
     }
 }
