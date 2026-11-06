@@ -67,6 +67,18 @@ class JsonTruncatorTest {
     }
 
     @Test
+    void shortInvalidJsonFallsBackToWrappedScalar() {
+        // D2 回归：短小但非法的 JSON（如被截断的 "{"）此前被 early-return 直接放过，
+        // 写入 MySQL JSON 列会触发 3140 拒绝。修复后必须退化为合法 JSON 字符串标量。
+        String broken = "{"; // 长度 1 << 2000，但非法 JSON
+        String result = JsonTruncator.safeTruncate(broken, 2000, mapper);
+
+        assertNotNull(result);
+        assertTrue(result.startsWith("\"") && result.endsWith("\""), "短非法 JSON 应退化为字符串标量, result=" + result);
+        assertValidJson(result); // 必为合法 JSON，否则 MySQL 3140 会拒绝
+    }
+
+    @Test
     void invalidJsonFallsBackToWrappedScalar() {
         // 未闭合且超过上限，进入文本兜底：包装为 JSON 字符串标量
         String broken = "{\"a\":1".repeat(20); // 非合法 JSON，长度 140 > 50

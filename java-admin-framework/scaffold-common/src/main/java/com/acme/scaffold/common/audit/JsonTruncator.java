@@ -18,7 +18,8 @@ import java.util.List;
  *
  * <p>三级降级：
  * <ol>
- *   <li>原样保留：长度未超上限直接返回；</li>
+ *   <li>原样保留：长度未超上限且为合法 JSON 时直接返回（不破坏既有契约）；
+ *       长度未超上限但为非法 JSON 时退化为 JSON 字符串标量，保证列类型不被破坏；</li>
  *   <li>紧凑化 + 结构化裁剪：超长但合法 JSON，先去除空白压缩；仍超则对对象/数组递归丢弃
  *       低价值字段（空值字段、数组末位元素）直至满足上限；</li>
  *   <li>文本兜底：原始非合法 JSON 或结构化裁剪失败，截断到上限并包装为 JSON 字符串标量
@@ -43,7 +44,15 @@ public final class JsonTruncator {
             return null;
         }
         if (s.length() <= max) {
-            return s;
+            // 短输入同样必须校验 JSON 合法性：短小但非法的 JSON（如被截断的 "{"）同样会被
+            // MySQL 3140 拒绝写入，原样返回会整段丢失。合法则原样保留（不破坏既有契约），
+            // 非法则退化为 JSON 字符串标量（必合法），保证输出恒为合法 JSON。
+            try {
+                mapper.readTree(s);
+                return s;
+            } catch (Exception ignored) {
+                return truncateText(s, max);
+            }
         }
         // 1) 尝试紧凑化（去空白），多数日志 JSON 含大量空格，压缩后常可直接满足上限
         try {
@@ -129,7 +138,9 @@ public final class JsonTruncator {
      * 通过对内文预算做转义最坏翻倍留量 + 兜底循环，严格保证结果长度 ≤ max。
      */
     private static String truncateText(String s, int max) {
-        String cut = s.substring(0, max);
+        // 入参长度可能 ≤ max（短非法 JSON 兜底分支会传入 max 远大于实际长度），
+        // 必须先夹紧上界，避免 StringIndexOutOfBounds。
+        String cut = s.length() <= max ? s : s.substring(0, max);
         int innerBudget = (max - 2) / 2; // 转义后最坏翻倍，留足余量
         if (innerBudget < 0) {
             innerBudget = 0;
