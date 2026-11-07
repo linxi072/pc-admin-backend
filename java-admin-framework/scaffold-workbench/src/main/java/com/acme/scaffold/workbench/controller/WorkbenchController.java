@@ -1,8 +1,6 @@
 package com.acme.scaffold.workbench.controller;
 
-import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -47,18 +45,17 @@ public class WorkbenchController {
     /**
      * 最近动态：当前登录人自己最近的操作记录（最多 limit 条）。
      *
-     * <p>复用审计查询，但按当前登录人收敛且不限权限点——与「我的待办」一致，是落地页的个人信息面板，
+     * <p>按当前登录人收敛且不限权限点——与「我的待办」一致，是落地页的个人信息面板，
      * 不含他人数据，故不加 {@code @PreAuthorize}。摘要按脱敏视图返回。</p>
+     *
+     * <p>走 {@link AuditLogService#recentActivities} 而不是 {@code query}：面板不需要 total，
+     * 而分页查询的 {@code count(*)} 在千万行审计表上会把本端点拖到 11.9s（E2E F1）。</p>
      */
     @Operation(summary = "最近动态：当前登录人自己最近的操作记录")
     @GetMapping("/recent-activities")
     public Result<List<AuditLogView>> recentActivities(
             @RequestParam(defaultValue = "8") int limit) {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
-        int size = Math.min(Math.max(limit, 1), 50);
-        AuditLogQuery query = new AuditLogQuery(1, size, null, null, userId, null, null, null,
-                null, null, null, null, "occurredAt", "DESC");
-        PageResult<AuditLogView> page = auditLogService.query(query, false);
-        return Result.success(page.records());
+        return Result.success(auditLogService.recentActivities(userId, limit, false));
     }
 }

@@ -16,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
-import org.jooq.Record2;
+import org.jooq.Record;
 import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -53,6 +53,9 @@ public class AuditLogServiceImpl implements AuditLogService {
             "durationMs", "duration_ms",
             "success", "success",
             "occurredAt", "occurred_at");
+
+    /** 「最近动态」面板单次最多返回条数（与 WorkbenchController 的入参上限保持一致）。 */
+    private static final int RECENT_ACTIVITIES_MAX = 50;
 
     private final DSLContext dsl;
 
@@ -247,33 +250,62 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    public AuditLogSummary summary(AuditLogQuery query, boolean sensitiveVisible) {
-        Condition cond = conditions(query);
-        long total = JooqWriters.count(dsl, JooqTables.SYS_OPERATION_LOG, cond);
-        if (total == 0) {
-            // 空区间也回传脱敏可见标识，保证前端徽标状态与列表一致
-            return new AuditLogSummary(0L, 0L, 0L, 0L, 0L, 0L, sensitiveVisible);
-        }
-        long successCount = JooqWriters.count(dsl, JooqTables.SYS_OPERATION_LOG,
-                DSL.and(cond, JooqTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(1)));
-        long slowCount = JooqWriters.count(dsl, JooqTables.SYS_OPERATION_LOG,
-                DSL.and(cond, JooqTables.SYS_OPERATION_LOG.field("duration_ms", Long.class)
-                        .gt(AuditLogSummary.SLOW_THRESHOLD_MS)));
+    public List<AuditLogView> recentActivities(Long operatorId, int limit, boolean sensitiveVisible) {
+        int size = Math.min(Math.max(limit, 1), RECENT_ACTIVITIES_MAX);
+        Condition cond = operatorId == null
+                ? DSL.trueCondition()
+                : JooqTables.SYS_OPERATION_LOG.field("operator_id", Long.class).eq(operatorId);
+        // 不做 count：面板只需最近 N 条，count(*) 在千万行审计表上是纯浪费（见接口注释 F1）
+        List<SysOperationLogDO> logs = JooqWriters.fetchTop(dsl, JooqTables.SYS_OPERATION_LOG,
+                SysOperationLogDO.class, cond, size,
+                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc(),
+                JooqTables.SYS_OPERATION_LOG.field("id", Long.class).desc());
+        return logs.stream().map(l -> AuditLogView.of(l, sensitiveVisible)).toList();
+    }
 
-        Record2<BigDecimal, Long> agg = dsl
-                .select(DSL.avg(JooqTables.SYS_OPERATION_LOG.field("duration_ms", Long.class)),
-                        DSL.max(JooqTables.SYS_OPERATION_LOG.field("duration_ms", Long.class)))
-                .from(JooqTables.SYS_OPERATION_LOG.table())
+    @Override
+    public AuditLogSummary summary(AuditLogQuery query, boolean sensitiveVisible) {
+        var t = JooqTables.SYS_OPERATION_LOG;
+        Condition cond = conditions(query);
+        Field<Long> duration = t.field("duration_ms", Long.class);
+
+        // 五项指标合并为单条聚合 SQL。
+        // 原实现是 4 次 count(*) + 1 次 avg/max = 5 次全表扫描，在 1200 万行的
+        // sys_operation_log 上耗时 16.3s，直接越过前端 15s 超时并返回 500（E2E F3）。
+        //
+        // avg/max 的字段类型显式声明为 BigDecimal 而非 Long：duration_ms 在 MySQL 中为
+        // BIGINT UNSIGNED，jOOQ 若以 Long 读取 max() 会走 rs.getLong 的无符号转换分支并抛
+        //   Error while reading field: max("duration_ms"), at JDBC index: 2
+        // 改为 BigDecimal（rs.getBigDecimal）后与列的无符号性解耦，MySQL/H2 行为一致。
+        Record agg = dsl.select(
+                        DSL.count().as("total"),
+                        DSL.sum(DSL.when(t.field("success", Integer.class).eq(1), 1).otherwise(0))
+                                .as("success_count"),
+                        DSL.sum(DSL.when(duration.gt(AuditLogSummary.SLOW_THRESHOLD_MS), 1).otherwise(0))
+                                .as("slow_count"),
+                        DSL.field("avg({0})", BigDecimal.class, duration).as("avg_duration"),
+                        DSL.field("max({0})", BigDecimal.class, duration).as("max_duration"))
+                .from(t.table())
                 .where(cond)
                 .fetchOne();
-        long avg = 0L;
-        long max = 0L;
-        if (agg != null) {
-            // avg 可能返回 null（全表 duration_ms 为 NULL 时），max 同理
-            avg = agg.value1() == null ? 0L : agg.value1().longValue();
-            max = agg.value2() == null ? 0L : agg.value2();
+        if (agg == null) {
+            // 聚合查询恒返回一行；此处仅作防御，空区间也回传脱敏可见标识，保证前端徽标状态与列表一致
+            return new AuditLogSummary(0L, 0L, 0L, 0L, 0L, 0L, sensitiveVisible);
         }
+        // 按下标取原始对象再统一收敛：count(*) 在不同方言下可能是 Integer/Long，
+        // sum/avg 可能是 DECIMAL/BigDecimal，避免逐个字段声明类型导致的读取不匹配
+        long total = numberOf(agg, 0);
+        long successCount = numberOf(agg, 1);
+        long slowCount = numberOf(agg, 2);
+        long avg = numberOf(agg, 3);
+        long max = numberOf(agg, 4);
         return new AuditLogSummary(total, successCount, total - successCount, slowCount, avg, max, sensitiveVisible);
+    }
+
+    /** 读取聚合一列并收敛为 long（null / 非数值一律按 0，避免统计口径外泄脏值）。 */
+    private static long numberOf(Record record, int index) {
+        Object value = record.get(index);
+        return value instanceof Number n ? n.longValue() : 0L;
     }
 
     @Override

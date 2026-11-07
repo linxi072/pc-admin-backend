@@ -40,6 +40,20 @@ public interface AuditLogService {
     List<AuditLogView> findByTraceId(String traceId, boolean sensitiveVisible);
 
     /**
+     * 查询指定操作人的最近若干条审计记录（工作台「最近动态」面板）。
+     *
+     * <p>与 {@link #query} 的唯一区别是<b>不计算总条数</b>：该面板只展示最近 N 条，
+     * 不需要 total。而 {@code count(*)} 在千万行级审计表上即使命中索引也要数完匹配行，
+     * 叠加 {@code ORDER BY occurred_at, id} 回表排序，曾使该端点耗时 11.9s 并越过前端
+     * 15s 超时阈值（E2E F1）。本方法改为单条 {@code ... ORDER BY ... LIMIT n} 查询。</p>
+     *
+     * @param operatorId       操作人主键；{@code null} 表示不限操作人（全局最近记录）
+     * @param limit            条数，合法区间 1..50，越界按边界钳制
+     * @param sensitiveVisible 是否回传未脱敏摘要
+     */
+    List<AuditLogView> recentActivities(Long operatorId, int limit, boolean sensitiveVisible);
+
+    /**
      * keyset 游标分页（深翻页优化）：固定按 (occurred_at DESC, id DESC) 排序，
      * 游标由服务端基于上一页末条记录的排序键生成，避免 offset 分页随偏移量退化。
      *
