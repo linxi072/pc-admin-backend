@@ -25,7 +25,7 @@ const routes = [
       {
         path: 'dashboard',
         name: 'dashboard',
-        component: () => import('@/views/DashboardView.vue'),
+        component: () => import('@/views/WorkbenchView.vue'),
         meta: { title: 'route.dashboard' }
       },
       {
@@ -102,7 +102,7 @@ const routes = [
       {
         path: 'system/monitor',
         name: 'monitor',
-        component: () => import('@/views/system/MonitorView.vue'),
+        component: () => import('@/views/system/RuntimeMonitorView.vue'),
         meta: { title: 'route.monitor', permission: 'system:monitor:read' }
       },
       {
@@ -200,7 +200,7 @@ const routes = [
         // 与「我发起的/我的待办」个人面互补的管理员全局视角。
         path: 'workflow/monitor',
         name: 'workflowMonitor',
-        component: () => import('@/views/workflow/MonitorView.vue'),
+        component: () => import('@/views/workflow/WorkflowMonitorView.vue'),
         meta: { title: 'route.workflowMonitor', permission: 'workflow:monitor:read' }
       },
       {
@@ -251,7 +251,7 @@ const routes = [
         // （menu_code=system:dashboard, permission=system:dashboard:read）
         path: 'report/dashboard',
         name: 'reportDashboard',
-        component: () => import('@/views/report/DashboardView.vue'),
+        component: () => import('@/views/report/OpsDashboardView.vue'),
         meta: { title: 'route.reportDashboard', permission: 'system:dashboard:read' }
       },
       {
@@ -436,7 +436,7 @@ const routes = [
         // （/api/im/message），权限由后端驱动（menu_code=im:message, permission=im:message:view）
         path: 'im/message',
         name: 'imMessage',
-        component: () => import('@/views/im/MessageView.vue'),
+        component: () => import('@/views/im/ImConversationView.vue'),
         meta: { title: 'route.imMessage', permission: 'im:message:view' }
       },
       {

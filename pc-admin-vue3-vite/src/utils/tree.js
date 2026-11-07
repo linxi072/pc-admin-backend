@@ -1,7 +1,7 @@
 /**
  * 树结构工具：拍平为下拉选项 / 收集子树 id。
  *
- * <p>此前 UserView 与 MessageView 各有一份 flattenOrgs()，MenuView 与
+ * <p>此前用户页与站内信页各有一份 flattenOrgs()，MenuView 与
  * DepartmentView 各有一份 subtreeIds()，实现分散且缩进规则易漂移，此处收敛。</p>
  */
 

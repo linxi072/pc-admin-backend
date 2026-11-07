@@ -19,7 +19,7 @@ const app = createApp(App)
 /**
  * 全局错误边界（关键修复）：登录成功后「首页静默空白、控制台无任何报错」的根因在此。
  *
- * <p>Vue 3 默认【没有】全局错误边界：当任意组件（含 AppLayout 顶栏/侧栏、DashboardView 等）
+ * <p>Vue 3 默认【没有】全局错误边界：当任意组件（含 AppLayout 顶栏/侧栏、WorkbenchView 等）
  * 在渲染 / setup / 侦听器 / 生命周期中抛出未处理异常时，错误会沿组件树向上冒泡，
  * 触发其所有祖先组件卸载 → 整个后台外壳（el-container 整棵子树）被销毁 → 页面静默空白，
  * 且默认仅 console.error 一行堆栈、对用户完全不可见，极难定位。
@@ -64,7 +64,7 @@ for (const [name, comp] of Object.entries(ElementPlusIconsVue)) {
 // 组件内也可直接从 '@/i18n' 导入 t / backendLocale / elLocale。
 app.config.globalProperties.$t = t
 // 兜底别名：模板中若直接写 t(...) 而未在 <script setup> 导入，也能解析到 i18n 函数，
-// 避免“t is not a function”这类因漏导入导致的整页渲染报错（见 DashboardView 历史回归）。
+// 避免“t is not a function”这类因漏导入导致的整页渲染报错（见工作台首页历史回归）。
 app.config.globalProperties.t = t
 
 app.use(router)

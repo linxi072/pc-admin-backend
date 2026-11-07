@@ -18,7 +18,7 @@
             <el-icon><ChatDotRound /></el-icon>{{ t('common.stationMsg') }}<el-badge v-if="unread > 0" :value="unread" type="danger" class="tab-badge" />
           </span>
         </template>
-        <MessageView embedded />
+        <StationMessageView embedded />
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -29,7 +29,7 @@ import { t } from '@/i18n'
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AnnouncementView from './AnnouncementView.vue'
-import MessageView from './MessageView.vue'
+import StationMessageView from './StationMessageView.vue'
 import { getUnreadCount } from '@/api/message'
 import { myUnreadAnnouncements } from '@/api/announcement'
 
