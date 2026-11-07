@@ -10,6 +10,17 @@ export const pageAuditLogs = (query) =>
   request({ method: 'GET', url: '/api/system/audit-logs/page', params: query })
 
 /**
+ * GET /api/system/audit-logs/keyset -> KeysetPageResult<AuditLogView>
+ *
+ * 游标分页（F-11）：深翻页不随 OFFSET 退化，返回 { size, records, nextCursor }（无 total）。
+ * 参数与 /page 相同筛选口径，但以 size + cursor 代替 page；后端固定按
+ * (occurred_at DESC, id DESC) 排序，不接受 sortField / sortDirection。
+ * 前端仅在 OFFSET 越过软阈值或后端返回护栏错误时切换至此端点（见 utils/keyset.js）。
+ */
+export const pageAuditLogsKeyset = (params) =>
+  request({ method: 'GET', url: '/api/system/audit-logs/keyset', params })
+
+/**
  * GET /api/system/audit-logs/summary -> AuditLogSummary（总数/成功/失败/慢操作/平均与最大耗时）
  */
 export const auditLogSummary = (params) =>

@@ -190,9 +190,10 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页统一到全局形态：<div class="pager"> 包裹 + v-model + current/size 事件 + jumper -->
+      <!-- 分页：浅翻页用页码分页（有 total）；深翻页自动切换为游标分页（无 total，顺序浏览） -->
       <div class="pager">
         <el-pagination
+          v-if="!keysetMode"
           v-model:current-page="query.page"
           v-model:page-size="query.size"
           :total="total"
@@ -201,7 +202,17 @@
           @current-change="load"
           @size-change="onSizeChange"
         />
+        <div v-else class="keyset-pager">
+          <el-tag type="info" size="small" effect="plain">{{ t('common.keysetMode') }}</el-tag>
+          <span class="keyset-page">{{ t('common.keysetPage', { n: pageNumber(cursorStack) }) }}</span>
+          <el-button :disabled="!canGoPrev(cursorStack)" @click="onKeysetPrev">{{ t('common.keysetPrev') }}</el-button>
+          <el-button type="primary" :disabled="!canGoNext(cursorStack)" @click="onKeysetNext">{{ t('common.keysetNext') }}</el-button>
+          <el-button link @click="exitKeysetMode">{{ t('common.keysetBack') }}</el-button>
+        </div>
       </div>
+      <el-alert v-if="keysetMode" class="keyset-hint" type="info" :closable="false" show-icon>
+        {{ t('common.keysetHint') }}
+      </el-alert>
       <div class="hint">
         摘要字段按权限脱敏（持有 system:audit:sensitive 可见原文，页面标题处徽标显示当前为「明文」或「已脱敏」状态）；IP 一律掩码。点击 TraceId 查看一次请求的完整操作链路，点击「详情」查看单条记录完整内容。
       </div>
@@ -263,7 +274,11 @@ import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft, Download, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { pageAuditLogs, auditLogSummary, auditLogTrace, auditLogRetention } from '@/api/audit'
+import { pageAuditLogs, pageAuditLogsKeyset, auditLogSummary, auditLogTrace, auditLogRetention } from '@/api/audit'
+import {
+  shouldUseKeyset, isOffsetLimitError, createCursorStack, currentCursor,
+  setNextCursor, goNext, goPrev, canGoNext, canGoPrev, pageNumber
+} from '@/utils/keyset'
 import { downloadExport } from '@/api/export'
 import { saveBlobFromResponse } from '@/utils/download'
 
@@ -273,6 +288,13 @@ const total = ref(0)
 const summary = ref({})
 /** 页内加载失败提示（与全局 ElMessage 并存：全局只弹一次，本状态用于把「加载失败」和「确实没数据」区分开）。 */
 const loadError = ref('')
+
+/**
+ * 深翻页游标模式（F-11）：后端 audit-logs/keyset 返回 { size, records, nextCursor }，
+ * 不含 total。OFFSET 越过软阈值或后端返回护栏错误时自动切入，用「上一页/下一页」顺序浏览。
+ */
+const keysetMode = ref(false)
+const cursorStack = ref(createCursorStack())
 const dateRange = ref([])
 const query = reactive({
   page: 1,
@@ -325,42 +347,133 @@ function buildParams() {
   return params
 }
 
+/**
+ * 游标分页参数（F-11）：后端 /keyset 不接受 page / sortField / sortDirection——
+ * 排序键固定为 (occurred_at DESC, id DESC)，用 size + cursor 代替页码。
+ */
+function buildKeysetParams() {
+  const params = {
+    size: query.size,
+    cursor: currentCursor(cursorStack.value) || undefined,
+    moduleCode: query.moduleCode || undefined,
+    operationType: query.operationType || undefined,
+    operatorName: query.operatorName || undefined,
+    success: query.success === '' ? undefined : query.success,
+    keyword: query.keyword || undefined
+  }
+  if (dateRange.value && dateRange.value.length === 2) {
+    params.startTime = dateRange.value[0]
+    params.endTime = dateRange.value[1]
+  }
+  return params
+}
+
+/** 切进游标模式：游标无法跳页，从首游标开始顺序浏览。 */
+function enterKeysetMode() {
+  keysetMode.value = true
+  cursorStack.value = createCursorStack()
+  total.value = 0
+}
+
+/** 筛选条件变化会让游标失效，统一退回页码模式。 */
+function resetKeyset() {
+  keysetMode.value = false
+  cursorStack.value = createCursorStack()
+}
+
+/** 统计摘要与分页模式无关，两种模式共用同一套失败降级（E2E F2）。 */
+function applySummary(summaryResult) {
+  summary.value = summaryResult.status === 'fulfilled' ? (summaryResult.value || {}) : {}
+  if (!loadError.value && summaryResult.status === 'rejected') {
+    loadError.value = summaryResult.reason?.message || t('common.loadFailed')
+  }
+}
+
+async function fetchOffsetPage() {
+  const [pageResult, summaryResult] = await Promise.allSettled([
+    pageAuditLogs(buildParams()),
+    auditLogSummary(buildParams())
+  ])
+  if (pageResult.status === 'fulfilled') {
+    rows.value = pageResult.value?.records || []
+    total.value = pageResult.value?.total || 0
+  } else if (isOffsetLimitError(pageResult.reason)) {
+    // 兜底：后端「偏移过大，请改用游标分页」的错误提示原本指向前端根本没有的 UI，
+    // 这里自动切到 /keyset 端点完成闭环，不再把错误甩给用户。
+    enterKeysetMode()
+    await fetchKeysetPage()
+    return
+  } else {
+    rows.value = []
+    total.value = 0
+    loadError.value = pageResult.reason?.message || t('common.loadFailed')
+  }
+  applySummary(summaryResult)
+}
+
+async function fetchKeysetPage() {
+  const [pageResult, summaryResult] = await Promise.allSettled([
+    pageAuditLogsKeyset(buildKeysetParams()),
+    auditLogSummary(buildParams())
+  ])
+  if (pageResult.status === 'fulfilled') {
+    rows.value = pageResult.value?.records || []
+    cursorStack.value = setNextCursor(cursorStack.value, pageResult.value?.nextCursor)
+  } else {
+    rows.value = []
+    cursorStack.value = setNextCursor(cursorStack.value, '')
+    loadError.value = pageResult.reason?.message || t('common.loadFailed')
+  }
+  applySummary(summaryResult)
+}
+
 async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    // 列表与统计各自独立成败：原先用 Promise.all，统计接口一旦超时（后端仅聚合查询
-    // 就要 16s，超过 15s 请求超时）整个加载就被 reject，rows 保持为空且没有任何页内提示，
-    // 页面退化成「暂无数据」，看起来像「本来就没有日志」（E2E F2）。
-    const [pageResult, summaryResult] = await Promise.allSettled([
-      pageAuditLogs(buildParams()),
-      auditLogSummary(buildParams())
-    ])
-    if (pageResult.status === 'fulfilled') {
-      rows.value = pageResult.value?.records || []
-      total.value = pageResult.value?.total || 0
+    if (keysetMode.value) {
+      await fetchKeysetPage()
+    } else if (shouldUseKeyset(query.page, query.size)) {
+      // 主动：OFFSET 越过软阈值（与后端 5000 行护栏对齐）即改走游标端点，避免深翻页退化。
+      enterKeysetMode()
+      await fetchKeysetPage()
     } else {
-      rows.value = []
-      total.value = 0
-      loadError.value = pageResult.reason?.message || t('common.loadFailed')
-    }
-    // 统计失败时清空摘要，卡片回落为「--」，避免展示上一次筛选的旧数字
-    summary.value = summaryResult.status === 'fulfilled' ? (summaryResult.value || {}) : {}
-    if (!loadError.value && summaryResult.status === 'rejected') {
-      loadError.value = summaryResult.reason?.message || t('common.loadFailed')
+      await fetchOffsetPage()
     }
   } finally {
     loading.value = false
   }
 }
 
+/** 游标模式下一页：把本页 nextCursor 压栈，作为下一页的起始游标。 */
+function onKeysetNext() {
+  if (!canGoNext(cursorStack.value)) return
+  cursorStack.value = goNext(cursorStack.value)
+  load()
+}
+
+/** 游标模式上一页：只回退栈下标，游标仍保留以便再次前进。 */
+function onKeysetPrev() {
+  if (!canGoPrev(cursorStack.value)) return
+  cursorStack.value = goPrev(cursorStack.value)
+  load()
+}
+
+function exitKeysetMode() {
+  resetKeyset()
+  query.page = 1
+  load()
+}
+
 function onSearch() {
+  resetKeyset()
   query.page = 1
   load()
 }
 
 /** 每页条数变化后回到第一页。 */
 function onSizeChange(size) {
+  resetKeyset()
   query.size = size
   query.page = 1
   load()
@@ -374,13 +487,16 @@ function resetQuery() {
   query.keyword = ''
   query.sortField = ''
   query.sortDirection = ''
+  resetKeyset()
   query.page = 1
   dateRange.value = []
   load()
 }
 
-/** 表头排序：走服务端白名单（occurredAt/durationMs/moduleCode/operatorName），不拼 SQL。 */
+/** 表头排序：走服务端白名单（occurredAt/durationMs/moduleCode/operatorName），不拼 SQL。
+ *  游标端点排序键固定，排序变化会退回页码模式第一页由 offset 端点应用。 */
 function onSortChange({ prop, order }) {
+  resetKeyset()
   query.sortField = order ? prop : ''
   query.sortDirection = order ? (order === 'ascending' ? 'ASC' : 'DESC') : ''
   query.page = 1
@@ -455,6 +571,19 @@ onMounted(() => {
 <style scoped>
 .load-error {
   margin-bottom: 12px;
+}
+.keyset-pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.keyset-page {
+  font-size: 13px;
+  color: var(--text);
+}
+.keyset-hint {
+  margin-top: 8px;
 }
 .summary-row {
   margin-bottom: 12px;

@@ -7,6 +7,11 @@ import { request, requestRaw } from './http'
 export const pageFiles = (params) =>
   request({ method: 'GET', url: '/api/system/files/page', params })
 
+// GET /api/system/files/keyset?size&cursor&sourceModule&uploaderName&originalName
+//   -> KeysetPageResult<FileView>（F-11：文件列表深翻页游标分页，无 total）
+export const pageFilesKeyset = (params) =>
+  request({ method: 'GET', url: '/api/system/files/keyset', params })
+
 // POST /api/system/files/upload（multipart/form-data，字段 file + sourceModule + bizId）
 // -> FileView（记录来源模块 / 上传人 / 大小等元数据）
 // 使用 FormData 包裹文件；Content-Type 由浏览器自动生成 multipart boundary，不可手动设置。

@@ -10,6 +10,15 @@ export const pageLoginLogs = (query) =>
   request({ method: 'GET', url: '/api/system/login-logs/page', params: query })
 
 /**
+ * GET /api/system/login-logs/keyset -> KeysetPageResult<LoginLogView>
+ *
+ * 游标分页（F-11）：与 /page 相同筛选条件，以 size + cursor 代替 page，
+ * 返回 { size, records, nextCursor }（无 total），深翻页性能稳定。
+ */
+export const pageLoginLogsKeyset = (query) =>
+  request({ method: 'GET', url: '/api/system/login-logs/keyset', params: query })
+
+/**
  * GET /api/system/login-logs/summary -> { total, success, failure, failureRate, distinctUsers, lastLoginAt }
  *
  * 登录日志统计摘要（与 page 相同筛选口径）。

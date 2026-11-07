@@ -4,6 +4,11 @@ import { request } from './http'
 export const pageUsers = (query) =>
   request({ method: 'GET', url: '/api/system/users/page', params: query })
 
+// GET /api/system/users/page-keyset?size&cursor&username&status&orgId&roleId
+//   -> KeysetPageResult<UserView>（F-11：深翻页超过 5000 行 OFFSET 护栏时改用，无 total）
+export const pageUsersKeyset = (query) =>
+  request({ method: 'GET', url: '/api/system/users/page-keyset', params: query })
+
 // GET /api/system/users/{id} -> UserView
 export const getUser = (id) =>
   request({ method: 'GET', url: `/api/system/users/${id}` })

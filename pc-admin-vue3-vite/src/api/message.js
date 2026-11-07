@@ -9,6 +9,11 @@ export const sendMessage = (body) =>
 export const pageMyMessages = (query) =>
   request({ method: 'GET', url: '/api/system/messages/mine', params: query })
 
+// GET /api/system/messages/mine-keyset?size&cursor&onlyUnread -> KeysetPageResult<MessageView>
+//   （F-11：收件箱深翻页超过 5000 行 OFFSET 护栏时改用，无 total）
+export const pageMyMessagesKeyset = (query) =>
+  request({ method: 'GET', url: '/api/system/messages/mine-keyset', params: query })
+
 // GET /api/system/messages/unread-count -> { unread }
 export const getUnreadCount = () =>
   request({ method: 'GET', url: '/api/system/messages/unread-count' })
@@ -24,6 +29,11 @@ export const markAllMessagesRead = () =>
 // GET /api/system/messages/sent?page&size -> PageResult<SysMessageDO>
 export const pageSentMessages = (query) =>
   request({ method: 'GET', url: '/api/system/messages/sent', params: query })
+
+// GET /api/system/messages/sent-keyset?size&cursor -> KeysetPageResult<SysMessageDO>
+//   （F-11：已发送深翻页超过 5000 行 OFFSET 护栏时改用，无 total）
+export const pageSentMessagesKeyset = (query) =>
+  request({ method: 'GET', url: '/api/system/messages/sent-keyset', params: query })
 
 // GET /api/system/messages/{id}/read-stats -> MessageReadStatsView（eager 聚合：totalCount/readCount/unreadCount/readRate）
 export const getMessageReadStats = (id) =>
