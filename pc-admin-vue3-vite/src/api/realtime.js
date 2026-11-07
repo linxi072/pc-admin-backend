@@ -1,4 +1,12 @@
 import { authState } from '@/store/auth'
+import {
+  REALTIME_STATE,
+  CONNECT_ACTION,
+  resolveConnectAction,
+  reconnectDelay,
+  nextState,
+  RESET_ATTEMPT
+} from './realtimePolicy'
 
 /**
  * 实时消息客户端（单例）。
@@ -10,7 +18,8 @@ import { authState } from '@/store/auth'
  *   <li>控制帧（魔数 0x41）：magic | version | type | flags | [zigzag(seq)]。</li>
  * </ul>
  * 业务负载为 RealtimeMessage JSON（{ type, payload, ts }），解码后按原契约转发订阅者；
- * 心跳为二进制 PING 帧（30s），收到 PONG 即视为链路存活；断线 5s 重连。
+ * 心跳为二进制 PING 帧（30s），收到 PONG 即视为链路存活；
+ * 断线 / token 暂缺 / 构造失败统一走指数退避重连（1s→30s，见 realtimePolicy.js）。
  *
  * 业务侧只需在布局初始化时 initRealtime() + onRealtime(handler) 订阅即可。
  * 未读角标等权威值一律以后端接口为准。
@@ -180,10 +189,13 @@ function decodeFrame(arrayBuffer) {
 // ---- 连接管理（单例） ----
 
 const listeners = new Set()
+const stateListeners = new Set()
 let started = false
 let ws = null
 let heartbeatTimer = null
 let reconnectTimer = null
+let retryAttempt = 0
+let state = REALTIME_STATE.IDLE
 
 function dispatch(msg) {
   listeners.forEach((cb) => {
@@ -193,6 +205,45 @@ function dispatch(msg) {
       // 单个订阅者异常不应影响其余订阅者
     }
   })
+}
+
+/** 发布状态快照；状态未变时不重复通知。 */
+function setState(next) {
+  if (state === next) return
+  state = next
+  const snapshot = getRealtimeState()
+  stateListeners.forEach((cb) => {
+    try {
+      cb(snapshot)
+    } catch (e) {
+      // 单个订阅者异常不应影响其余订阅者
+    }
+  })
+}
+
+/**
+ * 当前连接状态快照（只读，供铃铛/顶栏展示连接质量与诊断）。
+ * @returns {{state:string, started:boolean, connected:boolean, retryAttempt:number}}
+ */
+export function getRealtimeState() {
+  return {
+    state,
+    started,
+    connected: state === REALTIME_STATE.OPEN,
+    retryAttempt
+  }
+}
+
+/** 订阅连接状态变化；立即回调一次当前状态，返回取消订阅函数。 */
+export function onRealtimeState(cb) {
+  if (typeof cb !== 'function') return () => {}
+  stateListeners.add(cb)
+  try {
+    cb(getRealtimeState())
+  } catch (e) {
+    // ignore
+  }
+  return () => stateListeners.delete(cb)
 }
 
 function wsBase() {
@@ -226,9 +277,38 @@ function onFrame(arrayBuffer) {
   }
 }
 
+/**
+ * 统一调度一次重连（指数退避 1s→30s）。
+ * 铁律：只要 started=true 且当前没有活跃 socket，就必须存在一个待触发的 reconnectTimer；
+ * token 暂缺 / 构造失败 / 断线三条路径全部收敛到这里，杜绝「永久停摆」。
+ */
+function scheduleReconnect() {
+  if (!started) return
+  if (reconnectTimer) return // 已有待触发的重连，不叠加定时器
+  const delay = reconnectDelay(retryAttempt)
+  retryAttempt += 1
+  setState(nextState('close'))
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    connectReal()
+  }, delay)
+}
+
 function connectReal() {
-  const token = authState.token
-  if (!token) return
+  const action = resolveConnectAction({
+    started,
+    token: authState.token,
+    // CONNECTING(0) / OPEN(1) 视为活跃连接，避免重复建连
+    hasActiveSocket: Boolean(ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN))
+  })
+  if (action === CONNECT_ACTION.STOP || action === CONNECT_ACTION.SKIP) return
+  if (action === CONNECT_ACTION.WAIT_TOKEN) {
+    // 关键修复（E2E F-10）：token 尚未写入 authState（布局挂载早于登录态恢复）时，
+    // 旧实现直接 return，而 initRealtime() 已置 started=true，从此再无任何定时器，
+    // 实时通道永久停摆。此处改为安排退避重试，token 就绪后自动恢复连接。
+    scheduleReconnect()
+    return
+  }
   // 重连前先清掉上一轮遗留的定时器，否则每次重连都会叠加一个心跳定时器
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer)
@@ -238,14 +318,21 @@ function connectReal() {
     clearTimeout(reconnectTimer)
     reconnectTimer = null
   }
-  const url = `${wsBase()}?token=${encodeURIComponent(token)}`
+  const url = `${wsBase()}?token=${encodeURIComponent(authState.token)}`
   try {
     ws = new WebSocket(url)
   } catch (e) {
+    // 构造失败（非法 URL / 环境无 WebSocket）：同样必须安排重试，不得静默放弃。
+    ws = null
+    setState(nextState('connect-error'))
+    scheduleReconnect()
     return
   }
+  setState(nextState('start'))
   ws.binaryType = 'arraybuffer'
   ws.onopen = () => {
+    retryAttempt = RESET_ATTEMPT // 连接成功，退避计数复位
+    setState(nextState('open'))
     if (heartbeatTimer) clearInterval(heartbeatTimer)
     heartbeatTimer = setInterval(() => {
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -278,13 +365,11 @@ function connectReal() {
       clearInterval(heartbeatTimer)
       heartbeatTimer = null
     }
-    if (started) {
-      reconnectTimer = setTimeout(connectReal, 5000) // 断线 5s 后重连
-    }
+    scheduleReconnect() // 断线按退避重连（内部判断 started）
   }
   ws.onerror = () => {
     try {
-      ws.close()
+      if (ws) ws.close() // 交给 onclose 统一走重连
     } catch (e) {
       // ignore
     }
@@ -294,6 +379,7 @@ function connectReal() {
 export function initRealtime() {
   if (started) return
   started = true
+  retryAttempt = RESET_ATTEMPT
   connectReal()
 }
 
@@ -305,6 +391,8 @@ export function onRealtime(cb) {
 export function closeRealtime() {
   started = false
   if (ws) {
+    // 主动关闭时移除了 onclose 之外的处理：摘掉回调，避免触发一次无意义的重连
+    ws.onclose = null
     try {
       ws.close()
     } catch (e) {
@@ -320,6 +408,8 @@ export function closeRealtime() {
     clearTimeout(reconnectTimer)
     reconnectTimer = null
   }
+  retryAttempt = RESET_ATTEMPT
+  setState(nextState('stop'))
   listeners.clear()
 }
 
