@@ -5,7 +5,7 @@
     <div class="toolbar" style="margin-bottom: 12px">
       <div class="toolbar-filters">
         <span class="filter-label">
-          为指定角色配置各数据资源的可见范围。与菜单/接口权限相互独立，修改后立即生效，无需重新登录。
+          {{ t('system.dataScopeIntro') }}
         </span>
       </div>
       <div class="toolbar-actions">
@@ -59,9 +59,14 @@
             <span class="muted">{{ row.resourceCode }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.dataScopeX')" width="240">
+        <el-table-column :label="t('system.dataScopeX')" width="260">
           <template #default="{ row }">
-            <el-select v-model="row.scopeType" style="width: 200px" @change="onScopeChange(row)">
+            <el-select
+              v-model="row.scopeType"
+              style="width: 220px"
+              :placeholder="t('system.dataScopeNotConfigured')"
+              @change="onScopeChange(row)"
+            >
               <el-option v-for="o in SCOPE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
             </el-select>
           </template>
@@ -164,7 +169,9 @@ async function loadRows() {
       return {
         resourceCode: res.resourceCode,
         resourceName: res.resourceName,
-        scopeType: rule?.scopeType || 'ALL',
+        // 未配置规则时留空而不是 'ALL'：后端对无规则资源按 fail-closed 默认策略处理
+        // （默认 SELF，仅可见本人数据），此处若显示「全部数据」会与真实权限相反（E2E F7）。
+        scopeType: rule?.scopeType || '',
         orgIds: rule?.orgIds ? [...rule.orgIds] : [],
         saving: false
       }
@@ -199,6 +206,11 @@ function confirmOrgDialog() {
 }
 
 async function saveRow(row) {
+  // 未选择数据范围时不提交：空白表示「尚未配置」，直接提交会把空串当作 scopeType 送给后端
+  if (!row.scopeType) {
+    ElMessage.warning(t('system.dataScopeNotConfigured'))
+    return
+  }
   if (row.scopeType === 'CUSTOM' && (!row.orgIds || row.orgIds.length === 0)) {
     ElMessage.warning(t('system.customScopeNeedDept'))
     return

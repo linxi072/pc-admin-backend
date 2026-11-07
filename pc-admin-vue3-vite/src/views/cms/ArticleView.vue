@@ -331,16 +331,28 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* 筛选行含 3 个定宽控件 + 查询按钮（约 560px），容器窄时原本不换行会把按钮挤出可视区
+   （E2E F5：小屏下「查询」按钮被裁切）。改为可换行 + 行间距，配合 actions 不压缩。 */
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 14px;
 }
 .filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 .pagination {
   margin-top: 14px;

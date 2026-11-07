@@ -3,8 +3,10 @@
     <h2 class="page-title">{{ t('route.dict') }}</h2>
 
     <el-row :gutter="16">
-      <!-- 字典类型 -->
-      <el-col :span="9">
+      <!-- 字典类型：原固定 :span="9" 在 1440 宽度下只剩约 410px，
+           4 列最小宽度合计 470px，列被压到极窄后中文逐字竖排（E2E F6）。
+           改为响应式分栏 + 长文本省略，窄屏下单列堆叠。 -->
+      <el-col :xs="24" :sm="24" :md="11" :lg="10" :xl="10">
         <el-card class="page-card" v-loading="typeLoading">
           <div class="toolbar">
             <span class="card-title">{{ t('system.dict.type') }}</span>
@@ -19,8 +21,8 @@
             @current-change="onSelectType"
             :row-class-name="typeRowClass"
           >
-            <el-table-column prop="dictCode" :label="t('system.common.code')" min-width="130" />
-            <el-table-column prop="dictName" :label="t('system.common.name')" min-width="120" />
+            <el-table-column prop="dictCode" :label="t('system.common.code')" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="dictName" :label="t('system.common.name')" min-width="140" show-overflow-tooltip />
             <el-table-column :label="t('common.status')" width="90">
               <template #default="{ row }">
                 <!-- 状态标签统一走 utils/status 映射 -->
@@ -42,7 +44,7 @@
       </el-col>
 
       <!-- 字典数据 -->
-      <el-col :span="15">
+      <el-col :xs="24" :sm="24" :md="13" :lg="14" :xl="14">
         <el-card class="page-card" v-loading="dataLoading">
           <div class="toolbar">
             <span class="card-title">
@@ -160,6 +162,7 @@ import { listDictTypes, createDictType, updateDictType, deleteDictType } from '@
 import { listDictData, createDictData, updateDictData, deleteDictData } from '@/api/dictData'
 // 状态标签映射统一到 utils
 import { statusTag } from '@/utils/status'
+import { validateOrWarn } from '@/utils/validate'
 
 const typeLoading = ref(false)
 const dataLoading = ref(false)
@@ -244,8 +247,7 @@ function openEditType(row) {
 }
 
 async function onSubmitType() {
-  const valid = await typeFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(typeFormRef.value))) return
   saving.value = true
   try {
     if (typeEditingId.value != null) {
@@ -298,8 +300,7 @@ function openEditData(row) {
 }
 
 async function onSubmitData() {
-  const valid = await dataFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(dataFormRef.value))) return
   saving.value = true
   try {
     const payload = { ...dataForm, dictTypeCode: selectedType.value.dictCode }

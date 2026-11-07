@@ -37,7 +37,8 @@
       <!-- 列表 -->
       <!-- 不设 height：随内容自适应，与其他列表页一致 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="id" label="ID" width="70" sortable="custom" />
+        <!-- 雪花 ID 为 19 位字符串，width=70 只能显示前 6 位（E2E F6） -->
+        <el-table-column prop="id" label="ID" width="180" sortable="custom" show-overflow-tooltip />
         <el-table-column prop="username" :label="t('system.user.username')" width="130" sortable="custom" />
         <el-table-column prop="displayName" :label="t('system.user.nickname')" width="120" />
         <el-table-column prop="mobile" :label="t('system.user.mobile')" width="140" />
@@ -187,6 +188,7 @@ import { listPostOptions } from '@/api/post'
 // 状态标签映射 / 部门树拍平均统一到 utils
 import { statusTag } from '@/utils/status'
 import { flattenTree } from '@/utils/tree'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -299,8 +301,8 @@ async function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  // 校验失败必须给出可见提示：只让字段变红时，用户在弹窗底部点「保存」看不到任何反应（E2E F8）。
+  if (!(await validateOrWarn(formRef))) return
   saving.value = true
   try {
     if (isEdit.value) {
@@ -336,8 +338,7 @@ function openReset(row) {
 }
 
 async function submitReset() {
-  const valid = await resetRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(resetRef.value))) return
   saving.value = true
   try {
     await resetPassword(resetForm.id, resetForm.password)

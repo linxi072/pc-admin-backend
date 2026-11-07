@@ -51,7 +51,7 @@
       </div>
 
       <el-table :data="pagedRows" v-loading="loading" border stripe>
-        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="id" label="ID" width="180" show-overflow-tooltip />
         <el-table-column prop="resourceName" :label="t('system.resourceNameSys')" min-width="160" />
         <el-table-column prop="permissionCode" :label="t('system.permissionCodeSys')" min-width="170" show-overflow-tooltip />
         <el-table-column :label="t('system.methodSys')" width="100">
@@ -197,7 +197,7 @@
         </el-tab-pane>
         <el-tab-pane :label="t('system.staleCount', { n: scanResult.orphanedResources.length })" name="orphan">
           <el-table :data="scanResult.orphanedResources" border stripe max-height="460">
-            <el-table-column prop="id" label="ID" width="70" />
+            <el-table-column prop="id" label="ID" width="180" show-overflow-tooltip />
             <el-table-column prop="resourceName" :label="t('system.resourceNameSys')" min-width="160" />
             <el-table-column prop="permissionCode" :label="t('system.permissionCodeSys')" min-width="170" show-overflow-tooltip />
             <el-table-column :label="t('system.methodSys')" width="100">
@@ -239,6 +239,7 @@ import {
   scanApiResources,
   syncApiResources
 } from '@/api/apiResource'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -343,8 +344,7 @@ function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     if (editingId.value != null) {
