@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.notifydigest;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.jooq.dsl.JooqTables;
@@ -77,7 +78,7 @@ public class NotificationDigestService {
     private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
 
     /** 统计截止时刻格式（摘要正文 {@code ${date}}）。 */
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern(CommonConstants.DATE_MINUTE_PATTERN);
 
     /**
      * 未聚合（直通）结果：{@code digested=false}、无待刷新行。

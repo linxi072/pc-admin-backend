@@ -1,5 +1,7 @@
 package com.acme.scaffold.common.api;
 
+import com.acme.scaffold.common.constant.CommonConstants;
+
 /**
  * OFFSET 深翻页护栏的单一事实来源（纯函数，零依赖）。
  *
@@ -18,7 +20,7 @@ public final class PagingRules {
     public static final long MAX_OFFSET = 5000;
 
     /** 单页条数上限，与 {@code PageQuery} 的服务端钳制保持一致。 */
-    public static final int MAX_PAGE_SIZE = 100;
+    public static final int MAX_PAGE_SIZE = CommonConstants.MAX_PAGE_SIZE;
 
     private PagingRules() {
     }

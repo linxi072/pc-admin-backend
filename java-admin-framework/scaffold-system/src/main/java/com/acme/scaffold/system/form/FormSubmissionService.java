@@ -1,4 +1,5 @@
 package com.acme.scaffold.system.form;
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.jooq.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
@@ -52,7 +53,7 @@ public class FormSubmissionService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /** 单页上限，防异常大翻页拖垮查询。 */
-    private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = CommonConstants.MAX_PAGE_SIZE;
 
     /**
      * 提交表单（落库 FORM_SUBMISSION 目标）。

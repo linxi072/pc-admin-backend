@@ -1,5 +1,7 @@
 package com.acme.scaffold.common.api.dto;
 
+import com.acme.scaffold.common.constant.CommonConstants;
+
 import java.util.List;
 
 /**
@@ -7,7 +9,7 @@ import java.util.List;
  */
 public record PageQuery(int page, int size, List<SortItem> sorts) {
 
-    public static final int MAX_SIZE = 100;
+    public static final int MAX_SIZE = CommonConstants.MAX_PAGE_SIZE;
 
     /** 页码上限：超出无业务意义（对应千万级行数的 offset），同时规避调用方误传超大值。 */
     public static final int MAX_PAGE = 100_000;

@@ -1,6 +1,7 @@
 package com.acme.scaffold.common.api.dto;
 
 import com.acme.scaffold.common.api.CursorCodec;
+import com.acme.scaffold.common.constant.CommonConstants;
 
 import java.util.List;
 
@@ -13,7 +14,7 @@ import java.util.List;
  */
 public record KeysetPageQuery(int size, String cursor) {
 
-    public static final int MAX_SIZE = 100;
+    public static final int MAX_SIZE = CommonConstants.MAX_PAGE_SIZE;
 
     public KeysetPageQuery {
         size = Math.min(Math.max(size, 1), MAX_SIZE);

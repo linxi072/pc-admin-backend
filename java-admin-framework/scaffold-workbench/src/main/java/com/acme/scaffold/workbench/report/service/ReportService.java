@@ -1,5 +1,6 @@
 package com.acme.scaffold.workbench.report.service;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
@@ -80,8 +81,8 @@ public class ReportService {
     private final DSLContext dsl;
 
     /** 趋势序列空桶占位转由 {@link ReportStats} 承载（见 {@code ReportStats#ZERO}）。 */
-    private static final DateTimeFormatter WINDOW_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final DateTimeFormatter DETAIL_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter WINDOW_FMT = DateTimeFormatter.ofPattern(CommonConstants.DATE_TIME_PATTERN);
+    private static final DateTimeFormatter DETAIL_TIME_FMT = DateTimeFormatter.ofPattern(CommonConstants.DATE_TIME_PATTERN);
 
     /** 明细表默认行数上限（最近执行 / 异常登录 / Top 接口）。 */
     private static final int DETAIL_LIMIT = 10;

@@ -1,5 +1,6 @@
 package com.acme.scaffold.job.dto;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.time.LocalDateTime;
@@ -26,7 +27,7 @@ public record JobCreateDTO(
         String cronExpression,
         Integer intervalValue,
         String intervalUnit,
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime oneTimeAt,
+        @JsonFormat(pattern = CommonConstants.DATE_TIME_PATTERN) LocalDateTime oneTimeAt,
         String jobParams,
         String remark,
         List<Long> dependsOn) {

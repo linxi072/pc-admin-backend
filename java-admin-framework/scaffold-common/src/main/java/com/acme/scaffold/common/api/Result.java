@@ -1,5 +1,7 @@
 package com.acme.scaffold.common.api;
 
+import com.acme.scaffold.common.constant.CommonConstants;
+
 import java.time.Instant;
 
 /**
@@ -13,7 +15,7 @@ import java.time.Instant;
 public record Result<T>(String code, String message, T data, String traceId, Instant timestamp) {
 
     public static <T> Result<T> success(T data) {
-        return new Result<>("0", "OK", data, currentTraceId(), Instant.now());
+        return new Result<>(CommonConstants.SUCCESS_CODE, "OK", data, currentTraceId(), Instant.now());
     }
 
     public static <T> Result<T> success() {
@@ -34,6 +36,6 @@ public record Result<T>(String code, String message, T data, String traceId, Ins
     }
 
     public boolean isSuccess() {
-        return "0".equals(code);
+        return CommonConstants.SUCCESS_CODE.equals(code);
     }
 }

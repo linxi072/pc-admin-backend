@@ -1,5 +1,6 @@
 package com.acme.scaffold.config.web;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.tenant.TenantProperties;
 import com.acme.scaffold.config.multiregion.MultiRegionInterceptor;
@@ -30,7 +31,7 @@ import java.util.List;
 public class WebConfig implements WebMvcConfigurer {
 
     /** 头像访问前缀，与 ProfileService 中保存的 avatarUrl 前缀保持一致。 */
-    private static final String AVATAR_URL_PREFIX = "/uploads/avatar/";
+    private static final String AVATAR_URL_PREFIX = CommonConstants.AVATAR_URL_PREFIX;
 
     private final TenantProperties tenantProperties;
     private final SecurityContextFacade securityContextFacade;

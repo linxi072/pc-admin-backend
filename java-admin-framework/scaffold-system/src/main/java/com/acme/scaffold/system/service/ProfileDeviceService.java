@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.service;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -37,7 +38,7 @@ public class ProfileDeviceService {
             JooqTables.SYS_REFRESH_TOKEN;
 
     private static final java.time.format.DateTimeFormatter UA_TIME =
-            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            java.time.format.DateTimeFormatter.ofPattern(CommonConstants.DATE_MINUTE_PATTERN);
 
     /**
      * 我的登录设备：一条未过期的 refresh_token 记录 = 一次登录会话。

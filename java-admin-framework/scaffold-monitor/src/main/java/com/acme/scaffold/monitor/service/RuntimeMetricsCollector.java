@@ -1,5 +1,6 @@
 package com.acme.scaffold.monitor.service;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.monitor.domain.ServerMetrics;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -28,7 +29,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class RuntimeMetricsCollector {
 
-    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern(CommonConstants.DATE_TIME_PATTERN);
 
     private final OperatingSystemMXBean os;
     private final MemoryMXBean memory;

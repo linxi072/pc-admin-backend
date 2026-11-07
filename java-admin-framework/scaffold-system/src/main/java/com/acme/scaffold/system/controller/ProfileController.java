@@ -1,6 +1,7 @@
 package com.acme.scaffold.system.controller;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -65,7 +66,7 @@ public class ProfileController {
     /** 仅允许常见图片格式，按扩展名白名单 + 图片魔数双重校验。 */
     private static final Set<String> ALLOWED_EXT = Set.of("jpg", "jpeg", "png", "gif", "webp");
 
-    private static final String AVATAR_URL_PREFIX = "/uploads/avatar/";
+    private static final String AVATAR_URL_PREFIX = CommonConstants.AVATAR_URL_PREFIX;
 
     private final ProfileService profileService;
     private final SecurityContextFacade securityContextFacade;

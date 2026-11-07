@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.service;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.context.CurrentPrincipal;
@@ -51,7 +52,7 @@ import java.util.Set;
 public class AuthService {
 
     /** 限制解除时间展示格式（yyyy-MM-dd HH:mm）。 */
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(CommonConstants.DATE_MINUTE_PATTERN);
 
     private final UserAccountDataPort accountPort;
     private final PermissionService permissionService;
