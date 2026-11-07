@@ -106,6 +106,30 @@ test('末页：空 nextCursor 时 goNext 原样返回，setNextCursor 归一为�
   assert.deepEqual(setNextCursor(s, undefined), { ...s, nextCursor: '' })
 })
 
+test('页栈非法入参归一：null / 坏栈不抛错，全部回落为首页状态', () => {
+  const badStacks = [
+    null, undefined, {}, { cursors: [] }, { cursors: [null], index: 99 },
+    { cursors: 'oops', index: 0 }, 'oops', 42
+  ]
+  for (const bad of badStacks) {
+    assert.equal(currentCursor(bad), null)
+    assert.equal(canGoNext(bad), false)
+    assert.equal(canGoPrev(bad), false)
+    assert.equal(pageNumber(bad), 1)
+    assert.doesNotThrow(() => goNext(bad))
+    assert.doesNotThrow(() => goPrev(bad))
+    assert.equal(setNextCursor(bad, 'C1').nextCursor, 'C1')
+  }
+})
+
+test('合法栈仍保持对象身份：首页不可退 / 末页不可进时原样返回', () => {
+  const s = createCursorStack()
+  assert.equal(goPrev(s), s)
+  assert.equal(goNext(s), s)
+  const withCursor = setNextCursor(s, 'C1')
+  assert.equal(goPrev(withCursor), withCursor)
+})
+
 // ---------- 4) 源码契约：6 个 API 端点消费已补齐 ----------
 
 const endpointCases = [

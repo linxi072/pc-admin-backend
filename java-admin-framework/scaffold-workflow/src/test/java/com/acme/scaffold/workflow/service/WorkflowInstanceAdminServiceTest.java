@@ -4,23 +4,34 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.realtime.service.RealtimePushService;
+import com.acme.scaffold.workflow.entity.WfApprovalRecordDO;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
+import com.acme.scaffold.workflow.rules.WorkflowInstanceAdminRules;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -98,6 +109,31 @@ class WorkflowInstanceAdminServiceTest {
         service.reassign("pi-1", 99L);
         verify(engine).setAssignee("t-1", 99L);
         verify(realtimePushService).sendToUsers(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("reassign：同一毫秒内多任务的审计 operationId 互不相同且不超列宽")
+    void reassign_operationIdsAreUnique() {
+        when(engine.status("pi-1")).thenReturn("RUNNING");
+        when(engine.activeTasks("pi-1")).thenReturn(List.of(
+                new WorkflowEnginePort.TaskInfo("t-1", "e-1", "pi-1", "mgr", "经理", 5L, null, null),
+                new WorkflowEnginePort.TaskInfo("t-2", "e-2", "pi-1", "mgr", "经理", 5L, null, null),
+                new WorkflowEnginePort.TaskInfo("t-3", "e-3", "pi-1", "mgr", "经理", 5L, null, null)));
+        try (MockedStatic<JooqWriters> writers = mockStatic(JooqWriters.class)) {
+            service.reassign("pi-1", 99L);
+
+            ArgumentCaptor<WfApprovalRecordDO> captor = ArgumentCaptor.forClass(WfApprovalRecordDO.class);
+            writers.verify(() -> JooqWriters.insert(any(), eq(JooqTables.WF_APPROVAL_RECORD),
+                    captor.capture()), times(3));
+            List<String> ids = captor.getAllValues().stream()
+                    .map(WfApprovalRecordDO::getOperationId).toList();
+            assertEquals(3, ids.size());
+            assertEquals(3, new HashSet<>(ids).size(),
+                    "审计 operationId 重复会撞 uk_operation_id 并回滚整个事务：" + ids);
+            assertTrue(ids.stream().allMatch(s -> s != null
+                            && s.length() <= WorkflowInstanceAdminRules.OPERATION_ID_MAX_LENGTH),
+                    "operationId 必须落在 VARCHAR(64) 内：" + ids);
+        }
     }
 
     // ---- suspend ----

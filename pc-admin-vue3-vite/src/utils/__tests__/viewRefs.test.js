@@ -86,6 +86,17 @@ test('router 仍保留 dashboard / reportDashboard 两个路由名（兼容菜�
   assert.match(router, /import\('@\/views\/report\/OpsDashboardView\.vue'\)/)
 })
 
+test('两个日志页均使用 allSettled + 页内 loadError + 重试（加载失败不得伪装成空数据）', () => {
+  for (const f of ['views/system/OperationLogView.vue', 'views/system/LoginLogView.vue']) {
+    const code = readFileSync(resolve(src, f), 'utf8')
+    assert.match(code, /Promise\.allSettled\(/, `${f} 缺少 allSettled 并行加载`)
+    assert.match(code, /const loadError = ref\(''\)/, `${f} 缺少 loadError 页内失败状态`)
+    assert.match(code, /v-if="loadError"/, `${f} 缺少失败提示渲染`)
+    assert.match(code, /t\('common\.retry'\)/, `${f} 缺少重试入口`)
+    assert.doesNotMatch(code, /await Promise\.all\(\[/, `${f} 仍在使用会整页假空的 Promise.all`)
+  }
+})
+
 test('NoticeView 内嵌的站内信组件引用已同步到新名', () => {
   const notice = readFileSync(resolve(views, 'system/NoticeView.vue'), 'utf8')
   assert.match(notice, /import StationMessageView from '\.\/StationMessageView\.vue'/)
