@@ -430,7 +430,7 @@ onMounted(() => {
 
 <style scoped>
 /* .card-title / toolbar 系列（.toolbar / .toolbar-filters / .filter-group /
-   .filter-label / .toolbar-actions / .action-buttons / .pager）已统一到全局 styles.css，
+   .filter-label / .toolbar-actions / .action-buttons / .pager）已统一到全局 styles/base.css，
    此处仅保留页面特有规则 */
 .upload-form :deep(.el-form-item) { margin-bottom: 0; }
 .muted { color: #c0c4cc; }

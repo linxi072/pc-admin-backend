@@ -722,7 +722,7 @@ onMounted(load)
   color: #909399;
   margin-top: 2px;
 }
-/* .text-muted 已统一到全局 styles.css */
+/* .text-muted 已统一到全局 styles/base.css */
 .detail-title {
   margin: 0 0 8px;
   font-size: 18px;

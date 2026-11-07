@@ -731,7 +731,7 @@ onBeforeUnmount(stopTimer)
 </script>
 
 <style scoped>
-/* .page-title 已统一到全局 styles.css */
+/* .page-title 已统一到全局 styles/base.css */
 .ml-4 { margin-left: 4px; }
 .ml-8 { margin-left: 8px; }
 .mt-12 { margin-top: 12px; }

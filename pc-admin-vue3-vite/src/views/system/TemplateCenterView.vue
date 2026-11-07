@@ -582,7 +582,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* .card-title 已统一到全局 styles.css */
+/* .card-title 已统一到全局 styles/base.css */
 .tpl-tabs { margin-top: 4px; }
 .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
 .filter-label { font-size: 13px; color: #606266; white-space: nowrap; }

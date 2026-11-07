@@ -8,7 +8,7 @@ import { ElNotification } from 'element-plus'
 
 import App from './App.vue'
 import router from './router'
-import './styles.css'
+import './styles/base.css'
 import './styles/theme-tokens.css'
 import './styles/element-theme.css'
 import { t } from './i18n'

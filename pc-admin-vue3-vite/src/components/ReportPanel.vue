@@ -441,9 +441,9 @@ onMounted(load)
 </script>
 
 <style scoped>
-/* .page-title 已统一到全局 styles.css */
+/* .page-title 已统一到全局 styles/base.css */
 /* 工具栏分区类（toolbar-filters / filter-group / filter-label / toolbar-actions / action-buttons）
-   已沉淀至全局 styles.css，此处仅保留页面特有规则 */
+   已沉淀至全局 styles/base.css，此处仅保留页面特有规则 */
 .toolbar :deep(.el-card__body) { padding: 14px 18px; }
 .keyword-input { width: 220px; }
 .window-hint { color: #8a919f; font-size: 13px; }

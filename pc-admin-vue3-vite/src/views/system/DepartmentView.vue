@@ -342,7 +342,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-/* .text-muted 已统一到全局 styles.css */
+/* .text-muted 已统一到全局 styles/base.css */
 .leader-empty {
   padding: 12px 0;
   text-align: center;
