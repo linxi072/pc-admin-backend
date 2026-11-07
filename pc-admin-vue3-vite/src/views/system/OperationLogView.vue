@@ -126,6 +126,19 @@
         </el-col>
       </el-row>
 
+      <!-- 加载失败：与「暂无数据」区分开，避免把超时误读成「本来就没有日志」 -->
+      <el-alert
+        v-if="loadError"
+        class="load-error"
+        type="error"
+        :title="t('common.loadFailed')"
+        :closable="false"
+        show-icon
+      >
+        <span>{{ loadError }}</span>
+        <el-button type="primary" link @click="load">{{ t('common.retry') }}</el-button>
+      </el-alert>
+
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <el-table-column prop="occurredAt" :label="t('system.time')" width="180" sortable="custom" />
@@ -258,6 +271,8 @@ const loading = ref(false)
 const rows = ref([])
 const total = ref(0)
 const summary = ref({})
+/** 页内加载失败提示（与全局 ElMessage 并存：全局只弹一次，本状态用于把「加载失败」和「确实没数据」区分开）。 */
+const loadError = ref('')
 const dateRange = ref([])
 const query = reactive({
   page: 1,
@@ -312,14 +327,28 @@ function buildParams() {
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
-    const [page, sum] = await Promise.all([
+    // 列表与统计各自独立成败：原先用 Promise.all，统计接口一旦超时（后端仅聚合查询
+    // 就要 16s，超过 15s 请求超时）整个加载就被 reject，rows 保持为空且没有任何页内提示，
+    // 页面退化成「暂无数据」，看起来像「本来就没有日志」（E2E F2）。
+    const [pageResult, summaryResult] = await Promise.allSettled([
       pageAuditLogs(buildParams()),
       auditLogSummary(buildParams())
     ])
-    rows.value = page.records || []
-    total.value = page.total || 0
-    summary.value = sum || {}
+    if (pageResult.status === 'fulfilled') {
+      rows.value = pageResult.value?.records || []
+      total.value = pageResult.value?.total || 0
+    } else {
+      rows.value = []
+      total.value = 0
+      loadError.value = pageResult.reason?.message || t('common.loadFailed')
+    }
+    // 统计失败时清空摘要，卡片回落为「--」，避免展示上一次筛选的旧数字
+    summary.value = summaryResult.status === 'fulfilled' ? (summaryResult.value || {}) : {}
+    if (!loadError.value && summaryResult.status === 'rejected') {
+      loadError.value = summaryResult.reason?.message || t('common.loadFailed')
+    }
   } finally {
     loading.value = false
   }
@@ -424,6 +453,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.load-error {
+  margin-bottom: 12px;
+}
 .summary-row {
   margin-bottom: 12px;
 }
