@@ -73,6 +73,8 @@
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.6.0</springdoc.version>
         <jobrunr.version>6.3.4</jobrunr.version>
+        <!-- zstd 原生库：kafka-clients 以 optional 声明，版本由父 POM 统一收敛（子模块省略 version） -->
+        <zstd-jni.version>1.5.5-11</zstd-jni.version>
         <!-- 邮件通知渠道：Spring Framework 6.1.15 与 Boot 3.3.4 管理的版本对齐；
              jakarta.mail-api 2.1.3 + angus-mail 2.0.3 为官方 API/实现组合（均在离线仓库） -->
         <spring-framework.version>6.1.15</spring-framework.version>
@@ -168,6 +170,13 @@
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>3.9.2</version>
+            </dependency>
+            <!-- kafka-clients 的 zstd 压缩编解码器（optional）：版本统一在此收敛，
+                 scaffold-kafka 声明时省略 version，避免子模块各自钉版本造成漂移。 -->
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>${zstd-jni.version}</version>
             </dependency>
             <!--
               通知渠道：邮件（EMAIL）。spring-context-support 提供 JavaMailSender/MimeMessageHelper；

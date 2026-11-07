@@ -49,6 +49,10 @@ springdoc:
     enabled: false
 
 # 生产不暴露 JobRunr Dashboard，仅运行后台作业服务
+# 注意：下方 jobrunr.* 是 JobRunr 5.x 旧前缀；6.x（根 pom jobrunr.version=6.3.4）已改为
+# org.jobrunr.*（见 application.yml:78、application-local.yml:28），本段不会被绑定，保留仅作历史说明。
+# 调整生产并发度应改 application.yml 的 org.jobrunr.background-job-server.worker-count（当前 4）；
+# 直接把本段改成 org.jobrunr 会把 worker-count 从 4 提到 8，属运行行为变更，不在本轮重构范围内。
 jobrunr:
   background-job-server:
     enabled: true
