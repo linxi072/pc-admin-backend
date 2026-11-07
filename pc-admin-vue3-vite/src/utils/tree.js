@@ -26,14 +26,22 @@ export function flattenTree(nodes, opts = {}) {
     indentChar = '　'
   } = opts
   const out = []
-  const walk = (list, depth) => {
+  // path 记录「当前递归路径」上的节点对象：接口异常或本地缓存被污染时可能返回自引用/
+  // 成环的树，无环检测会让递归无限展开直至爆栈（整个下拉/树组件白屏）。合法树无重复节点，
+  // 因此该守卫不改变正常输出；path 在回溯时删除，同一对象出现在不同分支仍按原语义各自渲染。
+  const walk = (list, depth, path) => {
     for (const n of list || []) {
+      if (n == null || path.has(n)) continue
       const prefix = depth > 0 ? indentChar.repeat(depth) : ''
       out.push({ id: n[idKey], [labelKey]: prefix + (n[nameKey] ?? '') })
-      if (n[childrenKey]?.length) walk(n[childrenKey], depth + 1)
+      if (n[childrenKey]?.length) {
+        path.add(n)
+        walk(n[childrenKey], depth + 1, path)
+        path.delete(n)
+      }
     }
   }
-  walk(nodes, 0)
+  walk(nodes, 0, new Set())
   return out
 }
 
@@ -50,20 +58,31 @@ export function flattenTree(nodes, opts = {}) {
 export function collectSubtreeIds(nodes, id, opts = {}) {
   const { idKey = 'id', childrenKey = 'children' } = opts
   const set = new Set()
+  // 同 flattenTree：以「当前递归路径」集合阻断自引用/成环节点，避免 collect 无限递归。
+  const path = new Set()
   const collect = (node) => {
     for (const c of node[childrenKey] || []) {
+      if (c == null || path.has(c)) continue
+      path.add(c)
       set.add(c[idKey])
       collect(c)
+      path.delete(c)
     }
   }
   const walk = (list) => {
     for (const n of list || []) {
+      if (n == null || path.has(n)) continue
       if (n[idKey] === id) {
         set.add(n[idKey])
+        path.add(n)
         collect(n)
         return true
       }
-      if (n[childrenKey]?.length && walk(n[childrenKey])) return true
+      if (n[childrenKey]?.length) {
+        path.add(n)
+        if (walk(n[childrenKey])) return true
+        path.delete(n)
+      }
     }
     return false
   }

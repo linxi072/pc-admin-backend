@@ -48,39 +48,64 @@ export function createCursorStack() {
   return { cursors: [null], index: 0, nextCursor: '' }
 }
 
+/**
+ * 页栈入参归一：非法/缺省入参回落为全新首页栈，且合法栈原样返回（保持对象身份，
+ * 让「无下一页 / 已在首页」的原样返回语义不被破坏）。
+ * 页面在异步竞态、旧缓存反序列化或异常分支下可能传入 undefined/null，
+ * 此前 4 个 stack 函数会直接解引用抛错，导致整页加载中断。
+ */
+function normalizeStack(stack) {
+  if (!stack || !Array.isArray(stack.cursors) || stack.cursors.length === 0) {
+    return createCursorStack()
+  }
+  const validIndex = Number.isInteger(stack.index)
+    && stack.index >= 0 && stack.index < stack.cursors.length
+  const validNext = typeof stack.nextCursor === 'string'
+  if (validIndex && validNext) return stack
+  return {
+    cursors: stack.cursors,
+    index: validIndex ? stack.index : 0,
+    nextCursor: validNext ? stack.nextCursor : ''
+  }
+}
+
 /** 当前页请求应携带的 cursor（首页为 null）。 */
 export function currentCursor(stack) {
-  return stack.cursors[stack.index] ?? null
+  const s = normalizeStack(stack)
+  return s.cursors[s.index] ?? null
 }
 
 /** 记录本页响应返回的下一页游标；空值表示已到末页。 */
 export function setNextCursor(stack, nextCursor) {
-  return { ...stack, nextCursor: nextCursor || '' }
+  const s = normalizeStack(stack)
+  return { ...s, nextCursor: nextCursor || '' }
 }
 
 /** 进入下一页：把 nextCursor 压栈作为新页起始游标；无下一页时原样返回。 */
 export function goNext(stack) {
-  if (!stack.nextCursor) return stack
-  const cursors = stack.cursors.slice(0, stack.index + 1)
-  cursors.push(stack.nextCursor)
-  return { cursors, index: stack.index + 1, nextCursor: '' }
+  const s = normalizeStack(stack)
+  if (!s.nextCursor) return s
+  const cursors = s.cursors.slice(0, s.index + 1)
+  cursors.push(s.nextCursor)
+  return { cursors, index: s.index + 1, nextCursor: '' }
 }
 
 /** 回到上一页：仅回退 index，cursors 保留以便再次前进。 */
 export function goPrev(stack) {
-  if (stack.index <= 0) return stack
-  return { ...stack, index: stack.index - 1, nextCursor: '' }
+  const s = normalizeStack(stack)
+  if (s.index <= 0) return s
+  return { ...s, index: s.index - 1, nextCursor: '' }
 }
 
 export function canGoNext(stack) {
-  return Boolean(stack.nextCursor)
+  return Boolean(normalizeStack(stack).nextCursor)
 }
 
 export function canGoPrev(stack) {
-  return stack.index > 0
+  return normalizeStack(stack).index > 0
 }
 
 /** 当前人类可读页码（1-based）。 */
 export function pageNumber(stack) {
-  return stack.index + 1
+  return normalizeStack(stack).index + 1
 }

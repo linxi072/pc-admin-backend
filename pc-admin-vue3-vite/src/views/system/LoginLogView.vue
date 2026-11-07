@@ -98,6 +98,19 @@
         </el-col>
       </el-row>
 
+      <!-- 加载失败：与「暂无数据」区分，避免把超时/后端异常误读成「本来就没有日志」 -->
+      <el-alert
+        v-if="loadError"
+        class="load-error"
+        type="error"
+        :title="t('common.loadFailed')"
+        :closable="false"
+        show-icon
+      >
+        <span>{{ loadError }}</span>
+        <el-button type="primary" link @click="load">{{ t('common.retry') }}</el-button>
+      </el-alert>
+
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <el-table-column prop="occurredAt" :label="t('system.time')" width="180" sortable="custom" />
@@ -151,6 +164,8 @@ const loading = ref(false)
 const rows = ref([])
 const total = ref(0)
 const summary = ref({})
+/** 页内加载失败提示：与全局 ElMessage 并存，把「加载失败」和「确实没数据」区分开。 */
+const loadError = ref('')
 const dateRange = ref([])
 const query = reactive({
   page: 1,
@@ -188,16 +203,31 @@ function buildParams() {
   return params
 }
 
+/**
+ * 明细与统计并行加载（与操作日志页 F2 同一形态）：
+ * 用 allSettled 让任一请求失败都不会把页面伪装成「空数据」，失败原因页内可见且可重试；
+ * 统计失败独立降级为空摘要，不覆盖明细的失败提示，也不阻断明细正常展示。
+ */
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
-    const [page, sum] = await Promise.all([
+    const [pageResult, summaryResult] = await Promise.allSettled([
       pageLoginLogs(buildParams()),
       loginLogSummary(buildParams())
     ])
-    rows.value = page.records || []
-    total.value = page.total || 0
-    summary.value = sum || {}
+    if (pageResult.status === 'fulfilled') {
+      rows.value = pageResult.value?.records || []
+      total.value = pageResult.value?.total || 0
+    } else {
+      rows.value = []
+      total.value = 0
+      loadError.value = pageResult.reason?.message || t('common.loadFailed')
+    }
+    summary.value = summaryResult.status === 'fulfilled' ? (summaryResult.value || {}) : {}
+    if (!loadError.value && summaryResult.status === 'rejected') {
+      loadError.value = summaryResult.reason?.message || t('common.loadFailed')
+    }
   } finally {
     loading.value = false
   }
@@ -270,6 +300,9 @@ onMounted(load)
 </script>
 
 <style scoped>
+.load-error {
+  margin-bottom: 12px;
+}
 .summary-row {
   margin-bottom: 12px;
 }
