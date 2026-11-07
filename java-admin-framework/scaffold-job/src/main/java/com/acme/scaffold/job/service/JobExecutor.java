@@ -1,5 +1,6 @@
 package com.acme.scaffold.job.service;
 
+import com.acme.scaffold.common.text.TextUtils;
 import com.acme.scaffold.job.domain.JobExecutionContext;
 import com.acme.scaffold.job.domain.JobHandler;
 import com.acme.scaffold.job.domain.JobNextFire;
@@ -87,7 +88,7 @@ public class JobExecutor implements JobInvoker {
                 handler.get().execute(ctx);
             } catch (Exception e) {
                 success = false;
-                error = truncate(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(),
+                error = TextUtils.truncate(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(),
                         MAX_ERROR_LEN);
                 log.error("定时任务执行失败 jobId={} jobName={}", jobId, job.getJobName(), e);
             }
@@ -158,7 +159,7 @@ public class JobExecutor implements JobInvoker {
         logRow.setFinishedTime(finishedTime);
         logRow.setDurationMs(cost);
         logRow.setStatus(success ? "SUCCESS" : "FAILED");
-        logRow.setErrorMessage(error == null ? null : truncate(error, MAX_LOG_ERROR_LEN));
+        logRow.setErrorMessage(error == null ? null : TextUtils.truncate(error, MAX_LOG_ERROR_LEN));
         logRow.setTraceId(MDC.get("traceId"));
         JooqWriters.insert(dsl, SYS_JOB_LOG, logRow);
     }
@@ -169,12 +170,5 @@ public class JobExecutor implements JobInvoker {
 
     private static Instant toInstant(LocalDateTime value, ZoneId zone) {
         return value == null ? null : value.atZone(zone).toInstant();
-    }
-
-    private static String truncate(String text, int max) {
-        if (text == null) {
-            return null;
-        }
-        return text.length() <= max ? text : text.substring(0, max);
     }
 }

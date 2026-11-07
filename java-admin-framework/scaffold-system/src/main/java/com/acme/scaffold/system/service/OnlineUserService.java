@@ -5,6 +5,7 @@ import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.text.TextUtils;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.jwt.JwtProperties;
@@ -91,7 +92,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
             row.setUsername(username);
             row.setDisplayName(displayName);
             row.setLoginIp(ip);
-            row.setUserAgent(truncate(userAgent, 500));
+            row.setUserAgent(TextUtils.truncate(userAgent, 500));
             row.setLoginAt(now);
             row.setLastActiveAt(now);
             row.setStatus(SysOnlineSessionDO.STATUS_ONLINE);
@@ -99,7 +100,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         } else {
             SysOnlineSessionDO patch = new SysOnlineSessionDO();
             patch.setLoginIp(ip);
-            patch.setUserAgent(truncate(userAgent, 500));
+            patch.setUserAgent(TextUtils.truncate(userAgent, 500));
             patch.setClientId(StringUtils.hasText(clientId) ? clientId : "web");
             patch.setLoginAt(now);
             patch.setLastActiveAt(now);
@@ -343,7 +344,4 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         return deviceId == null ? f.isNull() : f.eq(deviceId);
     }
 
-    private static String truncate(String s, int max) {
-        return s == null ? null : (s.length() <= max ? s : s.substring(0, max));
-    }
 }

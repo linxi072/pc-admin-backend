@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.log;
 
+import com.acme.scaffold.common.text.TextUtils;
 import com.acme.scaffold.jooq.dsl.JooqTables;
 import com.acme.scaffold.jooq.dsl.JooqWriters;
 import com.acme.scaffold.security.entity.SysLoginLogDO;
@@ -56,13 +57,13 @@ public class LoginLogRecorder {
                        String ip, String userAgent) {
         try {
             SysLoginLogDO row = new SysLoginLogDO();
-            row.setUsername(truncate(username, 64));
+            row.setUsername(TextUtils.truncate(username, 64));
             row.setUserId(userId);
             row.setLoginType(LOGIN_TYPE_PASSWORD);
             row.setResult(success ? RESULT_SUCCESS : RESULT_FAILURE);
-            row.setFailureCode(truncate(failureCode, 64));
-            row.setIpAddress(truncate(ip, 64));
-            row.setUserAgent(truncate(userAgent, MAX_UA_LEN));
+            row.setFailureCode(TextUtils.truncate(failureCode, 64));
+            row.setIpAddress(TextUtils.truncate(ip, 64));
+            row.setUserAgent(TextUtils.truncate(userAgent, MAX_UA_LEN));
             row.setTraceId(MDC.get("traceId"));
             row.setOccurredAt(LocalDateTime.now());
             JooqWriters.insert(dsl, LL, row);
@@ -72,10 +73,4 @@ public class LoginLogRecorder {
         }
     }
 
-    private static String truncate(String text, int max) {
-        if (text == null) {
-            return null;
-        }
-        return text.length() <= max ? text : text.substring(0, max);
-    }
 }
