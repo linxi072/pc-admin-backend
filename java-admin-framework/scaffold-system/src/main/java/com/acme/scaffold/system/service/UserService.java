@@ -1,6 +1,7 @@
 package com.acme.scaffold.system.service;
 import com.acme.scaffold.jooq.dsl.FetchSupport;
 
+import com.acme.scaffold.common.api.PagingRules;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -86,9 +87,6 @@ public class UserService {
     /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
     private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
             JooqTables.SYS_ROLE;
-
-    /** 用户列表 OFFSET 深翻页偏移上限（行）：超过则要求改用游标分页，杜绝 LIMIT/OFFSET 随偏移线性退化。 */
-    private static final long MAX_USER_LIST_OFFSET = 5000;
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
@@ -333,10 +331,10 @@ public class UserService {
             })
     public PageResult<UserView> list(UserQuery query) {
         // 深翻页护栏：OFFSET 分页在偏移过大时随偏移线性退化，超过上限强制要求改用游标分页接口。
-        long offset = (long) Math.max(query.page() - 1, 0) * Math.min(Math.max(query.size(), 1), 100);
-        if (offset > MAX_USER_LIST_OFFSET) {
+        // 阈值与文案统一由 common/api/PagingRules 提供，避免与站内信/前端 keyset 阈值漂移。
+        if (PagingRules.exceedsOffset(query.page(), query.size())) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
-                    "用户列表分页偏移过大（超过 " + MAX_USER_LIST_OFFSET + " 行），请改用游标分页接口 /api/system/users/page-keyset");
+                    PagingRules.offsetLimitMessage("用户列表", "/api/system/users/page-keyset"));
         }
         List<Condition> conds = buildUserListConds(query);
         var pageQuery = query.toPageQuery();

@@ -21,6 +21,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 流程实例治理服务（M23 续）：管理员视角的实例高风险写操作——重新指派、挂起/恢复、跨版本迁移。
@@ -40,6 +42,8 @@ public class WorkflowInstanceAdminService {
     private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
     private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
 
+    /** 治理审计 ID 的进程内序号：保证同一毫秒内多条记录绝不重复。 */
+    private static final AtomicLong ADMIN_RECORD_SEQ = new AtomicLong();
 
     private final WorkflowEnginePort engine;
     private final DSLContext dsl;
@@ -196,7 +200,11 @@ public class WorkflowInstanceAdminService {
     private void saveAdminRecord(String processInstanceId, String taskId, String activityId, String action,
                                  Long operatorUserId, Long fromUserId, Long toUserId, String opinion) {
         WfApprovalRecordDO record = new WfApprovalRecordDO();
-        record.setOperationId(action.toLowerCase() + "-" + processInstanceId + "-" + System.currentTimeMillis());
+        // 唯一后缀 = 毫秒时间戳 + 进程内自增序号 + 短随机段：
+        // 既保留时间可读性，又覆盖「同实例同毫秒多任务」（reassign 循环）与多实例并发两类碰撞。
+        String suffix = System.currentTimeMillis() + "-" + ADMIN_RECORD_SEQ.incrementAndGet() + "-"
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        record.setOperationId(WorkflowInstanceAdminRules.operationId(action, processInstanceId, suffix));
         record.setProcessInstanceId(processInstanceId);
         record.setTaskId(taskId);
         record.setActivityId(activityId);

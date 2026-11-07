@@ -23,10 +23,23 @@ import java.util.List;
  *   <li>紧凑化 + 结构化裁剪：超长但合法 JSON，先去除空白压缩；仍超则对对象/数组递归丢弃
  *       低价值字段（空值字段、数组末位元素）直至满足上限；</li>
  *   <li>文本兜底：原始非合法 JSON 或结构化裁剪失败，截断到上限并包装为 JSON 字符串标量
- *       （转义内部引号，保证列类型不被破坏）。</li>
+ *       （转义内部引号、反斜杠与全部 C0 控制字符，保证列类型与 JSON 语法均不被破坏）。</li>
  * </ol>
+ *
+ * <p>max 过小（< {@value #MIN_LENGTH}）时归一到下界：不存在更短的合法 JSON，
+ * 此时优先保证「输出必为合法 JSON」，而非字面的长度上限。</p>
  */
 public final class JsonTruncator {
+
+    /**
+     * 可承载「合法 JSON 字符串标量」的最小长度：{@code ""} 即 2 个字符。
+     *
+     * <p>max 小于该值时，「输出为合法 JSON」与「长度 ≤ max」两个要求不可能同时满足，
+     * 此时以「合法 JSON」优先，内部把 max 归一到本下界（返回 {@code ""}）。</p>
+     */
+    public static final int MIN_LENGTH = 2;
+
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
 
     private JsonTruncator() {
     }
@@ -35,14 +48,15 @@ public final class JsonTruncator {
      * 安全截断。
      *
      * @param s      原始摘要（可为 null）
-     * @param max    最大字符数（含）
+     * @param maxArg 最大字符数（含）；< {@link #MIN_LENGTH} 时内部归一到 {@link #MIN_LENGTH}
      * @param mapper 调用方注入的 {@link ObjectMapper}（避免本工具自行持有 Spring 上下文，便于单测）
      * @return 合法 JSON 且长度 ≤ max 的字符串；入参为 null 时返回 null
      */
-    public static String safeTruncate(String s, int max, ObjectMapper mapper) {
+    public static String safeTruncate(String s, int maxArg, ObjectMapper mapper) {
         if (s == null) {
             return null;
         }
+        final int max = Math.max(maxArg, MIN_LENGTH);
         if (s.length() <= max) {
             // 短输入同样必须校验 JSON 合法性：短小但非法的 JSON（如被截断的 "{"）同样会被
             // MySQL 3140 拒绝写入，原样返回会整段丢失。合法则原样保留（不破坏既有契约），
@@ -154,7 +168,33 @@ public final class JsonTruncator {
         return wrapped;
     }
 
+    /**
+     * JSON 字符串标量内文转义：除反斜杠/双引号外，还必须转义全部 C0 控制字符。
+     *
+     * <p>原始摘要常含换行、制表符或 {@code \u0001} 一类控制字符；仅转义 {@code \} 与 {@code "}
+     * 会把裸控制字符写进 JSON 字符串，导致 MySQL 3140 仍然拒绝、退化兜底失效。</p>
+     */
     private static String escapeJson(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+        StringBuilder out = new StringBuilder(s.length() + 8);
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\' -> out.append("\\\\");
+                case '"' -> out.append("\\\"");
+                case '\b' -> out.append("\\b");
+                case '\f' -> out.append("\\f");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        out.append("\\u00").append(HEX[(c >> 4) & 0xF]).append(HEX[c & 0xF]);
+                    } else {
+                        out.append(c);
+                    }
+                }
+            }
+        }
+        return out.toString();
     }
 }

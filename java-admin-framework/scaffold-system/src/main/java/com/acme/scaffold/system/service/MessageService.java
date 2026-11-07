@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.service;
 
+import com.acme.scaffold.common.api.PagingRules;
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
@@ -205,14 +206,10 @@ public class MessageService {
      *
      * @param onlyUnread true 时仅返回未读
      */
-    /** 站内信收件箱 OFFSET 深翻页偏移上限（行）：超过则要求改用游标分页接口。 */
-    private static final long MAX_MESSAGE_OFFSET = 5000;
-
     public PageResult<MessageView> pageMine(int page, int size, boolean onlyUnread) {
-        long offset = (long) Math.max(page - 1, 0) * Math.min(Math.max(size, 1), 100);
-        if (offset > MAX_MESSAGE_OFFSET) {
+        if (PagingRules.exceedsOffset(page, size)) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
-                    "站内信分页偏移过大（超过 " + MAX_MESSAGE_OFFSET + " 行），请改用游标分页接口 /api/system/messages/mine-keyset");
+                    PagingRules.offsetLimitMessage("站内信", "/api/system/messages/mine-keyset"));
         }
         Long userId = requireCurrentUserId();
         List<Condition> conds = new ArrayList<>();
@@ -328,15 +325,21 @@ public class MessageService {
             return; // 已读，幂等返回
         }
         LocalDateTime now = LocalDateTime.now();
-        dsl.update(RC.table())
+        // 条件更新而非「先查后更」：并发/重放下只有真正抢到状态跃迁的那一次会生效，
+        // 避免两个请求同时读到 is_read=0 后各自 +1，把 read_count 重复累加。
+        int changed = dsl.update(RC.table())
                 .set(RC.field("is_read", Integer.class), 1)
                 .set(RC.field("read_at", LocalDateTime.class), now)
                 .where(RC.field("id", Long.class).eq(receipt.getId()))
+                .and(DSL.coalesce(RC.field("is_read", Integer.class), 0).ne(1))
                 .execute();
+        if (changed == 0) {
+            return; // 已被并发请求标记，幂等返回且不重复计数
+        }
 
         dsl.update(MSG.table())
                 .set(MSG.field("read_count", Integer.class),
-                        MSG.field("read_count", Integer.class).plus(1))
+                        MSG.field("read_count", Integer.class).coalesce(0).plus(1))
                 .where(MSG.field("id", Long.class).eq(messageId))
                 .execute();
     }
@@ -377,8 +380,10 @@ public class MessageService {
             step = (step == null ? DSL.when(msgId.eq(e.getKey()), e.getValue().intValue())
                     : step.when(msgId.eq(e.getKey()), e.getValue().intValue()));
         }
+        // 必须是「历史累计值 + 本次回执增量」。早期实现直接把 CASE 结果 SET 给 read_count，
+        // 等于用本次批量已读数覆盖掉此前由 markRead 逐条累计的值，导致发件侧已读统计回退。
         dsl.update(MSG.table())
-                .set(readCount, step.otherwise(readCount))
+                .set(readCount, readCount.coalesce(0).plus(step.otherwise(0)))
                 .where(msgId.in(perMessage.keySet()))
                 .execute();
         return perMessage.values().stream().mapToInt(Long::intValue).sum();
@@ -390,10 +395,9 @@ public class MessageService {
 
     /** 我发出的消息分页（含已读/未读统计）。 */
     public PageResult<SysMessageDO> pageSent(int page, int size) {
-        long offset = (long) Math.max(page - 1, 0) * Math.min(Math.max(size, 1), 100);
-        if (offset > MAX_MESSAGE_OFFSET) {
+        if (PagingRules.exceedsOffset(page, size)) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
-                    "已发送消息分页偏移过大（超过 " + MAX_MESSAGE_OFFSET + " 行），请改用游标分页接口 /api/system/messages/sent-keyset");
+                    PagingRules.offsetLimitMessage("已发送消息", "/api/system/messages/sent-keyset"));
         }
         Long userId = requireCurrentUserId();
         var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
