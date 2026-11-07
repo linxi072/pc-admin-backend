@@ -279,7 +279,7 @@
       <el-table :data="receipts" v-loading="receiptLoading" border stripe max-height="360">
         <el-table-column :label="t('system.recipient')" min-width="160">
           <template #default="{ row }">
-            {{ row.displayName || (t('system.user') + row.userId) }}
+            {{ row.displayName || (t('system.userPrefix') + row.userId) }}
           </template>
         </el-table-column>
         <el-table-column :label="t('common.status')" width="100">
@@ -335,6 +335,7 @@ import { orgTree } from '@/api/org'
 import { pageUsers } from '@/api/user'
 // 部门树拍平统一到 utils/tree
 import { flattenTree } from '@/utils/tree'
+import { validateOrWarn } from '@/utils/validate'
 
 const activeTab = ref('mine')
 const loading = ref(false)
@@ -652,8 +653,7 @@ async function sendViaNotification() {
 
 async function onSend() {
   // 校验失败时 validate() 会 reject，须捕获避免 Uncaught (in promise)
-  const valid = await sendFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(sendFormRef.value))) return
 
   // 邮件 / 短信渠道分支：目标校验与调用均不同于站内信
   if (sendChannel.value !== 'IN_APP') {

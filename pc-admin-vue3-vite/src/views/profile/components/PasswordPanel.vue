@@ -57,6 +57,7 @@ import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Lock } from '@element-plus/icons-vue'
 import { changePassword } from '@/api/profile'
+import { validateOrWarn } from '@/utils/validate'
 
 const emit = defineEmits(['success'])
 
@@ -93,8 +94,7 @@ function reset() {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
 
   submitting.value = true
   try {

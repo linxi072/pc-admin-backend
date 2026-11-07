@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 4173",
-    "test": "node --test src/api/__tests__/*.test.js src/composables/__tests__/*.test.js src/utils/__tests__/*.test.js"
+    "test": "node --test src/api/__tests__/*.test.js src/composables/__tests__/*.test.js src/utils/__tests__/*.test.js src/i18n/__tests__/*.test.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

@@ -7,9 +7,6 @@
 
 export default {
   'zh-CN': {
-    app: {
-      title: '运营管理后台'
-    },
     common: {
       save: '保存',
       cancel: '取消',
@@ -29,6 +26,8 @@ export default {
       all: '全部',
       pleaseSelect: '请选择',
       loading: '加载中',
+      retry: '重试',
+      loadFailed: '数据加载失败',
       success: '成功',
       failed: '失败',
       back: '返回',
@@ -227,7 +226,6 @@ export default {
       pwdMismatch: '两次输入的新密码不一致',
       pwdChanged: '密码修改成功',
       privacyPrefTitle: '通知与隐私偏好',
-      privacyPrefDesc: '控制各类通知的接收方式，以及个人信息的可见范围。',
       notifyMethod: '通知方式',
       stationMsgNotify: '站内信通知',
       importantNoticeDesc: '系统消息、审批结果等重要通知',
@@ -798,7 +796,9 @@ export default {
       clickToSelect: '点击选择',
       statusStats: '状态统计',
       active: '生效中',
-      user: '用户#',
+      // 注意：本键不能命名为 user —— system 段内已有 user 对象（用户管理页文案集合），
+      // 同名标量会把它整体覆盖，导致所有 system.user.* 取不到值（E2E F4）。
+      userPrefix: '用户#',
       usernameName: '用户名/姓名',
       userCount: '用户数',
       blankForPermanent: '留空为长期有效',
@@ -1009,9 +1009,8 @@ export default {
       'cleanup': '清理',
       'confirmClearCache': '确认清理缓存「{name}」？清理后下一次读取将回源数据库。',
       'cacheCleared': '已清理缓存「{name}」',
-      'dataScopeTitle': '未配置的资源默认不限制（全部数据）。自定义部门范围需至少选择一个部门。',
+      'dataScopeTitle': '未配置的数据资源按默认策略「仅本人」生效（fail-closed），不会放开为全部数据；自定义部门范围需至少选择一个部门。',
       'pleaseSelectRole': '请选择角色',
-      'noConfigurableResource': '暂无可配置资源',
       'colResource': '资源',
       'selectOrInputSourceModule': '选择或输入来源模块',
       'optionalWorkflowReportId': '可选，如流程实例/报表 ID',
@@ -1069,6 +1068,8 @@ export default {
       'selectVisibleDept': "选择可见部门",
       'confirmSys': "确定",
       'allData': "全部数据",
+      'dataScopeIntro': '为指定角色配置各数据资源的可见范围。与菜单/接口权限相互独立，修改后立即生效，无需重新登录。',
+      'dataScopeNotConfigured': '未配置（默认仅本人）',
       'deptAndChildren': "本部门及下级",
       'onlyThisDept': "仅本部门",
       'onlySelf': "仅本人",
@@ -2123,6 +2124,9 @@ export default {
       amber: '琥珀'
     },
     app: {
+      // 注意：app 段必须只有一处定义。历史上 app.title 与 app.footer/internalUseOnly/errorTitle
+      // 分别写在两个 app 对象里，后者静默覆盖前者，app.title 实际取不到值（E2E F4 同类缺陷）。
+      title: '运营管理后台',
       footer: '© 2026 运营管理后台 · 基于 Vue3 + Element Plus + Vite ·',
       internalUseOnly: '仅供内部使用',
       errorTitle: '页面渲染出错'
@@ -2283,6 +2287,8 @@ export default {
       article: {
         title: '文章标题',
         titlePlaceholder: '请输入文章标题',
+        titleRequired: '请输入文章标题',
+        statusPlaceholder: '全部状态',
         category: '所属栏目',
         categoryPlaceholder: '选择所属栏目',
         categoryRequired: '请选择所属栏目',
@@ -2551,9 +2557,6 @@ export default {
   },
 
   'en-US': {
-    app: {
-      title: 'Operations Admin'
-    },
     common: {
       save: 'Save',
       cancel: 'Cancel',
@@ -2573,6 +2576,8 @@ export default {
       all: 'All',
       pleaseSelect: 'Please select',
       loading: 'Loading',
+      retry: 'Retry',
+      loadFailed: 'Failed to load data',
       success: 'Success',
       failed: 'Failed',
       back: 'Back',
@@ -2771,7 +2776,6 @@ export default {
       pwdMismatch: 'Passwords do not match',
       pwdChanged: 'Password changed',
       privacyPrefTitle: 'Notification & Privacy Preferences',
-      privacyPrefDesc: 'Control how notifications are received and visibility of your info.',
       notifyMethod: 'Notification Method',
       stationMsgNotify: 'Internal Message',
       importantNoticeDesc: 'System messages, approval results, etc.',
@@ -3342,7 +3346,8 @@ export default {
       clickToSelect: 'Click to select',
       statusStats: 'Status stats',
       active: 'Active',
-      user: 'User #',
+      // 见中文段同名注释：避免与 system.user 对象键冲突（E2E F4）
+      userPrefix: 'User #',
       usernameName: 'Username / name',
       userCount: 'User count',
       blankForPermanent: 'Blank for permanent',
@@ -3553,9 +3558,8 @@ export default {
       'cleanup': 'Cleanup',
       'confirmClearCache': 'Confirm clearing cache "{name}"? The next read will fall back to the database.',
       'cacheCleared': 'Cleared cache "{name}"',
-      'dataScopeTitle': 'Resources without a configured scope are unrestricted (all data). Custom department scope requires at least one department.',
+      'dataScopeTitle': 'Resources without a configured scope fall back to the default policy "Self only" (fail-closed); they are never treated as unrestricted. Custom department scope requires at least one department.',
       'pleaseSelectRole': 'Please select a role',
-      'noConfigurableResource': 'No configurable resources',
       'colResource': 'Resource',
       'selectOrInputSourceModule': 'Select or enter source module',
       'optionalWorkflowReportId': 'Optional, e.g. workflow instance / report ID',
@@ -3613,6 +3617,8 @@ export default {
       'selectVisibleDept': "Select visible departments",
       'confirmSys': "Confirm",
       'allData': "All data",
+      'dataScopeIntro': 'Configure the visible range of each data resource for the selected role. Independent of menu/API permissions; changes take effect immediately without re-login.',
+      'dataScopeNotConfigured': 'Not configured (self only)',
       'deptAndChildren': "This department and sub-departments",
       'onlyThisDept': "Only this department",
       'onlySelf': "Only self",
@@ -4667,6 +4673,8 @@ export default {
       amber: 'Amber'
     },
     app: {
+      // 见中文段同名注释：app 段只允许一处定义（E2E F4 同类缺陷）
+      title: 'Operations Admin',
       footer: '© 2026 Operations Admin · Built with Vue3 + Element Plus + Vite ·',
       internalUseOnly: 'Internal use only',
       errorTitle: 'Page render error'
@@ -4827,6 +4835,8 @@ export default {
       article: {
         title: 'Title',
         titlePlaceholder: 'Enter article title',
+        titleRequired: 'Article title is required',
+        statusPlaceholder: 'All statuses',
         category: 'Category',
         categoryPlaceholder: 'Select category',
         categoryRequired: 'Category is required',

@@ -106,6 +106,7 @@ import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { pagePosts, createPost, updatePost, deletePost } from '@/api/post'
 // 状态标签映射统一到 utils
 import { statusTag } from '@/utils/status'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -158,8 +159,7 @@ function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     const payload = {

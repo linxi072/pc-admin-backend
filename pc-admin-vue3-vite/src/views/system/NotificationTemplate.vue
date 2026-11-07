@@ -248,6 +248,7 @@ import {
   toggleNotificationTemplate
 } from '@/api/notificationTemplate'
 import { sendWithTemplateNotification } from '@/api/notification'
+import { validateOrWarn } from '@/utils/validate'
 
 // 与后端 Channel 枚举一致（M35 新增企业微信/钉钉机器人渠道）
 const channelOptions = [
@@ -423,8 +424,7 @@ function onChannelChange() {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     const payload = { ...form }

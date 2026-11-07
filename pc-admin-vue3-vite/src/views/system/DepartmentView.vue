@@ -138,6 +138,7 @@ import { orgTree, createOrg, updateOrg, deleteOrg } from '@/api/org'
 import { pageUsers } from '@/api/user'
 // 树拍平 / 子树 id 收集统一到 utils/tree
 import { flattenTree, collectSubtreeIds } from '@/utils/tree'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -305,8 +306,7 @@ function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     // 归一化负责人 id：字符串雪花 ID / null 直接提交，后端 Long 字段接受数字字符串

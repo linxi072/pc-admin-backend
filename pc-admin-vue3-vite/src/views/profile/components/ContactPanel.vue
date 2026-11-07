@@ -101,6 +101,7 @@ import { t } from '@/i18n'
 import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { bindContact } from '@/api/profile'
+import { validateOrWarn } from '@/utils/validate'
 
 const props = defineProps({
   profile: { type: Object, default: null }
@@ -139,8 +140,7 @@ function openBind(ch) {
 }
 
 async function onBind() {
-  const valid = await bindFormRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(bindFormRef.value))) return
 
   submitting.value = 'BIND'
   try {

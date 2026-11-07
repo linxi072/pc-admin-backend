@@ -133,6 +133,7 @@ import { ElMessage } from 'element-plus'
 import { login, getCaptcha, changePassword, forgotPassword } from '@/api/auth'
 import { setAuth } from '@/store/auth'
 import { t } from '@/i18n'
+import { validateOrWarn } from '@/utils/validate'
 
 const route = useRoute()
 const router = useRouter()
@@ -179,8 +180,7 @@ function resetChangeDlg() {
 }
 
 async function submitChange() {
-  const valid = await changeFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(changeFormRef.value))) return
   if (changeDlg.form.newPassword !== changeDlg.form.confirmPassword) {
     ElMessage.warning(t('login.pwdMismatch'))
     return
@@ -230,8 +230,7 @@ function resetForgotDlg() {
 }
 
 async function submitForgot() {
-  const valid = await forgotFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(forgotFormRef.value))) return
   // 手机号/邮箱二选一：与后端 ForgotPasswordRules.hasVerifier 同效（服务端为权威）
   if (!forgotDlg.form.mobile.trim() && !forgotDlg.form.email.trim()) {
     ElMessage.warning(t('login.pleaseEnterVerifier'))
@@ -276,8 +275,7 @@ async function fetchCaptcha() {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   if (!captcha.token) {
     ElMessage.warning(t('login.captchaLoadFailed'))
     await fetchCaptcha()

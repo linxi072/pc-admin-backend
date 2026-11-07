@@ -280,6 +280,7 @@ import {
 // 状态标签映射统一到 utils
 import { statusTag } from '@/utils/status'
 import { toCsv, downloadCsv } from '@/utils/csv'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -417,8 +418,7 @@ function openRestrict(row) {
 }
 
 async function onSubmitRestrict() {
-  const valid = await restrictFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(restrictFormRef.value))) return
   const duration = durationLabel(restrictForm.durationMinutes)
   try {
     await ElMessageBox.confirm(

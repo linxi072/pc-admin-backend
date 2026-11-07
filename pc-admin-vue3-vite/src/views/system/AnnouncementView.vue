@@ -248,7 +248,7 @@
       <el-table :data="receipts" v-loading="receiptLoading" border stripe max-height="360">
         <el-table-column :label="t('system.reader')" min-width="160">
           <template #default="{ row }">
-            {{ row.displayName || (t('system.user') + row.userId) }}
+            {{ row.displayName || (t('system.userPrefix') + row.userId) }}
           </template>
         </el-table-column>
         <el-table-column prop="readAt" :label="t('system.readAt')" min-width="180" />
@@ -290,6 +290,7 @@ import {
 } from '@/api/announcement'
 // 状态标签映射统一到全局（替换此前页面内的三元判断）
 import { statusTag } from '@/utils/status'
+import { validateOrWarn } from '@/utils/validate'
 
 // 嵌入「消息中心」时由外层 Tab 提供标题，此处隐藏页内标题避免重复
 defineProps({ embedded: { type: Boolean, default: false } })
@@ -390,8 +391,7 @@ function openEdit(row) {
 
 async function onSubmit() {
   // 校验失败时 validate() 会 reject，须捕获避免 Uncaught (in promise)
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   const body = {
     title: form.title,
     content: form.content,

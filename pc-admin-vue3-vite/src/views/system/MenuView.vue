@@ -195,6 +195,7 @@ import IconPicker from '@/components/IconPicker.vue'
 import { menuTree, createMenu, updateMenu, deleteMenu, sortMenus } from '@/api/menu'
 // 树拍平 / 子树 id 收集统一到 utils/tree
 import { flattenTree, collectSubtreeIds } from '@/utils/tree'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 /** 加载失败标记：驱动空态展示重试入口（与「无数据」「搜索无匹配」区分）。 */
@@ -556,8 +557,7 @@ watch(() => form.parentId, (pid) => {
 })
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     let operatedId = editingId.value

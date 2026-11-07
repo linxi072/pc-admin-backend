@@ -315,6 +315,7 @@ import {
 import { getTenantOverview } from '@/api/tenantOverview'
 import TenantGovernanceDialog from './TenantGovernanceDialog.vue'
 import { statusTag } from '@/utils/status'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -423,8 +424,7 @@ function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     // 后端 LocalDateTime 以 ISO 接收：空格分隔转 T 分隔，空值传 null
@@ -466,8 +466,7 @@ function openProvision(row) {
 }
 
 async function onProvision() {
-  const valid = await provisionRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(provisionRef.value))) return
   provisioning.value = true
   try {
     const payload = {

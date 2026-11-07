@@ -117,6 +117,7 @@ import { Plus, Delete, Search, Edit, Refresh } from '@element-plus/icons-vue'
 import { listConfigGroups, getConfigByKey, createConfig, updateConfig, deleteConfig, refreshConfigs } from '@/api/sysConfig'
 // 状态标签映射统一到 utils
 import { statusTag } from '@/utils/status'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -204,8 +205,7 @@ function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     if (editingId.value != null) {

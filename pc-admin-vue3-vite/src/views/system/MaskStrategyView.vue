@@ -199,6 +199,7 @@ import {
   refreshMaskStrategyCache,
   previewMask
 } from '@/api/maskStrategy'
+import { validateOrWarn } from '@/utils/validate'
 
 // 与后端 SensitiveType 枚举一致（NONE 为显式放行标志，不在可选之列）
 const typeOptions = [
@@ -425,8 +426,7 @@ function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     const payload = { ...form }

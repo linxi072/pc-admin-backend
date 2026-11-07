@@ -164,6 +164,7 @@ import { listApiResources } from '@/api/apiResource'
 import { orgTree } from '@/api/org'
 // 状态标签映射统一到 utils
 import { statusTag } from '@/utils/status'
+import { validateOrWarn } from '@/utils/validate'
 
 // 数据范围选项，与后端 DataScopeType 一一对应；label 供页面展示，value 直接作为接口入参
 const SCOPE_OPTIONS = [
@@ -549,8 +550,7 @@ async function openEdit(row) {
 }
 
 async function onSubmit() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(formRef.value))) return
   saving.value = true
   try {
     const checked = permTreeRef.value ? permTreeRef.value.getCheckedKeys() : []

@@ -228,6 +228,7 @@ import {
   rotateOpenApiClientSecret,
   issueClientToken
 } from '@/api/openApiClient'
+import { validateOrWarn } from '@/utils/validate'
 
 const loading = ref(false)
 const rows = ref([])
@@ -341,8 +342,7 @@ function resetCreateForm() {
 }
 
 async function onCreate() {
-  const valid = await createFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(createFormRef.value))) return
   creating.value = true
   try {
     const res = await createOpenApiClient({
@@ -393,8 +393,7 @@ function resetEditForm() {
 }
 
 async function onSave() {
-  const valid = await editFormRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!(await validateOrWarn(editFormRef.value))) return
   saving.value = true
   try {
     await updateOpenApiClient(editingId.value, {
