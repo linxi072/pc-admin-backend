@@ -37,14 +37,10 @@
         <module>scaffold-cms</module>
         <!-- 业务域：站内消息（R6），依赖 common -->
         <module>scaffold-im</module>
-        <!-- 扩展基座：插件化/SPI 生命周期（仅依赖 common） -->
-        <module>scaffold-plugin</module>
         <!-- 通信层：仅依赖 common -->
         <module>scaffold-realtime</module>
         <module>scaffold-kafka</module>
         <module>scaffold-codegen</module>
-        <!-- 工具（可选）：AI 辅助开发集成（R3），依赖 common + codegen -->
-        <module>scaffold-ai</module>
         <!-- 认证授权与令牌域（JWT/刷新令牌/Token 版本、OAuth2、密码策略、数据权限、限流、在线会话） -->
         <module>scaffold-security</module>
         <!-- 框架装配层：config/observability/monitor.detection + realtime 的 WebSocket 端点注册 -->
@@ -55,10 +51,11 @@
         <module>scaffold-job</module>
         <module>scaffold-workbench</module>
         <module>scaffold-workflow</module>
-        <!-- 业务域：审批中心门户（R7），编排工作流能力，依赖 common + workflow -->
-        <module>scaffold-approval</module>
         <!-- 启动装配层：依赖全部模块，产出可执行 jar -->
         <module>scaffold-admin</module>
+        <!-- 2026-11-08 结构整合：plugin / approval / ai 三个极小模块已分别并入
+             common / workflow / codegen；类 FQN、包路径、Bean 与端点均未改变，
+             仅把 Maven 模块数由 17 收敛为 14。 -->
     </modules>
 
     <properties>

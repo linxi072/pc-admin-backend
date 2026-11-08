@@ -11,6 +11,12 @@
   D5. ``common/constant/CommonConstants.java`` 必须存在（跨模块常量单一事实来源）。
   D6. 三份规范文档齐全，且 ``docs/README.md`` 索引引用齐全（防死链）。
   D7. 子模块 POM 的 ``<dependencies>`` 不得写具体版本号，版本统一在父 POM 收敛。
+  D8. ``src/main/java`` 一级目录白名单：只允许 ``com``；admin 例外允许 ``db``
+      （Flyway Java 迁移 ``db/migration/V57__backfill_tenant_id.java``）。
+  D9. ``src/test/java`` 包根须与 main 白名单对齐；admin 集成测试的 9 个包根与
+      ``BaseIntegrationTest.java`` 根级文件按历史例外登记。
+  D10. ``docs/`` 下所有文档须被 ``docs/README.md`` 索引，且索引里的相对链接目标存在。
+  D11. ``src/test/resources`` 仅 admin 可持 ``application*.yml`` / ``logback*.xml``。
 
 本脚本只读：不修改任何文件，不参与编译与运行时，不替代 ``check-conventions.py``
 （后者负责包级环 / 重复 FQN / 依赖方向 / 数据类 / 模块 DAG）。
@@ -38,30 +44,46 @@ STYLE_FILES = ("base.css", "theme-tokens.css", "element-theme.css")
 REQUIRED_DOCS = ("DIRECTORY.md", "RUOYI-ALIGNMENT.md", "MODULES.md")
 REQUIRED_INDEX_LINKS = ("DIRECTORY.md", "RUOYI-ALIGNMENT.md")
 CONFIG_FILE_RE = re.compile(r"^(application.*\.(yml|yaml|properties)|logback.*\.xml)$")
+DOC_FILE_RE = re.compile(r"\.(md|html)$", re.IGNORECASE)
+MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
-# 按模块登记的顶层包根（磁盘现状，2026-11-08 取证）。
-# 两处历史例外已登记：common 模块含 jooq；framework 模块无同名包根，类分布在
+# 按模块登记的顶层包根（磁盘现状，2026-11-08 结构整合后取证，14 个模块）。
+# 历史例外：common 含 jooq；framework 无同名包根，类分布在
 # config/observability/monitor/chaos；admin 的 JacksonConfig 位于 config 包（跨模块同包）。
+# 2026-11-08 整合：plugin -> common、approval -> workflow、ai -> codegen，
+# 类包路径保持原样，因此这三个包根分别登记到接收模块（不改变任何 FQN）。
 # 新增模块或包根时：先改 docs/MODULES.md 与 docs/DIRECTORY.md，再在此登记，否则本校验阻断。
 EXPECTED_ROOTS = {
     "scaffold-admin": {"admin", "config"},
-    "scaffold-ai": {"ai"},
-    "scaffold-approval": {"approval"},
     "scaffold-cms": {"cms"},
-    "scaffold-codegen": {"codegen"},
-    "scaffold-common": {"common", "jooq"},
+    "scaffold-codegen": {"ai", "codegen"},
+    "scaffold-common": {"common", "jooq", "plugin"},
     "scaffold-framework": {"chaos", "config", "monitor", "observability"},
     "scaffold-im": {"im"},
     "scaffold-job": {"job"},
     "scaffold-kafka": {"kafka"},
     "scaffold-monitor": {"monitor"},
-    "scaffold-plugin": {"plugin"},
     "scaffold-realtime": {"realtime"},
     "scaffold-security": {"security"},
     "scaffold-system": {"system"},
     "scaffold-workbench": {"workbench"},
-    "scaffold-workflow": {"workflow"},
+    "scaffold-workflow": {"approval", "workflow"},
 }
+
+# D8：src/main/java 一级目录。仅 admin 的 db 为合法例外（Flyway Java 迁移，
+# 该文件必须落在 db/migration 才能被 Flyway 按类名发现，不能搬进 com.acme.scaffold）。
+MAIN_ROOTS_ALLOWED = {"com"}
+MAIN_ROOT_EXCEPTIONS = {ADMIN_MODULE: {"db"}}
+
+# D9：src/test/java 包根默认复用 EXPECTED_ROOTS；admin 承载跨模块集成/E2E 测试，
+# 磁盘实证的 9 个包根 + 根级 BaseIntegrationTest.java 按历史例外登记。
+TEST_ROOT_EXCEPTIONS = {
+    ADMIN_MODULE: {
+        "admin", "config", "consistency", "e2e", "integration",
+        "perf", "security", "tools", "workflow",
+    },
+}
+TEST_ROOT_JAVA_ALLOWED = {ADMIN_MODULE: {"BaseIntegrationTest.java"}}
 
 
 def default_paths():
@@ -200,6 +222,81 @@ def check_child_pom_versions(backend, modules, errors):
                 )
 
 
+def check_main_java_roots(backend, modules, errors):
+    """D8：main 源码根一级目录白名单，堵住逃逸出 com.acme.scaffold 的源码包。"""
+    for m in modules:
+        java = os.path.join(backend, m, "src", "main", "java")
+        if not os.path.isdir(java):
+            continue
+        allowed = MAIN_ROOTS_ALLOWED | MAIN_ROOT_EXCEPTIONS.get(m, set())
+        actual = {n for n in os.listdir(java) if os.path.isdir(os.path.join(java, n))}
+        for extra in sorted(actual - allowed):
+            errors.append(
+                f"D8 未登记 src/main/java 一级目录: {m} -> {extra} "
+                "(新增源码根须同步 docs/DIRECTORY.md 与 MAIN_ROOT_EXCEPTIONS)"
+            )
+        stray = sorted(n for n in os.listdir(java) if n.endswith(".java"))
+        if stray:
+            errors.append(f"D8 src/main/java 根级散落 Java: {m} -> {', '.join(stray)}")
+
+
+def check_test_package_roots(backend, modules, errors):
+    """D9：测试包根与 main 白名单对齐，防止测试树悄悄长出新的一级包。"""
+    for m in modules:
+        expected = EXPECTED_ROOTS.get(m)
+        if expected is None:
+            continue  # 未登记模块由 D1 报告，避免重复噪声
+        root = os.path.join(backend, m, "src", "test", "java", *ROOT_PKG_PARTS)
+        if not os.path.isdir(root):
+            continue
+        allowed = set(expected) | TEST_ROOT_EXCEPTIONS.get(m, set())
+        actual = {n for n in os.listdir(root) if os.path.isdir(os.path.join(root, n))}
+        for extra in sorted(actual - allowed):
+            errors.append(f"D9 未登记测试包根: {m} -> com.acme.scaffold.{extra}")
+        allowed_java = TEST_ROOT_JAVA_ALLOWED.get(m, set())
+        for f in sorted(n for n in os.listdir(root) if n.endswith(".java")):
+            if f not in allowed_java:
+                errors.append(f"D9 测试源码根级散落 Java: {m} -> {f}")
+
+
+def check_docs_index(backend, errors):
+    """D10：docs/ 下每份文档都要挂进总索引，且索引里的相对链接不能是死链。"""
+    docs = os.path.join(backend, "docs")
+    index = os.path.join(docs, "README.md")
+    if not os.path.isdir(docs) or not os.path.isfile(index):
+        return  # 缺失由 D6 报告
+    with open(index, encoding="utf-8", errors="ignore") as fh:
+        text = fh.read()
+    for dp, _, fs in os.walk(docs):
+        for f in sorted(fs):
+            if not DOC_FILE_RE.search(f):
+                continue
+            rel = os.path.relpath(os.path.join(dp, f), docs).replace(os.sep, "/")
+            if rel == "README.md":
+                continue
+            if f not in text and rel not in text:
+                errors.append(f"D10 docs/README.md 索引漏挂文档: {rel}")
+    for target in MD_LINK_RE.findall(text):
+        clean = target.strip().split("#")[0].strip()
+        if not clean or clean.startswith(("http://", "https://", "mailto:", "//")):
+            continue
+        if not os.path.isfile(os.path.join(docs, clean)):
+            errors.append(f"D10 docs/README.md 索引死链: {target}")
+
+
+def check_test_resources(backend, modules, errors):
+    """D11：测试期运行配置只属于 admin；其它模块仅可放 schema / 夹具等非配置文件。"""
+    for m in modules:
+        if m == ADMIN_MODULE:
+            continue
+        res = os.path.join(backend, m, "src", "test", "resources")
+        if not os.path.isdir(res):
+            continue
+        hits = sorted(n for n in os.listdir(res) if CONFIG_FILE_RE.match(n))
+        if hits:
+            errors.append(f"D11 非启动模块持有测试期运行配置: {m} -> {', '.join(hits)}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="目录约定校验（docs/DIRECTORY.md 的可执行守护）")
     parser.add_argument("--backend", default=None, help="java-admin-framework 根目录")
@@ -224,10 +321,14 @@ def main(argv=None):
     check_common_constants(backend, errors)
     check_docs(backend, errors)
     check_child_pom_versions(backend, modules, errors)
+    check_main_java_roots(backend, modules, errors)
+    check_test_package_roots(backend, modules, errors)
+    check_docs_index(backend, errors)
+    check_test_resources(backend, modules, errors)
 
     root_count = len({r for rs in EXPECTED_ROOTS.values() for r in rs})
     print("=" * 64)
-    print("目录约定校验（D1–D7）")
+    print("目录约定校验（D1–D11）")
     print("=" * 64)
     print(f"后端模块: {len(modules)} 个；登记白名单模块: {len(EXPECTED_ROOTS)} 个；顶层包根: {root_count} 种")
     print(f"前端样式: src/styles/{{{', '.join(STYLE_FILES)}}}")

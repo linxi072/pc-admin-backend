@@ -49,12 +49,6 @@
             <artifactId>scaffold-codegen</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- 工具（可选）：AI 辅助开发集成（R3），编排 codegen 渲染实体/服务/Vue 草稿 -->
-        <dependency>
-            <groupId>com.acme.scaffold</groupId>
-            <artifactId>scaffold-ai</artifactId>
-            <version>${project.version}</version>
-        </dependency>
         <!-- 业务域：内容管理（R5） -->
         <dependency>
             <groupId>com.acme.scaffold</groupId>
@@ -102,18 +96,8 @@
             <artifactId>scaffold-im</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- 业务域：审批中心门户（R7），编排工作流能力，依赖 common + workflow -->
-        <dependency>
-            <groupId>com.acme.scaffold</groupId>
-            <artifactId>scaffold-approval</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <!-- 扩展基座：插件化/SPI 生命周期（仅依赖 common） -->
-        <dependency>
-            <groupId>com.acme.scaffold</groupId>
-            <artifactId>scaffold-plugin</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+        <!-- 2026-11-08 结构整合：approval / plugin 已并入 workflow / common，
+             对应类仍由 workflow / common 的 classpath 提供，无需独立依赖。 -->
         <!-- 运行期直连依赖：驱动、Flyway、Actuator（management 端点配置在本模块） -->
         <dependency>
             <groupId>com.mysql</groupId>
