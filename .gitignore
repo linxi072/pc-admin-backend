@@ -16,6 +16,10 @@ logs/
 .DS_Store?
 ._*
 
+# Python 运行时生成物（门禁脚本 / 初始化脚本执行后产生，不入库）
+__pycache__/
+*.py[cod]
+
 # Node (frontend has its own, this is a safeguard)
 node_modules/
 

@@ -59,7 +59,7 @@
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         </dependency>
 
-        <!-- 测试：jOOQ 经 common 传递；H2 仅测试期承载 DDL 与集成测试 -->
+        <!-- 测试：MyBatis 兼容层经 common 传递；H2 仅测试期承载 DDL 与集成测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

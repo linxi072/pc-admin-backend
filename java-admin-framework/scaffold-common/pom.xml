@@ -12,10 +12,11 @@
   - common.audit / common.idempotency：操作审计切面、写接口幂等切面；
   - common.export / common.importer：导出中心（CSV/XLSX）与导入中心；
   - common.sensitive / common.tree / common.id / common.notification：脱敏、树构建、ID 生成、通知抽象；
-  - jooq.*：手写动态 DSL（JooqTables / TableRef / JooqSorts）与 Record 映射、分页助手；
+  - mybatis.dsl：动态 SQL 兼容层、表登记/写入助手、Record 映射与 keyset 分页（单一包）；
   - 资源：i18n 消息束（messages*/validation*）。
 
-  注意：jOOQ 依赖在本模块声明，其余模块经传递依赖使用（版本由父 POM 统一收敛）。
+  注意：MyBatis 核心与 mybatis-spring 依赖在本模块声明，其余模块经传递依赖使用
+  （版本由父 POM 统一收敛；spring-boot-starter-jdbc 提供 DataSource / 事务链路）。
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -30,7 +31,7 @@
 
     <artifactId>scaffold-common</artifactId>
     <name>scaffold-common</name>
-    <description>公共基础层：统一响应/异常/错误码、i18n、校验、审计、幂等、导出/导入、脱敏、jOOQ 动态 DSL</description>
+    <description>公共基础层：统一响应/异常/错误码、i18n、校验、审计、幂等、导出/导入、脱敏、MyBatis 动态 SQL 兼容层</description>
 
     <dependencies>
         <dependency>
@@ -45,9 +46,18 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- 持久层：MyBatis 核心 + Spring 集成 + spring-jdbc（事务 / DataSource） -->
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis-spring</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jooq</artifactId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
         <!--
           spring-security-core：GlobalExceptionHandler 需将认证/授权异常

@@ -28,7 +28,7 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>java-admin-framework</name>
-    <description>可落地、可扩展的 Java 后端基础管理框架脚手架（RBAC + 可观测性 + 工作流审批），持久层 jOOQ，调度 JobRunr。V1.0.3 起按功能维度拆分为多 Maven 模块。</description>
+    <description>可落地、可扩展的 Java 后端基础管理框架脚手架（RBAC + 可观测性 + 工作流审批），持久层 MyBatis，调度 Quartz。V1.0.3 起按功能维度拆分为多 Maven 模块。</description>
 
     <modules>
         <!-- 基础层：无内部依赖 -->
@@ -66,10 +66,11 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <flowable.version>7.1.0</flowable.version>
-        <jooq.version>3.19.11</jooq.version>
+        <mybatis.version>3.5.16</mybatis.version>
+        <mybatis-spring.version>3.0.3</mybatis-spring.version>
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.6.0</springdoc.version>
-        <jobrunr.version>6.3.4</jobrunr.version>
+        <quartz.version>2.3.2</quartz.version>
         <!-- zstd 原生库：kafka-clients 以 optional 声明，版本由父 POM 统一收敛（子模块省略 version） -->
         <zstd-jni.version>1.5.5-11</zstd-jni.version>
         <!-- 邮件通知渠道：Spring Framework 6.1.15 与 Boot 3.3.4 管理的版本对齐；
@@ -118,10 +119,16 @@
     <!-- 非 Spring Boot BOM 管理的第三方依赖：版本在此统一收敛，子模块声明时省略 version -->
     <dependencyManagement>
         <dependencies>
+            <!-- 持久层：MyBatis 核心 + Spring 集成（jOOQ 依赖已彻底移除） -->
             <dependency>
-                <groupId>org.jooq</groupId>
-                <artifactId>jooq</artifactId>
-                <version>${jooq.version}</version>
+                <groupId>org.mybatis</groupId>
+                <artifactId>mybatis</artifactId>
+                <version>${mybatis.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mybatis</groupId>
+                <artifactId>mybatis-spring</artifactId>
+                <version>${mybatis-spring.version}</version>
             </dependency>
             <!--
               JWT（自签发令牌）：jjwt-api 编译期；impl/jackson 运行期。
@@ -149,11 +156,27 @@
                 <artifactId>flowable-spring-boot-starter-process</artifactId>
                 <version>${flowable.version}</version>
             </dependency>
-            <!-- 调度：JobRunr（替代 XXL-JOB），使用 SQL 存储，无需 Redis / Docker -->
+            <!-- 调度：Quartz（替代 JobRunr），RAMJobStore + 应用内嵌线程池，无需独立调度中心 -->
             <dependency>
-                <groupId>org.jobrunr</groupId>
-                <artifactId>jobrunr-spring-boot-3-starter</artifactId>
-                <version>${jobrunr.version}</version>
+                <groupId>org.quartz-scheduler</groupId>
+                <artifactId>quartz</artifactId>
+                <version>${quartz.version}</version>
+                <exclusions>
+                    <!-- RAMJobStore 不需要连接池；排除 Quartz 2.3.2 默认带入的 c3p0/HikariCP-java7，
+                         避免与 Spring Boot 管理的 HikariCP 版本并存造成类冲突。 -->
+                    <exclusion>
+                        <groupId>com.mchange</groupId>
+                        <artifactId>c3p0</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.mchange</groupId>
+                        <artifactId>mchange-commons-java</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.zaxxer</groupId>
+                        <artifactId>HikariCP-java7</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <!--
               消息通信：Kafka 客户端（海量数据有序消费）。
@@ -248,10 +271,9 @@
     </build>
 
     <!--
-      jOOQ 代码生成层已于方案C（2026-10-31，#857/#858）彻底移除：scaffold-common/pom.xml
-      中的 jooq-codegen-maven 插件与 jooq-codegen-online-repo profile 已删除，db/codegen/ 目录
-      与 jooq-codegen.xml 已物理移除。父 POM 仅保留 jooq.version 与 org.jooq:jooq 依赖管理
-      （手写动态 DSL 仍需核心运行库）。数据访问统一为纯手写 DSL，无代码生成步骤。
+      2026-11-08 持久层迁移：jOOQ（含核心库与 spring-boot-starter-jooq）已彻底移除，
+      改由 MyBatis SqlSession + @*Provider 动态 SQL 执行。com.acme.scaffold.mybatis.dsl
+      为等价 DSL 兼容层，确保业务服务零逻辑改写即可迁移；无代码生成步骤。
     -->
     <profiles>
         <!--

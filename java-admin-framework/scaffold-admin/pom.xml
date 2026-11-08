@@ -6,7 +6,8 @@
   - FrameworkApplication 启动类（@SpringBootApplication，扫描 com.acme.scaffold 根包，
     经 classpath 汇聚全部模块的 Bean）；
   - 运行期配置与资源：application.yml / application-local.yml / application-prod.yml、
-    logback-spring.xml、Flyway 迁移（db/migration）、参考 DDL（db/reference）；
+    logback-spring.xml、手工初始化脚本（db/init）、版本化结构源（db/migration）、
+    参考 DDL（db/reference）；
   - 全部集成/端到端测试（*IT 与 e2e，需完整 Spring 上下文）与跨模块一致性守护测试
     （consistency 包：错误码消息键化、可观测配置与 application.yml 一致性）。
 
@@ -25,7 +26,7 @@
 
     <artifactId>scaffold-admin</artifactId>
     <name>scaffold-admin</name>
-    <description>启动装配层：应用入口、运行期配置与 Flyway 迁移、集成/端到端测试</description>
+    <description>启动装配层：应用入口、运行期配置与手工数据库初始化脚本、集成/端到端测试</description>
 
     <dependencies>
         <!-- 全部业务与基础模块（Bean 经根包扫描汇聚） -->
@@ -98,15 +99,12 @@
         </dependency>
         <!-- 2026-11-08 结构整合：approval / plugin 已并入 workflow / common，
              对应类仍由 workflow / common 的 classpath 提供，无需独立依赖。 -->
-        <!-- 运行期直连依赖：驱动、Flyway、Actuator（management 端点配置在本模块） -->
+        <!-- 运行期直连依赖：驱动、Actuator（management 端点配置在本模块）。
+             数据库结构由 db/init/ 手工初始化，运行时不含任何迁移框架。 -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-mysql</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

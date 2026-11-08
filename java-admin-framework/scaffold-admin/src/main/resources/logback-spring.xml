@@ -26,5 +26,5 @@
     <!-- P1-9：生产环境收敛到 INFO，避免 DEBUG 噪声淹没结构化日志与监控 -->
     <logger name="com.acme.scaffold" level="INFO"/>
     <logger name="org.flowable" level="WARN"/>
-    <logger name="org.jobrunr" level="INFO"/>
+    <logger name="org.quartz" level="INFO"/>
 </configuration>

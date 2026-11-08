@@ -4,7 +4,7 @@
 
   内容：codegen.service（模板渲染）、codegen.config、codegen.controller、codegen.dto。
 
-  依赖方向：codegen → common only（模板与表元数据均来自 common 的 jOOQ DSL）。
+  依赖方向：codegen → common only（模板与表元数据均来自 common 的 MyBatis 动态 SQL 兼容层）。
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

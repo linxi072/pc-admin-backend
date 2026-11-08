@@ -4,10 +4,6 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
-  flyway:
-    # 生产环境结构变更必须走已评审迁移文件
-    baseline-on-migrate: false
-
 app:
   # 限流 fail-closed（S10）：分布式部署下 Redis 不可用时拒绝请求（429）而非 fail-open 回落本地计数，
   # 避免限流失效被绕过（如防爆破）。单实例或非安全场景可显式置 false。
@@ -48,17 +44,9 @@ springdoc:
   swagger-ui:
     enabled: false
 
-# 生产不暴露 JobRunr Dashboard，仅运行后台作业服务
-# 注意：下方 jobrunr.* 是 JobRunr 5.x 旧前缀；6.x（根 pom jobrunr.version=6.3.4）已改为
-# org.jobrunr.*（见 application.yml:78、application-local.yml:28），本段不会被绑定，保留仅作历史说明。
-# 调整生产并发度应改 application.yml 的 org.jobrunr.background-job-server.worker-count（当前 4）；
-# 直接把本段改成 org.jobrunr 会把 worker-count 从 4 提到 8，属运行行为变更，不在本轮重构范围内。
-jobrunr:
-  background-job-server:
-    enabled: true
-    worker-count: 8
-  dashboard:
-    enabled: false
+# 生产 Quartz 调度：无 Dashboard 暴露面；并发度由 app.quartz.thread-count（默认 4）控制，
+# 可用环境变量 QUARTZ_THREAD_COUNT 覆盖。RAMJobStore 不产生数据库表，重启后周期任务由
+# QuartzConfig 在 ApplicationRunner 中重新注册，sys_job 中的用户任务需按业务侧逻辑恢复。
 
 # 登录验证码：开启后 /api/auth/login 必须携带 GET /api/auth/captcha 下发的 token 与答案
 auth:

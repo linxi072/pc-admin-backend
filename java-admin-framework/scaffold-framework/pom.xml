@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  scaffold-framework：框架装配层（全局 Spring 配置 + 可观测性基建 + jOOQ 监听探针）。
+  scaffold-framework：框架装配层（全局 Spring 配置 + 可观测性基建 + MyBatis 监听探针）。
 
   内容：
-  - config.datasource（多数据源路由）/ config.jooq / config.web（CORS、TraceId、
+  - config.datasource（多数据源路由）/ config.mybatis / config.web（CORS、TraceId、
     WebSocket 端点注册、SpringDoc）/ config.cache / config.redis / config.observability；
   - observability.*：指标注册、链路追踪、Span 导出（OTLP 桥接）与查询端点；
-  - monitor.detection：N+1 检测与慢查询监听（jOOQ ExecuteListener，由 config.datasource/jooq 装配）。
+  - monitor.detection：N+1 检测与慢查询监听（MyBatis ExecuteListener，由 config.mybatis 装配）。
 
-  依赖方向：framework → {common, realtime}。注意 config.jobrunr 已随周期任务
-  注册逻辑移入 scaffold-job（job.config.JobRunrConfig），避免 framework → job 成环。
+  依赖方向：framework → {common, realtime}。调度装配已随周期任务
+  注册逻辑移入 scaffold-job（job.config.QuartzConfig），避免 framework → job 成环。
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -57,11 +57,7 @@
             <artifactId>scaffold-realtime</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- R4 多区域：按部署单元独立执行 Flyway 迁移（主代码使用） -->
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
+        <!-- R4 多区域：结构初始化改由 DBA 对每个单元执行 db/init/，无需迁移框架依赖。 -->
         <!-- 测试：H2 内存库用于多区域路由 / 迁移集成测试 -->
         <dependency>
             <groupId>com.h2database</groupId>
