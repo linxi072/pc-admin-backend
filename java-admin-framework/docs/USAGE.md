@@ -45,7 +45,7 @@ python3 scripts/check-all.py --test-tmpdir /tmp # 受限环境钉定临时目录
 ## 4. 开发约定
 - 分层：`controller → service → domain`（`scripts/check-conventions.py` H3 守护）。
 - 跨模块协作经 **Port（防腐层）**，特性模块不互相直连 Service。
-- 数据写入统一走 `JooqWriters`，自动填充/逻辑删除/租户隔离不变；DDL 标识符须显式加引号保留 snake_case 小写。
+- 数据写入统一走 `SqlWriters`，自动填充/逻辑删除/租户隔离不变；DDL 标识符须显式加引号保留 snake_case 小写。
 - i18n：消息目录 `src/i18n/messages.js` 嵌套点分键，新子组须塞进父命名空间内部。
 - 权限码：新 `@PreAuthorize` 端点由 `ApiResourceAutoSyncRunner` 自动登记，无需手工维护。
 
@@ -58,12 +58,12 @@ python3 scripts/check-all.py --test-tmpdir /tmp # 受限环境钉定临时目录
 - API 客户端 `src/api/*.js`（经 `src/api/http.js` 统一拦截，自动携带租户/JWT、统一报错）
 - 路由 `src/router/index.js`（菜单驱动侧边栏，未授权路由重定向 `/dashboard`）
 - 前端门禁：`node scripts/check-sfc.mjs <files>` + `node scripts/i18n-leak-scan.mjs src` + `vite build`
-- 新增后端端点时，前端须同步补：路由 + i18n 键 + 菜单种子（Flyway）+ API 客户端函数。
+- 新增后端端点时，前端须同步补：路由 + i18n 键 + 菜单种子（版本化结构链 `db/migration/` 新增版本文件后重生成 `db/init/01_full_schema.sql`）+ API 客户端函数。
 
 ## 7. 数据库初始化与参考件
-- **唯一可执行事实源**：`scaffold-admin/src/main/resources/db/migration/`（Flyway，`validate-on-migrate=true`）。全新环境由应用启动时自动按版本顺序建库，**无需手工执行任何初始化 SQL**；当前链为 `V32~V81`（49 个 SQL 迁移 + V57 Java 类迁移）。
+- **唯一可执行初始化入口**：`scaffold-admin/src/main/resources/db/init/`（`00_create_database.sql` → `01_full_schema.sql`，可选 `02_backfill_tenant_id.sql`）。运行时已移除 Flyway，**应用启动不执行任何 DDL**，全新环境须由 DBA 手工执行；`db/migration/` 降级为版本化结构源（当前 `V32~V81`，49 个 SQL 文件），`db/reference/` 为分类阅读参考件。
 - **严禁修改已发布迁移**：连注释与空白都不能改，否则启动报 `Validate failed: ... checksum mismatch`；修复只能以更高版本迁移前向追加。
 - **参考件（非可执行）**：`db/reference/schema_ddl.sql`（DDL）与 `data_dml.sql`（DML）由 `python3 scripts/build_reference_modular.py` 从迁移链整链派生，仅供阅读与追溯，**不可当迁移执行**。header 的版本范围由脚本运行时探测，不写死。
 - **新增迁移后的三件套**：① 追加 `V<N>__*.sql`；② 重跑 `python3 scripts/build_reference_modular.py` 重生成两份参考件；③ 同步更新 `db/migration/README.md` 的「版本 → 模块映射」与「V60–V81 新增表结构与字段变更」章节。缺任一步都会让文档/参考件落后于实现（2026-11-08 曾发现 V60~V81 共 22 个迁移漏派生）。
 - 完整迁移索引、10 张新增表的列清单与 5 个新增列见 [`db/migration/README.md`](../scaffold-admin/src/main/resources/db/migration/README.md)。
-- 代码侧表/列登记集中在 `scaffold-common` 的 `JooqTables.java`，与迁移链 DDL 一一对应（2026-11-08 字段级扫描：58 个 `TableRef` 常量与 DDL 零差异）。新增表/列须同步登记，否则手写动态 DSL 取不到列。
+- 代码侧表/列登记集中在 `scaffold-common` 的 `SqlTables.java`，与迁移链 DDL 一一对应（2026-11-08 字段级扫描：58 个 `TableRef` 常量与 DDL 零差异）。新增表/列须同步登记，否则手写动态 DSL 取不到列。

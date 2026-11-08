@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * 迁移 SQL 渲染器：表规格 → 带引号小写 snake_case 标识符的 CREATE TABLE + 独立 CREATE INDEX。
  *
- * <p>对齐本仓 Flyway 迁移约定（V74/V76）：标识符显式加双引号保留 snake_case 小写，
+ * <p>对齐本仓版本化结构链约定（V74/V76）：标识符显式加双引号保留 snake_case 小写，
  * 索引用独立语句，索引名以 {@code idx_<表>_<列>} 全局唯一；tenant_id 按框架约定
  * NOT NULL DEFAULT 0 承载租户隔离。</p>
  */

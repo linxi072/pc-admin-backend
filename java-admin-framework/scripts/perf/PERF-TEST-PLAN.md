@@ -12,7 +12,7 @@
 | 维度 | 说明 |
 | --- | --- |
 | 被测系统 | `scaffold-admin`（Spring Boot 3.3.4 / Java 21）可执行实例 |
-| 部署形态 | 单节点、本机 `integration` profile（真实 MySQL、关闭 Spring Cache 注解、JobRunr 后台执行器关闭） |
+| 部署形态 | 单节点、本机 `integration` profile（真实 MySQL、关闭 Spring Cache 注解、Quartz 调度器关闭） |
 | 网络 | 本机 loopback（127.0.0.1），**不含** 网卡 / 反向代理 / TLS 开销 |
 | 数据层 | 同机 MySQL（与集成测试共用 `java_admin` 库）；因缓存注解关闭，读接口每次直连 DB（结果偏保守） |
 | 排除项 | 浏览器端渲染、静态资源、WebSocket 推送、Kafka 消费链路（不在 HTTP 压测面内） |

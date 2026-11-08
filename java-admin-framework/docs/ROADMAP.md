@@ -9,7 +9,7 @@
 ## 0. 基线现状（V1.0.7）
 
 - **规模**：14 个 Maven 模块（2026-11-08 由 17 收敛，plugin/approval/ai 已并入），包根 `com.acme.scaffold`；里程碑 M1–M50 全部收口。
-- **已具备核心能力**：RBAC 权限、JWT/刷新令牌/Token 版本失效、OAuth2 授权+资源服务器、多租户隔离、数据权限、字段脱敏、写接口幂等、操作审计、Flowable 工作流（含管理员治理）、JobRunr 调度、WebSocket 实时、可观测探针（Micrometer + N+1/慢查询监听）、jOOQ 持久层、代码生成器（M50）、低代码设计器（M44）、API 文档中心、幂等记录管理、流程实例治理。
+- **已具备核心能力**：RBAC 权限、JWT/刷新令牌/Token 版本失效、OAuth2 授权+资源服务器、多租户隔离、数据权限、字段脱敏、写接口幂等、操作审计、Flowable 工作流（含管理员治理）、Quartz 调度、WebSocket 实时、可观测探针（Micrometer + N+1/慢查询监听）、MyBatis 持久层、代码生成器（M50）、低代码设计器（M44）、API 文档中心、幂等记录管理、流程实例治理。
 - **当前缺口**：作为"脚手架"已功能完整（R12 微前端 ✅ 已落地）；R9 移动端自适应、R10 低代码深化、R11 通用组件库、R13/R14/R16 运维增强、R15 混沌注入已随各迭代落地，详见各章节。
 
 **目标演进**：从「功能完整的模块化单体脚手架」升级为「**可扩展、可观测、可插件化的企业级平台**」。
@@ -67,24 +67,24 @@
 
 #### R4 · 多区域 / 多集群部署支撑 — P2
 - **动机**：多租户已建（租户列隔离），但单实例；大租户需物理隔离。
-- **方案要点**：租户→部署单元映射配置；数据源路由按租户组；Flyway 按单元独立迁移；复用 `TenantContext` 与既有 `RoutingDataSource`。
-- **候选模块**：`scaffold-framework/config/multiregion`（✅ **已落地 V1.0.7**）：在既有多数据源路由（`RoutingDataSource` / `DataSourceContextHolder` / `DataSourceRegistry`，位于 `scaffold-framework`）之上叠加「租户→部署单元」解析层 —— `TenantUnitMapping` 解析当前租户归属单元（显式映射 / 租户组区间 / 默认单元三级优先级），`MultiRegionInterceptor`（Web 层，注册在 `TenantInterceptor` 之后）与 `MultiRegionRouter`（非 Web 编程式）按解析结果写入 `DataSourceContextHolder`，使构建在 `RoutingDataSource` 之上的主 `DSLContext`（即 `JooqConfig.dslContext`）自动路由到对应物理库；`UnitAwareFlywayMigrator` 对每个注册数据源独立执行迁移；全链路零改 `JooqWriters` / `JooqConfig`。默认 `app.multiregion.enabled=false`，关闭时完全不装配任何 R4 Bean，与单实例行为零回归。
+- **方案要点**：租户→部署单元映射配置；数据源路由按租户组；每个单元由 DBA 分别执行 `db/init/` 初始化；复用 `TenantContext` 与既有 `RoutingDataSource`。
+- **候选模块**：`scaffold-framework/config/multiregion`（✅ **已落地 V1.0.7**）：在既有多数据源路由（`RoutingDataSource` / `DataSourceContextHolder` / `DataSourceRegistry`，位于 `scaffold-framework`）之上叠加「租户→部署单元」解析层 —— `TenantUnitMapping` 解析当前租户归属单元（显式映射 / 租户组区间 / 默认单元三级优先级），`MultiRegionInterceptor`（Web 层，注册在 `TenantInterceptor` 之后）与 `MultiRegionRouter`（非 Web 编程式）按解析结果写入 `DataSourceContextHolder`，使构建在 `RoutingDataSource` 之上的主 `DSLContext`（由 `config.mybatis.MyBatisConfig` 装配）自动路由到对应物理库；原 `UnitAwareFlywayMigrator` 已随 Flyway 移除，各单元由 DBA 分别执行 `db/init/` 初始化；全链路零改 `mybatis.dsl.SqlWriters`（兼容层）。默认 `app.multiregion.enabled=false`，关闭时完全不装配任何 R4 Bean，与单实例行为零回归。
   - **为何落在 framework 而非 common**：既有路由基础设施（DataSourceRegistry / RoutingDataSource / DataSourceContextHolder）已在 `scaffold-framework`，若放入 `common` 将产生 common→framework 反向依赖而破坏 DAG 无环；故 R4 复用 framework 既有能力，未新增模块。
 - **依赖**：R2 事件驱动（已完成）+ R16 配置中心（可选，未阻塞）。
-- **验收**：`MultiRegionRoutingIntegrationTest` 用两个 H2 内存库模拟两部署单元，验证租户组 A/B 的写入仅落对应物理库（物理隔离）；`UnitAwareFlywayMigratorTest` 验证每个单元独立迁移；门禁全绿。
+- **验收**：`MultiRegionRoutingIntegrationTest` 用两个 H2 内存库模拟两部署单元，验证租户组 A/B 的写入仅落对应物理库（物理隔离）；各单元结构由 `db/init/` 手工初始化，不再有按单元自动迁移的 Runner。
 
 ### 3.2 业务模块扩充
 
 #### R5 · 内容管理 CMS — P1
 - **动机**：后台普遍需要栏目/文章/富文本/媒体库。
-- **候选模块**：`scaffold-cms`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.cms` 下 `domain`（CmsCategoryDO/CmsArticleDO）/`dto`/`service`（栏目树构建 + 文章 CRUD/发布态流转）/`controller`（栏目、文章 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）/`event`（ArticlePublishedEvent 复用 R2 事件总线）；DDL 见 V74__cms.sql（cms_category/cms_article + 菜单种子）；`JooqTables` 新增 `CMS_CATEGORY`/`CMS_ARTICLE` 常量。
-- **依赖取舍**：为保持 DAG 最小且无环，CMS 仅依赖 `common`（经 JooqWriters 持久化、R2 事件总线发发布事件），未引入 `system`/`plugin`；媒体资源以 `cover_url` 等文本列承载，避免跨模块 Service 直连（与「跨域协作经 Port/事件」铁律一致）。
+- **候选模块**：`scaffold-cms`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.cms` 下 `domain`（CmsCategoryDO/CmsArticleDO）/`dto`/`service`（栏目树构建 + 文章 CRUD/发布态流转）/`controller`（栏目、文章 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）/`event`（ArticlePublishedEvent 复用 R2 事件总线）；DDL 见 V74__cms.sql（cms_category/cms_article + 菜单种子）；`SqlTables` 新增 `CMS_CATEGORY`/`CMS_ARTICLE` 常量。
+- **依赖取舍**：为保持 DAG 最小且无环，CMS 仅依赖 `common`（经 SqlWriters 持久化、R2 事件总线发发布事件），未引入 `system`/`plugin`；媒体资源以 `cover_url` 等文本列承载，避免跨模块 Service 直连（与「跨域协作经 Port/事件」铁律一致）。
 - **验收**：栏目树 + 文章 CRUD + 富文本 + 发布态（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数；双门禁全绿（11 个后端单测覆盖）；菜单种子与权限码自动登记就绪。前端视图 ✅ **已落地 V1.0.7**（cms/CategoryView 树形栏目 + cms/ArticleView 发布/下线/详情抽屉 + api 契约测试 6 例，i18n 双 locale 补齐）。
 
 #### R6 · 站内 IM / 客服 — P1
 - **动机**：基于已有 `realtime`(WebSocket) 的会话能力缺失。
-- **候选模块**：`scaffold-im`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.im` 下 `domain`（ImConversationDO/ImConversationMemberDO/ImMessageDO）/`dto`/`service`（会话创建[P2P/群组]+成员管理+消息发送/未读计数/已读回执 + 会话列表）/`controller`（会话、消息 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V75__im.sql（im_conversation/im_conversation_member/im_message + 菜单种子）。`JooqTables` 复用既有常量；`ImMessageSentEvent` 落地于 `common.event.domain`（与 UserDisabledEvent 同位），由 `realtime` 的 `ImMessagePushListener` 订阅后经 WebSocket 实时推送，二者经事件解耦、无编译期依赖。
-- **依赖取舍**：为保持 DAG 最小且无环，IM 仅依赖 `common`（经 JooqWriters 持久化、R2 事件总线发消息事件）；实时推送由 `realtime` 订阅同一事件完成，IM 不反向依赖 realtime/`system`/`plugin`（与「跨域协作经 Port/事件」铁律一致）。
+- **候选模块**：`scaffold-im`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.im` 下 `domain`（ImConversationDO/ImConversationMemberDO/ImMessageDO）/`dto`/`service`（会话创建[P2P/群组]+成员管理+消息发送/未读计数/已读回执 + 会话列表）/`controller`（会话、消息 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V75__im.sql（im_conversation/im_conversation_member/im_message + 菜单种子）。`SqlTables` 复用既有常量；`ImMessageSentEvent` 落地于 `common.event.domain`（与 UserDisabledEvent 同位），由 `realtime` 的 `ImMessagePushListener` 订阅后经 WebSocket 实时推送，二者经事件解耦、无编译期依赖。
+- **依赖取舍**：为保持 DAG 最小且无环，IM 仅依赖 `common`（经 SqlWriters 持久化、R2 事件总线发消息事件）；实时推送由 `realtime` 订阅同一事件完成，IM 不反向依赖 realtime/`system`/`plugin`（与「跨域协作经 Port/事件」铁律一致）。
 - **验收**：P2P/群组会话 + 成员管理 + 消息发送 + 未读计数（按成员 last_read_message_id 推导）+ 已读回执 + 会话列表；双门禁全绿（16 个后端单测覆盖 CRUD/树/未读/回执/事件）；菜单种子与权限码自动登记就绪。前端会话组件 ✅ **已落地 V1.0.7**（im/ConversationView 会话管理 + im/MessageView 消息中心[气泡/发送/撤回/已读/未读角标] + api 契约测试 6 例，i18n 双 locale 补齐）。
 
 #### R7 · 审批中心门户 — P1
@@ -95,8 +95,8 @@
 
 #### R8 · 数据看板模板库 — P2
 - **动机**：`workbench` 报表为硬编码，缺可复用模板。
-- **候选模块**：`scaffold-workbench` 扩展（✅ **已落地 V1.0.7**）：`com.acme.scaffold.workbench.dashboard` 下 `domain`（DashboardTemplateDO）/`dto`（TemplateSaveRequest/TemplateUpdateRequest/DashboardTemplateVO）/`service`（看板模板 CRUD + 发布态流转 DRAFT/PUBLISHED/OFFLINE + 浏览计数 + layout_json 经 Jackson 合法性校验）/`controller`（看板模板 REST 端点 `/api/dashboard/template/*`，统一权限码 `dashboard:template:manage`，@PreAuthorize 经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V78__dashboard_template.sql（dashboard_template + 菜单种子：数据看板目录 9701 + 看板模板管理 9702）。`JooqTables` 新增 `DASHBOARD_TEMPLATE` 常量。
-- **依赖取舍**：为保持 DAG 最小且无环，dashboard 仅依赖 `common` + `system`（与 workbench 既有依赖一致，经 JooqWriters 持久化）；布局配置以 `layout_json`（TEXT）承载，由前端约定结构、后端仅做 JSON 语法校验（不做语义约束），避免引入重量级表单引擎；复用现有 `workbench` 模块而非新建模块。
+- **候选模块**：`scaffold-workbench` 扩展（✅ **已落地 V1.0.7**）：`com.acme.scaffold.workbench.dashboard` 下 `domain`（DashboardTemplateDO）/`dto`（TemplateSaveRequest/TemplateUpdateRequest/DashboardTemplateVO）/`service`（看板模板 CRUD + 发布态流转 DRAFT/PUBLISHED/OFFLINE + 浏览计数 + layout_json 经 Jackson 合法性校验）/`controller`（看板模板 REST 端点 `/api/dashboard/template/*`，统一权限码 `dashboard:template:manage`，@PreAuthorize 经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V78__dashboard_template.sql（dashboard_template + 菜单种子：数据看板目录 9701 + 看板模板管理 9702）。`SqlTables` 新增 `DASHBOARD_TEMPLATE` 常量。
+- **依赖取舍**：为保持 DAG 最小且无环，dashboard 仅依赖 `common` + `system`（与 workbench 既有依赖一致，经 SqlWriters 持久化）；布局配置以 `layout_json`（TEXT）承载，由前端约定结构、后端仅做 JSON 语法校验（不做语义约束），避免引入重量级表单引擎；复用现有 `workbench` 模块而非新建模块。
 - **验收**：看板模板 CRUD + 配置（layout_json 序列化）+ 发布态流转（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数 + 权限码自动登记；双门禁全绿（9 个后端单测覆盖 CRUD/发布/撤销/计数/更新/逻辑删除/分页筛选/非法 JSON 拒绝/缺失模板）。前端视图 ✅ **已落地 V1.0.7**（dashboard/DashboardTemplateView 分页管理 + 拖拽布局配置器[卡片排序 ⇄ layout_json 双向编辑、JSON 校验阻断提交] + 预览抽屉网格渲染 + api 契约测试 7 例，i18n 双 locale 补齐）。
 
 ### 3.3 前端能力增强
@@ -154,7 +154,7 @@
 - **前端视图（混沌工程治理面）**：✅ **已落地 V1.0.7**（chaos/ChaosView 故障列表 + 注入表单[类型/路径匹配/延迟/错误码/概率] + 单条解除/全部清除，feature-gate 友好降级 + api 契约测试 4 例；菜单种子 V80 新增 `system:chaos:read`）。
 
 #### R16 · 配置中心接入 — P2
-- **动机**：当前配置在 `application` + Flyway，无动态刷新。
+- **动机**：当前配置在 `application` + 版本化结构链（`db/migration/` → `db/init/`），无动态刷新。
 - **候选模块**：`framework.config.center`（✅ **已落地 V1.0.7**）：`ConfigCenterPort`（防腐层，定义读取/快照/刷新/动态刷新能力）+ `LocalConfigCenterAdapter`（默认实现，读取 Spring `Environment` 的 `app.*` 命名空间，零新依赖）+ `ConfigCenterService`（刷新后发布 `ConfigRefreshedEvent` 经 R2 事件总线，订阅方可热重载运行态）+ `ConfigCenterController`（`/api/system/config-center` 状态/快照/刷新，权限码 `system:config-center:read|manage` 自动登记）。`app.config-center.enabled` 默认 false，关闭时完全不装配任何 R16 Bean，与既有行为零回归；远端类型（nacos/apollo）的 `ConfigCenterPort` 实现由外部 jar 经 R1 插件机制提供，避免离线仓库引入其 SDK。
 - **依赖**：R2 事件（动态刷新，已完成）。
 - **验收**：本地适配器下配置可快照与刷新并触发事件（热更新订阅链路已打通）；远端中心接入只需提供 `ConfigCenterPort` Bean，无需改动业务代码。无需重启即可在「本地 reload + 事件通知」语义下热刷新。
@@ -187,8 +187,8 @@
 1. **双门禁**：任一规划项落地均须 `mvn -o -f pom.xml -pl <module> -am clean test` 全绿 + `scripts/check-conventions.py` exit=0（须 `dangerouslyDisableSandbox` 且 `timeout>=600000`）。
 2. **依赖无环（H5）**：新增模块须保持 DAG 无环；特性模块不互相直连 Service，协作经 **Port 防腐层** 或上层 `admin` 编排。
 3. **分层（H3）**：`controller → service → domain`；纯函数规则类随数据域走。
-4. **持久层**：统一走 `JooqWriters`，DDL 标识符须显式加引号保留 snake_case 小写；索引用独立 `CREATE INDEX`。
-5. **i18n**：新子组须塞进父命名空间内部；前端新增端点须同步补路由 + i18n 键 + 菜单种子（Flyway）+ API 客户端。
+4. **持久层**：统一走 `SqlWriters`，DDL 标识符须显式加引号保留 snake_case 小写；索引用独立 `CREATE INDEX`。
+5. **i18n**：新子组须塞进父命名空间内部；前端新增端点须同步补路由 + i18n 键 + 菜单种子（版本化结构链）+ API 客户端。
 6. **权限码**：新 `@PreAuthorize` 端点由 `ApiResourceAutoSyncRunner` 自动登记，无需手工维护。
 7. **提交门禁**：按关注点拆 `type: 中文描述` 提交；**绝不 push `main`/远程**，由本机推送；`scripts/check-conventions.py` 超时需 `dangerouslyDisableSandbox + timeout>=600000`。
 
@@ -208,8 +208,8 @@
 
 ## 7. 风险与开放问题
 
-- **`common ↔ jooq` 依赖环**：仍是"新增模块不改动 common"的前提约束；插件机制须避免把扩展逻辑塞回 common。
-- **插件化与强类型 jOOQ/Port 的兼容**：外部 jar 如何安全访问领域实体与 DSL，需约定"仅经 Port/事件"，禁止跨 jar 直连 entity。
+- **`common ↔ mybatis` 依赖环**：仍是"新增模块不改动 common"的前提约束；插件机制须避免把扩展逻辑塞回 common。
+- **插件化与强类型 MyBatis/Port 的兼容**：外部 jar 如何安全访问领域实体与 DSL，需约定"仅经 Port/事件"，禁止跨 jar 直连 entity。
 - **AI 集成的合规与成本**：R3 涉及外部大模型，须有脱敏/审计/成本门禁与离线降级。
-- **多区域数据一致性**：R4 跨数据源后，跨单元查询与 Flyway 迁移顺序需专门设计。
+- **多区域数据一致性**：R4 跨数据源后，跨单元查询与 `db/init/` 初始化顺序需专门设计。
 - **前端 monorepo 拆分成本**：R11/R12 涉及构建体系改造，需评估与现有 Vite 单仓的兼容。

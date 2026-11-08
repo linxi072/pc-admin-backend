@@ -23,7 +23,7 @@ java-admin-framework/
 └── scaffold-<name>/            14 个模块，目录结构统一
     ├── pom.xml
     ├── src/main/java/com/acme/scaffold/<包根>/   一级目录只允许 com（admin 例外允许 db）
-    ├── src/main/resources/     仅 admin 放运行期配置与 Flyway 迁移
+    ├── src/main/resources/     仅 admin 放运行期配置与 db/init 手工初始化脚本
     └── src/test/               （2026-11-08 起测试文件已移除；D9/D11 守护规则保留）
 ```
 
@@ -35,18 +35,18 @@ java-admin-framework/
 
 | 模块 | 顶层包根 | 说明 |
 |---|---|---|
-| common | `common.*`（27 个一级子包）+ `jooq.*` | `jooq` 为历史第二包根，见 §3 例外 |
+| common | `common.*`（27 个一级子包）+ `mybatis.*` | `mybatis.dsl` 为数据访问层单一包，见 §3 |
 | realtime / kafka / cms / im | 同名包根 | 与模块名一致 |
-| **common** | `common.*` + `jooq.*` + `plugin.*` | `plugin.*` 由并入的 plugin 能力带入 |
+| **common** | `common.*` + `mybatis.*` + `plugin.*` | `plugin.*` 由并入的 plugin 能力带入 |
 | **codegen** | `codegen.*` + `ai.*` | `ai.*` 由并入的 AI 脚手架带入 |
 | **workflow** | `workflow.*` + `approval.*` | `approval.*` 由并入的审批门户带入 |
 | security / system / monitor / job / workbench / workflow | 同名包根 | 与模块名一致 |
 | **framework** | `config.*` / `observability.*` / `monitor.*` / `chaos.*` | **无 `framework` 包**，历史例外；`monitor` 下分 detection / observability |
-| **admin** | `com.acme.scaffold`（启动类） | 无业务包；`src/main/java/db/migration/` 另有 Flyway Java 迁移（唯一 `db` 一级目录例外） |
+| **admin** | `com.acme.scaffold`（启动类） | 无业务包；`src/main/java/db/` 保留为数据库引导组件例外位（Flyway Java 迁移已移除） |
 
 > 上述包根与 admin 的 `db` / 测试包根例外，均在 `scripts/check-directory.py` 的
 > `EXPECTED_ROOTS`、`MAIN_ROOT_EXCEPTIONS`、`TEST_ROOT_EXCEPTIONS` 中登记并由 D1/D8/D9 守护；
-> `package-info.java` 仅覆盖 common 的 3 个包、`jooq` 与 framework/config 共 5 处（不是每个例外包都有）。
+> `package-info.java` 仅覆盖 common 的 3 个包、`mybatis` 与 framework/config 共 5 处（不是每个例外包都有）。
 > 模块边界由 Maven 依赖与 H5 DAG 强制，不靠包名推断；**不得**为「看起来更整齐」而重命名包根。
 
 ## 3. `scaffold-common` 一级子包职责表
@@ -75,7 +75,7 @@ java-admin-framework/
 5. 跨模块协作 → `common` 定义 `*Port`，由拥有数据的模块提供 `@Component` 适配器；
 6. 业务代码 → 归属其领域模块，不因「名字听起来相关」放进别的模块。
 
-`common.jooq` 例外：位于 common 模块但包根为 `com.acme.scaffold.jooq`，只放无状态 DSL 工具，
+`common.mybatis` 例外：位于 common 模块但包根为 `com.acme.scaffold.mybatis`，只放无状态 DSL 工具，
 不放业务实体、不定义表结构。重排包根需改动全仓数百处 import，属高风险零收益搬迁，保留。
 
 ## 4. 前端目录骨架
@@ -146,7 +146,7 @@ D1–D11 一览（详见 `scripts/check-directory.py` 文件头 docstring）：
 | D5 | `common/constant/CommonConstants.java` 必须存在 |
 | D6 | 三份规范文档齐全，`docs/README.md` 索引引用齐全 |
 | D7 | 子模块 POM `<dependencies>` 不得写具体第三方版本 |
-| D8 | `src/main/java` 一级目录只允许 `com`；admin 例外允许 `db`（Flyway Java 迁移） |
+| D8 | `src/main/java` 一级目录只允许 `com`；admin 例外允许 `db`（数据库引导组件保留位） |
 | D9 | `src/test/java` 若存在，包根与 main 白名单对齐；admin 9 个历史包根 + `BaseIntegrationTest.java` 例外 |
 | D10 | `docs/` 下所有文档须挂进 `docs/README.md` 索引，且索引相对链接不得是死链 |
 | D11 | `src/test/resources` 仅 admin 可持 `application*.yml` / `logback*.xml`（当前测试资源已移除） |

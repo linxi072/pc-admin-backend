@@ -12,7 +12,7 @@
   D6. 三份规范文档齐全，且 ``docs/README.md`` 索引引用齐全（防死链）。
   D7. 子模块 POM 的 ``<dependencies>`` 不得写具体版本号，版本统一在父 POM 收敛。
   D8. ``src/main/java`` 一级目录白名单：只允许 ``com``；admin 例外允许 ``db``
-      （Flyway Java 迁移 ``db/migration/V57__backfill_tenant_id.java``）。
+      （保留给数据库引导组件；Flyway Java 迁移已随运行时移除）。
   D9. ``src/test/java`` 包根须与 main 白名单对齐；admin 集成测试的 9 个包根与
       ``BaseIntegrationTest.java`` 根级文件按历史例外登记。
   D10. ``docs/`` 下所有文档须被 ``docs/README.md`` 索引，且索引里的相对链接目标存在。
@@ -48,7 +48,9 @@ DOC_FILE_RE = re.compile(r"\.(md|html)$", re.IGNORECASE)
 MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 # 按模块登记的顶层包根（磁盘现状，2026-11-08 结构整合后取证，14 个模块）。
-# 历史例外：common 含 jooq；framework 无同名包根，类分布在
+# 2026-11-08：原 common 第二包根 com.acme.scaffold.jooq 已整体并入
+# com.acme.scaffold.mybatis.dsl（类名 Jooq* 同步改为 Sql*），common 只剩三个包根。
+# framework 无同名包根，类分布在
 # config/observability/monitor/chaos；admin 的 JacksonConfig 位于 config 包（跨模块同包）。
 # 2026-11-08 整合：plugin -> common、approval -> workflow、ai -> codegen，
 # 类包路径保持原样，因此这三个包根分别登记到接收模块（不改变任何 FQN）。
@@ -57,7 +59,7 @@ EXPECTED_ROOTS = {
     "scaffold-admin": {"admin", "config"},
     "scaffold-cms": {"cms"},
     "scaffold-codegen": {"ai", "codegen"},
-    "scaffold-common": {"common", "jooq", "plugin"},
+    "scaffold-common": {"common", "mybatis", "plugin"},
     "scaffold-framework": {"chaos", "config", "monitor", "observability"},
     "scaffold-im": {"im"},
     "scaffold-job": {"job"},
@@ -70,8 +72,8 @@ EXPECTED_ROOTS = {
     "scaffold-workflow": {"approval", "workflow"},
 }
 
-# D8：src/main/java 一级目录。仅 admin 的 db 为合法例外（Flyway Java 迁移，
-# 该文件必须落在 db/migration 才能被 Flyway 按类名发现，不能搬进 com.acme.scaffold）。
+# D8：src/main/java 一级目录。仅 admin 的 db 为合法例外（数据库引导组件保留位；
+# Flyway Java 迁移已随运行时移除，db/init/ 下的脚本均为 SQL，不带 Java 源）。
 MAIN_ROOTS_ALLOWED = {"com"}
 MAIN_ROOT_EXCEPTIONS = {ADMIN_MODULE: {"db"}}
 

@@ -3,7 +3,7 @@
 # 千万级 L4（Spring Boot HTTP 全链路）压测隔离库准备
 # -------------------------------------------------------------------------------------
 # 与 seed-ten-million.sh 的区别：
-#   - java_admin_perf 只有 7 张表，无法拉起完整 Spring 上下文（Flyway/Flowable/菜单/
+#   - java_admin_perf 只有 7 张表，无法拉起完整 Spring 上下文（db/init/Flowable/菜单/
 #     角色/admin 账号等 110 张表缺失），因此新建独立的 java_admin_perf_l4；
 #   - L4 库 = java_admin 的完整结构与种子数据（含 admin 账号、权限、菜单）
 #     + java_admin_perf 的 1280 万行 sys_operation_log（真实千万级主表）；

@@ -16,7 +16,7 @@
 | 组织方式 | common / framework / system / quartz / generator / admin；父 POM 仅聚合与版本管理；admin 唯一 Web 入口 | 17 个 `scaffold-*` 模块；admin 已是唯一启动模块；父 POM 已聚合 + 版本管理 | 修 `docs/MODULES.md` 的 12→17 模块与「规划中未创建」漂移；父 POM 收敛 `zstd-jni` 版本；新增 `docs/DIRECTORY.md`；补 5 份 `package-info.java` | 部分对齐，结构差异保留 |
 | 职责边界 | 模块内 domain / mapper / service 分层；framework 集中全局装配 | 扁平特性子包；framework 类散在 `config`/`observability`/`monitor.*`/`chaos` | 用包级说明 + 目录规范写明边界与例外，不改包名 | 文档对齐，代码保留 |
 | 公共能力 | `common/constant` 常量包、`common/core/domain` 响应基类、`common/utils` 工具包 | 已有 `api`/`error`/`text`/`tree`/`util` 等单一事实来源，但**无 constant 包**，字面值散落 16 处 | 新增 `common/constant/CommonConstants`，16 处存量改委托且值逐字不变；新增 `CommonConstantsTest` | 已对齐 |
-| 配置管理 | admin 集中 `application.yml` / `application-druid.yml` / `logback.xml`；配置类集中 common.config / framework.config | admin 已集中 yml 与 logback；43 个 `@ConfigurationProperties` 分散在 11 个模块特性包 | 生产 yml 旧 `jobrunr:` 前缀仅加注释标注（不改键值）；配置类归属写入目录规范，不搬迁 | 部分对齐，配置类保留 |
+| 配置管理 | admin 集中 `application.yml` / `application-druid.yml` / `logback.xml`；配置类集中 common.config / framework.config | admin 已集中 yml 与 logback；43 个 `@ConfigurationProperties` 分散在 11 个模块特性包 | 生产 yml 旧 `jobrunr:` 段已随 JobRunr → Quartz 迁移删除；配置类归属写入目录规范，不搬迁 | 部分对齐，配置类保留 |
 | 交互规范 | AjaxResult / TableDataInfo / BaseController.startPage；`@Log`/`@DataScope` 注解；`src/api` 集中请求 + 统一 axios 拦截器拆包 | `Result<T>` 包络 + `PageResult`/`KeysetPageResult` + `PagingRules`；`api-contract.json` 前后端共同断言；前端 `src/api/http.js` 统一注入鉴权头与拆包 | **不改**：响应体改名会破坏契约测试；仅把前端根级 `styles.css` 归位到 `styles/base.css` | 保留差异，路径归位 |
 
 ## 2. 本轮已落地项（零契约风险）
@@ -25,10 +25,10 @@
 |---|---|---|---|
 | 1 | 公共能力 | 新增 `common/constant/CommonConstants.java` | 纯新增常量持有者，无运行时副作用 |
 | 2 | 公共能力 | `PagingRules` / `PageQuery` / `KeysetPageQuery` / `Result` / `FormSubmissionService` / `ReportService` / `JobCreateDTO` / `JobUpdateDTO` / `RuntimeMetricsCollector` / `NotificationDigestService` / `AuthService` / `ProfileDeviceService` / `WebConfig` / `ProfileController` 共 16 处字面值改委托 | 分页上限、时间格式、头像前缀、成功码逐字不变；公共常量字段保留 |
-| 3 | 组织方式 | 新增 5 份 `package-info.java`（`common`、`common.constant`、`common.api`、`jooq`、`config`） | 仅 Javadoc；约定脚本剥离注释后不产生类型/依赖，H1–H5 不受影响 |
+| 3 | 组织方式 | 新增 5 份 `package-info.java`（`common`、`common.constant`、`common.api`、`config` 等） | 仅 Javadoc；2026-11-08 原 `jooq` 包已并入 `mybatis.dsl`，该处 package-info 随包归并删除 |
 | 4 | 组织方式 | 新增 `docs/DIRECTORY.md`；重写 `docs/MODULES.md`；修 `docs/README.md` 索引漂移 | 纯文档，修复死链与过时口径 |
 | 5 | 配置管理 | 父 POM 增 `zstd-jni.version` **并在 `dependencyManagement` 注册该依赖**；`scaffold-kafka/pom.xml` 去掉硬编码 `<version>` | 解析到的版本仍是 `1.5.5-11`；定向构建曾报 `version is missing`，补齐注册后复验通过 |
-| 6 | 配置管理 | `application-prod.yml` 旧 `jobrunr:` 段加注释 | 不增删改任何配置键值 |
+| 6 | 配置管理 | `application-prod.yml` 旧 `jobrunr:` 段随 Quartz 迁移删除 | 运行时已无该配置前缀 |
 | 7 | 组织方式 | `src/styles.css` → `src/styles/base.css`，`main.js` import 与 8 处注释同步 | CSS 内容与加载顺序不变，仅路径归位 |
 | 8 | 公共能力 | 新增 `CommonConstantsTest` | 纯测试，锁定字面值与委托一致性 |
 
@@ -40,12 +40,12 @@
 | `AjaxResult` / `TableDataInfo` / `BaseController` | `Result<T>` 由 `api-contract.json` 固定，前后端一致性测试共同断言；替换会改响应 JSON 字段 | **契约级**，不可改 |
 | Controller 集中到 `scaffold-admin` | 本仓 Controller 随业务模块分布；搬迁会改组件扫描与 17 模块依赖方向 | 部署结构差异 |
 | `com.acme.scaffold.framework` 包根 | 历史类分布在 4 个顶层包；重命名牵动数百处 import | 形式差异 |
-| `common.jooq` 第二包根 | 同上 | 形式差异 |
+| `common.mybatis` 第二包根 | 同上 | 形式差异（2026-11-08 起为唯一的数据访问包根） |
 | 43 个 `@ConfigurationProperties` 分散在特性包 | 集中会改配置类包路径与 `@EnableConfigurationProperties` 引用 | 组织差异，功能等价 |
 | `src/api` 69 文件平铺（若依按模块分目录） | 需同步改 69 个文件与全部 import | 大规模搬迁 |
 | `src/api/http.js` 与 `apiDoc.js` 两个 axios 实例 | 后者 baseURL 为 `/`、独立超时与鉴权逻辑，仅用于拉 OpenAPI JSON；合并会改变文档请求行为 | 语义不同，刻意保留 |
 | `common/util` / `text` / `tree` 三个单文件工具包未合并为 `utils` | 合并会改 FQN | 形式差异 |
-| 生产 `application-prod.yml` 中 `jobrunr:` 旧前缀 | JobRunr 6.x 实际读 `org.jobrunr.*`；该段本就不生效，直接删除会改变配置文件内容，需先在预发验证 | **待验证的真实配置项**，见 §5 |
+| 生产 `application-prod.yml` 中旧 `jobrunr:` 前缀 | 2026-11-08 已随 JobRunr → Quartz 迁移删除并改写为 `app.quartz` 说明 | **已解决** |
 | `@Log` / `@DataScope` 等注解命名 | 本仓以 `AuditAspect` + `DataScopeConditions` + Port 实现等价能力 | 命名风格 |
 
 ## 4. 回归验证要点
@@ -66,7 +66,7 @@
 
 | 风险 | 等级 | 说明 / 建议 |
 |---|---|---|
-| `application-prod.yml:52` 旧 `jobrunr:` 前缀 | 中 | 该段在 JobRunr 6.x 下不生效，生产实际取框架默认值；本轮只加注释未改键值。建议在预发环境确认 dashboard/后台线程数符合预期后，单独提交配置修正 |
+| `application-prod.yml` 旧 `jobrunr:` 前缀 | 中 | 已删除；当前调度参数统一为 `app.quartz.enabled` / `app.quartz.thread-count`（环境变量 `QUARTZ_ENABLED` / `QUARTZ_THREAD_COUNT`） |
 | 前端样式路径变更 | 低 | 已用 `git mv` 保留文件历史，全仓核实仅 1 处 import + 8 处注释引用；构建门禁验证路径解析 |
 | `package-info.java` 与跨模块同包 | 低 | 5 份说明放在无同包冲突的位置；`com.acme.scaffold.monitor.*` 在 framework 与 monitor 两模块共存，刻意未加包级说明，避免 split-package 的 `package-info` 冲突 |
 | 常量集中后的编译期耦合 | 低 | 6 个目标模块原本均已依赖 `scaffold-common`，未新增 Maven 依赖边，H5 DAG 不变 |

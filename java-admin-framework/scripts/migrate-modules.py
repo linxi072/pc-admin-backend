@@ -4,6 +4,10 @@
 migrate-modules.py — V1.0.3 模块拆分一次性迁移脚本（幂等，可重复执行）。
 
 将单模块 java-admin-framework 按功能维度拆为 11 个 Maven 子模块
+
+# 归档状态：V1.0.3 一次性迁移脚本，仅供追溯模块拆分历史。
+# 当前仓库已是 14 模块结构，且 config/jooq、config/jobrunr 包已于 2026-11-08
+# 随 MyBatis / Quartz 迁移移除；请勿对当前代码执行本脚本。
 （方案见 docs/manual/module-split.md）。包名保持 com.acme.scaffold.* 不变，
 仅做物理目录迁移 + 少量解环重构（依赖倒置）。
 """

@@ -370,7 +370,7 @@ def main(argv=None):
         if not expected:
             continue
         last = pkg.split(".")
-        # config 模块按关注点拆分（config.web/config.jooq/config.redis 等），
+        # config 模块按关注点拆分（config.web/config.mybatis/config.redis 等），
         # *Config 类落在这些子包属正常放置，不按错层告警。
         if expected == "config" and "config" in last:
             continue
