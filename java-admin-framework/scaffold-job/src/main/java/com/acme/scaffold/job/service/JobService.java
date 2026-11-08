@@ -21,13 +21,13 @@ import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.job.port.JobSchedulerPort;
 import com.acme.scaffold.job.service.JobDagService;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
  * 定时任务管理服务：任务配置、启动、暂停、列表与实时状态、执行日志。
  *
  * <p><b>双层架构</b>：任务定义与执行日志自管于 {@code sys_job / sys_job_log}；
- * 调度交由 {@link JobSchedulerPort}（JobRunr 实现）。二者通过 {@code scheduler_ref} 关联。
+ * 调度交由 {@link JobSchedulerPort}（Quartz 实现）。二者通过 {@code scheduler_ref} 关联。
  *
  * <p><b>即时生效</b>：
  * <ul>
@@ -54,16 +54,15 @@ import java.util.stream.Collectors;
  * </ul>
  *
  * <p><b>事务说明</b>：本类每个写操作均为单条 DB 语句（原子），故不声明 {@code @Transactional}——
- * 若包在事务内，调度器（JobRunr 使用独立事务）的注册/取消会先于业务事务提交生效，
+ * 若包在事务内，调度器（Quartz RAMJobStore 不参与数据库事务）的注册/取消会先于业务事务提交生效，
  * 一旦回滚将残留「孤儿调度」。以「先取消旧调度 → 落库 → 再注册新调度」的顺序执行更安全。
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class JobService {
-    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
-    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
-
+    private static final SqlTables.TableRef SYS_JOB = SqlTables.SYS_JOB;
+    private static final SqlTables.TableRef SYS_JOB_LOG = SqlTables.SYS_JOB_LOG;
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
     private static final String DEFAULT_GROUP = "DEFAULT";
@@ -81,7 +80,7 @@ public class JobService {
     public PageResult<JobVO> page(JobQuery query) {
         Condition cond = buildCondition(query);
         PageQuery pq = PageQuery.of(query.page(), query.size());
-        PageResult<SysJobDO> raw = JooqWriters.page(dsl, SYS_JOB, SysJobDO.class, cond, pq,
+        PageResult<SysJobDO> raw = SqlWriters.page(dsl, SYS_JOB, SysJobDO.class, cond, pq,
                 SYS_JOB.field("id", Long.class).desc());
         Set<Long> ids = raw.records().stream().map(SysJobDO::getId).collect(Collectors.toSet());
         Map<Long, List<Long>> dependentsMap = dagService.dependentsMap(ids);
@@ -100,7 +99,7 @@ public class JobService {
         Condition cond = DSL.and(
                 SYS_JOB_LOG.field("tenant_id", Long.class).eq(0L),
                 SYS_JOB_LOG.field("job_id", Long.class).eq(jobId));
-        PageResult<SysJobLogDO> raw = JooqWriters.page(dsl, SYS_JOB_LOG, SysJobLogDO.class, cond,
+        PageResult<SysJobLogDO> raw = SqlWriters.page(dsl, SYS_JOB_LOG, SysJobLogDO.class, cond,
                 PageQuery.of(page, size),
                 SYS_JOB_LOG.field("fire_time", LocalDateTime.class).desc(),
                 SYS_JOB_LOG.field("id", Long.class).desc());
@@ -148,7 +147,7 @@ public class JobService {
         job.setTotalRuns(0L);
         job.setSuccessRuns(0L);
         job.setFailureRuns(0L);
-        JooqWriters.insert(dsl, SYS_JOB, job);
+        SqlWriters.insert(dsl, SYS_JOB, job);
         log.info("新建定时任务 id={} name={} type={}（默认暂停，未调度；依赖={}）",
                 job.getId(), job.getJobName(), type, job.getDependsOn());
         return job.getId();
@@ -196,7 +195,7 @@ public class JobService {
         } else {
             patch.setDependsOn(JobDagRules.serializeDependsOn(deps));
         }
-        JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch, nullColumns);
+        SqlWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch, nullColumns);
         log.info("更新定时任务 id={} name={} type={}（原运行中={}；依赖={}）",
                 id, dto.jobName(), type, wasRunning, patch.getDependsOn());
 
@@ -261,9 +260,9 @@ public class JobService {
         patch.setSchedulerRef(ref);
         if (nextFire != null) {
             patch.setNextFireTime(LocalDateTime.ofInstant(nextFire, ZONE));
-            JooqWriters.updateById(dsl, SYS_JOB, id, patch);
+            SqlWriters.updateById(dsl, SYS_JOB, id, patch);
         } else {
-            JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch,
+            SqlWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch,
                     Set.of("next_fire_time"));
         }
         log.info("启动定时任务 id={} name={} type={} ref={} nextFire={}",
@@ -276,7 +275,7 @@ public class JobService {
         cancelSchedule(job);
         SysJobDO patch = new SysJobDO();
         patch.setStatus(JobStatus.PAUSED.name());
-        JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch,
+        SqlWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch,
                 Set.of("scheduler_ref", "next_fire_time"));
         log.info("暂停定时任务 id={} name={}", id, job.getJobName());
     }
@@ -287,7 +286,7 @@ public class JobService {
         // 依赖编排删除守卫：存在下游依赖时拒绝，避免悬空依赖边
         dagService.assertNoDependents(id);
         cancelSchedule(job);
-        JooqWriters.delete(dsl, SYS_JOB, id, true);
+        SqlWriters.delete(dsl, SYS_JOB, id, true);
         log.info("删除定时任务 id={} name={}", id, job.getJobName());
     }
 
@@ -296,7 +295,7 @@ public class JobService {
     // ------------------------------------------------------------------
 
     private SysJobDO require(Long id) {
-        SysJobDO job = JooqWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id);
+        SysJobDO job = SqlWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id);
         if (job == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "定时任务不存在");
         }
@@ -401,7 +400,7 @@ public class JobService {
         var t = SYS_JOB;
         Condition cond = DSL.and(
                 t.field("tenant_id", Long.class).eq(0L),
-                JooqWriters.notDeleted(t));
+                SqlWriters.notDeleted(t));
         if (notBlank(query.jobName())) {
             cond = DSL.and(cond, t.field("job_name", String.class)
                     .likeIgnoreCase("%" + query.jobName().trim() + "%"));

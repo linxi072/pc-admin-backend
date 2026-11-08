@@ -10,11 +10,11 @@ import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.job.port.JobInvoker;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * 任务执行器：调度器到点触发后由 JobRunr 回调本类的 {@link #run(Long)}。
+ * 任务执行器：调度器到点触发后由 Quartz Job 回调本类的 {@link #run(Long)}。
  *
  * <p>执行流程：加载任务定义 → 解析处理器 → 执行 → 回写统计（{@code last_fire_time / next_fire_time /
  * total_runs / success_runs / failure_runs / last_status / last_error / last_duration_ms}）→ 写入执行日志。
@@ -40,9 +40,8 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 public class JobExecutor implements JobInvoker {
-    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
-    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
-
+    private static final SqlTables.TableRef SYS_JOB = SqlTables.SYS_JOB;
+    private static final SqlTables.TableRef SYS_JOB_LOG = SqlTables.SYS_JOB_LOG;
 
     private static final int MAX_ERROR_LEN = 900;
     private static final int MAX_LOG_ERROR_LEN = 900;
@@ -51,13 +50,13 @@ public class JobExecutor implements JobInvoker {
     private final JobHandlerRegistry handlerRegistry;
     private final JobDagService jobDagService;
 
-    /** 供调度器回调的入口（JobRunr 通过 JobActivator 反查本 Bean）。 */
+    /** 供调度器回调的入口（由 SystemJob 经 Spring 注入本 Bean 后调用）。 */
     public void run(Long jobId) {
         if (jobId == null) {
             log.warn("定时任务触发但 jobId 为空，忽略");
             return;
         }
-        SysJobDO job = JooqWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, jobId);
+        SysJobDO job = SqlWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, jobId);
         if (job == null) {
             log.warn("定时任务触发但任务不存在或已删除：jobId={}", jobId);
             return;
@@ -145,9 +144,9 @@ public class JobExecutor implements JobInvoker {
         }
 
         if (nullColumns.isEmpty()) {
-            JooqWriters.updateById(dsl, SYS_JOB, job.getId(), patch);
+            SqlWriters.updateById(dsl, SYS_JOB, job.getId(), patch);
         } else {
-            JooqWriters.updateByIdWithNulls(dsl, SYS_JOB, job.getId(), patch, nullColumns);
+            SqlWriters.updateByIdWithNulls(dsl, SYS_JOB, job.getId(), patch, nullColumns);
         }
 
         SysJobLogDO logRow = new SysJobLogDO();
@@ -161,7 +160,7 @@ public class JobExecutor implements JobInvoker {
         logRow.setStatus(success ? "SUCCESS" : "FAILED");
         logRow.setErrorMessage(error == null ? null : TextUtils.truncate(error, MAX_LOG_ERROR_LEN));
         logRow.setTraceId(MDC.get("traceId"));
-        JooqWriters.insert(dsl, SYS_JOB_LOG, logRow);
+        SqlWriters.insert(dsl, SYS_JOB_LOG, logRow);
     }
 
     private static long nz(Long value) {

@@ -1,5 +1,5 @@
 # Prometheus 告警规则（G2）
-# 阈值对齐《方案》§15 阶段 4 / 验收清单：错误率>1%、P99>800ms、老年代>80%、连接池>85%、JobRunr 失败>0。
+# 阈值对齐《方案》§15 阶段 4 / 验收清单：错误率>1%、P99>800ms、老年代>80%、连接池>85%、Quartz 失败>0。
 groups:
   - name: java-admin-framework.rules
     rules:
@@ -51,12 +51,12 @@ groups:
           summary: "HikariCP 连接池使用率超过 85%（持续 5m）"
           description: "连接池使用率 {{ $value | humanizePercentage }}，阈值 85%，可能存在连接泄漏或慢查询。"
 
-      - alert: JobRunrFailedJobs
-        expr: increase(jobrunr_jobs_failed_total[10m]) > 0
+      - alert: QuartzFailedJobs
+        expr: increase(quartz_jobs_failed_total[10m]) > 0
         for: 1m
         labels:
           severity: critical
           service: java-admin-framework
         annotations:
-          summary: "JobRunr 近 10m 出现失败任务"
-          description: "失败任务增量 {{ $value }}，请检查 JobRunr 后台与 jobrunr_jobs 表。"
+          summary: "Quartz 近 10m 出现失败任务"
+          description: "失败任务增量 {{ $value }}，请检查 Quartz Job 日志与 sys_job_log 表。"

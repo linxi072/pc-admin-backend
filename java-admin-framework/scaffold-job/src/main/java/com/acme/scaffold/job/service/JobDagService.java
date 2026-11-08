@@ -51,8 +51,8 @@ public class JobDagService {
     /**
      * 构造器注入。
      *
-     * <p><b>循环依赖打破点</b>：本服务与 {@code JobRunrSchedulerPort} 存在构造期环
-     * （{@code JobRunrSchedulerPort → JobExecutor(JobInvoker) → JobDagService → JobSchedulerPort(=JobRunrSchedulerPort)}）。
+     * <p><b>循环依赖打破点</b>：本服务与 {@code QuartzSchedulerPort} 存在构造期环
+     * （{@code QuartzSchedulerPort → JobExecutor(JobInvoker) → JobDagService → JobSchedulerPort(=QuartzSchedulerPort)}）。
      * {@code schedulerPort} 仅在运行期（{@link #onJobSuccess}/{@link #triggerDownstream} → {@code triggerReady}）调用，
      * 构造期内不触碰，故对其标注 {@link Lazy} 注入代理即可安全解环，无需启用
      * {@code spring.main.allow-circular-references}。

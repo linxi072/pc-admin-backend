@@ -3,9 +3,9 @@ package com.acme.scaffold.job.domain;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jobrunr.scheduling.Schedule;
-import org.jobrunr.scheduling.cron.CronExpression;
+import org.quartz.CronExpression;
 
+import java.text.ParseException;
 import java.time.Instant;
 import java.time.ZoneId;
 
@@ -15,10 +15,11 @@ import java.time.ZoneId;
  * <p>校验点：
  * <ul>
  *   <li>名称非空且不超长；taskKey 非空；触发类型非空；</li>
- *   <li><b>CRON</b>：表达式非空，且能通过 JobRunr 自身的
- *       {@link CronExpression#create(String)} 解析（支持 5 段分钟精度 / 6 段秒精度）；
+ *   <li><b>CRON</b>：表达式非空，且能通过 {@link QuartzCron#parse(String)}（Quartz 原生解析器）
+ *       解析（业务侧 5 段分钟精度 / Quartz 6~7 段秒精度均可）；
  *       —— 复用调度引擎的解析器，保证「校验通过」即「可被调度」，杜绝格式分歧；</li>
- *   <li><b>SIMPLE</b>：间隔值 &gt; 0、单位非空，且折算后不短于 {@link Schedule#SMALLEST_SCHEDULE_IN_SECONDS} 秒；</li>
+ *   <li><b>SIMPLE</b>：间隔值 &gt; 0、单位非空，且折算后不短于
+ *       {@link QuartzCron#SMALLEST_SCHEDULE_IN_SECONDS} 秒；</li>
  *   <li><b>ONE_TIME</b>：执行时间必填且须晚于当前时间；</li>
  *   <li><b>params</b>：非空时须为合法 JSON。</li>
  * </ul>
@@ -66,10 +67,14 @@ public final class JobValidator {
         validateParams(paramsJson);
     }
 
-    /** 校验并解析 cron 表达式；非法时抛 {@code 400}。 */
+    /** 校验并解析 cron 表达式，返回 Quartz 原生对象；非法时抛 {@code 400}。 */
     public static CronExpression parseCron(String cron) {
         validateCron(cron);
-        return CronExpression.create(cron.trim());
+        try {
+            return QuartzCron.parse(cron);
+        } catch (ParseException | RuntimeException e) {
+            throw BusinessException.badRequest("cron 表达式非法：" + e.getMessage());
+        }
     }
 
     private static void validateCron(String cron) {
@@ -80,9 +85,8 @@ public final class JobValidator {
             throw BusinessException.badRequest("cron 表达式长度不能超过 " + MAX_CRON_LEN + " 个字符");
         }
         try {
-            CronExpression.create(cron.trim());
-        } catch (RuntimeException e) {
-            // InvalidCronExpressionException 等：转换为统一业务异常
+            QuartzCron.parse(cron.trim());
+        } catch (ParseException | RuntimeException e) {
             throw BusinessException.badRequest("cron 表达式非法：" + e.getMessage());
         }
     }
@@ -100,9 +104,9 @@ public final class JobValidator {
         } catch (ArithmeticException e) {
             throw BusinessException.badRequest("执行间隔过大，请检查数值与单位");
         }
-        if (seconds < Schedule.SMALLEST_SCHEDULE_IN_SECONDS) {
+        if (seconds < QuartzCron.SMALLEST_SCHEDULE_IN_SECONDS) {
             throw BusinessException.badRequest("执行间隔不能小于 "
-                    + Schedule.SMALLEST_SCHEDULE_IN_SECONDS + " 秒");
+                    + QuartzCron.SMALLEST_SCHEDULE_IN_SECONDS + " 秒");
         }
     }
 

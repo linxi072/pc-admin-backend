@@ -2,7 +2,7 @@ package com.acme.scaffold.job.domain;
 
 /**
  * 任务处理器：业务侧只需实现本接口并标注 {@code @Component}，
- * 即可以 {@link #key()}（taskKey）被「定时任务管理」页面选择并调度，无需感知 JobRunr。
+ * 即可以 {@link #key()}（taskKey）被「定时任务管理」页面选择并调度，无需感知 Quartz。
  * <p>
  * 约定：
  * <ul>

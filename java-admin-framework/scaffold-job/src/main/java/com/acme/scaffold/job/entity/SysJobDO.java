@@ -9,9 +9,9 @@ import java.time.LocalDateTime;
 /**
  * 定时任务配置实体（对应 {@code sys_job}）。
  * <p>
- * 设计要点：JobRunr 原生的 {@code jobrunr_*} 表由框架内部维护、不可 CRUD，
+ * 设计要点：Quartz 使用 RAMJobStore（内存存储），任务元数据不落框架表；
  * 因此任务定义元数据（配置、参数、统计）独立存放于本表，二者通过
- * {@link #schedulerRef} 关联：CRON/SIMPLE 时存 recurring job id，ONE_TIME 时存一次性 Job 的 UUID。
+ * {@link #schedulerRef} 关联：CRON/SIMPLE 时存 sysjob-&lt;id&gt;，ONE_TIME 时存一次性 Job 的 UUID。
  */
 @Data
 public class SysJobDO {

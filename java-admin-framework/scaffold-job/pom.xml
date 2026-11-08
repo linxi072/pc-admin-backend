@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  scaffold-job：调度任务域（JobRunr 任务定义管理 + 具体 Job + 周期任务注册）。
+  scaffold-job：调度任务域（Quartz 任务定义管理 + 具体 Job + 周期任务注册）。
 
   内容：job.domain / job.entity / job.dto / job.service / job.controller / job.port
-  （JobRunrSchedulerPort）/ job.handler（DemoJob、公告过期、监控采样、幂等清理）、
-  job.config.JobRunrConfig（周期任务注册，原 config.jobrunr，V1.0.3 迁入本模块）。
+  （QuartzSchedulerPort）/ job.handler（DemoJob、公告过期、监控采样、幂等清理）、
+  job.config.QuartzConfig（Scheduler 装配与周期任务注册）。
 
   依赖方向：job → {common, monitor, system}。
 -->
@@ -21,7 +21,7 @@
 
     <artifactId>scaffold-job</artifactId>
     <name>scaffold-job</name>
-    <description>调度任务：JobRunr 任务定义管理、周期任务注册与具体 Job 实现</description>
+    <description>调度任务：Quartz 任务定义管理、周期任务注册与具体 Job 实现</description>
 
     <dependencies>
         <dependency>
@@ -29,8 +29,24 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.jobrunr</groupId>
-            <artifactId>jobrunr-spring-boot-3-starter</artifactId>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+            <exclusions>
+                <!-- RAMJobStore 不需要连接池；排除 Quartz 2.3.2 默认带入的 c3p0/HikariCP-java7，
+                     避免与 Spring Boot 管理的 HikariCP 版本并存造成类冲突。 -->
+                <exclusion>
+                    <groupId>com.mchange</groupId>
+                    <artifactId>c3p0</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.mchange</groupId>
+                    <artifactId>mchange-commons-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.zaxxer</groupId>
+                    <artifactId>HikariCP-java7</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.acme.scaffold</groupId>

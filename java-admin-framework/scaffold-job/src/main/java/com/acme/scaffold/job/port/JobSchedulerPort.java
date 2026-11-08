@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 /**
- * 调度端口：隔离调度引擎（JobRunr）实现细节，业务服务只依赖本接口。
+ * 调度端口：隔离调度引擎（Quartz）实现细节，业务服务只依赖本接口。
  * <p>
  * 三种触发类型对应三种注册方式：
  * <ul>

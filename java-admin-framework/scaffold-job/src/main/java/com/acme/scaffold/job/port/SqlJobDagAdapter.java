@@ -3,10 +3,10 @@ package com.acme.scaffold.job.port;
 import com.acme.scaffold.job.domain.JobDagRules;
 import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.entity.SysJobDO;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -29,15 +29,14 @@ import java.util.Set;
  */
 @Component
 @RequiredArgsConstructor
-public class JooqJobDagAdapter implements JobDagPort {
-    private static final JooqTables.TableRef SYS_JOB = JooqTables.SYS_JOB;
-
+public class SqlJobDagAdapter implements JobDagPort {
+    private static final SqlTables.TableRef SYS_JOB = SqlTables.SYS_JOB;
 
     private final DSLContext dsl;
 
     private Map<Long, SysJobDO> loadAll() {
-        List<SysJobDO> all = JooqWriters.fetchList(dsl, SYS_JOB, SysJobDO.class,
-                JooqWriters.notDeleted(SYS_JOB));
+        List<SysJobDO> all = SqlWriters.fetchList(dsl, SYS_JOB, SysJobDO.class,
+                SqlWriters.notDeleted(SYS_JOB));
         Map<Long, SysJobDO> map = new HashMap<>();
         for (SysJobDO j : all) {
             map.put(j.getId(), j);
@@ -52,7 +51,7 @@ public class JooqJobDagAdapter implements JobDagPort {
 
     @Override
     public Optional<SysJobDO> findById(Long id) {
-        return Optional.ofNullable(JooqWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id));
+        return Optional.ofNullable(SqlWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id));
     }
 
     @Override

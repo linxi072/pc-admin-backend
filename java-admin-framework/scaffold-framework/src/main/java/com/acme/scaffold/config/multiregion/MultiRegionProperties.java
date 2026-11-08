@@ -13,11 +13,11 @@ import java.util.Map;
  * <p><b>核心思想</b>：将「租户」映射到「部署单元（Deployment Unit）」，每个单元对应
  * {@code app.datasources.entries} 中的一个具名数据源（物理库 / 集群）。请求期按当前租户
  * 自动把路由上下文切到对应单元的数据源，实现大租户的物理隔离，复用既有
- * {@code RoutingDataSource} + {@code DataSourceContextHolder} 路由机制（零改 JooqWriters）。</p>
+ * {@code RoutingDataSource} + {@code DataSourceContextHolder} 路由机制（零改 SqlWriters）。</p>
  *
  * <p><b>默认 {@code enabled=false}</b>：不加载任何 R4 Bean、不切换路由上下文，全部回落主库，
- * 与既有单实例 / 单数据源行为零回归。启用时建议同时设 {@code spring.flyway.enabled=false}，
- * 改由 {@code UnitAwareFlywayMigrator} 对每个单元独立迁移（避免主库被重复迁移）。</p>
+ * 与既有单实例 / 单数据源行为零回归。启用后每个单元均为独立物理库，须由 DBA
+ * 分别执行 {@code db/init/00_create_database.sql} 与 {@code db/init/01_full_schema.sql} 初始化。</p>
  */
 @ConfigurationProperties(prefix = "app.multiregion")
 public class MultiRegionProperties {

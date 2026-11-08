@@ -1,7 +1,7 @@
 {
   "schemaVersion": 39,
-  "title": "调度 (JobRunr)",
-  "uid": "jobrunr",
+  "title": "调度 (Quartz)",
+  "uid": "quartz",
   "editable": true,
   "time": {
     "from": "now-1h",
@@ -24,7 +24,7 @@
       },
       "targets": [
         {
-          "expr": "jobrunr_jobs_failed_total",
+          "expr": "quartz_jobs_failed_total",
           "legendFormat": "value"
         }
       ]
@@ -40,7 +40,7 @@
       },
       "targets": [
         {
-          "expr": "increase(jobrunr_jobs_failed_total[5m])",
+          "expr": "increase(quartz_jobs_failed_total[5m])",
           "legendFormat": "failed/5m"
         }
       ]
@@ -56,14 +56,14 @@
       },
       "targets": [
         {
-          "expr": "jobrunr_jobs_succeeded_total",
+          "expr": "quartz_jobs_succeeded_total",
           "legendFormat": "value"
         }
       ]
     },
     {
       "type": "timeseries",
-      "title": "队列 / 处理中",
+      "title": "注册 / 取消",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -72,18 +72,18 @@
       },
       "targets": [
         {
-          "expr": "jobrunr_jobs_enqueued_total",
-          "legendFormat": "enqueued"
+          "expr": "quartz_jobs_scheduled_total",
+          "legendFormat": "scheduled"
         },
         {
-          "expr": "jobrunr_jobs_processing_total",
-          "legendFormat": "processing"
+          "expr": "quartz_jobs_cancelled_total",
+          "legendFormat": "cancelled"
         }
       ]
     },
     {
       "type": "text",
-      "title": "启用说明",
+      "title": "指标说明",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -92,7 +92,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "JobRunr 指标需开启 `org.jobrunr.metrics.enabled: true`（Spring Boot Starter 自动注册 Micrometer 指标）。开启后上述 jobrunr_jobs_* 指标才会出现；未开启时对应面板为 No Data。"
+        "content": "指标由 `QuartzJobMetrics`（scaffold-job）经 Micrometer 注册，随 actuator 的 `/actuator/prometheus` 暴露，无需额外开关。Quartz 使用 RAMJobStore，不产生 `QRTZ_*` 表；任务执行明细见业务表 `sys_job_log`。应用重启后内置周期任务由 `QuartzConfig` 重新注册。"
       }
     }
   ]

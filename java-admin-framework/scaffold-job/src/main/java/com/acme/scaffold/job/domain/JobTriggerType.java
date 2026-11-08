@@ -3,12 +3,11 @@ package com.acme.scaffold.job.domain;
 /**
  * 任务触发类型。
  * <ul>
- *   <li>{@link #CRON}：crontab 表达式（支持 5 段分钟精度 / 6 段秒精度），由 JobRunr
- *       {@code scheduleRecurrently(id, cron, lambda)} 注册为周期性任务；</li>
- *   <li>{@link #SIMPLE}：固定间隔（值 + 单位），由 JobRunr
- *       {@code scheduleRecurrently(id, Duration, lambda)} 注册为周期任务；</li>
- *   <li>{@link #ONE_TIME}：单次定时执行，由 JobRunr
- *       {@code schedule(UUID, Instant, lambda)} 注册为一次性任务，执行完成后任务进入 COMPLETED。</li>
+ *   <li>{@link #CRON}：crontab 表达式（业务侧 5 段分钟精度，注册时归一化为 Quartz 6 段），
+ *       由 {@code QuartzSchedulerPort} 以 CronTrigger 注册；</li>
+ *   <li>{@link #SIMPLE}：固定间隔（值 + 单位），以 Quartz SimpleTrigger 重复注册；</li>
+ *   <li>{@link #ONE_TIME}：单次定时执行，以 Quartz Trigger 的 startAt 注册，
+ *       执行完成后任务进入 COMPLETED。</li>
  * </ul>
  */
 public enum JobTriggerType {
