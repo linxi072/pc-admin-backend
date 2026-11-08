@@ -7,8 +7,10 @@ check-api-contract.py — 前后端接口契约对称性静态检查（零依赖
 这类前后端契约漂移。纯静态扫描，不启动后端、不发网络请求，离线可跑。
 
 扫描对象：
-  - 后端：src/main/java 下所有 Controller 的 @RequestMapping/@GetMapping/...
+  - 后端：``scaffold-*/src/main/java`` 下所有 Controller 的 @RequestMapping/@GetMapping/...
     提取 (HTTP方法, 归一化路径)。
+    V1.0.3 起工程拆分为 17 个 Maven 模块，源码不再位于单体 ``ROOT/src/main/java``；
+    旧的单体路径会让后端扫描恒为空、前端调用全部落入 frontend_only（假阳性）。
   - 前端：pc-admin-vue3-vite/src/api/*.js 下 request({method,url}) 与
     axios.get/post/... 调用，提取 (HTTP方法, 归一化路径)。
 
@@ -29,10 +31,20 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BACKEND_SRC = ROOT / "src" / "main" / "java"
+MODULE_SRC_PATTERN = "scaffold-*/src/main/java"
 FRONTEND_API = ROOT.parent / "pc-admin-vue3-vite" / "src" / "api"
 
 VERBS = ("GET", "POST", "PUT", "DELETE", "PATCH")
+
+
+def backend_source_roots(root: Path = ROOT):
+    """发现多模块工程的全部 Java 源码根（排序保证输出稳定）。
+
+    仅认 ``scaffold-*/src/main/java``：这是根 POM ``<modules>`` 下 17 个模块的
+    真实源码位置。单体时代的 ``ROOT/src/main/java`` 已不存在，不再作为回退，
+    避免「路径写错却静默返回空集合」的假绿。
+    """
+    return sorted(p for p in Path(root).glob(MODULE_SRC_PATTERN) if p.is_dir())
 
 
 def normalize(path: str) -> str:
@@ -73,54 +85,59 @@ def first_quoted(attrs: str) -> str:
     return m.group(1) if m else ""
 
 
-def scan_backend() -> set:
+def scan_backend(roots=None) -> set:
+    """扫描全部模块源码根；``roots`` 供单测注入临时目录，默认自动发现。"""
     keys = set()
-    if not BACKEND_SRC.exists():
-        return keys
-    for java in BACKEND_SRC.rglob("*.java"):
-        try:
-            text = java.read_text(encoding="utf-8")
-        except Exception:
+    for src in (backend_source_roots() if roots is None else roots):
+        src = Path(src)
+        if not src.is_dir():
             continue
-        # 类级基路径：取文件内首个 @RequestMapping（可无参，代表根路径）作为前缀
-        base = ""
-        class_base = re.search(r"@RequestMapping\s*(?:\(([^)]*)\))?", text)
-        if class_base:
-            cb_attrs = class_base.group(1) if class_base.group(1) is not None else ""
-            base = first_quoted(cb_attrs)
-            class_base_start = class_base.start()
-        else:
-            class_base_start = -1
-        # 方法级映射（显式动词注解）。括号可省略：@GetMapping 即「继承类基路径」
-        verb_re = re.compile(r"@(Get|Post|Put|Delete|Patch)Mapping\s*(?:\(([^)]*)\))?")
-        for m in verb_re.finditer(text):
-            verb = m.group(1).upper()
-            inner = m.group(2) if m.group(2) is not None else ""
-            path = first_quoted(inner)
-            keys.add(param_key(verb, base + path))
-        # 方法级 @RequestMapping：跳过类级基路径那一条，避免 base+base 重复
-        req_re = re.compile(r"@RequestMapping\s*(?:\(([^)]*)\))?")
-        for m in req_re.finditer(text):
-            if m.start() == class_base_start:
+        for java in src.rglob("*.java"):
+            try:
+                text = java.read_text(encoding="utf-8")
+            except Exception:
                 continue
-            attrs = m.group(1) if m.group(1) is not None else ""
-            if not attrs.strip():
-                # 无参 @RequestMapping：等价于 GET 映射在类基路径
-                keys.add(param_key("GET", base))
-                continue
-            methods = re.findall(r"RequestMethod\.(\w+)", attrs)
-            verbs = [v.upper() for v in methods] or ["GET"]
-            path = first_quoted(attrs)
-            for v in verbs:
-                keys.add(param_key(v, base + path))
+            # 类级基路径：取文件内首个 @RequestMapping（可无参，代表根路径）作为前缀
+            base = ""
+            class_base = re.search(r"@RequestMapping\s*(?:\(([^)]*)\))?", text)
+            if class_base:
+                cb_attrs = class_base.group(1) if class_base.group(1) is not None else ""
+                base = first_quoted(cb_attrs)
+                class_base_start = class_base.start()
+            else:
+                class_base_start = -1
+            # 方法级映射（显式动词注解）。括号可省略：@GetMapping 即「继承类基路径」
+            verb_re = re.compile(r"@(Get|Post|Put|Delete|Patch)Mapping\s*(?:\(([^)]*)\))?")
+            for m in verb_re.finditer(text):
+                verb = m.group(1).upper()
+                inner = m.group(2) if m.group(2) is not None else ""
+                path = first_quoted(inner)
+                keys.add(param_key(verb, base + path))
+            # 方法级 @RequestMapping：跳过类级基路径那一条，避免 base+base 重复
+            req_re = re.compile(r"@RequestMapping\s*(?:\(([^)]*)\))?")
+            for m in req_re.finditer(text):
+                if m.start() == class_base_start:
+                    continue
+                attrs = m.group(1) if m.group(1) is not None else ""
+                if not attrs.strip():
+                    # 无参 @RequestMapping：等价于 GET 映射在类基路径
+                    keys.add(param_key("GET", base))
+                    continue
+                methods = re.findall(r"RequestMethod\.(\w+)", attrs)
+                verbs = [v.upper() for v in methods] or ["GET"]
+                path = first_quoted(attrs)
+                for v in verbs:
+                    keys.add(param_key(v, base + path))
     return keys
 
 
-def scan_frontend() -> set:
+def scan_frontend(api_dir=None) -> set:
+    """扫描前端 API 客户端；``api_dir`` 供单测注入临时目录。"""
     keys = set()
-    if not FRONTEND_API.exists():
+    root = Path(api_dir) if api_dir is not None else FRONTEND_API
+    if not root.exists():
         return keys
-    for js in FRONTEND_API.rglob("*.js"):
+    for js in root.rglob("*.js"):
         try:
             text = js.read_text(encoding="utf-8")
         except Exception:
@@ -147,14 +164,19 @@ def scan_frontend() -> set:
     return keys
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="前后端接口契约对称性静态检查")
     ap.add_argument("--strict", action="store_true", help="frontend_only 非空时退出码置 1")
     ap.add_argument("--json", action="store_true", help="以 JSON 输出结果")
-    args = ap.parse_args()
+    ap.add_argument("--backend-root", default=None,
+                    help="后端仓根（默认按脚本位置推断；用于 worktree / 单测）")
+    ap.add_argument("--frontend-api", default=None,
+                    help="前端 src/api 目录（默认按脚本位置推断）")
+    args = ap.parse_args(argv)
 
-    backend = scan_backend()
-    frontend = scan_frontend()
+    backend_root = Path(args.backend_root) if args.backend_root else ROOT
+    backend = scan_backend(backend_source_roots(backend_root))
+    frontend = scan_frontend(args.frontend_api)
 
     matched = backend & frontend
     backend_only = backend - frontend
