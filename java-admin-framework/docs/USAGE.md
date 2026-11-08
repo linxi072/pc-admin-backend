@@ -28,6 +28,7 @@ python3 scripts/check-conventions.py
 |---|---|---|
 | 测试 | `mvn -o -f pom.xml -pl <module> -am clean test` | BUILD SUCCESS，全部用例绿 |
 | 约定 | `python3 scripts/check-conventions.py` | 退出码 0（H1–H5 规则：分层、依赖无环、命名等） |
+| 目录约定（补充校验） | `python3 scripts/check-directory.py` | 退出码 0（D1–D7：包根白名单、启动类位置、配置归属、全局样式、规范文档与索引、子模块版本管理；行为回归 `python3 -m unittest discover -s scripts -p "test_*.py" -v`） |
 
 > 注意：从 root 聚合 pom 用 `-pl <module> -am`，**禁止**直接 `-f scaffold-admin/pom.xml` 单独构建；`check-conventions.py` 默认 120s 会被 SIGTERM，须 `dangerouslyDisableSandbox` 且 `timeout>=600000`。
 

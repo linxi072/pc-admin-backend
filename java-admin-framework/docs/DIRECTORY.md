@@ -115,6 +115,8 @@ pc-admin-vue3-vite/src/
 | 统一响应与错误码 | `scripts/api-contract.json` + 后端 `ApiContractConsistencyTest` + 前端 `result.test.js` |
 | 常量字面值不漂移 | `CommonConstantsTest` |
 | 前端目录与构建可解析 | `env -u NODE_OPTIONS npm test` + `npx vite build` |
+| 目录结构约定 D1–D7（包根白名单 / 启动类位置 / 配置归属 / 全局样式 / 常量与文档齐全 / 版本管理） | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 13 例；脚本自身单测与既有脚本测试一起跑 `python3 -m unittest discover -s scripts -p "test_*.py" -v` |
 | 全量编译与回归 | `mvn -o -f pom.xml clean test`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`） |
 
-新增目录 / 包后必须同步更新本文档与 `docs/MODULES.md`；只增文件不增目录时无需改文档。
+新增目录 / 包后必须同步更新本文档、`docs/MODULES.md` **与 `scripts/check-directory.py` 的
+`EXPECTED_ROOTS` 白名单**，否则目录校验会阻断（D1）。只增文件不增目录时无需改文档。
