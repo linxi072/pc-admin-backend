@@ -1,7 +1,9 @@
 -- ============================================================
 -- 分类参考件（DDL / DML），由 scripts/build_reference_modular.py 从
--- db/migration/ 迁移链（V32~V59）自动派生，仅供阅读与追溯。
--- 权威可执行来源：db/migration/ 迁移链（V57 为 Java 类迁移）。
+-- db/migration/ 迁移链（V32~V81，共 49 个 SQL 迁移）自动派生，仅供阅读与追溯。
+-- 版本范围由脚本运行时探测；新增迁移后须重跑本脚本重生成参考件。
+-- 权威可执行来源：db/migration/ 迁移链（V57 为 Java 类迁移，位于
+--   scaffold-admin/src/main/java/db/migration/，无对应 .sql）。
 -- 不可当迁移执行；Flyway 只扫描 db/migration/。
 -- 重新生成：python3 scripts/build_reference_modular.py
 -- ============================================================
@@ -375,8 +377,6 @@ CREATE TABLE IF NOT EXISTS wf_task_ext (
     activity_id VARCHAR(128) NOT NULL,
     assignee_user_id BIGINT UNSIGNED NULL,
     original_assignee_user_id BIGINT UNSIGNED NULL,
-    delegator_user_id BIGINT UNSIGNED NULL,
-    delegation_state VARCHAR(16) NULL,
     status VARCHAR(20) NOT NULL,
     approval_mode VARCHAR(20) NOT NULL,
     due_at DATETIME(3) NULL,
@@ -2127,12 +2127,136 @@ EXECUTE stmt;
 -- [from V59__job_dependency.sql]
 DEALLOCATE PREPARE stmt;
 
--- =====================================================================================
--- 来源迁移：V70__alert_rule.sql（告警规则闭环 #922）
--- =====================================================================================
+-- [from V61__role_column_permission.sql]
+-- V61 字段级数据权限分配（M41）：sys_role_column_permission，把角色对受控字段的明文可见权
+-- 以「角色 × 资源 × 字段」三元组持久化，供统一配置页（PermissionPolicyView 字段权限 Tab）读写。
+--
+-- 设计要点：
+--   1) 与 M31 行级数据权限（sys_role_data_scope）对称：此处为列级（字段级）的「角色 × 资源 × 字段」分配。
+--   2) 完整权限码 = resourceCode + ':column:' + field（如 system:user:column:mobile），
+--      由 ColumnPermissionRules.columnPermissionCode 派生，与运行时 ColumnPermissionApplier 口径同源。
+--   3) 鉴权：读取复用 system:role:read；保存复用 system:role:update（在角色管理上下文中操作）。
+--   4) role_id 无物理外键（与 sys_role_data_scope 一致，避免级联误删），由应用层保证存在性。
+--   5) 运行时脱敏是否生效由 column-permission.enforce 开关控制（默认关闭，零线上回归，同 M19）。
+--   6) 依赖：V32（系统管理目录 id=1002）；ColumnPermissionController 只读资源端点（system:column-permission:read）。
 
--- V70 告警规则表：可配置阈值规则的持久化与周期评估数据源。
--- 指标键/比较符/严重度/渠道类型均以字符串存储枚举名（由 AlertRuleRules 解析校验）。
+CREATE TABLE IF NOT EXISTS sys_role_column_permission (
+    id BIGINT UNSIGNED NOT NULL,
+    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    role_id BIGINT UNSIGNED NOT NULL,
+    resource_code VARCHAR(128) NOT NULL,
+    field VARCHAR(128) NOT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_role_resource_field (tenant_id, role_id, resource_code, field),
+    KEY idx_role (tenant_id, role_id),
+    KEY idx_resource (tenant_id, resource_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- [from V64__oauth2_token_registry.sql]
+-- M43 OAuth2 令牌治理：签发令牌注册表（记录 jti + 元数据，支持查看/吊销，吊销后强制失效）。
+-- 与 M38–M40 自包含 RS256 令牌签发互补：此前令牌为无状态 JWT，无法在签发后撤销；
+-- 本表把每次签发的 jti 落库，吊销（status=REVOKED）经 OAuth2TokenRevocationFilter 在请求期实时拒绝。
+-- 设计要点：
+--   1) jti 唯一（uk_jti），与 OAuth2TokenProvider 签发时写入 JWT 的 id 声明严格一致；
+--   2) status 仅 ACTIVE / REVOKED；列表查询以 status=ACTIVE 且 expires_at>now 定义「活动」；
+--   3) 软删除（deleted）+ 乐观锁（version）与既有表一致；tenant_id 恒为 0（平台维表，由平台统一维护）。
+
+CREATE TABLE IF NOT EXISTS sys_oauth2_token (
+    id BIGINT NOT NULL,
+    tenant_id BIGINT NOT NULL DEFAULT 0,
+    jti VARCHAR(64) NOT NULL,
+    client_id VARCHAR(128) NOT NULL,
+    user_id BIGINT NULL,
+    username VARCHAR(128) NULL,
+    scope VARCHAR(512) NULL,
+    token_type VARCHAR(20) NOT NULL,
+    issued_at DATETIME(3) NOT NULL,
+    expires_at DATETIME(3) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    version BIGINT NOT NULL DEFAULT 0,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_jti (tenant_id, jti),
+    KEY idx_client (tenant_id, client_id),
+    KEY idx_user (tenant_id, user_id),
+    KEY idx_status_exp (tenant_id, status, expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- [from V68__oauth2_pkce_consent.sql]
+-- V68 OAuth2 授权码流程强化（V1.0.5 #900）：redirect_uri 白名单 + PKCE 强制开关 + 用户同意(consent)持久化。
+--
+-- 设计要点：
+--   1) sys_openapi_client 增两列：
+--        - redirect_uris   ：授权码回调地址白名单（逗号分隔，空白=不约束，兼容存量客户端）。
+--        - pkce_required   ：是否强制 PKCE（授权码流程），默认 0（不强制），新注册_public 客户端建议置 1。
+--      与 V48 同表，沿用其 BIGINT UNSIGNED / utf8mb4 约定（H2 测试与 MySQL 生产一致）。
+--   2) 新增 sys_oauth2_consent：资源拥有者对客户端的授权同意记录。
+--        - 一行 = 一次「用户 X 对客户端 C 在 scopes 集合上 APPROVED/DENIED」；
+--        - 「记住授权」写 APPROVED 行；授权端点查 (user_id, client_id, scopes⊆已授权) 的未过期 APPROVED 行，
+--          命中则直接签发授权码，否则要求用户再次确认（返回 consent_required）。
+--        - 无 deleted/version：同意记录采用「追加新行」语义，历史可追溯，无需逻辑删除与乐观锁。
+--   3) 依赖：V48（sys_openapi_client 已存在）。本迁移幂等（ALTER 幂等依赖 Flyway 版本控制，重复执行会报已存在列，
+--      故仅向前追加重跑；如需本地重置，按 Flyway 标准流程 baseline/repair）。
+
+-- 1) sys_openapi_client 增强列
+ALTER TABLE sys_openapi_client
+    ADD COLUMN redirect_uris VARCHAR(1024) NULL COMMENT '授权码回调地址白名单（逗号分隔，空白=不约束）';
+
+-- [from V68__oauth2_pkce_consent.sql]
+ALTER TABLE sys_openapi_client
+    ADD COLUMN pkce_required TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否强制 PKCE（授权码流程）';
+
+-- [from V68__oauth2_pkce_consent.sql]
+-- 2) 用户同意记录表
+CREATE TABLE IF NOT EXISTS sys_oauth2_consent (
+    id BIGINT UNSIGNED NOT NULL,
+    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    user_id BIGINT NOT NULL,
+    client_id VARCHAR(64) NOT NULL,
+    scopes VARCHAR(512) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'APPROVED',
+    expires_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    KEY idx_user_client (user_id, client_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- [from V69__workflow_delegate.sql]
+-- V69 工作流委派（V1.0.5 #901）：wf_task_ext 增加委派发起人与委派状态列，支撑「临时委托办理、办结交还原审批人」。
+--
+-- 设计要点：
+--   1) wf_task_ext 增两列（与既有 wf_* 表 BIGINT UNSIGNED / VARCHAR 约定一致）：
+--        - delegator_user_id ：委派发起人（原审批人）。任务被委派给 assignee_user_id 期间记录真正的负责人，
+--          被委托人办结交还后 assignee_user_id 还原为该值。
+--        - delegation_state  ：委派状态。PENDING=已委派待办、RESOLVED=被委托人已办结交还、NULL=非委派任务。
+--   2) 委派/办结交还的写操作复用既有引擎端口 delegate/resolve 与 wf_approval_record（action=DELEGATE/DELEGATE_RESOLVE），
+--      零新表、零新接口权限手工登记（由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN）。
+--   3) 本迁移向前追加，幂等依赖 Flyway 版本控制；重复执行会因列已存在报错，需按 Flyway 标准流程 baseline/repair。
+
+ALTER TABLE wf_task_ext
+    ADD COLUMN delegator_user_id BIGINT UNSIGNED NULL COMMENT '委派发起人（原审批人），非委派任务为 NULL';
+
+-- [from V69__workflow_delegate.sql]
+ALTER TABLE wf_task_ext
+    ADD COLUMN delegation_state VARCHAR(16) NULL COMMENT '委派状态：PENDING=已委派待办、RESOLVED=已办结交还、NULL=非委派';
+
+-- [from V70__alert_rule.sql]
+-- V70 告警规则闭环（V1.0.5 #922）：新增 alert_rule 表，支撑可配置阈值规则的持久化与周期评估。
+--
+-- 设计要点：
+--   1) alert_rule 独立新表，与既有 wf_*/sys_* 表 BIGINT UNSIGNED / utf8mb4 约定一致。
+--   2) 指标键(metric_key)/比较符(comparator)/严重度(severity)/渠道类型(channel_type) 均以
+--      字符串存储枚举名（由 AlertRuleRules 解析校验），不动表结构即可横向扩展枚举。
+--   3) 逻辑删除(deleted) + 乐观锁(version) + 审计时间(created_at/updated_at) 与仓库其他表一致；
+--      created_by/updated_by 允许 NULL（规则可由调度线程创建/更新，无操作人上下文）。
+--   4) 零新接口权限手工登记：管理端点 @PreAuthorize 由 ApiResourceAutoSyncRunner 扫描自动落库并授予 SUPER_ADMIN。
+--   5) 本迁移向前追加，幂等依赖 Flyway 版本控制；重复执行会因表已存在报错，需按 Flyway 标准流程 baseline/repair。
+
 CREATE TABLE IF NOT EXISTS alert_rule (
     id BIGINT UNSIGNED NOT NULL,
     tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -2156,3 +2280,240 @@ CREATE TABLE IF NOT EXISTS alert_rule (
     PRIMARY KEY (id),
     KEY idx_metric_enabled (metric_key, enabled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- [from V74__cms.sql]
+-- V74 内容管理 CMS（ROADMAP R5）：栏目树 + 文章 CRUD + 富文本 + 发布态。
+-- 设计要点：
+--   1) 标识符全部显式加引号保留 snake_case 小写（H2 元数据库名小写、生产 MySQL 大小写敏感，未引号会坏）；
+--   2) 索引用独立 CREATE INDEX 语句（内联 KEY `x`(...) 会被 H2 误解析为 domain）；
+--   3) tenant_id 承载租户隔离，enforce 关闭时恒为 0；
+--   4) status 用 VARCHAR(20) 承载 DRAFT/PUBLISHED/OFFLINE，由应用层校验；
+--   5) 菜单种子：挂载顶层「内容管理」目录（id=9301），下挂栏目管理/文章管理（9302/9303），
+--      permission_code 作为菜单可见性判定码；更细的 cms:*:publish 等由 ApiResourceAutoSyncRunner
+--      扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，无需手工登记；
+--   6) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+CREATE TABLE `cms_category` (
+    `id`           BIGINT        NOT NULL,
+    `tenant_id`    BIGINT        NOT NULL DEFAULT 0,
+    `parent_id`    BIGINT        NULL,
+    `category_code` VARCHAR(64)  NOT NULL,
+    `category_name` VARCHAR(128) NOT NULL,
+    `description`  VARCHAR(512)  NULL,
+    `sort_no`      INT           NOT NULL DEFAULT 0,
+    `status`       VARCHAR(20)   NOT NULL DEFAULT 'ACTIVE',
+    `version`      INT           NOT NULL DEFAULT 0,
+    `deleted`      INT           NOT NULL DEFAULT 0,
+    `created_by`   VARCHAR(64)   NULL,
+    `created_at`   TIMESTAMP     NULL,
+    `updated_by`   VARCHAR(64)   NULL,
+    `updated_at`   TIMESTAMP     NULL,
+    PRIMARY KEY (`id`)
+);
+
+-- [from V74__cms.sql]
+CREATE INDEX `idx_cms_category_tenant_parent` ON `cms_category` (`tenant_id`, `parent_id`);
+
+-- [from V74__cms.sql]
+CREATE INDEX `idx_cms_category_code`          ON `cms_category` (`tenant_id`, `category_code`);
+
+-- [from V74__cms.sql]
+CREATE INDEX `idx_cms_category_status`        ON `cms_category` (`tenant_id`, `status`);
+
+-- [from V74__cms.sql]
+CREATE TABLE `cms_article` (
+    `id`           BIGINT        NOT NULL,
+    `tenant_id`    BIGINT        NOT NULL DEFAULT 0,
+    `category_id`  BIGINT        NOT NULL,
+    `title`        VARCHAR(255)  NOT NULL,
+    `summary`      VARCHAR(512)  NULL,
+    `content`      TEXT          NULL,
+    `author`       VARCHAR(64)   NULL,
+    `cover_url`    VARCHAR(512)  NULL,
+    `status`       VARCHAR(20)   NOT NULL DEFAULT 'DRAFT',
+    `view_count`   BIGINT        NOT NULL DEFAULT 0,
+    `published_at` TIMESTAMP     NULL,
+    `offline_at`   TIMESTAMP     NULL,
+    `version`      INT           NOT NULL DEFAULT 0,
+    `deleted`      INT           NOT NULL DEFAULT 0,
+    `created_by`   VARCHAR(64)   NULL,
+    `created_at`   TIMESTAMP     NULL,
+    `updated_by`   VARCHAR(64)   NULL,
+    `updated_at`   TIMESTAMP     NULL,
+    PRIMARY KEY (`id`)
+);
+
+-- [from V74__cms.sql]
+CREATE INDEX `idx_cms_article_tenant_category` ON `cms_article` (`tenant_id`, `category_id`);
+
+-- [from V74__cms.sql]
+CREATE INDEX `idx_cms_article_status`          ON `cms_article` (`tenant_id`, `status`);
+
+-- [from V74__cms.sql]
+CREATE INDEX `idx_cms_article_title`           ON `cms_article` (`tenant_id`, `title`);
+
+-- [from V75__im.sql]
+-- V75 站内消息 IM（ROADMAP R6）：会话 / 会话成员 / 消息 + 已读回执 + 实时推送解耦。
+-- 设计要点：
+--   1) 标识符全部显式加引号保留 snake_case 小写（H2 元数据库名小写、生产 MySQL 大小写敏感，未引号会坏）；
+--   2) 索引用独立 CREATE INDEX 语句（内联 KEY `x`(...) 会被 H2 误解析为 domain）；
+--   3) tenant_id 承载租户隔离，enforce 关闭时恒为 0；
+--   4) 会话类型 conversation_type（P2P/GROUP）、消息类型 msg_type（TEXT/IMAGE/...）、状态由应用层校验；
+--   5) 已读回执由 im_conversation_member.last_read_message_id 驱动（雪崩 id 单调递增，可比较）；
+--   6) 菜单种子：挂载顶层「站内消息」目录（id=9401），下挂会话管理/消息中心（9402/9403），
+--      permission_code 作为菜单可见性判定码；更细的 im:*:send 等由 ApiResourceAutoSyncRunner
+--      扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，无需手工登记；
+--   7) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+CREATE TABLE `im_conversation` (
+    `id`                 BIGINT        NOT NULL,
+    `tenant_id`          BIGINT        NOT NULL DEFAULT 0,
+    `conversation_type`  VARCHAR(20)   NOT NULL,
+    `title`              VARCHAR(255)  NULL,
+    `owner_id`           BIGINT        NULL,
+    `status`             VARCHAR(20)   NOT NULL DEFAULT 'ACTIVE',
+    `version`            INT           NOT NULL DEFAULT 0,
+    `deleted`            INT           NOT NULL DEFAULT 0,
+    `created_by`         VARCHAR(64)   NULL,
+    `created_at`         TIMESTAMP     NULL,
+    `updated_by`         VARCHAR(64)   NULL,
+    `updated_at`         TIMESTAMP     NULL,
+    PRIMARY KEY (`id`)
+);
+
+-- [from V75__im.sql]
+CREATE INDEX `idx_im_conversation_tenant_type` ON `im_conversation` (`tenant_id`, `conversation_type`);
+
+-- [from V75__im.sql]
+CREATE INDEX `idx_im_conversation_status`      ON `im_conversation` (`tenant_id`, `status`);
+
+-- [from V75__im.sql]
+CREATE TABLE `im_conversation_member` (
+    `id`                   BIGINT        NOT NULL,
+    `tenant_id`            BIGINT        NOT NULL DEFAULT 0,
+    `conversation_id`      BIGINT        NOT NULL,
+    `user_id`              BIGINT        NOT NULL,
+    `member_role`          VARCHAR(20)   NOT NULL DEFAULT 'MEMBER',
+    `last_read_message_id` BIGINT        NULL,
+    `status`               VARCHAR(20)   NOT NULL DEFAULT 'ACTIVE',
+    `version`              INT           NOT NULL DEFAULT 0,
+    `deleted`              INT           NOT NULL DEFAULT 0,
+    `created_at`           TIMESTAMP     NULL,
+    `updated_at`           TIMESTAMP     NULL,
+    PRIMARY KEY (`id`),
+    CONSTRAINT `uk_im_member_conv_user` UNIQUE (`tenant_id`, `conversation_id`, `user_id`)
+);
+
+-- [from V75__im.sql]
+CREATE INDEX `idx_im_member_tenant_conv` ON `im_conversation_member` (`tenant_id`, `conversation_id`);
+
+-- [from V75__im.sql]
+CREATE INDEX `idx_im_member_tenant_user` ON `im_conversation_member` (`tenant_id`, `user_id`);
+
+-- [from V75__im.sql]
+CREATE TABLE `im_message` (
+    `id`              BIGINT        NOT NULL,
+    `tenant_id`       BIGINT        NOT NULL DEFAULT 0,
+    `conversation_id` BIGINT        NOT NULL,
+    `sender_id`       BIGINT        NOT NULL,
+    `content`         TEXT          NULL,
+    `msg_type`        VARCHAR(20)   NOT NULL DEFAULT 'TEXT',
+    `status`          VARCHAR(20)   NOT NULL DEFAULT 'SENT',
+    `reply_to_id`     BIGINT        NULL,
+    `version`         INT           NOT NULL DEFAULT 0,
+    `deleted`         INT           NOT NULL DEFAULT 0,
+    `created_by`      VARCHAR(64)   NULL,
+    `created_at`      TIMESTAMP     NULL,
+    `updated_by`      VARCHAR(64)   NULL,
+    `updated_at`      TIMESTAMP     NULL,
+    PRIMARY KEY (`id`)
+);
+
+-- [from V75__im.sql]
+CREATE INDEX `idx_im_message_tenant_conv` ON `im_message` (`tenant_id`, `conversation_id`);
+
+-- [from V75__im.sql]
+CREATE INDEX `idx_im_message_created`     ON `im_message` (`tenant_id`, `conversation_id`, `created_at`);
+
+-- [from V76__approval_portal.sql]
+-- V76 审批中心门户（ROADMAP R7）：wf_task_ext 补 activity_name 快照列 + 审批中心菜单种子。
+-- 设计要点：
+--   1) activity_name 为任务创建期从工作流引擎捕获的活动（节点）名称快照，
+--      待办/已办列表直接读取，无需回查引擎即可展示可读节点名；
+--   2) ALTER 风格沿用 V69（workflow_delegate），标识符保留 snake_case 小写（H2 元数据库名小写、
+--      生产 MySQL 大小写敏感，本仓既有迁移均以小写书写，保持一致）；
+--   3) 审批中心为前端聚合页（待办/已办/我发起/可发起 + 统计），统一菜单码
+--      approval:portal:view，由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动登记并授予 SUPER_ADMIN；
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+ALTER TABLE wf_task_ext
+    ADD COLUMN activity_name VARCHAR(255) NULL COMMENT '活动（节点）名称快照：任务创建期从引擎捕获，已办列表无需回查引擎即可展示可读节点名';
+
+-- [from V78__dashboard_template.sql]
+-- V78 数据看板模板库（ROADMAP R8）：看板模板 CRUD + 布局配置（layout_json）+ 发布态流转。
+-- 设计要点：
+--   1) 标识符全部显式加引号保留 snake_case 小写（H2 元数据库名小写、生产 MySQL 大小写敏感，未引号会坏）；
+--   2) 索引用独立 CREATE INDEX 语句（内联 KEY `x`(...) 会被 H2 误解析为 domain）；
+--   3) tenant_id 承载租户隔离，enforce 关闭时恒为 0；
+--   4) status 用 VARCHAR(20) 承载 DRAFT/PUBLISHED/OFFLINE，由应用层校验；
+--   5) layout_json 用 TEXT 承载看板布局（栅格 / 卡片 / 图表配置），由前端以 JSON 字符串提交，
+--      后端经 Jackson 校验合法性，SnakeRecordMapper 将 TEXT 直接映射为 String；
+--   6) 菜单种子：挂载顶层「数据看板」目录（id=9701），下挂「看板模板管理」（9702），
+--      permission_code 作为菜单可见性判定码，由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize
+--      自动落库并授予 SUPER_ADMIN，无需手工登记；
+--   7) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+CREATE TABLE `dashboard_template` (
+    `id`             BIGINT        NOT NULL,
+    `tenant_id`      BIGINT        NOT NULL DEFAULT 0,
+    `template_code`  VARCHAR(64)   NOT NULL,
+    `template_name`  VARCHAR(128)  NOT NULL,
+    `description`    VARCHAR(512)  NULL,
+    `layout_json`    TEXT          NULL,
+    `status`         VARCHAR(20)   NOT NULL DEFAULT 'DRAFT',
+    `view_count`     BIGINT        NOT NULL DEFAULT 0,
+    `version`        INT           NOT NULL DEFAULT 0,
+    `deleted`        INT           NOT NULL DEFAULT 0,
+    `created_by`     VARCHAR(64)   NULL,
+    `created_at`     TIMESTAMP     NULL,
+    `updated_by`     VARCHAR(64)   NULL,
+    `updated_at`     TIMESTAMP     NULL,
+    PRIMARY KEY (`id`)
+);
+
+-- [from V78__dashboard_template.sql]
+CREATE INDEX `idx_dashboard_template_tenant_code` ON `dashboard_template` (`tenant_id`, `template_code`);
+
+-- [from V78__dashboard_template.sql]
+CREATE INDEX `idx_dashboard_template_status`       ON `dashboard_template` (`tenant_id`, `status`);
+
+-- [from V78__dashboard_template.sql]
+CREATE INDEX `idx_dashboard_template_name`         ON `dashboard_template` (`tenant_id`, `template_name`);
+
+-- [from V81__operation_log_query_index.sql]
+-- V81 审计日志查询索引补齐（E2E F1/F2 性能修复的数据层部分）。
+-- 设计要点：
+--   1) 现状：sys_operation_log 仅有 idx_module_time(tenant_id, module_code, occurred_at)、
+--      idx_operator_time(tenant_id, operator_id, occurred_at)、idx_trace_id(trace_id)
+--      三个二级索引，均以 tenant_id 打头。而「操作日志」页与工作台「最近动态」的查询条件
+--      不带 tenant_id 前缀（单租户部署下 tenant_id 恒为 0，条件里没有该列），
+--      导致 idx_operator_time 只能退化为全索引扫描（实测 127 万条 index 条目）
+--      再叠加 ORDER BY occurred_at, id 的文件排序，单次请求 11.9~16.4s；
+--   2) 本次补两个「无 tenant_id 前缀」的覆盖索引：
+--        - idx_operator_occurred (operator_id, occurred_at, id)
+--             服务 WHERE operator_id = ? ORDER BY occurred_at DESC, id DESC LIMIT n
+--             （工作台「最近动态」/ 按操作人筛审计）；
+--        - idx_occurred_id (occurred_at, id)
+--             服务无筛选时的 ORDER BY occurred_at DESC, id DESC LIMIT n（列表首页）
+--             与 occurred_at 区间筛选（rows 直接由索引给出，免回表排序）；
+--   3) 排序键包含 id 作为 tie-breaker，索引列顺序与之严格一致，保证倒序扫描即可满足
+--      ORDER BY，不再触发 filesort；
+--   4) 索引名全局唯一（已全量检索 db/ 目录确认无重名）；标识符统一用反引号包裹并保留
+--      snake_case 小写（与 V74 等既有迁移一致）。注意：MySQL 未开启 ANSI_QUOTES 时双引号是
+--      字符串字面量而非标识符，CREATE INDEX "x" ... 会直接语法报错（本文件首版即踩此坑）；
+--   5) CREATE INDEX 不支持 IF NOT EXISTS，Flyway 保证本文件只执行一次。
+
+CREATE INDEX `idx_operator_occurred` ON `sys_operation_log` (`operator_id`, `occurred_at`, `id`);
+
+-- [from V81__operation_log_query_index.sql]
+CREATE INDEX `idx_occurred_id` ON `sys_operation_log` (`occurred_at`, `id`);

@@ -1,7 +1,9 @@
 -- ============================================================
 -- 分类参考件（DDL / DML），由 scripts/build_reference_modular.py 从
--- db/migration/ 迁移链（V32~V59）自动派生，仅供阅读与追溯。
--- 权威可执行来源：db/migration/ 迁移链（V57 为 Java 类迁移）。
+-- db/migration/ 迁移链（V32~V81，共 49 个 SQL 迁移）自动派生，仅供阅读与追溯。
+-- 版本范围由脚本运行时探测；新增迁移后须重跑本脚本重生成参考件。
+-- 权威可执行来源：db/migration/ 迁移链（V57 为 Java 类迁移，位于
+--   scaffold-admin/src/main/java/db/migration/，无对应 .sql）。
 -- 不可当迁移执行；Flyway 只扫描 db/migration/。
 -- 重新生成：python3 scripts/build_reference_modular.py
 -- ============================================================
@@ -1357,3 +1359,390 @@ VALUES (1128, 0, 1002, 'system:form-definition', '表单定义管理', 'MENU', '
 -- （read 权限由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, 1128;
+
+-- [from V60__config_center_wecom_dingtalk_params.sql]
+-- =====================================================================================
+-- V60 参数中心补充：企业微信 / 钉钉机器人渠道参数（M35 渠道 + M36 热更新）
+-- -------------------------------------------------------------------------------------
+-- 目标库：MySQL 8.x（InnoDB + utf8mb4 + utf8mb4_0900_ai_ci）
+-- 目的：将 M35 新增的企微/钉钉机器人渠道开关与默认地址沉淀为可配置参数，
+--       使其可经参数中心界面或直连数据库动态调整，并配合 ConfigService 热更新即时生效。
+--
+-- 幂等说明：种子用 INSERT IGNORE（重复执行不报 1062）。本迁移不改动任何既有迁移文件，
+--       仅向 sys_config 追加新行（独立 id 段 9001+，不与 V38 既有 4~52 行冲突）。
+--       可直接在目标库重复执行。secret 属凭据，按规范经环境变量注入，不入库。
+-- =====================================================================================
+
+INSERT IGNORE INTO sys_config (id, tenant_id, config_key, config_name, config_value, default_value, config_type, remark, editable, status, created_at, updated_at)
+VALUES
+    -- ===== 企业微信机器人 =====
+    (9001, 0, 'notification.wecom.enabled', '企业微信机器人渠道开关', 'false', 'false', 'BOOLEAN', '缺省关闭避免误发；开后经参数中心/直改库 + refresh 即热更新', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (9002, 0, 'notification.wecom.webhook-url', '企业微信机器人默认 Webhook 地址', NULL, NULL, 'STRING', '消息未自带 webhookUrl 时取此默认；通常含 key 参数', 1, 'ACTIVE', NOW(3), NOW(3)),
+
+    -- ===== 钉钉机器人 =====
+    (9003, 0, 'notification.dingtalk.enabled', '钉钉机器人渠道开关', 'false', 'false', 'BOOLEAN', '缺省关闭避免误发；开后经参数中心/直改库 + refresh 即热更新', 1, 'ACTIVE', NOW(3), NOW(3)),
+    (9004, 0, 'notification.dingtalk.webhook-url', '钉钉机器人默认 Webhook 地址', NULL, NULL, 'STRING', '消息未自带 webhookUrl 时取此默认；通常含 access_token 参数', 1, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V61__role_column_permission.sql]
+-- 菜单：字段/数据权限统一配置（M41），挂在「系统管理」1002 下，sort_no=117 紧随数据权限(116)之后。
+-- route_path 须与前端路由（system/permission-policy）严格一致，否则路由守卫会重定向到工作台。
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1128, 0, 1002, 'system:permission-policy', '字段数据权限', 'MENU', '/system/permission-policy', 'system/PermissionPolicyView', 'system:column-permission:read', 'Lock', 1, 0, 117, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V61__role_column_permission.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+-- （read 权限由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1128;
+
+-- [from V62__fix_permission_policy_menu.sql]
+-- 修正 M41 字段/数据权限统一配置页菜单缺失（V61 与 V58 误用同一菜单主键 1128）。
+-- 受 INSERT IGNORE 主键约束，V61 的 permission-policy 菜单被静默忽略（1128 已被 form-definition 占用），
+-- 导致 /system/permission-policy 路由在菜单守卫中不可达。本迁移以独立主键 1130 补种该菜单并绑定 SUPER_ADMIN。
+-- 幂等：INSERT IGNORE + SELECT 绑定，可重复执行；表结构（sys_role_column_permission）已在 V61 正常创建，不涉及。
+-- 设计要点：
+--   1) 与 M31 行级数据权限（sys_role_data_scope）对称：此处为列级（字段级）的「角色 × 资源 × 字段」分配；
+--   2) 读权限复用 system:column-permission:read（已由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）；
+--   3) route_path 须与前端路由（system/permission-policy）严格一致，否则路由守卫会重定向到工作台。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1130, 0, 1002, 'system:permission-policy', '字段数据权限', 'MENU', '/system/permission-policy', 'system/PermissionPolicyView', 'system:column-permission:read', 'Lock', 1, 0, 118, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V62__fix_permission_policy_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1130;
+
+-- [from V63__health_menu.sql]
+-- M42 健康探针前端可视化页菜单：在「系统管理」(1002) 下新增「健康探针」入口，
+-- 承载 /livez、/readyz 两个 k8s 风格根路径探针的可视化（存活/就绪状态 + 明细）。
+-- 设计要点：
+--   1) 后端探针端点已在 scaffold-monitor 的 ProbeController 提供（permitAll，无需鉴权）；
+--   2) 读权限复用 system:monitor:read（由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN），
+--      无需新增权限登记（与「系统监控」「缓存监控」「可观测中心」同权）；
+--   3) route_path 须与前端路由（system/health）严格一致，否则路由守卫会重定向到工作台；
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN，可重复执行；
+--   5) vite dev 代理需转发 /livez、/readyz（见 pc-admin-vue3-vite/vite.config.js），
+--      生产环境由同源后端直接处理根路径探针。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1129, 0, 1002, 'system:health', '健康探针', 'MENU', '/system/health', 'system/HealthView', 'system:monitor:read', 'Monitor', 1, 0, 119, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V63__health_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1129;
+
+-- [from V65__oauth2_token_menu.sql]
+-- M43 OAuth2 令牌管理菜单：在「系统管理」(1002) 下新增「OAuth2 令牌管理」入口，
+-- 承载活动令牌列表查看与吊销（M42 健康探针之后，sort_no=120）。
+-- 设计要点：
+--   1) 后端控制器 OAuth2TokenController（/api/system/oauth2-tokens），读权限 system:oauth2-token:read、
+--      吊销权限 system:oauth2-token:revoke，均经 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN；
+--   2) route_path 须与前端路由（system/oauth2-tokens）严格一致，否则路由守卫会重定向到工作台；
+--   3) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN，可重复执行。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1131, 0, 1002, 'system:oauth2-token', 'OAuth2 令牌管理', 'MENU', '/system/oauth2-tokens', 'system/TokenManagerView', 'system:oauth2-token:read', 'Key', 1, 0, 120, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V65__oauth2_token_menu.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1131;
+
+-- [from V66__form_submission_menu.sql]
+-- V66 表单提交管理菜单（M47 跨表单统一提交管理）：在「系统管理」(1002) 下新增「表单提交管理」入口，
+-- 承载跨表单提交记录的统一检索（分页 / 统计 / 详情 / 逻辑删除）与导出中心模板触发。
+-- 与既有「低代码表单试点」(id=1121，运行时渲染 / 提交 / 按单表单查记录) 互补：
+-- 本页是表单提交数据的治理入口，视角从「单个表单」升级为「全部表单」。
+--
+-- 设计要点：
+--   1) 后端接口前缀 /api/system/form-submissions；读权限复用 system:form-submission:read、
+--      删除权限 system:form-submission:delete，均由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize
+--      自动落库并授予 SUPER_ADMIN（本菜单仅负责导航可见性与角色绑定）；
+--   2) route_path 必须与前端路由（system/form-submissions）严格一致，否则路由守卫会重定向到工作台；
+--   3) 依赖：V47（sys_form_definition、低代码表单试点）、V53（sys_form_submission 落库）；
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1），可重复执行；
+--   5) sort_no=121 紧随 OAuth2 令牌管理(1131/120) 之后，置于系统管理目录末尾。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1132, 0, 1002, 'system:form-submission', '表单提交管理', 'MENU', '/system/form-submissions', 'system/FormSubmissionManageView', 'system:form-submission:read', 'List', 1, 0, 121, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V66__form_submission_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+-- （read/delete 权限由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1132;
+
+-- [from V67__menu_reorganize.sql]
+-- =============================================================
+-- V67 菜单体系按业务域重新分类
+-- 目的：将原先堆砌在「系统管理」下的 40+ 功能菜单，按实际业务域归并为
+--       13 个一级分类（目录），提升侧边栏可读性与权限分配清晰度。
+-- 设计来源：与用户确认的新菜单体系（一级=主分类，二级=子功能）。
+-- 幂等：全量 INSERT IGNORE + UPDATE ... WHERE menu_code/id，可重复执行。
+-- 说明：
+--   - 新目录使用独立 ID 段 2001-2013，避开现有种子（最大 1132）防撞；
+--   - 旧目录（系统管理 1002 / 工作流 1003 / 报表管理 1030 / 运维管理 1070）子项清空后隐藏（visible=0）；
+--   - 新目录均绑定 SUPER_ADMIN(role_id=1, tenant_id=0)；
+--   - 二级功能按 menu_code 重挂，原有 sys_role_menu 绑定（按 menu_id）保持不变，自动随目录上树；
+--   - 报表统计页 1053/1054/1055 按 id 处理：menu_code 'report-usage' 在 1030 与已软删的 1050 间重复，
+--     故报表域一律以 id 定位，避免误伤软删行或把目录本身当叶子重挂。
+-- =============================================================
+
+-- 1) 新增 13 个一级目录（parent_id=0, CATALOG）
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES
+  (2001, 0, 0, 'cat:workbench',    '工作台',     'CATALOG', NULL, NULL, NULL, 'Odometer',     1, 0, 10,  'ACTIVE', NOW(3), NOW(3)),
+  (2002, 0, 0, 'cat:personal',     '个人中心',   'CATALOG', NULL, NULL, NULL, 'User',         1, 0, 20,  'ACTIVE', NOW(3), NOW(3)),
+  (2003, 0, 0, 'cat:org-system',   '组织与系统', 'CATALOG', NULL, NULL, NULL, 'Setting',      1, 0, 30,  'ACTIVE', NOW(3), NOW(3)),
+  (2004, 0, 0, 'cat:security',     '权限与安全', 'CATALOG', NULL, NULL, NULL, 'Lock',         1, 0, 40,  'ACTIVE', NOW(3), NOW(3)),
+  (2005, 0, 0, 'cat:notify',       '消息与通知', 'CATALOG', NULL, NULL, NULL, 'Bell',         1, 0, 50,  'ACTIVE', NOW(3), NOW(3)),
+  (2006, 0, 0, 'cat:workflow',     '工作流',     'CATALOG', NULL, NULL, NULL, 'Share',        1, 0, 60,  'ACTIVE', NOW(3), NOW(3)),
+  (2007, 0, 0, 'cat:form',         '表单中心',   'CATALOG', NULL, NULL, NULL, 'Document',     1, 0, 70,  'ACTIVE', NOW(3), NOW(3)),
+  (2008, 0, 0, 'cat:ops',          '运维与监控', 'CATALOG', NULL, NULL, NULL, 'Monitor',      1, 0, 80,  'ACTIVE', NOW(3), NOW(3)),
+  (2009, 0, 0, 'cat:tenant',       '租户管理',   'CATALOG', NULL, NULL, NULL, 'OfficeBuilding',1, 0, 90,  'ACTIVE', NOW(3), NOW(3)),
+  (2010, 0, 0, 'cat:data-exchange','数据交换',   'CATALOG', NULL, NULL, NULL, 'Connection',   1, 0, 100, 'ACTIVE', NOW(3), NOW(3)),
+  (2011, 0, 0, 'cat:open-platform','开放平台',   'CATALOG', NULL, NULL, NULL, 'Key',          1, 0, 110, 'ACTIVE', NOW(3), NOW(3)),
+  (2012, 0, 0, 'cat:report',       '报表分析',   'CATALOG', NULL, NULL, NULL, 'DataAnalysis', 1, 0, 120, 'ACTIVE', NOW(3), NOW(3)),
+  (2013, 0, 0, 'cat:dev-tools',    '开发者工具', 'CATALOG', NULL, NULL, NULL, 'MagicStick',   1, 0, 130, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V67__menu_reorganize.sql]
+-- 2) 按业务域重新挂载二级功能（按 menu_code 定位，幂等可重复执行）
+UPDATE sys_menu SET parent_id = 2001, updated_at = NOW(3) WHERE menu_code IN ('dashboard');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2002, updated_at = NOW(3) WHERE menu_code IN ('profile');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2003, updated_at = NOW(3) WHERE menu_code IN ('system:user', 'system:role', 'system:department', 'system:menu', 'system:dict', 'system:config', 'system:post');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2004, updated_at = NOW(3) WHERE menu_code IN ('system:api-resource', 'system:data-scope', 'system:permission-policy', 'system:mask-strategy', 'system:oauth2-token');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2005, updated_at = NOW(3) WHERE menu_code IN ('system:notice', 'system:notification-template', 'system:notification-record', 'system:sms-record', 'system:realtime');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2006, updated_at = NOW(3) WHERE menu_code IN ('workflow:task', 'workflow:instance', 'workflow:definition', 'workflow:monitor');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2007, updated_at = NOW(3) WHERE menu_code IN ('system:form-definition', 'system:form-submission', 'system:form-pilot');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2008, updated_at = NOW(3) WHERE menu_code IN ('system:monitor', 'system:online', 'system:cache', 'system:datasource', 'system:observability-center', 'system:health', 'system:login-log', 'system:operation-log');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2009, updated_at = NOW(3) WHERE menu_code IN ('system:tenant', 'system:tenant-isolation');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2010, updated_at = NOW(3) WHERE menu_code IN ('system:import', 'system:export', 'file-management');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2011, updated_at = NOW(3) WHERE menu_code IN ('system:openapi-client');
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2013, updated_at = NOW(3) WHERE menu_code IN ('job-management', 'dev-codegen');
+
+-- [from V67__menu_reorganize.sql]
+-- 2b) 报表分析域：3 个活跃统计页按 id 归入新目录（避开重复的 menu_code 'report-usage'）；报表大屏归入工作台
+UPDATE sys_menu SET parent_id = 2012, updated_at = NOW(3) WHERE id IN (1053, 1054, 1055);
+
+-- [from V67__menu_reorganize.sql]
+UPDATE sys_menu SET parent_id = 2001, updated_at = NOW(3) WHERE menu_code = 'system:dashboard';
+
+-- [from V67__menu_reorganize.sql]
+-- 3) 隐藏已清空的旧目录（系统管理 / 工作流 / 报表管理 / 运维管理），避免侧边栏出现空分组
+UPDATE sys_menu SET visible = 0, updated_at = NOW(3) WHERE id IN (1002, 1003, 1030, 1070) AND menu_type = 'CATALOG';
+
+-- [from V67__menu_reorganize.sql]
+-- 4) 新目录绑定 SUPER_ADMIN，保证超管侧边栏可见（tenant_id, role_id, menu_id 为主键，INSERT IGNORE 幂等）
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+VALUES
+  (0, 1, 2001), (0, 1, 2002), (0, 1, 2003), (0, 1, 2004), (0, 1, 2005),
+  (0, 1, 2006), (0, 1, 2007), (0, 1, 2008), (0, 1, 2009), (0, 1, 2010),
+  (0, 1, 2011), (0, 1, 2012), (0, 1, 2013);
+
+-- [from V71__idempotency_menu.sql]
+-- V71 幂等记录管理菜单（M2 幂等模块运维侧面）：在「系统管理」(parent_id=1002) 下新增「幂等记录」入口，
+-- 承载幂等记录分页 / 统计 / 过期清理三接口的前端页面（IdempotencyRecordView）。
+-- 设计要点：
+--   1) 后端 IdempotencyRecordController（/api/system/idempotency-records），读权限 system:idempotency:read、
+--      清理权限 system:idempotency:manage，均经 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN；
+--   2) route_path 须与前端路由（system/idempotency）严格一致，否则路由守卫会重定向到工作台；
+--   3) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1），可重复执行；sort_no=122 置于 OAuth2 令牌(120) 之后。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1142, 0, 1002, 'system:idempotency', '幂等记录', 'MENU', '/system/idempotency', 'system/IdempotencyRecordView', 'system:idempotency:read', 'Key', 1, 0, 122, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V71__idempotency_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+-- （read 权限由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1142;
+
+-- [from V72__api_docs_menu.sql]
+-- V72 API 文档中心菜单（#972）：复用 Springdoc 标准端点 /v3/api-docs 的纯前端浏览器，
+-- 在「系统管理」(parent_id=1002) 下新增「API 文档」入口，承载 ApiDocView。
+-- 设计要点：
+--   1) 纯前端模块，后端无需新增 Controller；springdoc 已在 scaffold-framework 启用（local 开放、prod 关闭）；
+--   2) route_path 须与前端路由（system/api-docs）严格一致，否则路由守卫会重定向到工作台；
+--   3) 权限码 system:api-docs:read 预留：当前后端未对 /v3/api-docs 挂独立 @PreAuthorize（local 开放），
+--      若后续加鉴权，ApiResourceAutoSyncRunner 会扫描并自动授予 SUPER_ADMIN；菜单此处先绑定 SUPER_ADMIN 保证可见；
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1），可重复执行；sort_no=123 置于幂等记录(122) 之后。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1143, 0, 1002, 'system:api-docs', 'API 文档', 'MENU', '/system/api-docs', 'system/ApiDocView', 'system:api-docs:read', 'Document', 1, 0, 123, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V72__api_docs_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1143;
+
+-- [from V73__workflow_instance_admin_menu.sql]
+-- V73 流程实例治理菜单（M23 续 /api/workflow/admin）：
+-- 为运行实例的挂起 / 恢复 / 改派 / 迁移四个治理端点提供前端入口「流程实例治理」。
+-- 设计要点：
+--   1) 挂载「工作流」目录（id=2006，V67 重组后的 CATALOG），sort_no=50 紧随流程监控(40) 之后；
+--   2) route_path 须与前端路由（workflow/instance-admin）严格一致，否则路由守卫会重定向到工作台；
+--   3) 权限码 workflow:instance:reassign 作为菜单可见性判定码；workflow:instance:suspend / :migrate
+--      由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，无需手工登记；
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1144, 0, 2006, 'workflow:instance-admin', '流程实例治理', 'MENU', '/workflow/instance-admin', 'workflow/InstanceAdminView', 'workflow:instance:reassign', 'SetUp', 1, 0, 50, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V73__workflow_instance_admin_menu.sql]
+-- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
+SELECT 0, 1, 1144;
+
+-- [from V74__cms.sql]
+-- ---------------- 菜单种子 ----------------
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9301, 0, 0, 'cms', '内容管理', 'CATALOG', NULL, NULL, NULL, 'Document', 1, 0, 80, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V74__cms.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9302, 0, 9301, 'cms:category', '栏目管理', 'MENU', '/cms/category', 'cms/CategoryView', 'cms:category:manage', 'FolderOpened', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V74__cms.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9303, 0, 9301, 'cms:article', '文章管理', 'MENU', '/cms/article', 'cms/ArticleView', 'cms:article:manage', 'FileText', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V74__cms.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9302;
+
+-- [from V74__cms.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9303;
+
+-- [from V75__im.sql]
+-- ---------------- 菜单种子 ----------------
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9401, 0, 0, 'im', '站内消息', 'CATALOG', NULL, NULL, NULL, 'ChatDotRound', 1, 0, 90, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V75__im.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9402, 0, 9401, 'im:conversation', '会话管理', 'MENU', '/im/conversation', 'im/ConversationView', 'im:conversation:manage', 'ChatSquare', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V75__im.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9403, 0, 9401, 'im:message', '消息中心', 'MENU', '/im/message', 'im/MessageView', 'im:message:view', 'Message', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V75__im.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9402;
+
+-- [from V75__im.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9403;
+
+-- [from V76__approval_portal.sql]
+-- ---------------- 菜单种子 ----------------
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9501, 0, 0, 'approval', '审批中心', 'CATALOG', NULL, NULL, NULL, 'Tickets', 1, 0, 95, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V76__approval_portal.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9502, 0, 9501, 'approval:portal', '审批工作台', 'MENU', '/approval/portal', 'approval/PortalView', 'approval:portal:view', 'Tickets', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V76__approval_portal.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9502;
+
+-- [from V77__ai_scaffold.sql]
+-- V77 AI 辅助开发（ROADMAP R3）：新增 scaffold-ai 模块 + AI 脚手架菜单种子。
+-- 设计要点：
+--   1) 标识符全部显式加引号保留 snake_case 小写（对齐 V74/V76 约定）；
+--   2) AI 脚手架为只读生成入口，统一权限码 ai:scaffold:generate，
+--      由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动登记并授予 SUPER_ADMIN；
+--   3) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9601, 0, 0, 'ai', 'AI 辅助开发', 'CATALOG', NULL, NULL, NULL, 'Cpu', 1, 0, 96, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V77__ai_scaffold.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9602, 0, 9601, 'ai:scaffold', '代码生成助手', 'MENU', '/ai/scaffold', 'ai/ScaffoldView', 'ai:scaffold:generate', 'MagicStick', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V77__ai_scaffold.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9602;
+
+-- [from V78__dashboard_template.sql]
+-- ---------------- 菜单种子 ----------------
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9701, 0, 0, 'dashboard', '数据看板', 'CATALOG', NULL, NULL, NULL, 'Dashboard', 1, 0, 70, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V78__dashboard_template.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9702, 0, 9701, 'dashboard:template', '看板模板管理', 'MENU', '/dashboard/template', 'dashboard/DashboardTemplateView', 'dashboard:template:manage', 'Grid', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V78__dashboard_template.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9702;
+
+-- [from V79__micro_frontend.sql]
+-- V79 微前端宿主（ROADMAP R12）：子应用挂载菜单种子。
+-- 设计要点：
+--   1) R12 采用离线安全的自研主壳方案（Vite import.meta.glob 懒加载 micro-apps/*/index.js 的
+--      mount/unmount 契约），不引入 @originjs/vite-plugin-federation 外部依赖；
+--   2) 宿主为纯前端页面（无新后端端点），permission_code 复用既有已登记的
+--      system:monitor:read（与「系统监控」「健康探针」同权，参照 V42 health 菜单先例），
+--      保证 SUPER_ADMIN 及持权角色可见；
+--   3) 子应用清单由前端 src/micro-apps/*/index.js 目录结构驱动，新增子应用无需后端变更；
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9801, 0, 0, 'micro', '微前端', 'CATALOG', NULL, NULL, NULL, 'MagicStick', 1, 0, 92, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V79__micro_frontend.sql]
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (9802, 0, 9801, 'micro:host', '微前端宿主', 'MENU', '/micro/host', 'micro/MicroFrontendHost', 'system:monitor:read', 'Menu', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V79__micro_frontend.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9802;
+
+-- [from V80__chaos_config_center_menu.sql]
+-- V80 混沌工程（R15）与配置中心（R16）前端可视化页菜单种子。
+-- 设计要点：
+--   1) 标识符全部显式加引号保留 snake_case 小写（对齐 V63/V77 约定）；
+--   2) 两个控制器均受 @ConditionalOnProperty 特征开关守卫
+--      （app.chaos.enabled / app.config-center.enabled），未启用时控制器不注册；
+--      权限码由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动登记并授予 SUPER_ADMIN，
+--      菜单种子只需声明 menu_code 与 permission_code 的对应关系；
+--   3) 二者均挂在「系统管理」(parent_id=1002) 下；
+--   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+
+-- 混沌工程入口
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1150, 0, 1002, 'system:chaos', '混沌工程', 'MENU', '/system/chaos', 'system/ChaosView', 'system:chaos:read', 'Warning', 1, 0, 124, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V80__chaos_config_center_menu.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 1150;
+
+-- [from V80__chaos_config_center_menu.sql]
+-- 配置中心入口
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1151, 0, 1002, 'system:config-center', '配置中心', 'MENU', '/system/config-center', 'system/ConfigCenterView', 'system:config-center:read', 'Setting', 1, 0, 125, 'ACTIVE', NOW(3), NOW(3));
+
+-- [from V80__chaos_config_center_menu.sql]
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 1151;
