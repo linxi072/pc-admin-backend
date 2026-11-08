@@ -1,8 +1,9 @@
 # 目录结构规范
 
-> 适用范围：`java-admin-framework/`（17 个 Maven 模块）与 `pc-admin-vue3-vite/src/`。
+> 适用范围：`java-admin-framework/`（14 个 Maven 模块）与 `pc-admin-vue3-vite/src/`。
 > 权威判据：根 `pom.xml` 的 `<modules>`、`scripts/check-conventions.py`（H1–H5 / W1–W4）、
-> `scripts/api-contract.json`（交互契约）、`scripts/check-api-contract.py`。
+> `scripts/api-contract.json`（交互契约）、`scripts/check-api-contract.py`（前后端契约）、
+> `scripts/check-directory.py`（D1–D11 目录约定）；统一执行入口 `scripts/check-all.py`。
 > 本文档只描述**目录与包的归属约定**，模块职责见 [MODULES.md](MODULES.md)，
 > 与若依约定的差异见 [RUOYI-ALIGNMENT.md](RUOYI-ALIGNMENT.md)。
 
@@ -12,16 +13,18 @@
 java-admin-framework/
 ├── pom.xml                     父 POM：仅聚合 + 版本管理（子模块不写第三方版本号）
 ├── scripts/                    约定校验与交互契约（不参与编译）
-│   ├── check-conventions.py    包级环 / 重复 FQN / 依赖方向 / 数据类放置 / 模块 DAG
+│   ├── check-conventions.py    H1–H5 / W1–W4：包级环 / 重复 FQN / 依赖方向 / 数据类 / 模块 DAG
+│   ├── check-directory.py      D1–D11 目录约定守护
+│   ├── check-api-contract.py   前后端接口契约静态对称（多模块源码根扫描）
+│   ├── check-all.py            统一门禁入口：编排上述三项 + scripts 单测
 │   ├── api-contract.json       统一响应 Result<T> 的唯一事实来源
-│   ├── check-api-contract.py
-│   └── test_check_conventions.py
-├── docs/                       架构与规范文档（本目录）
-└── scaffold-<name>/            17 个模块，目录结构统一
+│   └── check-*.py              约定 / 目录 / 契约校验器（行为回归用例已按精简要求移除）
+├── docs/                       架构与规范文档（本目录，全部须挂 docs/README.md 索引）
+└── scaffold-<name>/            14 个模块，目录结构统一
     ├── pom.xml
-    ├── src/main/java/com/acme/scaffold/<包根>/
+    ├── src/main/java/com/acme/scaffold/<包根>/   一级目录只允许 com（admin 例外允许 db）
     ├── src/main/resources/     仅 admin 放运行期配置与 Flyway 迁移
-    └── src/test/java/
+    └── src/test/               （2026-11-08 起测试文件已移除；D9/D11 守护规则保留）
 ```
 
 `scaffold-admin` 是**唯一可部署 / 启动模块**，持有 `FrameworkApplication`、全部
@@ -33,13 +36,18 @@ java-admin-framework/
 | 模块 | 顶层包根 | 说明 |
 |---|---|---|
 | common | `common.*`（27 个一级子包）+ `jooq.*` | `jooq` 为历史第二包根，见 §3 例外 |
-| realtime / kafka / codegen / plugin / ai / cms / im / approval | 同名包根 | 与模块名一致 |
+| realtime / kafka / cms / im | 同名包根 | 与模块名一致 |
+| **common** | `common.*` + `jooq.*` + `plugin.*` | `plugin.*` 由并入的 plugin 能力带入 |
+| **codegen** | `codegen.*` + `ai.*` | `ai.*` 由并入的 AI 脚手架带入 |
+| **workflow** | `workflow.*` + `approval.*` | `approval.*` 由并入的审批门户带入 |
 | security / system / monitor / job / workbench / workflow | 同名包根 | 与模块名一致 |
 | **framework** | `config.*` / `observability.*` / `monitor.*` / `chaos.*` | **无 `framework` 包**，历史例外；`monitor` 下分 detection / observability |
-| **admin** | `com.acme.scaffold`（启动类） | 无业务包，测试按 `test`/`integration`/`e2e`/`consistency` 分 |
+| **admin** | `com.acme.scaffold`（启动类） | 无业务包；`src/main/java/db/migration/` 另有 Flyway Java 迁移（唯一 `db` 一级目录例外） |
 
-> 包根与模块名不一致的两处例外均有 `package-info.java` 写明原因。模块边界由 Maven 依赖
-> 与 H5 DAG 强制，不靠包名推断；**不得**为「看起来更整齐」而重命名包根。
+> 上述包根与 admin 的 `db` / 测试包根例外，均在 `scripts/check-directory.py` 的
+> `EXPECTED_ROOTS`、`MAIN_ROOT_EXCEPTIONS`、`TEST_ROOT_EXCEPTIONS` 中登记并由 D1/D8/D9 守护；
+> `package-info.java` 仅覆盖 common 的 3 个包、`jooq` 与 framework/config 共 5 处（不是每个例外包都有）。
+> 模块边界由 Maven 依赖与 H5 DAG 强制，不靠包名推断；**不得**为「看起来更整齐」而重命名包根。
 
 ## 3. `scaffold-common` 一级子包职责表
 
@@ -100,7 +108,7 @@ pc-admin-vue3-vite/src/
 ## 5. 禁止事项
 
 1. 不在特性包根放 `*DTO` / `*VO` / `*Request` / `*Response`（H4 阻断）；
-2. 不新增顶层包根；两处历史例外不再扩大；
+2. 不新增顶层包根，历史例外不再扩大；`src/main/java` 一级目录只允许 `com`（admin 例外 `db`），`src/test/java` 若存在则包根须与 main 白名单对齐（D8/D9）；
 3. 不在多个模块定义同一 FQN（H2 阻断），不制造跨模块包级环（H1）与模块环（H5）；
 4. 不在非 admin 模块放启动类、`application*.yml` 或 `logback*.xml`；
 5. 不在子模块 POM 写第三方依赖 `<version>`，版本统一在父 POM `dependencyManagement`；
@@ -111,12 +119,39 @@ pc-admin-vue3-vite/src/
 
 | 约定 | 守护方式 |
 |---|---|
-| 包级环 / 重复 FQN / 分层 / 数据类 / 模块 DAG | `python3 scripts/check-conventions.py`（EXIT=0） |
+| 包级环 / 重复 FQN / 分层 / 数据类 / 模块 DAG（H1–H5 / W1–W4） | `python3 scripts/check-conventions.py`（EXIT=0） |
+| 目录结构约定 D1–D11 | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 23 例 |
+| 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 10 例 |
 | 统一响应与错误码 | `scripts/api-contract.json` + 后端 `ApiContractConsistencyTest` + 前端 `result.test.js` |
 | 常量字面值不漂移 | `CommonConstantsTest` |
 | 前端目录与构建可解析 | `env -u NODE_OPTIONS npm test` + `npx vite build` |
-| 目录结构约定 D1–D7（包根白名单 / 启动类位置 / 配置归属 / 全局样式 / 常量与文档齐全 / 版本管理） | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 13 例；脚本自身单测与既有脚本测试一起跑 `python3 -m unittest discover -s scripts -p "test_*.py" -v` |
 | 全量编译与回归 | `mvn -o -f pom.xml clean test`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`） |
 
+**统一门禁入口**：`python3 scripts/check-all.py` 把上表的 `check-conventions.py`（硬性）、
+`check-directory.py`（硬性）、`check-api-contract.py`（信息性，不阻断）与
+`scripts/test_*.py` 行为回归（硬性；用例已按精简要求移除）编排成一次运行，逐项打印 EXIT 与耗时；硬性项任一失败
+返回 `EXIT=1`，仅信息性项失败返回 `EXIT=0` 但列出风险提示。行为回归
+`scripts/test_check_all.py` 16 例。常用参数：`--only conventions,directory`、`--skip-tests`、
+`--quiet`；受限环境（沙箱阻止 `tempfile` 默认目录探测）加 `--test-tmpdir <dir>`。
+各步骤仍可单独执行，本脚本只做编排、不改文件、不参与编译与运行时。
+
+D1–D11 一览（详见 `scripts/check-directory.py` 文件头 docstring）：
+
+| 编号 | 守护内容 |
+|---|---|
+| D1 | 按模块登记顶层包根白名单 `EXPECTED_ROOTS` |
+| D2 | 仅 `scaffold-admin` 可在 `com.acme.scaffold` 根级放启动类 |
+| D3 | 仅 admin 可持 `application*.yml` / `logback*.xml`（main 资源） |
+| D4 | 前端 `src/` 根不得有 CSS，`src/styles/` 三份全局样式齐全 |
+| D5 | `common/constant/CommonConstants.java` 必须存在 |
+| D6 | 三份规范文档齐全，`docs/README.md` 索引引用齐全 |
+| D7 | 子模块 POM `<dependencies>` 不得写具体第三方版本 |
+| D8 | `src/main/java` 一级目录只允许 `com`；admin 例外允许 `db`（Flyway Java 迁移） |
+| D9 | `src/test/java` 若存在，包根与 main 白名单对齐；admin 9 个历史包根 + `BaseIntegrationTest.java` 例外 |
+| D10 | `docs/` 下所有文档须挂进 `docs/README.md` 索引，且索引相对链接不得是死链 |
+| D11 | `src/test/resources` 仅 admin 可持 `application*.yml` / `logback*.xml`（当前测试资源已移除） |
+
 新增目录 / 包后必须同步更新本文档、`docs/MODULES.md` **与 `scripts/check-directory.py` 的
-`EXPECTED_ROOTS` 白名单**，否则目录校验会阻断（D1）。只增文件不增目录时无需改文档。
+`EXPECTED_ROOTS` 白名单**，否则目录校验会阻断（D1）；新增 main/test 一级目录还须同步
+`MAIN_ROOT_EXCEPTIONS` / `TEST_ROOT_EXCEPTIONS`（D8/D9）。`docs/` 下新增文档须同步补
+`docs/README.md` 索引，否则 D10 阻断。只增文件不增目录时无需改文档。

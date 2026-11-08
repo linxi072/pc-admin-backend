@@ -1,30 +1,29 @@
 # 模块职责
 
-工程由 **17 个 Maven 模块**组成，包根统一为 `com.acme.scaffold`。下表为单一事实来源；
+工程由 **14 个 Maven 模块**组成，包根统一为 `com.acme.scaffold`。下表为单一事实来源；
 模块是否真实存在的最终判据是根 `pom.xml` 的 `<modules>`，以及
 `scripts/check-conventions.py` 的 H5 模块 DAG 校验（表与 POM 不一致时以 POM 为准并修表）。
 
 | 模块 | 层 | 职责（一句话） | 依赖 | 关键包 |
 |---|---|---|---|---|
-| `scaffold-common` | 基础 | 跨模块基础设施：统一响应/异常/分页、**通用常量**、i18n、审计/幂等切面、导出/导入、**jOOQ DSL** | 无 | `common.*`（含 `common.constant`）、`jooq.dsl`/`jooq.paging` |
+| `scaffold-common` | 基础 | 跨模块基础设施：统一响应/异常/分页、**通用常量**、i18n、审计/幂等切面、导出/导入、**jOOQ DSL**、插件 SPI 运行时 | 无 | `common.*`（含 `common.constant`）、`jooq.*`、`plugin.*` |
 | `scaffold-realtime` | 基础 | WebSocket 握手鉴权端口与会话管理 | common | `realtime.port`/`realtime.websocket` |
 | `scaffold-kafka` | 基础 | Kafka 保序规则与消费者薄封装 | common | `kafka.*` |
-| `scaffold-codegen` | 工具 | 表元数据读取与 CRUD 骨架生成（M50） | common | `codegen.controller`/`codegen.service` |
-| `scaffold-plugin` | 扩展基座 | 插件 SPI 定义与运行时注册 | common | `plugin.*` |
-| `scaffold-ai` | 工具 | AI 辅助能力的配置与生成客户端 | common, codegen | `ai.*` |
+| `scaffold-codegen` | 工具 | 表元数据读取与 CRUD 骨架生成（M50）+ AI 脚手架（R3） | common | `codegen.*`、`ai.*` |
 | `scaffold-cms` | 业务域 | 栏目/文章/内容管理 | common | `cms.*` |
 | `scaffold-im` | 业务域 | 站内即时消息与会话管理 | common | `im.*` |
-| `scaffold-approval` | 业务域 | 审批门户，编排工作流任务视图 | common, workflow | `approval.*` |
 | `scaffold-framework` | 框架装配 | 全局 Spring 配置、指标链路、N+1/慢查询监听 | common, realtime | `config.*`、`observability.*`、`monitor.detection.*` |
 | `scaffold-security` | 业务域 | 认证授权与令牌域：JWT/刷新令牌/Token 版本、**OAuth2 授权+资源服务器**、密码策略、数据权限、限流、在线会话 | common, realtime | `security.auth`/`oauth2`/`jwt`/`permission`/`token`/`ratelimit`/`online` |
 | `scaffold-system` | 业务域 | 系统管理与 RBAC：用户/角色/菜单/机构/字典/参数/文件/站内信/公告/租户/导入导出 | common, realtime, security | `system.*`（含 `bootstrap.ApiResourceAutoSyncRunner`） |
 | `scaffold-monitor` | 业务域 | 告警收件箱、健康探针、缓存与监控指标查询 | common, framework, security, system | `monitor.alert`/`monitor.health`/`monitor.service` |
 | `scaffold-job` | 业务域 | 任务定义管理与周期任务注册（JobRunr） | common, monitor, system | `job.*` |
 | `scaffold-workbench` | 业务域 | 工作台看板与报表聚合 | common, system | `workbench.*` |
-| `scaffold-workflow` | 业务域 | Flowable 对接：流程定义/实例/任务，认领/转办/完成 + 管理员治理 | common, monitor, realtime, system | `workflow.*` |
-| `scaffold-admin` | 启动装配 | 应用入口、运行期配置与 Flyway 迁移、全部集成/端到端测试（**唯一可部署模块**） | 全部 | `FrameworkApplication` + `test`/`integration`/`e2e`/`consistency` |
+| `scaffold-workflow` | 业务域 | Flowable 对接：流程定义/实例/任务，认领/转办/完成 + 管理员治理 + 审批中心门户 | common, monitor, realtime, system | `workflow.*`、`approval.*` |
+| `scaffold-admin` | 启动装配 | 应用入口、运行期配置与 Flyway 迁移（**唯一可部署模块**） | 全部 | `FrameworkApplication` + `db/migration` |
 
 > **模块 ↔ 包映射说明**：多数值模块与顶层包同名，但有意存在两处例外——
+> **2026-11-08 整合**：`plugin.*` / `approval.*` / `ai.*` 三个包根分别并入 common / workflow / codegen，
+> 包路径与类名均未改写，故「模块 ↔ 包」不再一一对应，以 `scripts/check-directory.py` 的 `EXPECTED_ROOTS` 为准。
 > `scaffold-framework` 的类位于 `com.acme.scaffold.config` / `observability` / `monitor.detection` /
 > `chaos`（无 `...framework` 包）；`scaffold-common` 另含 `com.acme.scaffold.jooq.*`。
 > 根 `pom.xml` 已书面声明「不做包名重排，模块边界由 Maven 依赖强制」，故保留现状。
@@ -77,4 +76,4 @@
 
 **与「新增模块步骤」的衔接**：当上述任一候选进入实施时，严格复用 §「新增模块步骤」六步，
 并在第 1 步注册后、第 5 步补前端资产时同步更新本表状态（规划态 → 实施中 → 已落地）；
-任何新增依赖边不得与现有 17 模块形成环。
+任何新增依赖边不得与现有 14 模块形成环。
