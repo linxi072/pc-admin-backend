@@ -37,9 +37,9 @@ python3 scripts/init/install.py verify --base-url http://localhost:8080 --requir
 | 步骤 | 动作 | 幂等机制 |
 |---|---|---|
 | `env` | 由 `env.template` 生成仓库根 `.env`；已存在则只补缺失键 | 不覆盖既有值；`--force` 才重生成 `JWT_SECRET`（会当场失效旧 Token） |
-| `db` | `CREATE DATABASE IF NOT EXISTS`（utf8mb4）；可选建业务账号 + `GRANT` | 全部 `IF NOT EXISTS`；`information_schema` 复核库存在 |
-| `seed` | 核对 9 项基线（admin/SUPER_ADMIN/绑定/字典/配置/接口资源/菜单/两条修复菜单）；缺失则补种 | 补种语句与 Flyway 迁移 V32/V39 种子逐字等价，`INSERT IGNORE`；口令经 `MYSQL_PWD` 传递不走命令行 |
-| `verify` | JDK/Maven/mysql/Redis/Node 前置检查；迁移版本（本地链 vs `flyway_schema_history`）；种子摘要；`/livez`、`/readyz`、`/api/connectivity/ping` 健康三连 | 只读；HTTP 一律走 `ProxyHandler({})` opener，不受 `http_proxy` 干扰 |
+| `db` | `CREATE DATABASE IF NOT EXISTS`（utf8mb4）；可选建业务账号 + `GRANT`。**只建空库，不导入表结构** | 全部 `IF NOT EXISTS`；`information_schema` 复核库存在 |
+| `seed` | 核对 9 项基线（admin/SUPER_ADMIN/绑定/字典/配置/接口资源/菜单/两条修复菜单）；缺失则补种 | 补种语句与版本化结构链 V32/V39 种子逐字等价，`INSERT IGNORE`；口令经 `MYSQL_PWD` 传递不走命令行 |
+| `verify` | JDK/Maven/mysql/Redis/Node 前置检查；初始化基线（本地结构链 vs `schema_baseline`）；种子摘要；`/livez`、`/readyz`、`/api/connectivity/ping` 健康三连 | 只读；HTTP 一律走 `ProxyHandler({})` opener，不受 `http_proxy` 干扰 |
 
 ## 状态与退出码
 
@@ -48,16 +48,20 @@ python3 scripts/init/install.py verify --base-url http://localhost:8080 --requir
 | `[ OK ]` | 通过 | 否 |
 | `[FAIL]` | 失败（缺工具/连不上/校验不过） | **是（退出码 1）** |
 | `[SKIP]` | 跳过（如 `--skip-health`、无 redis-cli） | 否 |
-| `[WAIT]` | 等待后续动作（如库为空待应用首次启动跑 Flyway） | 否 |
+| `[WAIT]` | 等待后续动作（如库为空、尚未执行 `db/init/01_full_schema.sql`） | 否 |
 
-## 与 Flyway 的关系（重要）
+## 与手工初始化脚本的关系（重要）
 
-标准路径下**全部基础数据由 Flyway 迁移链（V32~V39）在应用首次启动时自动导入**，本套件不替代 Flyway。`seed` 步骤面向两类场景兜底：
+运行时已移除 Flyway，应用启动**不执行任何 DDL**。标准路径是 DBA 手工执行
+`scaffold-admin/src/main/resources/db/init/` 下的 `00_create_database.sql` →
+`01_full_schema.sql`（可选 `02_backfill_tenant_id.sql`），表结构与全部基础数据均来自
+`01_full_schema.sql`。本套件的 `db` 步骤只负责建空库，**不导入表结构**；`verify` 通过
+`schema_baseline.baseline_version` 核对已初始化版本，`seed` 面向两类场景兜底：
 
-1. DBA 手工管控（关闭 Flyway 自动执行）时的核对与补种；
+1. DBA 手工管控下，核对 9 项基线数据并在缺失时补种；
 2. 历史缺陷修复（V35/V36 菜单 id=1091 碰撞被 `INSERT IGNORE` 静默丢行 → V39 以 1093/1094 重播种）。
 
-若库中表尚不存在，`seed` 返回 `[WAIT]` 并提示先启动后端（教程 §4.3），不会误报失败。
+若库中表尚不存在，`seed` 返回 `[WAIT]` 并提示先执行 `db/init/01_full_schema.sql`，不会误报失败。
 
 ## 自测
 

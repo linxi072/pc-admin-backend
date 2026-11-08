@@ -2,7 +2,7 @@
 
 四项内容：
 1. 前置条件：JDK（≥17，推荐 21）/ mysql 客户端 / redis-cli / node / mvn（可缺）；
-2. 迁移核对：本地迁移链最大版本 vs flyway_schema_history 已应用最大版本；
+2. 初始化基线核对：本地结构链最大版本 vs schema_baseline.baseline_version（Flyway 已移除）；
 3. 种子摘要：复用 seed_check 的核对项（不补种）；
 4. 健康检查：/livez、/readyz、/api/connectivity/ping（urllib，绕过代理）。
 
@@ -110,33 +110,38 @@ def scan_max_migration_version(migration_dir: str):
 
 
 def check_migrations(conn: dict, migration_dir: str) -> VerifyItem:
+    """核对已初始化的基线版本（运行时已移除 Flyway，不再查 flyway_schema_history）。"""
     local_max = scan_max_migration_version(migration_dir)
     if local_max is None:
-        return VerifyItem("迁移链扫描", "FAIL", "未找到 V*.sql: %s" % migration_dir)
+        return VerifyItem("结构链扫描", "FAIL", "未找到 V*.sql: %s" % migration_dir)
     try:
         out = db_init.run_sql(
             conn,
-            "SELECT MAX(CAST(version AS UNSIGNED)), "
-            "SUM(CASE WHEN success=1 THEN 0 ELSE 1 END) FROM flyway_schema_history;",
+            "SELECT MAX(CAST(SUBSTRING(baseline_version, 2) AS UNSIGNED)), "
+            "MAX(source_count) FROM schema_baseline;",
             database=conn["db"],
         )
     except db_init.DbError:
-        return VerifyItem("迁移版本", "PENDING", "flyway_schema_history 不存在（应用未首次启动）")
+        return VerifyItem("初始化基线", "PENDING",
+                          "schema_baseline 不存在（请先手工执行 db/init/01_full_schema.sql）")
     if out.returncode != 0:
-        return VerifyItem("迁移版本", "PENDING", "flyway_schema_history 不存在（应用未首次启动）")
+        return VerifyItem("初始化基线", "PENDING",
+                          "schema_baseline 不存在（请先手工执行 db/init/01_full_schema.sql）")
     parts = [p for p in out.stdout.strip().split("\t") if p != ""]
-    if len(parts) < 2 or parts[0] in ("NULL", ""):
-        return VerifyItem("迁移版本", "PENDING", "尚无已应用迁移（应用未首次启动）")
-    applied_max, failed = int(parts[0]), int(parts[1] or 0)
-    if failed:
-        return VerifyItem("迁移版本", "FAIL", "存在 %d 条失败记录（success=0）" % failed)
+    if not parts or parts[0] in ("NULL", ""):
+        return VerifyItem("初始化基线", "PENDING", "基线表为空（初始化脚本未执行完）")
+    applied_max = int(parts[0])
     if applied_max < local_max:
         return VerifyItem(
-            "迁移版本",
+            "初始化基线",
             "PENDING",
-            "已应用 v%d < 本地链 v%d：需启动应用执行 Flyway（教程 §4.3）" % (applied_max, local_max),
+            "已初始化 v%d < 本地结构链 v%d：请手工执行新版 db/init/01_full_schema.sql"
+            % (applied_max, local_max),
         )
-    return VerifyItem("迁移版本", "PASS", "已应用 v%d（本地链 v%d）" % (applied_max, local_max))
+    detail = "已初始化 v%d（本地结构链 v%d）" % (applied_max, local_max)
+    if len(parts) > 1:
+        detail += "，来源文件 %s 个" % parts[1]
+    return VerifyItem("初始化基线", "PASS", detail)
 
 
 def build_proxy_free_opener():

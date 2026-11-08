@@ -1,9 +1,9 @@
 """基础数据核对与幂等补种步骤。
 
 定位说明（重要）：
-- 标准路径下，全部基础数据由 Flyway 迁移链 V32~V39 在应用首次启动时导入；
+- 标准路径下，全部基础数据由 db/init/01_full_schema.sql 在手工初始化时导入；
 - 本步骤面向两类场景做「核对 + 幂等补种」：
-    1) DBA 手工管控场景（关闭 Flyway 自动执行，按脚本导入）；
+    1) DBA 手工管控场景（按 00 -> 01 顺序导入）；
     2) 历史缺陷修复兜底（如 V35/V36 菜单 id 碰撞被 INSERT IGNORE 静默丢行）。
 - 补种语句与迁移中的种子逐字等价（INSERT IGNORE 幂等），重复执行安全；
 - 若库中表尚不存在（应用未首次启动），返回 PENDING 并指引先启动应用。
@@ -86,7 +86,7 @@ def _query_scalar(conn: dict, sql: str) -> str:
     if result.returncode != 0:
         message = (result.stderr or "").strip()
         if "doesn't exist" in message or "Unknown table" in message:
-            raise SeedPendingError("基础表不存在（应用尚未首次启动执行 Flyway）")
+            raise SeedPendingError("基础表不存在（请先手工执行 db/init/01_full_schema.sql）")
         raise db_init.DbError("查询失败: %s\n  %s" % (sql, message))
     return result.stdout.strip()
 
@@ -130,7 +130,7 @@ def cmd_seed(args, env: dict) -> dict:
         return {
             "status": "PENDING",
             "conn": {k: v for k, v in conn.items() if k != "password"},
-            "message": str(exc) + "。请先启动后端（教程 §4.3）完成 Flyway 迁移，再重跑本步骤。",
+            "message": str(exc) + "。请先手工执行 db/init/01_full_schema.sql，再重跑本步骤。",
         }
     failed = [name for name, ok, _ in before if not ok]
     repaired = 0

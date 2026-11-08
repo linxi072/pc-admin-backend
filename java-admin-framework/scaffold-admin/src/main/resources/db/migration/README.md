@@ -1,8 +1,15 @@
-# Flyway 迁移索引（db/migration/）
+# 版本化结构源索引（db/migration/）
 
-本目录是**数据库结构唯一可执行事实源**，由 Flyway 在应用启动时按版本顺序执行（`spring.flyway.locations=classpath:db/migration`，`validate-on-migrate=true`）。
+> 2026-11-08 起运行时已**移除 Flyway**：应用启动不再扫描、也不执行本目录下任何文件，
+> 不再维护 `flyway_schema_history`。本目录降级为「版本化结构源 / 历史记录」，同时作为
+> `scripts/build_reference_modular.py` 的输入，派生出**唯一可执行的新库初始化脚本**
+> `../init/01_full_schema.sql`。全新环境由 DBA 手工执行 `db/init/00` → `db/init/01`
+> （可选 `02`），详见 `../init/README.md`。
 
-> ⚠️ **严禁修改已发布迁移**：任何对已应用迁移文件（含注释、空白）的改动都会改变文件字节，导致启动校验 `Validate failed: ... checksum mismatch` 而失败。修复只能以**新的更高版本迁移前向追加**（参见《部署手册》附录 O.1）。本目录只新增、不修改、不重排、不重命名。
+> ⚠️ **保持版本文件字节不可变**：本目录是生成脚本的输入，改动任一文件（含注释、空白）
+> 都会改变派生出的初始化脚本内容；且线上存量库的升级依赖这些版本的稳定语义。
+> 结构性变更一律以**新的更高版本文件前向追加**，本目录只新增、不修改、不重排、不重命名。
+> 新增版本后必须重跑 `python3 scripts/build_reference_modular.py` 重生成三份产物。
 
 ## 版本 → 模块映射
 
@@ -100,14 +107,16 @@ schema 版本当前为 **81**：共 49 个 SQL 迁移（V32~V81）+ 1 个 Java �
 
 > DDL 约定：标识符显式加引号保留 snake_case 小写；索引一律用独立 `CREATE INDEX` 语句，禁止内联 `KEY "x"(...)`（H2 会误解析为 domain）。
 
-## 配套参考（非迁移，不被 Flyway 扫描）
+## 配套产物（均由同一脚本生成）
 
-- `../reference/schema_ddl.sql` / `data_dml.sql`：由 `scripts/build_reference_modular.py` 从本目录**全部** `V*.sql` 自动派生的 DDL / DML 分类参考件，仅供阅读与追溯，**不可当迁移执行**；header 中的版本范围由脚本运行时探测，当前为 `V32~V81`（49 个 SQL 迁移）。
-- **新增迁移后必须重生成**：`python3 scripts/build_reference_modular.py`。2026-11-08 曾发现参考件停在 V59、且被手工注入 V69 委派列与 V70 `alert_rule` 片段却无来源标签的失真；已由整链重生成纠正，V32 基表恢复原始定义，各变更按真实来源标签归位。
+- `../init/01_full_schema.sql`：**唯一可执行的新库初始化脚本**，把本目录全部 `V*.sql` 原文按版本号顺序逐字拼接，末尾写入 `schema_baseline` 基线标记；仅适用于空库一次执行。
+- `../reference/schema_ddl.sql` / `data_dml.sql`：DDL / DML 分类参考件，仅供阅读与追溯；语句顺序已被重排（ALTER 可能早于 CREATE），**不可单独执行建库**。
+- **新增版本后必须重生成**：`python3 scripts/build_reference_modular.py`，一次产出上述三份文件。2026-11-08 曾发现参考件停在 V59、且被手工注入 V69 委派列与 V70 `alert_rule` 片段却无来源标签的失真；已由整链重生成纠正，V32 基表恢复原始定义，各变更按真实来源标签归位。
 - `../reference/by-module/*.sql`：已于 2026-10-28 审计整改删除（数据脚本统一整合为上述两个文件），本目录不再生成；如需逐模块视图，从 git 历史取回即可。
-- （原 `../../common/src/main/resources/db/codegen/`：jOOQ codegen 并行层 —— **已于方案C（2026-10-31）移除**：该目录与 `jooq-codegen.xml` 已删除，全仓数据访问统一为纯手写动态 DSL，本迁移链不受影响且始终为唯一事实来源。）
+- （原 `../../common/src/main/resources/db/codegen/`：jOOQ codegen 并行层 —— **已于方案C（2026-10-31）移除**：该目录与 `jooq-codegen.xml` 已删除；2026-11-08 进一步把数据访问实现整体迁移至 MyBatis。）
 
 ## 历史口径说明
 
-- `V77__ai_scaffold.sql` 头注释仍写「新增 scaffold-ai 模块」；方案 C 后该模块已并入 `scaffold-codegen`。因 Flyway checksum 铁律，历史迁移注释不作修改，以本节说明为准。
+- `V77__ai_scaffold.sql` 头注释仍写「新增 scaffold-ai 模块」；方案 C 后该模块已并入 `scaffold-codegen`。历史版本注释保持原字节，以本节说明为准。
+- V57 原为 Java 类迁移（存量 `tenant_id` 回填），随 Flyway 移除已删除；等价逻辑见 `../init/02_backfill_tenant_id.sql`，全新空库为 no-op。
 - V1~V31 的历史迁移已合并进 V32，不再单独存在；`schema_ddl.sql` 中的 `-- [from V32__...]` 段落即其等价汇总。

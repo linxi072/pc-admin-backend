@@ -1,10 +1,9 @@
 -- ============================================================
 -- 分类参考件（DDL / DML），由 scripts/build_reference_modular.py 从
--- db/migration/ 迁移链（V32~V81，共 49 个 SQL 迁移）自动派生，仅供阅读与追溯。
--- 版本范围由脚本运行时探测；新增迁移后须重跑本脚本重生成参考件。
--- 权威可执行来源：db/migration/ 迁移链（V57 为 Java 类迁移，位于
---   scaffold-admin/src/main/java/db/migration/，无对应 .sql）。
--- 不可当迁移执行；Flyway 只扫描 db/migration/。
+-- db/migration/ 版本化结构链（V32~V81，共 49 个 SQL 文件）自动派生，仅供阅读与追溯。
+-- 版本范围由脚本运行时探测；新增版本文件后须重跑本脚本重生成产物。
+-- 唯一可执行的新库初始化入口：db/init/01_full_schema.sql（DBA 手工执行）。
+-- 运行时已移除 Flyway；本文件不可单独执行建库，也不被应用自动加载。
 -- 重新生成：python3 scripts/build_reference_modular.py
 -- ============================================================
 
