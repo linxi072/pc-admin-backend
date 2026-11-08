@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  * <p>与 Spring 及 DB 解耦（输入为 {@link TableMetaVO}），便于离线单测；产物对齐框架既有范式：
  * DO 用 Lombok {@code @Data}，VO 用 record 且雪花 ID 字符串序列化，Controller 走
  * {@code Result} / {@code PageResult} 包装 + {@code @PreAuthorize} 权限码，ServiceImpl 经
- * 构造器注入 {@code DSLContext} 并调用 {@code JooqWriters}。</p>
+ * 构造器注入 {@code DSLContext} 并调用 {@code SqlWriters}。</p>
  *
  * <p>ServiceImpl 的 CRUD 为可用骨架（分页 / 新增 / 修改 / 删除 / 详情），业务校验以
  * {@code TODO} 标注由开发者补齐——生成器负责消除重复劳动，不臆测业务规则。</p>
@@ -109,7 +109,7 @@ public final class CodeTemplates {
         }
 
         String tableRef() {
-            return "JooqTables." + toUpperSnake(meta.tableName());
+            return "SqlTables." + toUpperSnake(meta.tableName());
         }
 
         String pkJavaType() {
@@ -331,14 +331,14 @@ public final class CodeTemplates {
                 import com.acme.scaffold.common.api.dto.PageResult;
                 import com.acme.scaffold.common.error.CommonErrorCode;
                 import com.acme.scaffold.common.exception.BusinessException;
-                import com.acme.scaffold.jooq.dsl.JooqTables;
-                import com.acme.scaffold.jooq.dsl.JooqWriters;
+                import com.acme.scaffold.mybatis.dsl.SqlTables;
+                import com.acme.scaffold.mybatis.dsl.SqlWriters;
                 import %1$s.dto.%2$sQuery;
                 import %1$s.dto.%2$sVO;
                 import lombok.RequiredArgsConstructor;
                 import lombok.extern.slf4j.Slf4j;
-                import org.jooq.Condition;
-                import org.jooq.DSLContext;
+                import com.acme.scaffold.mybatis.dsl.Condition;
+                import com.acme.scaffold.mybatis.dsl.DSLContext;
                 import org.springframework.stereotype.Service;
 
                 import java.util.List;
@@ -355,7 +355,7 @@ public final class CodeTemplates {
                         // TODO 复杂组合条件可在 buildCondition 基础上扩展；当前按字段可选等值/模糊匹配
                         Condition cond = buildCondition(query);
                         PageQuery pq = PageQuery.of(query.page(), query.size());
-                        PageResult<%2$sDO> raw = JooqWriters.page(dsl, %3$s, %2$sDO.class, cond, pq,
+                        PageResult<%2$sDO> raw = SqlWriters.page(dsl, %3$s, %2$sDO.class, cond, pq,
                                 %3$s.field("id", Long.class).desc());
                         List<%2$sVO> records = raw.records().stream().map(this::toVO).toList();
                         return PageResult.of(raw.page(), raw.size(), raw.total(), records);
@@ -363,7 +363,7 @@ public final class CodeTemplates {
 
                     @Override
                     public %2$sVO detail(%4$s id) {
-                        %2$sDO %5$s = JooqWriters.fetchById(dsl, %3$s, %2$sDO.class, id);
+                        %2$sDO %5$s = SqlWriters.fetchById(dsl, %3$s, %2$sDO.class, id);
                         if (%5$s == null) {
                             throw new BusinessException(CommonErrorCode.NOT_FOUND, "记录不存在");
                         }
@@ -374,30 +374,30 @@ public final class CodeTemplates {
                     public %4$s create(%2$sDO %5$s) {
                         // TODO 唯一性 / 业务校验（如编码重复）在此补齐
                         %5$s.setId(IdGenerator.nextId());
-                        JooqWriters.insert(dsl, %3$s, %5$s);
+                        SqlWriters.insert(dsl, %3$s, %5$s);
                         return %5$s.getId();
                     }
 
                     @Override
                     public void update(%4$s id, %2$sDO %5$s) {
                         %5$s.setId(id);
-                        JooqWriters.updateById(dsl, %3$s, id, %5$s);
+                        SqlWriters.updateById(dsl, %3$s, id, %5$s);
                     }
 
                     @Override
                     public void delete(%4$s id) {
                         // 逻辑删除（框架默认 deleted=1）；如确需物理删除将最后一个参数改为 false
-                        JooqWriters.delete(dsl, %3$s, id, true);
+                        SqlWriters.delete(dsl, %3$s, id, true);
                     }
 
                     @Override
                     public List<%2$sVO> all() {
-                        return JooqWriters.fetchList(dsl, %3$s, %2$sDO.class, JooqWriters.notDeleted(%3$s))
+                        return SqlWriters.fetchList(dsl, %3$s, %2$sDO.class, SqlWriters.notDeleted(%3$s))
                                 .stream().map(this::toVO).toList();
                     }
 
                     private Condition buildCondition(%2$sQuery q) {
-                        Condition cond = JooqWriters.notDeleted(%3$s);
+                        Condition cond = SqlWriters.notDeleted(%3$s);
                 %6$s
                         return cond;
                     }

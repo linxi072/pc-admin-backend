@@ -2,16 +2,16 @@ package com.acme.scaffold.system.smslog;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.smslog.domain.SysSmsRecordDO;
 import com.acme.scaffold.system.smslog.rules.SmsRecordRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -35,7 +35,7 @@ import java.util.Map;
 public class SmsRecordService {
 
     /** 短信记录可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> SMS_RECORD_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> SMS_RECORD_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "batchNo", "batch_no",
             "status", "status",
@@ -45,8 +45,8 @@ public class SmsRecordService {
             "sentAt", "sent_at");
 
     /** 桥接自代码生成层 {@code Tables.SYS_SMS_RECORD} 的类型安全表引用（B23）。 */
-    private static final JooqTables.TableRef SMS_RECORD =
-            JooqTables.SYS_SMS_RECORD;
+    private static final SqlTables.TableRef SMS_RECORD =
+            SqlTables.SYS_SMS_RECORD;
 
     private final DSLContext dsl;
 
@@ -68,10 +68,10 @@ public class SmsRecordService {
             LocalDateTime startTime, LocalDateTime endTime, String sortField, String sortDirection) {
         Condition cond = buildCondition(status, provider, keyword, startTime, endTime);
         var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<SysSmsRecordDO> raw = JooqWriters.page(dsl, SMS_RECORD,
+        PageResult<SysSmsRecordDO> raw = SqlWriters.page(dsl, SMS_RECORD,
                 SysSmsRecordDO.class, cond, pageQuery,
-                JooqSorts.resolve(SMS_RECORD, pageQuery, SMS_RECORD_SORT_FIELDS,
-                        JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).desc()));
+                SqlSorts.resolve(SMS_RECORD, pageQuery, SMS_RECORD_SORT_FIELDS,
+                        SqlTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).desc()));
         List<SmsRecordView> views = raw.records().stream()
                 .map(SmsRecordView::of).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
@@ -88,9 +88,9 @@ public class SmsRecordService {
         Long total = dsl.selectCount().from(SMS_RECORD.table())
                 .where(cond).fetchOne(0, Long.class);
         Long success = dsl.selectCount().from(SMS_RECORD.table())
-                .where(DSL.and(cond, JooqTables.SYS_SMS_RECORD.field("status", String.class)
+                .where(DSL.and(cond, SqlTables.SYS_SMS_RECORD.field("status", String.class)
                         .eq(SmsRecordRules.STATUS_SUCCESS))).fetchOne(0, Long.class);
-        LocalDateTime lastSentAt = dsl.select(DSL.max(JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class)))
+        LocalDateTime lastSentAt = dsl.select(DSL.max(SqlTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class)))
                 .from(SMS_RECORD.table())
                 .where(cond).fetchOne(0, LocalDateTime.class);
         return buildSummary(total == null ? 0L : total, success == null ? 0L : success, lastSentAt);
@@ -124,23 +124,23 @@ public class SmsRecordService {
         }
         List<Condition> conds = new ArrayList<>();
         conds.add(DSL.and(
-                JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).ge(begin),
-                JooqTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).le(end)));
+                SqlTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).ge(begin),
+                SqlTables.SYS_SMS_RECORD.field("sent_at", java.time.LocalDateTime.class).le(end)));
         String st = SmsRecordRules.normalizeStatus(status);
         if (st != null) {
-            conds.add(JooqTables.SYS_SMS_RECORD.field("status", String.class).eq(st));
+            conds.add(SqlTables.SYS_SMS_RECORD.field("status", String.class).eq(st));
         }
         String pv = SmsRecordRules.normalizeProvider(provider);
         if (pv != null) {
-            conds.add(JooqTables.SYS_SMS_RECORD.field("provider", String.class).eq(pv));
+            conds.add(SqlTables.SYS_SMS_RECORD.field("provider", String.class).eq(pv));
         }
         if (keyword != null && !keyword.isBlank()) {
             String kw = "%" + keyword.trim() + "%";
             conds.add(DSL.or(
-                    JooqTables.SYS_SMS_RECORD.field("batch_no", String.class).like(kw),
-                    JooqTables.SYS_SMS_RECORD.field("operator_name", String.class).like(kw),
-                    JooqTables.SYS_SMS_RECORD.field("error_message", String.class).like(kw),
-                    JooqTables.SYS_SMS_RECORD.field("trace_id", String.class).like(kw)));
+                    SqlTables.SYS_SMS_RECORD.field("batch_no", String.class).like(kw),
+                    SqlTables.SYS_SMS_RECORD.field("operator_name", String.class).like(kw),
+                    SqlTables.SYS_SMS_RECORD.field("error_message", String.class).like(kw),
+                    SqlTables.SYS_SMS_RECORD.field("trace_id", String.class).like(kw)));
         }
         return DSL.and(conds);
     }

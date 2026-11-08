@@ -6,9 +6,9 @@ import java.util.List;
  * 租户隔离强制策略（M19 P3）：集中裁决「某次数据访问是否应追加 tenant_id 约束」。
  *
  * <p>本类持有 {@link TenantProperties} 的静态快照（由 {@link #configure} 在应用启动时注入），
- * 供 {@code JooqWriters}（动态 DSL 唯一的 CRUD 入口）在构建每条 SQL 时统一调用，
+ * 供 {@code SqlWriters}（动态 DSL 唯一的 CRUD 入口）在构建每条 SQL 时统一调用，
  * 避免把隔离逻辑散落到各 Service。采用静态快照而非 Spring 注入，是因为
- * {@code JooqWriters} 是静态工具类，且所有查询最终都汇聚于此，单点裁决即可覆盖读/改/删/写。</p>
+ * {@code SqlWriters} 是静态工具类，且所有查询最终都汇聚于此，单点裁决即可覆盖读/改/删/写。</p>
  *
  * <p><b>生效条件（全部满足才对给定表强制隔离）</b>：
  * <ol>

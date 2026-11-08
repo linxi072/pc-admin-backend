@@ -23,6 +23,6 @@
  * 数据结构 → dto / vo / domain（check-conventions.py 的 H4 硬规则）。</p>
  *
  * <p><b>禁止</b>：在特性包根放数据类；从本包反向依赖任何业务模块；新增顶层包根
- * （历史例外仅 {@code com.acme.scaffold.jooq}，见其包说明）。</p>
+ * （历史例外仅 {@code com.acme.scaffold.mybatis}，见其包说明）。</p>
  */
 package com.acme.scaffold.common;

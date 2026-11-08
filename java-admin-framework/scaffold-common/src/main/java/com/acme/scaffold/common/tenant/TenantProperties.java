@@ -40,7 +40,7 @@ public class TenantProperties {
 
     /**
      * 是否强制注入 tenant_id（行级隔离实际生效开关）。默认 false：
-     * 需显式置 true 才会由 {@code JooqWriters}（经 {@code TenantEnforcement} 单点裁决）对读/改/删追加 tenant_id 过滤，
+     * 需显式置 true 才会由 {@code SqlWriters}（经 {@code TenantEnforcement} 单点裁决）对读/改/删追加 tenant_id 过滤，
      * 避免对既有单租户数据与单元测试产生回归。开启前应确保业务表 tenant_id 已正确落库。
      */
     private boolean enforce = false;

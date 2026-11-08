@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.tenant;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.jooq.dsl.TenantTables;
+import com.acme.scaffold.mybatis.dsl.TenantTables;
 import com.acme.scaffold.common.tenant.TenantIsolationAuditReport;
 import com.acme.scaffold.common.tenant.TenantIsolationAuditRules;
 import io.swagger.v3.oas.annotations.Operation;

@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.log;
 
 import com.acme.scaffold.common.text.TextUtils;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.entity.SysLoginLogDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class LoginLogRecorder {
 
-    private static final JooqTables.TableRef LL = JooqTables.SYS_LOGIN_LOG;
+    private static final SqlTables.TableRef LL = SqlTables.SYS_LOGIN_LOG;
 
     private final DSLContext dsl;
 
@@ -66,7 +66,7 @@ public class LoginLogRecorder {
             row.setUserAgent(TextUtils.truncate(userAgent, MAX_UA_LEN));
             row.setTraceId(MDC.get("traceId"));
             row.setOccurredAt(LocalDateTime.now());
-            JooqWriters.insert(dsl, LL, row);
+            SqlWriters.insert(dsl, LL, row);
         } catch (Exception e) {
             // 登录日志属审计旁路，写入失败不阻断登录主流程
             log.warn("登录日志写入失败 username={} success={} err={}", username, success, e.getMessage());

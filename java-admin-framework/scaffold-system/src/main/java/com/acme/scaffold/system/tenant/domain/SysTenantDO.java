@@ -17,7 +17,7 @@ public class SysTenantDO {
 
     /**
      * 租户 ID（恒为 0，平台租户——租户维度表由平台统一维护）。
-     * <p>无默认值：插入由 JooqWriters / 迁移的 {@code DEFAULT 0} 兜底，
+     * <p>无默认值：插入由 SqlWriters / 迁移的 {@code DEFAULT 0} 兜底，
      * 更新补丁对象（{@code new SysTenantDO()}）保持为 null 以免误写该列。</p>
      */
     private Long tenantId;

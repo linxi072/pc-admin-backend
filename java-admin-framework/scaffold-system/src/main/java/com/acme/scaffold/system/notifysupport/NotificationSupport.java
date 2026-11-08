@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.notifysupport;
 
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,7 +30,7 @@ public final class NotificationSupport {
      * 键为归一化地址：email 小写（DB collation 大小写不敏感，存储值可能与原写大小写不一致），mobile 原样 trim。
      */
     public static Map<String, Long> fetchUserIdsByAddress(DSLContext dsl, List<String> addresses, boolean byEmail) {
-        JooqTables.TableRef user = JooqTables.SYS_USER;
+        SqlTables.TableRef user = SqlTables.SYS_USER;
         String column = byEmail ? "email" : "mobile";
         Field<Long> idField = user.field("id", Long.class);
         Field<String> addrField = user.field(column, String.class);
@@ -45,7 +45,7 @@ public final class NotificationSupport {
             return out;
         }
         dsl.select(idField, addrField).from(user.table())
-                .where(DSL.and(addrField.in(distinct), JooqWriters.notDeleted(user)))
+                .where(DSL.and(addrField.in(distinct), SqlWriters.notDeleted(user)))
                 .fetch()
                 .forEach(r -> {
                     String addr = r.get(addrField);

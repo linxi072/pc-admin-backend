@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 系统监控采样记录（由 JobRunr 周期任务写入，供趋势查询）。
+ * 系统监控采样记录（由 Quartz 周期任务写入，供趋势查询）。
  */
 @Data
 public class SysMonitorSampleDO {

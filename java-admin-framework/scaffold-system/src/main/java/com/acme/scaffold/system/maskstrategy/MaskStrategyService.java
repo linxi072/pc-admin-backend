@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.maskstrategy;
 import com.acme.scaffold.common.util.MergeFields;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -8,9 +8,9 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.sensitive.SensitiveType;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.maskstrategy.domain.SysMaskStrategyDO;
 import com.acme.scaffold.system.maskstrategy.dto.CreateMaskStrategyRequest;
 import com.acme.scaffold.system.maskstrategy.dto.MaskStrategyView;
@@ -18,9 +18,9 @@ import com.acme.scaffold.system.maskstrategy.dto.UpdateMaskStrategyRequest;
 import com.acme.scaffold.system.maskstrategy.rules.MaskStrategyRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MaskStrategyService {
 
     /** 排序白名单：客户端字段名 → 数据库列名（白名单外忽略，防 ORDER BY 注入）。 */
-    private static final Map<String, String> SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "strategyCode", "strategy_code",
             "strategyName", "strategy_name",
@@ -76,10 +76,10 @@ public class MaskStrategyService {
     }
 
     private List<SysMaskStrategyDO> loadActive(long tenantId) {
-        Condition cond = DSL.and(JooqWriters.notDeleted(JooqTables.MASK_STRATEGY),
-                JooqTables.MASK_STRATEGY.field("enabled", Integer.class).eq(1),
-                JooqTables.MASK_STRATEGY.field("tenant_id", Long.class).eq(tenantId));
-        return JooqWriters.fetchList(dsl, JooqTables.MASK_STRATEGY, SysMaskStrategyDO.class, cond);
+        Condition cond = DSL.and(SqlWriters.notDeleted(SqlTables.MASK_STRATEGY),
+                SqlTables.MASK_STRATEGY.field("enabled", Integer.class).eq(1),
+                SqlTables.MASK_STRATEGY.field("tenant_id", Long.class).eq(tenantId));
+        return SqlWriters.fetchList(dsl, SqlTables.MASK_STRATEGY, SysMaskStrategyDO.class, cond);
     }
 
     /** 失效某租户缓存（写操作后调用）。 */
@@ -125,20 +125,20 @@ public class MaskStrategyService {
                                             String sortField, String sortDirection) {
         Condition cond = buildCondition(fieldKey, sensitiveType, enabled);
         var query = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<SysMaskStrategyDO> raw = JooqWriters.page(dsl, JooqTables.MASK_STRATEGY,
+        PageResult<SysMaskStrategyDO> raw = SqlWriters.page(dsl, SqlTables.MASK_STRATEGY,
                 SysMaskStrategyDO.class, cond, query,
-                JooqSorts.resolve(JooqTables.MASK_STRATEGY, query, SORT_FIELDS,
-                        JooqTables.MASK_STRATEGY.field("priority", Integer.class).desc(),
-                        JooqTables.MASK_STRATEGY.field("id", Long.class).desc()));
+                SqlSorts.resolve(SqlTables.MASK_STRATEGY, query, SORT_FIELDS,
+                        SqlTables.MASK_STRATEGY.field("priority", Integer.class).desc(),
+                        SqlTables.MASK_STRATEGY.field("id", Long.class).desc()));
         return PageResult.of(raw.page(), raw.size(), raw.total(),
                 raw.records().stream().map(MaskStrategyView::of).toList());
     }
 
     /** 全部策略（含停用，按 id 升序，供前端下拉/全量联动）。 */
     public List<MaskStrategyView> list() {
-        List<SysMaskStrategyDO> rows = JooqWriters.fetchList(dsl, JooqTables.MASK_STRATEGY,
-                SysMaskStrategyDO.class, JooqWriters.notDeleted(JooqTables.MASK_STRATEGY),
-                JooqTables.MASK_STRATEGY.field("id", Long.class).asc());
+        List<SysMaskStrategyDO> rows = SqlWriters.fetchList(dsl, SqlTables.MASK_STRATEGY,
+                SysMaskStrategyDO.class, SqlWriters.notDeleted(SqlTables.MASK_STRATEGY),
+                SqlTables.MASK_STRATEGY.field("id", Long.class).asc());
         return rows.stream().map(MaskStrategyView::of).toList();
     }
 
@@ -171,7 +171,7 @@ public class MaskStrategyService {
         d.setPriority(req.priority() != null ? req.priority() : 0);
         d.setEnabled(req.enabled() != null && req.enabled() ? 1 : 0);
         d.setRemark(req.remark());
-        JooqWriters.insert(dsl, JooqTables.MASK_STRATEGY, d);
+        SqlWriters.insert(dsl, SqlTables.MASK_STRATEGY, d);
         invalidate(0L);
         return d.getId();
     }
@@ -226,14 +226,14 @@ public class MaskStrategyService {
         if (req.remark() != null) {
             patch.setRemark(req.remark());
         }
-        JooqWriters.updateById(dsl, JooqTables.MASK_STRATEGY, id, patch);
+        SqlWriters.updateById(dsl, SqlTables.MASK_STRATEGY, id, patch);
         invalidate(0L);
     }
 
     /** 删除策略（逻辑删除，便于审计与恢复）。 */
     public void remove(Long id) {
         requireById(id);
-        JooqWriters.delete(dsl, JooqTables.MASK_STRATEGY, id, true);
+        SqlWriters.delete(dsl, SqlTables.MASK_STRATEGY, id, true);
         invalidate(0L);
     }
 
@@ -242,7 +242,7 @@ public class MaskStrategyService {
         requireById(id);
         SysMaskStrategyDO patch = new SysMaskStrategyDO();
         patch.setEnabled(enabled ? 1 : 0);
-        JooqWriters.updateById(dsl, JooqTables.MASK_STRATEGY, id, patch);
+        SqlWriters.updateById(dsl, SqlTables.MASK_STRATEGY, id, patch);
         invalidate(0L);
     }
 
@@ -251,7 +251,7 @@ public class MaskStrategyService {
     // ------------------------------------------------------------------
 
     private SysMaskStrategyDO requireById(Long id) {
-        SysMaskStrategyDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.MASK_STRATEGY, SysMaskStrategyDO.class, id), "脱敏策略不存在");
+        SysMaskStrategyDO d = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.MASK_STRATEGY, SysMaskStrategyDO.class, id), "脱敏策略不存在");
         return d;
     }
 
@@ -260,24 +260,24 @@ public class MaskStrategyService {
     }
 
     private SysMaskStrategyDO fetchByCode(String code) {
-        return JooqWriters.fetchOne(dsl, JooqTables.MASK_STRATEGY, SysMaskStrategyDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.MASK_STRATEGY),
-                        JooqTables.MASK_STRATEGY.field("strategy_code", String.class).eq(code)));
+        return SqlWriters.fetchOne(dsl, SqlTables.MASK_STRATEGY, SysMaskStrategyDO.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.MASK_STRATEGY),
+                        SqlTables.MASK_STRATEGY.field("strategy_code", String.class).eq(code)));
     }
 
     /** 统一筛选条件：逻辑删除恒成立；字段键/脱敏类型/启用状态按需收敛。 */
     private Condition buildCondition(String fieldKey, String sensitiveType, Boolean enabled) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.MASK_STRATEGY));
+        conds.add(SqlWriters.notDeleted(SqlTables.MASK_STRATEGY));
         if (StringUtils.hasText(fieldKey)) {
-            conds.add(JooqTables.MASK_STRATEGY.field("field_key", String.class).eq(fieldKey.trim()));
+            conds.add(SqlTables.MASK_STRATEGY.field("field_key", String.class).eq(fieldKey.trim()));
         }
         String st = MaskStrategyRules.normalizeSensitiveType(sensitiveType);
         if (st != null) {
-            conds.add(JooqTables.MASK_STRATEGY.field("sensitive_type", String.class).eq(st));
+            conds.add(SqlTables.MASK_STRATEGY.field("sensitive_type", String.class).eq(st));
         }
         if (enabled != null) {
-            conds.add(JooqTables.MASK_STRATEGY.field("enabled", Integer.class).eq(enabled ? 1 : 0));
+            conds.add(SqlTables.MASK_STRATEGY.field("enabled", Integer.class).eq(enabled ? 1 : 0));
         }
         return DSL.and(conds);
     }

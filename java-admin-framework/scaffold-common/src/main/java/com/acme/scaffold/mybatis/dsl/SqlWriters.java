@@ -1,4 +1,4 @@
-package com.acme.scaffold.jooq.dsl;
+package com.acme.scaffold.mybatis.dsl;
 
 import com.acme.scaffold.common.IdGenerator;
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
@@ -6,15 +6,15 @@ import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.tenant.TenantEnforcement;
-import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.OrderField;
-import org.jooq.Query;
-import org.jooq.Record;
-import org.jooq.SelectConditionStep;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.SnakeRecordMapper;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.OrderField;
+import com.acme.scaffold.mybatis.dsl.Query;
+import com.acme.scaffold.mybatis.dsl.Record;
+import com.acme.scaffold.mybatis.dsl.SelectConditionStep;
+import com.acme.scaffold.mybatis.dsl.DSL;
 
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
@@ -40,9 +40,9 @@ import java.util.Set;
  *   <li>null 字段不写入（沿用 MyBatis-Plus 的 NOT_NULL 字段策略），交由数据库默认值处理。</li>
  * </ul>
  */
-public final class JooqWriters {
+public final class SqlWriters {
 
-    private JooqWriters() {
+    private SqlWriters() {
     }
 
     // ------------------------------------------------------------------
@@ -50,7 +50,7 @@ public final class JooqWriters {
     // ------------------------------------------------------------------
 
     /** 插入实体，自动填充 id / tenant_id / deleted / version / created_at / updated_at。 */
-    public static <T> void insert(DSLContext dsl, JooqTables.TableRef table, T pojo) {
+    public static <T> void insert(DSLContext dsl, SqlTables.TableRef table, T pojo) {
         Map<String, Object> values = columnValues(pojo, table);
         // 复用与 batchInsert 一致的自动填充逻辑，保证单条/批量写入口径同源
         fillAutoColumns(pojo, table, values);
@@ -65,7 +65,7 @@ public final class JooqWriters {
      * <p>逐行构造同构 INSERT 并通过 {@code dsl.batch(...)} 合并为单次批处理，消除逐条 insert 的多次往返开销；
      * 每行生成的 id 会回填到对应 POJO（与 {@link #insert} 行为一致）。
      */
-    public static <T> void batchInsert(DSLContext dsl, JooqTables.TableRef table, List<T> pojos) {
+    public static <T> void batchInsert(DSLContext dsl, SqlTables.TableRef table, List<T> pojos) {
         if (pojos == null || pojos.isEmpty()) {
             return;
         }
@@ -84,7 +84,7 @@ public final class JooqWriters {
     }
 
     /** 按 id 选择性更新（跳过 null 字段），自动刷新 updated_at。 */
-    public static <T> void updateById(DSLContext dsl, JooqTables.TableRef table, Long id, T pojo) {
+    public static <T> void updateById(DSLContext dsl, SqlTables.TableRef table, Long id, T pojo) {
         Map<String, Object> values = columnValues(pojo, table);
         putIfPresent(values, table, "updated_at", Timestamp.valueOf(LocalDateTime.now()));
         if (values.isEmpty()) {
@@ -103,7 +103,7 @@ public final class JooqWriters {
      *
      * @param nullColumns 需要置空（NULL）的列名集合
      */
-    public static <T> void updateByIdWithNulls(DSLContext dsl, JooqTables.TableRef table, Long id,
+    public static <T> void updateByIdWithNulls(DSLContext dsl, SqlTables.TableRef table, Long id,
                                               T pojo, Set<String> nullColumns) {
         Map<String, Object> values = columnValues(pojo, table);
         // 先移除这些列的 null 值（避免与显式置空冲突），再统一按 NULL 写入
@@ -131,7 +131,7 @@ public final class JooqWriters {
      * 按 id 删除。logical=true 且表含 deleted 列时走逻辑删除（deleted=1），否则物理删除。
      * （sys_api_resource 等无 deleted 列的表保持物理删除语义，与迁移前一致。）
      */
-    public static void delete(DSLContext dsl, JooqTables.TableRef table, Long id, boolean logical) {
+    public static void delete(DSLContext dsl, SqlTables.TableRef table, Long id, boolean logical) {
         if (logical && table.has("deleted")) {
             dsl.update(table.table())
                     .set(table.field("deleted", Integer.class), 1)
@@ -146,7 +146,7 @@ public final class JooqWriters {
     }
 
     /** 按单列等值删除（用于关联表的重建式赋值）。按值类型选择字段类型，保证参数绑定正确。 */
-    public static void deleteByColumn(DSLContext dsl, JooqTables.TableRef table, String column, Object value) {
+    public static void deleteByColumn(DSLContext dsl, SqlTables.TableRef table, String column, Object value) {
         if (value == null || !table.has(column)) {
             return;
         }
@@ -166,19 +166,19 @@ public final class JooqWriters {
     // ------------------------------------------------------------------
 
     /** 逻辑删除谓词：表含 deleted 列时追加 deleted = 0；否则返回恒真条件。 */
-    public static Condition notDeleted(JooqTables.TableRef table) {
+    public static Condition notDeleted(SqlTables.TableRef table) {
         return table.has("deleted")
                 ? table.field("deleted", Integer.class).eq(0)
                 : DSL.trueCondition();
     }
 
     /** 按条件查询单条记录并映射为 POJO；无结果返回 null。 */
-    public static <E> E fetchOne(DSLContext dsl, JooqTables.TableRef table, Class<E> type, Condition cond) {
+    public static <E> E fetchOne(DSLContext dsl, SqlTables.TableRef table, Class<E> type, Condition cond) {
         return scopedSelect(dsl, table, cond).fetchOne(new SnakeRecordMapper<>(type));
     }
 
     /** 按 id 查询单条记录（含逻辑删除过滤）。 */
-    public static <E> E fetchById(DSLContext dsl, JooqTables.TableRef table, Class<E> type, Long id) {
+    public static <E> E fetchById(DSLContext dsl, SqlTables.TableRef table, Class<E> type, Long id) {
         if (!table.has("id")) {
             return null;
         }
@@ -187,13 +187,13 @@ public final class JooqWriters {
     }
 
     /** 按条件查询列表。 */
-    public static <E> List<E> fetchList(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
+    public static <E> List<E> fetchList(DSLContext dsl, SqlTables.TableRef table, Class<E> type,
                                         Condition cond) {
         return scopedSelect(dsl, table, cond).fetch(new SnakeRecordMapper<>(type));
     }
 
     /** 按条件查询列表并排序。 */
-    public static <E> List<E> fetchList(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
+    public static <E> List<E> fetchList(DSLContext dsl, SqlTables.TableRef table, Class<E> type,
                                         Condition cond, OrderField<?>... orderBy) {
         if (orderBy == null || orderBy.length == 0) {
             return fetchList(dsl, table, type, cond);
@@ -208,7 +208,7 @@ public final class JooqWriters {
      * <p>limit 下推至 SQL：避免「先全量拉取再在内存里截断」在大表上把数万行拖进堆内
      * （监控历史采样等场景）。limit 非法时按 1 处理，上限钳 1000。</p>
      */
-    public static <E> List<E> fetchTop(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
+    public static <E> List<E> fetchTop(DSLContext dsl, SqlTables.TableRef table, Class<E> type,
                                        Condition cond, int limit, OrderField<?>... orderBy) {
         int n = Math.min(Math.max(limit, 1), 1000);
         if (orderBy == null || orderBy.length == 0) {
@@ -226,7 +226,7 @@ public final class JooqWriters {
      * 拖入堆内造成 OOM（与 P4「role/org 全量加载无分页」整改一致）。调用方应关注返回量是否触顶
      * （触顶即可能不完整）。limit 非法时按 1 处理，不做额外钳制。</p>
      */
-    public static <E> List<E> fetchListBounded(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
+    public static <E> List<E> fetchListBounded(DSLContext dsl, SqlTables.TableRef table, Class<E> type,
                                                Condition cond, int limit, OrderField<?>... orderBy) {
         int n = Math.max(limit, 1);
         if (orderBy == null || orderBy.length == 0) {
@@ -238,13 +238,13 @@ public final class JooqWriters {
     }
 
     /** 按条件统计数量。 */
-    public static long count(DSLContext dsl, JooqTables.TableRef table, Condition cond) {
+    public static long count(DSLContext dsl, SqlTables.TableRef table, Condition cond) {
         Integer total = dsl.selectCount().from(table.table()).where(withTenant(table, cond)).fetchOne(0, int.class);
         return total == null ? 0L : total.longValue();
     }
 
     /** 分页查询（count + limit/offset），等价于 MyBatis-Plus 的 selectPage。 */
-    public static <E> PageResult<E> page(DSLContext dsl, JooqTables.TableRef table, Class<E> type,
+    public static <E> PageResult<E> page(DSLContext dsl, SqlTables.TableRef table, Class<E> type,
                                          Condition cond, PageQuery q, OrderField<?>... orderBy) {
         long total = count(dsl, table, cond);
         SelectConditionStep<Record> step = scopedSelect(dsl, table, cond);
@@ -274,14 +274,13 @@ public final class JooqWriters {
      *
      * <p>目标表若不存在 {@code tenant_id} 列，视为无需隔离，原样返回（避免无列场景 NPE）。</p>
      */
-    private static Condition withTenant(JooqTables.TableRef table, Condition cond) {
+    private static Condition withTenant(SqlTables.TableRef table, Condition cond) {
         if (!TenantEnforcement.shouldEnforce(table.name()) || !table.has("tenant_id")) {
             return cond;
         }
         Condition tenantCond = table.field("tenant_id", Long.class).eq(TenantEnforcement.currentTenantId());
         return (cond == null) ? tenantCond : cond.and(tenantCond);
     }
-
 
     /**
      * 应用自动填充列（id / tenant_id / deleted / version / created_at / updated_at），
@@ -290,7 +289,7 @@ public final class JooqWriters {
      * <p>抽取自 {@code insert} / {@code batchInsert} 的重复片段，保证单条/批量写入口径同源：
      * 主键由 {@link IdGenerator} 统一生成并回填；租户列依据强制隔离开关写入当前租户或平台租户 0。</p>
      */
-    private static <T> void fillAutoColumns(T pojo, JooqTables.TableRef table, Map<String, Object> values) {
+    private static <T> void fillAutoColumns(T pojo, SqlTables.TableRef table, Map<String, Object> values) {
         // 主键回填：与 MyBatis-Plus 的 ASSIGN_ID 行为一致，写入后 POJO 可拿到 id
         Long id = IdGenerator.nextId();
         setIdIfPresent(pojo, id);
@@ -311,12 +310,12 @@ public final class JooqWriters {
      * 租户隔离的 SELECT 起点：等价于 {@code dsl.selectFrom(table.table()).where(withTenant(table, cond))}。
      * 集中封装「租户作用域装饰」，消除各读取方法中重复的 {@code table.table()).where(withTenant(...))} 片段。
      */
-    private static SelectConditionStep<Record> scopedSelect(DSLContext dsl, JooqTables.TableRef table, Condition cond) {
+    private static SelectConditionStep<Record> scopedSelect(DSLContext dsl, SqlTables.TableRef table, Condition cond) {
         return dsl.selectFrom(table.table()).where(withTenant(table, cond));
     }
 
     /** 按列名收集 POJO 非 null 属性（跳过 id，由主键生成器统一处理）。 */
-    private static <T> Map<String, Object> columnValues(T pojo, JooqTables.TableRef table) {
+    private static <T> Map<String, Object> columnValues(T pojo, SqlTables.TableRef table) {
         Map<String, Object> map = new LinkedHashMap<>();
         try {
             for (PropertyDescriptor pd : Introspector.getBeanInfo(pojo.getClass()).getPropertyDescriptors()) {
@@ -346,7 +345,7 @@ public final class JooqWriters {
     }
 
     /** 列名 → 类型化字段。字段类型取值的运行时类型，保证 JDBC 绑定正确。 */
-    private static Map<Field<?>, Object> toFieldMap(JooqTables.TableRef table, Map<String, Object> byColumn) {
+    private static Map<Field<?>, Object> toFieldMap(SqlTables.TableRef table, Map<String, Object> byColumn) {
         Map<Field<?>, Object> map = new LinkedHashMap<>();
         byColumn.forEach((column, value) -> {
             Class<?> type = (value == null) ? Object.class : value.getClass();
@@ -356,7 +355,7 @@ public final class JooqWriters {
     }
 
     /** 自动填充：列存在且 POJO 未显式赋值（或值为 null）时才填入。 */
-    private static void putIfPresent(Map<String, Object> byColumn, JooqTables.TableRef table,
+    private static void putIfPresent(Map<String, Object> byColumn, SqlTables.TableRef table,
                                      String column, Object value) {
         if (!table.has(column)) {
             return;

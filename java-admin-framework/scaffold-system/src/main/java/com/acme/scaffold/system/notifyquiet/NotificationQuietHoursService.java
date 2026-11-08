@@ -5,15 +5,15 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.notifysupport.NotificationSupport;
 import com.acme.scaffold.system.notifyquiet.domain.SysNotificationQuietHoursDO;
 import com.acme.scaffold.system.notifyquiet.dto.UpdateQuietHoursRequest;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules.QuietSetting;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,8 +57,8 @@ public class NotificationQuietHoursService {
     private final SecurityContextFacade securityContextFacade;
 
     /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_QUIET_HOURS} 的类型安全表引用（B18）。 */
-    private static final JooqTables.TableRef QUIET_HOURS =
-            JooqTables.SYS_NOTIFICATION_QUIET_HOURS;
+    private static final SqlTables.TableRef QUIET_HOURS =
+            SqlTables.SYS_NOTIFICATION_QUIET_HOURS;
 
     // ------------------------------------------------------------------
     // 自服务：查询与更新
@@ -100,7 +100,7 @@ public class NotificationQuietHoursService {
             patch.setStartTime(start);
             patch.setEndTime(end);
             patch.setAlertBreakthrough(breakthrough ? 1 : 0);
-            JooqWriters.updateById(dsl, QUIET_HOURS,
+            SqlWriters.updateById(dsl, QUIET_HOURS,
                     exist.getId(), patch);
         } else {
             SysNotificationQuietHoursDO row = new SysNotificationQuietHoursDO();
@@ -109,7 +109,7 @@ public class NotificationQuietHoursService {
             row.setStartTime(start);
             row.setEndTime(end);
             row.setAlertBreakthrough(breakthrough ? 1 : 0);
-            JooqWriters.insert(dsl, QUIET_HOURS, row);
+            SqlWriters.insert(dsl, QUIET_HOURS, row);
         }
         return mine();
     }
@@ -200,9 +200,9 @@ public class NotificationQuietHoursService {
     // ------------------------------------------------------------------
 
     private SysNotificationQuietHoursDO fetchRow(Long userId) {
-        return JooqWriters.fetchOne(dsl, QUIET_HOURS,
+        return SqlWriters.fetchOne(dsl, QUIET_HOURS,
                 SysNotificationQuietHoursDO.class,
-                JooqTables.SYS_NOTIFICATION_QUIET_HOURS.field("user_id", Long.class).eq(userId));
+                SqlTables.SYS_NOTIFICATION_QUIET_HOURS.field("user_id", Long.class).eq(userId));
     }
 
     /** 批量取免打扰配置：userId → QuietSetting。absent = 无行（无免打扰）。 */
@@ -211,9 +211,9 @@ public class NotificationQuietHoursService {
         if (userIds.isEmpty()) {
             return out;
         }
-        List<SysNotificationQuietHoursDO> rows = JooqWriters.fetchList(dsl,
+        List<SysNotificationQuietHoursDO> rows = SqlWriters.fetchList(dsl,
                 QUIET_HOURS, SysNotificationQuietHoursDO.class,
-                JooqTables.SYS_NOTIFICATION_QUIET_HOURS.field("user_id", Long.class).in(userIds));
+                SqlTables.SYS_NOTIFICATION_QUIET_HOURS.field("user_id", Long.class).in(userIds));
         for (SysNotificationQuietHoursDO row : rows) {
             if (row.getUserId() != null) {
                 out.put(row.getUserId(), new QuietSetting(

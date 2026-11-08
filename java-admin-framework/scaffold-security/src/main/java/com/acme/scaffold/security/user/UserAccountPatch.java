@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  *
  * <p>由 {@code security.service.AuthService} 在登录失败累计 / 改密 / 重置后构造，
  * 经 {@link UserAccountDataPort#updateById} 落到 {@code sys_user}；仅非空字段参与更新
- * （由 {@code JooqWriters.updateById} 跳过 null 实现），故本记录所有字段均可空。</p>
+ * （由 {@code SqlWriters.updateById} 跳过 null 实现），故本记录所有字段均可空。</p>
  *
  * @param passwordHash      密文口令哈希（改密 / 重置时写入）
  * @param passwordChangedAt 口令变更时间（改密 / 重置时写入）

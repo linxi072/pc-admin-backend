@@ -2,16 +2,16 @@ package com.acme.scaffold.system.notifylog;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.notifylog.domain.SysNotificationRecordDO;
 import com.acme.scaffold.system.notifylog.rules.NotificationRecordRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -38,7 +38,7 @@ import java.util.Map;
 public class NotificationRecordService {
 
     /** 通知记录可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> RECORD_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> RECORD_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "channel", "channel",
             "templateCode", "template_code",
@@ -48,8 +48,8 @@ public class NotificationRecordService {
             "sentAt", "sent_at");
 
     /** 桥接自代码生成层 {@code Tables.SYS_NOTIFICATION_RECORD} 的类型安全表引用（B24）。 */
-    private static final JooqTables.TableRef RECORD =
-            JooqTables.SYS_NOTIFICATION_RECORD;
+    private static final SqlTables.TableRef RECORD =
+            SqlTables.SYS_NOTIFICATION_RECORD;
 
     private final DSLContext dsl;
 
@@ -71,10 +71,10 @@ public class NotificationRecordService {
             LocalDateTime startTime, LocalDateTime endTime, String sortField, String sortDirection) {
         Condition cond = buildCondition(channel, status, keyword, startTime, endTime);
         var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<SysNotificationRecordDO> raw = JooqWriters.page(dsl, RECORD,
+        PageResult<SysNotificationRecordDO> raw = SqlWriters.page(dsl, RECORD,
                 SysNotificationRecordDO.class, cond, pageQuery,
-                JooqSorts.resolve(RECORD, pageQuery, RECORD_SORT_FIELDS,
-                        JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class).desc()));
+                SqlSorts.resolve(RECORD, pageQuery, RECORD_SORT_FIELDS,
+                        SqlTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class).desc()));
         List<NotificationRecordView> views = raw.records().stream()
                 .map(NotificationRecordView::of).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
@@ -95,15 +95,15 @@ public class NotificationRecordService {
         Long total = dsl.selectCount().from(RECORD.table())
                 .where(cond).fetchOne(0, Long.class);
         Long success = dsl.selectCount().from(RECORD.table())
-                .where(DSL.and(cond, JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
+                .where(DSL.and(cond, SqlTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
                         .eq(NotificationRecordRules.STATUS_SUCCESS))).fetchOne(0, Long.class);
         Long skipped = dsl.selectCount().from(RECORD.table())
-                .where(DSL.and(cond, JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
+                .where(DSL.and(cond, SqlTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
                         .eq(NotificationRecordRules.STATUS_SKIPPED))).fetchOne(0, Long.class);
         Long digestPending = dsl.selectCount().from(RECORD.table())
-                .where(DSL.and(cond, JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
+                .where(DSL.and(cond, SqlTables.SYS_NOTIFICATION_RECORD.field("status", String.class)
                         .eq(NotificationRecordRules.STATUS_DIGEST_PENDING))).fetchOne(0, Long.class);
-        LocalDateTime lastSentAt = dsl.select(DSL.max(JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class)))
+        LocalDateTime lastSentAt = dsl.select(DSL.max(SqlTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class)))
                 .from(RECORD.table())
                 .where(cond).fetchOne(0, LocalDateTime.class);
         return buildSummary(total == null ? 0L : total, success == null ? 0L : success,
@@ -144,27 +144,27 @@ public class NotificationRecordService {
         }
         List<Condition> conds = new ArrayList<>();
         conds.add(DSL.and(
-                JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class).ge(begin),
-                JooqTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class).le(end)));
+                SqlTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class).ge(begin),
+                SqlTables.SYS_NOTIFICATION_RECORD.field("sent_at", java.time.LocalDateTime.class).le(end)));
         String ch = NotificationRecordRules.normalizeChannel(channel);
         if (ch != null) {
-            conds.add(JooqTables.SYS_NOTIFICATION_RECORD.field("channel", String.class).eq(ch));
+            conds.add(SqlTables.SYS_NOTIFICATION_RECORD.field("channel", String.class).eq(ch));
         }
         String st = NotificationRecordRules.normalizeStatus(status);
         if (st != null) {
-            conds.add(JooqTables.SYS_NOTIFICATION_RECORD.field("status", String.class).eq(st));
+            conds.add(SqlTables.SYS_NOTIFICATION_RECORD.field("status", String.class).eq(st));
         }
         if (keyword != null && !keyword.isBlank()) {
             String kw = "%" + keyword.trim() + "%";
             conds.add(DSL.or(
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("channel", String.class).like(kw),
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("template_code", String.class).like(kw),
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("title_summary", String.class).like(kw),
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("content_summary", String.class).like(kw),
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("receiver_summary", String.class).like(kw),
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("error_message", String.class).like(kw),
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("trace_id", String.class).like(kw),
-                    JooqTables.SYS_NOTIFICATION_RECORD.field("operator_name", String.class).like(kw)));
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("channel", String.class).like(kw),
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("template_code", String.class).like(kw),
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("title_summary", String.class).like(kw),
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("content_summary", String.class).like(kw),
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("receiver_summary", String.class).like(kw),
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("error_message", String.class).like(kw),
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("trace_id", String.class).like(kw),
+                    SqlTables.SYS_NOTIFICATION_RECORD.field("operator_name", String.class).like(kw)));
         }
         return DSL.and(conds);
     }

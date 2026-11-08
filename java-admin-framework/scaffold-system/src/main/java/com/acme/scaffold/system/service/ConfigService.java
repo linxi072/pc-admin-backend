@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dto.ConfigGroupVO;
 import com.acme.scaffold.system.dto.ConfigVO;
 import com.acme.scaffold.system.dto.CreateConfigRequest;
@@ -13,8 +13,8 @@ import com.acme.scaffold.system.dto.UpdateConfigRequest;
 import com.acme.scaffold.system.entity.SysConfigDO;
 import com.acme.scaffold.system.rules.ConfigGroupRules;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,12 +41,12 @@ public class ConfigService {
     private final Map<String, ConfigVO> cache = new ConcurrentHashMap<>();
 
     /** 桥接自代码生成层 {@code Tables.SYS_CONFIG} 的类型安全表引用（B14）。 */
-    private static final JooqTables.TableRef CONFIG = JooqTables.SYS_CONFIG;
+    private static final SqlTables.TableRef CONFIG = SqlTables.SYS_CONFIG;
 
     public List<ConfigVO> list() {
-        List<SysConfigDO> all = JooqWriters.fetchList(dsl, CONFIG, SysConfigDO.class,
-                JooqWriters.notDeleted(CONFIG),
-                JooqTables.SYS_CONFIG.field("config_key", String.class).asc());
+        List<SysConfigDO> all = SqlWriters.fetchList(dsl, CONFIG, SysConfigDO.class,
+                SqlWriters.notDeleted(CONFIG),
+                SqlTables.SYS_CONFIG.field("config_key", String.class).asc());
         return all.stream().map(this::toVO).collect(Collectors.toList());
     }
 
@@ -91,9 +91,9 @@ public class ConfigService {
         if (cached != null) {
             return cached;
         }
-        SysConfigDO c = JooqWriters.fetchOne(dsl, CONFIG, SysConfigDO.class,
-                DSL.and(JooqWriters.notDeleted(CONFIG),
-                        JooqTables.SYS_CONFIG.field("config_key", String.class).eq(key)));
+        SysConfigDO c = SqlWriters.fetchOne(dsl, CONFIG, SysConfigDO.class,
+                DSL.and(SqlWriters.notDeleted(CONFIG),
+                        SqlTables.SYS_CONFIG.field("config_key", String.class).eq(key)));
         if (c == null) {
             return null;
         }
@@ -116,14 +116,14 @@ public class ConfigService {
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? 1 : req.editable());
         c.setStatus(RecordStatus.normalize(req.status()));
-        JooqWriters.insert(dsl, CONFIG, c);
+        SqlWriters.insert(dsl, CONFIG, c);
         cache.put(req.configKey(), toVO(c));
         return c.getId();
     }
 
     @Transactional
     public void update(Long id, UpdateConfigRequest req) {
-        SysConfigDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id), "配置不存在");
+        SysConfigDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id), "配置不存在");
         if (!existing.getConfigKey().equals(req.configKey()) && existsByKey(req.configKey())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "配置键已存在");
         }
@@ -137,15 +137,15 @@ public class ConfigService {
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? existing.getEditable() : req.editable());
         c.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
-        JooqWriters.updateById(dsl, CONFIG, id, c);
+        SqlWriters.updateById(dsl, CONFIG, id, c);
         cache.remove(oldKey);
         cache.put(req.configKey(), toVO(c));
     }
 
     @Transactional
     public void delete(Long id) {
-        SysConfigDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id), "配置不存在");
-        JooqWriters.delete(dsl, CONFIG, id, true);
+        SysConfigDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, CONFIG, SysConfigDO.class, id), "配置不存在");
+        SqlWriters.delete(dsl, CONFIG, id, true);
         cache.remove(existing.getConfigKey());
     }
 
@@ -155,8 +155,8 @@ public class ConfigService {
     }
 
     private boolean existsByKey(String key) {
-        return JooqWriters.count(dsl, CONFIG,
-                DSL.and(JooqWriters.notDeleted(CONFIG),
-                        JooqTables.SYS_CONFIG.field("config_key", String.class).eq(key))) > 0;
+        return SqlWriters.count(dsl, CONFIG,
+                DSL.and(SqlWriters.notDeleted(CONFIG),
+                        SqlTables.SYS_CONFIG.field("config_key", String.class).eq(key))) > 0;
     }
 }

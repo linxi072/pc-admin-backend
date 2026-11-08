@@ -1,15 +1,15 @@
 package com.acme.scaffold.system.tenant;
 
-import com.acme.scaffold.jooq.dsl.TenantTables;
+import com.acme.scaffold.mybatis.dsl.TenantTables;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
 import com.acme.scaffold.common.tenant.TenantIsolationTableViolation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.Table;
-import org.jooq.exception.DataAccessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.Table;
+import com.acme.scaffold.mybatis.dsl.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

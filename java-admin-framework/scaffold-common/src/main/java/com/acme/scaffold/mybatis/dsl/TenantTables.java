@@ -1,6 +1,6 @@
-package com.acme.scaffold.jooq.dsl;
+package com.acme.scaffold.mybatis.dsl;
 
-import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
+import com.acme.scaffold.mybatis.dsl.SqlTables.TableRef;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -12,14 +12,14 @@ import java.util.Set;
 /**
  * 租户相关表的分类工具（M19 正式立项 / SaaS 生产启用）。
  *
- * <p>与 {@link JooqTables} 同包（两者强耦合：本类通过反射收集其中的 {@link TableRef}），
+ * <p>与 {@link SqlTables} 同包（两者强耦合：本类通过反射收集其中的 {@link TableRef}），
  * 避免 {@code common.tenant} 与 {@code jooq.dsl} 形成包级循环依赖。
  *
  * <p>区分「平台共享维表（豁免隔离，tenant_id 恒为 0）」与「业务数据表（按租户隔离）」：
  * <ul>
  *   <li>{@link #PLATFORM_TABLES}：与 {@code TenantProperties.platformTables} 默认列表一致，
  *       由平台统一维护（租户注册、菜单、字典、配置、API 资源）；</li>
- *   <li>{@link #businessTableRefs()}：通过反射收集 {@link JooqTables} 中除平台维表外的全部
+ *   <li>{@link #businessTableRefs()}：通过反射收集 {@link SqlTables} 中除平台维表外的全部
  *       {@code TableRef}，新增业务表自动纳入，避免手写清单漂移。</li>
  * </ul>
  *
@@ -40,10 +40,10 @@ public final class TenantTables {
         return tableName != null && PLATFORM_TABLES.contains(tableName);
     }
 
-    /** 全部业务表（JooqTables 中除平台维表外的所有 TableRef）。新增表自动纳入。 */
+    /** 全部业务表（SqlTables 中除平台维表外的所有 TableRef）。新增表自动纳入。 */
     public static List<TableRef> businessTableRefs() {
         List<TableRef> refs = new ArrayList<>();
-        for (Field f : JooqTables.class.getDeclaredFields()) {
+        for (Field f : SqlTables.class.getDeclaredFields()) {
             if (Modifier.isStatic(f.getModifiers()) && f.getType() == TableRef.class) {
                 try {
                     TableRef ref = (TableRef) f.get(null);

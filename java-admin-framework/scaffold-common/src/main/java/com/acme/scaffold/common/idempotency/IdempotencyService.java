@@ -1,12 +1,13 @@
 package com.acme.scaffold.common.idempotency;
 
 import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordDO;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -57,7 +58,7 @@ public class IdempotencyService {
     public void markSuccess(String key, String scope, Object response) {
         String snapshot = toSnapshot(response);
         requiresNew.execute(status -> {
-            var t = JooqTables.SYS_IDEMPOTENCY_RECORD;
+            var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
             dsl.update(t.table())
                     .set(t.field("status", String.class), IdempotencyStatus.SUCCESS.name())
                     .set(t.field("response_snapshot", String.class), snapshot)
@@ -76,7 +77,7 @@ public class IdempotencyService {
      */
     public void markFailed(String key, String scope, String errorCode, String errorMessage) {
         requiresNew.execute(status -> {
-            var t = JooqTables.SYS_IDEMPOTENCY_RECORD;
+            var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
             dsl.update(t.table())
                     .set(t.field("status", String.class), IdempotencyStatus.FAILED.name())
                     .set(t.field("error_code", String.class), truncate(errorCode, 64))
@@ -91,16 +92,16 @@ public class IdempotencyService {
     /** 非业务异常（系统错误）：删除记录，让客户端可以安全重试。 */
     public void release(String key, String scope) {
         requiresNew.execute(status -> {
-            var t = JooqTables.SYS_IDEMPOTENCY_RECORD;
+            var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
             dsl.deleteFrom(t.table()).where(keyCondition(key, scope)).execute();
             return null;
         });
     }
 
-    /** 清理过期记录，由 JobRunr 周期调用。 */
+    /** 清理过期记录，由 Quartz 周期调用。 */
     public int purgeExpired() {
         Integer deleted = requiresNew.execute(status -> {
-            var t = JooqTables.SYS_IDEMPOTENCY_RECORD;
+            var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
             return dsl.deleteFrom(t.table())
                     .where(t.field("expires_at", LocalDateTime.class).lt(LocalDateTime.now()))
                     .execute();
@@ -113,7 +114,7 @@ public class IdempotencyService {
     // ------------------------------------------------------------------
 
     private AcquireResult doAcquire(String key, String scope, Long userId, String fingerprint, int ttlSeconds) {
-        var t = JooqTables.SYS_IDEMPOTENCY_RECORD;
+        var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
         IdempotencyRecordDO existing = find(key, scope);
         if (existing == null) {
             try {
@@ -124,7 +125,7 @@ public class IdempotencyService {
                 record.setRequestFingerprint(fingerprint);
                 record.setStatus(IdempotencyStatus.PROCESSING.name());
                 record.setExpiresAt(LocalDateTime.now().plusSeconds(Math.max(ttlSeconds, 1)));
-                JooqWriters.insert(dsl, t, record);
+                SqlWriters.insert(dsl, t, record);
                 return AcquireResult.proceed();
             } catch (DataIntegrityViolationException e) {
                 // 并发抢登记：唯一索引兜底。冲突行此刻已提交，重查必然可见
@@ -156,12 +157,12 @@ public class IdempotencyService {
     }
 
     private IdempotencyRecordDO find(String key, String scope) {
-        return JooqWriters.fetchOne(dsl, JooqTables.SYS_IDEMPOTENCY_RECORD, IdempotencyRecordDO.class,
+        return SqlWriters.fetchOne(dsl, SqlTables.SYS_IDEMPOTENCY_RECORD, IdempotencyRecordDO.class,
                 keyCondition(key, scope));
     }
 
-    private org.jooq.Condition keyCondition(String key, String scope) {
-        var t = JooqTables.SYS_IDEMPOTENCY_RECORD;
+    private Condition keyCondition(String key, String scope) {
+        var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
         return DSL.and(t.field("idempotency_key", String.class).eq(key),
                 t.field("api_scope", String.class).eq(scope));
     }

@@ -1,19 +1,19 @@
-package com.acme.scaffold.jooq.paging;
+package com.acme.scaffold.mybatis.dsl;
 
 import com.acme.scaffold.common.api.CursorCodec;
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.OrderField;
-import org.jooq.Record;
-import org.jooq.Select;
-import org.jooq.SelectSeekStepN;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SnakeRecordMapper;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.OrderField;
+import com.acme.scaffold.mybatis.dsl.Record;
+import com.acme.scaffold.mybatis.dsl.Select;
+import com.acme.scaffold.mybatis.dsl.SelectSeekStepN;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -34,9 +34,9 @@ import java.util.function.Function;
  *   <li>取 {@code size+1} 条判定是否还有下一页，避免 count 开销。</li>
  * </ul>
  */
-public final class JooqKeysetPager {
+public final class KeysetPager {
 
-    private JooqKeysetPager() {
+    private KeysetPager() {
     }
 
     /**
@@ -46,7 +46,7 @@ public final class JooqKeysetPager {
      */
     public static <E> KeysetPageResult<E> query(
             DSLContext dsl,
-            JooqTables.TableRef table,
+            SqlTables.TableRef table,
             Class<E> type,
             Condition cond,
             KeysetPageQuery q,
@@ -82,10 +82,10 @@ public final class JooqKeysetPager {
 
     /**
      * keyset 分页入口别名：等价于 {@link #query}，仅作语义化命名，便于在 writer 层与
-     * {@code JooqWriters.page} 对照使用，同时规避 {@code jooq.dsl} 包反向依赖本包造成的包级循环。
+     * {@code SqlWriters.page} 对照使用，同时规避 {@code jooq.dsl} 包反向依赖本包造成的包级循环。
      */
     public static <E> KeysetPageResult<E> pageKeyset(
-            DSLContext dsl, JooqTables.TableRef table, Class<E> type, Condition cond,
+            DSLContext dsl, SqlTables.TableRef table, Class<E> type, Condition cond,
             KeysetPageQuery q, Function<E, Object[]> keyExtractor,
             Field<?>[] keyFields, boolean[] ascending) {
         return query(dsl, table, type, cond, q, keyExtractor, keyFields, ascending);
@@ -96,7 +96,7 @@ public final class JooqKeysetPager {
      */
     static Select<Record> buildSelect(
             DSLContext dsl,
-            JooqTables.TableRef table,
+            SqlTables.TableRef table,
             Condition cond,
             KeysetPageQuery q,
             Field<?>[] keyFields,

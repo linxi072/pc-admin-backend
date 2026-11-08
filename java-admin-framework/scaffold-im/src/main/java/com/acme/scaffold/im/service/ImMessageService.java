@@ -14,13 +14,13 @@ import com.acme.scaffold.im.dto.MessageSendRequest;
 import com.acme.scaffold.im.dto.MessageView;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,9 +39,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ImMessageService {
 
-    private static final JooqTables.TableRef CONVERSATION = JooqTables.IM_CONVERSATION;
-    private static final JooqTables.TableRef MEMBER = JooqTables.IM_CONVERSATION_MEMBER;
-    private static final JooqTables.TableRef MESSAGE = JooqTables.IM_MESSAGE;
+    private static final SqlTables.TableRef CONVERSATION = SqlTables.IM_CONVERSATION;
+    private static final SqlTables.TableRef MEMBER = SqlTables.IM_CONVERSATION_MEMBER;
+    private static final SqlTables.TableRef MESSAGE = SqlTables.IM_MESSAGE;
 
     /** 内容预览截断长度（实时推送气泡与通知摘要用）。 */
     private static final int PREVIEW_MAX = 50;
@@ -73,12 +73,12 @@ public class ImMessageService {
         msg.setReplyToId(req.getReplyToId());
         msg.setCreatedBy(operator);
         msg.setUpdatedBy(operator);
-        JooqWriters.insert(dsl, MESSAGE, msg);
+        SqlWriters.insert(dsl, MESSAGE, msg);
         Long messageId = msg.getId();
 
-        List<ImConversationMemberDO> receivers = JooqWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
+        List<ImConversationMemberDO> receivers = SqlWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
                 MEMBER.field("conversation_id", Long.class).eq(req.getConversationId())
-                        .and(JooqWriters.notDeleted(MEMBER))
+                        .and(SqlWriters.notDeleted(MEMBER))
                         .and(MEMBER.field("status", String.class).eq(ImStatus.STATUS_ACTIVE))
                         .and(MEMBER.field("user_id", Long.class).ne(senderId)));
         List<Long> receiverIds = receivers.stream().map(ImConversationMemberDO::getUserId).toList();
@@ -96,9 +96,9 @@ public class ImMessageService {
     public PageResult<MessageView> listMessages(Long conversationId, int page, int size) {
         requireMember(conversationId, currentUserId());
         Condition cond = MESSAGE.field("conversation_id", Long.class).eq(conversationId)
-                .and(JooqWriters.notDeleted(MESSAGE));
+                .and(SqlWriters.notDeleted(MESSAGE));
         PageQuery q = PageQuery.of(page, size, null, null);
-        var raw = JooqWriters.page(dsl, MESSAGE, ImMessageDO.class, cond, q,
+        var raw = SqlWriters.page(dsl, MESSAGE, ImMessageDO.class, cond, q,
                 MESSAGE.field("created_at", LocalDateTime.class).asc(),
                 MESSAGE.field("id", Long.class).asc());
         List<MessageView> views = raw.records().stream().map(this::toView).toList();
@@ -108,7 +108,7 @@ public class ImMessageService {
     /** 消息详情（须为会话成员）。 */
     @Transactional(readOnly = true)
     public MessageView getById(Long id) {
-        ImMessageDO msg = JooqWriters.fetchById(dsl, MESSAGE, ImMessageDO.class, id);
+        ImMessageDO msg = SqlWriters.fetchById(dsl, MESSAGE, ImMessageDO.class, id);
         if (msg == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "消息不存在: " + id);
         }
@@ -120,7 +120,7 @@ public class ImMessageService {
     @Transactional
     public void recall(Long id) {
         Long userId = currentUserId();
-        ImMessageDO msg = JooqWriters.fetchById(dsl, MESSAGE, ImMessageDO.class, id);
+        ImMessageDO msg = SqlWriters.fetchById(dsl, MESSAGE, ImMessageDO.class, id);
         if (msg == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "消息不存在: " + id);
         }
@@ -133,7 +133,7 @@ public class ImMessageService {
         msg.setStatus(ImStatus.MSG_STATUS_RECALLED);
         msg.setContent(null);
         msg.setUpdatedBy(currentOperator());
-        JooqWriters.updateByIdWithNulls(dsl, MESSAGE, id, msg, Set.of("content"));
+        SqlWriters.updateByIdWithNulls(dsl, MESSAGE, id, msg, Set.of("content"));
     }
 
     /** 标记会话已读（当前用户）：把已读游标推进到会话内最大消息 id，且只前进不回退。 */
@@ -144,7 +144,7 @@ public class ImMessageService {
         Long maxId = dsl.select(DSL.max(MESSAGE.field("id", Long.class)))
                 .from(MESSAGE.table())
                 .where(MESSAGE.field("conversation_id", Long.class).eq(conversationId)
-                        .and(JooqWriters.notDeleted(MESSAGE)))
+                        .and(SqlWriters.notDeleted(MESSAGE)))
                 .fetchOne(0, Long.class);
         ImConversationMemberDO member = fetchMember(conversationId, userId);
         if (maxId == null) {
@@ -159,16 +159,16 @@ public class ImMessageService {
         }
         member.setLastReadMessageId(maxId);
         member.setUpdatedAt(LocalDateTime.now());
-        JooqWriters.updateById(dsl, MEMBER, member.getId(), member);
+        SqlWriters.updateById(dsl, MEMBER, member.getId(), member);
     }
 
     /** 当前用户在所有会话中的未读消息总数。 */
     @Transactional(readOnly = true)
     public long unreadCount() {
         Long userId = currentUserId();
-        List<ImConversationMemberDO> myMembers = JooqWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
+        List<ImConversationMemberDO> myMembers = SqlWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
                 MEMBER.field("user_id", Long.class).eq(userId)
-                        .and(JooqWriters.notDeleted(MEMBER))
+                        .and(SqlWriters.notDeleted(MEMBER))
                         .and(MEMBER.field("status", String.class).eq(ImStatus.STATUS_ACTIVE)));
         long total = 0;
         for (ImConversationMemberDO m : myMembers) {
@@ -181,14 +181,14 @@ public class ImMessageService {
 
     long computeUnread(Long conversationId, Long userId, Long lastReadId) {
         Condition cond = MESSAGE.field("conversation_id", Long.class).eq(conversationId)
-                .and(JooqWriters.notDeleted(MESSAGE))
+                .and(SqlWriters.notDeleted(MESSAGE))
                 .and(MESSAGE.field("sender_id", Long.class).ne(userId))
                 // 与 ImConversationService 口径一致：已撤回消息不计入未读总数
                 .and(MESSAGE.field("status", String.class).ne(ImStatus.MSG_STATUS_RECALLED));
         if (lastReadId != null) {
             cond = cond.and(MESSAGE.field("id", Long.class).gt(lastReadId));
         }
-        return JooqWriters.count(dsl, MESSAGE, cond);
+        return SqlWriters.count(dsl, MESSAGE, cond);
     }
 
     private MessageView toView(ImMessageDO m) {
@@ -206,7 +206,7 @@ public class ImMessageService {
     }
 
     private ImConversationDO requireConversation(Long conversationId) {
-        ImConversationDO conv = JooqWriters.fetchById(dsl, CONVERSATION, ImConversationDO.class, conversationId);
+        ImConversationDO conv = SqlWriters.fetchById(dsl, CONVERSATION, ImConversationDO.class, conversationId);
         if (conv == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "会话不存在: " + conversationId);
         }
@@ -220,10 +220,10 @@ public class ImMessageService {
     }
 
     private ImConversationMemberDO fetchMember(Long conversationId, Long userId) {
-        return JooqWriters.fetchOne(dsl, MEMBER, ImConversationMemberDO.class,
+        return SqlWriters.fetchOne(dsl, MEMBER, ImConversationMemberDO.class,
                 MEMBER.field("conversation_id", Long.class).eq(conversationId)
                         .and(MEMBER.field("user_id", Long.class).eq(userId))
-                        .and(JooqWriters.notDeleted(MEMBER)));
+                        .and(SqlWriters.notDeleted(MEMBER)));
     }
 
     private Long currentUserId() {

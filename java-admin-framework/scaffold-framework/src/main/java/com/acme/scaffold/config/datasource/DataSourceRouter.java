@@ -1,6 +1,6 @@
 package com.acme.scaffold.config.datasource;
 
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;

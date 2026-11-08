@@ -2,8 +2,8 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
@@ -12,7 +12,7 @@ import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.ChangePasswordRequest;
 import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class ProfilePasswordService {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
@@ -64,7 +64,7 @@ public class ProfilePasswordService {
         patch.setPasswordExpired(0);
         patch.setFailedLoginCount(0);
         patch.setLockedUntil(null);
-        JooqWriters.updateById(dsl, USER, current.getId(), patch);
+        SqlWriters.updateById(dsl, USER, current.getId(), patch);
 
         // 统一走 TokenVersionService 自增：同步失效进程内 30s 缓存，避免改密后旧 token 短暂有效
         tokenVersionService.bumpUser(current.getId());

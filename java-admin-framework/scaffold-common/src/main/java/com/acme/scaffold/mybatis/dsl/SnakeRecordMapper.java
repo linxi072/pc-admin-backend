@@ -1,9 +1,9 @@
-package com.acme.scaffold.jooq.mapping;
+package com.acme.scaffold.mybatis.dsl;
 
-import org.jooq.Field;
-import org.jooq.JSON;
-import org.jooq.Record;
-import org.jooq.RecordMapper;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.JSON;
+import com.acme.scaffold.mybatis.dsl.Record;
+import com.acme.scaffold.mybatis.dsl.RecordMapper;
 
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
@@ -137,7 +137,7 @@ public class SnakeRecordMapper<E> implements RecordMapper<Record, E> {
                 return "1".equals(s) || "true".equalsIgnoreCase(s) || "Y".equalsIgnoreCase(s);
             }
         }
-        // JSON 列（如 sys_operation_log.request_summary）由 jOOQ 映射为 org.jooq.JSON，
+        // JSON 列（如 sys_operation_log.request_summary）由兼容层映射为 JSON，
         // 直接塞进 String 字段会抛 argument type mismatch，这里统一取文本。
         if (targetType == String.class && !(value instanceof String)) {
             return value instanceof JSON json ? json.data() : value.toString();

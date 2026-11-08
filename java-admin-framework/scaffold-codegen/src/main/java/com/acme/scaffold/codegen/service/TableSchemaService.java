@@ -4,7 +4,7 @@ import com.acme.scaffold.codegen.dto.ColumnMetaVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

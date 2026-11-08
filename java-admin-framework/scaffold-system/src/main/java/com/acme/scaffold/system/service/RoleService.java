@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.RoleView;
 import com.acme.scaffold.system.entity.SysRoleApiDO;
@@ -13,8 +13,8 @@ import com.acme.scaffold.system.entity.SysRoleDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleMenuDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,11 +30,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
 
-    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
-    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
-            JooqTables.SYS_ROLE;
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link SqlTables#SYS_ROLE} 等价，列集一致。 */
+    private static final com.acme.scaffold.mybatis.dsl.SqlTables.TableRef ROLE =
+            SqlTables.SYS_ROLE;
 
     private final DSLContext dsl;
 
@@ -54,7 +54,7 @@ public class RoleService {
         role.setRoleType(request.roleType() == null ? "BUSINESS" : request.roleType());
         role.setStatus(RecordStatus.normalize(request.status()));
         role.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
-        JooqWriters.insert(dsl, ROLE, role);
+        SqlWriters.insert(dsl, ROLE, role);
         assignMenus(role.getId(), request.menuIds());
         assignApis(role.getId(), request.apiIds());
         return role.getId();
@@ -78,7 +78,7 @@ public class RoleService {
         if (request.sortNo() != null) {
             role.setSortNo(request.sortNo());
         }
-        JooqWriters.updateById(dsl, ROLE, id, role);
+        SqlWriters.updateById(dsl, ROLE, id, role);
         // 绑定语义：menuIds / apiIds 为 null 表示「本次不改动绑定」（保留原授权），
         // 空集合表示「清空全部绑定」。原实现无条件重建绑定，调用方局部更新角色信息
         // （如只改角色名）时漏传即把菜单/接口授权全部清空——契约二义且误清后果严重。
@@ -93,11 +93,11 @@ public class RoleService {
 
     public RoleView getView(Long id) {
         SysRoleDO role = get(id);
-        Set<Long> menuIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
-                        JooqTables.SYS_ROLE_MENU.field("role_id", Long.class).eq(id)).stream()
+        Set<Long> menuIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
+                        SqlTables.SYS_ROLE_MENU.field("role_id", Long.class).eq(id)).stream()
                 .map(SysRoleMenuDO::getMenuId).collect(Collectors.toSet());
-        Set<Long> apiIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_API, SysRoleApiDO.class,
-                        JooqTables.SYS_ROLE_API.field("role_id", Long.class).eq(id)).stream()
+        Set<Long> apiIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_API, SysRoleApiDO.class,
+                        SqlTables.SYS_ROLE_API.field("role_id", Long.class).eq(id)).stream()
                 .map(SysRoleApiDO::getApiId).collect(Collectors.toSet());
         return new RoleView(role.getId(), role.getRoleCode(), role.getRoleName(), role.getRoleType(),
                 role.getStatus(), role.getSortNo(), menuIds, apiIds);
@@ -113,8 +113,8 @@ public class RoleService {
     private static final int MAX_ROLE_ROWS = 1000;
 
     public List<RoleView> list() {
-        return JooqWriters.fetchTop(dsl, ROLE, SysRoleDO.class,
-                        JooqWriters.notDeleted(ROLE), MAX_ROLE_ROWS,
+        return SqlWriters.fetchTop(dsl, ROLE, SysRoleDO.class,
+                        SqlWriters.notDeleted(ROLE), MAX_ROLE_ROWS,
                         ROLE.field("sort_no", Integer.class).asc())
                 .stream().map(RoleView::from).collect(Collectors.toList());
     }
@@ -128,25 +128,25 @@ public class RoleService {
     public void delete(Long id) {
         // 用户-角色关联先清：该表无外键约束，漏删会残留孤儿行（角色已不存在但用户仍"挂"着它，
         // 权限计算靠 notDeleted 兜底过滤虽不泄露，但数据卫生失控且角色重建后历史绑定不会恢复）
-        JooqWriters.deleteByColumn(dsl, USER_ROLE, "role_id", id);
-        JooqWriters.delete(dsl, ROLE, id, true);
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "role_id", id);
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_API, "role_id", id);
+        SqlWriters.deleteByColumn(dsl, USER_ROLE, "role_id", id);
+        SqlWriters.delete(dsl, ROLE, id, true);
+        SqlWriters.deleteByColumn(dsl, SqlTables.SYS_ROLE_MENU, "role_id", id);
+        SqlWriters.deleteByColumn(dsl, SqlTables.SYS_ROLE_API, "role_id", id);
         // 数据权限：先清 CUSTOM 机构关联再清规则，否则残留孤儿行。
         // 该表无外键约束，漏删不会报错但会在角色重建（同 id）时读到旧机构。
-        List<Long> ruleIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE, SysRoleDataScopeDO.class,
-                        JooqTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(id))
+        List<Long> ruleIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE, SysRoleDataScopeDO.class,
+                        SqlTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(id))
                 .stream().map(SysRoleDataScopeDO::getId).toList();
         if (!ruleIds.isEmpty()) {
-            dsl.delete(JooqTables.SYS_ROLE_DATA_SCOPE_ORG.table())
-                    .where(JooqTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).in(ruleIds))
+            dsl.delete(SqlTables.SYS_ROLE_DATA_SCOPE_ORG.table())
+                    .where(SqlTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).in(ruleIds))
                     .execute();
         }
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_DATA_SCOPE, "role_id", id);
+        SqlWriters.deleteByColumn(dsl, SqlTables.SYS_ROLE_DATA_SCOPE, "role_id", id);
     }
 
     private void assignMenus(Long roleId, Set<Long> menuIds) {
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "role_id", roleId);
+        SqlWriters.deleteByColumn(dsl, SqlTables.SYS_ROLE_MENU, "role_id", roleId);
         if (menuIds == null) {
             return;
         }
@@ -154,12 +154,12 @@ public class RoleService {
             SysRoleMenuDO rm = new SysRoleMenuDO();
             rm.setRoleId(roleId);
             rm.setMenuId(menuId);
-            JooqWriters.insert(dsl, JooqTables.SYS_ROLE_MENU, rm);
+            SqlWriters.insert(dsl, SqlTables.SYS_ROLE_MENU, rm);
         }
     }
 
     private void assignApis(Long roleId, Set<Long> apiIds) {
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_API, "role_id", roleId);
+        SqlWriters.deleteByColumn(dsl, SqlTables.SYS_ROLE_API, "role_id", roleId);
         if (apiIds == null) {
             return;
         }
@@ -167,19 +167,19 @@ public class RoleService {
             SysRoleApiDO ra = new SysRoleApiDO();
             ra.setRoleId(roleId);
             ra.setApiId(apiId);
-            JooqWriters.insert(dsl, JooqTables.SYS_ROLE_API, ra);
+            SqlWriters.insert(dsl, SqlTables.SYS_ROLE_API, ra);
         }
     }
 
     /** 角色编码是否已存在（全局唯一，含逻辑删除过滤）。开通流程用于幂等查重。 */
     public boolean existsByCode(String code) {
-        return JooqWriters.count(dsl, ROLE,
-                DSL.and(JooqWriters.notDeleted(ROLE),
+        return SqlWriters.count(dsl, ROLE,
+                DSL.and(SqlWriters.notDeleted(ROLE),
                         ROLE.field("role_code", String.class).eq(code))) > 0;
     }
 
     private SysRoleDO get(Long id) {
-        SysRoleDO role = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, id), "角色不存在");
+        SysRoleDO role = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, ROLE, SysRoleDO.class, id), "角色不存在");
         return role;
     }
 }

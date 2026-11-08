@@ -6,9 +6,9 @@ import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
 import com.acme.scaffold.config.cache.CacheStats;
 import com.acme.scaffold.config.cache.StatisticsCacheManager;
 import com.acme.scaffold.config.datasource.DataSourceRegistry;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.monitor.dto.CacheStatView;
 import com.acme.scaffold.monitor.dto.OnlineSessionView;
 import com.acme.scaffold.monitor.dto.PoolStatView;
@@ -21,10 +21,10 @@ import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Record3;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Record3;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
@@ -51,13 +51,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MonitorService {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
-    private static final JooqTables.TableRef RT =
-            JooqTables.SYS_REFRESH_TOKEN;
+    private static final SqlTables.TableRef RT =
+            SqlTables.SYS_REFRESH_TOKEN;
 
     /** 异常日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> ERROR_LOG_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> ERROR_LOG_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "moduleCode", "module_code",
             "operationName", "operation_name",
@@ -212,7 +212,7 @@ public class MonitorService {
         // 避免活跃会话量大时把全部刷新令牌拉进堆内。按 last_used_at 倒序取最近窗口，
         // 语义上等价于「最近活跃的会话」。
         int sqlCap = Math.min(Math.max(limit * 10, 500), 5000);
-        List<SysRefreshTokenDO> tokens = JooqWriters.fetchTop(dsl, RT,
+        List<SysRefreshTokenDO> tokens = SqlWriters.fetchTop(dsl, RT,
                 SysRefreshTokenDO.class, DSL.and(conds), sqlCap,
                 RT.field("last_used_at", LocalDateTime.class).desc().nullsLast());
 
@@ -227,7 +227,7 @@ public class MonitorService {
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, SysUserDO> users = new HashMap<>();
         if (!userIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+            SqlWriters.fetchList(dsl, USER, SysUserDO.class,
                             USER.field("id", Long.class).in(userIds))
                     .forEach(u -> users.put(u.getId(), u));
         }
@@ -299,27 +299,27 @@ public class MonitorService {
         }
 
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(0));
+        conds.add(SqlTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(0));
         conds.add(DSL.and(
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).ge(begin),
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).le(end)));
+                SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).ge(begin),
+                SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).le(end)));
         if (module != null && !module.isBlank()) {
-            conds.add(JooqTables.SYS_OPERATION_LOG.field("module_code", String.class).eq(module));
+            conds.add(SqlTables.SYS_OPERATION_LOG.field("module_code", String.class).eq(module));
         }
         if (keyword != null && !keyword.isBlank()) {
             String kw = "%" + keyword.trim() + "%";
             conds.add(DSL.or(
-                    JooqTables.SYS_OPERATION_LOG.field("request_path", String.class).like(kw),
-                    JooqTables.SYS_OPERATION_LOG.field("operation_name", String.class).like(kw),
-                    JooqTables.SYS_OPERATION_LOG.field("operator_name", String.class).like(kw),
-                    JooqTables.SYS_OPERATION_LOG.field("trace_id", String.class).like(kw)));
+                    SqlTables.SYS_OPERATION_LOG.field("request_path", String.class).like(kw),
+                    SqlTables.SYS_OPERATION_LOG.field("operation_name", String.class).like(kw),
+                    SqlTables.SYS_OPERATION_LOG.field("operator_name", String.class).like(kw),
+                    SqlTables.SYS_OPERATION_LOG.field("trace_id", String.class).like(kw)));
         }
 
         var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
-        return JooqWriters.page(dsl, JooqTables.SYS_OPERATION_LOG, SysOperationLogDO.class,
+        return SqlWriters.page(dsl, SqlTables.SYS_OPERATION_LOG, SysOperationLogDO.class,
                 DSL.and(conds), pageQuery,
-                JooqSorts.resolve(JooqTables.SYS_OPERATION_LOG, pageQuery, ERROR_LOG_SORT_FIELDS,
-                        JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc()));
+                SqlSorts.resolve(SqlTables.SYS_OPERATION_LOG, pageQuery, ERROR_LOG_SORT_FIELDS,
+                        SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc()));
     }
 
     /** 按时间范围查询历史采样（用于趋势图）。limit 下推至 SQL，防止超大时间窗口全量拉取。 */
@@ -328,16 +328,16 @@ public class MonitorService {
         LocalDateTime begin = from == null ? end.minusHours(24) : from;
         List<Condition> conds = new ArrayList<>();
         conds.add(DSL.and(
-                JooqTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).ge(begin),
-                JooqTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).le(end)));
+                SqlTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).ge(begin),
+                SqlTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).le(end)));
 
-        return JooqWriters.fetchTop(dsl, JooqTables.SYS_MONITOR_SAMPLE, SysMonitorSampleDO.class,
+        return SqlWriters.fetchTop(dsl, SqlTables.SYS_MONITOR_SAMPLE, SysMonitorSampleDO.class,
                 DSL.and(conds), limit <= 0 ? 200 : limit,
-                JooqTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).desc());
+                SqlTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).desc());
     }
 
     /**
-     * 采集一次并落库（由 JobRunr 周期任务调用）。
+     * 采集一次并落库（由 Quartz 周期任务调用）。
      *
      * @return 采样条数（0 或 1）
      */
@@ -360,7 +360,7 @@ public class MonitorService {
             s.setActiveSessions(((Number) online.get("activeSessions")).intValue());
             s.setThreadCount(m.getThreadCount());
             s.setSampledAt(LocalDateTime.now());
-            JooqWriters.insert(dsl, JooqTables.SYS_MONITOR_SAMPLE, s);
+            SqlWriters.insert(dsl, SqlTables.SYS_MONITOR_SAMPLE, s);
             return 1;
         } catch (Exception e) {
             log.warn("监控指标采样失败，跳过本次采样", e);
@@ -373,18 +373,18 @@ public class MonitorService {
         LocalDateTime end = to == null ? LocalDateTime.now() : to;
         LocalDateTime begin = from == null ? end.minusHours(24) : from;
         Condition timeRange = DSL.and(
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).ge(begin),
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).le(end));
+                SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).ge(begin),
+                SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).le(end));
 
-        List<org.jooq.Record3<String, String, Integer>> rows = dsl.select(
-                        JooqTables.SYS_OPERATION_LOG.field("module_code", String.class),
-                        JooqTables.SYS_OPERATION_LOG.field("result_code", String.class),
+        List<com.acme.scaffold.mybatis.dsl.Record3<String, String, Integer>> rows = dsl.select(
+                        SqlTables.SYS_OPERATION_LOG.field("module_code", String.class),
+                        SqlTables.SYS_OPERATION_LOG.field("result_code", String.class),
                         DSL.count().as("cnt"))
-                .from(JooqTables.SYS_OPERATION_LOG.table())
-                .where(JooqTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(0)
+                .from(SqlTables.SYS_OPERATION_LOG.table())
+                .where(SqlTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(0)
                         .and(timeRange))
-                .groupBy(JooqTables.SYS_OPERATION_LOG.field("module_code", String.class),
-                        JooqTables.SYS_OPERATION_LOG.field("result_code", String.class))
+                .groupBy(SqlTables.SYS_OPERATION_LOG.field("module_code", String.class),
+                        SqlTables.SYS_OPERATION_LOG.field("result_code", String.class))
                 .fetch();
 
         return rows.stream().map(r -> {

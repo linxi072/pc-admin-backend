@@ -12,15 +12,15 @@ import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.event.EventPublisher;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +34,7 @@ import java.util.Set;
  * 文章服务：文章 CRUD、发布/下线态流转、浏览计数，并在发布时经 R2 事件总线广播
  * {@link ArticlePublishedEvent}（解耦通知/检索等下游）。
  *
- * <p>持久化经 {@link JooqWriters}（动态 DSL），租户隔离由框架统一裁决；
+ * <p>持久化经 {@link SqlWriters}（动态 DSL），租户隔离由框架统一裁决；
  * 富文本正文以 TEXT 承载，由前端约定 HTML/Markdown 格式。</p>
  */
 @Slf4j
@@ -43,14 +43,14 @@ import java.util.Set;
 public class CmsArticleService {
 
     /** 列表可排序字段白名单：客户端字段名 → 数据库列名。 */
-    private static final Map<String, String> ARTICLE_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> ARTICLE_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "title", "title",
             "viewCount", "view_count",
             "publishedAt", "published_at",
             "createdAt", "created_at");
 
-    private static final JooqTables.TableRef ARTICLE = JooqTables.CMS_ARTICLE;
+    private static final SqlTables.TableRef ARTICLE = SqlTables.CMS_ARTICLE;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -80,7 +80,7 @@ public class CmsArticleService {
         entity.setViewCount(0L);
         entity.setCreatedBy(currentOperator());
         entity.setUpdatedBy(currentOperator());
-        JooqWriters.insert(dsl, ARTICLE, entity);
+        SqlWriters.insert(dsl, ARTICLE, entity);
         if (published) {
             publishEvent(entity);
         }
@@ -118,9 +118,9 @@ public class CmsArticleService {
         existing.setUpdatedBy(currentOperator());
         if (clearOfflineAt) {
             // updateById 跳过 null 字段，清空 offline_at 必须显式声明置空列。
-            JooqWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
+            SqlWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
         } else {
-            JooqWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
+            SqlWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
         }
         if (becamePublished) {
             publishEvent(existing);
@@ -146,7 +146,7 @@ public class CmsArticleService {
         existing.setOfflineAt(null);
         existing.setUpdatedBy(currentOperator());
         // 重新发布（OFFLINE → PUBLISHED）必须清除下线时间；updateById 跳过 null，故显式置空。
-        JooqWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
+        SqlWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
         publishEvent(existing);
         log.info("文章已发布 articleId={} title={}", existing.getId(), existing.getTitle());
     }
@@ -166,7 +166,7 @@ public class CmsArticleService {
         existing.setStatus("OFFLINE");
         existing.setOfflineAt(LocalDateTime.now());
         existing.setUpdatedBy(currentOperator());
-        JooqWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
+        SqlWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
     }
 
     /** 浏览计数 +1（乐观自增，失败仅告警不阻塞）。 */
@@ -186,7 +186,7 @@ public class CmsArticleService {
     /** 按 id 查询（含逻辑删除过滤），不存在抛 404。 */
     @Transactional(readOnly = true)
     public ArticleView getById(Long id) {
-        CmsArticleDO entity = JooqWriters.fetchById(dsl, ARTICLE, CmsArticleDO.class, id);
+        CmsArticleDO entity = SqlWriters.fetchById(dsl, ARTICLE, CmsArticleDO.class, id);
         if (entity == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "文章不存在: " + id);
         }
@@ -197,7 +197,7 @@ public class CmsArticleService {
     @Transactional
     public void delete(Long id) {
         requireExisting(id);
-        JooqWriters.delete(dsl, ARTICLE, id, true);
+        SqlWriters.delete(dsl, ARTICLE, id, true);
     }
 
     /** 分页查询（支持栏目 / 标题关键字 / 状态筛选，逻辑删除自动排除）。 */
@@ -205,7 +205,7 @@ public class CmsArticleService {
     public PageResult<ArticleView> page(int page, int size, Long categoryId, String title,
                                         String status, String sortField, String sortDirection) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(ARTICLE));
+        conds.add(SqlWriters.notDeleted(ARTICLE));
         if (categoryId != null) {
             conds.add(ARTICLE.field("category_id", Long.class).eq(categoryId));
         }
@@ -217,8 +217,8 @@ public class CmsArticleService {
         }
         Condition cond = DSL.and(conds);
         PageQuery q = PageQuery.of(page, size, sortField, sortDirection);
-        var raw = JooqWriters.page(dsl, ARTICLE, CmsArticleDO.class, cond, q,
-                JooqSorts.resolve(ARTICLE, q, ARTICLE_SORT_FIELDS,
+        var raw = SqlWriters.page(dsl, ARTICLE, CmsArticleDO.class, cond, q,
+                SqlSorts.resolve(ARTICLE, q, ARTICLE_SORT_FIELDS,
                         ARTICLE.field("published_at", LocalDateTime.class).desc(),
                         ARTICLE.field("id", Long.class).desc()));
         List<ArticleView> views = raw.records().stream().map(this::toView).toList();
@@ -228,7 +228,7 @@ public class CmsArticleService {
     // ---------------- 内部辅助 ----------------
 
     private CmsArticleDO requireExisting(Long id) {
-        CmsArticleDO entity = JooqWriters.fetchById(dsl, ARTICLE, CmsArticleDO.class, id);
+        CmsArticleDO entity = SqlWriters.fetchById(dsl, ARTICLE, CmsArticleDO.class, id);
         if (entity == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "文章不存在: " + id);
         }
@@ -239,7 +239,7 @@ public class CmsArticleService {
         if (categoryId == null || categoryId == 0L) {
             throw BusinessException.badRequest("所属栏目不能为空");
         }
-        if (JooqWriters.fetchById(dsl, JooqTables.CMS_CATEGORY, com.acme.scaffold.cms.domain.CmsCategoryDO.class,
+        if (SqlWriters.fetchById(dsl, SqlTables.CMS_CATEGORY, com.acme.scaffold.cms.domain.CmsCategoryDO.class,
                 categoryId) == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "所属栏目不存在: " + categoryId);
         }

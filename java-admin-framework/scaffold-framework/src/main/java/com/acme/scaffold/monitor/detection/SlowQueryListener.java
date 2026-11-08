@@ -1,19 +1,17 @@
 package com.acme.scaffold.monitor.detection;
 
+import com.acme.scaffold.mybatis.dsl.ExecuteContext;
+import com.acme.scaffold.mybatis.dsl.ExecuteListener;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.ExecuteContext;
-import org.jooq.impl.DefaultExecuteListener;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * 慢 SQL 监控监听器（jOOQ 版，替代原 MyBatis-Plus 的 InnerInterceptor）。
- * <p>
+ * 慢 SQL 监控监听器（MyBatis 兼容层版）。
  * 记录超过阈值的 SQL 及耗时，仅供观测，不改变 SQL 执行。
- * 计时数据存放于 {@link ExecuteContext}，避免监听器实例在并发执行间共享状态。
  */
 @Slf4j
-public class SlowQueryListener extends DefaultExecuteListener {
+public class SlowQueryListener implements ExecuteListener {
 
     private static final String START_NANOS = "slowQuery.startNanos";
 

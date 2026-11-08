@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.form;
 import com.acme.scaffold.common.constant.CommonConstants;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.form.domain.FormSubmissionDO;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.FormSubmissionAdminQuery;
@@ -19,11 +19,11 @@ import com.acme.scaffold.system.form.rules.FormSubmissionRules;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.OrderField;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.OrderField;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  *
  * <p><b>提交校验链路</b>：{@link FormDefinitionService#getEnabledByCode} 取启用中定义（停用/不存在抛 NOT_FOUND）
  * → {@link FormSubmissionRules#validateSubmission} 按 schema 字段校验（必填/类型/长度/选项白名单/未知字段拒绝）
- * → 校验通过才 {@link JooqWriters#insert} 落库；任一项校验失败整体拒绝、不落库。</p>
+ * → 校验通过才 {@link SqlWriters#insert} 落库；任一项校验失败整体拒绝、不落库。</p>
  */
 @Slf4j
 @Service
@@ -80,7 +80,7 @@ public class FormSubmissionService {
             log.error("表单提交数据序列化失败 formCode={}", formCode, e);
             throw new BusinessException(CommonErrorCode.INTERNAL_ERROR, "提交数据序列化失败");
         }
-        JooqWriters.insert(dsl, JooqTables.FORM_SUBMISSION, d);
+        SqlWriters.insert(dsl, SqlTables.FORM_SUBMISSION, d);
         return FormSubmissionView.of(d);
     }
 
@@ -95,12 +95,12 @@ public class FormSubmissionService {
         int p = Math.max(1, page);
         int s = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
         PageQuery q = PageQuery.of(p, s);
-        PageResult<FormSubmissionDO> raw = JooqWriters.page(dsl, JooqTables.FORM_SUBMISSION,
+        PageResult<FormSubmissionDO> raw = SqlWriters.page(dsl, SqlTables.FORM_SUBMISSION,
                 FormSubmissionDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.FORM_SUBMISSION),
-                        JooqTables.FORM_SUBMISSION.field("form_code", String.class).eq(formCode)),
+                DSL.and(SqlWriters.notDeleted(SqlTables.FORM_SUBMISSION),
+                        SqlTables.FORM_SUBMISSION.field("form_code", String.class).eq(formCode)),
                 q,
-                JooqTables.FORM_SUBMISSION.field("created_at", LocalDateTime.class).desc());
+                SqlTables.FORM_SUBMISSION.field("created_at", LocalDateTime.class).desc());
         return PageResult.of(raw.page(), raw.size(), raw.total(),
                 raw.records().stream().map(FormSubmissionView::of).toList());
     }
@@ -120,7 +120,7 @@ public class FormSubmissionService {
         PageQuery pq = PageQuery.of(p, s);
         Condition cond = buildAdminCondition(q);
         OrderField<?> order = resolveAdminSort(q.sortField(), q.sortDir());
-        PageResult<FormSubmissionDO> raw = JooqWriters.page(dsl, JooqTables.FORM_SUBMISSION,
+        PageResult<FormSubmissionDO> raw = SqlWriters.page(dsl, SqlTables.FORM_SUBMISSION,
                 FormSubmissionDO.class, cond, pq, order);
         Map<String, String> nameByCode = formNameByCode();
         List<FormSubmissionManageView> views = raw.records().stream()
@@ -136,7 +136,7 @@ public class FormSubmissionService {
      * @return 管理视图（含表单名称），不存在抛 NOT_FOUND
      */
     public FormSubmissionManageView getManageById(Long id) {
-        FormSubmissionDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_SUBMISSION, FormSubmissionDO.class, id), "表单提交记录不存在");
+        FormSubmissionDO d = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.FORM_SUBMISSION, FormSubmissionDO.class, id), "表单提交记录不存在");
         Map<String, String> nameByCode = formNameByCode();
         return FormSubmissionManageView.of(d, nameByCode.getOrDefault(d.getFormCode(), d.getFormCode()));
     }
@@ -147,8 +147,8 @@ public class FormSubmissionService {
      * @param id 提交记录 ID
      */
     public void removeSubmission(Long id) {
-        FormSubmissionDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_SUBMISSION, FormSubmissionDO.class, id), "表单提交记录不存在");
-        JooqWriters.delete(dsl, JooqTables.FORM_SUBMISSION, id, true);
+        FormSubmissionDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.FORM_SUBMISSION, FormSubmissionDO.class, id), "表单提交记录不存在");
+        SqlWriters.delete(dsl, SqlTables.FORM_SUBMISSION, id, true);
     }
 
     /**
@@ -156,13 +156,13 @@ public class FormSubmissionService {
      *
      * <p>返回全部未删除提交总数 + 按表单编码聚合的计数明细（按数量降序）。
      * 归并在 Java 端完成而非下推 SQL groupBy——提交数据为用户级、规模可控，
-     * 且便于离线单测（沿用 {@code mockStatic(JooqWriters)} 范式，规避 jOOQ 链式聚合的脆弱打桩）；
+     * 且便于离线单测（沿用 {@code mockStatic(SqlWriters)} 范式，规避 jOOQ 链式聚合的脆弱打桩）；
      * 若后续表单提交量显著增长，可改为 raw DSL {@code groupBy}（与 {@code FileService#stats} 同范式）。</p>
      */
     public FormSubmissionStat stats() {
-        Condition notDeleted = JooqWriters.notDeleted(JooqTables.FORM_SUBMISSION);
-        long total = JooqWriters.count(dsl, JooqTables.FORM_SUBMISSION, notDeleted);
-        List<FormSubmissionDO> rows = JooqWriters.fetchList(dsl, JooqTables.FORM_SUBMISSION,
+        Condition notDeleted = SqlWriters.notDeleted(SqlTables.FORM_SUBMISSION);
+        long total = SqlWriters.count(dsl, SqlTables.FORM_SUBMISSION, notDeleted);
+        List<FormSubmissionDO> rows = SqlWriters.fetchList(dsl, SqlTables.FORM_SUBMISSION,
                 FormSubmissionDO.class, notDeleted);
         Map<String, Long> counts = rows.stream()
                 .collect(Collectors.groupingBy(FormSubmissionDO::getFormCode, Collectors.counting()));
@@ -184,7 +184,7 @@ public class FormSubmissionService {
     public List<FormSubmissionManageView> exportList(FormSubmissionAdminQuery q) {
         Condition cond = buildAdminCondition(q);
         OrderField<?> order = resolveAdminSort(q.sortField(), q.sortDir());
-        List<FormSubmissionDO> rows = JooqWriters.fetchList(dsl, JooqTables.FORM_SUBMISSION,
+        List<FormSubmissionDO> rows = SqlWriters.fetchList(dsl, SqlTables.FORM_SUBMISSION,
                 FormSubmissionDO.class, cond, order);
         Map<String, String> nameByCode = formNameByCode();
         return rows.stream()
@@ -198,8 +198,8 @@ public class FormSubmissionService {
 
     /** 组装管理后台查询条件：逻辑删除 + 可选的表单编码/提交人/关键词过滤。 */
     private Condition buildAdminCondition(FormSubmissionAdminQuery q) {
-        var t = JooqTables.FORM_SUBMISSION;
-        Condition c = JooqWriters.notDeleted(t);
+        var t = SqlTables.FORM_SUBMISSION;
+        Condition c = SqlWriters.notDeleted(t);
         if (q.formCode() != null) {
             c = c.and(t.field("form_code", String.class).eq(q.formCode()));
         }
@@ -214,7 +214,7 @@ public class FormSubmissionService {
 
     /** 排序字段/方向白名单映射，杜绝任意列名注入；非法字段回退 created_at，非法方向回退 DESC。 */
     private OrderField<?> resolveAdminSort(String field, String dir) {
-        var t = JooqTables.FORM_SUBMISSION;
+        var t = SqlTables.FORM_SUBMISSION;
         Field<?> f = switch (field == null ? "" : field) {
             case "submitted_by" -> t.field("submitted_by", String.class);
             case "form_code" -> t.field("form_code", String.class);

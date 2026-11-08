@@ -10,12 +10,12 @@ import com.acme.scaffold.im.domain.ImConversationMemberDO;
 import com.acme.scaffold.im.domain.ImMessageDO;
 import com.acme.scaffold.im.dto.ConversationCreateRequest;
 import com.acme.scaffold.im.dto.ConversationView;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +28,7 @@ import java.util.Set;
 /**
  * 会话服务：点对点/群组会话的创建、成员管理、退出/删除，以及我的会话列表（含未读计数与最近消息预览）。
  *
- * <p>持久化经 {@link JooqWriters}（动态 DSL），租户隔离由框架统一裁决；成员关系与已读游标
+ * <p>持久化经 {@link SqlWriters}（动态 DSL），租户隔离由框架统一裁决；成员关系与已读游标
  * 承载于 {@code im_conversation_member.last_read_message_id}（见 {@link ImConversationMemberDO}）。</p>
  */
 @Slf4j
@@ -36,9 +36,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ImConversationService {
 
-    private static final JooqTables.TableRef CONVERSATION = JooqTables.IM_CONVERSATION;
-    private static final JooqTables.TableRef MEMBER = JooqTables.IM_CONVERSATION_MEMBER;
-    private static final JooqTables.TableRef MESSAGE = JooqTables.IM_MESSAGE;
+    private static final SqlTables.TableRef CONVERSATION = SqlTables.IM_CONVERSATION;
+    private static final SqlTables.TableRef MEMBER = SqlTables.IM_CONVERSATION_MEMBER;
+    private static final SqlTables.TableRef MESSAGE = SqlTables.IM_MESSAGE;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -77,7 +77,7 @@ public class ImConversationService {
         conv.setStatus(ImStatus.STATUS_ACTIVE);
         conv.setCreatedBy(currentOperator());
         conv.setUpdatedBy(currentOperator());
-        JooqWriters.insert(dsl, CONVERSATION, conv);
+        SqlWriters.insert(dsl, CONVERSATION, conv);
         Long convId = conv.getId();
 
         for (Long uid : userIds) {
@@ -86,7 +86,7 @@ public class ImConversationService {
             m.setUserId(uid);
             m.setMemberRole(uid.equals(ownerId) ? ImStatus.ROLE_OWNER : ImStatus.ROLE_MEMBER);
             m.setStatus(ImStatus.STATUS_ACTIVE);
-            JooqWriters.insert(dsl, MEMBER, m);
+            SqlWriters.insert(dsl, MEMBER, m);
         }
         log.info("会话已创建 conversationId={} type={} ownerId={} memberCount={}",
                 convId, type, ownerId, userIds.size());
@@ -97,13 +97,13 @@ public class ImConversationService {
     @Transactional(readOnly = true)
     public List<ConversationView> listMyConversations() {
         Long userId = currentUserId();
-        List<ImConversationMemberDO> myMembers = JooqWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
+        List<ImConversationMemberDO> myMembers = SqlWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
                 MEMBER.field("user_id", Long.class).eq(userId)
-                        .and(JooqWriters.notDeleted(MEMBER))
+                        .and(SqlWriters.notDeleted(MEMBER))
                         .and(MEMBER.field("status", String.class).eq(ImStatus.STATUS_ACTIVE)));
         List<ConversationView> views = new ArrayList<>();
         for (ImConversationMemberDO mem : myMembers) {
-            ImConversationDO conv = JooqWriters.fetchById(dsl, CONVERSATION, ImConversationDO.class, mem.getConversationId());
+            ImConversationDO conv = SqlWriters.fetchById(dsl, CONVERSATION, ImConversationDO.class, mem.getConversationId());
             if (conv == null || (conv.getDeleted() != null && conv.getDeleted() == 1)) {
                 continue;
             }
@@ -148,7 +148,7 @@ public class ImConversationService {
         requireGroupConversation(conversationId);
         requireOwner(requireConversation(conversationId), operator);
 
-        ImConversationMemberDO existing = JooqWriters.fetchOne(dsl, MEMBER, ImConversationMemberDO.class,
+        ImConversationMemberDO existing = SqlWriters.fetchOne(dsl, MEMBER, ImConversationMemberDO.class,
                 MEMBER.field("conversation_id", Long.class).eq(conversationId)
                         .and(MEMBER.field("user_id", Long.class).eq(userId)));
         if (existing != null) {
@@ -159,7 +159,7 @@ public class ImConversationService {
             existing.setStatus(ImStatus.STATUS_ACTIVE);
             existing.setDeleted(0);
             existing.setUpdatedAt(LocalDateTime.now());
-            JooqWriters.updateById(dsl, MEMBER, existing.getId(), existing);
+            SqlWriters.updateById(dsl, MEMBER, existing.getId(), existing);
             log.info("会话成员已复活 conversationId={} userId={}", conversationId, userId);
             return;
         }
@@ -169,7 +169,7 @@ public class ImConversationService {
         m.setUserId(userId);
         m.setMemberRole(ImStatus.ROLE_MEMBER);
         m.setStatus(ImStatus.STATUS_ACTIVE);
-        JooqWriters.insert(dsl, MEMBER, m);
+        SqlWriters.insert(dsl, MEMBER, m);
     }
 
     /** 移除群成员：群主移除他人，或本人退群（不可移除群主 / 最后一名成员）。 */
@@ -187,7 +187,7 @@ public class ImConversationService {
         if (!target.getUserId().equals(operator)) {
             requireOwner(requireConversation(conversationId), operator);
         }
-        JooqWriters.delete(dsl, MEMBER, target.getId(), true);
+        SqlWriters.delete(dsl, MEMBER, target.getId(), true);
     }
 
     /** 本人退出会话：群主退出时把群主转交最早剩余成员；若为最后一名成员则整体逻辑删除。 */
@@ -199,18 +199,18 @@ public class ImConversationService {
         if (me == null) {
             throw BusinessException.of(CommonErrorCode.FORBIDDEN, "您不是会话成员");
         }
-        long activeCount = JooqWriters.count(dsl, MEMBER,
+        long activeCount = SqlWriters.count(dsl, MEMBER,
                 MEMBER.field("conversation_id", Long.class).eq(conversationId)
-                        .and(JooqWriters.notDeleted(MEMBER))
+                        .and(SqlWriters.notDeleted(MEMBER))
                         .and(MEMBER.field("status", String.class).eq(ImStatus.STATUS_ACTIVE)));
         if (activeCount <= 1) {
             deleteConversationInternal(conversationId);
             return;
         }
         if (ImStatus.ROLE_OWNER.equals(me.getMemberRole())) {
-            List<ImConversationMemberDO> others = JooqWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
+            List<ImConversationMemberDO> others = SqlWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
                     MEMBER.field("conversation_id", Long.class).eq(conversationId)
-                            .and(JooqWriters.notDeleted(MEMBER))
+                            .and(SqlWriters.notDeleted(MEMBER))
                             .and(MEMBER.field("user_id", Long.class).ne(userId))
                             .and(MEMBER.field("status", String.class).eq(ImStatus.STATUS_ACTIVE)),
                     // 明确按成员行 id 升序取「最早剩余成员」，避免无排序时数据库返回次序不定
@@ -220,13 +220,13 @@ public class ImConversationService {
                 ImConversationMemberDO newOwner = others.get(0);
                 newOwner.setMemberRole(ImStatus.ROLE_OWNER);
                 newOwner.setUpdatedAt(LocalDateTime.now());
-                JooqWriters.updateById(dsl, MEMBER, newOwner.getId(), newOwner);
+                SqlWriters.updateById(dsl, MEMBER, newOwner.getId(), newOwner);
                 conv.setOwnerId(newOwner.getUserId());
                 conv.setUpdatedBy(currentOperator());
-                JooqWriters.updateById(dsl, CONVERSATION, conv.getId(), conv);
+                SqlWriters.updateById(dsl, CONVERSATION, conv.getId(), conv);
             }
         }
-        JooqWriters.delete(dsl, MEMBER, me.getId(), true);
+        SqlWriters.delete(dsl, MEMBER, me.getId(), true);
     }
 
     /** 删除会话（仅群主，逻辑删除会话、成员与消息）。 */
@@ -241,16 +241,16 @@ public class ImConversationService {
     // ---------------- 内部辅助 ----------------
 
     private void deleteConversationInternal(Long conversationId) {
-        JooqWriters.delete(dsl, CONVERSATION, conversationId, true);
-        List<ImConversationMemberDO> members = JooqWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
-                MEMBER.field("conversation_id", Long.class).eq(conversationId).and(JooqWriters.notDeleted(MEMBER)));
+        SqlWriters.delete(dsl, CONVERSATION, conversationId, true);
+        List<ImConversationMemberDO> members = SqlWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
+                MEMBER.field("conversation_id", Long.class).eq(conversationId).and(SqlWriters.notDeleted(MEMBER)));
         for (ImConversationMemberDO m : members) {
-            JooqWriters.delete(dsl, MEMBER, m.getId(), true);
+            SqlWriters.delete(dsl, MEMBER, m.getId(), true);
         }
-        List<ImMessageDO> msgs = JooqWriters.fetchList(dsl, MESSAGE, ImMessageDO.class,
-                MESSAGE.field("conversation_id", Long.class).eq(conversationId).and(JooqWriters.notDeleted(MESSAGE)));
+        List<ImMessageDO> msgs = SqlWriters.fetchList(dsl, MESSAGE, ImMessageDO.class,
+                MESSAGE.field("conversation_id", Long.class).eq(conversationId).and(SqlWriters.notDeleted(MESSAGE)));
         for (ImMessageDO m : msgs) {
-            JooqWriters.delete(dsl, MESSAGE, m.getId(), true);
+            SqlWriters.delete(dsl, MESSAGE, m.getId(), true);
         }
     }
 
@@ -262,13 +262,13 @@ public class ImConversationService {
         v.setOwnerId(conv.getOwnerId());
         v.setCreatedAt(conv.getCreatedAt());
         v.setUpdatedAt(conv.getUpdatedAt());
-        List<ImConversationMemberDO> members = JooqWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
-                MEMBER.field("conversation_id", Long.class).eq(conv.getId()).and(JooqWriters.notDeleted(MEMBER)));
+        List<ImConversationMemberDO> members = SqlWriters.fetchList(dsl, MEMBER, ImConversationMemberDO.class,
+                MEMBER.field("conversation_id", Long.class).eq(conv.getId()).and(SqlWriters.notDeleted(MEMBER)));
         v.setMemberIds(members.stream().map(ImConversationMemberDO::getUserId).toList());
         v.setMemberCount(members.size());
         v.setUnreadCount(computeUnread(conv.getId(), currentUserId(), myMember.getLastReadMessageId()));
-        List<ImMessageDO> last = JooqWriters.fetchTop(dsl, MESSAGE, ImMessageDO.class,
-                MESSAGE.field("conversation_id", Long.class).eq(conv.getId()).and(JooqWriters.notDeleted(MESSAGE)),
+        List<ImMessageDO> last = SqlWriters.fetchTop(dsl, MESSAGE, ImMessageDO.class,
+                MESSAGE.field("conversation_id", Long.class).eq(conv.getId()).and(SqlWriters.notDeleted(MESSAGE)),
                 1, MESSAGE.field("id", Long.class).desc());
         if (last != null && !last.isEmpty()) {
             ImMessageDO m = last.get(0);
@@ -280,18 +280,18 @@ public class ImConversationService {
 
     long computeUnread(Long conversationId, Long userId, Long lastReadId) {
         Condition cond = MESSAGE.field("conversation_id", Long.class).eq(conversationId)
-                .and(JooqWriters.notDeleted(MESSAGE))
+                .and(SqlWriters.notDeleted(MESSAGE))
                 .and(MESSAGE.field("sender_id", Long.class).ne(userId))
                 // 已撤回消息正文被清空且不应再打扰接收方，不得计入未读数
                 .and(MESSAGE.field("status", String.class).ne(ImStatus.MSG_STATUS_RECALLED));
         if (lastReadId != null) {
             cond = cond.and(MESSAGE.field("id", Long.class).gt(lastReadId));
         }
-        return JooqWriters.count(dsl, MESSAGE, cond);
+        return SqlWriters.count(dsl, MESSAGE, cond);
     }
 
     private ImConversationDO requireConversation(Long conversationId) {
-        ImConversationDO conv = JooqWriters.fetchById(dsl, CONVERSATION, ImConversationDO.class, conversationId);
+        ImConversationDO conv = SqlWriters.fetchById(dsl, CONVERSATION, ImConversationDO.class, conversationId);
         if (conv == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "会话不存在: " + conversationId);
         }
@@ -319,10 +319,10 @@ public class ImConversationService {
     }
 
     private ImConversationMemberDO fetchMember(Long conversationId, Long userId) {
-        return JooqWriters.fetchOne(dsl, MEMBER, ImConversationMemberDO.class,
+        return SqlWriters.fetchOne(dsl, MEMBER, ImConversationMemberDO.class,
                 MEMBER.field("conversation_id", Long.class).eq(conversationId)
                         .and(MEMBER.field("user_id", Long.class).eq(userId))
-                        .and(JooqWriters.notDeleted(MEMBER)));
+                        .and(SqlWriters.notDeleted(MEMBER)));
     }
 
     private Long currentUserId() {

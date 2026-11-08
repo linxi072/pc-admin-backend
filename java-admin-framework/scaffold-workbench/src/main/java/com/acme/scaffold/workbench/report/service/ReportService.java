@@ -1,9 +1,9 @@
 package com.acme.scaffold.workbench.report.service;
 
 import com.acme.scaffold.common.constant.CommonConstants;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlTables.TableRef;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
 import com.acme.scaffold.workbench.report.dto.DrillDimension;
 import com.acme.scaffold.workbench.report.dto.DrillResultVO;
@@ -23,14 +23,14 @@ import com.acme.scaffold.workbench.report.dto.SortField;
 import com.acme.scaffold.workbench.report.dto.SortOrder;
 import com.acme.scaffold.workbench.report.rules.ReportDrillRules;
 import lombok.RequiredArgsConstructor;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.Record2;
-import org.jooq.Record3;
-import org.jooq.Record4;
-import org.jooq.Result;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.Record2;
+import com.acme.scaffold.mybatis.dsl.Record3;
+import com.acme.scaffold.mybatis.dsl.Record4;
+import com.acme.scaffold.mybatis.dsl.Result;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -73,10 +73,9 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class ReportService {
-    private static final JooqTables.TableRef SYS_JOB_LOG = JooqTables.SYS_JOB_LOG;
-    private static final JooqTables.TableRef SYS_LOGIN_LOG = JooqTables.SYS_LOGIN_LOG;
-    private static final JooqTables.TableRef SYS_OPERATION_LOG = JooqTables.SYS_OPERATION_LOG;
-
+    private static final SqlTables.TableRef SYS_JOB_LOG = SqlTables.SYS_JOB_LOG;
+    private static final SqlTables.TableRef SYS_LOGIN_LOG = SqlTables.SYS_LOGIN_LOG;
+    private static final SqlTables.TableRef SYS_OPERATION_LOG = SqlTables.SYS_OPERATION_LOG;
 
     private final DSLContext dsl;
 
@@ -224,7 +223,6 @@ public class ReportService {
         return new ReportDetailTableVO(columns, rows);
     }
 
-
     // ==================================================================
     // 使用视角（USAGE / CATEGORY / STATUS）：基于 sys_operation_log
     // ==================================================================
@@ -247,7 +245,7 @@ public class ReportService {
 
     private ReportSummaryVO buildSummary(Condition cond) {
         var t = SYS_OPERATION_LOG;
-        long total = JooqWriters.count(dsl, t, cond);
+        long total = SqlWriters.count(dsl, t, cond);
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
         }
@@ -256,7 +254,7 @@ public class ReportService {
                         .from(t.table()).where(cond)
                         .fetchOne(0, Long.class))
                 .orElse(0L);
-        long success = JooqWriters.count(dsl, t,
+        long success = SqlWriters.count(dsl, t,
                 DSL.and(cond, t.field("success", Integer.class).eq(1)));
         double rate = Math.round(success * 10000.0 / total) / 100.0;
         long modules = Optional.ofNullable(dsl
@@ -311,15 +309,15 @@ public class ReportService {
         Condition cond = statCondition(t, "fire_time", w.from(), w.to(),
                 keywordCondition(query.type(), query.keyword()));
 
-        long total = JooqWriters.count(dsl, t, cond);
+        long total = SqlWriters.count(dsl, t, cond);
         ReportSummaryVO summary = jobExecSummary(cond, total);
         List<ReportSeriesPointVO> trend = buildStatTrend(w, cond, t, "fire_time",
                 t.field("job_id", Long.class), jobFailedCond(t));
         List<ReportDistributionVO> distribution = durationDistribution(cond, t, total);
         ReportDetailTableVO details = recentJobExecDetails(cond);
         List<ReportStatusStatVO> statusStats = statusStatsOf(
-                JooqWriters.count(dsl, t, DSL.and(cond, t.field("status", String.class).eq(JOB_STATUS_SUCCESS))),
-                total - JooqWriters.count(dsl, t, DSL.and(cond, t.field("status", String.class).eq(JOB_STATUS_SUCCESS))));
+                SqlWriters.count(dsl, t, DSL.and(cond, t.field("status", String.class).eq(JOB_STATUS_SUCCESS))),
+                total - SqlWriters.count(dsl, t, DSL.and(cond, t.field("status", String.class).eq(JOB_STATUS_SUCCESS))));
 
         return new ReportVO(ReportType.JOB_EXEC.name(), ReportType.JOB_EXEC.getLabel(),
                 query.rangeType().name(), w.from().format(WINDOW_FMT), w.to().format(WINDOW_FMT),
@@ -331,7 +329,7 @@ public class ReportService {
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
         }
-        long success = JooqWriters.count(dsl, t,
+        long success = SqlWriters.count(dsl, t,
                 DSL.and(cond, t.field("status", String.class).eq(JOB_STATUS_SUCCESS)));
         long failed = total - success;
         long jobs = Optional.ofNullable(dsl
@@ -384,15 +382,15 @@ public class ReportService {
         Condition cond = statCondition(t, "occurred_at", w.from(), w.to(),
                 keywordCondition(query.type(), query.keyword()));
 
-        long total = JooqWriters.count(dsl, t, cond);
+        long total = SqlWriters.count(dsl, t, cond);
         ReportSummaryVO summary = loginSummary(cond, total);
         List<ReportSeriesPointVO> trend = buildStatTrend(w, cond, t, "occurred_at",
                 t.field("user_id", Long.class), loginFailedCond(t));
         List<ReportDistributionVO> distribution = loginTypeDistribution(cond);
         ReportDetailTableVO details = abnormalLoginDetails(cond);
         List<ReportStatusStatVO> statusStats = statusStatsOf(
-                JooqWriters.count(dsl, t, DSL.and(cond, t.field("result", String.class).eq(LOGIN_RESULT_SUCCESS))),
-                total - JooqWriters.count(dsl, t, DSL.and(cond, t.field("result", String.class).eq(LOGIN_RESULT_SUCCESS))));
+                SqlWriters.count(dsl, t, DSL.and(cond, t.field("result", String.class).eq(LOGIN_RESULT_SUCCESS))),
+                total - SqlWriters.count(dsl, t, DSL.and(cond, t.field("result", String.class).eq(LOGIN_RESULT_SUCCESS))));
 
         return new ReportVO(ReportType.LOGIN.name(), ReportType.LOGIN.getLabel(),
                 query.rangeType().name(), w.from().format(WINDOW_FMT), w.to().format(WINDOW_FMT),
@@ -404,7 +402,7 @@ public class ReportService {
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
         }
-        long success = JooqWriters.count(dsl, t,
+        long success = SqlWriters.count(dsl, t,
                 DSL.and(cond, t.field("result", String.class).eq(LOGIN_RESULT_SUCCESS)));
         long active = Optional.ofNullable(dsl
                         .select(DSL.countDistinct(t.field("user_id", Long.class)))
@@ -477,15 +475,15 @@ public class ReportService {
         Condition cond = statCondition(t, "occurred_at", w.from(), w.to(),
                 keywordCondition(query.type(), query.keyword()));
 
-        long total = JooqWriters.count(dsl, t, cond);
+        long total = SqlWriters.count(dsl, t, cond);
         ReportSummaryVO summary = apiCallSummary(cond, total);
         List<ReportSeriesPointVO> trend = buildStatTrend(w, cond, t, "occurred_at",
                 t.field("request_path", String.class), apiFailedCond(t));
         List<ReportDistributionVO> distribution = durationDistribution(cond, t, total);
         ReportDetailTableVO details = topApiDetails(cond);
         List<ReportStatusStatVO> statusStats = statusStatsOf(
-                JooqWriters.count(dsl, t, DSL.and(cond, t.field("success", Integer.class).eq(1))),
-                total - JooqWriters.count(dsl, t, DSL.and(cond, t.field("success", Integer.class).eq(1))));
+                SqlWriters.count(dsl, t, DSL.and(cond, t.field("success", Integer.class).eq(1))),
+                total - SqlWriters.count(dsl, t, DSL.and(cond, t.field("success", Integer.class).eq(1))));
 
         return new ReportVO(ReportType.API_CALL.name(), ReportType.API_CALL.getLabel(),
                 query.rangeType().name(), w.from().format(WINDOW_FMT), w.to().format(WINDOW_FMT),
@@ -497,7 +495,7 @@ public class ReportService {
         if (total == 0) {
             return new ReportSummaryVO(0L, 0L, 0.0, 0L, 0L, 0L, 0L, 0L);
         }
-        long success = JooqWriters.count(dsl, t,
+        long success = SqlWriters.count(dsl, t,
                 DSL.and(cond, t.field("success", Integer.class).eq(1)));
         long endpoints = Optional.ofNullable(dsl
                         .select(DSL.countDistinct(t.field("request_path", String.class)))
@@ -746,9 +744,9 @@ public class ReportService {
 
     private List<ReportStatusStatVO> buildStatusStats(Condition cond, long total) {
         var t = SYS_OPERATION_LOG;
-        long success = JooqWriters.count(dsl, t,
+        long success = SqlWriters.count(dsl, t,
                 DSL.and(cond, t.field("success", Integer.class).eq(1)));
-        long failure = JooqWriters.count(dsl, t,
+        long failure = SqlWriters.count(dsl, t,
                 DSL.and(cond, t.field("success", Integer.class).eq(0)));
         double sr = total == 0 ? 0.0 : Math.round(success * 1000.0 / total) / 10.0;
         double fr = total == 0 ? 0.0 : Math.round(failure * 1000.0 / total) / 10.0;

@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.entity.SysUserDO;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +44,7 @@ final class CurrentUserSupport {
     /** 当前登录用户实体（不存在抛 {@link CommonErrorCode#NOT_FOUND}）。 */
     static SysUserDO loadCurrentUser(DSLContext dsl, SecurityContextFacade facade) {
         Long userId = facade.requireCurrentPrincipal().userId();
-        SysUserDO user = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.SYS_USER, SysUserDO.class, userId), "用户不存在");
+        SysUserDO user = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.SYS_USER, SysUserDO.class, userId), "用户不存在");
         return user;
     }
 
@@ -53,8 +53,8 @@ final class CurrentUserSupport {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_USER, SysUserDO.class,
-                        JooqTables.SYS_USER.field("id", Long.class).in(userIds)).stream()
+        return SqlWriters.fetchList(dsl, SqlTables.SYS_USER, SysUserDO.class,
+                        SqlTables.SYS_USER.field("id", Long.class).in(userIds)).stream()
                 .filter(u -> u.getId() != null)
                 .collect(Collectors.toMap(SysUserDO::getId, SysUserDO::getDisplayName, (a, b) -> a));
     }

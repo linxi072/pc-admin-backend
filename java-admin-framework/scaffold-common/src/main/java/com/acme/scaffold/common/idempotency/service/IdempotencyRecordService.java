@@ -8,14 +8,14 @@ import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordDO;
 import com.acme.scaffold.common.idempotency.dto.IdempotencyRecordView;
 import com.acme.scaffold.common.idempotency.dto.IdempotencyStatsView;
 import com.acme.scaffold.common.idempotency.rules.IdempotencyRecordRules;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -43,7 +43,7 @@ import java.util.Map;
 public class IdempotencyRecordService {
 
     /** 幂等记录可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> IDEMPOTENCY_RECORD_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> IDEMPOTENCY_RECORD_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "idempotencyKey", "idempotency_key",
             "apiScope", "api_scope",
@@ -76,9 +76,9 @@ public class IdempotencyRecordService {
         LocalDateTime now = LocalDateTime.now();
         Condition cond = buildCondition(status, apiScope, userId, keyword, startTime, endTime, now);
         PageQuery query = PageQuery.of(page, size, sortField, sortDirection);
-        var table = JooqTables.SYS_IDEMPOTENCY_RECORD;
-        PageResult<IdempotencyRecordDO> raw = JooqWriters.page(dsl, table, IdempotencyRecordDO.class,
-                cond, query, JooqSorts.resolve(table, query, IDEMPOTENCY_RECORD_SORT_FIELDS,
+        var table = SqlTables.SYS_IDEMPOTENCY_RECORD;
+        PageResult<IdempotencyRecordDO> raw = SqlWriters.page(dsl, table, IdempotencyRecordDO.class,
+                cond, query, SqlSorts.resolve(table, query, IDEMPOTENCY_RECORD_SORT_FIELDS,
                         table.field("created_at", LocalDateTime.class).desc(),
                         table.field("id", Long.class).desc()));
         List<IdempotencyRecordView> views = new ArrayList<>(raw.records().size());
@@ -98,12 +98,12 @@ public class IdempotencyRecordService {
             LocalDateTime startTime, LocalDateTime endTime) {
         LocalDateTime now = LocalDateTime.now();
         Condition cond = buildCondition(status, apiScope, userId, keyword, startTime, endTime, now);
-        var table = JooqTables.SYS_IDEMPOTENCY_RECORD;
-        long total = JooqWriters.count(dsl, table, cond);
+        var table = SqlTables.SYS_IDEMPOTENCY_RECORD;
+        long total = SqlWriters.count(dsl, table, cond);
         long processing = countByStatus(cond, IdempotencyStatus.PROCESSING);
         long success = countByStatus(cond, IdempotencyStatus.SUCCESS);
         long failed = countByStatus(cond, IdempotencyStatus.FAILED);
-        long expiredPending = JooqWriters.count(dsl, table, DSL.and(cond,
+        long expiredPending = SqlWriters.count(dsl, table, DSL.and(cond,
                 table.field("expires_at", LocalDateTime.class).lt(now)));
         LocalDateTime lastCreatedAt = dsl.select(table.field("created_at", LocalDateTime.class).max())
                 .from(table.table()).where(cond).fetchOne(0, LocalDateTime.class);
@@ -124,8 +124,8 @@ public class IdempotencyRecordService {
     // ------------------------------------------------------------------
 
     private long countByStatus(Condition base, IdempotencyStatus status) {
-        return JooqWriters.count(dsl, JooqTables.SYS_IDEMPOTENCY_RECORD,
-                DSL.and(base, JooqTables.SYS_IDEMPOTENCY_RECORD.field("status", String.class)
+        return SqlWriters.count(dsl, SqlTables.SYS_IDEMPOTENCY_RECORD,
+                DSL.and(base, SqlTables.SYS_IDEMPOTENCY_RECORD.field("status", String.class)
                         .eq(status.name())));
     }
 
@@ -145,7 +145,7 @@ public class IdempotencyRecordService {
                                      LocalDateTime startTime, LocalDateTime endTime, LocalDateTime now) {
         IdempotencyRecordRules.Window window =
                 IdempotencyRecordRules.clampWindow(startTime, endTime, now);
-        var table = JooqTables.SYS_IDEMPOTENCY_RECORD;
+        var table = SqlTables.SYS_IDEMPOTENCY_RECORD;
         List<Condition> conds = new ArrayList<>();
         conds.add(DSL.and(
                 table.field("created_at", LocalDateTime.class).ge(window.begin()),

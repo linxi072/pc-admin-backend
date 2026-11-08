@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.service;
 import com.acme.scaffold.common.util.MergeFields;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.AnnouncementQuery;
 import com.acme.scaffold.system.dto.AnnouncementView;
@@ -16,9 +16,9 @@ import com.acme.scaffold.system.dto.UpdateAnnouncementRequest;
 import com.acme.scaffold.system.entity.SysAnnouncementDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -45,14 +45,14 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class AnnouncementService {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private static final String DRAFT = "DRAFT";
     private static final String PUBLISHED = "PUBLISHED";
     private static final String OFFLINE = "OFFLINE";
 
     /** 公告列表可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> ANNOUNCEMENT_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> ANNOUNCEMENT_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "title", "title",
             "status", "status",
@@ -61,7 +61,7 @@ public class AnnouncementService {
             "expireAt", "expire_at",
             "createdAt", "created_at");
 
-    private static final JooqTables.TableRef ANNOUNCEMENT = JooqTables.SYS_ANNOUNCEMENT;
+    private static final SqlTables.TableRef ANNOUNCEMENT = SqlTables.SYS_ANNOUNCEMENT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -77,7 +77,7 @@ public class AnnouncementService {
     public PageResult<AnnouncementView> list(AnnouncementQuery query) {
         LocalDateTime now = LocalDateTime.now();
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(ANNOUNCEMENT));
+        conds.add(SqlWriters.notDeleted(ANNOUNCEMENT));
 
         if (StringUtils.hasText(query.keyword())) {
             String kw = "%" + query.keyword().trim() + "%";
@@ -97,9 +97,9 @@ public class AnnouncementService {
         }
 
         var pageQuery = query.toPageQuery();
-        PageResult<SysAnnouncementDO> page = JooqWriters.page(dsl, ANNOUNCEMENT,
+        PageResult<SysAnnouncementDO> page = SqlWriters.page(dsl, ANNOUNCEMENT,
                 SysAnnouncementDO.class, DSL.and(conds), pageQuery,
-                JooqSorts.resolve(ANNOUNCEMENT, pageQuery, ANNOUNCEMENT_SORT_FIELDS,
+                SqlSorts.resolve(ANNOUNCEMENT, pageQuery, ANNOUNCEMENT_SORT_FIELDS,
                         // 默认：置顶优先(is_top 倒序)，其次发布时间倒序
                         ANNOUNCEMENT.field("is_top", Integer.class).desc(),
                         ANNOUNCEMENT.field("publish_at", LocalDateTime.class).desc().nullsLast(),
@@ -145,7 +145,7 @@ public class AnnouncementService {
         a.setPublishAt(request.publishAt());
         a.setExpireAt(request.expireAt());
         a.setPublisherId(currentUserId());
-        JooqWriters.insert(dsl, ANNOUNCEMENT, a);
+        SqlWriters.insert(dsl, ANNOUNCEMENT, a);
         return a.getId();
     }
 
@@ -170,7 +170,7 @@ public class AnnouncementService {
         }
         a.setPublishAt(request.publishAt());
         a.setExpireAt(request.expireAt());
-        JooqWriters.updateById(dsl, ANNOUNCEMENT, id, a);
+        SqlWriters.updateById(dsl, ANNOUNCEMENT, id, a);
     }
 
     /**
@@ -201,7 +201,7 @@ public class AnnouncementService {
         // offline_at 必须显式置空：updateById 的 NOT_NULL 策略会跳过 null 字段，
         // 导致重新发布的公告仍带历史 offlineAt（与 isEffective 口径相悖），故走
         // updateByIdWithNulls 把 offline_at 列入待置空列。
-        JooqWriters.updateByIdWithNulls(dsl, ANNOUNCEMENT, id, a, Set.of("offline_at"));
+        SqlWriters.updateByIdWithNulls(dsl, ANNOUNCEMENT, id, a, Set.of("offline_at"));
     }
 
     /** 下线公告：已发布 → 已下线。 */
@@ -214,7 +214,7 @@ public class AnnouncementService {
         SysAnnouncementDO a = new SysAnnouncementDO();
         a.setStatus(OFFLINE);
         a.setOfflineAt(LocalDateTime.now());
-        JooqWriters.updateById(dsl, ANNOUNCEMENT, id, a);
+        SqlWriters.updateById(dsl, ANNOUNCEMENT, id, a);
     }
 
     /** 切换置顶。 */
@@ -223,14 +223,14 @@ public class AnnouncementService {
         SysAnnouncementDO exist = getDO(id);
         SysAnnouncementDO a = new SysAnnouncementDO();
         a.setIsTop(exist.getIsTop() != null && exist.getIsTop() == 1 ? 0 : 1);
-        JooqWriters.updateById(dsl, ANNOUNCEMENT, id, a);
+        SqlWriters.updateById(dsl, ANNOUNCEMENT, id, a);
     }
 
     /** 删除公告（逻辑删除）。 */
     @Transactional
     public void delete(Long id) {
         getDO(id);
-        JooqWriters.delete(dsl, ANNOUNCEMENT, id, true);
+        SqlWriters.delete(dsl, ANNOUNCEMENT, id, true);
     }
 
     // ------------------------------------------------------------------
@@ -238,7 +238,7 @@ public class AnnouncementService {
     // ------------------------------------------------------------------
 
     /**
-     * 扫描到期公告并自动下线（由 JobRunr 周期调用）。
+     * 扫描到期公告并自动下线（由 Quartz 周期调用）。
      * 条件：status=PUBLISHED 且 expire_at < now。
      *
      * @return 本次自动下线的条数
@@ -266,7 +266,7 @@ public class AnnouncementService {
     }
 
     private SysAnnouncementDO getDO(Long id) {
-        SysAnnouncementDO a = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, id), "公告不存在");
+        SysAnnouncementDO a = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, ANNOUNCEMENT, SysAnnouncementDO.class, id), "公告不存在");
         return a;
     }
 
@@ -276,8 +276,8 @@ public class AnnouncementService {
 
     /** 活跃用户数：公告发布时的受众快照（V40 已读率分母）。 */
     private int countActiveUsers() {
-        return (int) JooqWriters.count(dsl, USER,
-                DSL.and(JooqWriters.notDeleted(USER),
+        return (int) SqlWriters.count(dsl, USER,
+                DSL.and(SqlWriters.notDeleted(USER),
                         USER.field("status", String.class).eq("ACTIVE")));
     }
 }

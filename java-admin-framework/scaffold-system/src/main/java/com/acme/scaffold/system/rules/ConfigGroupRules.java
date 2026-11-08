@@ -8,7 +8,7 @@ import java.util.Map;
  *
  * <p>现有种子键已采用 {@code 命名空间.子项} 形式（如 {@code security.jwt.issuer}、
  * {@code notification.wecom.enabled}），取首个 {@code .} 之前的部分即为其所属分组。
- * 分组仅用于界面分区与聚合返回，不改表结构（严守 Flyway 迁移不可改铁律）。</p>
+ * 分组仅用于界面分区与聚合返回，不改表结构（版本化结构链文件保持不可变）。</p>
  */
 public final class ConfigGroupRules {
 

@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.permission;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.Record1;
-import org.jooq.Select;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.Record1;
+import com.acme.scaffold.mybatis.dsl.Select;
+import com.acme.scaffold.mybatis.dsl.DSL;
 
 /**
  * 把 {@link DataScopeContext} 里的范围结果翻译成 jOOQ 查询条件，供 Service 直接拼进 WHERE。
@@ -25,14 +25,14 @@ import org.jooq.impl.DSL;
 @Slf4j
 public final class DataScopeConditions {
 
-    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER_ORG = SqlTables.SYS_USER_ORG;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private DataScopeConditions() {
     }
 
     /** 机构维度过滤；该资源没有「本人」语义（如部门树）时用此重载。 */
-    public static Condition of(JooqTables.TableRef table, String orgColumn) {
+    public static Condition of(SqlTables.TableRef table, String orgColumn) {
         return of(table, orgColumn, null);
     }
 
@@ -42,7 +42,7 @@ public final class DataScopeConditions {
      * @param orgColumn  机构列名，如 sys_user.org_id
      * @param userColumn 「本人」列名，如 sys_user.id；该资源没有本人语义时传 null
      */
-    public static Condition of(JooqTables.TableRef table, String orgColumn, String userColumn) {
+    public static Condition of(SqlTables.TableRef table, String orgColumn, String userColumn) {
         DataScopeContext.Scope scope = DataScopeContext.current();
         if (scope == null || scope.result() == null) {
             return DSL.trueCondition();

@@ -4,8 +4,8 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tenant.TenantContext;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dto.CreateOrgRequest;
 import com.acme.scaffold.system.dto.CreateRoleRequest;
 import com.acme.scaffold.system.dto.CreateUserRequest;
@@ -19,7 +19,7 @@ import com.acme.scaffold.system.tenant.dto.TenantProvisioningView;
 import com.acme.scaffold.system.tenant.dto.TenantView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  * <p><b>作用域</b>：本方法标注 {@link TenantIgnorable}，在平台管理员跨租户旁路作用域下执行——
  * 既保证开头的「是否已开通」查重对全量租户可见（避免跨租户误判），又允许写入跨租户记录。
  * 内部创建子资源时通过 {@link TenantContext#runWith(long, boolean, Runnable)} 临时切换到目标租户作用域，
- * 使 {@code JooqWriters} 在 {@code enforce=true} 时把 {@code tenant_id} 正确注入到用户/角色/部门等业务表。</p>
+ * 使 {@code SqlWriters} 在 {@code enforce=true} 时把 {@code tenant_id} 正确注入到用户/角色/部门等业务表。</p>
  *
  * <p><b>幂等</b>：若 {@code TENANT_ADMIN_<tenantCode>} 角色已存在，视为已开通并拒绝重复开通（CONFLICT）。</p>
  *
@@ -51,7 +51,7 @@ public class TenantProvisioningService {
     private final DSLContext dsl;
     private final TenantService tenantService;
 
-    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
+    private static final SqlTables.TableRef AR = SqlTables.SYS_API_RESOURCE;
     private final UserService userService;
     private final RoleService roleService;
     private final OrgService orgService;
@@ -87,11 +87,11 @@ public class TenantProvisioningService {
                     tenant.tenantName() + "-默认部门", "DEPARTMENT", 0, null, "ACTIVE"));
 
             // 菜单 / 接口为平台共享维表（tenant_id 恒 0），全量绑定到租户管理员角色
-            Set<Long> menuIds = JooqWriters.fetchList(dsl, JooqTables.SYS_MENU, SysMenuDO.class,
-                            JooqWriters.notDeleted(JooqTables.SYS_MENU)).stream()
+            Set<Long> menuIds = SqlWriters.fetchList(dsl, SqlTables.SYS_MENU, SysMenuDO.class,
+                            SqlWriters.notDeleted(SqlTables.SYS_MENU)).stream()
                     .map(SysMenuDO::getId).collect(Collectors.toSet());
-            Set<Long> apiIds = JooqWriters.fetchList(dsl, AR, SysApiResourceDO.class,
-                            JooqWriters.notDeleted(AR)).stream()
+            Set<Long> apiIds = SqlWriters.fetchList(dsl, AR, SysApiResourceDO.class,
+                            SqlWriters.notDeleted(AR)).stream()
                     .map(SysApiResourceDO::getId).collect(Collectors.toSet());
 
             Long roleId = roleService.create(new CreateRoleRequest(roleCode,

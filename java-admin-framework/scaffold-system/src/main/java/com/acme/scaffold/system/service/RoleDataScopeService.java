@@ -2,8 +2,8 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.DataScopeType;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.DataScopeRuleView;
@@ -13,8 +13,8 @@ import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeOrgDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,17 +57,17 @@ public class RoleDataScopeService {
      */
     public List<DataScopeRuleView> list(Long roleId) {
         requireRole(roleId);
-        List<SysRoleDataScopeDO> rules = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE,
+        List<SysRoleDataScopeDO> rules = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE,
                 SysRoleDataScopeDO.class,
-                JooqTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(roleId));
+                SqlTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(roleId));
         if (rules.isEmpty()) {
             return List.of();
         }
         // 一次性取出所有 CUSTOM 规则的机构，避免逐规则查询造成 N+1
         Set<Long> ruleIds = rules.stream().map(SysRoleDataScopeDO::getId).collect(Collectors.toSet());
-        Map<Long, List<Long>> orgsByRule = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE_ORG,
+        Map<Long, List<Long>> orgsByRule = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE_ORG,
                         SysRoleDataScopeOrgDO.class,
-                        JooqTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).in(ruleIds))
+                        SqlTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).in(ruleIds))
                 .stream().collect(Collectors.groupingBy(SysRoleDataScopeOrgDO::getRuleId,
                         Collectors.mapping(SysRoleDataScopeOrgDO::getOrgId, Collectors.toList())));
 
@@ -109,14 +109,14 @@ public class RoleDataScopeService {
         rule.setResourceCode(resourceCode);
         rule.setScopeType(scopeType.name());
         rule.setCombineMode("UNION");
-        JooqWriters.insert(dsl, JooqTables.SYS_ROLE_DATA_SCOPE, rule);
+        SqlWriters.insert(dsl, SqlTables.SYS_ROLE_DATA_SCOPE, rule);
 
         if (scopeType == SaveDataScopeRequest.DataScopeTypeView.CUSTOM) {
             for (Long orgId : orgIds) {
                 SysRoleDataScopeOrgDO ro = new SysRoleDataScopeOrgDO();
                 ro.setRuleId(rule.getId());
                 ro.setOrgId(orgId);
-                JooqWriters.insert(dsl, JooqTables.SYS_ROLE_DATA_SCOPE_ORG, ro);
+                SqlWriters.insert(dsl, SqlTables.SYS_ROLE_DATA_SCOPE_ORG, ro);
             }
         }
         log.info("数据权限规则已更新: roleId={}, resourceCode={}, scopeType={}, orgCount={}",
@@ -143,9 +143,9 @@ public class RoleDataScopeService {
                         "自定义部门数量不能超过 " + MAX_CUSTOM_ORGS + " 个");
             }
             // 校验机构存在且未删除：写入不存在的机构会让规则静默失效（查不到任何数据）
-            Set<Long> existing = JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                            DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
-                                    JooqTables.SYS_ORG.field("id", Long.class).in(orgIds)))
+            Set<Long> existing = SqlWriters.fetchList(dsl, SqlTables.SYS_ORG, SysOrgDO.class,
+                            DSL.and(SqlWriters.notDeleted(SqlTables.SYS_ORG),
+                                    SqlTables.SYS_ORG.field("id", Long.class).in(orgIds)))
                     .stream().map(SysOrgDO::getId).collect(Collectors.toSet());
             List<Long> missing = orgIds.stream().filter(id -> !existing.contains(id)).toList();
             if (!missing.isEmpty()) {
@@ -181,21 +181,21 @@ public class RoleDataScopeService {
 
     /** 删除该角色该资源的全部规则及其机构关联。 */
     private void deleteRules(Long roleId, String resourceCode) {
-        List<SysRoleDataScopeDO> existing = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_DATA_SCOPE,
+        List<SysRoleDataScopeDO> existing = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE,
                 SysRoleDataScopeDO.class,
-                DSL.and(JooqTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(roleId),
-                        JooqTables.SYS_ROLE_DATA_SCOPE.field("resource_code", String.class).eq(resourceCode)));
+                DSL.and(SqlTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(roleId),
+                        SqlTables.SYS_ROLE_DATA_SCOPE.field("resource_code", String.class).eq(resourceCode)));
         if (existing.isEmpty()) {
             return;
         }
         List<Long> ruleIds = existing.stream().map(SysRoleDataScopeDO::getId).toList();
         // 关联表无外键约束，必须先删子表再删主表，否则残留孤儿数据
-        dsl.delete(JooqTables.SYS_ROLE_DATA_SCOPE_ORG.table())
-                .where(JooqTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).in(ruleIds))
+        dsl.delete(SqlTables.SYS_ROLE_DATA_SCOPE_ORG.table())
+                .where(SqlTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).in(ruleIds))
                 .execute();
-        dsl.delete(JooqTables.SYS_ROLE_DATA_SCOPE.table())
-                .where(JooqTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(roleId))
-                .and(JooqTables.SYS_ROLE_DATA_SCOPE.field("resource_code", String.class).eq(resourceCode))
+        dsl.delete(SqlTables.SYS_ROLE_DATA_SCOPE.table())
+                .where(SqlTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).eq(roleId))
+                .and(SqlTables.SYS_ROLE_DATA_SCOPE.field("resource_code", String.class).eq(resourceCode))
                 .execute();
     }
 
@@ -204,9 +204,9 @@ public class RoleDataScopeService {
             return Map.of();
         }
         Map<Long, String> map = new HashMap<>();
-        JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
-                        JooqTables.SYS_ORG.field("id", Long.class).in(orgIds)))
+        SqlWriters.fetchList(dsl, SqlTables.SYS_ORG, SysOrgDO.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.SYS_ORG),
+                        SqlTables.SYS_ORG.field("id", Long.class).in(orgIds)))
                 .forEach(o -> map.put(o.getId(), o.getOrgName()));
         return map;
     }

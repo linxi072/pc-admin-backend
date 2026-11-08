@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 /**
  * 岗位。
  * <p>编码在租户内唯一；软删除 + 乐观锁（version）范式对齐 sys_role。
- * 表名 / 列名与 {@code com.acme.scaffold.jooq.dsl.JooqTables.SYS_POST} 严格一致。
+ * 表名 / 列名与 {@code com.acme.scaffold.mybatis.dsl.SqlTables.SYS_POST} 严格一致。
  */
 @Data
 public class SysPostDO {

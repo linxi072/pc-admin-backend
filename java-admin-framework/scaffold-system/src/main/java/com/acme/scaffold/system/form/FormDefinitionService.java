@@ -1,10 +1,10 @@
 package com.acme.scaffold.system.form;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.form.domain.FormDefinitionDO;
 import com.acme.scaffold.system.form.dto.CreateFormDefinitionRequest;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
@@ -12,9 +12,9 @@ import com.acme.scaffold.system.form.dto.UpdateFormDefinitionRequest;
 import com.acme.scaffold.system.form.rules.FormSchemaRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,15 +49,15 @@ public class FormDefinitionService {
 
     /** 全部表单定义（含停用，按 id 升序，供前端选择器/全量联动）。 */
     public List<FormDefinitionView> list() {
-        List<FormDefinitionDO> rows = JooqWriters.fetchList(dsl, JooqTables.FORM_DEFINITION,
-                FormDefinitionDO.class, JooqWriters.notDeleted(JooqTables.FORM_DEFINITION),
-                JooqTables.FORM_DEFINITION.field("id", Long.class).asc());
+        List<FormDefinitionDO> rows = SqlWriters.fetchList(dsl, SqlTables.FORM_DEFINITION,
+                FormDefinitionDO.class, SqlWriters.notDeleted(SqlTables.FORM_DEFINITION),
+                SqlTables.FORM_DEFINITION.field("id", Long.class).asc());
         return rows.stream().map(FormDefinitionView::of).toList();
     }
 
     /** 按 id 取表单定义（含停用；不存在抛 NOT_FOUND）。 */
     public FormDefinitionView getById(Long id) {
-        FormDefinitionDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
+        FormDefinitionDO d = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
         return FormDefinitionView.of(d);
     }
 
@@ -107,7 +107,7 @@ public class FormDefinitionService {
         d.setTargetType(target);
         d.setEnabled(req.enabled() != null && req.enabled() ? 1 : 0);
         d.setRemark(req.remark());
-        JooqWriters.insert(dsl, JooqTables.FORM_DEFINITION, d);
+        SqlWriters.insert(dsl, SqlTables.FORM_DEFINITION, d);
         refreshCache();
         return d.getId();
     }
@@ -115,7 +115,7 @@ public class FormDefinitionService {
     /** 更新表单定义：存在性 + 编码唯一性（编码变更时）+ Schema 校验 + 绑定目标归一，写库后失效缓存。 */
     @Transactional
     public void update(Long id, UpdateFormDefinitionRequest req) {
-        FormDefinitionDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
+        FormDefinitionDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
         if (!existing.getFormCode().equals(req.formCode()) && existsByCode(req.formCode())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "表单编码已存在");
         }
@@ -136,15 +136,15 @@ public class FormDefinitionService {
         d.setEnabled(req.enabled() != null ? (req.enabled() ? 1 : 0)
                 : (existing.getEnabled() == null ? 0 : existing.getEnabled()));
         d.setRemark(req.remark());
-        JooqWriters.updateById(dsl, JooqTables.FORM_DEFINITION, id, d);
+        SqlWriters.updateById(dsl, SqlTables.FORM_DEFINITION, id, d);
         refreshCache();
     }
 
     /** 删除表单定义（逻辑删除），写库后失效缓存。 */
     @Transactional
     public void remove(Long id) {
-        FormDefinitionDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
-        JooqWriters.delete(dsl, JooqTables.FORM_DEFINITION, id, true);
+        FormDefinitionDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
+        SqlWriters.delete(dsl, SqlTables.FORM_DEFINITION, id, true);
         refreshCache();
     }
 
@@ -153,23 +153,23 @@ public class FormDefinitionService {
     // ------------------------------------------------------------------
 
     private boolean existsByCode(String formCode) {
-        return JooqWriters.count(dsl, JooqTables.FORM_DEFINITION,
-                DSL.and(JooqWriters.notDeleted(JooqTables.FORM_DEFINITION),
-                        JooqTables.FORM_DEFINITION.field("form_code", String.class).eq(formCode))) > 0;
+        return SqlWriters.count(dsl, SqlTables.FORM_DEFINITION,
+                DSL.and(SqlWriters.notDeleted(SqlTables.FORM_DEFINITION),
+                        SqlTables.FORM_DEFINITION.field("form_code", String.class).eq(formCode))) > 0;
     }
 
     private FormDefinitionDO loadEnabledByCode(String formCode) {
-        Condition cond = DSL.and(JooqWriters.notDeleted(JooqTables.FORM_DEFINITION),
-                JooqTables.FORM_DEFINITION.field("form_code", String.class).eq(formCode),
-                JooqTables.FORM_DEFINITION.field("enabled", Integer.class).eq(1));
-        return JooqWriters.fetchOne(dsl, JooqTables.FORM_DEFINITION, FormDefinitionDO.class, cond);
+        Condition cond = DSL.and(SqlWriters.notDeleted(SqlTables.FORM_DEFINITION),
+                SqlTables.FORM_DEFINITION.field("form_code", String.class).eq(formCode),
+                SqlTables.FORM_DEFINITION.field("enabled", Integer.class).eq(1));
+        return SqlWriters.fetchOne(dsl, SqlTables.FORM_DEFINITION, FormDefinitionDO.class, cond);
     }
 
     private FormDefinitionDO requireByCode(String formCode) {
-        FormDefinitionDO d = JooqWriters.fetchOne(dsl, JooqTables.FORM_DEFINITION,
+        FormDefinitionDO d = SqlWriters.fetchOne(dsl, SqlTables.FORM_DEFINITION,
                 FormDefinitionDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.FORM_DEFINITION),
-                        JooqTables.FORM_DEFINITION.field("form_code", String.class).eq(formCode)));
+                DSL.and(SqlWriters.notDeleted(SqlTables.FORM_DEFINITION),
+                        SqlTables.FORM_DEFINITION.field("form_code", String.class).eq(formCode)));
         if (d == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "表单定义不存在");
         }

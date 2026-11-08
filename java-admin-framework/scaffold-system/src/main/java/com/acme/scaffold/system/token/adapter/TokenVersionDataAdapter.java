@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.token.adapter;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.service.TokenVersionDataPort;
 import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TokenVersionDataAdapter implements TokenVersionDataPort {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
 
     private final DSLContext dsl;
 
@@ -31,7 +31,7 @@ public class TokenVersionDataAdapter implements TokenVersionDataPort {
         if (roleIds == null || roleIds.isEmpty()) {
             return List.of();
         }
-        return JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+        return SqlWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
                         USER_ROLE.field("role_id", Long.class).in(roleIds)).stream()
                 .map(SysUserRoleDO::getUserId)
                 .distinct()

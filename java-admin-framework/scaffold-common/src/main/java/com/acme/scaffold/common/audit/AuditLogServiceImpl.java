@@ -7,17 +7,17 @@ import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
 import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooq.paging.JooqKeysetPager;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.mybatis.dsl.KeysetPager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.Record;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.Record;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -38,14 +38,14 @@ import java.util.concurrent.Executor;
  * <p>查询侧对齐设计方案 §20：支持按 traceId 追溯链路，且对外视图经
  * {@link com.acme.scaffold.common.sensitive.SensitiveMasker} 脱敏。
  * 注意 {@code sys_operation_log} <b>没有 deleted 列</b>（审计数据不允许逻辑删除），
- * 故查询不使用 {@link JooqWriters#notDeleted}，归档由独立运维流程负责。
+ * 故查询不使用 {@link SqlWriters#notDeleted}，归档由独立运维流程负责。
  */
 @Slf4j
 @Service
 public class AuditLogServiceImpl implements AuditLogService {
 
     /** 审计日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> AUDIT_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> AUDIT_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "moduleCode", "module_code",
             "operationType", "operation_type",
@@ -66,7 +66,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     private final ObjectMapper objectMapper;
 
     /** 事务内审计缓冲：同一业务事务内的多次 {@code saveAsync} 先入此缓冲，
-     *  事务提交后合并为单次批量插入（{@link JooqWriters#batchInsert}），消除 N+1 同构 INSERT 告警。 */
+     *  事务提交后合并为单次批量插入（{@link SqlWriters#batchInsert}），消除 N+1 同构 INSERT 告警。 */
     private static final ThreadLocal<List<AuditRecord>> TX_BUFFER = ThreadLocal.withInitial(ArrayList::new);
 
     /**
@@ -148,7 +148,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     /**
-     * 批量落库：多条记录合并为单次 INSERT（{@link JooqWriters#batchInsert}），
+     * 批量落库：多条记录合并为单次 INSERT（{@link SqlWriters#batchInsert}），
      * 单条记录退化为 {@link #doInsert} 与原行为一致。
      */
     private void doInsertBatch(List<AuditRecord> records) {
@@ -161,7 +161,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
         try {
             List<SysOperationLogDO> entities = records.stream().map(this::toEntity).toList();
-            JooqWriters.batchInsert(dsl, JooqTables.SYS_OPERATION_LOG, entities);
+            SqlWriters.batchInsert(dsl, SqlTables.SYS_OPERATION_LOG, entities);
         } catch (Exception e) {
             log.error("批量写入审计日志失败 size={}", records.size(), e);
         }
@@ -169,7 +169,7 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     private void doInsert(AuditRecord record) {
         try {
-            JooqWriters.insert(dsl, JooqTables.SYS_OPERATION_LOG, toEntity(record));
+            SqlWriters.insert(dsl, SqlTables.SYS_OPERATION_LOG, toEntity(record));
         } catch (Exception e) {
             log.error("写入审计日志失败 module={} type={}", record.getModuleCode(), record.getOperationType(), e);
         }
@@ -203,12 +203,12 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     public PageResult<AuditLogView> query(AuditLogQuery query, boolean sensitiveVisible) {
         var pageQuery = query.toPageQuery();
-        PageResult<SysOperationLogDO> page = JooqWriters.page(dsl, JooqTables.SYS_OPERATION_LOG,
+        PageResult<SysOperationLogDO> page = SqlWriters.page(dsl, SqlTables.SYS_OPERATION_LOG,
                 SysOperationLogDO.class, conditions(query), pageQuery,
-                JooqSorts.resolve(JooqTables.SYS_OPERATION_LOG, pageQuery, AUDIT_SORT_FIELDS,
+                SqlSorts.resolve(SqlTables.SYS_OPERATION_LOG, pageQuery, AUDIT_SORT_FIELDS,
                         // 默认：发生时间倒序（最新在前），id 兜底保证翻页稳定
-                        JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc(),
-                        JooqTables.SYS_OPERATION_LOG.field("id", Long.class).desc()));
+                        SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc(),
+                        SqlTables.SYS_OPERATION_LOG.field("id", Long.class).desc()));
 
         List<AuditLogView> views = page.records().stream()
                 .map(l -> AuditLogView.of(l, sensitiveVisible))
@@ -222,11 +222,11 @@ public class AuditLogServiceImpl implements AuditLogService {
         // 仅复用筛选条件；排序键含 id 作为 tie-breaker，保证顺序唯一确定。
         KeysetPageQuery q = new KeysetPageQuery(query.size(), cursor);
         Field<?>[] keyFields = new Field<?>[]{
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class),
-                JooqTables.SYS_OPERATION_LOG.field("id", Long.class)
+                SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class),
+                SqlTables.SYS_OPERATION_LOG.field("id", Long.class)
         };
         boolean[] ascending = {false, false}; // occurred_at DESC, id DESC
-        KeysetPageResult<SysOperationLogDO> raw = JooqKeysetPager.query(dsl, JooqTables.SYS_OPERATION_LOG,
+        KeysetPageResult<SysOperationLogDO> raw = KeysetPager.query(dsl, SqlTables.SYS_OPERATION_LOG,
                 SysOperationLogDO.class, conditions(query), q,
                 l -> new Object[]{l.getOccurredAt(), l.getId()}, keyFields, ascending);
         List<AuditLogView> views = raw.records().stream()
@@ -241,11 +241,11 @@ public class AuditLogServiceImpl implements AuditLogService {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "traceId 不能为空");
         }
         // 链路追溯按时间正序，便于看完整调用顺序
-        List<SysOperationLogDO> logs = JooqWriters.fetchList(dsl, JooqTables.SYS_OPERATION_LOG,
+        List<SysOperationLogDO> logs = SqlWriters.fetchList(dsl, SqlTables.SYS_OPERATION_LOG,
                 SysOperationLogDO.class,
-                JooqTables.SYS_OPERATION_LOG.field("trace_id", String.class).eq(traceId.trim()),
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).asc(),
-                JooqTables.SYS_OPERATION_LOG.field("id", Long.class).asc());
+                SqlTables.SYS_OPERATION_LOG.field("trace_id", String.class).eq(traceId.trim()),
+                SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).asc(),
+                SqlTables.SYS_OPERATION_LOG.field("id", Long.class).asc());
         return logs.stream().map(l -> AuditLogView.of(l, sensitiveVisible)).toList();
     }
 
@@ -254,18 +254,18 @@ public class AuditLogServiceImpl implements AuditLogService {
         int size = Math.min(Math.max(limit, 1), RECENT_ACTIVITIES_MAX);
         Condition cond = operatorId == null
                 ? DSL.trueCondition()
-                : JooqTables.SYS_OPERATION_LOG.field("operator_id", Long.class).eq(operatorId);
+                : SqlTables.SYS_OPERATION_LOG.field("operator_id", Long.class).eq(operatorId);
         // 不做 count：面板只需最近 N 条，count(*) 在千万行审计表上是纯浪费（见接口注释 F1）
-        List<SysOperationLogDO> logs = JooqWriters.fetchTop(dsl, JooqTables.SYS_OPERATION_LOG,
+        List<SysOperationLogDO> logs = SqlWriters.fetchTop(dsl, SqlTables.SYS_OPERATION_LOG,
                 SysOperationLogDO.class, cond, size,
-                JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc(),
-                JooqTables.SYS_OPERATION_LOG.field("id", Long.class).desc());
+                SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc(),
+                SqlTables.SYS_OPERATION_LOG.field("id", Long.class).desc());
         return logs.stream().map(l -> AuditLogView.of(l, sensitiveVisible)).toList();
     }
 
     @Override
     public AuditLogSummary summary(AuditLogQuery query, boolean sensitiveVisible) {
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SqlTables.SYS_OPERATION_LOG;
         Condition cond = conditions(query);
         Field<Long> duration = t.field("duration_ms", Long.class);
 
@@ -315,8 +315,8 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
         try {
             // sys_operation_log 无 deleted 列，过期数据直接物理删除（与留存清理语义一致）
-            return dsl.deleteFrom(JooqTables.SYS_OPERATION_LOG.table())
-                    .where(JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).lt(cutoff))
+            return dsl.deleteFrom(SqlTables.SYS_OPERATION_LOG.table())
+                    .where(SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).lt(cutoff))
                     .execute();
         } catch (Exception e) {
             log.error("清理过期审计日志失败 cutoff={}", cutoff, e);
@@ -327,7 +327,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     /** 把查询条件翻译为 jOOQ 条件集合；无过滤条件时返回恒真。 */
     private Condition conditions(AuditLogQuery query) {
         List<Condition> conds = new ArrayList<>();
-        var t = JooqTables.SYS_OPERATION_LOG;
+        var t = SqlTables.SYS_OPERATION_LOG;
         if (StringUtils.hasText(query.moduleCode())) {
             conds.add(t.field("module_code", String.class).eq(query.moduleCode()));
         }

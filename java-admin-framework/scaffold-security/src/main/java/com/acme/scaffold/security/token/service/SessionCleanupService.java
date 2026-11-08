@@ -1,18 +1,18 @@
 package com.acme.scaffold.security.token.service;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.Field;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static org.jooq.impl.DSL.and;
-import static org.jooq.impl.DSL.or;
+import static com.acme.scaffold.mybatis.dsl.DSL.and;
+import static com.acme.scaffold.mybatis.dsl.DSL.or;
 
 /**
  * 异常退出会话回收服务：吊销空闲超时的刷新令牌（进程崩溃 / 连接中断后客户端不再刷新，
@@ -37,8 +37,8 @@ public class SessionCleanupService {
     private final JwtProperties jwtProps;
     private final OnlineSessionReleasePort onlineSessionRelease;
 
-    private static final JooqTables.TableRef RT =
-            JooqTables.SYS_REFRESH_TOKEN;
+    private static final SqlTables.TableRef RT =
+            SqlTables.SYS_REFRESH_TOKEN;
 
     public SessionCleanupService(DSLContext dsl, JwtProperties jwtProps,
                                  OnlineSessionReleasePort onlineSessionRelease) {

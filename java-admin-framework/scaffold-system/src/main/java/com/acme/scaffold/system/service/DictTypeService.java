@@ -1,18 +1,18 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dto.CreateDictTypeRequest;
 import com.acme.scaffold.system.dto.DictTypeVO;
 import com.acme.scaffold.system.dto.UpdateDictTypeRequest;
 import com.acme.scaffold.system.entity.SysDictTypeDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,18 +23,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DictTypeService {
 
-    /** 类型安全生成表（逗号桥接自手写 TableRef，列名与 JooqTables.SYS_DICT_TYPE 严格一致）。 */
-    private static final JooqTables.TableRef TYPE = JooqTables.SYS_DICT_TYPE;
+    /** 类型安全生成表（逗号桥接自手写 TableRef，列名与 SqlTables.SYS_DICT_TYPE 严格一致）。 */
+    private static final SqlTables.TableRef TYPE = SqlTables.SYS_DICT_TYPE;
 
-    /** 字典数据表（删除前回查关联数据用，列名与 JooqTables.SYS_DICT_DATA 严格一致）。 */
-    private static final JooqTables.TableRef DATA = JooqTables.SYS_DICT_DATA;
+    /** 字典数据表（删除前回查关联数据用，列名与 SqlTables.SYS_DICT_DATA 严格一致）。 */
+    private static final SqlTables.TableRef DATA = SqlTables.SYS_DICT_DATA;
 
     private final DSLContext dsl;
 
     public List<DictTypeVO> list() {
-        List<SysDictTypeDO> all = JooqWriters.fetchList(dsl, TYPE, SysDictTypeDO.class,
-                JooqWriters.notDeleted(TYPE),
-                JooqTables.SYS_DICT_TYPE.field("sort_no", Integer.class).asc());
+        List<SysDictTypeDO> all = SqlWriters.fetchList(dsl, TYPE, SysDictTypeDO.class,
+                SqlWriters.notDeleted(TYPE),
+                SqlTables.SYS_DICT_TYPE.field("sort_no", Integer.class).asc());
         return all.stream().map(t -> new DictTypeVO(t.getId(), t.getDictCode(), t.getDictName(),
                 t.getStatus(), t.getSortNo(), t.getRemark())).collect(Collectors.toList());
     }
@@ -50,13 +50,13 @@ public class DictTypeService {
         t.setStatus(RecordStatus.normalize(req.status()));
         t.setSortNo(req.sortNo() == null ? 0 : req.sortNo());
         t.setRemark(req.remark());
-        JooqWriters.insert(dsl, TYPE, t);
+        SqlWriters.insert(dsl, TYPE, t);
         return t.getId();
     }
 
     @Transactional
     public void update(Long id, UpdateDictTypeRequest req) {
-        SysDictTypeDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id), "字典类型不存在");
+        SysDictTypeDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id), "字典类型不存在");
         if (!existing.getDictCode().equals(req.dictCode()) && existsByCode(req.dictCode())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "字典编码已存在");
         }
@@ -66,24 +66,24 @@ public class DictTypeService {
         t.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
         t.setSortNo(req.sortNo() == null ? existing.getSortNo() : req.sortNo());
         t.setRemark(req.remark());
-        JooqWriters.updateById(dsl, TYPE, id, t);
+        SqlWriters.updateById(dsl, TYPE, id, t);
     }
 
     @Transactional
     public void delete(Long id) {
-        SysDictTypeDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id), "字典类型不存在");
-        long dataCount = JooqWriters.count(dsl, DATA,
-                DSL.and(JooqWriters.notDeleted(DATA),
-                        JooqTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(existing.getDictCode())));
+        SysDictTypeDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, TYPE, SysDictTypeDO.class, id), "字典类型不存在");
+        long dataCount = SqlWriters.count(dsl, DATA,
+                DSL.and(SqlWriters.notDeleted(DATA),
+                        SqlTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(existing.getDictCode())));
         if (dataCount > 0) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "请先删除该字典类型下的字典数据");
         }
-        JooqWriters.delete(dsl, TYPE, id, true);
+        SqlWriters.delete(dsl, TYPE, id, true);
     }
 
     private boolean existsByCode(String code) {
-        return JooqWriters.count(dsl, TYPE,
-                DSL.and(JooqWriters.notDeleted(TYPE),
-                        JooqTables.SYS_DICT_TYPE.field("dict_code", String.class).eq(code))) > 0;
+        return SqlWriters.count(dsl, TYPE,
+                DSL.and(SqlWriters.notDeleted(TYPE),
+                        SqlTables.SYS_DICT_TYPE.field("dict_code", String.class).eq(code))) > 0;
     }
 }

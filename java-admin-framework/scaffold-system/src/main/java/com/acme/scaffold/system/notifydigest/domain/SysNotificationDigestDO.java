@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
  * 标记本批次聚合的起点。</p>
  *
  * <p><b>时间口径</b>：{@code firstAt} / {@code lastAt} 为 DATETIME(3)，服务端显式赋值
- * （{@code JooqWriters.insert} 只自动填 created_at / updated_at，不填业务时间列）。</p>
+ * （{@code SqlWriters.insert} 只自动填 created_at / updated_at，不填业务时间列）。</p>
  */
 @Data
 public class SysNotificationDigestDO {

@@ -1,7 +1,7 @@
 package com.acme.scaffold.monitor.health;
 
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Component;
 
 /**
@@ -9,11 +9,11 @@ import org.springframework.stereotype.Component;
  * 仅探测「数据库可连通」这一提供服务必需的依赖，不涉及业务表。
  */
 @Component
-public class JooqDatabaseProbe implements DatabaseProbe {
+public class SqlDatabaseProbe implements DatabaseProbe {
 
     private final DSLContext dsl;
 
-    public JooqDatabaseProbe(DSLContext dsl) {
+    public SqlDatabaseProbe(DSLContext dsl) {
         this.dsl = dsl;
     }
 

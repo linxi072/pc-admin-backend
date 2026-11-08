@@ -6,9 +6,9 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.workbench.dashboard.domain.DashboardTemplateDO;
 import com.acme.scaffold.workbench.dashboard.dto.DashboardTemplateVO;
 import com.acme.scaffold.workbench.dashboard.dto.TemplateSaveRequest;
@@ -16,10 +16,10 @@ import com.acme.scaffold.workbench.dashboard.dto.TemplateUpdateRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +32,7 @@ import java.util.Map;
  * 数据看板模板服务：模板 CRUD、配置（layout_json 以 JSON 字符串存储并经 Jackson 校验）、
  * 发布态流转（DRAFT / PUBLISHED / OFFLINE）与浏览计数。
  *
- * <p>持久化经 {@link JooqWriters}（动态 DSL），租户隔离由框架统一裁决；
+ * <p>持久化经 {@link SqlWriters}（动态 DSL），租户隔离由框架统一裁决；
  * 布局配置以 TEXT 承载，由前端约定结构、后端经 Jackson 仅做合法性校验（不做语义约束）。</p>
  */
 @Slf4j
@@ -41,7 +41,7 @@ import java.util.Map;
 public class DashboardTemplateService {
 
     /** 列表可排序字段白名单：客户端字段名 → 数据库列名。 */
-    private static final Map<String, String> TEMPLATE_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> TEMPLATE_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "templateCode", "template_code",
             "templateName", "template_name",
@@ -49,7 +49,7 @@ public class DashboardTemplateService {
             "viewCount", "view_count",
             "createdAt", "created_at");
 
-    private static final JooqTables.TableRef T = JooqTables.DASHBOARD_TEMPLATE;
+    private static final SqlTables.TableRef T = SqlTables.DASHBOARD_TEMPLATE;
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -69,7 +69,7 @@ public class DashboardTemplateService {
         entity.setViewCount(0L);
         entity.setCreatedBy(currentOperator());
         entity.setUpdatedBy(currentOperator());
-        JooqWriters.insert(dsl, T, entity);
+        SqlWriters.insert(dsl, T, entity);
         return entity.getId();
     }
 
@@ -88,7 +88,7 @@ public class DashboardTemplateService {
             existing.setStatus(req.getStatus());
         }
         existing.setUpdatedBy(currentOperator());
-        JooqWriters.updateById(dsl, T, existing.getId(), existing);
+        SqlWriters.updateById(dsl, T, existing.getId(), existing);
     }
 
     /**
@@ -99,7 +99,7 @@ public class DashboardTemplateService {
         DashboardTemplateDO existing = requireExisting(id);
         existing.setStatus("PUBLISHED");
         existing.setUpdatedBy(currentOperator());
-        JooqWriters.updateById(dsl, T, existing.getId(), existing);
+        SqlWriters.updateById(dsl, T, existing.getId(), existing);
         log.info("看板模板已发布 templateId={} code={}", existing.getId(), existing.getTemplateCode());
     }
 
@@ -109,7 +109,7 @@ public class DashboardTemplateService {
         DashboardTemplateDO existing = requireExisting(id);
         existing.setStatus("OFFLINE");
         existing.setUpdatedBy(currentOperator());
-        JooqWriters.updateById(dsl, T, existing.getId(), existing);
+        SqlWriters.updateById(dsl, T, existing.getId(), existing);
         log.info("看板模板已撤销发布 templateId={} code={}", existing.getId(), existing.getTemplateCode());
     }
 
@@ -130,7 +130,7 @@ public class DashboardTemplateService {
     /** 按 id 查询（含逻辑删除过滤），不存在抛 404。 */
     @Transactional(readOnly = true)
     public DashboardTemplateVO getById(Long id) {
-        DashboardTemplateDO entity = JooqWriters.fetchById(dsl, T, DashboardTemplateDO.class, id);
+        DashboardTemplateDO entity = SqlWriters.fetchById(dsl, T, DashboardTemplateDO.class, id);
         if (entity == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "看板模板不存在: " + id);
         }
@@ -141,7 +141,7 @@ public class DashboardTemplateService {
     @Transactional
     public void delete(Long id) {
         requireExisting(id);
-        JooqWriters.delete(dsl, T, id, true);
+        SqlWriters.delete(dsl, T, id, true);
     }
 
     /** 分页查询（支持模板编码 / 名称关键字 / 状态筛选，逻辑删除自动排除）。 */
@@ -150,7 +150,7 @@ public class DashboardTemplateService {
                                                 String templateName, String status,
                                                 String sortField, String sortDirection) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(T));
+        conds.add(SqlWriters.notDeleted(T));
         if (templateCode != null && !templateCode.isBlank()) {
             conds.add(T.field("template_code", String.class).eq(templateCode.trim()));
         }
@@ -162,8 +162,8 @@ public class DashboardTemplateService {
         }
         Condition cond = DSL.and(conds);
         PageQuery q = PageQuery.of(page, size, sortField, sortDirection);
-        var raw = JooqWriters.page(dsl, T, DashboardTemplateDO.class, cond, q,
-                JooqSorts.resolve(T, q, TEMPLATE_SORT_FIELDS,
+        var raw = SqlWriters.page(dsl, T, DashboardTemplateDO.class, cond, q,
+                SqlSorts.resolve(T, q, TEMPLATE_SORT_FIELDS,
                         T.field("created_at", LocalDateTime.class).desc(),
                         T.field("id", Long.class).desc()));
         List<DashboardTemplateVO> views = raw.records().stream().map(this::toView).toList();
@@ -173,7 +173,7 @@ public class DashboardTemplateService {
     // ---------------- 内部辅助 ----------------
 
     private DashboardTemplateDO requireExisting(Long id) {
-        DashboardTemplateDO entity = JooqWriters.fetchById(dsl, T, DashboardTemplateDO.class, id);
+        DashboardTemplateDO entity = SqlWriters.fetchById(dsl, T, DashboardTemplateDO.class, id);
         if (entity == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "看板模板不存在: " + id);
         }

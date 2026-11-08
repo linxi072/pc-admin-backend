@@ -2,8 +2,8 @@ package com.acme.scaffold.workflow.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.workflow.assignee.AssigneeResolver;
@@ -20,7 +20,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,8 +43,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class WorkflowDesignService {
-    private static final JooqTables.TableRef WF_WORKFLOW_DESIGN = JooqTables.WF_WORKFLOW_DESIGN;
-
+    private static final SqlTables.TableRef WF_WORKFLOW_DESIGN = SqlTables.WF_WORKFLOW_DESIGN;
 
     private final WorkflowEnginePort engine;
     private final DSLContext dsl;
@@ -57,8 +56,8 @@ public class WorkflowDesignService {
     @Transactional
     public WorkflowDesignView create(CreateDesignRequest req) {
         // 仅认未删除行：逻辑删除的墓碑行不可见，否则会返回一条随即 404 的设计
-        WfWorkflowDesignDO existing = JooqWriters.fetchOne(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                JooqWriters.notDeleted(WF_WORKFLOW_DESIGN)
+        WfWorkflowDesignDO existing = SqlWriters.fetchOne(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
+                SqlWriters.notDeleted(WF_WORKFLOW_DESIGN)
                         .and(WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(req.processKey())));
         if (existing != null) {
             return get(existing.getId());
@@ -71,7 +70,7 @@ public class WorkflowDesignService {
         e.setVersion(0);
         e.setNodesJson("[]");
         e.setEdgesJson("[]");
-        JooqWriters.insert(dsl, WF_WORKFLOW_DESIGN, e);
+        SqlWriters.insert(dsl, WF_WORKFLOW_DESIGN, e);
         return get(e.getId());
     }
 
@@ -83,12 +82,12 @@ public class WorkflowDesignService {
         e.setFormSchema(req.formSchema());
         e.setNodesJson(toJson(req.nodes()));
         e.setEdgesJson(toJson(req.edges()));
-        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
+        SqlWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
         return get(id);
     }
 
     public WorkflowDesignView get(Long id) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
+        WfWorkflowDesignDO e = SqlWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
@@ -96,8 +95,8 @@ public class WorkflowDesignService {
     }
 
     public List<WorkflowDesignView> list() {
-        return JooqWriters.fetchList(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                        JooqWriters.notDeleted(WF_WORKFLOW_DESIGN),
+        return SqlWriters.fetchList(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
+                        SqlWriters.notDeleted(WF_WORKFLOW_DESIGN),
                         WF_WORKFLOW_DESIGN.field("id", Long.class).desc())
                 .stream().map(this::toView).toList();
     }
@@ -115,15 +114,15 @@ public class WorkflowDesignService {
                 : key + suffix;
         WfWorkflowDesignDO patch = new WfWorkflowDesignDO();
         patch.setProcessKey(tombstoneKey);
-        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, patch);
-        JooqWriters.delete(dsl, WF_WORKFLOW_DESIGN, id, true);
+        SqlWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, patch);
+        SqlWriters.delete(dsl, WF_WORKFLOW_DESIGN, id, true);
     }
 
     // ---------- 发布 / 取消发布 ----------
 
     @Transactional
     public WorkflowDesignView publish(Long id) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
+        WfWorkflowDesignDO e = SqlWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
@@ -147,7 +146,7 @@ public class WorkflowDesignService {
         CurrentPrincipal principal = securityContextFacade.getCurrentPrincipal().orElse(null);
         e.setPublishedBy(principal == null ? null : principal.userId());
         e.setPublishedAt(LocalDateTime.now());
-        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
+        SqlWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
         log.info("工作流发布成功 processKey={} version={} deploymentId={}", e.getProcessKey(), e.getVersion(), deploymentId);
         return get(id);
     }
@@ -156,15 +155,15 @@ public class WorkflowDesignService {
     public WorkflowDesignView unpublish(Long id) {
         WfWorkflowDesignDO e = requirePublished(id);
         e.setStatus("DRAFT");
-        JooqWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
+        SqlWriters.updateById(dsl, WF_WORKFLOW_DESIGN, id, e);
         return get(id);
     }
 
     // ---------- 发起时变量构建 ----------
 
     public WorkflowDesignView getPublished(String processKey) {
-        WfWorkflowDesignDO e = JooqWriters.fetchOne(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
-                JooqWriters.notDeleted(WF_WORKFLOW_DESIGN)
+        WfWorkflowDesignDO e = SqlWriters.fetchOne(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class,
+                SqlWriters.notDeleted(WF_WORKFLOW_DESIGN)
                         .and(WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(processKey))
                         .and(WF_WORKFLOW_DESIGN.field("status", String.class).eq("PUBLISHED")));
         return e == null ? null : toView(e);
@@ -237,7 +236,7 @@ public class WorkflowDesignService {
     }
 
     private WfWorkflowDesignDO requireState(Long id, String expectedStatus, String errorMessage) {
-        WfWorkflowDesignDO e = JooqWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
+        WfWorkflowDesignDO e = SqlWriters.fetchById(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesignDO.class, id);
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }

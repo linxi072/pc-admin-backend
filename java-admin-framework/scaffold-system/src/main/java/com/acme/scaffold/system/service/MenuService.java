@@ -1,12 +1,12 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tree.TreeBuilder;
 import com.acme.scaffold.common.validation.RecordStatus;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dto.CreateMenuRequest;
 import com.acme.scaffold.system.dto.MenuSortItem;
 import com.acme.scaffold.system.dto.MenuTreeVO;
@@ -15,8 +15,8 @@ import com.acme.scaffold.system.entity.SysMenuDO;
 import com.acme.scaffold.system.entity.SysRoleMenuDO;
 import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MenuService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
 
     /** 管理端菜单树缓存名（单一 {@value #ALL_KEY} 键，监控页 / 清理端点按此定位）。 */
     public static final String MENU_TREE_CACHE = "menu-tree";
@@ -60,7 +60,7 @@ public class MenuService {
     private final DSLContext dsl;
 
     /** 桥接自代码生成层 {@code Tables.SYS_MENU} 的类型安全表引用（B15）。 */
-    private static final JooqTables.TableRef MENU = JooqTables.SYS_MENU;
+    private static final SqlTables.TableRef MENU = SqlTables.SYS_MENU;
 
     /**
      * 返回菜单树（按 parentId 聚合排序）。
@@ -72,10 +72,10 @@ public class MenuService {
      */
     @Cacheable(cacheNames = MENU_TREE_CACHE, key = "'" + ALL_KEY + "'")
     public List<MenuTreeVO> tree() {
-        List<SysMenuDO> all = JooqWriters.fetchList(dsl, MENU, SysMenuDO.class,
-                JooqWriters.notDeleted(MENU),
-                JooqTables.SYS_MENU.field("sort_no", Integer.class).asc(),
-                JooqTables.SYS_MENU.field("id", Long.class).asc());
+        List<SysMenuDO> all = SqlWriters.fetchList(dsl, MENU, SysMenuDO.class,
+                SqlWriters.notDeleted(MENU),
+                SqlTables.SYS_MENU.field("sort_no", Integer.class).asc(),
+                SqlTables.SYS_MENU.field("id", Long.class).asc());
         // 层级组装复用 common/tree/TreeBuilder（与 OrgService 同一实现，含环防护）
         return TreeBuilder.build(all, SysMenuDO::getId, MenuService::parentIdOf,
                 m -> parentIdOf(m) == 0L, MenuService::toMenuTreeVO);
@@ -106,20 +106,20 @@ public class MenuService {
      */
     @Cacheable(cacheNames = USER_MENUS_CACHE, key = "#userId")
     public List<MenuTreeVO> menusForCurrentUser(Long userId) {
-        List<Long> roleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+        List<Long> roleIds = SqlWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
                         USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
                 .map(SysUserRoleDO::getRoleId).distinct().toList();
         if (roleIds.isEmpty()) {
             return List.of();
         }
-        Set<Long> authorizedMenuIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
-                        JooqTables.SYS_ROLE_MENU.field("role_id", Long.class).in(roleIds)).stream()
+        Set<Long> authorizedMenuIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
+                        SqlTables.SYS_ROLE_MENU.field("role_id", Long.class).in(roleIds)).stream()
                 .map(SysRoleMenuDO::getMenuId).collect(Collectors.toSet());
         if (authorizedMenuIds.isEmpty()) {
             return List.of();
         }
-        List<SysMenuDO> all = JooqWriters.fetchList(dsl, MENU, SysMenuDO.class,
-                JooqWriters.notDeleted(MENU));
+        List<SysMenuDO> all = SqlWriters.fetchList(dsl, MENU, SysMenuDO.class,
+                SqlWriters.notDeleted(MENU));
         // 与 tree() 保持同一排序规则：sortNo ASC，二级键 id ASC 保证同值顺序确定
         all.sort(Comparator.comparingInt((SysMenuDO m) -> m.getSortNo() == null ? 0 : m.getSortNo())
                 .thenComparing(SysMenuDO::getId));
@@ -166,7 +166,7 @@ public class MenuService {
         menu.setVisible(request.visible() == null ? 1 : request.visible());
         menu.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
         menu.setStatus(RecordStatus.normalize(request.status()));
-        JooqWriters.insert(dsl, MENU, menu);
+        SqlWriters.insert(dsl, MENU, menu);
         return menu.getId();
     }
 
@@ -174,17 +174,17 @@ public class MenuService {
     @CacheEvict(cacheNames = {MENU_TREE_CACHE, USER_MENUS_CACHE}, allEntries = true)
     @Transactional
     public void delete(Long id) {
-        long childCount = JooqWriters.count(dsl, MENU,
-                DSL.and(JooqWriters.notDeleted(MENU),
-                        JooqTables.SYS_MENU.field("parent_id", Long.class).eq(id)));
+        long childCount = SqlWriters.count(dsl, MENU,
+                DSL.and(SqlWriters.notDeleted(MENU),
+                        SqlTables.SYS_MENU.field("parent_id", Long.class).eq(id)));
         if (childCount > 0) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "请先删除子菜单");
         }
         // 角色-菜单关联先清：该表无外键约束，漏删会残留孤儿行（菜单已删但角色仍"挂"着它，
         // 数据卫生失控且重建同 id 菜单时历史授权不会恢复）。与 RoleService.delete 的
         // 级联清理互为补充——那里按 role_id 清，这里按 menu_id 清。
-        JooqWriters.deleteByColumn(dsl, JooqTables.SYS_ROLE_MENU, "menu_id", id);
-        JooqWriters.delete(dsl, MENU, id, true);
+        SqlWriters.deleteByColumn(dsl, SqlTables.SYS_ROLE_MENU, "menu_id", id);
+        SqlWriters.delete(dsl, MENU, id, true);
     }
 
     /**
@@ -193,7 +193,7 @@ public class MenuService {
     @CacheEvict(cacheNames = {MENU_TREE_CACHE, USER_MENUS_CACHE}, allEntries = true)
     @Transactional
     public void update(Long id, UpdateMenuRequest request) {
-        SysMenuDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, id), "菜单不存在");
+        SysMenuDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, MENU, SysMenuDO.class, id), "菜单不存在");
         Long newParentId = request.parentId() == null ? 0L : request.parentId();
         // 层级移动校验：parent_id 不变时跳过；变更时禁止挂到自身或其子孙之下（防环）
         if (!newParentId.equals(existing.getParentId())) {
@@ -201,9 +201,9 @@ public class MenuService {
                 throw new BusinessException(CommonErrorCode.CONFLICT, "不能将菜单挂到自身之下");
             }
             if (newParentId != 0L) {
-                SysMenuDO parent = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, newParentId), "父菜单不存在");
-                List<SysMenuDO> all = JooqWriters.fetchList(dsl, MENU, SysMenuDO.class,
-                        JooqWriters.notDeleted(MENU));
+                SysMenuDO parent = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, MENU, SysMenuDO.class, newParentId), "父菜单不存在");
+                List<SysMenuDO> all = SqlWriters.fetchList(dsl, MENU, SysMenuDO.class,
+                        SqlWriters.notDeleted(MENU));
                 if (collectDescendantIds(all, id).contains(newParentId)) {
                     throw new BusinessException(CommonErrorCode.CONFLICT, "不能将菜单移动到其子菜单之下");
                 }
@@ -224,7 +224,7 @@ public class MenuService {
         menu.setVisible(request.visible() == null ? existing.getVisible() : request.visible());
         menu.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
         menu.setStatus(RecordStatus.mergeOrKeep(request.status(), existing.getStatus()));
-        JooqWriters.updateById(dsl, MENU, id, menu);
+        SqlWriters.updateById(dsl, MENU, id, menu);
     }
 
     /**
@@ -244,7 +244,7 @@ public class MenuService {
             return;
         }
         for (MenuSortItem item : items) {
-            SysMenuDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MENU, SysMenuDO.class, item.id()), "菜单不存在: " + item.id());
+            SysMenuDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, MENU, SysMenuDO.class, item.id()), "菜单不存在: " + item.id());
             // 复制现有行，仅覆盖 sortNo（version/tenant_id 维持原值，与 update() 一致）
             SysMenuDO menu = new SysMenuDO();
             menu.setParentId(existing.getParentId());
@@ -262,7 +262,7 @@ public class MenuService {
             menu.setExternalUrl(existing.getExternalUrl());
             menu.setStatus(existing.getStatus());
             menu.setSortNo(item.sortNo());
-            JooqWriters.updateById(dsl, MENU, item.id(), menu);
+            SqlWriters.updateById(dsl, MENU, item.id(), menu);
         }
     }
 

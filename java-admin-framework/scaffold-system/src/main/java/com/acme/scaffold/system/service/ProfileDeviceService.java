@@ -5,13 +5,13 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.system.dto.DeviceView;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -34,8 +34,8 @@ public class ProfileDeviceService {
     private final SecurityContextFacade securityContextFacade;
     private final RefreshTokenService refreshTokenService;
 
-    private static final JooqTables.TableRef RT =
-            JooqTables.SYS_REFRESH_TOKEN;
+    private static final SqlTables.TableRef RT =
+            SqlTables.SYS_REFRESH_TOKEN;
 
     private static final java.time.format.DateTimeFormatter UA_TIME =
             java.time.format.DateTimeFormatter.ofPattern(CommonConstants.DATE_MINUTE_PATTERN);
@@ -51,7 +51,7 @@ public class ProfileDeviceService {
         String currentClientId = securityContextFacade.getCurrentPrincipal()
                 .map(CurrentPrincipal::clientId).orElse(null);
 
-        List<SysRefreshTokenDO> active = JooqWriters.fetchList(dsl, RT,
+        List<SysRefreshTokenDO> active = SqlWriters.fetchList(dsl, RT,
                 SysRefreshTokenDO.class,
                 RT.field("user_id", Long.class).eq(userId)
                         .and(RT.field("revoked_at", Timestamp.class).isNull())
@@ -132,7 +132,7 @@ public class ProfileDeviceService {
     /** 当前用户的全部活跃会话。 */
     private List<SysRefreshTokenDO> listDevicesSessions() {
         Long userId = currentUserId();
-        return JooqWriters.fetchList(dsl, RT,
+        return SqlWriters.fetchList(dsl, RT,
                 SysRefreshTokenDO.class,
                 RT.field("user_id", Long.class).eq(userId)
                         .and(RT.field("revoked_at", Timestamp.class).isNull())

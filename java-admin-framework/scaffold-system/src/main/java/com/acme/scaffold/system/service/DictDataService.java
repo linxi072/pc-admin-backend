@@ -1,19 +1,19 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dto.CreateDictDataRequest;
 import com.acme.scaffold.system.dto.DictDataVO;
 import com.acme.scaffold.system.dto.UpdateDictDataRequest;
 import com.acme.scaffold.system.entity.SysDictDataDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -39,8 +39,8 @@ public class DictDataService {
         return (dictTypeCode == null || dictTypeCode.isBlank()) ? ALL_TYPES : dictTypeCode.trim();
     }
 
-    /** 类型安全生成表（桥接自手写 TableRef，列名与 JooqTables.SYS_DICT_DATA 严格一致）。 */
-    private static final JooqTables.TableRef DATA = JooqTables.SYS_DICT_DATA;
+    /** 类型安全生成表（桥接自手写 TableRef，列名与 SqlTables.SYS_DICT_DATA 严格一致）。 */
+    private static final SqlTables.TableRef DATA = SqlTables.SYS_DICT_DATA;
 
     private final DSLContext dsl;
 
@@ -55,12 +55,12 @@ public class DictDataService {
             key = "T(com.acme.scaffold.system.service.DictDataService).cacheKey(#dictTypeCode)")
     public List<DictDataVO> listByType(String dictTypeCode) {
         String typeCode = cacheKey(dictTypeCode);
-        Condition cond = JooqWriters.notDeleted(DATA);
+        Condition cond = SqlWriters.notDeleted(DATA);
         if (!ALL_TYPES.equals(typeCode)) {
-            cond = DSL.and(cond, JooqTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(typeCode));
+            cond = DSL.and(cond, SqlTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(typeCode));
         }
-        List<SysDictDataDO> all = JooqWriters.fetchList(dsl, DATA, SysDictDataDO.class,
-                cond, JooqTables.SYS_DICT_DATA.field("dict_sort", Integer.class).asc());
+        List<SysDictDataDO> all = SqlWriters.fetchList(dsl, DATA, SysDictDataDO.class,
+                cond, SqlTables.SYS_DICT_DATA.field("dict_sort", Integer.class).asc());
         return all.stream().map(d -> new DictDataVO(d.getId(), d.getDictTypeCode(), d.getDictLabel(),
                 d.getDictValue(), d.getDictSort(), d.getStatus(), d.getRemark())).toList();
     }
@@ -91,7 +91,7 @@ public class DictDataService {
         d.setDictSort(req.dictSort() == null ? 0 : req.dictSort());
         d.setStatus(RecordStatus.normalize(req.status()));
         d.setRemark(req.remark());
-        JooqWriters.insert(dsl, DATA, d);
+        SqlWriters.insert(dsl, DATA, d);
         return d.getId();
     }
 
@@ -102,7 +102,7 @@ public class DictDataService {
     @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     @Transactional
     public void update(Long id, UpdateDictDataRequest req) {
-        SysDictDataDO existing = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, DATA, SysDictDataDO.class, id), "字典数据不存在");
+        SysDictDataDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, DATA, SysDictDataDO.class, id), "字典数据不存在");
         if (!existing.getDictValue().equals(req.dictValue())
                 && existsByTypeAndValue(req.dictTypeCode(), req.dictValue(), id)) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "该字典类型下字典值已存在");
@@ -114,23 +114,23 @@ public class DictDataService {
         d.setDictSort(req.dictSort() == null ? existing.getDictSort() : req.dictSort());
         d.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
         d.setRemark(req.remark());
-        JooqWriters.updateById(dsl, DATA, id, d);
+        SqlWriters.updateById(dsl, DATA, id, d);
     }
 
     /** 逻辑删除。删除前不额外回查类型码，统一整缓存驱逐。 */
     @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
     @Transactional
     public void delete(Long id) {
-        JooqWriters.delete(dsl, DATA, id, true);
+        SqlWriters.delete(dsl, DATA, id, true);
     }
 
     private boolean existsByTypeAndValue(String typeCode, String value, Long excludeId) {
-        Condition cond = DSL.and(JooqWriters.notDeleted(DATA),
-                JooqTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(typeCode),
-                JooqTables.SYS_DICT_DATA.field("dict_value", String.class).eq(value));
+        Condition cond = DSL.and(SqlWriters.notDeleted(DATA),
+                SqlTables.SYS_DICT_DATA.field("dict_type_code", String.class).eq(typeCode),
+                SqlTables.SYS_DICT_DATA.field("dict_value", String.class).eq(value));
         if (excludeId != null) {
-            cond = DSL.and(cond, JooqTables.SYS_DICT_DATA.field("id", Long.class).ne(excludeId));
+            cond = DSL.and(cond, SqlTables.SYS_DICT_DATA.field("id", Long.class).ne(excludeId));
         }
-        return JooqWriters.count(dsl, DATA, cond) > 0;
+        return SqlWriters.count(dsl, DATA, cond) > 0;
     }
 }

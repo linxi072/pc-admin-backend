@@ -1,15 +1,15 @@
 package com.acme.scaffold.system.user.adapter;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
 import com.acme.scaffold.security.user.UserAccountPatch;
 import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class UserAccountDataAdapter implements UserAccountDataPort {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private final DSLContext dsl;
 
@@ -30,8 +30,8 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (username == null) {
             return null;
         }
-        SysUserDO u = JooqWriters.fetchOne(dsl, USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(USER),
+        SysUserDO u = SqlWriters.fetchOne(dsl, USER, SysUserDO.class,
+                DSL.and(SqlWriters.notDeleted(USER),
                         USER.field("username", String.class).eq(username)));
         return toAccount(u);
     }
@@ -41,7 +41,7 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (id == null) {
             return null;
         }
-        SysUserDO u = JooqWriters.fetchById(dsl, USER, SysUserDO.class, id);
+        SysUserDO u = SqlWriters.fetchById(dsl, USER, SysUserDO.class, id);
         return toAccount(u);
     }
 
@@ -59,7 +59,7 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (id == null || patch == null) {
             return;
         }
-        // 仅非空字段参与更新（JooqWriters.updateById 跳过 null），与 AuthService 的部分补丁语义一致
+        // 仅非空字段参与更新（SqlWriters.updateById 跳过 null），与 AuthService 的部分补丁语义一致
         SysUserDO p = new SysUserDO();
         p.setPasswordHash(patch.passwordHash());
         p.setPasswordChangedAt(patch.passwordChangedAt());
@@ -73,6 +73,6 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (patch.status() != null) {
             p.setStatus(RecordStatus.normalize(patch.status()));
         }
-        JooqWriters.updateById(dsl, USER, id, p);
+        SqlWriters.updateById(dsl, USER, id, p);
     }
 }

@@ -6,9 +6,9 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.workflow.config.WorkflowMonitorProperties;
@@ -24,9 +24,9 @@ import com.acme.scaffold.workflow.rules.WorkflowDefinitionRules;
 import com.acme.scaffold.workflow.rules.WorkflowMonitorRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -58,14 +58,14 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class WorkflowMonitorService {
-    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.WF_APPROVAL_RECORD;
-    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
-    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
+    private static final SqlTables.TableRef WF_APPROVAL_RECORD = SqlTables.WF_APPROVAL_RECORD;
+    private static final SqlTables.TableRef WF_INSTANCE_EXT = SqlTables.WF_INSTANCE_EXT;
+    private static final SqlTables.TableRef WF_TASK_EXT = SqlTables.WF_TASK_EXT;
 
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     /** 排序白名单：客户端字段名 → 数据库列名（白名单外忽略，防 ORDER BY 注入）。 */
-    private static final Map<String, String> INSTANCE_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> INSTANCE_SORT_FIELDS = SqlSorts.whitelist(
             "startedAt", "started_at",
             "title", "title",
             "status", "status",
@@ -97,9 +97,9 @@ public class WorkflowMonitorService {
         String kw = WorkflowMonitorRules.normalizeKeyword(keyword);
         Condition cond = buildInstanceCondition(st, kw);
         var query = PageQuery.of(page, size, null, null);
-        PageResult<WfInstanceExtDO> raw = JooqWriters.page(dsl, WF_INSTANCE_EXT,
+        PageResult<WfInstanceExtDO> raw = SqlWriters.page(dsl, WF_INSTANCE_EXT,
                 WfInstanceExtDO.class, cond, query,
-                JooqSorts.resolve(WF_INSTANCE_EXT, query, INSTANCE_SORT_FIELDS,
+                SqlSorts.resolve(WF_INSTANCE_EXT, query, INSTANCE_SORT_FIELDS,
                         WF_INSTANCE_EXT.field("started_at", LocalDateTime.class).desc(),
                         WF_INSTANCE_EXT.field("id", Long.class).desc()));
         LocalDateTime now = LocalDateTime.now();
@@ -171,8 +171,8 @@ public class WorkflowMonitorService {
         return new MonitorStatsView(
                 countInstances(WF_INSTANCE_EXT.field("status", String.class).eq("RUNNING")),
                 engine.countOverdueTasks(now),
-                JooqWriters.count(dsl, WF_TASK_EXT, DSL.and(
-                        JooqWriters.notDeleted(WF_TASK_EXT),
+                SqlWriters.count(dsl, WF_TASK_EXT, DSL.and(
+                        SqlWriters.notDeleted(WF_TASK_EXT),
                         WF_TASK_EXT.field("status", String.class).eq("PENDING"))),
                 countInstances(WF_INSTANCE_EXT.field("started_at", LocalDateTime.class)
                         .greaterOrEqual(todayStart)),
@@ -259,14 +259,14 @@ public class WorkflowMonitorService {
     // ------------------------------------------------------------------
 
     private long countInstances(Condition extra) {
-        return JooqWriters.count(dsl, WF_INSTANCE_EXT,
-                DSL.and(JooqWriters.notDeleted(WF_INSTANCE_EXT), extra));
+        return SqlWriters.count(dsl, WF_INSTANCE_EXT,
+                DSL.and(SqlWriters.notDeleted(WF_INSTANCE_EXT), extra));
     }
 
     /** 实例筛选：逻辑删除恒成立；状态白名单命中才收敛；关键字对标题/业务单号 OR 模糊。 */
     private Condition buildInstanceCondition(String status, String keyword) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(WF_INSTANCE_EXT));
+        conds.add(SqlWriters.notDeleted(WF_INSTANCE_EXT));
         if (status != null) {
             conds.add(WF_INSTANCE_EXT.field("status", String.class).eq(status));
         }
@@ -285,7 +285,7 @@ public class WorkflowMonitorService {
         if (distinct.isEmpty()) {
             return Map.of();
         }
-        List<SysUserDO> users = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+        List<SysUserDO> users = SqlWriters.fetchList(dsl, USER, SysUserDO.class,
                 USER.field("id", Long.class).in(distinct));
         Map<Long, String> map = new HashMap<>();
         users.forEach(u -> map.put(u.getId(), u.getUsername()));
@@ -299,7 +299,7 @@ public class WorkflowMonitorService {
         if (distinct.isEmpty()) {
             return Map.of();
         }
-        List<WfInstanceExtDO> rows = JooqWriters.fetchList(dsl, WF_INSTANCE_EXT,
+        List<WfInstanceExtDO> rows = SqlWriters.fetchList(dsl, WF_INSTANCE_EXT,
                 WfInstanceExtDO.class,
                 WF_INSTANCE_EXT.field("process_instance_id", String.class).in(distinct));
         Map<String, WfInstanceExtDO> map = new HashMap<>();
@@ -309,7 +309,7 @@ public class WorkflowMonitorService {
 
     /** 该任务最近一次催办时刻（无记录返回 null，表示从未催办）。 */
     private LocalDateTime lastRemindAt(String taskId) {
-        List<WfApprovalRecordDO> rows = JooqWriters.fetchList(dsl, WF_APPROVAL_RECORD,
+        List<WfApprovalRecordDO> rows = SqlWriters.fetchList(dsl, WF_APPROVAL_RECORD,
                 WfApprovalRecordDO.class,
                 DSL.and(WF_APPROVAL_RECORD.field("task_id", String.class).eq(taskId),
                         WF_APPROVAL_RECORD.field("action", String.class).eq(ACTION_REMIND)),
@@ -332,6 +332,6 @@ public class WorkflowMonitorService {
         record.setOpinion("minInterval=" + properties.getRemindMinIntervalMinutes());
         record.setTraceId(org.slf4j.MDC.get("traceId"));
         record.setOccurredAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, WF_APPROVAL_RECORD, record);
+        SqlWriters.insert(dsl, WF_APPROVAL_RECORD, record);
     }
 }

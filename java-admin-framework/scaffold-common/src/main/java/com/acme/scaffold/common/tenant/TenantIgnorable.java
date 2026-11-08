@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 标记方法/类为「跨租户旁路」：在此作用域内，jOOQ 租户强制隔离（由 {@code JooqWriters} 经
+ * 标记方法/类为「跨租户旁路」：在此作用域内，jOOQ 租户强制隔离（由 {@code SqlWriters} 经
  * {@code TenantEnforcement} 单点裁决）不追加 tenant_id 过滤，允许平台管理员或内部通道
  * 访问跨租户数据（如平台维表、跨租户统计）。
  *

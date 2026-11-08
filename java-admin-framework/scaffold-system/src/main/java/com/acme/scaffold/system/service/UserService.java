@@ -1,5 +1,5 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.PagingRules;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -12,12 +12,12 @@ import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.validation.DomainValidators;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.common.sensitive.SensitiveType;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooq.paging.JooqKeysetPager;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.mybatis.dsl.KeysetPager;
 import com.acme.scaffold.security.permission.ColumnField;
 import com.acme.scaffold.security.permission.ColumnPermission;
 import com.acme.scaffold.security.permission.ColumnPermissionFieldView;
@@ -41,10 +41,10 @@ import com.acme.scaffold.system.entity.SysUserOrgDO;
 import com.acme.scaffold.system.entity.SysUserRoleDO;
 import com.acme.scaffold.system.service.RoleColumnPermissionService;
 import lombok.RequiredArgsConstructor;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -71,22 +71,22 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
-    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
-    private static final JooqTables.TableRef USER_POST = JooqTables.SYS_USER_POST;
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ORG = SqlTables.SYS_USER_ORG;
+    private static final SqlTables.TableRef USER_POST = SqlTables.SYS_USER_POST;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     /** 用户列表可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> USER_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> USER_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "username", "username",
             "displayName", "display_name",
             "status", "status",
             "createdAt", "created_at");
 
-    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_ROLE} 等价，列集一致。 */
-    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef ROLE =
-            JooqTables.SYS_ROLE;
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link SqlTables#SYS_ROLE} 等价，列集一致。 */
+    private static final com.acme.scaffold.mybatis.dsl.SqlTables.TableRef ROLE =
+            SqlTables.SYS_ROLE;
 
     private final DSLContext dsl;
     private final PasswordEncoder passwordEncoder;
@@ -139,7 +139,7 @@ public class UserService {
         user.setPasswordChangedAt(LocalDateTime.now());
         // 设计文档 §5.3：首次登录强制改密（password_expired=1），新用户必须先改密再进入系统
         user.setPasswordExpired(1);
-        JooqWriters.insert(dsl, USER, user);
+        SqlWriters.insert(dsl, USER, user);
 
         // 记录初始口令到密码历史，纳入「禁止复用最近 5 次」安全基线
         passwordHistoryService.record(user.getId(), encodedPassword);
@@ -185,7 +185,7 @@ public class UserService {
             user.setStatus(request.status());
             permissionChanged = true;
         }
-        JooqWriters.updateById(dsl, USER, id, user);
+        SqlWriters.updateById(dsl, USER, id, user);
 
         // 跨域副作用解耦（ROADMAP R2）：用户被禁用时发布领域事件，由 security/notification 等订阅方响应
         // （踢下线 / 发通知）。system 不再直连下游；事件总线错误隔离，订阅方故障不影响本事务提交。
@@ -255,7 +255,7 @@ public class UserService {
         // 而管理员重置是「已知会告知用户的新口令」，若再强制改密一次会把用户拦在登录页外
         // （登录被 423 拦截且无自助改密入口时形成死锁），故此处显式清零。
         user.setPasswordExpired(0);
-        JooqWriters.updateById(dsl, USER, id, user);
+        SqlWriters.updateById(dsl, USER, id, user);
         // 记录本次重置后的口令到密码历史
         passwordHistoryService.record(id, encodedPassword);
         // 统一走 TokenVersionService 递增：既写库又失效缓存，避免与「仅改内存」的写法分叉
@@ -271,10 +271,10 @@ public class UserService {
     @Transactional
     public void delete(Long id) {
         get(id); // 校验存在性，不存在抛 NOT_FOUND
-        JooqWriters.deleteByColumn(dsl, USER_ROLE, "user_id", id);
-        JooqWriters.deleteByColumn(dsl, USER_ORG, "user_id", id);
-        JooqWriters.deleteByColumn(dsl, USER_POST, "user_id", id);
-        JooqWriters.delete(dsl, USER, id, false);
+        SqlWriters.deleteByColumn(dsl, USER_ROLE, "user_id", id);
+        SqlWriters.deleteByColumn(dsl, USER_ORG, "user_id", id);
+        SqlWriters.deleteByColumn(dsl, USER_POST, "user_id", id);
+        SqlWriters.delete(dsl, USER, id, false);
         // 用户已不存在：递增影响 0 行，但会失效缓存，使该用户残留的凭证在下一次请求即被判失效
         tokenVersionService.bumpUser(id);
     }
@@ -310,9 +310,9 @@ public class UserService {
      * 各自的业务校验负责，避免改动面扩散到更新 / 删除 / 重置密码等既有行为。</p>
      */
     private SysUserDO getScoped(Long id) {
-        SysUserDO user = JooqWriters.fetchOne(dsl, USER, SysUserDO.class,
+        SysUserDO user = SqlWriters.fetchOne(dsl, USER, SysUserDO.class,
                 DSL.and(
-                        JooqWriters.notDeleted(USER),
+                        SqlWriters.notDeleted(USER),
                         USER.field("id", Long.class).eq(id),
                         DataScopeConditions.of(USER, "org_id", "id")));
         if (user == null) {
@@ -338,9 +338,9 @@ public class UserService {
         }
         List<Condition> conds = buildUserListConds(query);
         var pageQuery = query.toPageQuery();
-        PageResult<SysUserDO> page = JooqWriters.page(dsl, USER, SysUserDO.class,
+        PageResult<SysUserDO> page = SqlWriters.page(dsl, USER, SysUserDO.class,
                 DSL.and(conds), pageQuery,
-                JooqSorts.resolve(USER, pageQuery, USER_SORT_FIELDS,
+                SqlSorts.resolve(USER, pageQuery, USER_SORT_FIELDS,
                         USER.field("id", Long.class).desc()));
         return new PageResult<>(page.page(), page.size(), page.total(), toUserViews(page.records()));
     }
@@ -348,7 +348,7 @@ public class UserService {
     /** 构造用户列表查询条件（含数据权限），供 OFFSET 与 keyset 两种分页复用。 */
     private List<Condition> buildUserListConds(UserQuery query) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(USER));
+        conds.add(SqlWriters.notDeleted(USER));
         if (StringUtils.hasText(query.username())) {
             conds.add(DSL.or(
                     USER.field("username", String.class).like("%" + query.username() + "%"),
@@ -400,7 +400,7 @@ public class UserService {
                 USER.field("id", Long.class)
         };
         boolean[] ascending = {false, false}; // created_at DESC, id DESC
-        KeysetPageResult<SysUserDO> raw = JooqKeysetPager.query(dsl, USER, SysUserDO.class,
+        KeysetPageResult<SysUserDO> raw = KeysetPager.query(dsl, USER, SysUserDO.class,
                 DSL.and(conds), q,
                 u -> new Object[]{u.getCreatedAt(), u.getId()}, keyFields, ascending);
         return KeysetPageResult.of(raw.size(), toUserViews(raw.records()), raw.nextCursor());
@@ -426,7 +426,7 @@ public class UserService {
         if (roleId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "角色不能为空");
         }
-        SysRoleDO role = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, ROLE, SysRoleDO.class, roleId), "角色不存在");
+        SysRoleDO role = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, ROLE, SysRoleDO.class, roleId), "角色不存在");
         if (!"ACTIVE".equals(role.getStatus())) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "角色已停用，无法绑定");
         }
@@ -438,32 +438,32 @@ public class UserService {
         if (orgId == null) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "部门不能为空");
         }
-        SysOrgDO org = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.SYS_ORG, SysOrgDO.class, orgId), "部门不存在");
+        SysOrgDO org = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.SYS_ORG, SysOrgDO.class, orgId), "部门不存在");
     }
 
     /** 整体替换用户角色关联：删除旧关联后按新集合写入，primaryRoleId 标记主角色（为空取首位）。 */
     private void assignRoles(Long userId, List<Long> roleIds, Long primaryRoleId) {
-        JooqWriters.deleteByColumn(dsl, USER_ROLE, "user_id", userId);
+        SqlWriters.deleteByColumn(dsl, USER_ROLE, "user_id", userId);
         Long primary = roleIds.isEmpty() ? null : (primaryRoleId != null ? primaryRoleId : roleIds.get(0));
         for (Long roleId : roleIds) {
             SysUserRoleDO ur = new SysUserRoleDO();
             ur.setUserId(userId);
             ur.setRoleId(roleId);
             ur.setIsPrimary(Objects.equals(roleId, primary) ? 1 : 0);
-            JooqWriters.insert(dsl, USER_ROLE, ur);
+            SqlWriters.insert(dsl, USER_ROLE, ur);
         }
     }
 
     /** 整体替换用户部门关联：删除旧关联后按新集合写入，primaryDeptId 标记主部门（为空取首位）。 */
     private void assignOrgs(Long userId, List<Long> deptIds, Long primaryDeptId) {
-        JooqWriters.deleteByColumn(dsl, USER_ORG, "user_id", userId);
+        SqlWriters.deleteByColumn(dsl, USER_ORG, "user_id", userId);
         Long primary = deptIds.isEmpty() ? null : (primaryDeptId != null ? primaryDeptId : deptIds.get(0));
         for (Long deptId : deptIds) {
             SysUserOrgDO uo = new SysUserOrgDO();
             uo.setUserId(userId);
             uo.setOrgId(deptId);
             uo.setIsPrimary(Objects.equals(deptId, primary) ? 1 : 0);
-            JooqWriters.insert(dsl, USER_ORG, uo);
+            SqlWriters.insert(dsl, USER_ORG, uo);
         }
     }
 
@@ -522,7 +522,7 @@ public class UserService {
                     if (p.userId() == null) {
                         return Set.<String>of();
                     }
-                    Set<Long> roleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+                    Set<Long> roleIds = SqlWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
                                     USER_ROLE.field("user_id", Long.class).eq(p.userId())).stream()
                             .map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
                     return roleColumnPermissionService.grantedCodes(roleIds);
@@ -536,15 +536,15 @@ public class UserService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        Map<Long, List<Long>> userRoleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+        Map<Long, List<Long>> userRoleIds = SqlWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
                         USER_ROLE.field("user_id", Long.class).in(userIds)).stream()
                 .collect(Collectors.groupingBy(SysUserRoleDO::getUserId,
                         Collectors.mapping(SysUserRoleDO::getRoleId, Collectors.toList())));
         Set<Long> roleIds = userRoleIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());
         Map<Long, RoleInfo> roleCache = new HashMap<>();
         if (!roleIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
-                            DSL.and(JooqWriters.notDeleted(ROLE),
+            SqlWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+                            DSL.and(SqlWriters.notDeleted(ROLE),
                                     ROLE.field("id", Long.class).in(roleIds)))
                     .forEach(r -> roleCache.put(r.getId(), new RoleInfo(r.getId(), r.getRoleName(), r.getRoleCode())));
         }
@@ -562,16 +562,16 @@ public class UserService {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        Map<Long, List<Long>> userOrgIds = JooqWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
+        Map<Long, List<Long>> userOrgIds = SqlWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
                         USER_ORG.field("user_id", Long.class).in(userIds)).stream()
                 .collect(Collectors.groupingBy(SysUserOrgDO::getUserId,
                         Collectors.mapping(SysUserOrgDO::getOrgId, Collectors.toList())));
         Set<Long> orgIds = userOrgIds.values().stream().flatMap(List::stream).collect(Collectors.toSet());
         Map<Long, OrgInfo> orgCache = new HashMap<>();
         if (!orgIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                            DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
-                                    JooqTables.SYS_ORG.field("id", Long.class).in(orgIds)))
+            SqlWriters.fetchList(dsl, SqlTables.SYS_ORG, SysOrgDO.class,
+                            DSL.and(SqlWriters.notDeleted(SqlTables.SYS_ORG),
+                                    SqlTables.SYS_ORG.field("id", Long.class).in(orgIds)))
                     .forEach(o -> orgCache.put(o.getId(), new OrgInfo(o.getId(), o.getOrgName())));
         }
         Map<Long, List<OrgInfo>> result = new HashMap<>();
@@ -583,8 +583,8 @@ public class UserService {
     }
 
     private boolean existsByUsername(String username) {
-        return JooqWriters.count(dsl, USER,
-                DSL.and(JooqWriters.notDeleted(USER),
+        return SqlWriters.count(dsl, USER,
+                DSL.and(SqlWriters.notDeleted(USER),
                         USER.field("username", String.class).eq(username))) > 0;
     }
 
@@ -599,18 +599,18 @@ public class UserService {
             return;
         }
         Condition cond = USER.field(column, String.class).eq(value.trim())
-                .and(JooqWriters.notDeleted(USER));
+                .and(SqlWriters.notDeleted(USER));
         if (selfId != null) {
             cond = cond.and(USER.field("id", Long.class).ne(selfId));
         }
-        if (JooqWriters.count(dsl, USER, cond) > 0) {
+        if (SqlWriters.count(dsl, USER, cond) > 0) {
             throw BusinessException.conflict("mobile".equals(column)
                     ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
         }
     }
 
     private SysUserDO get(Long id) {
-        SysUserDO user = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, USER, SysUserDO.class, id), "用户不存在");
+        SysUserDO user = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, USER, SysUserDO.class, id), "用户不存在");
         return user;
     }
 

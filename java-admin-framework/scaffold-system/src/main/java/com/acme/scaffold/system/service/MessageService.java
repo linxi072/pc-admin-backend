@@ -8,9 +8,9 @@ import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooq.paging.JooqKeysetPager;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.mybatis.dsl.KeysetPager;
 import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageView;
@@ -20,11 +20,12 @@ import com.acme.scaffold.system.entity.SysMessageReceiptDO;
 import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.Record2;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.Record2;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.CaseStep;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,18 +53,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MessageService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
-    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ORG = SqlTables.SYS_USER_ORG;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private static final int MAX_BATCH = 5000;
 
-    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE} 等价，列集一致。 */
-    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef MSG =
-            JooqTables.SYS_MESSAGE;
-    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
-    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef RC =
-            JooqTables.SYS_MESSAGE_RECEIPT;
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link SqlTables#SYS_MESSAGE} 等价，列集一致。 */
+    private static final com.acme.scaffold.mybatis.dsl.SqlTables.TableRef MSG =
+            SqlTables.SYS_MESSAGE;
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link SqlTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
+    private static final com.acme.scaffold.mybatis.dsl.SqlTables.TableRef RC =
+            SqlTables.SYS_MESSAGE_RECEIPT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -115,8 +116,8 @@ public class MessageService {
         }
 
         // 过滤掉不存在的用户，避免脏投递
-        List<Long> validUserIds = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
-                        DSL.and(JooqWriters.notDeleted(USER),
+        List<Long> validUserIds = SqlWriters.fetchList(dsl, USER, SysUserDO.class,
+                        DSL.and(SqlWriters.notDeleted(USER),
                                 USER.field("id", Long.class).in(receivers))).stream()
                 .map(SysUserDO::getId).collect(Collectors.toList());
         if (validUserIds.isEmpty()) {
@@ -134,7 +135,7 @@ public class MessageService {
         msg.setTotalCount(validUserIds.size());
         msg.setReadCount(0);
         msg.setSentAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, MSG, msg);
+        SqlWriters.insert(dsl, MSG, msg);
 
         // 批量插入收件明细：先收集全部回执再一次性 batch 写入，避免逐条 insert 的多次往返（M2/M3 批量写入缺陷修复）
         List<SysMessageReceiptDO> receipts = new ArrayList<>(validUserIds.size());
@@ -145,7 +146,7 @@ public class MessageService {
             r.setIsRead(0);
             receipts.add(r);
         }
-        JooqWriters.batchInsert(dsl, RC, receipts);
+        SqlWriters.batchInsert(dsl, RC, receipts);
         log.info("站内信发送完成 messageId={} 接收人数={}", msg.getId(), validUserIds.size());
         // 实时推送未读提醒给在线接收人；离线用户进入页面时通过 REST 拉取全量未读（保证至少一次可见）
         realtimePushService.sendToUsers(validUserIds, RealtimePushService.TYPE_UNREAD_MESSAGE,
@@ -190,8 +191,8 @@ public class MessageService {
         if (conds.isEmpty()) {
             return Set.of();
         }
-        return JooqWriters.fetchList(dsl, USER, SysUserDO.class,
-                        DSL.and(JooqWriters.notDeleted(USER),
+        return SqlWriters.fetchList(dsl, USER, SysUserDO.class,
+                        DSL.and(SqlWriters.notDeleted(USER),
                                 USER.field("status", String.class).eq("ACTIVE"),
                                 DSL.or(conds)))
                 .stream().map(SysUserDO::getId).collect(Collectors.toCollection(LinkedHashSet::new));
@@ -219,7 +220,7 @@ public class MessageService {
         }
 
         // 以收件表为主表做分页查询（仅返回属于自己的消息）
-        long total = JooqWriters.count(dsl, RC, DSL.and(conds));
+        long total = SqlWriters.count(dsl, RC, DSL.and(conds));
         var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
         List<Record2<Long, Integer>> receipts = dsl.select(
                         RC.field("message_id", Long.class),
@@ -255,7 +256,7 @@ public class MessageService {
                 RC.field("id", Long.class)
         };
         boolean[] ascending = {true, false}; // is_read ASC, id DESC
-        KeysetPageResult<SysMessageReceiptDO> raw = JooqKeysetPager.query(dsl, RC, SysMessageReceiptDO.class,
+        KeysetPageResult<SysMessageReceiptDO> raw = KeysetPager.query(dsl, RC, SysMessageReceiptDO.class,
                 DSL.and(conds), q,
                 r -> new Object[]{r.getIsRead(), r.getId()}, keyFields, ascending);
         List<Long> msgIds = raw.records().stream().map(SysMessageReceiptDO::getMessageId).toList();
@@ -272,9 +273,9 @@ public class MessageService {
             return views;
         }
         Set<Long> msgIds = new LinkedHashSet<>(orderedMsgIds);
-        Map<Long, SysMessageDO> msgMap = JooqWriters.fetchList(dsl, MSG,
+        Map<Long, SysMessageDO> msgMap = SqlWriters.fetchList(dsl, MSG,
                         SysMessageDO.class,
-                        DSL.and(JooqWriters.notDeleted(MSG),
+                        DSL.and(SqlWriters.notDeleted(MSG),
                                 MSG.field("id", Long.class).in(msgIds)))
                 .stream().collect(Collectors.toMap(SysMessageDO::getId, m -> m));
 
@@ -302,7 +303,7 @@ public class MessageService {
     /** 我的未读数量（用于顶部提醒徽标）。 */
     public long unreadCount() {
         Long userId = requireCurrentUserId();
-        return JooqWriters.count(dsl, RC,
+        return SqlWriters.count(dsl, RC,
                 DSL.and(RC.field("user_id", Long.class).eq(userId),
                         RC.field("is_read", Integer.class).eq(0)));
     }
@@ -314,7 +315,7 @@ public class MessageService {
     @Transactional
     public void markRead(Long messageId) {
         Long userId = requireCurrentUserId();
-        SysMessageReceiptDO receipt = JooqWriters.fetchOne(dsl, RC,
+        SysMessageReceiptDO receipt = SqlWriters.fetchOne(dsl, RC,
                 SysMessageReceiptDO.class,
                 DSL.and(RC.field("message_id", Long.class).eq(messageId),
                         RC.field("user_id", Long.class).eq(userId)));
@@ -354,7 +355,7 @@ public class MessageService {
     @Transactional
     public int markAllRead() {
         Long userId = requireCurrentUserId();
-        Map<Long, Long> perMessage = JooqWriters.fetchList(dsl, RC,
+        Map<Long, Long> perMessage = SqlWriters.fetchList(dsl, RC,
                         SysMessageReceiptDO.class,
                         DSL.and(RC.field("user_id", Long.class).eq(userId),
                                 RC.field("is_read", Integer.class).eq(0)))
@@ -375,7 +376,7 @@ public class MessageService {
         // 2) 各消息已读数按本次回执数累加（单条 CASE 语句，替代逐消息 UPDATE）
         var msgId = MSG.field("id", Long.class);
         var readCount = MSG.field("read_count", Integer.class);
-        org.jooq.CaseConditionStep<Integer> step = null;
+        CaseStep<Integer> step = null;
         for (Map.Entry<Long, Long> e : perMessage.entrySet()) {
             step = (step == null ? DSL.when(msgId.eq(e.getKey()), e.getValue().intValue())
                     : step.when(msgId.eq(e.getKey()), e.getValue().intValue()));
@@ -401,8 +402,8 @@ public class MessageService {
         }
         Long userId = requireCurrentUserId();
         var q = com.acme.scaffold.common.api.dto.PageQuery.of(page, size);
-        return JooqWriters.page(dsl, MSG, SysMessageDO.class,
-                DSL.and(JooqWriters.notDeleted(MSG),
+        return SqlWriters.page(dsl, MSG, SysMessageDO.class,
+                DSL.and(SqlWriters.notDeleted(MSG),
                         MSG.field("sender_id", Long.class).eq(userId)),
                 q, MSG.field("id", Long.class).desc());
     }
@@ -415,8 +416,8 @@ public class MessageService {
         KeysetPageQuery q = new KeysetPageQuery(size, cursor == null ? "" : cursor);
         Field<?>[] keyFields = new Field<?>[]{ MSG.field("id", Long.class) };
         boolean[] ascending = {false}; // id DESC
-        return JooqKeysetPager.query(dsl, MSG, SysMessageDO.class,
-                DSL.and(JooqWriters.notDeleted(MSG),
+        return KeysetPager.query(dsl, MSG, SysMessageDO.class,
+                DSL.and(SqlWriters.notDeleted(MSG),
                         MSG.field("sender_id", Long.class).eq(userId)),
                 q, m -> new Object[]{ m.getId() }, keyFields, ascending);
     }
@@ -431,7 +432,7 @@ public class MessageService {
         if (msgIds == null || msgIds.isEmpty()) {
             return map;
         }
-        JooqWriters.fetchList(dsl, RC, SysMessageReceiptDO.class,
+        SqlWriters.fetchList(dsl, RC, SysMessageReceiptDO.class,
                         DSL.and(RC.field("message_id", Long.class).in(msgIds),
                                 RC.field("user_id", Long.class).eq(userId),
                                 RC.field("is_read", Integer.class).eq(1)))
@@ -444,7 +445,7 @@ public class MessageService {
         if (senderIds.isEmpty()) {
             return map;
         }
-        JooqWriters.fetchList(dsl, USER, SysUserDO.class,
+        SqlWriters.fetchList(dsl, USER, SysUserDO.class,
                         DSL.and(USER.field("id", Long.class).in(senderIds)))
                 .forEach(u -> map.put(u.getId(), u.getDisplayName()));
         return map;

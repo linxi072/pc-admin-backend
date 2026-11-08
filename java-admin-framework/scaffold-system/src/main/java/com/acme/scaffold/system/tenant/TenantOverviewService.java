@@ -3,7 +3,7 @@ package com.acme.scaffold.system.tenant;
 import com.acme.scaffold.common.tenant.TenantIsolationAuditReport;
 import com.acme.scaffold.common.tenant.TenantIsolationAuditRules;
 import com.acme.scaffold.common.tenant.TenantProperties;
-import com.acme.scaffold.jooq.dsl.TenantTables;
+import com.acme.scaffold.mybatis.dsl.TenantTables;
 import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
 import com.acme.scaffold.system.tenant.dto.TenantOverviewItem;
 import com.acme.scaffold.system.tenant.dto.TenantOverviewView;

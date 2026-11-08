@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.permission.adapter;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.PermissionDataPort;
 import com.acme.scaffold.system.entity.SysApiResourceDO;
 import com.acme.scaffold.system.entity.SysMenuDO;
@@ -9,8 +9,8 @@ import com.acme.scaffold.system.entity.SysRoleApiDO;
 import com.acme.scaffold.system.entity.SysRoleDO;
 import com.acme.scaffold.system.entity.SysRoleMenuDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
@@ -29,11 +29,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PermissionDataAdapter implements PermissionDataPort {
 
-    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
+    private static final SqlTables.TableRef ROLE = SqlTables.SYS_ROLE;
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef AR = JooqTables.SYS_API_RESOURCE;
+    private static final SqlTables.TableRef AR = SqlTables.SYS_API_RESOURCE;
 
     @Override
     public Set<Long> roleIdsOfUser(Long userId) {
@@ -47,23 +47,23 @@ public class PermissionDataAdapter implements PermissionDataPort {
             return permissions;
         }
 
-        List<Long> apiIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_API, SysRoleApiDO.class,
-                        JooqTables.SYS_ROLE_API.field("role_id", Long.class).in(roleIds)).stream()
+        List<Long> apiIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_API, SysRoleApiDO.class,
+                        SqlTables.SYS_ROLE_API.field("role_id", Long.class).in(roleIds)).stream()
                 .map(SysRoleApiDO::getApiId).collect(Collectors.toList());
         if (!apiIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, AR, SysApiResourceDO.class,
-                            DSL.and(JooqWriters.notDeleted(AR),
+            SqlWriters.fetchList(dsl, AR, SysApiResourceDO.class,
+                            DSL.and(SqlWriters.notDeleted(AR),
                                     AR.field("id", Long.class).in(apiIds)))
                     .forEach(a -> permissions.add(a.getPermissionCode()));
         }
 
-        List<Long> menuIds = JooqWriters.fetchList(dsl, JooqTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
-                        JooqTables.SYS_ROLE_MENU.field("role_id", Long.class).in(roleIds)).stream()
+        List<Long> menuIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
+                        SqlTables.SYS_ROLE_MENU.field("role_id", Long.class).in(roleIds)).stream()
                 .map(SysRoleMenuDO::getMenuId).collect(Collectors.toList());
         if (!menuIds.isEmpty()) {
-            JooqWriters.fetchList(dsl, JooqTables.SYS_MENU, SysMenuDO.class,
-                            DSL.and(JooqWriters.notDeleted(JooqTables.SYS_MENU),
-                                    JooqTables.SYS_MENU.field("id", Long.class).in(menuIds)))
+            SqlWriters.fetchList(dsl, SqlTables.SYS_MENU, SysMenuDO.class,
+                            DSL.and(SqlWriters.notDeleted(SqlTables.SYS_MENU),
+                                    SqlTables.SYS_MENU.field("id", Long.class).in(menuIds)))
                     .forEach(m -> {
                         if (m.getPermissionCode() != null && !m.getPermissionCode().isBlank()) {
                             permissions.add(m.getPermissionCode());
@@ -78,8 +78,8 @@ public class PermissionDataAdapter implements PermissionDataPort {
         if (roleIds.isEmpty()) {
             return Set.of();
         }
-        return JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
-                        DSL.and(JooqWriters.notDeleted(ROLE),
+        return SqlWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+                        DSL.and(SqlWriters.notDeleted(ROLE),
                                 ROLE.field("id", Long.class).in(roleIds)))
                 .stream().map(SysRoleDO::getRoleCode).collect(Collectors.toSet());
     }

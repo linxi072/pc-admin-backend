@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
  *
  * <p>指标键 / 比较符 / 严重度 / 渠道类型均以字符串存储枚举名（由
  * {@code com.acme.scaffold.monitor.alert.rules.AlertRuleRules} 解析校验），
- * 便于在不改表结构的前提下横向扩展枚举。tenant_id 由 JooqWriters 在未启用强制隔离时统一写 0，
- * deleted / version / 时间字段由 JooqWriters 自动填充，无需在业务层赋值。</p>
+ * 便于在不改表结构的前提下横向扩展枚举。tenant_id 由 SqlWriters 在未启用强制隔离时统一写 0，
+ * deleted / version / 时间字段由 SqlWriters 自动填充，无需在业务层赋值。</p>
  */
 @Data
 public class AlertRuleDO {

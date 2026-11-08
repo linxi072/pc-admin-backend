@@ -1,9 +1,10 @@
 package com.acme.scaffold.system.service;
 
+import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dto.BindContactRequest;
 import com.acme.scaffold.system.dto.DeviceView;
 import com.acme.scaffold.system.dto.PreferenceView;
@@ -16,8 +17,8 @@ import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.entity.SysUserOrgDO;
 import com.acme.scaffold.system.entity.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -40,11 +41,11 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ProfileService {
 
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
-    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ORG = SqlTables.SYS_USER_ORG;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
-    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
+    private static final SqlTables.TableRef ROLE = SqlTables.SYS_ROLE;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -97,7 +98,7 @@ public class ProfileService {
             }
         }
 
-        JooqWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
         return getProfile();
     }
 
@@ -135,7 +136,7 @@ public class ProfileService {
                 patch.setNotifyEmail(0);
             }
         }
-        JooqWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
         return getProfile();
     }
 
@@ -148,7 +149,7 @@ public class ProfileService {
         SysUserDO patch = new SysUserDO();
         boolean hasAvatar = StringUtils.hasText(avatarUrl);
         patch.setAvatarUrl(hasAvatar ? avatarUrl.trim() : null);
-        JooqWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch,
+        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch,
                 hasAvatar ? Set.of() : Set.of("avatar_url"));
         return getProfile();
     }
@@ -190,7 +191,7 @@ public class ProfileService {
         if (request.discoverable() != null) {
             patch.setDiscoverable(request.discoverable());
         }
-        JooqWriters.updateById(dsl, USER, current.getId(), patch);
+        SqlWriters.updateById(dsl, USER, current.getId(), patch);
         return getPreference();
     }
 
@@ -219,12 +220,12 @@ public class ProfileService {
         if (!StringUtils.hasText(value)) {
             return;
         }
-        org.jooq.Condition cond = USER.field(column, String.class).eq(value)
-                .and(JooqWriters.notDeleted(USER));
+        Condition cond = USER.field(column, String.class).eq(value)
+                .and(SqlWriters.notDeleted(USER));
         if (selfId != null) {
             cond = cond.and(USER.field("id", Long.class).ne(selfId));
         }
-        if (JooqWriters.count(dsl, USER, cond) > 0) {
+        if (SqlWriters.count(dsl, USER, cond) > 0) {
             throw BusinessException.conflict("MOBILE".equalsIgnoreCase(column) || "mobile".equals(column)
                     ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
         }
@@ -281,29 +282,29 @@ public class ProfileService {
 
     /** 取用户全部角色名称（多对多，sys_user_role 关联表）。 */
     private List<String> loadRoleNames(Long userId) {
-        List<Long> roleIds = JooqWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+        List<Long> roleIds = SqlWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
                         USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
                 .map(SysUserRoleDO::getRoleId).toList();
         if (roleIds.isEmpty()) {
             return List.of();
         }
-        return JooqWriters.fetchList(dsl, ROLE, SysRoleDO.class,
-                        DSL.and(JooqWriters.notDeleted(ROLE),
+        return SqlWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+                        DSL.and(SqlWriters.notDeleted(ROLE),
                                 ROLE.field("id", Long.class).in(roleIds)))
                 .stream().map(SysRoleDO::getRoleName).toList();
     }
 
     /** 取用户全部部门名称（多对多，sys_user_org 关联表）。 */
     private List<String> loadOrgNames(Long userId) {
-        List<Long> orgIds = JooqWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
+        List<Long> orgIds = SqlWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
                         USER_ORG.field("user_id", Long.class).eq(userId)).stream()
                 .map(SysUserOrgDO::getOrgId).toList();
         if (orgIds.isEmpty()) {
             return List.of();
         }
-        return JooqWriters.fetchList(dsl, JooqTables.SYS_ORG, SysOrgDO.class,
-                        DSL.and(JooqWriters.notDeleted(JooqTables.SYS_ORG),
-                                JooqTables.SYS_ORG.field("id", Long.class).in(orgIds)))
+        return SqlWriters.fetchList(dsl, SqlTables.SYS_ORG, SysOrgDO.class,
+                        DSL.and(SqlWriters.notDeleted(SqlTables.SYS_ORG),
+                                SqlTables.SYS_ORG.field("id", Long.class).in(orgIds)))
                 .stream().map(SysOrgDO::getOrgName).toList();
     }
 }

@@ -1,13 +1,13 @@
 package com.acme.scaffold.monitor.alert.service;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.monitor.alert.rules.AlertRuleRules.MetricKey;
 import com.acme.scaffold.monitor.domain.ServerMetrics;
 import com.acme.scaffold.monitor.service.MonitorService;
 import com.acme.scaffold.monitor.service.NPlusOneService;
 import com.acme.scaffold.monitor.service.RuntimeMetricsCollector;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -82,9 +82,9 @@ public class MetricSampler {
 
     private long countErrorLogs() {
         Long count = dsl.selectCount()
-                .from(JooqTables.SYS_OPERATION_LOG.table())
-                .where(JooqTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(0))
-                .and(JooqTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class)
+                .from(SqlTables.SYS_OPERATION_LOG.table())
+                .where(SqlTables.SYS_OPERATION_LOG.field("success", Integer.class).eq(0))
+                .and(SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class)
                         .ge(LocalDateTime.now().minusMinutes(ERROR_LOG_WINDOW_MINUTES)))
                 .fetchOne(0, Long.class);
         return count == null ? 0L : count;

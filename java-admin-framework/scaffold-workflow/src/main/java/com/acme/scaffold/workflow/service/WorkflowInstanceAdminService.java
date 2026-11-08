@@ -4,15 +4,15 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.workflow.entity.WfApprovalRecordDO;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
 import com.acme.scaffold.workflow.rules.WorkflowInstanceAdminRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -38,9 +38,9 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 @RequiredArgsConstructor
 public class WorkflowInstanceAdminService {
-    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.WF_APPROVAL_RECORD;
-    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
-    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
+    private static final SqlTables.TableRef WF_APPROVAL_RECORD = SqlTables.WF_APPROVAL_RECORD;
+    private static final SqlTables.TableRef WF_INSTANCE_EXT = SqlTables.WF_INSTANCE_EXT;
+    private static final SqlTables.TableRef WF_TASK_EXT = SqlTables.WF_TASK_EXT;
 
     /** 治理审计 ID 的进程内序号：保证同一毫秒内多条记录绝不重复。 */
     private static final AtomicLong ADMIN_RECORD_SEQ = new AtomicLong();
@@ -215,6 +215,6 @@ public class WorkflowInstanceAdminService {
         record.setOpinion(opinion);
         record.setTraceId(org.slf4j.MDC.get("traceId"));
         record.setOccurredAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, WF_APPROVAL_RECORD, record);
+        SqlWriters.insert(dsl, WF_APPROVAL_RECORD, record);
     }
 }

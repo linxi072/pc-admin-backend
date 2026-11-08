@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 租户隔离态势诊断接口（M28）：只读暴露当前多租户隔离的「配置态 + 运行态 + 当前执行作用域 + 配置校验结果」，
  * 供运维诊断页展示。
  *
- * <p><b>只读语义</b>：本接口不写库、不触发任何隔离逻辑（不调用 {@code JooqWriters} 写路径）、不新增依赖，
+ * <p><b>只读语义</b>：本接口不写库、不触发任何隔离逻辑（不调用 {@code SqlWriters} 写路径）、不新增依赖，
  * 仅聚合既有 {@link TenantEnforcement} / {@link TenantContext} / {@link TenantProperties} 的静态与配置态。</p>
  *
  * <p><b>权限</b>：取 {@code system:tenant-isolation:read}——由 {@code ApiResourceAutoSyncRunner} 启动时扫描

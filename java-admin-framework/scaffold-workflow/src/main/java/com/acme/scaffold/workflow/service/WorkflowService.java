@@ -3,8 +3,8 @@ package com.acme.scaffold.workflow.service;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.monitor.domain.BusinessMetrics;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -29,8 +29,8 @@ import com.acme.scaffold.workflow.rules.ClaimRules;
 import com.acme.scaffold.workflow.service.WorkflowDesignService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -53,11 +53,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class WorkflowService {
-    private static final JooqTables.TableRef WF_APPROVAL_RECORD = JooqTables.WF_APPROVAL_RECORD;
-    private static final JooqTables.TableRef WF_INSTANCE_EXT = JooqTables.WF_INSTANCE_EXT;
-    private static final JooqTables.TableRef WF_TASK_EXT = JooqTables.WF_TASK_EXT;
+    private static final SqlTables.TableRef WF_APPROVAL_RECORD = SqlTables.WF_APPROVAL_RECORD;
+    private static final SqlTables.TableRef WF_INSTANCE_EXT = SqlTables.WF_INSTANCE_EXT;
+    private static final SqlTables.TableRef WF_TASK_EXT = SqlTables.WF_TASK_EXT;
 
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private final WorkflowEnginePort engine;
     private final DSLContext dsl;
@@ -102,7 +102,7 @@ public class WorkflowService {
         ext.setStarterOrgId(0L);
         ext.setStatus("RUNNING");
         ext.setStartedAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, WF_INSTANCE_EXT, ext);
+        SqlWriters.insert(dsl, WF_INSTANCE_EXT, ext);
 
         List<WorkflowEnginePort.TaskInfo> activeTasks = engine.activeTasks(instance.processInstanceId());
         activeTasks.forEach(t -> saveTaskExt(instance.processInstanceId(), t));
@@ -265,7 +265,7 @@ public class WorkflowService {
         }
         engine.resolve(task.taskId());
 
-        WfTaskExtDO ext = JooqWriters.fetchOne(dsl, WF_TASK_EXT, WfTaskExtDO.class,
+        WfTaskExtDO ext = SqlWriters.fetchOne(dsl, WF_TASK_EXT, WfTaskExtDO.class,
                 WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()));
         Long delegator = ext == null ? null : ext.getDelegatorUserId();
         dsl.update(WF_TASK_EXT.table())
@@ -330,7 +330,7 @@ public class WorkflowService {
     public List<TaskView> myDoneTasks() {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
         Long userId = principal.userId();
-        List<WfTaskExtDO> done = JooqWriters.fetchList(dsl, WF_TASK_EXT, WfTaskExtDO.class,
+        List<WfTaskExtDO> done = SqlWriters.fetchList(dsl, WF_TASK_EXT, WfTaskExtDO.class,
                 WF_TASK_EXT.field("status", String.class).eq("COMPLETED")
                         .and(WF_TASK_EXT.field("original_assignee_user_id", Long.class).eq(userId)),
                 WF_TASK_EXT.field("completed_at", LocalDateTime.class).desc());
@@ -345,13 +345,13 @@ public class WorkflowService {
 
     public List<InstanceView> myInstances() {
         CurrentPrincipal principal = securityContextFacade.requireCurrentPrincipal();
-        return JooqWriters.fetchList(dsl, WF_INSTANCE_EXT, WfInstanceExtDO.class,
+        return SqlWriters.fetchList(dsl, WF_INSTANCE_EXT, WfInstanceExtDO.class,
                         WF_INSTANCE_EXT.field("starter_user_id", Long.class).eq(principal.userId()),
                         WF_INSTANCE_EXT.field("started_at", LocalDateTime.class).desc())
                 .stream().map(this::toInstanceView).collect(Collectors.toList());
     }
 
-    public List<ApprovalRecordView> records(String processInstanceId) {        return JooqWriters.fetchList(dsl, WF_APPROVAL_RECORD, WfApprovalRecordDO.class,
+    public List<ApprovalRecordView> records(String processInstanceId) {        return SqlWriters.fetchList(dsl, WF_APPROVAL_RECORD, WfApprovalRecordDO.class,
                         WF_APPROVAL_RECORD.field("process_instance_id", String.class)
                                 .eq(processInstanceId),
                         WF_APPROVAL_RECORD.field("occurred_at", LocalDateTime.class).asc())
@@ -365,7 +365,7 @@ public class WorkflowService {
      * 供「流程详情」页一次拉取，避免多次往返。
      */
     public InstanceDetailView detail(String processInstanceId) {
-        WfInstanceExtDO ext = JooqWriters.fetchOne(dsl, WF_INSTANCE_EXT, WfInstanceExtDO.class,
+        WfInstanceExtDO ext = SqlWriters.fetchOne(dsl, WF_INSTANCE_EXT, WfInstanceExtDO.class,
                 WF_INSTANCE_EXT.field("process_instance_id", String.class).eq(processInstanceId));
         if (ext == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "流程实例不存在");
@@ -389,12 +389,12 @@ public class WorkflowService {
         if (userId == null) {
             return null;
         }
-        SysUserDO user = JooqWriters.fetchById(dsl, USER, SysUserDO.class, userId);
+        SysUserDO user = SqlWriters.fetchById(dsl, USER, SysUserDO.class, userId);
         return user == null ? null : user.getUsername();
     }
 
     private boolean existsOperation(String operationId) {
-        return JooqWriters.count(dsl, WF_APPROVAL_RECORD,
+        return SqlWriters.count(dsl, WF_APPROVAL_RECORD,
                 WF_APPROVAL_RECORD.field("operation_id", String.class).eq(operationId)) > 0;
     }
 
@@ -406,7 +406,7 @@ public class WorkflowService {
         if (taskIds.isEmpty()) {
             return Map.of();
         }
-        return JooqWriters.fetchList(dsl, WF_TASK_EXT, WfTaskExtDO.class,
+        return SqlWriters.fetchList(dsl, WF_TASK_EXT, WfTaskExtDO.class,
                         WF_TASK_EXT.field("task_id", String.class).in(taskIds))
                 .stream().filter(e -> e.getDelegatorUserId() != null)
                 .collect(Collectors.toMap(WfTaskExtDO::getTaskId, WfTaskExtDO::getDelegatorUserId,
@@ -424,7 +424,7 @@ public class WorkflowService {
         ext.setStatus("PENDING");
         ext.setApprovalMode("ANY");
         ext.setDueAt(t.dueAt());
-        JooqWriters.insert(dsl, WF_TASK_EXT, ext);
+        SqlWriters.insert(dsl, WF_TASK_EXT, ext);
     }
 
     private void markTaskCompleted(String taskId) {
@@ -451,18 +451,18 @@ public class WorkflowService {
         record.setSnapshot(snapshot);
         record.setTraceId(org.slf4j.MDC.get("traceId"));
         record.setOccurredAt(LocalDateTime.now());
-        JooqWriters.insert(dsl, WF_APPROVAL_RECORD, record);
+        SqlWriters.insert(dsl, WF_APPROVAL_RECORD, record);
     }
 
     private void refreshInstanceStatus(String processInstanceId) {
-        WfInstanceExtDO ext = JooqWriters.fetchOne(dsl, WF_INSTANCE_EXT, WfInstanceExtDO.class,
+        WfInstanceExtDO ext = SqlWriters.fetchOne(dsl, WF_INSTANCE_EXT, WfInstanceExtDO.class,
                 WF_INSTANCE_EXT.field("process_instance_id", String.class).eq(processInstanceId));
         if (ext == null) {
             return;
         }
         String engineStatus = engine.status(processInstanceId);
         if ("FINISHED".equals(engineStatus)) {
-            boolean rejected = JooqWriters.count(dsl, WF_APPROVAL_RECORD,
+            boolean rejected = SqlWriters.count(dsl, WF_APPROVAL_RECORD,
                     DSL.and(WF_APPROVAL_RECORD.field("process_instance_id", String.class)
                                     .eq(processInstanceId),
                             WF_APPROVAL_RECORD.field("action", String.class).eq("REJECT"))) > 0;

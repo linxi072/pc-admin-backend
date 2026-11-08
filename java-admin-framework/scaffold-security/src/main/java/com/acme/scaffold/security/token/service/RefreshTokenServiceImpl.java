@@ -1,16 +1,16 @@
 package com.acme.scaffold.security.token.service;
 
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.token.rules.SessionLimitRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.Field;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -34,8 +34,8 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     private final JwtProperties jwtProps;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    private static final JooqTables.TableRef RT =
-            JooqTables.SYS_REFRESH_TOKEN;
+    private static final SqlTables.TableRef RT =
+            SqlTables.SYS_REFRESH_TOKEN;
 
     @Override
     public String issue(Long userId, String clientId, String deviceId, String userAgent, String ip) {
@@ -69,7 +69,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         entity.setIpAddress(ip);
         entity.setIssuedAt(now);
         entity.setExpiresAt(expiresAt);
-        JooqWriters.insert(dsl, RT, entity);
+        SqlWriters.insert(dsl, RT, entity);
         return raw;
     }
 
@@ -210,7 +210,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     private SysRefreshTokenDO findByRaw(String rawToken) {
         String h = hash(rawToken);
-        SysRefreshTokenDO token = JooqWriters.fetchOne(dsl, RT,
+        SysRefreshTokenDO token = SqlWriters.fetchOne(dsl, RT,
                 SysRefreshTokenDO.class, tokenHashField().eq(h));
         if (token == null) {
             throw new BusinessException(SecurityErrorCode.REFRESH_INVALID, "刷新令牌无效");

@@ -2,14 +2,14 @@ package com.acme.scaffold.system.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.ColumnPermissionRules;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.entity.SysRoleColumnPermissionDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,8 +40,8 @@ public class RoleColumnPermissionService {
     private final TokenVersionService tokenVersionService;
 
     /** 桥接自代码生成层 {@code Tables.SYS_ROLE_COLUMN_PERMISSION} 的类型安全表引用（B21）。 */
-    private static final JooqTables.TableRef RCP =
-            JooqTables.SYS_ROLE_COLUMN_PERMISSION;
+    private static final SqlTables.TableRef RCP =
+            SqlTables.SYS_ROLE_COLUMN_PERMISSION;
 
     /**
      * 查询某角色已配置的全部字段权限码（形如 {@code system:user:column:mobile}）。
@@ -51,9 +51,9 @@ public class RoleColumnPermissionService {
      */
     public Set<String> codes(Long roleId) {
         requireRole(roleId);
-        List<SysRoleColumnPermissionDO> rows = JooqWriters.fetchList(dsl, RCP,
+        List<SysRoleColumnPermissionDO> rows = SqlWriters.fetchList(dsl, RCP,
                 SysRoleColumnPermissionDO.class,
-                JooqTables.SYS_ROLE_COLUMN_PERMISSION.field("role_id", Long.class).eq(roleId));
+                SqlTables.SYS_ROLE_COLUMN_PERMISSION.field("role_id", Long.class).eq(roleId));
         return rows.stream()
                 .map(r -> ColumnPermissionRules.columnPermissionCode(r.getResourceCode(), r.getField()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -69,9 +69,9 @@ public class RoleColumnPermissionService {
         if (roleIds == null || roleIds.isEmpty()) {
             return Set.of();
         }
-        List<SysRoleColumnPermissionDO> rows = JooqWriters.fetchList(dsl, RCP,
+        List<SysRoleColumnPermissionDO> rows = SqlWriters.fetchList(dsl, RCP,
                 SysRoleColumnPermissionDO.class,
-                JooqTables.SYS_ROLE_COLUMN_PERMISSION.field("role_id", Long.class).in(roleIds));
+                SqlTables.SYS_ROLE_COLUMN_PERMISSION.field("role_id", Long.class).in(roleIds));
         return rows.stream()
                 .map(r -> ColumnPermissionRules.columnPermissionCode(r.getResourceCode(), r.getField()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -101,7 +101,7 @@ public class RoleColumnPermissionService {
             row.setRoleId(roleId);
             row.setResourceCode(parsed.resourceCode());
             row.setField(parsed.field());
-            JooqWriters.insert(dsl, RCP, row);
+            SqlWriters.insert(dsl, RCP, row);
         }
         log.info("字段权限已更新: roleId={}, codeCount={}", roleId, normalized.size());
         // 字段可见权变更会影响持有该角色用户的敏感字段展示：递增其 token 版本，

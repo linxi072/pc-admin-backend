@@ -4,18 +4,18 @@ import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
-import com.acme.scaffold.jooq.mapping.SnakeRecordMapper;
-import com.acme.scaffold.jooq.paging.JooqKeysetPager;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.mybatis.dsl.SnakeRecordMapper;
+import com.acme.scaffold.mybatis.dsl.KeysetPager;
 import com.acme.scaffold.security.entity.SysLoginLogDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -39,7 +39,7 @@ public class LoginLogService {
     private static final int EXPORT_MAX_ROWS = 10_000;
 
     /** 登录日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
-    private static final Map<String, String> LOGIN_LOG_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> LOGIN_LOG_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "username", "username",
             "loginType", "login_type",
@@ -47,7 +47,7 @@ public class LoginLogService {
             "ipAddress", "ip_address",
             "occurredAt", "occurred_at");
 
-    private static final JooqTables.TableRef LL = JooqTables.SYS_LOGIN_LOG;
+    private static final SqlTables.TableRef LL = SqlTables.SYS_LOGIN_LOG;
 
     private final DSLContext dsl;
 
@@ -76,10 +76,10 @@ public class LoginLogService {
         Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
                 keyword, startTime, endTime);
         var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<SysLoginLogDO> raw = JooqWriters.page(dsl, LL,
+        PageResult<SysLoginLogDO> raw = SqlWriters.page(dsl, LL,
                 SysLoginLogDO.class, cond, pageQuery,
-                JooqSorts.resolve(LL, pageQuery, LOGIN_LOG_SORT_FIELDS,
-                        JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc()));
+                SqlSorts.resolve(LL, pageQuery, LOGIN_LOG_SORT_FIELDS,
+                        SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc()));
         List<LoginLogView> views = raw.records().stream()
                 .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
@@ -101,11 +101,11 @@ public class LoginLogService {
                 keyword, startTime, endTime);
         KeysetPageQuery q = new KeysetPageQuery(size, cursor);
         Field<?>[] keyFields = new Field<?>[]{
-                JooqTables.SYS_LOGIN_LOG.field("occurred_at", LocalDateTime.class),
-                JooqTables.SYS_LOGIN_LOG.field("id", Long.class)
+                SqlTables.SYS_LOGIN_LOG.field("occurred_at", LocalDateTime.class),
+                SqlTables.SYS_LOGIN_LOG.field("id", Long.class)
         };
         boolean[] ascending = {false, false}; // occurred_at DESC, id DESC
-        KeysetPageResult<SysLoginLogDO> raw = JooqKeysetPager.query(dsl, LL, SysLoginLogDO.class,
+        KeysetPageResult<SysLoginLogDO> raw = KeysetPager.query(dsl, LL, SysLoginLogDO.class,
                 cond, q, f -> new Object[]{f.getOccurredAt(), f.getId()}, keyFields, ascending);
         List<LoginLogView> views = raw.records().stream()
                 .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
@@ -125,15 +125,15 @@ public class LoginLogService {
         Long total = dsl.selectCount().from(LL.table())
                 .where(cond).fetchOne(0, Long.class);
         Long success = dsl.selectCount().from(LL.table())
-                .where(DSL.and(cond, JooqTables.SYS_LOGIN_LOG.field("result", String.class)
+                .where(DSL.and(cond, SqlTables.SYS_LOGIN_LOG.field("result", String.class)
                         .eq("SUCCESS"))).fetchOne(0, Long.class);
         Integer distinctUsers = dsl.selectDistinct(
-                        JooqTables.SYS_LOGIN_LOG.field("username", String.class))
+                        SqlTables.SYS_LOGIN_LOG.field("username", String.class))
                 .from(LL.table()).where(cond).fetch().size();
         LocalDateTime lastLoginAt = dsl.select(
-                        JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).max())
+                        SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).max())
                 .from(LL.table())
-                .where(DSL.and(cond, JooqTables.SYS_LOGIN_LOG.field("result", String.class)
+                .where(DSL.and(cond, SqlTables.SYS_LOGIN_LOG.field("result", String.class)
                         .eq("SUCCESS"))).fetchOne(0, LocalDateTime.class);
 
         long totalVal = total == null ? 0L : total;
@@ -160,33 +160,33 @@ public class LoginLogService {
         }
         List<Condition> conds = new ArrayList<>();
         conds.add(DSL.and(
-                JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).ge(begin),
-                JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).le(end)));
+                SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).ge(begin),
+                SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).le(end)));
         if (username != null && !username.isBlank()) {
-            conds.add(JooqTables.SYS_LOGIN_LOG.field("username", String.class)
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("username", String.class)
                     .like("%" + username.trim() + "%"));
         }
         if (result != null && !result.isBlank()) {
-            conds.add(JooqTables.SYS_LOGIN_LOG.field("result", String.class).eq(result.trim()));
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("result", String.class).eq(result.trim()));
         }
         if (loginType != null && !loginType.isBlank()) {
-            conds.add(JooqTables.SYS_LOGIN_LOG.field("login_type", String.class).eq(loginType.trim()));
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("login_type", String.class).eq(loginType.trim()));
         }
         if (failureCode != null && !failureCode.isBlank()) {
-            conds.add(JooqTables.SYS_LOGIN_LOG.field("failure_code", String.class)
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("failure_code", String.class)
                     .eq(failureCode.trim()));
         }
         if (ipAddress != null && !ipAddress.isBlank()) {
-            conds.add(JooqTables.SYS_LOGIN_LOG.field("ip_address", String.class)
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("ip_address", String.class)
                     .like("%" + ipAddress.trim() + "%"));
         }
         if (keyword != null && !keyword.isBlank()) {
             String kw = "%" + keyword.trim() + "%";
             conds.add(DSL.or(
-                    JooqTables.SYS_LOGIN_LOG.field("username", String.class).like(kw),
-                    JooqTables.SYS_LOGIN_LOG.field("ip_address", String.class).like(kw),
-                    JooqTables.SYS_LOGIN_LOG.field("failure_code", String.class).like(kw),
-                    JooqTables.SYS_LOGIN_LOG.field("trace_id", String.class).like(kw)));
+                    SqlTables.SYS_LOGIN_LOG.field("username", String.class).like(kw),
+                    SqlTables.SYS_LOGIN_LOG.field("ip_address", String.class).like(kw),
+                    SqlTables.SYS_LOGIN_LOG.field("failure_code", String.class).like(kw),
+                    SqlTables.SYS_LOGIN_LOG.field("trace_id", String.class).like(kw)));
         }
         return DSL.and(conds);
     }
@@ -210,7 +210,7 @@ public class LoginLogService {
         // 多取一行用于判定是否被截断，便于提示用户缩小范围
         List<SysLoginLogDO> records = dsl.selectFrom(LL.table())
                 .where(cond)
-                .orderBy(JooqTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc())
+                .orderBy(SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc())
                 .limit(bounded + 1)
                 .fetch(new SnakeRecordMapper<>(SysLoginLogDO.class));
         if (records.size() > bounded) {

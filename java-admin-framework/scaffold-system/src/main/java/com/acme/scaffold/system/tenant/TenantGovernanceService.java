@@ -1,14 +1,14 @@
 package com.acme.scaffold.system.tenant;
 
-import com.acme.scaffold.jooq.dsl.TenantTables;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.TenantTables;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.tenant.domain.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -29,11 +29,11 @@ import java.util.Map;
  */
 @Service
 public class TenantGovernanceService {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef TN = JooqTables.SYS_TENANT;
+    private static final SqlTables.TableRef TN = SqlTables.SYS_TENANT;
 
     public TenantGovernanceService(DSLContext dsl) {
         this.dsl = dsl;
@@ -45,7 +45,7 @@ public class TenantGovernanceService {
      * @return 按租户聚合的行数快照（含各表明细与合计）
      */
     public List<TenantDataOverview> dataOverview() {
-        List<SysTenantDO> tenants = JooqWriters.fetchList(dsl, TN,
+        List<SysTenantDO> tenants = SqlWriters.fetchList(dsl, TN,
                 SysTenantDO.class, DSL.trueCondition());
         List<TenantDataOverview> result = new ArrayList<>();
         for (SysTenantDO t : tenants) {
@@ -54,9 +54,9 @@ public class TenantGovernanceService {
                 if (!ref.has("tenant_id")) {
                     continue;
                 }
-                Condition cond = DSL.and(JooqWriters.notDeleted(ref),
+                Condition cond = DSL.and(SqlWriters.notDeleted(ref),
                         ref.field("tenant_id", Long.class).eq(t.getId()));
-                long c = JooqWriters.count(dsl, ref, cond);
+                long c = SqlWriters.count(dsl, ref, cond);
                 counts.put(ref.name(), c);
             }
             result.add(new TenantDataOverview(t.getId(), t.getTenantName(), sum(counts), counts));
@@ -128,7 +128,7 @@ public class TenantGovernanceService {
         Map<Long, Long> map = new HashMap<>();
         dsl.select(tenantId, cnt)
                 .from(USER.table())
-                .where(JooqWriters.notDeleted(USER))
+                .where(SqlWriters.notDeleted(USER))
                 .groupBy(tenantId)
                 .forEach(r -> map.put(r.get(tenantId), r.get(cnt)));
         return map;

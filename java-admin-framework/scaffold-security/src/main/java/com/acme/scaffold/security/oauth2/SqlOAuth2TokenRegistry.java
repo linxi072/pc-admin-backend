@@ -3,12 +3,12 @@ package com.acme.scaffold.security.oauth2;
 import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -19,17 +19,17 @@ import java.util.Set;
 /**
  * 基于 jOOQ 动态 DSL 的 OAuth2 令牌注册表实现（M43）。
  *
- * <p>复用既有 {@link JooqWriters}（自动填充 id / tenant_id / 时间字段、逻辑删除、分页），
- * 不引入任何新依赖；表元数据来自 {@link JooqTables#SYS_OAUTH2_TOKEN}。</p>
+ * <p>复用既有 {@link SqlWriters}（自动填充 id / tenant_id / 时间字段、逻辑删除、分页），
+ * 不引入任何新依赖；表元数据来自 {@link SqlTables#SYS_OAUTH2_TOKEN}。</p>
  */
 @Slf4j
 @Repository
 @RequiredArgsConstructor
-public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
+public class SqlOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     private final DSLContext dsl;
 
-    private static final JooqTables.TableRef OT = JooqTables.SYS_OAUTH2_TOKEN;
+    private static final SqlTables.TableRef OT = SqlTables.SYS_OAUTH2_TOKEN;
 
     private static final String STATUS_ACTIVE = "ACTIVE";
 
@@ -46,20 +46,20 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
         token.setIssuedAt(issuedAt);
         token.setExpiresAt(expiresAt);
         token.setStatus(STATUS_ACTIVE);
-        JooqWriters.insert(dsl, OT, token);
+        SqlWriters.insert(dsl, OT, token);
         log.info("OAuth2 令牌已登记 jti={} clientId={} type={} userId={}", jti, clientId, tokenType, userId);
     }
 
     @Override
     public void revoke(String jti) {
-        OAuth2TokenDO existing = JooqWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
+        OAuth2TokenDO existing = SqlWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
                 activeByJti(jti));
         if (existing == null) {
             return;
         }
         OAuth2TokenDO update = new OAuth2TokenDO();
         update.setStatus("REVOKED");
-        JooqWriters.updateById(dsl, OT, existing.getId(), update);
+        SqlWriters.updateById(dsl, OT, existing.getId(), update);
         log.info("OAuth2 令牌已吊销 jti={}", jti);
     }
 
@@ -68,7 +68,7 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
         if (jti == null || jti.isBlank()) {
             return false;
         }
-        OAuth2TokenDO token = JooqWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
+        OAuth2TokenDO token = SqlWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
                 activeByJti(jti));
         // 查不到（未签发 / 已吊销 / 已逻辑删除）→ 不视为「已吊销」，避免误伤登录态
         return token != null && !STATUS_ACTIVE.equals(token.getStatus());
@@ -76,7 +76,7 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     @Override
     public PageResult<OAuth2TokenDO> listActive(PageQuery query, String clientId, Long userId) {
-        Condition cond = JooqWriters.notDeleted(OT)
+        Condition cond = SqlWriters.notDeleted(OT)
                 .and(OT.field("status", String.class).eq(STATUS_ACTIVE))
                 .and(OT.field("expires_at", LocalDateTime.class).gt(LocalDateTime.now()));
         if (clientId != null && !clientId.isBlank()) {
@@ -85,9 +85,9 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
         if (userId != null) {
             cond = cond.and(OT.field("user_id", Long.class).eq(userId));
         }
-        List<OAuth2TokenDO> records = JooqWriters.fetchList(dsl, OT, OAuth2TokenDO.class,
+        List<OAuth2TokenDO> records = SqlWriters.fetchList(dsl, OT, OAuth2TokenDO.class,
                 cond, OT.field("expires_at", LocalDateTime.class).desc());
-        long total = JooqWriters.count(dsl, OT, cond);
+        long total = SqlWriters.count(dsl, OT, cond);
         int from = (int) Math.min(query.offset(), records.size());
         int to = (int) Math.min(from + query.limit(), records.size());
         List<OAuth2TokenDO> pageRecords = records.subList(from, to);
@@ -96,7 +96,7 @@ public class JooqOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     /** 活动（未吊销且未过期）且 jti 匹配的查询条件。 */
     private static Condition activeByJti(String jti) {
-        return JooqWriters.notDeleted(OT)
+        return SqlWriters.notDeleted(OT)
                 .and(OT.field("jti", String.class).eq(jti));
     }
 

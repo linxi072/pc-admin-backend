@@ -12,7 +12,7 @@ import java.util.Set;
  *
  * <p>职责：在令牌签发时记录 jti + 元数据，提供吊销与「活动令牌」查询，
  * 供 {@link OAuth2TokenRevocationFilter}（运行时拒绝已吊销令牌）与管理端列表/吊销接口复用。
- * 实现见 {@code JooqOAuth2TokenRegistry}（jOOQ 动态 DSL，零新依赖）。</p>
+ * 实现见 {@code SqlOAuth2TokenRegistry}（jOOQ 动态 DSL，零新依赖）。</p>
  */
 public interface OAuth2TokenRegistry {
 

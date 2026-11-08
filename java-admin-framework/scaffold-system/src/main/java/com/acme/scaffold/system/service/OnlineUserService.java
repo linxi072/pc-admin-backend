@@ -6,8 +6,8 @@ import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.text.TextUtils;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
@@ -21,10 +21,10 @@ import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.online.rules.OnlineSessionRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -52,7 +52,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class OnlineUserService implements OnlineSessionReleasePort {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     /** 下线原因（sys_online_session.offline_reason）。 */
     public static final String REASON_LOGOUT = "LOGOUT";
@@ -61,7 +61,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     public static final String REASON_INACTIVITY = "INACTIVITY";
     public static final String REASON_PASSWORD_CHANGED = "PASSWORD_CHANGED";
 
-    private static final JooqTables.TableRef OS = JooqTables.SYS_ONLINE_SESSION;
+    private static final SqlTables.TableRef OS = SqlTables.SYS_ONLINE_SESSION;
 
     private final DSLContext dsl;
     private final RefreshTokenService refreshTokenService;
@@ -80,7 +80,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     public void registerSession(Long userId, String username, String displayName, String deviceId,
                                 String clientId, String ip, String userAgent) {
         LocalDateTime now = LocalDateTime.now();
-        SysOnlineSessionDO exist = JooqWriters.fetchOne(dsl, OS,
+        SysOnlineSessionDO exist = SqlWriters.fetchOne(dsl, OS,
                 SysOnlineSessionDO.class,
                 DSL.and(OS.field("user_id", Long.class).eq(userId),
                         deviceEq(deviceId)));
@@ -96,7 +96,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
             row.setLoginAt(now);
             row.setLastActiveAt(now);
             row.setStatus(SysOnlineSessionDO.STATUS_ONLINE);
-            JooqWriters.insert(dsl, OS, row);
+            SqlWriters.insert(dsl, OS, row);
         } else {
             SysOnlineSessionDO patch = new SysOnlineSessionDO();
             patch.setLoginIp(ip);
@@ -106,7 +106,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
             patch.setLastActiveAt(now);
             patch.setStatus(SysOnlineSessionDO.STATUS_ONLINE);
             patch.setDisplayName(displayName);
-            JooqWriters.updateByIdWithNulls(dsl, OS, exist.getId(), patch,
+            SqlWriters.updateByIdWithNulls(dsl, OS, exist.getId(), patch,
                     Set.of("offline_reason"));
         }
     }
@@ -136,7 +136,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userId == null || deviceId == null || deviceId.isBlank()) {
             return null;
         }
-        SysOnlineSessionDO row = JooqWriters.fetchOne(dsl, OS,
+        SysOnlineSessionDO row = SqlWriters.fetchOne(dsl, OS,
                 SysOnlineSessionDO.class,
                 DSL.and(OS.field("user_id", Long.class).eq(userId),
                         OS.field("device_id", String.class).eq(deviceId)));
@@ -226,7 +226,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         }
 
         var pageQuery = query.toPageQuery();
-        PageResult<SysOnlineSessionDO> page = JooqWriters.page(dsl, OS,
+        PageResult<SysOnlineSessionDO> page = SqlWriters.page(dsl, OS,
                 SysOnlineSessionDO.class, DSL.and(conds), pageQuery,
                 OS.field("last_active_at", Timestamp.class).desc(),
                 OS.field("id", Long.class).desc());
@@ -291,7 +291,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
      */
     @Transactional
     public int forceLogout(List<Long> sessionIds) {
-        List<SysOnlineSessionDO> rows = JooqWriters.fetchList(dsl, OS,
+        List<SysOnlineSessionDO> rows = SqlWriters.fetchList(dsl, OS,
                 SysOnlineSessionDO.class,
                 DSL.and(OS.field("id", Long.class).in(sessionIds),
                         OS.field("status", String.class)
@@ -328,8 +328,8 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        List<SysUserDO> users = JooqWriters.fetchList(dsl, USER, SysUserDO.class,
-                DSL.and(JooqWriters.notDeleted(USER),
+        List<SysUserDO> users = SqlWriters.fetchList(dsl, USER, SysUserDO.class,
+                DSL.and(SqlWriters.notDeleted(USER),
                         USER.field("id", Long.class).in(userIds)));
         Map<Long, String> names = new LinkedHashMap<>();
         for (SysUserDO u : users) {

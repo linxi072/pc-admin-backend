@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.service;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.dto.MessageReadStatsView;
 import com.acme.scaffold.system.dto.MessageReceiptQuery;
@@ -17,9 +17,9 @@ import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.rules.MessageReadRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,14 +51,14 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MessageReadService {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
-    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE} 等价，列集一致。 */
-    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef MSG =
-            JooqTables.SYS_MESSAGE;
-    /** jOOQ 生成层桥接：与手写 DSL 的 {@link JooqTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
-    private static final com.acme.scaffold.jooq.dsl.JooqTables.TableRef RC =
-            JooqTables.SYS_MESSAGE_RECEIPT;
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link SqlTables#SYS_MESSAGE} 等价，列集一致。 */
+    private static final com.acme.scaffold.mybatis.dsl.SqlTables.TableRef MSG =
+            SqlTables.SYS_MESSAGE;
+    /** jOOQ 生成层桥接：与手写 DSL 的 {@link SqlTables#SYS_MESSAGE_RECEIPT} 等价，列集一致。 */
+    private static final com.acme.scaffold.mybatis.dsl.SqlTables.TableRef RC =
+            SqlTables.SYS_MESSAGE_RECEIPT;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -74,9 +74,9 @@ public class MessageReadService {
      */
     public MessageReadStatsView readStats(Long messageId) {
         SysMessageDO m = requireOwnedMessage(messageId);
-        int total = (int) JooqWriters.count(dsl, RC,
+        int total = (int) SqlWriters.count(dsl, RC,
                 DSL.and(RC.field("message_id", Long.class).eq(messageId)));
-        int read = (int) JooqWriters.count(dsl, RC,
+        int read = (int) SqlWriters.count(dsl, RC,
                 DSL.and(RC.field("message_id", Long.class).eq(messageId),
                         RC.field("is_read", Integer.class).eq(1)));
         String senderName = loadSenderName(m.getSenderId());
@@ -105,7 +105,7 @@ public class MessageReadService {
         }
 
         var q = query.toPageQuery();
-        PageResult<SysMessageReceiptDO> pageResult = JooqWriters.page(dsl, rc, SysMessageReceiptDO.class,
+        PageResult<SysMessageReceiptDO> pageResult = SqlWriters.page(dsl, rc, SysMessageReceiptDO.class,
                 DSL.and(conds), q,
                 rc.field("is_read", Integer.class).asc(),   // 未读(0) 优先展示
                 rc.field("id", Long.class).desc());
@@ -163,7 +163,7 @@ public class MessageReadService {
      * 站内信是一对多私信，已读统计/催办仅对发送者开放，避免 ID 遍历他人消息的未读名单。
      */
     private SysMessageDO requireOwnedMessage(Long messageId) {
-        SysMessageDO m = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, MSG, SysMessageDO.class, messageId), "站内信不存在");
+        SysMessageDO m = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, MSG, SysMessageDO.class, messageId), "站内信不存在");
         Long me = requireCurrentUserId();
         if (m.getSenderId() == null || !m.getSenderId().equals(me)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN, "只能查看自己发出的站内信的已读情况");
@@ -174,7 +174,7 @@ public class MessageReadService {
     /** 未读用户 ID 列表（is_read = 0），按 limit 截断（limit 已收敛到合法区间）。 */
     private List<Long> unreadUserIds(Long messageId, int limit) {
         var rc = RC;
-        return JooqWriters.fetchTop(dsl, rc, SysMessageReceiptDO.class,
+        return SqlWriters.fetchTop(dsl, rc, SysMessageReceiptDO.class,
                 DSL.and(rc.field("message_id", Long.class).eq(messageId),
                         rc.field("is_read", Integer.class).eq(0)),
                 limit,
@@ -192,7 +192,7 @@ public class MessageReadService {
         if (senderId == null) {
             return null;
         }
-        SysUserDO u = JooqWriters.fetchById(dsl, USER, SysUserDO.class, senderId);
+        SysUserDO u = SqlWriters.fetchById(dsl, USER, SysUserDO.class, senderId);
         return u == null ? null : u.getDisplayName();
     }
 

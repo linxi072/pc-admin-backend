@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.token.service;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.rules.TokenVersionRules;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.DSLContext;
-import org.jooq.Record1;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Record1;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class TokenVersionService {
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     /** 缓存窗口：默认 30 秒，即权限变更最迟 30 秒后全局生效。 */
     private static final long CACHE_TTL_MILLIS = Duration.ofSeconds(30).toMillis();
@@ -54,7 +54,7 @@ public class TokenVersionService {
         }
         Record1<Integer> row = dsl.select(USER.field("token_version", Integer.class))
                 .from(USER.table())
-                .where(DSL.and(JooqWriters.notDeleted(USER),
+                .where(DSL.and(SqlWriters.notDeleted(USER),
                         USER.field("id", Long.class).eq(userId)))
                 .fetchOne();
         Integer version = row == null ? null : row.value1();
@@ -78,7 +78,7 @@ public class TokenVersionService {
         int updated = dsl.update(USER.table())
                 .set(USER.field("token_version", Integer.class),
                         USER.field("token_version", Integer.class).plus(1))
-                .where(DSL.and(JooqWriters.notDeleted(USER),
+                .where(DSL.and(SqlWriters.notDeleted(USER),
                         USER.field("id", Long.class).in(ids)))
                 .execute();
         cache.invalidate(ids);

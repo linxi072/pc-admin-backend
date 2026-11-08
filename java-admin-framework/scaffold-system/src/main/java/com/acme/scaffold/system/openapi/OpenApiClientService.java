@@ -1,14 +1,14 @@
 package com.acme.scaffold.system.openapi;
 import com.acme.scaffold.common.util.MergeFields;
-import com.acme.scaffold.jooq.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
 import com.acme.scaffold.system.openapi.dto.ClientSecretView;
 import com.acme.scaffold.system.openapi.dto.CreateOpenApiClientRequest;
@@ -17,9 +17,9 @@ import com.acme.scaffold.system.openapi.dto.UpdateOpenApiClientRequest;
 import com.acme.scaffold.common.oauth2.OpenApiClientRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -45,7 +45,7 @@ import java.util.Map;
 public class OpenApiClientService {
 
     /** 排序白名单：客户端字段名 → 数据库列名（白名单外忽略，防 ORDER BY 注入）。 */
-    private static final Map<String, String> SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "clientId", "client_id",
             "clientName", "client_name",
@@ -67,19 +67,19 @@ public class OpenApiClientService {
                                               String status, String sortField, String sortDirection) {
         Condition cond = buildCondition(clientId, status);
         var query = PageQuery.of(page, size, sortField, sortDirection);
-        PageResult<OpenApiClientDO> raw = JooqWriters.page(dsl, JooqTables.OPENAPI_CLIENT,
+        PageResult<OpenApiClientDO> raw = SqlWriters.page(dsl, SqlTables.OPENAPI_CLIENT,
                 OpenApiClientDO.class, cond, query,
-                JooqSorts.resolve(JooqTables.OPENAPI_CLIENT, query, SORT_FIELDS,
-                        JooqTables.OPENAPI_CLIENT.field("id", Long.class).desc()));
+                SqlSorts.resolve(SqlTables.OPENAPI_CLIENT, query, SORT_FIELDS,
+                        SqlTables.OPENAPI_CLIENT.field("id", Long.class).desc()));
         return PageResult.of(raw.page(), raw.size(), raw.total(),
                 raw.records().stream().map(OpenApiClientView::of).toList());
     }
 
     /** 全部客户端（含停用，按 id 升序）。 */
     public List<OpenApiClientView> list() {
-        List<OpenApiClientDO> rows = JooqWriters.fetchList(dsl, JooqTables.OPENAPI_CLIENT,
-                OpenApiClientDO.class, JooqWriters.notDeleted(JooqTables.OPENAPI_CLIENT),
-                JooqTables.OPENAPI_CLIENT.field("id", Long.class).asc());
+        List<OpenApiClientDO> rows = SqlWriters.fetchList(dsl, SqlTables.OPENAPI_CLIENT,
+                OpenApiClientDO.class, SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                SqlTables.OPENAPI_CLIENT.field("id", Long.class).asc());
         return rows.stream().map(OpenApiClientView::of).toList();
     }
 
@@ -118,7 +118,7 @@ public class OpenApiClientService {
         d.setRedirectUris(OpenApiClientRules.normalizeRedirectUris(req.redirectUris()));
         d.setPkceRequired(req.pkceRequired() != null && req.pkceRequired() ? 1 : 0);
         d.setRemark(req.remark());
-        JooqWriters.insert(dsl, JooqTables.OPENAPI_CLIENT, d);
+        SqlWriters.insert(dsl, SqlTables.OPENAPI_CLIENT, d);
         return new ClientSecretView(d.getClientId(), plainSecret, now);
     }
 
@@ -161,13 +161,13 @@ public class OpenApiClientService {
         if (req.remark() != null) {
             patch.setRemark(req.remark());
         }
-        JooqWriters.updateById(dsl, JooqTables.OPENAPI_CLIENT, id, patch);
+        SqlWriters.updateById(dsl, SqlTables.OPENAPI_CLIENT, id, patch);
     }
 
     /** 删除客户端（逻辑删除，便于审计与恢复）。 */
     public void remove(Long id) {
         requireById(id);
-        JooqWriters.delete(dsl, JooqTables.OPENAPI_CLIENT, id, true);
+        SqlWriters.delete(dsl, SqlTables.OPENAPI_CLIENT, id, true);
     }
 
     /** 启停客户端。 */
@@ -175,7 +175,7 @@ public class OpenApiClientService {
         requireById(id);
         OpenApiClientDO patch = new OpenApiClientDO();
         patch.setStatus(enabled ? "ENABLED" : "DISABLED");
-        JooqWriters.updateById(dsl, JooqTables.OPENAPI_CLIENT, id, patch);
+        SqlWriters.updateById(dsl, SqlTables.OPENAPI_CLIENT, id, patch);
     }
 
     /**
@@ -189,7 +189,7 @@ public class OpenApiClientService {
         OpenApiClientDO patch = new OpenApiClientDO();
         patch.setClientSecretHash(passwordEncoder.encode(plainSecret));
         patch.setSecretRotatedAt(now);
-        JooqWriters.updateById(dsl, JooqTables.OPENAPI_CLIENT, id, patch);
+        SqlWriters.updateById(dsl, SqlTables.OPENAPI_CLIENT, id, patch);
         return new ClientSecretView(existing.getClientId(), plainSecret, now);
     }
 
@@ -198,14 +198,14 @@ public class OpenApiClientService {
     // ------------------------------------------------------------------
 
     private OpenApiClientDO requireById(Long id) {
-        OpenApiClientDO d = FetchSupport.requirePresent(JooqWriters.fetchById(dsl, JooqTables.OPENAPI_CLIENT, OpenApiClientDO.class, id), "开放平台客户端不存在");
+        OpenApiClientDO d = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClientDO.class, id), "开放平台客户端不存在");
         return d;
     }
 
     private boolean existsByClientId(String clientId) {
-        return JooqWriters.fetchOne(dsl, JooqTables.OPENAPI_CLIENT, OpenApiClientDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.OPENAPI_CLIENT),
-                        JooqTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId))) != null;
+        return SqlWriters.fetchOne(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClientDO.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId))) != null;
     }
 
     /**
@@ -219,9 +219,9 @@ public class OpenApiClientService {
         if (!StringUtils.hasText(clientId) || !StringUtils.hasText(secret)) {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端凭证缺失");
         }
-        OpenApiClientDO d = JooqWriters.fetchOne(dsl, JooqTables.OPENAPI_CLIENT, OpenApiClientDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.OPENAPI_CLIENT),
-                        JooqTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
+        OpenApiClientDO d = SqlWriters.fetchOne(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClientDO.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
         if (d == null) {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端不存在或已注销");
         }
@@ -246,9 +246,9 @@ public class OpenApiClientService {
         if (!StringUtils.hasText(clientId)) {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端标识缺失");
         }
-        OpenApiClientDO d = JooqWriters.fetchOne(dsl, JooqTables.OPENAPI_CLIENT, OpenApiClientDO.class,
-                DSL.and(JooqWriters.notDeleted(JooqTables.OPENAPI_CLIENT),
-                        JooqTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
+        OpenApiClientDO d = SqlWriters.fetchOne(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClientDO.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
         if (d == null) {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端不存在或已注销");
         }
@@ -264,13 +264,13 @@ public class OpenApiClientService {
     /** 统一筛选条件：逻辑删除恒成立；client_id 模糊匹配/状态精确匹配按需收敛。 */
     private Condition buildCondition(String clientId, String status) {
         List<Condition> conds = new ArrayList<>();
-        conds.add(JooqWriters.notDeleted(JooqTables.OPENAPI_CLIENT));
+        conds.add(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT));
         if (StringUtils.hasText(clientId)) {
-            conds.add(JooqTables.OPENAPI_CLIENT.field("client_id", String.class).like("%" + clientId.trim() + "%"));
+            conds.add(SqlTables.OPENAPI_CLIENT.field("client_id", String.class).like("%" + clientId.trim() + "%"));
         }
         String st = OpenApiClientRules.normalizeStatus(status);
         if (st != null) {
-            conds.add(JooqTables.OPENAPI_CLIENT.field("status", String.class).eq(st));
+            conds.add(SqlTables.OPENAPI_CLIENT.field("status", String.class).eq(st));
         }
         return DSL.and(conds);
     }

@@ -1,14 +1,14 @@
 package com.acme.scaffold.workbench.report.rules;
 
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqTables.TableRef;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlTables.TableRef;
 import com.acme.scaffold.workbench.report.dto.DrillDimension;
 import com.acme.scaffold.workbench.report.dto.ReportRange;
 import com.acme.scaffold.workbench.report.dto.ReportType;
 import com.acme.scaffold.workbench.report.stats.ReportStats;
-import org.jooq.Condition;
-import org.jooq.Field;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.DSL;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -61,19 +61,19 @@ public final class ReportDrillRules {
         }
         return switch (dimension) {
             case TIME_DAY -> DSL.noCondition();
-            case MODULE -> JooqTables.SYS_OPERATION_LOG.field("module_code", String.class).eq(parent);
+            case MODULE -> SqlTables.SYS_OPERATION_LOG.field("module_code", String.class).eq(parent);
             case STATUS -> type == ReportType.JOB_EXEC
-                    ? JooqTables.SYS_JOB_LOG.field("status", String.class)
+                    ? SqlTables.SYS_JOB_LOG.field("status", String.class)
                         .eq("成功".equals(parent) ? JOB_STATUS_SUCCESS : JOB_STATUS_FAILED)
-                    : JooqTables.SYS_OPERATION_LOG.field("success", Integer.class)
+                    : SqlTables.SYS_OPERATION_LOG.field("success", Integer.class)
                         .eq("成功".equals(parent) ? 1 : 0);
-            case LOGIN_TYPE -> JooqTables.SYS_LOGIN_LOG.field("login_type", String.class)
+            case LOGIN_TYPE -> SqlTables.SYS_LOGIN_LOG.field("login_type", String.class)
                     .eq(LOGIN_TYPE_PASSWORD_LABEL.equals(parent) ? "PASSWORD" : parent);
-            case REQUEST_PATH -> JooqTables.SYS_OPERATION_LOG.field("request_path", String.class).eq(parent);
+            case REQUEST_PATH -> SqlTables.SYS_OPERATION_LOG.field("request_path", String.class).eq(parent);
             case DURATION -> {
                 TableRef t = switch (type) {
-                    case JOB_EXEC -> JooqTables.SYS_JOB_LOG;
-                    case API_CALL -> JooqTables.SYS_OPERATION_LOG;
+                    case JOB_EXEC -> SqlTables.SYS_JOB_LOG;
+                    case API_CALL -> SqlTables.SYS_OPERATION_LOG;
                     default -> null;
                 };
                 yield t == null ? DSL.noCondition() : durationBucketCondition(parent, t);

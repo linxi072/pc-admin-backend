@@ -10,14 +10,14 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqSorts;
-import com.acme.scaffold.jooq.dsl.JooqTables;
-import com.acme.scaffold.jooq.dsl.JooqWriters;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +32,7 @@ import java.util.Map;
  *
  * <p>设计要点：
  * <ul>
- *   <li>持久化经 {@link JooqWriters}（动态 DSL），租户隔离由 {@link TenantEnforcement} 统一裁决；</li>
+ *   <li>持久化经 {@link SqlWriters}（动态 DSL），租户隔离由 {@link TenantEnforcement} 统一裁决；</li>
  *   <li>栏目编码租户内唯一，新建/改名均做冲突校验；</li>
  *   <li>删除前校验「无子栏目」，避免悬空父引用；</li>
  *   <li>树构建为纯函数（{@link #buildTree}），与 DB 解耦，便于单元测试。</li>
@@ -44,13 +44,13 @@ import java.util.Map;
 public class CmsCategoryService {
 
     /** 列表/树可排序字段白名单：客户端字段名 → 数据库列名。 */
-    private static final Map<String, String> CATEGORY_SORT_FIELDS = JooqSorts.whitelist(
+    private static final Map<String, String> CATEGORY_SORT_FIELDS = SqlSorts.whitelist(
             "id", "id",
             "categoryName", "category_name",
             "sortNo", "sort_no",
             "createdAt", "created_at");
 
-    private static final JooqTables.TableRef CATEGORY = JooqTables.CMS_CATEGORY;
+    private static final SqlTables.TableRef CATEGORY = SqlTables.CMS_CATEGORY;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -73,7 +73,7 @@ public class CmsCategoryService {
         entity.setStatus(req.getStatus() == null ? CmsStatus.CATEGORY_ACTIVE : req.getStatus());
         entity.setCreatedBy(currentOperator());
         entity.setUpdatedBy(currentOperator());
-        JooqWriters.insert(dsl, CATEGORY, entity);
+        SqlWriters.insert(dsl, CATEGORY, entity);
         return entity.getId();
     }
 
@@ -94,7 +94,7 @@ public class CmsCategoryService {
         existing.setSortNo(req.getSortNo() == null ? 0 : req.getSortNo());
         existing.setStatus(req.getStatus() == null ? CmsStatus.CATEGORY_ACTIVE : req.getStatus());
         existing.setUpdatedBy(currentOperator());
-        JooqWriters.updateById(dsl, CATEGORY, existing.getId(), existing);
+        SqlWriters.updateById(dsl, CATEGORY, existing.getId(), existing);
     }
 
     /**
@@ -103,19 +103,19 @@ public class CmsCategoryService {
     @Transactional
     public void delete(Long id) {
         requireExisting(id);
-        long childCount = JooqWriters.count(dsl, CATEGORY, DSL.and(
-                JooqWriters.notDeleted(CATEGORY),
+        long childCount = SqlWriters.count(dsl, CATEGORY, DSL.and(
+                SqlWriters.notDeleted(CATEGORY),
                 CATEGORY.field("parent_id", Long.class).eq(id)));
         if (childCount > 0) {
             throw BusinessException.of(CommonErrorCode.CONFLICT, "栏目下存在 " + childCount + " 个子栏目，无法删除");
         }
-        JooqWriters.delete(dsl, CATEGORY, id, true);
+        SqlWriters.delete(dsl, CATEGORY, id, true);
     }
 
     /** 按 id 查询单条（含逻辑删除过滤），不存在抛 404。 */
     @Transactional(readOnly = true)
     public CategoryView getById(Long id) {
-        CmsCategoryDO entity = JooqWriters.fetchById(dsl, CATEGORY, CmsCategoryDO.class, id);
+        CmsCategoryDO entity = SqlWriters.fetchById(dsl, CATEGORY, CmsCategoryDO.class, id);
         if (entity == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "栏目不存在: " + id);
         }
@@ -125,8 +125,8 @@ public class CmsCategoryService {
     /** 扁平列表（按 sort_no、category_name 升序）。 */
     @Transactional(readOnly = true)
     public List<CategoryView> list() {
-        List<CmsCategoryDO> entities = JooqWriters.fetchList(dsl, CATEGORY, CmsCategoryDO.class,
-                JooqWriters.notDeleted(CATEGORY),
+        List<CmsCategoryDO> entities = SqlWriters.fetchList(dsl, CATEGORY, CmsCategoryDO.class,
+                SqlWriters.notDeleted(CATEGORY),
                 CATEGORY.field("sort_no", Integer.class).asc(),
                 CATEGORY.field("category_name", String.class).asc());
         return entities.stream().map(this::toView).toList();
@@ -180,7 +180,7 @@ public class CmsCategoryService {
     // ---------------- 内部辅助 ----------------
 
     private CmsCategoryDO requireExisting(Long id) {
-        CmsCategoryDO entity = JooqWriters.fetchById(dsl, CATEGORY, CmsCategoryDO.class, id);
+        CmsCategoryDO entity = SqlWriters.fetchById(dsl, CATEGORY, CmsCategoryDO.class, id);
         if (entity == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "栏目不存在: " + id);
         }
@@ -188,16 +188,16 @@ public class CmsCategoryService {
     }
 
     private boolean exists(Long id) {
-        return JooqWriters.fetchById(dsl, CATEGORY, CmsCategoryDO.class, id) != null;
+        return SqlWriters.fetchById(dsl, CATEGORY, CmsCategoryDO.class, id) != null;
     }
 
     private boolean codeExists(String code, Long excludeId) {
-        Condition cond = DSL.and(JooqWriters.notDeleted(CATEGORY),
+        Condition cond = DSL.and(SqlWriters.notDeleted(CATEGORY),
                 CATEGORY.field("category_code", String.class).eq(code));
         if (excludeId != null) {
             cond = cond.and(CATEGORY.field("id", Long.class).ne(excludeId));
         }
-        return JooqWriters.fetchOne(dsl, CATEGORY, CmsCategoryDO.class, cond) != null;
+        return SqlWriters.fetchOne(dsl, CATEGORY, CmsCategoryDO.class, cond) != null;
     }
 
     private Long normalizeParentId(Long parentId) {

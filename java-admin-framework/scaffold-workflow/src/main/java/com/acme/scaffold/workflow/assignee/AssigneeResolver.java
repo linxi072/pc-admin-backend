@@ -2,10 +2,10 @@ package com.acme.scaffold.workflow.assignee;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.jooq.dsl.JooqTables;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.workflow.dto.design.WorkflowNodeDTO;
 import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -18,17 +18,16 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AssigneeResolver {
-    private static final JooqTables.TableRef SYS_ORG = JooqTables.SYS_ORG;
+    private static final SqlTables.TableRef SYS_ORG = SqlTables.SYS_ORG;
 
-
-    private static final JooqTables.TableRef USER_ROLE = JooqTables.SYS_USER_ROLE;
-    private static final JooqTables.TableRef USER_ORG = JooqTables.SYS_USER_ORG;
-    private static final JooqTables.TableRef USER = JooqTables.SYS_USER;
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ORG = SqlTables.SYS_USER_ORG;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     /** 主管角色码，用于 INITIATOR_MANAGER 解析（可按实际部署调整）。 */
     private static final String MANAGER_ROLE_CODE = "MANAGER";
 
-    private static final JooqTables.TableRef ROLE = JooqTables.SYS_ROLE;
+    private static final SqlTables.TableRef ROLE = SqlTables.SYS_ROLE;
 
     private final DSLContext dsl;
 
@@ -165,7 +164,7 @@ public class AssigneeResolver {
     private Long primaryOrgOf(Long userId) {
         return dsl.select(USER_ORG.field("org_id", Long.class))
                 .from(USER_ORG.table())
-                .where(org.jooq.impl.DSL.and(
+                .where(com.acme.scaffold.mybatis.dsl.DSL.and(
                         USER_ORG.field("user_id", Long.class).eq(userId),
                         USER_ORG.field("is_primary", Integer.class).eq(1)))
                 .fetchOne(0, Long.class);
@@ -175,7 +174,7 @@ public class AssigneeResolver {
     private List<Long> userIdsByRole(Long roleId) {
         return dsl.select(USER_ROLE.field("user_id", Long.class))
                 .from(USER_ROLE.table())
-                .where(org.jooq.impl.DSL.and(
+                .where(com.acme.scaffold.mybatis.dsl.DSL.and(
                         USER_ROLE.field("role_id", Long.class).eq(roleId),
                         USER_ROLE.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
@@ -185,7 +184,7 @@ public class AssigneeResolver {
     private List<Long> userIdsByOrg(Long orgId) {
         return dsl.select(USER_ORG.field("user_id", Long.class))
                 .from(USER_ORG.table())
-                .where(org.jooq.impl.DSL.and(
+                .where(com.acme.scaffold.mybatis.dsl.DSL.and(
                         USER_ORG.field("org_id", Long.class).eq(orgId),
                         USER_ORG.field("user_id", Long.class).in(activeUserIds())))
                 .fetch().map(r -> r.get(0, Long.class));
@@ -195,7 +194,7 @@ public class AssigneeResolver {
     private List<Long> userIdsByRoleInOrg(Long roleId, Long orgId) {
         return dsl.select(USER_ROLE.field("user_id", Long.class))
                 .from(USER_ROLE.table())
-                .where(org.jooq.impl.DSL.and(
+                .where(com.acme.scaffold.mybatis.dsl.DSL.and(
                         USER_ROLE.field("role_id", Long.class).eq(roleId),
                         USER_ROLE.field("user_id", Long.class).in(
                                 dsl.select(USER_ORG.field("user_id", Long.class))
@@ -206,7 +205,7 @@ public class AssigneeResolver {
     }
 
     /** 活跃（未删除）用户ID子查询，过滤已注销账号。 */
-    private org.jooq.Select<org.jooq.Record1<Long>> activeUserIds() {
+    private com.acme.scaffold.mybatis.dsl.Select<com.acme.scaffold.mybatis.dsl.Record1<Long>> activeUserIds() {
         return dsl.select(USER.field("id", Long.class))
                 .from(USER.table())
                 .where(USER.field("deleted", Integer.class).eq(0));

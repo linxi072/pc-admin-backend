@@ -1,4 +1,4 @@
-package com.acme.scaffold.jooq.dsl;
+package com.acme.scaffold.mybatis.dsl;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.SortItem;
@@ -8,8 +8,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jooq.Field;
-import org.jooq.OrderField;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.OrderField;
 
 /**
  * 服务端排序：把客户端传入的字段名经白名单映射为数据库列，再转成 jOOQ 的 {@link OrderField}。
@@ -18,12 +18,12 @@ import org.jooq.OrderField;
  * 既可能拼出不存在/敏感列导致 500，也可能被用作 ORDER BY 注入。这里用「字段名 → 列名」的
  * 静态白名单做收口，白名单外的字段一律忽略（不报错，避免前端默认列把接口打挂）。
  */
-public final class JooqSorts {
+public final class SqlSorts {
 
     /** 单次查询允许的最大排序字段数，防止客户端塞入超长 ORDER BY。 */
     public static final int MAX_SORT_FIELDS = 3;
 
-    private JooqSorts() {
+    private SqlSorts() {
     }
 
     /**
@@ -52,7 +52,7 @@ public final class JooqSorts {
      *   <li>末位追加 {@code id} 兜底排序（未参与时），避免并列时分页翻页出现重复/漏行。</li>
      * </ul>
      */
-    public static OrderField<?>[] resolve(JooqTables.TableRef table, PageQuery query,
+    public static OrderField<?>[] resolve(SqlTables.TableRef table, PageQuery query,
                                           Map<String, String> whitelist, OrderField<?>... defaults) {
         List<OrderField<?>> resolved = new ArrayList<>();
         Set<String> used = new LinkedHashSet<>();

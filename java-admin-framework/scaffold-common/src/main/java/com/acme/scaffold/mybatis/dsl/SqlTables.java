@@ -1,9 +1,9 @@
-package com.acme.scaffold.jooq.dsl;
+package com.acme.scaffold.mybatis.dsl;
 
-import org.jooq.Field;
-import org.jooq.Record;
-import org.jooq.Table;
-import org.jooq.impl.DSL;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.Record;
+import com.acme.scaffold.mybatis.dsl.Table;
+import com.acme.scaffold.mybatis.dsl.DSL;
 
 import java.util.Set;
 
@@ -16,11 +16,12 @@ import java.util.Set;
  * 保证动态 DSL 下字段始终可用，且能正确判断"列是否存在"
  * （用于审计字段自动填充、逻辑删除等可选列场景）。
  * <p>
- * 表名与列名与 Flyway 迁移脚本（db/migration/*.sql）严格一致。
+ * 表名与列名与版本化结构链（db/migration/*.sql）严格一致；运行时已移除 Flyway，
+ * 新库结构由 db/init/01_full_schema.sql 手工初始化。
  */
-public final class JooqTables {
+public final class SqlTables {
 
-    private JooqTables() {
+    private SqlTables() {
     }
 
     // ---------------- RBAC 核心 ----------------
@@ -204,7 +205,7 @@ public final class JooqTables {
             "restricted_by", "restricted_by_name", "restricted_at", "expire_at", "released_at",
             "released_by", "release_type", "status", "created_at", "updated_at");
 
-    // ---------------- 定时任务管理（JobRunr 双层架构：配置/日志自管，调度交 JobRunr） ----------------
+    // ---------------- 定时任务管理（Quartz 双层架构：配置/日志自管，调度交 Quartz） ----------------
 
     /** 定时任务配置表（列名与 V21__job_management.sql 严格一致）。 */
     public static final TableRef SYS_JOB = new TableRef("sys_job",
@@ -447,7 +448,7 @@ public final class JooqTables {
         /**
          * 以「物理表名」作为值相等依据：任意两个 {@link TableRef} 只要指向同一张表即判等。
          * 这使得既有的静态打桩断言
-         * （如 {@code when(JooqWriters.insert(any(), eq(JooqTables.SYS_POST), any()))}）
+         * （如 {@code when(SqlWriters.insert(any(), eq(SqlTables.SYS_POST), any()))}）
          * 在表引用经不同构造路径（常量 / 显式构造）创建后仍然匹配，无需改动测试。
          */
         @Override
