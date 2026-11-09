@@ -1,8 +1,9 @@
-package com.acme.scaffold.system.maskstrategy;
+package com.acme.scaffold.system.maskstrategy.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.maskstrategy.application.MaskStrategyService;
 import com.acme.scaffold.system.maskstrategy.dto.CreateMaskStrategyRequest;
 import com.acme.scaffold.system.maskstrategy.dto.MaskPreviewRequest;
 import com.acme.scaffold.system.maskstrategy.dto.MaskStrategyView;
@@ -32,7 +33,7 @@ import java.util.List;
  * 启动时扫描 {@code @PreAuthorize} 自动落库并授予 SUPER_ADMIN，无需手工登记。</p>
  *
  * <p><b>与脱敏内核解耦</b>：本接口只管理策略本身（CRUD + 缓存刷新），具体脱敏算法仍走
- * {@code common.sensitive.SensitiveMasker}（M1/M20 共用），由 {@link MaskStrategyResolver}
+ * {@code common.sensitive.SensitiveMasker}（M1/M20 共用），由 {@link com.acme.scaffold.system.maskstrategy.application.MaskStrategyResolver}
  * 在序列化/导出前统一分派。菜单（system:mask-strategy）由 V46 迁移播种并绑定 SUPER_ADMIN。</p>
  */
 @Tag(name = "脱敏策略中心")

@@ -6,7 +6,7 @@ import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.sensitive.SensitiveType;
-import com.acme.scaffold.system.maskstrategy.MaskStrategyResolver;
+import com.acme.scaffold.system.maskstrategy.application.MaskStrategyResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

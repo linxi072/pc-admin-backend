@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.maskstrategy;
+package com.acme.scaffold.system.maskstrategy.application;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;

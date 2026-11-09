@@ -14,8 +14,8 @@ import java.util.Set;
  * 角色豁免判定与最终类型裁决。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
- * {@link com.acme.scaffold.system.maskstrategy.MaskStrategyResolver}（序列化/导出前分派）、
- * {@link com.acme.scaffold.system.maskstrategy.MaskStrategyService}（管理写入校验）复用，
+ * {@link com.acme.scaffold.system.maskstrategy.application.MaskStrategyResolver}（序列化/导出前分派）、
+ * {@link com.acme.scaffold.system.maskstrategy.application.MaskStrategyService}（管理写入校验）复用，
  * 保证「存什么、查什么、按什么放行」三处口径同源。</p>
  *
  * <p><b>作用范围</b>：
