@@ -1,7 +1,6 @@
 package com.acme.scaffold.system.apiresource.application;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
-import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.mybatis.dsl.SqlTables;

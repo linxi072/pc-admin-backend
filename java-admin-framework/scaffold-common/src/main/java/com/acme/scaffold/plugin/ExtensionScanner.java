@@ -1,6 +1,5 @@
 package com.acme.scaffold.plugin;
 
-import com.acme.scaffold.common.plugin.ExtensionDescriptor;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 

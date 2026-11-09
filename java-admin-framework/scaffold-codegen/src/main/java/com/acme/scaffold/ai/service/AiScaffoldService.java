@@ -2,7 +2,6 @@ package com.acme.scaffold.ai.service;
 
 import com.acme.scaffold.ai.AiScaffoldException;
 import com.acme.scaffold.ai.config.AiProperties;
-import com.acme.scaffold.ai.dto.ColumnSpec;
 import com.acme.scaffold.ai.dto.ScaffoldResult;
 import com.acme.scaffold.ai.dto.TableSpec;
 import com.acme.scaffold.ai.port.CloudLlmProvider;

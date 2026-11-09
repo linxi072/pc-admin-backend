@@ -18,7 +18,6 @@ import com.acme.scaffold.workflow.dto.OverdueTaskView;
 import com.acme.scaffold.workflow.dto.RunningInstanceView;
 import com.acme.scaffold.workflow.entity.WfApprovalRecordDO;
 import com.acme.scaffold.workflow.entity.WfInstanceExtDO;
-import com.acme.scaffold.workflow.entity.WfTaskExtDO;
 import com.acme.scaffold.workflow.port.WorkflowEnginePort;
 import com.acme.scaffold.workflow.rules.WorkflowDefinitionRules;
 import com.acme.scaffold.workflow.rules.WorkflowMonitorRules;

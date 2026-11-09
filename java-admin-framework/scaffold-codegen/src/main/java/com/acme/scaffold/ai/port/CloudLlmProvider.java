@@ -1,6 +1,5 @@
 package com.acme.scaffold.ai.port;
 
-import com.acme.scaffold.ai.AiScaffoldException;
 import com.acme.scaffold.ai.LlmNotImplementedException;
 import com.acme.scaffold.ai.dto.TableSpec;
 import org.springframework.beans.factory.annotation.Value;

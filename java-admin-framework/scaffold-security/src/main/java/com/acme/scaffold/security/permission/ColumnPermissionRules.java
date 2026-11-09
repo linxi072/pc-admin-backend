@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.permission;
 
-import com.acme.scaffold.common.sensitive.SensitiveType;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

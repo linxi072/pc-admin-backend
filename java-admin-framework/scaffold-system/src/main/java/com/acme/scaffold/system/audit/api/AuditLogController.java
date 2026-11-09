@@ -5,7 +5,6 @@ import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditProperties;
 import com.acme.scaffold.common.audit.AuditRead;
-import com.acme.scaffold.common.audit.AuditRetentionRules;
 import com.acme.scaffold.common.audit.AuditRetentionView;
 import com.acme.scaffold.common.audit.dto.AuditLogQuery;
 import com.acme.scaffold.common.audit.AuditLogService;

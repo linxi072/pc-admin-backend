@@ -5,7 +5,6 @@ import com.acme.scaffold.common.web.ClientIpResolver;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;

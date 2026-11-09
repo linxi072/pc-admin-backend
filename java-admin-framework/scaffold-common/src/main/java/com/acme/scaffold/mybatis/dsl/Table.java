@@ -1,6 +1,5 @@
 package com.acme.scaffold.mybatis.dsl;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /** 表引用。表名来自 SqlTables 的静态登记，不接受用户输入。 */

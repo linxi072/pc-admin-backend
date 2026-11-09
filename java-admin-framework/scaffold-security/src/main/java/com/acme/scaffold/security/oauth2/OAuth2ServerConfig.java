@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
-import java.security.interfaces.RSAPublicKey;
 
 /**
  * OAuth2 授权服务器解码配置：RS256 解码器（校验 OAuth2 客户端令牌）+ 复合解码器（{@code @Primary}，

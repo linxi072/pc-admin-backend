@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.Table;
 import com.acme.scaffold.mybatis.dsl.DataAccessException;
 import org.springframework.stereotype.Service;
 

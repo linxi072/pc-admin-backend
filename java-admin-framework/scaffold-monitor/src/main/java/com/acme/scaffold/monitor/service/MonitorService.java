@@ -23,7 +23,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Record3;
 import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.CacheManager;
