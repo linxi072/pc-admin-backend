@@ -18,7 +18,7 @@ import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.mybatis.dsl.KeysetPager;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.system.entity.SysFileDO;
+import com.acme.scaffold.system.file.domain.model.SysFileDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;

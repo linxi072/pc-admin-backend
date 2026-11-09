@@ -7,7 +7,7 @@ import com.acme.scaffold.common.export.ExportFormat;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.XlsxDataExporter;
 import com.acme.scaffold.common.export.XlsxSheet;
-import com.acme.scaffold.system.dto.ExportTemplateView;
+import com.acme.scaffold.system.export.dto.ExportTemplateView;
 import com.acme.scaffold.system.export.config.ExportProperties;
 
 import org.springframework.beans.factory.annotation.Autowired;

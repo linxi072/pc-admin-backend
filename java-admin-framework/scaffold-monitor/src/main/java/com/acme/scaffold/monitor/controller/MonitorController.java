@@ -10,7 +10,7 @@ import com.acme.scaffold.monitor.dto.OnlineSessionView;
 import com.acme.scaffold.monitor.dto.PoolStatView;
 import com.acme.scaffold.monitor.domain.ServerMetrics;
 import com.acme.scaffold.monitor.service.MonitorService;
-import com.acme.scaffold.system.entity.SysMonitorSampleDO;
+import com.acme.scaffold.monitor.entity.SysMonitorSampleDO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.online.rules;
 
-import com.acme.scaffold.system.entity.SysOnlineSessionDO;
+import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

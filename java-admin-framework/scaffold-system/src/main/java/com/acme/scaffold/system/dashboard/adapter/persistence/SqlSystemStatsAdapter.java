@@ -2,7 +2,7 @@ package com.acme.scaffold.system.dashboard.adapter.persistence;
 
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.entity.SysOnlineSessionDO;
+import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;

@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.online.adapter;
 
 import com.acme.scaffold.security.online.OnlineSessionDataPort;
-import com.acme.scaffold.system.service.OnlineUserService;
+import com.acme.scaffold.system.online.application.OnlineUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

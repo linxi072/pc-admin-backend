@@ -1,0 +1,32 @@
+package com.acme.scaffold.system.message.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+import java.util.List;
+
+/**
+ * 发送站内信请求（同时支持单条与批量）。
+ *
+ * <p><b>三种投递模式</b>（按优先级判定）：
+ * <ol>
+ *   <li><b>指定接收人</b>：传 {@code receiverIds}，直接给这些用户投递；</li>
+ *   <li><b>按角色/部门批量</b>：传 {@code roleIds} 和/或 {@code orgIds}，
+ *       由服务端解析出接收人集合（角色与部门之间为「或」关系，命中任一即投递）；</li>
+ *   <li>两者都不传 → 请求非法，返回校验失败。</li>
+ * </ol>
+ * 注意：纯 N:N（用户可绑定多角色多部门），批量筛选基于 sys_user_role / sys_user_org 关联表解析，
+ * 角色与部门之间为「或」关系，命中任一即投递。
+ */
+public record SendMessageRequest(
+        @NotBlank @Size(max = 200, message = "{validation.title.size}") String title,
+        @NotBlank(message = "{validation.messageContent.notBlank}") String content,
+        /** NOTICE(通知) / ALERT(告警) / SYSTEM(系统)，为空默认 NOTICE */
+        String msgType,
+        /** 单条发送：显式接收人ID列表 */
+        List<Long> receiverIds,
+        /** 批量发送：按角色筛选 */
+        List<Long> roleIds,
+        /** 批量发送：按部门筛选 */
+        List<Long> orgIds) {
+}

@@ -14,7 +14,7 @@ import com.acme.scaffold.system.org.dto.CreateOrgRequest;
 import com.acme.scaffold.system.org.dto.OrgTreeVO;
 import com.acme.scaffold.system.org.dto.UpdateOrgRequest;
 import com.acme.scaffold.system.org.domain.model.SysOrgDO;
-import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;

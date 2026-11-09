@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.export.application;
 
 import com.acme.scaffold.common.export.ExportTask;
-import com.acme.scaffold.system.dto.RoleView;
-import com.acme.scaffold.system.service.RoleService;
+import com.acme.scaffold.system.role.dto.RoleView;
+import com.acme.scaffold.system.role.application.RoleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

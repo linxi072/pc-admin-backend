@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.bootstrap.application;
 
-import com.acme.scaffold.system.service.ApiResourceService;
+import com.acme.scaffold.system.apiresource.application.ApiResourceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;

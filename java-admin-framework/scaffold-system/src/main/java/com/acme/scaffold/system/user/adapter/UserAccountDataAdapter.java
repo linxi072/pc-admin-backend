@@ -6,7 +6,7 @@ import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
 import com.acme.scaffold.security.user.UserAccountPatch;
-import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DSL;

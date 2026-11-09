@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.acme.scaffold.common.text.TextUtils;
-import com.acme.scaffold.system.rules.ChannelNormalizeRules;
+import com.acme.scaffold.common.notification.ChannelNormalizeRules;
 
 /**
  * 通知发送记录纯函数规则：接收方按渠道掩码、标题/正文摘要、筛选值归一。

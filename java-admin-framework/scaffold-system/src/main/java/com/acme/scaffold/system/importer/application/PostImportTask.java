@@ -3,9 +3,9 @@ package com.acme.scaffold.system.importer.application;
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.common.importer.ImportValidators;
-import com.acme.scaffold.system.dto.CreatePostRequest;
-import com.acme.scaffold.system.rules.PostRules;
-import com.acme.scaffold.system.service.PostService;
+import com.acme.scaffold.system.post.dto.CreatePostRequest;
+import com.acme.scaffold.system.post.domain.rule.PostRules;
+import com.acme.scaffold.system.post.application.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

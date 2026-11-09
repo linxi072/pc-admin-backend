@@ -8,7 +8,7 @@ import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.monitor.domain.BusinessMetrics;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import com.acme.scaffold.workflow.dto.ApprovalRecordView;
 import com.acme.scaffold.workflow.dto.CompleteTaskRequest;
 import com.acme.scaffold.workflow.dto.DelegateTaskRequest;

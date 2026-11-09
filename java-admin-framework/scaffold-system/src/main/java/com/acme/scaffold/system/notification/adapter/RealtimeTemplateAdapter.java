@@ -5,9 +5,9 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.realtime.port.RealtimeTemplatePort;
 import com.acme.scaffold.realtime.port.RealtimeTemplateRenderResult;
-import com.acme.scaffold.system.entity.SysNotificationTemplateDO;
-import com.acme.scaffold.system.rules.NotificationTemplateRules;
-import com.acme.scaffold.system.service.NotificationTemplateService;
+import com.acme.scaffold.system.notifymgmt.domain.model.SysNotificationTemplateDO;
+import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationTemplateRules;
+import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

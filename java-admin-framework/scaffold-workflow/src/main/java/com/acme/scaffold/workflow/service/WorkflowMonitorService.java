@@ -10,7 +10,7 @@ import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.realtime.service.RealtimePushService;
-import com.acme.scaffold.system.entity.SysUserDO;
+import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import com.acme.scaffold.workflow.config.WorkflowMonitorProperties;
 import com.acme.scaffold.workflow.dto.DefinitionVersionView;
 import com.acme.scaffold.workflow.dto.MonitorStatsView;

@@ -4,7 +4,7 @@ import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.password.PasswordHistoryDataPort;
 import com.acme.scaffold.security.password.PasswordHistoryRecord;
-import com.acme.scaffold.system.entity.SysPasswordHistoryDO;
+import com.acme.scaffold.system.password.domain.model.SysPasswordHistoryDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Component;

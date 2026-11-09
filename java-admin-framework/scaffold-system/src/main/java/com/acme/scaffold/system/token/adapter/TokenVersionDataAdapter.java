@@ -3,7 +3,7 @@ package com.acme.scaffold.system.token.adapter;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.service.TokenVersionDataPort;
-import com.acme.scaffold.system.entity.SysUserRoleDO;
+import com.acme.scaffold.system.user.domain.model.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Component;

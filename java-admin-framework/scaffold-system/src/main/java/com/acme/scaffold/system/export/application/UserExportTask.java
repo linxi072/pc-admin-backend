@@ -2,9 +2,9 @@ package com.acme.scaffold.system.export.application;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.export.ExportTask;
-import com.acme.scaffold.system.dto.UserQuery;
-import com.acme.scaffold.system.dto.UserView;
-import com.acme.scaffold.system.service.UserService;
+import com.acme.scaffold.system.user.dto.UserQuery;
+import com.acme.scaffold.system.user.dto.UserView;
+import com.acme.scaffold.system.user.application.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
