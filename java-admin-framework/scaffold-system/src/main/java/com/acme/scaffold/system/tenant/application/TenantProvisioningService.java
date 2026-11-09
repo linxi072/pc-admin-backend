@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.tenant;
+package com.acme.scaffold.system.tenant.application;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -15,6 +15,7 @@ import com.acme.scaffold.system.service.OrgService;
 import com.acme.scaffold.system.service.RoleService;
 import com.acme.scaffold.system.service.UserService;
 import com.acme.scaffold.system.tenant.dto.TenantProvisioningRequest;
+import com.acme.scaffold.system.tenant.rules.TenantProvisioningRules;
 import com.acme.scaffold.system.tenant.dto.TenantProvisioningView;
 import com.acme.scaffold.system.tenant.dto.TenantView;
 import lombok.RequiredArgsConstructor;

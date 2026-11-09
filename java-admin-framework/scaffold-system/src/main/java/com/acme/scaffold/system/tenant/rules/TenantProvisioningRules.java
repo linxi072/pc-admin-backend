@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.tenant;
+package com.acme.scaffold.system.tenant.rules;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tenant.TenantRules;

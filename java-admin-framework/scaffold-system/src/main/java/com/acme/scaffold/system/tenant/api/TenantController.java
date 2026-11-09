@@ -1,5 +1,7 @@
-package com.acme.scaffold.system.tenant;
+package com.acme.scaffold.system.tenant.api;
 
+import com.acme.scaffold.system.tenant.application.TenantProvisioningService;
+import com.acme.scaffold.system.tenant.application.TenantService;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;

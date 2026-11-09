@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.tenant;
+package com.acme.scaffold.system.tenant.application;
 import com.acme.scaffold.common.util.MergeFields;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 

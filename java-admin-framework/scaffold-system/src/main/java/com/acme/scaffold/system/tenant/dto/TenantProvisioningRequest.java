@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 /**
  * 租户开通请求：为已存在的租户初始化管理员 / 角色 / 部门。
  *
- * <p>结构校验由 {@link com.acme.scaffold.system.tenant.TenantProvisioningRules} 兜底；
+ * <p>结构校验由 {@link com.acme.scaffold.system.tenant.rules.TenantProvisioningRules} 兜底；
  * 此处以 Bean Validation 做入参层面的快速失败。adminUsername 可空（缺省 admin）。</p>
  */
 public record TenantProvisioningRequest(

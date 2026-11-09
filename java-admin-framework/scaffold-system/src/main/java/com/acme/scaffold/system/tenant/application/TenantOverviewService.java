@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.tenant;
+package com.acme.scaffold.system.tenant.application;
 
 import com.acme.scaffold.common.tenant.TenantIsolationAuditReport;
 import com.acme.scaffold.common.tenant.TenantIsolationAuditRules;
