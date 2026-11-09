@@ -78,7 +78,77 @@ java-admin-framework/
 `common.mybatis` 例外：位于 common 模块但包根为 `com.acme.scaffold.mybatis`，只放无状态 DSL 工具，
 不放业务实体、不定义表结构。重排包根需改动全仓数百处 import，属高风险零收益搬迁，保留。
 
-## 4. 前端目录骨架
+## 4. `scaffold-system` 子域分层骨架
+
+`scaffold-system` 先按**业务子域**切分为一级子包（簇），簇内再按分层骨架组织。
+legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平包已于 2026-11-09
+全量打散并删除；此后禁止在 `system/` 根级再出现这五类包（D1 只守护模块级顶层包根，
+子簇包名不受 D1 约束，但须遵循本节落位口径）。
+
+簇内分层：
+
+| 层 | 目录 | 放什么 |
+|---|---|---|
+| 接口层 | `api/` | `*Controller`，只做参数绑定与结果包装 |
+| 应用层 | `application/` | `*Service`，用例编排与事务边界 |
+| 领域层 | `domain/model/` | `*DO`（H4 强制：包路径须含 `domain`/`entity`/`model`/`po`） |
+| 领域层 | `domain/rule/` | `*Rules` 纯函数规则，不触 DB、不抛业务异常 |
+| 契约层 | `dto/` | `*DTO` / `*VO` / `*Request` / `*Response` / `*Query` |
+| 适配层 | `adapter/` | 持久化 / 远程 / MQ 适配器与 `*Port` 实现 |
+| 配置层 | `config/` | `@Configuration` 与配置属性 |
+
+落位口径：
+
+1. 关联表 DO 归**拥有外键的聚合根**所在簇 —— `sys_user_role` / `sys_user_org` / `sys_user_post`
+   → `user`；`sys_role_menu` / `sys_role_api` / `sys_role_data_scope*` / `sys_role_column_permission` → `role`；
+2. 跨簇共享的包私有支撑类提升为 `public` 并放入中性簇 `support/`（`CurrentUserSupport` /
+   `FileResponseSupport` / `RemindLimitRules`），不复制第二份；
+3. 通用渠道规则下沉 `scaffold-common`（`common/notification/ChannelNormalizeRules`，与 `Channel` 枚举同域）；
+4. 表由哪个模块独占写入，DO 就归该模块 —— `sys_monitor_sample` → `scaffold-monitor` 的 `monitor/entity`；
+5. 簇间依赖只允许单向，`domain/model` 不得反向依赖 `application`（H3 方向约束 + H1 包级无环）。
+
+子域簇一览（括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `announcement`(14) | api/application/domain{model,rule}/dto | 公告发布与已读、催办 |
+| `apiresource`(10) | api/application/domain{model}/dto | API 资源登记与启动自扫描 |
+| `audit`(2) | api/application | 审计日志查询（数据在 `common.audit`） |
+| `bootstrap`(1) | application | 启动期自检与 API 资源自动登记 |
+| `config`(8) | api/application/domain{rule,model}/dto | 参数配置 |
+| `dashboard`(12) | adapter/api/application/domain | 运营看板与统计聚合 |
+| `dict`(12) | api/application/domain{model}/dto | 字典类型与字典项 |
+| `export`(14) | api/application/config/dto | 导出任务中心与导出接口 |
+| `file`(14) | api/application/domain{model,rule}/enums | 文件上传下载与去重 |
+| `form`(17) | api/application/domain{model}/dto/rules | 低代码表单定义与提交 |
+| `importer`(8) | api/application/config | 导入中心与导入任务 |
+| `log`(5) | api/application/config | 操作日志与登录日志查询 |
+| `maskstrategy`(9) | api/application/domain{model}/dto/rules | 脱敏策略 |
+| `menu`(7) | api/application/domain{model}/dto | 菜单树与菜单授权 |
+| `message`(12) | api/application/domain{model,rule}/dto | 站内信与已读回执 |
+| `notification`(45) | adapter/config/controller/dto/port/rules/service | 通知**投递**（渠道适配与发送）；`controller/`+`service/` 为历史分层，待归一为 api/application |
+| `notifydigest`(4) | application/domain{model,rule}/job | 通知摘要聚合 |
+| `notifylog`(6) | api/application/domain{model,rule} | 通知记录与查询 |
+| `notifymgmt`(13) | api/application/domain{model,rule}/dto | 通知中心与通知模板管理 |
+| `notifypref`(6) | api/application/domain{model,rule} | 通知偏好 |
+| `notifyquiet`(6) | api/application/domain{model,rule} | 免打扰时段 |
+| `notifysupport`(1) | application | 通知共享支撑 |
+| `oauth2`(2) | consent | 授权同意页 |
+| `online`(14) | adapter/api/application/domain{model}/dto/rules | 在线会话与登录限制 |
+| `openapi`(8) | adapter/api/application/domain{model}/dto | 开放平台客户端与凭据 |
+| `org`(6) | api/application/domain{model}/dto | 组织机构树 |
+| `password`(2) | adapter/domain{model} | 密码历史 |
+| `permission`(5) | adapter/api | 数据/字段受控资源与权限适配器 |
+| `post`(10) | api/application/domain{model,rule}/dto | 职务 |
+| `profile`(11) | api/application/dto | 个人中心（资料、设备、改密、展示偏好） |
+| `role`(16) | api/application/domain{model}/dto | 角色与数据范围、字段权限 |
+| `smslog`(6) | api/application/domain{model} | 短信发送记录 |
+| `support`(3) | （平铺） | 跨簇共享支撑类 |
+| `tenant`(22) | api/application/domain{model}/dto/rules | 多租户管理与隔离 |
+| `token`(1) | adapter | 令牌版本适配器 |
+| `user`(12) | adapter/api/application/domain{model}/dto | 用户与用户关联表 |
+
+## 5. 前端目录骨架
 
 ```
 pc-admin-vue3-vite/src/
@@ -105,7 +175,7 @@ pc-admin-vue3-vite/src/
 > `src/api` 采用平铺而非若依的 `api/system/*.js` 分子目录。分目录需同步改 69 个文件与
 > 全部 import，属大规模搬迁，保留并在差异文档说明。
 
-## 5. 禁止事项
+## 6. 禁止事项
 
 1. 不在特性包根放 `*DTO` / `*VO` / `*Request` / `*Response`（H4 阻断）；
 2. 不新增顶层包根，历史例外不再扩大；`src/main/java` 一级目录只允许 `com`（admin 例外 `db`），`src/test/java` 若存在则包根须与 main 白名单对齐（D8/D9）；
@@ -113,9 +183,11 @@ pc-admin-vue3-vite/src/
 4. 不在非 admin 模块放启动类、`application*.yml` 或 `logback*.xml`；
 5. 不在子模块 POM 写第三方依赖 `<version>`，版本统一在父 POM `dependencyManagement`；
 6. 不为对齐若依而改 `Result<T>` 包络、HTTP 路径、菜单种子或前端路由；
-7. 不把已有单一事实来源的常量 / 工具复制第二份。
+7. 不把已有单一事实来源的常量 / 工具复制第二份；
+8. 不在 `scaffold-system` 根级重建 `controller/` / `service/` / `dto/` / `entity/` / `rules/`
+   扁平包（2026-11-09 已全量打散并删除）；新类一律按 §4 归入对应子簇的分层目录。
 
-## 6. 守护机制
+## 7. 守护机制
 
 | 约定 | 守护方式 |
 |---|---|
