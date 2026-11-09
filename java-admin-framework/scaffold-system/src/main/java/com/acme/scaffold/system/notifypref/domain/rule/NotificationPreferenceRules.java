@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifypref.rules;
+package com.acme.scaffold.system.notifypref.domain.rule;
 
 import com.acme.scaffold.common.notification.Channel;
 
@@ -12,7 +12,7 @@ import java.util.Map;
  * 「细分优先、无行默认开」的生效判定、渠道 × 类型矩阵构建与接收者分区。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
- * {@link com.acme.scaffold.system.notifypref.NotificationPreferenceService}（矩阵查询/批量 upsert/
+ * {@link com.acme.scaffold.system.notifypref.application.NotificationPreferenceService}（矩阵查询/批量 upsert/
  * 发送前过滤）与 {@link com.acme.scaffold.system.notification.service.NotificationService}
  * （dispatch 挂点）复用，保证「存什么、查什么、按什么放行」三处口径同源。</p>
  *

@@ -18,8 +18,8 @@ import com.acme.scaffold.system.notifydigest.NotificationDigestService.EnqueueRe
 import com.acme.scaffold.system.notifydigest.domain.SysNotificationDigestDO;
 import com.acme.scaffold.system.notifydigest.rules.NotificationDigestRules;
 import com.acme.scaffold.system.notifylog.NotificationRecordRecorder;
-import com.acme.scaffold.system.notifypref.NotificationPreferenceService;
-import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules;
+import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
+import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules;
 import com.acme.scaffold.system.notifyquiet.NotificationQuietHoursService;
 import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
 import com.acme.scaffold.system.rules.NotificationTemplateRules;

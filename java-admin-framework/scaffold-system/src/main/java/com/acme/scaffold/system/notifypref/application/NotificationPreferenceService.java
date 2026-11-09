@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifypref;
+package com.acme.scaffold.system.notifypref.application;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -10,11 +10,11 @@ import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.notifysupport.NotificationSupport;
-import com.acme.scaffold.system.notifypref.domain.SysNotificationPreferenceDO;
-import com.acme.scaffold.system.notifypref.dto.PreferenceItemRequest;
-import com.acme.scaffold.system.notifypref.dto.UpdateNotificationPreferenceRequest;
-import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules;
-import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules.NotificationPreferenceMatrix;
+import com.acme.scaffold.system.notifypref.domain.model.SysNotificationPreferenceDO;
+import com.acme.scaffold.system.notifypref.api.dto.PreferenceItemRequest;
+import com.acme.scaffold.system.notifypref.api.dto.UpdateNotificationPreferenceRequest;
+import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules;
+import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules.NotificationPreferenceMatrix;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;

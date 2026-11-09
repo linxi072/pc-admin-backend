@@ -9,7 +9,7 @@ import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.notification.config.NotificationDigestProperties;
 import com.acme.scaffold.system.notifydigest.domain.SysNotificationDigestDO;
 import com.acme.scaffold.system.notifydigest.rules.NotificationDigestRules;
-import com.acme.scaffold.system.notifypref.NotificationPreferenceService;
+import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
 import com.acme.scaffold.system.rules.NotificationTemplateRules;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

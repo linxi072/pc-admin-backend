@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifypref.dto;
+package com.acme.scaffold.system.notifypref.api.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

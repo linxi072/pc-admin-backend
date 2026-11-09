@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifypref.domain;
+package com.acme.scaffold.system.notifypref.domain.model;
 
 import lombok.Data;
 

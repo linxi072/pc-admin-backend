@@ -1,9 +1,10 @@
-package com.acme.scaffold.system.notifypref;
+package com.acme.scaffold.system.notifypref.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.notifypref.dto.UpdateNotificationPreferenceRequest;
-import com.acme.scaffold.system.notifypref.rules.NotificationPreferenceRules.NotificationPreferenceMatrix;
+import com.acme.scaffold.system.notifypref.api.dto.UpdateNotificationPreferenceRequest;
+import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
+import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules.NotificationPreferenceMatrix;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
