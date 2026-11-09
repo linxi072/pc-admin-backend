@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.log;
+package com.acme.scaffold.system.log.config;
 
 import lombok.Getter;
 import lombok.Setter;

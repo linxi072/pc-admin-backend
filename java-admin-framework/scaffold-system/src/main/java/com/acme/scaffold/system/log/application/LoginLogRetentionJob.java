@@ -1,6 +1,7 @@
-package com.acme.scaffold.system.log;
+package com.acme.scaffold.system.log.application;
 
 import com.acme.scaffold.common.audit.AuditRetentionRules;
+import com.acme.scaffold.system.log.config.LoginLogProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

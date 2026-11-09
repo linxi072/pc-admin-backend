@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.log;
+package com.acme.scaffold.system.log.application;
 
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;

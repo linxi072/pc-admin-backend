@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.log;
+package com.acme.scaffold.system.log.application;
 
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.security.entity.SysLoginLogDO;

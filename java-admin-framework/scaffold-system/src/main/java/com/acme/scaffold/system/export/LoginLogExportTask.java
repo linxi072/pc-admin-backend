@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.export;
 
 import com.acme.scaffold.common.export.ExportTask;
-import com.acme.scaffold.system.log.LoginLogService;
-import com.acme.scaffold.system.log.LoginLogView;
+import com.acme.scaffold.system.log.application.LoginLogService;
+import com.acme.scaffold.system.log.application.LoginLogView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
