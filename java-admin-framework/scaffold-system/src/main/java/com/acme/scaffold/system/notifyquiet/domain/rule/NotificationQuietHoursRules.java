@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
  * {@link com.acme.scaffold.system.notifyquiet.application.NotificationQuietHoursService}
  * （自服务查询/更新 + 发送前过滤）与
- * {@link com.acme.scaffold.system.notification.service.NotificationService}
+ * {@link com.acme.scaffold.system.notification.application.NotificationService}
  * （dispatch 挂点）复用，保证「存什么、按什么抑制」两处口径同源。</p>
  *
  * <p><b>时间窗模型</b>（半开区间 {@code [start, end)}，服务器本地时间）：

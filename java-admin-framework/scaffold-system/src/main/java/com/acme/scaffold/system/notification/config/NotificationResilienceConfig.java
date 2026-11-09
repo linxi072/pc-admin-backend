@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * 通知投递韧性配置（P1-6 / P7）。
  *
- * <p>为 {@link com.acme.scaffold.system.notification.service.NotificationService#dispatchAsync}
+ * <p>为 {@link com.acme.scaffold.system.notification.application.NotificationService#dispatchAsync}
  * 提供下游熔断器：下游通道/网关持续失败时进入 OPEN 并快速失败，冷却后半开试探一次。
  * 阈值当前为合理默认值，后续可下放到 {@link NotificationRetryProperties} 配置化。</p>
  *

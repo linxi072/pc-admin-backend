@@ -4,10 +4,10 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.EmailProperties;
-import com.acme.scaffold.system.notification.port.MailClient;
-import com.acme.scaffold.system.notification.rules.EmailRules;
-import com.acme.scaffold.system.notification.unsubscribe.rules.UnsubscribeAppendRules;
-import com.acme.scaffold.system.notification.unsubscribe.NotificationUnsubscribeService;
+import com.acme.scaffold.system.notification.domain.repository.MailClient;
+import com.acme.scaffold.system.notification.domain.rule.EmailRules;
+import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeAppendRules;
+import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

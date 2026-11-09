@@ -2,7 +2,7 @@ package com.acme.scaffold.system.notifyquiet.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.notifyquiet.api.dto.UpdateQuietHoursRequest;
+import com.acme.scaffold.system.notifyquiet.dto.UpdateQuietHoursRequest;
 import com.acme.scaffold.system.notifyquiet.application.NotificationQuietHoursService;
 import com.acme.scaffold.system.notifyquiet.application.NotificationQuietHoursView;
 import io.swagger.v3.oas.annotations.Operation;

@@ -15,7 +15,7 @@ import com.acme.scaffold.system.maskstrategy.domain.SysMaskStrategyDO;
 import com.acme.scaffold.system.maskstrategy.dto.CreateMaskStrategyRequest;
 import com.acme.scaffold.system.maskstrategy.dto.MaskStrategyView;
 import com.acme.scaffold.system.maskstrategy.dto.UpdateMaskStrategyRequest;
-import com.acme.scaffold.system.maskstrategy.rules.MaskStrategyRules;
+import com.acme.scaffold.system.maskstrategy.domain.rule.MaskStrategyRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;

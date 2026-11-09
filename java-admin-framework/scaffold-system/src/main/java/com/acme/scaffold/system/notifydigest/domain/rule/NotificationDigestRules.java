@@ -10,7 +10,7 @@ import java.util.Locale;
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
  * {@link com.acme.scaffold.system.notifydigest.application.NotificationDigestService}
  * （聚合写入 / 兜底刷新 / 摘要消息构造）与
- * {@link com.acme.scaffold.system.notification.service.NotificationService}
+ * {@link com.acme.scaffold.system.notification.application.NotificationService}
  * （dispatch 挂点）复用，保证「按什么聚合」与「聚成什么」两处口径同源——
  * 与 {@code NotificationQuietHoursRules} / {@code NotificationPreferenceRules} 同范式。</p>
  *

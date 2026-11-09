@@ -9,7 +9,7 @@ import com.acme.scaffold.system.form.domain.FormDefinitionDO;
 import com.acme.scaffold.system.form.dto.CreateFormDefinitionRequest;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.UpdateFormDefinitionRequest;
-import com.acme.scaffold.system.form.rules.FormSchemaRules;
+import com.acme.scaffold.system.form.domain.rule.FormSchemaRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;

@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.system.notification.config.WebhookProperties;
-import com.acme.scaffold.system.notification.port.WebhookClient;
-import com.acme.scaffold.system.notification.rules.WebhookSignatureRules;
+import com.acme.scaffold.system.notification.domain.repository.WebhookClient;
+import com.acme.scaffold.system.notification.domain.rule.WebhookSignatureRules;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.web.client.RestTemplateBuilder;

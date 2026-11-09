@@ -8,7 +8,7 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.notifysupport.application.NotificationSupport;
-import com.acme.scaffold.system.notifyquiet.api.dto.UpdateQuietHoursRequest;
+import com.acme.scaffold.system.notifyquiet.dto.UpdateQuietHoursRequest;
 import com.acme.scaffold.system.notifyquiet.domain.model.SysNotificationQuietHoursDO;
 import com.acme.scaffold.system.notifyquiet.domain.rule.NotificationQuietHoursRules;
 import com.acme.scaffold.system.notifyquiet.domain.rule.NotificationQuietHoursRules.QuietSetting;

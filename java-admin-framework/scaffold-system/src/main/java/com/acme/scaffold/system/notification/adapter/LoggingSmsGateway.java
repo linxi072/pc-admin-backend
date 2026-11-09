@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
-import com.acme.scaffold.system.notification.port.SmsGateway;
-import com.acme.scaffold.system.notification.rules.SmsRules;
+import com.acme.scaffold.system.notification.domain.repository.SmsGateway;
+import com.acme.scaffold.system.notification.domain.rule.SmsRules;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

@@ -15,7 +15,7 @@ import com.acme.scaffold.system.form.dto.FormSubmissionFormCount;
 import com.acme.scaffold.system.form.dto.FormSubmissionManageView;
 import com.acme.scaffold.system.form.dto.FormSubmissionStat;
 import com.acme.scaffold.system.form.dto.FormSubmissionView;
-import com.acme.scaffold.system.form.rules.FormSubmissionRules;
+import com.acme.scaffold.system.form.domain.rule.FormSubmissionRules;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

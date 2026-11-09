@@ -93,7 +93,8 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | 应用层 | `application/` | `*Service`，用例编排与事务边界 |
 | 领域层 | `domain/model/` | `*DO`（H4 强制：包路径须含 `domain`/`entity`/`model`/`po`） |
 | 领域层 | `domain/rule/` | `*Rules` 纯函数规则，不触 DB、不抛业务异常 |
-| 契约层 | `dto/` | `*DTO` / `*VO` / `*Request` / `*Response` / `*Query` |
+| 领域层 | `domain/repository/` | `*Port` 端口接口（出站集成与统计端口，如 `dashboard/domain/repository/SystemStatsPort`） |
+| 契约层 | `dto/` | `*DTO` / `*VO` / `*Request` / `*Response` / `*Query`；**一律簇根 `dto/`**，不设 `api/dto/` |
 | 适配层 | `adapter/` | 持久化 / 远程 / MQ 适配器与 `*Port` 实现 |
 | 配置层 | `config/` | `@Configuration` 与配置属性 |
 
@@ -105,7 +106,12 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
    `FileResponseSupport` / `RemindLimitRules`），不复制第二份；
 3. 通用渠道规则下沉 `scaffold-common`（`common/notification/ChannelNormalizeRules`，与 `Channel` 枚举同域）；
 4. 表由哪个模块独占写入，DO 就归该模块 —— `sys_monitor_sample` → `scaffold-monitor` 的 `monitor/entity`；
-5. 簇间依赖只允许单向，`domain/model` 不得反向依赖 `application`（H3 方向约束 + H1 包级无环）。
+5. 簇间依赖只允许单向，`domain/model` 不得反向依赖 `application`（H3 方向约束 + H1 包级无环）；
+6. 端口接口（`*Port`）一律落 `domain/repository/`，实现落 `adapter/`（先例：
+   `dashboard/domain/repository/SystemStatsPort` ↔ `dashboard/adapter/`、`notification/domain/repository/MailClient` ↔ `notification/adapter/`）；
+7. 子特性（如 `notification/unsubscribe/`）沿用同一分层骨架，自带 `api/` + `application/` + `config/` + `domain/rule/`；
+8. `system/` 下已无任何簇根 `controller/` / `service/` / `entity/` / `port/` / `rules/` 目录，
+   也不设 `api/dto/` —— 全部子域簇已按本节骨架归一（2026-11-09 复检为空）。
 
 子域簇一览（括号内为 Java 文件数）：
 
@@ -120,21 +126,21 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | `dict`(12) | api/application/domain{model}/dto | 字典类型与字典项 |
 | `export`(14) | api/application/config/dto | 导出任务中心与导出接口 |
 | `file`(14) | api/application/domain{model,rule}/enums | 文件上传下载与去重 |
-| `form`(17) | api/application/domain{model}/dto/rules | 低代码表单定义与提交 |
+| `form`(17) | api/application/domain{model,rule}/dto | 低代码表单定义与提交 |
 | `importer`(8) | api/application/config | 导入中心与导入任务 |
 | `log`(5) | api/application/config | 操作日志与登录日志查询 |
-| `maskstrategy`(9) | api/application/domain{model}/dto/rules | 脱敏策略 |
+| `maskstrategy`(9) | api/application/domain{model,rule}/dto | 脱敏策略 |
 | `menu`(7) | api/application/domain{model}/dto | 菜单树与菜单授权 |
 | `message`(12) | api/application/domain{model,rule}/dto | 站内信与已读回执 |
-| `notification`(45) | adapter/config/controller/dto/port/rules/service | 通知**投递**（渠道适配与发送）；`controller/`+`service/` 为历史分层，待归一为 api/application |
+| `notification`(45) | adapter/api/application/config/domain{repository,rule}/dto + `unsubscribe/` 子特性 | 通知**投递**（渠道适配与发送）；端口按 `domain/repository`（与 `dashboard/domain/repository/SystemStatsPort` 同先例），退订子特性自带 api/application/config/domain/rule |
 | `notifydigest`(4) | application/domain{model,rule}/job | 通知摘要聚合 |
 | `notifylog`(6) | api/application/domain{model,rule} | 通知记录与查询 |
 | `notifymgmt`(13) | api/application/domain{model,rule}/dto | 通知中心与通知模板管理 |
-| `notifypref`(6) | api/application/domain{model,rule} | 通知偏好 |
-| `notifyquiet`(6) | api/application/domain{model,rule} | 免打扰时段 |
+| `notifypref`(6) | api/application/domain{model,rule}/dto | 通知偏好 |
+| `notifyquiet`(6) | api/application/domain{model,rule}/dto | 免打扰时段 |
 | `notifysupport`(1) | application | 通知共享支撑 |
 | `oauth2`(2) | consent | 授权同意页 |
-| `online`(14) | adapter/api/application/domain{model}/dto/rules | 在线会话与登录限制 |
+| `online`(14) | adapter/api/application/domain{model,rule}/dto | 在线会话与登录限制 |
 | `openapi`(8) | adapter/api/application/domain{model}/dto | 开放平台客户端与凭据 |
 | `org`(6) | api/application/domain{model}/dto | 组织机构树 |
 | `password`(2) | adapter/domain{model} | 密码历史 |
@@ -144,7 +150,7 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | `role`(16) | api/application/domain{model}/dto | 角色与数据范围、字段权限 |
 | `smslog`(6) | api/application/domain{model} | 短信发送记录 |
 | `support`(3) | （平铺） | 跨簇共享支撑类 |
-| `tenant`(22) | api/application/domain{model}/dto/rules | 多租户管理与隔离 |
+| `tenant`(22) | api/application/domain{model,rule}/dto | 多租户管理与隔离 |
 | `token`(1) | adapter | 令牌版本适配器 |
 | `user`(12) | adapter/api/application/domain{model}/dto | 用户与用户关联表 |
 

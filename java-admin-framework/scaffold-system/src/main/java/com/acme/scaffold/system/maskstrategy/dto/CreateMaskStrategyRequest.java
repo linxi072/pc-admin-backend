@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.maskstrategy.dto;
 
-import com.acme.scaffold.system.maskstrategy.rules.MaskStrategyRules;
+import com.acme.scaffold.system.maskstrategy.domain.rule.MaskStrategyRules;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 

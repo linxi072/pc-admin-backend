@@ -13,7 +13,7 @@ import java.util.Map;
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
  * {@link com.acme.scaffold.system.notifypref.application.NotificationPreferenceService}（矩阵查询/批量 upsert/
- * 发送前过滤）与 {@link com.acme.scaffold.system.notification.service.NotificationService}
+ * 发送前过滤）与 {@link com.acme.scaffold.system.notification.application.NotificationService}
  * （dispatch 挂点）复用，保证「存什么、查什么、按什么放行」三处口径同源。</p>
  *
  * <p><b>生效模型</b>（两级）：

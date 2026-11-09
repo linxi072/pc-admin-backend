@@ -15,7 +15,7 @@ import com.acme.scaffold.system.org.application.OrgService;
 import com.acme.scaffold.system.role.application.RoleService;
 import com.acme.scaffold.system.user.application.UserService;
 import com.acme.scaffold.system.tenant.dto.TenantProvisioningRequest;
-import com.acme.scaffold.system.tenant.rules.TenantProvisioningRules;
+import com.acme.scaffold.system.tenant.domain.rule.TenantProvisioningRules;
 import com.acme.scaffold.system.tenant.dto.TenantProvisioningView;
 import com.acme.scaffold.system.tenant.dto.TenantView;
 import lombok.RequiredArgsConstructor;

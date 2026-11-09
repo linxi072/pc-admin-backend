@@ -7,8 +7,8 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.AbstractRobotProperties;
 import com.acme.scaffold.system.config.dto.ConfigVO;
-import com.acme.scaffold.system.notification.port.WebhookClient;
-import com.acme.scaffold.system.notification.rules.RobotPayloads;
+import com.acme.scaffold.system.notification.domain.repository.WebhookClient;
+import com.acme.scaffold.system.notification.domain.rule.RobotPayloads;
 import com.acme.scaffold.system.config.application.ConfigService;
 
 import java.util.Map;

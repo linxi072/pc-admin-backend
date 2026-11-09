@@ -4,7 +4,7 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.WebhookProperties;
-import com.acme.scaffold.system.notification.port.WebhookClient;
+import com.acme.scaffold.system.notification.domain.repository.WebhookClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

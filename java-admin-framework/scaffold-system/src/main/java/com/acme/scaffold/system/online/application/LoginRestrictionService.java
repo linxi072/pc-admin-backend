@@ -14,7 +14,7 @@ import com.acme.scaffold.system.online.dto.RestrictLoginRequest;
 import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
 import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
 import com.acme.scaffold.system.user.domain.model.SysUserDO;
-import com.acme.scaffold.system.online.rules.RestrictionRules;
+import com.acme.scaffold.system.online.domain.rule.RestrictionRules;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;

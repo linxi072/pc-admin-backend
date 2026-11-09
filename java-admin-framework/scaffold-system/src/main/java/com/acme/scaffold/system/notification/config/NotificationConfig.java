@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.notification.config;
 
-import com.acme.scaffold.system.notification.unsubscribe.NotificationUnsubscribeProperties;
+import com.acme.scaffold.system.notification.unsubscribe.config.NotificationUnsubscribeProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 

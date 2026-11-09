@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.notifydigest.job;
 
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.system.notification.service.NotificationService;
+import com.acme.scaffold.system.notification.application.NotificationService;
 import com.acme.scaffold.system.notifydigest.application.NotificationDigestService;
 import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
 import lombok.RequiredArgsConstructor;
