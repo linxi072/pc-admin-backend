@@ -9,7 +9,7 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.entity.SysUserDO;
-import com.acme.scaffold.system.notifysupport.NotificationSupport;
+import com.acme.scaffold.system.notifysupport.application.NotificationSupport;
 import com.acme.scaffold.system.notifypref.domain.model.SysNotificationPreferenceDO;
 import com.acme.scaffold.system.notifypref.api.dto.PreferenceItemRequest;
 import com.acme.scaffold.system.notifypref.api.dto.UpdateNotificationPreferenceRequest;

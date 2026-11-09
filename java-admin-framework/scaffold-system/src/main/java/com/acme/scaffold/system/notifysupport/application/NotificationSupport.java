@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifysupport;
+package com.acme.scaffold.system.notifysupport.application;
 
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
