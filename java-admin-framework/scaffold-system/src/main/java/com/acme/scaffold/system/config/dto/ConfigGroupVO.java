@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dto;
+package com.acme.scaffold.system.config.dto;
 
 import java.util.List;
 

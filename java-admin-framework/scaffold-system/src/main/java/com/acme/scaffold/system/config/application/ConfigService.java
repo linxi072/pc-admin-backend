@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.service;
+package com.acme.scaffold.system.config.application;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -6,12 +6,12 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.dto.ConfigGroupVO;
-import com.acme.scaffold.system.dto.ConfigVO;
-import com.acme.scaffold.system.dto.CreateConfigRequest;
-import com.acme.scaffold.system.dto.UpdateConfigRequest;
-import com.acme.scaffold.system.entity.SysConfigDO;
-import com.acme.scaffold.system.rules.ConfigGroupRules;
+import com.acme.scaffold.system.config.dto.ConfigGroupVO;
+import com.acme.scaffold.system.config.dto.ConfigVO;
+import com.acme.scaffold.system.config.dto.CreateConfigRequest;
+import com.acme.scaffold.system.config.dto.UpdateConfigRequest;
+import com.acme.scaffold.system.config.domain.model.SysConfigDO;
+import com.acme.scaffold.system.config.domain.rule.ConfigGroupRules;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DSL;

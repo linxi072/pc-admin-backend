@@ -1,8 +1,8 @@
-package com.acme.scaffold.system.dto;
+package com.acme.scaffold.system.config.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record UpdateConfigRequest(
+public record CreateConfigRequest(
         @NotBlank String configKey,
         @NotBlank String configName,
         String configValue,

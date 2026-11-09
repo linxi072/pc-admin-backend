@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.entity;
+package com.acme.scaffold.system.config.domain.model;
 
 import lombok.Data;
 

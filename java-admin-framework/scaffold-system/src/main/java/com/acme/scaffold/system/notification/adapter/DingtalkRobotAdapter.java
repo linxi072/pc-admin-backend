@@ -4,7 +4,7 @@ import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.system.notification.config.DingtalkRobotProperties;
 import com.acme.scaffold.system.notification.port.WebhookClient;
 import com.acme.scaffold.system.notification.rules.RobotSigningRules;
-import com.acme.scaffold.system.service.ConfigService;
+import com.acme.scaffold.system.config.application.ConfigService;
 import org.springframework.stereotype.Component;
 
 /**

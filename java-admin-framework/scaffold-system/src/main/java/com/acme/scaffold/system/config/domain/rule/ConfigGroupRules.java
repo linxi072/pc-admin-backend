@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.rules;
+package com.acme.scaffold.system.config.domain.rule;
 
 import java.util.Collections;
 import java.util.Map;

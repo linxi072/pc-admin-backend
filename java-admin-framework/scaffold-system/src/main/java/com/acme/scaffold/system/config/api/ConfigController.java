@@ -1,15 +1,15 @@
-package com.acme.scaffold.system.controller;
+package com.acme.scaffold.system.config.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.security.ratelimit.RateLimit;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.system.dto.ConfigGroupVO;
-import com.acme.scaffold.system.dto.ConfigVO;
-import com.acme.scaffold.system.dto.CreateConfigRequest;
-import com.acme.scaffold.system.dto.UpdateConfigRequest;
-import com.acme.scaffold.system.service.ConfigService;
+import com.acme.scaffold.system.config.dto.ConfigGroupVO;
+import com.acme.scaffold.system.config.dto.ConfigVO;
+import com.acme.scaffold.system.config.dto.CreateConfigRequest;
+import com.acme.scaffold.system.config.dto.UpdateConfigRequest;
+import com.acme.scaffold.system.config.application.ConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
