@@ -14,8 +14,8 @@ import java.util.Set;
  * 表单 Schema 纯函数规则（V47 低代码表单试点 / M22 spike）。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可离线单测；供
- * {@link com.acme.scaffold.system.form.FormDefinitionService}（落库前校验）与
- * {@link com.acme.scaffold.system.form.FormRenderController}（下发前复核）共用，
+ * {@link com.acme.scaffold.system.form.application.FormDefinitionService}（落库前校验）与
+ * {@link com.acme.scaffold.system.form.api.FormRenderController}（下发前复核）共用，
  * 保证「存什么、下发什么」口径同源。</p>
  *
  * <p><b>Schema 契约</b>（spike 最小集）：

@@ -1,7 +1,8 @@
-package com.acme.scaffold.system.form;
+package com.acme.scaffold.system.form.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.form.application.FormDefinitionService;
 import com.acme.scaffold.system.form.dto.CreateFormDefinitionRequest;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.UpdateFormDefinitionRequest;

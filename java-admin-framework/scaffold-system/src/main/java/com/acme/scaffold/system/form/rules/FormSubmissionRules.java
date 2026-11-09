@@ -15,7 +15,7 @@ import java.util.Set;
  * 表单提交值校验纯函数（V53 / M22 正式立项）。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可离线单测；供
- * {@link com.acme.scaffold.system.form.FormSubmissionService#submit} 在落库前校验提交值，
+ * {@link com.acme.scaffold.system.form.application.FormSubmissionService#submit} 在落库前校验提交值，
  * 保证「渲染契约」与「提交校验」口径同源（均源自同一 schema）。</p>
  *
  * <p><b>校验维度</b>：</p>

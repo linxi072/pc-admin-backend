@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.form;
+package com.acme.scaffold.system.form.application;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
