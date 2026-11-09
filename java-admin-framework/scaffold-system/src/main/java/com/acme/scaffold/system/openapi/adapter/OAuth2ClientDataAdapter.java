@@ -3,7 +3,7 @@ package com.acme.scaffold.system.openapi.adapter;
 import com.acme.scaffold.common.oauth2.OpenApiClientRules;
 import com.acme.scaffold.security.oauth2.OAuth2ClientDataPort;
 import com.acme.scaffold.security.oauth2.OAuth2ClientView;
-import com.acme.scaffold.system.openapi.OpenApiClientService;
+import com.acme.scaffold.system.openapi.application.OpenApiClientService;
 import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

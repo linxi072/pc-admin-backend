@@ -14,7 +14,7 @@ import java.util.Set;
  * 开放平台客户端纯函数规则（V48 API 开放平台 / M24）。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可离线单测；供
- * {@link com.acme.scaffold.system.openapi.OpenApiClientService}（注册/更新校验、密钥生成）
+ * {@link com.acme.scaffold.system.openapi.application.OpenApiClientService}（注册/更新校验、密钥生成）
  * 与 Controller（入参约束）共用，保证「注册什么、治理什么」口径同源。</p>
  *
  * <p><b>密钥生成</b>：{@link SecureRandom} 取 32 字节随机 → Base64 URL 无填充编码（43 字符），

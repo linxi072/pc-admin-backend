@@ -1,8 +1,9 @@
-package com.acme.scaffold.system.openapi;
+package com.acme.scaffold.system.openapi.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.openapi.application.OpenApiClientService;
 import com.acme.scaffold.system.openapi.dto.ClientSecretView;
 import com.acme.scaffold.system.openapi.dto.CreateOpenApiClientRequest;
 import com.acme.scaffold.system.openapi.dto.OpenApiClientView;
