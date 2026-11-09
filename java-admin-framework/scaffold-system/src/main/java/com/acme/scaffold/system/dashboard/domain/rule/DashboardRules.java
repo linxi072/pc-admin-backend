@@ -1,6 +1,9 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.domain.rule;
 
 import com.acme.scaffold.common.observability.ObservabilitySnapshot;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
+import com.acme.scaffold.system.dashboard.domain.model.TrendPoint;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -12,7 +15,7 @@ import java.util.Map;
  * 运营总览纯函数规则（M27）：负责把各数据源的原始计数/趋势点归一为不可变快照，
  * 并对所有入参做非负钳制（负数/非法值回落 0），保证展示层绝不出现负值或脏数据。
  *
- * <p>无副作用、不依赖 Spring 与数据库，可直接离线单测；供 {@link DashboardService} 复用。</p>
+ * <p>无副作用、不依赖 Spring 与数据库，可直接离线单测；供 {@link com.acme.scaffold.system.dashboard.application.DashboardService} 复用。</p>
  */
 public final class DashboardRules {
 

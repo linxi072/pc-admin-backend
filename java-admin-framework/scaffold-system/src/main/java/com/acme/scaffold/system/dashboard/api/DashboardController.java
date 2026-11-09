@@ -1,7 +1,11 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.system.dashboard.dto.DashboardDrillVO;
+import com.acme.scaffold.system.dashboard.application.DashboardService;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillVO;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

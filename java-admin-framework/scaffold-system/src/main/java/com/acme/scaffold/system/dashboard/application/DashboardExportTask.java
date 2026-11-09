@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.application;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -8,6 +8,10 @@ import com.acme.scaffold.common.export.CsvExporter;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
+import com.acme.scaffold.system.dashboard.domain.model.TrendPoint;
+import com.acme.scaffold.system.dashboard.domain.rule.DashboardRules;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

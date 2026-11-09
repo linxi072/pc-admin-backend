@@ -1,6 +1,8 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.domain.repository;
 
-import com.acme.scaffold.system.dashboard.dto.HourlyPoint;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
+import com.acme.scaffold.system.dashboard.domain.model.HourlyPoint;
+import com.acme.scaffold.system.dashboard.domain.model.TrendPoint;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -9,7 +11,7 @@ import java.util.List;
  *
  * <p>计数类方法返回非负行数（底层查询异常由适配器兜底为 0，统计类查询失败不应阻断看板）；
  * 趋势类方法返回稀疏趋势点（仅含有数据的日期），缺数据日的连续补齐由 {@link DashboardRules} 负责。
- * 当前实现见 {@code SqlSystemStatsAdapter}（基于手写 jOOQ DSL）。</p>
+ * 当前实现见 {@link com.acme.scaffold.system.dashboard.adapter.persistence.SqlSystemStatsAdapter}（基于手写 jOOQ DSL）。</p>
  */
 public interface SystemStatsPort {
 

@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.domain.model;
 
 import com.acme.scaffold.common.observability.ObservabilitySnapshot;
 

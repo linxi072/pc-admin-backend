@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.domain.model;
 
 import java.time.LocalDate;
 import java.util.List;

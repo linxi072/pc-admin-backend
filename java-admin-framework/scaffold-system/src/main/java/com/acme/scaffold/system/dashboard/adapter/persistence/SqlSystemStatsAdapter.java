@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.adapter.persistence;
 
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
@@ -10,8 +10,10 @@ import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.Record2;
 import com.acme.scaffold.mybatis.dsl.Result;
 import com.acme.scaffold.mybatis.dsl.DSL;
-
-import com.acme.scaffold.system.dashboard.dto.HourlyPoint;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
+import com.acme.scaffold.system.dashboard.domain.model.HourlyPoint;
+import com.acme.scaffold.system.dashboard.domain.model.TrendPoint;
+import com.acme.scaffold.system.dashboard.domain.repository.SystemStatsPort;
 import org.springframework.stereotype.Component;
 
 import java.sql.Timestamp;
@@ -29,7 +31,7 @@ import java.util.function.Supplier;
  *
  * <p>看板为平台级全局统计，经控制器 {@code @TenantIgnorable} 跨租户聚合；
  * 因此这里直接对全表计数，不附加 tenant_id 过滤。</p>
- * <p>时间序列按 MySQL {@code DATE(expr)} 按天分组；缺数据的日期由 {@link DashboardRules#fillDailyGaps} 补齐。</p>
+ * <p>时间序列按 MySQL {@code DATE(expr)} 按天分组；缺数据的日期由 {@link com.acme.scaffold.system.dashboard.domain.rule.DashboardRules#fillDailyGaps} 补齐。</p>
  */
 @Component
 @RequiredArgsConstructor

@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dashboard.dto;
+package com.acme.scaffold.system.dashboard.domain.model;
 
 import java.util.List;
 

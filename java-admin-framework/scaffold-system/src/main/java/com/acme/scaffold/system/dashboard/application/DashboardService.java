@@ -1,9 +1,14 @@
-package com.acme.scaffold.system.dashboard;
+package com.acme.scaffold.system.dashboard.application;
 
 import com.acme.scaffold.common.observability.ObservabilitySnapshot;
-import com.acme.scaffold.system.dashboard.dto.DashboardDrillVO;
-import com.acme.scaffold.system.dashboard.dto.HourlyPoint;
 import com.acme.scaffold.common.observability.ObservabilityStatsPort;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
+import com.acme.scaffold.system.dashboard.domain.model.HourlyPoint;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillVO;
+import com.acme.scaffold.system.dashboard.domain.rule.DashboardRules;
+import com.acme.scaffold.system.dashboard.domain.repository.SystemStatsPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

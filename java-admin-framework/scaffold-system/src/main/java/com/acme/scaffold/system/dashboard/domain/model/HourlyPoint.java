@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dashboard.dto;
+package com.acme.scaffold.system.dashboard.domain.model;
 
 /**
  * 逐小时统计点（看板下钻：一个指标在指定日期的 0–23 点分布）。
