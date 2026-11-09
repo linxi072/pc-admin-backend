@@ -10,6 +10,7 @@
   conventions  check-conventions.py          硬性    H1–H5 / W1–W4 编码与架构约定
   naming       check-naming.py               硬性    N1–N2 类型/常量命名 + N3–N4 方法/字段命名
   directory    check-directory.py            硬性    D1–D11 目录约定
+  cluster-layout check-cluster-layout.py      硬性    D12 子域簇结构与 §4 表一致性
   api-contract check-api-contract.py         信息性  前后端契约静态对称（不阻断）
   script-tests scripts/test_*.py 单测        硬性    校验器行为回归
   ==========  ============================  ======  ================================
@@ -79,6 +80,7 @@ STEPS = (
     Step("conventions", "check-conventions.py", True, "H1–H5 / W1–W4 编码与架构约定"),
     Step("naming", "check-naming.py", True, "N1–N2 类型/常量命名 + N3–N4 方法/字段命名"),
     Step("directory", "check-directory.py", True, "D1–D11 目录约定"),
+    Step("cluster-layout", "check-cluster-layout.py", True, "D12 子域簇结构与 §4 表一致性"),
     Step("api-contract", "check-api-contract.py", False, "前后端契约对称性（信息性）"),
     Step("script-tests", None, True, "scripts 行为回归单测"),
 )
