@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.importer;
+package com.acme.scaffold.system.importer.application;
 
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 字典数据导入模板（试点实现）。
  *
- * <p>与 {@code system.export.FileListExportTask} 对称：声明一个 {@link ImportTask} Bean 即可被
+ * <p>与 {@code system.export.application.FileListExportTask} 对称：声明一个 {@link ImportTask} Bean 即可被
  * 导入中心自动发现，无需新增上传接口。</p>
  *
  * <p>落库复用既有 {@link DictDataService#create(CreateDictDataRequest)}，因此自动继承其：

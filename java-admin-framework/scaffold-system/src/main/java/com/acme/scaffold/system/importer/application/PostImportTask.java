@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.importer;
+package com.acme.scaffold.system.importer.application;
 
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
