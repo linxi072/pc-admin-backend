@@ -1,6 +1,6 @@
-package com.acme.scaffold.system.smslog;
+package com.acme.scaffold.system.smslog.application;
 
-import com.acme.scaffold.system.smslog.domain.SysSmsRecordDO;
+import com.acme.scaffold.system.smslog.domain.model.SysSmsRecordDO;
 
 import java.time.LocalDateTime;
 

@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.smslog.rules;
+package com.acme.scaffold.system.smslog.domain.rule;
 
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.system.notification.config.SmsProperties;
@@ -13,8 +13,8 @@ import com.acme.scaffold.common.text.TextUtils;
  * 短信发送记录纯函数规则：号码掩码、正文摘要、筛选值归一。
  *
  * <p>无副作用、不依赖 Spring 上下文，可直接离线单测；供
- * {@link com.acme.scaffold.system.smslog.SmsRecordRecorder}（落库前脱敏）与
- * {@link com.acme.scaffold.system.smslog.SmsRecordService}（筛选值收敛）复用，
+ * {@link com.acme.scaffold.system.smslog.application.SmsRecordRecorder}（落库前脱敏）与
+ * {@link com.acme.scaffold.system.smslog.application.SmsRecordService}（筛选值收敛）复用，
  * 保证「存什么」与「查什么」口径同源。</p>
  */
 public final class SmsRecordRules {

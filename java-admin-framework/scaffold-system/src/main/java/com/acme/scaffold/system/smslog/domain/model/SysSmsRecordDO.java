@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.smslog.domain;
+package com.acme.scaffold.system.smslog.domain.model;
 
 import lombok.Data;
 

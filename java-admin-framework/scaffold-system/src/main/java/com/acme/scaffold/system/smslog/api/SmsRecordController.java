@@ -1,7 +1,9 @@
-package com.acme.scaffold.system.smslog;
+package com.acme.scaffold.system.smslog.api;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.system.smslog.application.SmsRecordService;
+import com.acme.scaffold.system.smslog.application.SmsRecordView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

@@ -1,12 +1,12 @@
-package com.acme.scaffold.system.smslog;
+package com.acme.scaffold.system.smslog.application;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.smslog.domain.SysSmsRecordDO;
-import com.acme.scaffold.system.smslog.rules.SmsRecordRules;
+import com.acme.scaffold.system.smslog.domain.model.SysSmsRecordDO;
+import com.acme.scaffold.system.smslog.domain.rule.SmsRecordRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;
@@ -26,7 +26,7 @@ import java.util.Map;
  * <p>只读服务：记录由 {@link SmsRecordRecorder} 在短信渠道投递时写入，
  * 此处仅提供分页查询与统计摘要，不做任何写操作。</p>
  *
- * <p>筛选值一律经 {@link SmsRecordRules} 归一（状态/提供方白名单），
+ * <p>筛选值一律经 {@link com.acme.scaffold.system.smslog.domain.rule.SmsRecordRules} 归一（状态/提供方白名单），
  * 非法值忽略而非报错——与登录日志页「容错查询」体验一致。</p>
  */
 @Slf4j

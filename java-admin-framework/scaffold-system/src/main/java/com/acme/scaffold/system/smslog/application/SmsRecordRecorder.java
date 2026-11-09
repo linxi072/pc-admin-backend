@@ -1,11 +1,11 @@
-package com.acme.scaffold.system.smslog;
+package com.acme.scaffold.system.smslog.application;
 
 import com.acme.scaffold.common.IdGenerator;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.system.smslog.domain.SysSmsRecordDO;
-import com.acme.scaffold.system.smslog.rules.SmsRecordRules;
+import com.acme.scaffold.system.smslog.domain.model.SysSmsRecordDO;
+import com.acme.scaffold.system.smslog.domain.rule.SmsRecordRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -24,7 +24,7 @@ import java.util.List;
  * <p><b>独立事务（REQUIRES_NEW）</b>：与 {@code LoginLogRecorder} 同范式——记录写入挂起主事务、
  * 以新事务提交，避免调用方事务回滚把审计记录一并带走；写入失败不影响发送主流程（仅 warn 日志）。</p>
  *
- * <p><b>脱敏在入库前完成</b>（{@link SmsRecordRules}）：手机号掩码、正文摘要化，
+ * <p><b>脱敏在入库前完成</b>（{@link com.acme.scaffold.system.smslog.domain.rule.SmsRecordRules}）：手机号掩码、正文摘要化，
  * 数据库中不存在明文 PII，页面查询无需再做视图层脱敏。</p>
  */
 @Slf4j

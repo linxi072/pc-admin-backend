@@ -8,7 +8,7 @@ import com.acme.scaffold.system.notification.port.SmsGateway;
 import com.acme.scaffold.system.notification.rules.SmsRules;
 import com.acme.scaffold.system.notification.unsubscribe.rules.UnsubscribeAppendRules;
 import com.acme.scaffold.system.notification.unsubscribe.NotificationUnsubscribeService;
-import com.acme.scaffold.system.smslog.SmsRecordRecorder;
+import com.acme.scaffold.system.smslog.application.SmsRecordRecorder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
