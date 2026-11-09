@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.export.service;
+package com.acme.scaffold.system.export.application;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;

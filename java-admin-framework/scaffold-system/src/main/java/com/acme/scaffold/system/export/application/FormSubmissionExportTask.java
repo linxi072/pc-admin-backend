@@ -1,7 +1,7 @@
-package com.acme.scaffold.system.export;
+package com.acme.scaffold.system.export.application;
 
 import com.acme.scaffold.common.export.ExportTask;
-import com.acme.scaffold.system.form.FormSubmissionService;
+import com.acme.scaffold.system.form.application.FormSubmissionService;
 import com.acme.scaffold.system.form.dto.FormSubmissionAdminQuery;
 import com.acme.scaffold.system.form.dto.FormSubmissionManageView;
 import lombok.RequiredArgsConstructor;
