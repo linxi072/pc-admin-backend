@@ -1,6 +1,6 @@
-package com.acme.scaffold.system.notifylog;
+package com.acme.scaffold.system.notifylog.application;
 
-import com.acme.scaffold.system.notifylog.domain.SysNotificationRecordDO;
+import com.acme.scaffold.system.notifylog.domain.model.SysNotificationRecordDO;
 
 import java.time.LocalDateTime;
 

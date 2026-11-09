@@ -1,12 +1,12 @@
-package com.acme.scaffold.system.notifylog;
+package com.acme.scaffold.system.notifylog.application;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.notifylog.domain.SysNotificationRecordDO;
-import com.acme.scaffold.system.notifylog.rules.NotificationRecordRules;
+import com.acme.scaffold.system.notifylog.domain.model.SysNotificationRecordDO;
+import com.acme.scaffold.system.notifylog.domain.rule.NotificationRecordRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;
@@ -26,7 +26,7 @@ import java.util.Map;
  * <p>只读服务：记录由 {@link NotificationRecordRecorder} 在每次 {@code NotificationService.dispatch}
  * 尝试时写入，此处仅提供分页查询与统计摘要，不做任何写操作。</p>
  *
- * <p>筛选值一律经 {@link NotificationRecordRules} 归一（渠道/状态白名单），
+ * <p>筛选值一律经 {@link com.acme.scaffold.system.notifylog.domain.rule.NotificationRecordRules} 归一（渠道/状态白名单），
  * 非法值忽略而非报错——与短信记录页「容错查询」体验一致。</p>
  *
  * <p><b>口径提示</b>：本表覆盖全部五渠道的每次 dispatch 尝试（含被拒与失败）；

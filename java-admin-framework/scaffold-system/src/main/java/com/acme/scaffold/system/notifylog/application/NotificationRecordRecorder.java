@@ -1,11 +1,11 @@
-package com.acme.scaffold.system.notifylog;
+package com.acme.scaffold.system.notifylog.application;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.notifylog.domain.SysNotificationRecordDO;
-import com.acme.scaffold.system.notifylog.rules.NotificationRecordRules;
+import com.acme.scaffold.system.notifylog.domain.model.SysNotificationRecordDO;
+import com.acme.scaffold.system.notifylog.domain.rule.NotificationRecordRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
  * （仅 warn 日志）。注意：失败路径上主流程即将抛异常，若两者共事务会连带回滚记录，
  * REQUIRES_NEW 是「失败也要留痕」成立的前提。</p>
  *
- * <p><b>摘要 + 掩码在入库前完成</b>（{@link NotificationRecordRules}）：标题/正文摘要化、
+ * <p><b>摘要 + 掩码在入库前完成</b>（{@link com.acme.scaffold.system.notifylog.domain.rule.NotificationRecordRules}）：标题/正文摘要化、
  * 接收方按渠道掩码（手机号/邮箱/webhook query），数据库中不存在明文 PII。</p>
  */
 @Slf4j
