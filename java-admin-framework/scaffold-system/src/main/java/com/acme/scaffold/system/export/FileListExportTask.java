@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.export;
 
 import com.acme.scaffold.common.export.ExportTask;
-import com.acme.scaffold.system.file.FileService;
-import com.acme.scaffold.system.file.FileView;
+import com.acme.scaffold.system.file.application.FileService;
+import com.acme.scaffold.system.file.application.FileView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

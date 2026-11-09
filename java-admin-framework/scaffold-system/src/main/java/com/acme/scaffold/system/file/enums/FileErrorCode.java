@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.enums;
 
 import com.acme.scaffold.common.error.ErrorCode;
 import org.springframework.http.HttpStatus;

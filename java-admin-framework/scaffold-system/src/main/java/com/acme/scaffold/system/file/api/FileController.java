@@ -1,10 +1,16 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.api;
 
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.security.ratelimit.RateLimit;
+import com.acme.scaffold.system.file.application.BatchDeleteView;
+import com.acme.scaffold.system.file.application.DedupCheckView;
+import com.acme.scaffold.system.file.application.FileService;
+import com.acme.scaffold.system.file.application.FileStatsView;
+import com.acme.scaffold.system.file.application.FileView;
+import com.acme.scaffold.system.file.domain.model.FileDownload;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

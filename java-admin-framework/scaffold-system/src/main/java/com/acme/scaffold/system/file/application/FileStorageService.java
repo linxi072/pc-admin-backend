@@ -1,6 +1,7 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.application;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.system.file.enums.FileErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;

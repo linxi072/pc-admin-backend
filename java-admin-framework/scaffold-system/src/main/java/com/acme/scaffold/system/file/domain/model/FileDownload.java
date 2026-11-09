@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.domain.model;
 
 import org.springframework.core.io.Resource;
 

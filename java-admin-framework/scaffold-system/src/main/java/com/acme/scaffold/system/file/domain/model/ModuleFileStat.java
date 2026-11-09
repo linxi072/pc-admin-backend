@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.domain.model;
 
 /**
  * 单来源模块文件统计（按 source_module 分组聚合）。

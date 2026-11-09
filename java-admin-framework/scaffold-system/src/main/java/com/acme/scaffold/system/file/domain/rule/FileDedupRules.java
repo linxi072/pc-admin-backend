@@ -1,6 +1,7 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.domain.rule;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.system.file.enums.FileErrorCode;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;

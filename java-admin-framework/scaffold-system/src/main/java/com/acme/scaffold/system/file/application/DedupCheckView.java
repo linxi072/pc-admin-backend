@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.application;
 
 /**
  * 秒传预检结果（V50）：上传前由前端计算内容 SHA-256 回传，服务端告知是否可秒传。

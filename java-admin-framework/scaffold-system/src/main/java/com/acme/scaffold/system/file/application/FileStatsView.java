@@ -1,5 +1,6 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.application;
 
+import com.acme.scaffold.system.file.domain.model.ModuleFileStat;
 import java.util.List;
 
 /**

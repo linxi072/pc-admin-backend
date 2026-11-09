@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.domain.model;
 
 /**
  * 批量删除失败明细（V50）：部分成功语义下逐项反馈失败原因。

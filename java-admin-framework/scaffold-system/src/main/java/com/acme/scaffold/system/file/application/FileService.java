@@ -1,4 +1,11 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.application;
+
+import com.acme.scaffold.system.file.domain.model.BatchDeleteFailure;
+import com.acme.scaffold.system.file.domain.model.FileDownload;
+import com.acme.scaffold.system.file.domain.model.ModuleFileStat;
+import com.acme.scaffold.system.file.domain.rule.FileDedupRules;
+import com.acme.scaffold.system.file.domain.rule.FileValidator;
+import com.acme.scaffold.system.file.enums.FileErrorCode;
 
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;

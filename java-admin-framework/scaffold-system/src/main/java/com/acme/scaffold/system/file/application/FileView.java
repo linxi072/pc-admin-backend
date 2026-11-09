@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.file;
+package com.acme.scaffold.system.file.application;
 
 import java.time.LocalDateTime;
 
