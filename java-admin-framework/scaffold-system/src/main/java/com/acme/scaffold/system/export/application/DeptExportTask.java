@@ -2,8 +2,8 @@ package com.acme.scaffold.system.export.application;
 
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.tree.TreeBuilder;
-import com.acme.scaffold.system.dto.OrgTreeVO;
-import com.acme.scaffold.system.service.OrgService;
+import com.acme.scaffold.system.org.dto.OrgTreeVO;
+import com.acme.scaffold.system.org.application.OrgService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

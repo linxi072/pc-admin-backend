@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dto;
+package com.acme.scaffold.system.org.dto;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;

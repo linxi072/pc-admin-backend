@@ -11,7 +11,7 @@ import com.acme.scaffold.system.dto.PreferenceView;
 import com.acme.scaffold.system.dto.ProfileView;
 import com.acme.scaffold.system.dto.UpdatePreferenceRequest;
 import com.acme.scaffold.system.dto.UpdateProfileRequest;
-import com.acme.scaffold.system.entity.SysOrgDO;
+import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDO;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.entity.SysUserOrgDO;

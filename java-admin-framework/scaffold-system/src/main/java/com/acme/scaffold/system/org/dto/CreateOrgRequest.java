@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dto;
+package com.acme.scaffold.system.org.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

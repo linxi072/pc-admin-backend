@@ -1,11 +1,11 @@
-package com.acme.scaffold.system.controller;
+package com.acme.scaffold.system.org.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.dto.CreateOrgRequest;
-import com.acme.scaffold.system.dto.OrgTreeVO;
-import com.acme.scaffold.system.dto.UpdateOrgRequest;
-import com.acme.scaffold.system.service.OrgService;
+import com.acme.scaffold.system.org.dto.CreateOrgRequest;
+import com.acme.scaffold.system.org.dto.OrgTreeVO;
+import com.acme.scaffold.system.org.dto.UpdateOrgRequest;
+import com.acme.scaffold.system.org.application.OrgService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

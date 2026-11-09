@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.service;
+package com.acme.scaffold.system.org.application;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -10,10 +10,10 @@ import com.acme.scaffold.security.permission.DataScope;
 import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.security.permission.DataScopeContext;
 import com.acme.scaffold.security.permission.DataScopeResult;
-import com.acme.scaffold.system.dto.CreateOrgRequest;
-import com.acme.scaffold.system.dto.OrgTreeVO;
-import com.acme.scaffold.system.dto.UpdateOrgRequest;
-import com.acme.scaffold.system.entity.SysOrgDO;
+import com.acme.scaffold.system.org.dto.CreateOrgRequest;
+import com.acme.scaffold.system.org.dto.OrgTreeVO;
+import com.acme.scaffold.system.org.dto.UpdateOrgRequest;
+import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.entity.SysUserDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

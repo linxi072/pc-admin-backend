@@ -4,10 +4,10 @@ import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportValidators;
 import com.acme.scaffold.common.importer.MultiSegmentImportTask;
 import com.acme.scaffold.common.importer.SegmentSpec;
-import com.acme.scaffold.system.dto.CreateDictDataRequest;
-import com.acme.scaffold.system.dto.CreateDictTypeRequest;
-import com.acme.scaffold.system.service.DictDataService;
-import com.acme.scaffold.system.service.DictTypeService;
+import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
+import com.acme.scaffold.system.dict.dto.CreateDictTypeRequest;
+import com.acme.scaffold.system.dict.application.DictDataService;
+import com.acme.scaffold.system.dict.application.DictTypeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

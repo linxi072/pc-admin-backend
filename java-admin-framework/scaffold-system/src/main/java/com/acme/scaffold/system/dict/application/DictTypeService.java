@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.service;
+package com.acme.scaffold.system.dict.application;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -6,10 +6,10 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.dto.CreateDictTypeRequest;
-import com.acme.scaffold.system.dto.DictTypeVO;
-import com.acme.scaffold.system.dto.UpdateDictTypeRequest;
-import com.acme.scaffold.system.entity.SysDictTypeDO;
+import com.acme.scaffold.system.dict.dto.CreateDictTypeRequest;
+import com.acme.scaffold.system.dict.dto.DictTypeVO;
+import com.acme.scaffold.system.dict.dto.UpdateDictTypeRequest;
+import com.acme.scaffold.system.dict.domain.model.SysDictTypeDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DSL;

@@ -8,7 +8,7 @@ import com.acme.scaffold.security.permission.DataScopeType;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.dto.DataScopeRuleView;
 import com.acme.scaffold.system.dto.SaveDataScopeRequest;
-import com.acme.scaffold.system.entity.SysOrgDO;
+import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeOrgDO;
 import lombok.RequiredArgsConstructor;

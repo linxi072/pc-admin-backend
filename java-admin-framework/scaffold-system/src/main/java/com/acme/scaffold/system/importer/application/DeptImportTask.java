@@ -6,9 +6,9 @@ import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.common.importer.ImportValidators;
 import com.acme.scaffold.common.tree.TreeBuilder;
-import com.acme.scaffold.system.dto.CreateOrgRequest;
-import com.acme.scaffold.system.dto.OrgTreeVO;
-import com.acme.scaffold.system.service.OrgService;
+import com.acme.scaffold.system.org.dto.CreateOrgRequest;
+import com.acme.scaffold.system.org.dto.OrgTreeVO;
+import com.acme.scaffold.system.org.application.OrgService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

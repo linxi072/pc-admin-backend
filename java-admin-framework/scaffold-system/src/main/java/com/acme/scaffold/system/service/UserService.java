@@ -34,7 +34,7 @@ import com.acme.scaffold.system.dto.CreateUserRequest;
 import com.acme.scaffold.system.dto.UpdateUserRequest;
 import com.acme.scaffold.system.dto.UserQuery;
 import com.acme.scaffold.system.dto.UserView;
-import com.acme.scaffold.system.entity.SysOrgDO;
+import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDO;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.entity.SysUserOrgDO;

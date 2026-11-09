@@ -1,11 +1,11 @@
-package com.acme.scaffold.system.controller;
+package com.acme.scaffold.system.dict.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.dto.CreateDictDataRequest;
-import com.acme.scaffold.system.dto.DictDataVO;
-import com.acme.scaffold.system.dto.UpdateDictDataRequest;
-import com.acme.scaffold.system.service.DictDataService;
+import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
+import com.acme.scaffold.system.dict.dto.DictDataVO;
+import com.acme.scaffold.system.dict.dto.UpdateDictDataRequest;
+import com.acme.scaffold.system.dict.application.DictDataService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

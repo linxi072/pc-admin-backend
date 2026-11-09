@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.service;
+package com.acme.scaffold.system.dict.application;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -6,10 +6,10 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.dto.CreateDictDataRequest;
-import com.acme.scaffold.system.dto.DictDataVO;
-import com.acme.scaffold.system.dto.UpdateDictDataRequest;
-import com.acme.scaffold.system.entity.SysDictDataDO;
+import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
+import com.acme.scaffold.system.dict.dto.DictDataVO;
+import com.acme.scaffold.system.dict.dto.UpdateDictDataRequest;
+import com.acme.scaffold.system.dict.domain.model.SysDictDataDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -52,7 +52,7 @@ public class DictDataService {
      * （{@link #create} / {@link #update} / {@link #delete}）同步驱逐，保证读旧写新一致。
      */
     @Cacheable(cacheNames = CACHE_NAME,
-            key = "T(com.acme.scaffold.system.service.DictDataService).cacheKey(#dictTypeCode)")
+            key = "T(com.acme.scaffold.system.dict.application.DictDataService).cacheKey(#dictTypeCode)")
     public List<DictDataVO> listByType(String dictTypeCode) {
         String typeCode = cacheKey(dictTypeCode);
         Condition cond = SqlWriters.notDeleted(DATA);
@@ -75,9 +75,9 @@ public class DictDataService {
      */
     @Caching(evict = {
             @CacheEvict(cacheNames = CACHE_NAME,
-                    key = "T(com.acme.scaffold.system.service.DictDataService).cacheKey(#req.dictTypeCode())"),
+                    key = "T(com.acme.scaffold.system.dict.application.DictDataService).cacheKey(#req.dictTypeCode())"),
             @CacheEvict(cacheNames = CACHE_NAME,
-                    key = "T(com.acme.scaffold.system.service.DictDataService).ALL_TYPES")
+                    key = "T(com.acme.scaffold.system.dict.application.DictDataService).ALL_TYPES")
     })
     @Transactional
     public Long create(CreateDictDataRequest req) {

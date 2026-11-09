@@ -3,7 +3,7 @@ package com.acme.scaffold.system.permission.adapter;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.DataScopeDataPort;
-import com.acme.scaffold.system.entity.SysOrgDO;
+import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeDO;
 import com.acme.scaffold.system.entity.SysRoleDataScopeOrgDO;
 import com.acme.scaffold.system.entity.SysUserOrgDO;

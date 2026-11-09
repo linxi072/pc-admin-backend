@@ -1,8 +1,8 @@
-package com.acme.scaffold.system.dto;
+package com.acme.scaffold.system.dict.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record CreateDictTypeRequest(
+public record UpdateDictTypeRequest(
         @NotBlank String dictCode,
         @NotBlank String dictName,
         String status,
