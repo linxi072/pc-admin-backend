@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.audit;
+package com.acme.scaffold.system.audit.application;
 
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditProperties;
