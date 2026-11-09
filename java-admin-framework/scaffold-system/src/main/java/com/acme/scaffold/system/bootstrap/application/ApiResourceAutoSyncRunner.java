@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.bootstrap;
+package com.acme.scaffold.system.bootstrap.application;
 
 import com.acme.scaffold.system.service.ApiResourceService;
 import lombok.RequiredArgsConstructor;
