@@ -1,10 +1,10 @@
-package com.acme.scaffold.system.oauth2.consent;
+package com.acme.scaffold.system.oauth2.consent.adapter;
 
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.oauth2.OAuth2ConsentDataPort;
 import com.acme.scaffold.security.oauth2.OAuth2ConsentInfo;
-import com.acme.scaffold.system.oauth2.consent.domain.OAuth2ConsentDO;
+import com.acme.scaffold.system.oauth2.consent.domain.model.OAuth2ConsentDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DSL;

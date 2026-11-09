@@ -5,7 +5,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.form.domain.FormDefinitionDO;
+import com.acme.scaffold.system.form.domain.model.FormDefinitionDO;
 import com.acme.scaffold.system.form.dto.CreateFormDefinitionRequest;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.UpdateFormDefinitionRequest;

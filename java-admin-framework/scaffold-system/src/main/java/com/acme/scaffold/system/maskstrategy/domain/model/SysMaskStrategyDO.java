@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.maskstrategy.domain;
+package com.acme.scaffold.system.maskstrategy.domain.model;
 
 import lombok.Data;
 

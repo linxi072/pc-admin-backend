@@ -11,7 +11,7 @@ import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.maskstrategy.domain.SysMaskStrategyDO;
+import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategyDO;
 import com.acme.scaffold.system.maskstrategy.dto.CreateMaskStrategyRequest;
 import com.acme.scaffold.system.maskstrategy.dto.MaskStrategyView;
 import com.acme.scaffold.system.maskstrategy.dto.UpdateMaskStrategyRequest;

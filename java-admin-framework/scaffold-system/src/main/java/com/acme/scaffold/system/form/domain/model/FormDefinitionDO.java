@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.form.domain;
+package com.acme.scaffold.system.form.domain.model;
 
 import lombok.Data;
 

@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.maskstrategy.dto;
 
-import com.acme.scaffold.system.maskstrategy.domain.SysMaskStrategyDO;
+import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategyDO;
 
 import java.time.LocalDateTime;
 

@@ -5,7 +5,7 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.form.application.FormDefinitionService;
 import com.acme.scaffold.system.form.application.FormSubmissionService;
-import com.acme.scaffold.system.form.domain.FormSubmissionDO;
+import com.acme.scaffold.system.form.domain.model.FormSubmissionDO;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.FormSubmissionView;
 import com.acme.scaffold.common.api.dto.PageResult;

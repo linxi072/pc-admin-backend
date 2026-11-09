@@ -9,7 +9,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
+import com.acme.scaffold.system.openapi.domain.model.OpenApiClientDO;
 import com.acme.scaffold.system.openapi.dto.ClientSecretView;
 import com.acme.scaffold.system.openapi.dto.CreateOpenApiClientRequest;
 import com.acme.scaffold.system.openapi.dto.OpenApiClientView;

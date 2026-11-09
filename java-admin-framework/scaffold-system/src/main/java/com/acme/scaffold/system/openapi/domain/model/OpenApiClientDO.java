@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.openapi.domain;
+package com.acme.scaffold.system.openapi.domain.model;
 
 import lombok.Data;
 

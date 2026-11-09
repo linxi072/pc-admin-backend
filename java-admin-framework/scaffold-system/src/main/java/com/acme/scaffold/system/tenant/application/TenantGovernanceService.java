@@ -3,7 +3,7 @@ package com.acme.scaffold.system.tenant.application;
 import com.acme.scaffold.mybatis.dsl.TenantTables;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.tenant.domain.SysTenantDO;
+import com.acme.scaffold.system.tenant.domain.model.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;

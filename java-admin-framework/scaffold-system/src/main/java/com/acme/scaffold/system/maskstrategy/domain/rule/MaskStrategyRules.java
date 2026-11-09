@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.maskstrategy.domain.rule;
 
 import com.acme.scaffold.common.sensitive.SensitiveType;
-import com.acme.scaffold.system.maskstrategy.domain.SysMaskStrategyDO;
+import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategyDO;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

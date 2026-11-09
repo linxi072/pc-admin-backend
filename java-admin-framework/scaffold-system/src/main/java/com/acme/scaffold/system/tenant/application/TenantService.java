@@ -10,7 +10,7 @@ import com.acme.scaffold.common.tenant.TenantRules;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.tenant.domain.SysTenantDO;
+import com.acme.scaffold.system.tenant.domain.model.SysTenantDO;
 import com.acme.scaffold.system.tenant.dto.CreateTenantRequest;
 import com.acme.scaffold.system.tenant.dto.TenantView;
 import com.acme.scaffold.system.tenant.dto.UpdateTenantRequest;

@@ -8,7 +8,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.form.domain.FormSubmissionDO;
+import com.acme.scaffold.system.form.domain.model.FormSubmissionDO;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.FormSubmissionAdminQuery;
 import com.acme.scaffold.system.form.dto.FormSubmissionFormCount;

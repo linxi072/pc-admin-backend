@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.form.dto;
 
-import com.acme.scaffold.system.form.domain.FormSubmissionDO;
+import com.acme.scaffold.system.form.domain.model.FormSubmissionDO;
 
 import java.time.LocalDateTime;
 

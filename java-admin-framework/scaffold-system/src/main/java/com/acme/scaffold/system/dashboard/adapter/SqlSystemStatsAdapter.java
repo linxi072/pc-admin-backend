@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.dashboard.adapter.persistence;
+package com.acme.scaffold.system.dashboard.adapter;
 
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;

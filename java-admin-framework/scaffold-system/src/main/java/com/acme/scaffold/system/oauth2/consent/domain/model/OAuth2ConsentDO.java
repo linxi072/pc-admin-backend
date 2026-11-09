@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.oauth2.consent.domain;
+package com.acme.scaffold.system.oauth2.consent.domain.model;
 
 import lombok.Data;
 

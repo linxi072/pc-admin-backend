@@ -4,7 +4,7 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.sensitive.SensitiveType;
-import com.acme.scaffold.system.maskstrategy.domain.SysMaskStrategyDO;
+import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategyDO;
 import com.acme.scaffold.system.maskstrategy.domain.rule.MaskStrategyRules;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.form.dto;
 
-import com.acme.scaffold.system.form.domain.FormDefinitionDO;
+import com.acme.scaffold.system.form.domain.model.FormDefinitionDO;
 
 /**
  * 表单定义视图（对应 {@code sys_form_definition}）。

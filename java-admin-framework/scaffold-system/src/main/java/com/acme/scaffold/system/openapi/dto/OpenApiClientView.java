@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.openapi.dto;
 
-import com.acme.scaffold.system.openapi.domain.OpenApiClientDO;
+import com.acme.scaffold.system.openapi.domain.model.OpenApiClientDO;
 
 import java.time.LocalDateTime;
 

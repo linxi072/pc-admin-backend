@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.tenant.dto;
 
-import com.acme.scaffold.system.tenant.domain.SysTenantDO;
+import com.acme.scaffold.system.tenant.domain.model.SysTenantDO;
 
 import java.time.LocalDateTime;
 
