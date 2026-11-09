@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifydigest.rules;
+package com.acme.scaffold.system.notifydigest.domain.rule;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,7 +8,7 @@ import java.util.Locale;
  * 通知聚合摘要纯函数规则：配置匹配决策、单行摘要生成、条目保留与摘要正文渲染。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
- * {@link com.acme.scaffold.system.notifydigest.NotificationDigestService}
+ * {@link com.acme.scaffold.system.notifydigest.application.NotificationDigestService}
  * （聚合写入 / 兜底刷新 / 摘要消息构造）与
  * {@link com.acme.scaffold.system.notification.service.NotificationService}
  * （dispatch 挂点）复用，保证「按什么聚合」与「聚成什么」两处口径同源——

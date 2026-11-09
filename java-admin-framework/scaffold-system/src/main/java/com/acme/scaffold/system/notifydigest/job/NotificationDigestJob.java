@@ -2,8 +2,8 @@ package com.acme.scaffold.system.notifydigest.job;
 
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.system.notification.service.NotificationService;
-import com.acme.scaffold.system.notifydigest.NotificationDigestService;
-import com.acme.scaffold.system.notifydigest.domain.SysNotificationDigestDO;
+import com.acme.scaffold.system.notifydigest.application.NotificationDigestService;
+import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,10 +22,11 @@ import java.util.List;
  * 与 M14 免打扰的时间维理念一致：任何「等待」都必须有上界。</p>
  *
  * <p><b>编排归属</b>：本任务同时依赖聚合服务与编排服务，是二者唯一的组合点。
- * 刻意置于 {@code notifydigest.job} 子包而非特性包根部——包级依赖
- * {@code notification.service → notifydigest}（dispatch 挂点）与
- * {@code notifydigest → notification.service}（本任务）若同包即成环（H1 硬规则），
- * 任务层独立成包后依赖图仍为 DAG。</p>
+ * 刻意置于 {@code notifydigest.job} 子包而非应用层 {@code notifydigest.application}——
+ * 包级依赖 {@code notification.service → notifydigest.application}（dispatch 挂点，落到应用服务
+ * {@code NotificationDigestService}）与 {@code notifydigest.job → notification.service}（本任务）
+ * 分属不同子包节点，应用层 {@code notifydigest.application} 不反向依赖 {@code notification.service}，
+ * 依赖图仍为 DAG（H1 硬规则不被触发）。</p>
  *
  * <p><b>一次性投递语义</b>：摘要投递无论成功/跳过/失败均删行（finally）——
  * 聚合行是待投递缓冲而非档案，反复重投只会制造 FAILED 日志轰炸，审计由 M12 承担；

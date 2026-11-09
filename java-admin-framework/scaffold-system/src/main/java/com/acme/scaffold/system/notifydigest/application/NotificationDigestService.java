@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifydigest;
+package com.acme.scaffold.system.notifydigest.application;
 
 import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.notification.Channel;
@@ -7,8 +7,8 @@ import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.entity.SysUserDO;
 import com.acme.scaffold.system.notification.config.NotificationDigestProperties;
-import com.acme.scaffold.system.notifydigest.domain.SysNotificationDigestDO;
-import com.acme.scaffold.system.notifydigest.rules.NotificationDigestRules;
+import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
+import com.acme.scaffold.system.notifydigest.domain.rule.NotificationDigestRules;
 import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
 import com.acme.scaffold.system.rules.NotificationTemplateRules;
 import com.fasterxml.jackson.core.type.TypeReference;

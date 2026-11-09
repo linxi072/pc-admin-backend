@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifydigest.domain;
+package com.acme.scaffold.system.notifydigest.domain.model;
 
 import lombok.Data;
 

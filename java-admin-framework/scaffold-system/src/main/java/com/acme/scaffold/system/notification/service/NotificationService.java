@@ -13,10 +13,10 @@ import com.acme.scaffold.system.notification.config.NotificationFailoverProperti
 import com.acme.scaffold.system.notification.config.NotificationRetryProperties;
 import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
 import com.acme.scaffold.system.notification.rules.DeliveryRetryRules;
-import com.acme.scaffold.system.notifydigest.NotificationDigestService;
-import com.acme.scaffold.system.notifydigest.NotificationDigestService.EnqueueResult;
-import com.acme.scaffold.system.notifydigest.domain.SysNotificationDigestDO;
-import com.acme.scaffold.system.notifydigest.rules.NotificationDigestRules;
+import com.acme.scaffold.system.notifydigest.application.NotificationDigestService;
+import com.acme.scaffold.system.notifydigest.application.NotificationDigestService.EnqueueResult;
+import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
+import com.acme.scaffold.system.notifydigest.domain.rule.NotificationDigestRules;
 import com.acme.scaffold.system.notifylog.application.NotificationRecordRecorder;
 import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
 import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules;
