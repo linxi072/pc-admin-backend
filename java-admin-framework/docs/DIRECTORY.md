@@ -122,7 +122,7 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | `audit`(2) | api/application | 审计日志查询（数据在 `common.audit`） |
 | `bootstrap`(1) | application | 启动期自检与 API 资源自动登记 |
 | `config`(8) | api/application/domain{rule,model}/dto | 参数配置 |
-| `dashboard`(12) | adapter/api/application/domain | 运营看板与统计聚合 |
+| `dashboard`(12) | adapter/api/application/domain{model,repository,rule} | 运营看板与统计聚合 |
 | `dict`(12) | api/application/domain{model}/dto | 字典类型与字典项 |
 | `export`(14) | api/application/config/dto | 导出任务中心与导出接口 |
 | `file`(14) | api/application/domain{model,rule}/enums | 文件上传下载与去重 |
@@ -139,7 +139,7 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | `notifypref`(6) | api/application/domain{model,rule}/dto | 通知偏好 |
 | `notifyquiet`(6) | api/application/domain{model,rule}/dto | 免打扰时段 |
 | `notifysupport`(1) | application | 通知共享支撑 |
-| `oauth2`(2) | consent | 授权同意页 |
+| `oauth2`(2) | consent/{adapter,domain/model} | 授权同意页 |
 | `online`(14) | adapter/api/application/domain{model,rule}/dto | 在线会话与登录限制 |
 | `openapi`(8) | adapter/api/application/domain{model}/dto | 开放平台客户端与凭据 |
 | `org`(6) | api/application/domain{model}/dto | 组织机构树 |
@@ -148,7 +148,7 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | `post`(10) | api/application/domain{model,rule}/dto | 职务 |
 | `profile`(11) | api/application/dto | 个人中心（资料、设备、改密、展示偏好） |
 | `role`(16) | api/application/domain{model}/dto | 角色与数据范围、字段权限 |
-| `smslog`(6) | api/application/domain{model} | 短信发送记录 |
+| `smslog`(6) | api/application/domain{model,rule} | 短信发送记录 |
 | `support`(3) | （平铺） | 跨簇共享支撑类 |
 | `tenant`(22) | api/application/domain{model,rule}/dto | 多租户管理与隔离 |
 | `token`(1) | adapter | 令牌版本适配器 |
