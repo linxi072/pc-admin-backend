@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifyquiet.rules;
+package com.acme.scaffold.system.notifyquiet.domain.rule;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  * 按接收者过滤与抑制原因。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
- * {@link com.acme.scaffold.system.notifyquiet.NotificationQuietHoursService}
+ * {@link com.acme.scaffold.system.notifyquiet.application.NotificationQuietHoursService}
  * （自服务查询/更新 + 发送前过滤）与
  * {@link com.acme.scaffold.system.notification.service.NotificationService}
  * （dispatch 挂点）复用，保证「存什么、按什么抑制」两处口径同源。</p>

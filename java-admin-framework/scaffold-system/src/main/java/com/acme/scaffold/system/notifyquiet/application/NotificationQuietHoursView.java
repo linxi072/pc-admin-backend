@@ -1,7 +1,7 @@
-package com.acme.scaffold.system.notifyquiet;
+package com.acme.scaffold.system.notifyquiet.application;
 
-import com.acme.scaffold.system.notifyquiet.domain.SysNotificationQuietHoursDO;
-import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
+import com.acme.scaffold.system.notifyquiet.domain.model.SysNotificationQuietHoursDO;
+import com.acme.scaffold.system.notifyquiet.domain.rule.NotificationQuietHoursRules;
 
 
 /**

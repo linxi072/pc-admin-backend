@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifyquiet;
+package com.acme.scaffold.system.notifyquiet.application;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
@@ -8,10 +8,10 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.notifysupport.NotificationSupport;
-import com.acme.scaffold.system.notifyquiet.domain.SysNotificationQuietHoursDO;
-import com.acme.scaffold.system.notifyquiet.dto.UpdateQuietHoursRequest;
-import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules;
-import com.acme.scaffold.system.notifyquiet.rules.NotificationQuietHoursRules.QuietSetting;
+import com.acme.scaffold.system.notifyquiet.api.dto.UpdateQuietHoursRequest;
+import com.acme.scaffold.system.notifyquiet.domain.model.SysNotificationQuietHoursDO;
+import com.acme.scaffold.system.notifyquiet.domain.rule.NotificationQuietHoursRules;
+import com.acme.scaffold.system.notifyquiet.domain.rule.NotificationQuietHoursRules.QuietSetting;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Service;

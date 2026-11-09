@@ -1,4 +1,4 @@
-package com.acme.scaffold.system.notifyquiet.dto;
+package com.acme.scaffold.system.notifyquiet.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
