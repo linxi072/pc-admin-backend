@@ -3,7 +3,9 @@
 > 适用范围：`java-admin-framework/`（14 个 Maven 模块）与 `pc-admin-vue3-vite/src/`。
 > 权威判据：根 `pom.xml` 的 `<modules>`、`scripts/check-conventions.py`（H1–H5 / W1–W4）、
 > `scripts/api-contract.json`（交互契约）、`scripts/check-api-contract.py`（前后端契约）、
-> `scripts/check-directory.py`（D1–D11 目录约定）；统一执行入口 `scripts/check-all.py`。
+> `scripts/check-directory.py`（D1–D11 目录约定）、
+> `scripts/check-cluster-layout.py`（D12 子域簇结构与本文档 §4 表一致性）；
+> 统一执行入口 `scripts/check-all.py`。
 > 本文档只描述**目录与包的归属约定**，模块职责见 [MODULES.md](MODULES.md)，
 > 与若依约定的差异见 [RUOYI-ALIGNMENT.md](RUOYI-ALIGNMENT.md)。
 
@@ -15,10 +17,11 @@ java-admin-framework/
 ├── scripts/                    约定校验与交互契约（不参与编译）
 │   ├── check-conventions.py    H1–H5 / W1–W4：包级环 / 重复 FQN / 依赖方向 / 数据类 / 模块 DAG
 │   ├── check-directory.py      D1–D11 目录约定守护
+│   ├── check-cluster-layout.py D12：§4 子域簇表 ≡ 磁盘现状（文件数 / 层集合 / DO 落位）
 │   ├── check-api-contract.py   前后端接口契约静态对称（多模块源码根扫描）
-│   ├── check-all.py            统一门禁入口：编排上述三项 + scripts 单测
+│   ├── check-all.py            统一门禁入口：编排上述各项 + scripts 单测
 │   ├── api-contract.json       统一响应 Result<T> 的唯一事实来源
-│   └── check-*.py              约定 / 目录 / 契约校验器（行为回归用例已按精简要求移除）
+│   └── test_*.py               校验器行为回归（check-naming / check-cluster-layout）
 ├── docs/                       架构与规范文档（本目录，全部须挂 docs/README.md 索引）
 └── scaffold-<name>/            14 个模块，目录结构统一
     ├── pom.xml
@@ -198,22 +201,24 @@ pc-admin-vue3-vite/src/
 | 约定 | 守护方式 |
 |---|---|
 | 包级环 / 重复 FQN / 分层 / 数据类 / 模块 DAG（H1–H5 / W1–W4） | `python3 scripts/check-conventions.py`（EXIT=0） |
-| 目录结构约定 D1–D11 | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 23 例 |
-| 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 10 例 |
+| 标识符命名约定 N1–N4 | `python3 scripts/check-naming.py`（EXIT=0），行为回归 `scripts/test_check_naming.py` 4 例 |
+| 目录结构约定 D1–D11 | `python3 scripts/check-directory.py`（EXIT=0） |
+| 子域簇结构与 §4 表一致 D12 | `python3 scripts/check-cluster-layout.py`（EXIT=0），行为回归 `scripts/test_check_cluster_layout.py` 11 例 |
+| 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断） |
 | 统一响应与错误码 | `scripts/api-contract.json` + 后端 `ApiContractConsistencyTest` + 前端 `result.test.js` |
 | 常量字面值不漂移 | `CommonConstantsTest` |
 | 前端目录与构建可解析 | `env -u NODE_OPTIONS npm test` + `npx vite build` |
 | 全量编译与回归 | `mvn -o -f pom.xml clean test`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`） |
 
-**统一门禁入口**：`python3 scripts/check-all.py` 把上表的 `check-conventions.py`（硬性）、
-`check-directory.py`（硬性）、`check-api-contract.py`（信息性，不阻断）与
-`scripts/test_*.py` 行为回归（硬性；用例已按精简要求移除）编排成一次运行，逐项打印 EXIT 与耗时；硬性项任一失败
-返回 `EXIT=1`，仅信息性项失败返回 `EXIT=0` 但列出风险提示。行为回归
-`scripts/test_check_all.py` 16 例。常用参数：`--only conventions,directory`、`--skip-tests`、
+**统一门禁入口**：`python3 scripts/check-all.py` 把 `check-conventions.py`（硬性）、
+`check-naming.py`（硬性）、`check-directory.py`（硬性）、`check-cluster-layout.py`（硬性）、
+`check-api-contract.py`（信息性，不阻断）与 `scripts/test_*.py` 行为回归（硬性）编排成
+一次运行，逐项打印 EXIT 与耗时；硬性项任一失败返回 `EXIT=1`，仅信息性项失败返回
+`EXIT=0` 但列出风险提示。常用参数：`--only conventions,directory`、`--skip-tests`、
 `--quiet`；受限环境（沙箱阻止 `tempfile` 默认目录探测）加 `--test-tmpdir <dir>`。
 各步骤仍可单独执行，本脚本只做编排、不改文件、不参与编译与运行时。
 
-D1–D11 一览（详见 `scripts/check-directory.py` 文件头 docstring）：
+D1–D12 一览（详见 `scripts/check-directory.py` 与 `scripts/check-cluster-layout.py` 文件头 docstring）：
 
 | 编号 | 守护内容 |
 |---|---|
@@ -228,8 +233,10 @@ D1–D11 一览（详见 `scripts/check-directory.py` 文件头 docstring）：
 | D9 | `src/test/java` 若存在，包根与 main 白名单对齐；admin 9 个历史包根 + `BaseIntegrationTest.java` 例外 |
 | D10 | `docs/` 下所有文档须挂进 `docs/README.md` 索引，且索引相对链接不得是死链 |
 | D11 | `src/test/resources` 仅 admin 可持 `application*.yml` / `logback*.xml`（当前测试资源已移除） |
+| D12 | §4「子域簇一览」表 ≡ 磁盘现状：每簇文件数、二级层集合、各层子目录集合双向一致；DO 不得直挂 `domain/`；簇根不得重建 `controller/` `service/` `entity/` `rules/` `port/` 扁平包 |
 
 新增目录 / 包后必须同步更新本文档、`docs/MODULES.md` **与 `scripts/check-directory.py` 的
 `EXPECTED_ROOTS` 白名单**，否则目录校验会阻断（D1）；新增 main/test 一级目录还须同步
-`MAIN_ROOT_EXCEPTIONS` / `TEST_ROOT_EXCEPTIONS`（D8/D9）。`docs/` 下新增文档须同步补
-`docs/README.md` 索引，否则 D10 阻断。只增文件不增目录时无需改文档。
+`MAIN_ROOT_EXCEPTIONS` / `TEST_ROOT_EXCEPTIONS`（D8/D9）。改动 `scaffold-system` 子域簇的
+目录结构（增删层 / 移文件）还须同步 §4「子域簇一览」表，否则子域簇校验会阻断（D12）。
+`docs/` 下新增文档须同步补 `docs/README.md` 索引，否则 D10 阻断。只增文件不增目录时无需改文档。
