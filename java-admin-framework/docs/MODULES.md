@@ -18,12 +18,15 @@
 | `scaffold-monitor` | 业务域 | 告警收件箱、健康探针、缓存与监控指标查询 | common, framework, security, system | `monitor.alert`/`monitor.health`/`monitor.service` |
 | `scaffold-job` | 业务域 | 任务定义管理与周期任务注册（Quartz） | common, monitor, system | `job.*` |
 | `scaffold-workbench` | 业务域 | 工作台看板与报表聚合 | common, system | `workbench.*` |
-| `scaffold-workflow` | 业务域 | Flowable 对接：流程定义/实例/任务，认领/转办/完成 + 管理员治理 + 审批中心门户 | common, monitor, realtime, system | `workflow.*`、`approval.*` |
+| `scaffold-workflow` | 业务域 | Flowable 对接：流程定义/实例/任务，认领/转办/完成 + 管理员治理 + 审批中心门户 | common, monitor, realtime, system | `workflow.*` |
 | `scaffold-admin` | 启动装配 | 应用入口、运行期配置与 `db/init` 手工初始化脚本（**唯一可部署模块**） | 全部 | `FrameworkApplication` + `db/init` |
 
 > **模块 ↔ 包映射说明**：多数值模块与顶层包同名，但有意存在两处例外——
 > **2026-11-08 整合**：`plugin.*` / `approval.*` / `ai.*` 三个包根分别并入 common / workflow / codegen，
-> 包路径与类名均未改写，故「模块 ↔ 包」不再一一对应，以 `scripts/check-directory.py` 的 `EXPECTED_ROOTS` 为准。
+> 当时包路径与类名均未改写，故「模块 ↔ 包」不再一一对应，以 `scripts/check-directory.py` 的 `EXPECTED_ROOTS` 为准。
+> **2026-11-10 P2-3 批次 12**：`approval.*` 6 个类已整体迁入 `workflow.approval.*`，
+> `EXPECTED_ROOTS` 中的 `scaffold-workflow` 登记同步注销该包根；现五个 P2-3 模块均只有单一包根。
+> `plugin.*` / `ai.*` 两处历史例外仍保留。
 > `scaffold-framework` 的类位于 `com.acme.scaffold.config` / `observability` / `monitor.detection` /
 > `chaos`（无 `...framework` 包）；`scaffold-common` 的数据访问层统一为 `com.acme.scaffold.mybatis.dsl`（原 `jooq.*` 包已归并）。
 > 根 `pom.xml` 已书面声明「不做包名重排，模块边界由 Maven 依赖强制」，故保留现状。

@@ -134,7 +134,7 @@
 | P0-2 | `sys_menu` 补 `created_by` | DDL | 否 | 否 | 中 | **已落地**：以 `V83__sys_menu_created_by.sql` 前向追加（V32 基表字节不变），沿用「列缺失才补」幂等写法；`SqlTables.SYS_MENU` / `SysMenuDO` / `MenuService.create` 同步写入当前用户。另以 `MenuTypeRules` 纯函数收敛 `menu_type` 取值域，兼容后端全名与前端单字母两套字面量、不归一化 |
 | P2-1 | 4 组一路径多 Controller 拆分 | 否 | 双挂 | 否（双挂期） | 中 | **已落地（过渡态）**：6 个从属 Controller 类基路径做 `{旧, 新}` 数组双挂，方法级映射一律未动；旧 URL 全部原样可用，前端 5 个 api 文件仍走旧路径、零行为变更。别名清单与后续「前端灰度切换 → 观察 1 版本 → 删旧」见 §3.4 |
 | P2-2 | `alert_rule` → `sys_alert_rule` | 是 | 否 | 否 | 中 | **已落地**：`V84__rename_alert_rule.sql` 幂等 RENAME（V70 字节不变）；`SqlTables.ALERT_RULE` 表名同步；停写窗口、备份与回滚顺序见 §3.5 |
-| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **分批落地中（批次 8/9/10/11：`scaffold-cms`、`scaffold-im`、`scaffold-workbench`、`scaffold-kafka` 已完成）**：D12 多模块解析 + §4 逐模块簇表；cms 15 文件迁 `article/category/support`、im 12 文件迁 `conversation/message/support`、workbench 33 文件迁 `overview/report/dashboard`、kafka 25 文件迁 `monitor/consumer/gateway/support`；D12 现为 **49 簇 / 5 模块**，余 1 模块按 §3.6 逐模块独立提交 |
+| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **已全部落地（批次 8–12，五模块）**：D12 多模块解析 + §4 六张模块簇表；cms 15 / im 12 / workbench 33 / kafka 25 / workflow 54 文件分别收敛为 3/3/3/4/7 簇，累计 **139 个 Java 文件收敛为 20 个业务簇**，连同 `scaffold-system` 36 簇，D12 现为 **56 簇 / 6 模块**。批次 12 另把与 `workflow/` 平级的 `approval/` 根包并入 `workflow/approval/`，`EXPECTED_ROOTS` 同步注销。详见 §3.6 |
 
 > P2-3 仍属大规模类搬迁范畴，须按报告批次 5 逐模块推进、每模块独立提交；
 > 其余已落地项均保持向后兼容（可空列 / 新旧双挂 / 前向追加迁移）。
@@ -185,7 +185,7 @@
 > 本仓已移除 Flyway，应用启动**不会**自动执行 V84；运维须显式执行 `db/init/` 初始化脚本
 > 或单独跑该迁移。这是 P2-2 相对其它条目最需要人工确认的一点。
 
-### 3.6 P2-3 分批实施方案（批次 8–10：`scaffold-cms` / `scaffold-im` / `scaffold-workbench` 已落地）
+### 3.6 P2-3 分批实施方案（批次 8–12：五模块全部落地）
 
 **实测盘点（2026-11-10，非报告中的估值）**：5 个模块共 **139 个 Java 文件**，目录形态差异很大，
 不能用一条正则统一搬迁：
@@ -196,7 +196,7 @@
 | `scaffold-im` | 12 | **已落地**：`conversation`(6) / `message`(5) / `support`(1) 三簇 |
 | `scaffold-kafka` | 25 | **已落地**：`monitor`(4) / `consumer`(9) / `gateway`(11) / `support`(1) 四簇；`gateway/config/` 2 个配置类路径不变，`OrderingRules` 收敛到 `support/` |
 | `scaffold-workbench` | 33 | **已落地**：`overview`(4) / `report`(23) / `dashboard`(6) 三簇；原 `report/` 下 `csv`/`export`/`stats`/`rules` 纯函数统一归 `domain/rule/`，`ReportExportTask` 归 `adapter/`，`DashboardTemplateDO` 归 `domain/model/` |
-| `scaffold-workflow` | 54 | `adapter`(4) / `assignee`(1) / `bootstrap`(1) / `bpmn`(2) / `config`(2) / `controller`(5) / `dto`(18) / `entity`(4) / `model`(2) / `port`(1) / `rules`(4) / `service`(4) / **根包 `approval/` 6 个平铺类（与 `workflow/` 平级）** |
+| `scaffold-workflow` | 54 | **已落地**：`instance`(17) / `definition`(14) / `monitor`(7) / `approval`(6) / `engine`(5) / `admin`(3) / `support`(2) 七簇；原平级根包 `approval/` 6 个类并入 `workflow/approval/`，`approval` 从 `EXPECTED_ROOTS` 注销 |
 
 **目标骨架**（沿用 §4 记法）：`controller→api`、`service→application`、`dto→簇根 dto/`、
 `domain`/`entity`/`model→domain/model`、`port`/`gateway→domain/repository`、`rules→domain/rule`、
@@ -216,7 +216,7 @@
    全仓行为回归口径 **89 例 → 92 例**。
 
 **批次顺序与验证**（报告批次 5）：`cms`(15，已完成) → `im`(12，已完成) → `workbench`(33，已完成) →
-`kafka`(25，已完成) → `workflow`(54，最后处理 `approval` 6 个平铺类)。每模块：
+`kafka`(25，已完成) → `workflow`(54，已完成；`approval` 6 个平铺类并入 `workflow/approval/`)。每模块：
 
 ```
 git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
@@ -267,13 +267,28 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 | 编译 | 根聚合 POM `mvn -o -f pom.xml compile -Dmaven.resources.skip=true` → **BUILD SUCCESS**（35.846 s，15 个 reactor 项全 SUCCESS，一次通过） |
 | 行为 | 零 HTTP 契约、零表结构、零前端改动；`@ComponentScan` 基包仍为 `com.acme.scaffold`；`kafka.ordered-consumer.*` / `kafka.gateway.*` 配置前缀、Bean 名与条件装配门禁均未变；`OrderingRules` 只在 `support/` 保留一份 |
 
+**批次 12 落地记录（2026-11-10，`scaffold-workflow`）**：
+
+| 项 | 结果 |
+|---|---|
+| 前置决策 | `approval/` 原为与 `workflow/` 平级的独立根包（`com.acme.scaffold.approval`），`check-directory.py` 的 `EXPECTED_ROOTS` 曾把它登记在 `scaffold-workflow` 下，而 D12 的 `module_pkg_path()` 只推导到 `.../workflow`。本批次选择**整体并入** `workflow/approval/` 簇（而非扩展 D12 支持多包根），因此彻底消除历史例外、校验脚本连续第 5 个模块无需改动，同时把 `EXPECTED_ROOTS["scaffold-workflow"]` 改为 `{"workflow"}` |
+| 搬迁 | 54 个 Java 文件全部按 SPEC 移动，收敛为 `instance`(17) / `definition`(14) / `monitor`(7) / `approval`(6) / `engine`(5) / `admin`(3) / `support`(2) 七簇；原 13 个 `dto/` 按业务归属拆到三个簇，`dto/design/` 5 个整体落 `definition/dto/design/`；15 个 legacy 空目录清空删除（含平级根包 `approval/`） |
+| FQN | 改写 21 个 Java 文件 + `scaffold-workflow/pom.xml` 头部结构注释，终态旧 FQN / 旧包路径字符串残留 **0** |
+| 拆包补 import | 搬迁前用包级 import 图预扫描，识别 **10 处同包隐式引用**并在搬迁时一次补齐：`approval` 5 处代码引用、`BpmnWorkflowBuilder → WorkflowDesignValidator` 1 处、4 处 javadoc `{@link}`（三个 `*Rules` 文件指向 `ClaimRules` / `WorkflowMonitorRules`）。补完后独立复核确认包级 import 图 **20 节点 0 环** |
+| 运行时 FQN | **本批次新增关键项**：`BpmnWorkflowBuilder` 用字符串把 Flowable `serviceTask` 的 implementation 指向 `GenericStepDelegate` / `CcStepDelegate` 两个 delegate 类。这类**运行时类名字符串**必须随包迁移同步改写，否则部署 BPMN 时 ClassNotFound；终态 2 处均已指向 `com.acme.scaffold.workflow.engine.adapter.step.*` |
+| D12 | 真实门禁 `EXIT=0`：**56 个子域簇 / 6 个模块**（system 36 + cms 3 + im 3 + workbench 3 + kafka 4 + workflow 7）；§4 追加第 6 张模块簇表，行为回归仍为 **92 例** |
+| 编译 | 根聚合 POM `mvn -o -f pom.xml compile -Dmaven.resources.skip=true` → **BUILD SUCCESS**（26.139 s，一次通过） |
+| 行为 | 零 HTTP 契约、零表结构、零前端改动；`@SpringBootApplication` 基包仍为 `com.acme.scaffold`，`ApiResourceScanner` 以 `(method, path)` + `getDeclaringClass().getSimpleName()` 登记资源，不持久化包名；Bean 名与 `@RequestMapping` 路径全部不变 |
+
 **风险**：包级 import 变更可能新建 H1 包级环；`@ComponentScan` 基包须保持
-`com.acme.scaffold`；`approval` 与 `workflow` 平级，合并前须先定 `approval` 是否独立簇。
-本批次**零 HTTP 契约、零表结构、零前端改动**。
+`com.acme.scaffold`。批次 12 以搬迁前预扫描 + 搬迁后独立复核（20 节点 0 环）闭环该风险；
+跨根包合并前已确认全仓除 `approval/` 自身外无 `com.acme.scaffold.approval` 的 Java 引用，
+资源文件与权限登记均不依赖静态包名。五批次**均零 HTTP 契约、零表结构、零前端改动**。
 
 > **为何按模块分批**：报告 §7 明确标注「建议单独立项」，§6 批次 5 要求逐模块独立提交 +
 > 每步全量编译与门禁；139 文件一次性搬迁会破坏「每批次独立可回滚」的约束。
-> 仅余 `workflow` 一模块待逐模块确认后按上表推进（建议下一轮回复「继续搬迁 workflow」）。
+> 五模块已按上表全部收口，共 **10 笔独立提交**；`DIRECTORY.md` §4 六张簇表由 D12 统一守护，
+> 后续新增子域簇须同步对应模块的簇表，否则门禁阻断。
 
 ## 4. 回归验证要点
 
@@ -365,10 +380,20 @@ P2-1（契约门禁支持多路径数组 + 6 个从属 Controller 新旧双挂�
 `domain/rule/`、导出中心模板归 `adapter/`，`DashboardTemplateDO` 归 `domain/model/`；
 三簇之间零跨簇引用，H1 包级无环。余下 `kafka` / `workflow` 两模块（其中 `kafka` 已由批次 11 收口）。
 
+**2026-11-10 批次 12 收口（P2-3 收官，`scaffold-workflow`）**：54 个 Java 文件收敛为
+`instance` / `definition` / `monitor` / `approval` / `engine` / `admin` / `support` 七簇，
+§4 追加第 6 张模块簇表；D12 实跑 **56 个子域簇 / 6 个模块**，编译 BUILD SUCCESS（一次通过），
+行为回归口径仍为 **92 例**（本批次未增删用例）。该模块原含与 `workflow/` 平级的独立根包
+`approval/`，本批次整体并入 `workflow/approval/` 并注销 `EXPECTED_ROOTS` 中的 `approval`，
+彻底消除历史包根例外；搬迁前预扫描补 10 处同包隐式引用，并首次处理 **Flowable BPMN
+delegate 运行时类名字符串**（2 处随包迁移同步）。至此《若依规范对齐差异清单与重构方案_20261109.md》
+P2-3 五模块 **139 个 Java 文件全部收敛**，批次 8–12 共 10 笔独立提交，全部零 HTTP 契约 /
+零表结构 / 零前端改动。
+
 **2026-11-10 批次 11 收口（P2-3 第四模块）**：`scaffold-kafka` 25 个 Java 文件收敛为
 `monitor` / `consumer` / `gateway` / `support` 四簇，§4 追加第 5 张模块簇表；D12 实跑
 **49 个子域簇 / 5 个模块**，编译 BUILD SUCCESS（一次通过），行为回归口径仍为 **92 例**
 （本批次未增删用例）。该模块原为「消费侧 9 个顶层扁平包 + 生产侧 `gateway/` 5 个子目录」
 的双子系统形态，拆包后 3 处同包隐式引用补 import、2 处 H1 环风险通过落位与 javadoc
 降级规避；`application.yml` 注释旧 FQN 与 `scaffold-kafka/pom.xml` 头部结构描述同步更新。
-P2-3 仅余 `scaffold-workflow` 一模块。
+P2-3 最后一模块 `scaffold-workflow` 已由批次 12 收口（见下）。
