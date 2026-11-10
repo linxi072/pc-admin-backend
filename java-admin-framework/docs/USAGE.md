@@ -63,9 +63,9 @@ python3 scripts/check-all.py --test-tmpdir /tmp             # 受限环境钉定
 - 新增后端端点时，前端须同步补：路由 + i18n 键 + 菜单种子（版本化结构链 `db/migration/` 新增版本文件后重生成 `db/init/01_full_schema.sql`）+ API 客户端函数。
 
 ## 7. 数据库初始化与参考件
-- **唯一可执行初始化入口**：`scaffold-admin/src/main/resources/db/init/`（`00_create_database.sql` → `01_full_schema.sql`，可选 `02_backfill_tenant_id.sql`）。运行时已移除 Flyway，**应用启动不执行任何 DDL**，全新环境须由 DBA 手工执行；`db/migration/` 降级为版本化结构源（当前 `V32~V82`，50 个 SQL 文件 + 1 个 Java 类迁移 V57），`db/reference/` 为分类阅读参考件。
-- **严禁修改已发布迁移**：连注释与空白都不能改，否则启动报 `Validate failed: ... checksum mismatch`；修复只能以更高版本迁移前向追加。
+- **唯一可执行初始化入口**：`scaffold-admin/src/main/resources/db/init/`（`00_create_database.sql` → `01_full_schema.sql`，可选 `02_backfill_tenant_id.sql`）。运行时已移除 Flyway，**应用启动不执行任何 DDL**，全新环境须由 DBA 手工执行；`db/migration/` 降级为版本化结构源（当前 `V32~V85`，53 个 SQL 文件 + 1 个 Java 类迁移 V57），`db/reference/` 为分类阅读参考件。
+- **严禁修改已发布迁移**：连注释与空白都不能改；Flyway 移除后启动已不再做 checksum 校验，但改动已发布文件会破坏版本链的可追溯性与逐批回滚边界。结构性修复一律以更高版本迁移**前向追加**（V83 补列、V84 / V85 重命名均按此办理），并在 `db/migration/README.md` 补历史口径说明。
 - **参考件（非可执行）**：`db/reference/schema_ddl.sql`（DDL）与 `data_dml.sql`（DML）由 `python3 scripts/build_reference_modular.py` 从迁移链整链派生，仅供阅读与追溯，**不可当迁移执行**。header 的版本范围由脚本运行时探测，不写死。
-- **新增迁移后的三件套**：① 追加 `V<N>__*.sql`；② 重跑 `python3 scripts/build_reference_modular.py` 重生成 `db/init/01_full_schema.sql` 与两份参考件；③ 同步更新 `db/migration/README.md` 的「版本 → 模块映射」与「V60–V82 新增表结构与字段变更」章节。缺任一步都会让文档/参考件落后于实现（2026-11-08 曾发现 V60~V81 共 22 个迁移漏派生）。
-- 完整迁移索引、10 张新增表的列清单与 5 个新增列见 [`db/migration/README.md`](../scaffold-admin/src/main/resources/db/migration/README.md)。
+- **新增迁移后的三件套**：① 追加 `V<N>__*.sql`；② 重跑 `python3 scripts/build_reference_modular.py` 重生成 `db/init/01_full_schema.sql` 与两份参考件；③ 同步更新 `db/migration/README.md` 的「版本 → 模块映射」与「V60–V85 新增表结构与字段变更」章节。缺任一步都会让文档/参考件落后于实现（2026-11-08 曾发现 V60~V81 共 22 个迁移漏派生）。
+- 完整迁移索引、10 张新增表的列清单、6 个新增列与 2 张表重命名见 [`db/migration/README.md`](../scaffold-admin/src/main/resources/db/migration/README.md)。
 - 代码侧表/列登记集中在 `scaffold-common` 的 `SqlTables.java`，与迁移链 DDL 一一对应（2026-11-08 字段级扫描：58 个 `TableRef` 常量与 DDL 零差异）。新增表/列须同步登记，否则手写动态 DSL 取不到列。
