@@ -93,6 +93,7 @@ const routes = [
       {
         // 旧入口保留重定向，避免历史书签/菜单配置失效
         path: 'system/announcement',
+        name: 'announcement',
         redirect: '/system/notice'
       },
       {
@@ -167,7 +168,7 @@ const routes = [
         // 通知模板中心（V41）：为 M6 多渠道通知提供可复用 ${var} 模板；权限码与菜单由后端驱动
         path: 'system/notification-templates',
         name: 'notificationTemplate',
-        component: () => import('@/views/system/NotificationTemplate.vue'),
+        component: () => import('@/views/system/NotificationTemplateView.vue'),
         meta: { title: 'route.notificationTemplate', permission: 'system:notification-template:read' }
       },
       {

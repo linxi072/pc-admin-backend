@@ -119,7 +119,7 @@ import { t } from '@/i18n'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Refresh, CircleClose, Download } from '@element-plus/icons-vue'
-import { pageActiveTokens, revokeToken } from '@/api/oauth2token'
+import { pageActiveTokens, revokeToken } from '@/api/oauth2Token'
 import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
