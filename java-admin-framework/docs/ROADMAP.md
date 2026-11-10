@@ -87,6 +87,9 @@
 #### R6 · 站内 IM / 客服 — P1
 - **动机**：基于已有 `realtime`(WebSocket) 的会话能力缺失。
 - **候选模块**：`scaffold-im`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.im` 下 `domain`（ImConversationDO/ImConversationMemberDO/ImMessageDO）/`dto`/`service`（会话创建[P2P/群组]+成员管理+消息发送/未读计数/已读回执 + 会话列表）/`controller`（会话、消息 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V75__im.sql（im_conversation/im_conversation_member/im_message + 菜单种子）。`SqlTables` 复用既有常量；`ImMessageSentEvent` 落地于 `common.event.domain`（与 UserDisabledEvent 同位），由 `realtime` 的 `ImMessagePushListener` 订阅后经 WebSocket 实时推送，二者经事件解耦、无编译期依赖。
+  > 2026-11-10 P2-3 批次 9 起，源码按 `docs/DIRECTORY.md` §4 收敛为 `conversation` / `message` /
+  > `support` 三簇（包名 `com.acme.scaffold.im.conversation.*` / `.message.*` / `.support`）；
+  > 本行保留 V1.0.7 落地时的原始目录快照，HTTP 契约与 DDL 均未变化。
 - **依赖取舍**：为保持 DAG 最小且无环，IM 仅依赖 `common`（经 SqlWriters 持久化、R2 事件总线发消息事件）；实时推送由 `realtime` 订阅同一事件完成，IM 不反向依赖 realtime/`system`/`plugin`（与「跨域协作经 Port/事件」铁律一致）。
 - **验收**：P2P/群组会话 + 成员管理 + 消息发送 + 未读计数（按成员 last_read_message_id 推导）+ 已读回执 + 会话列表；双门禁全绿（16 个后端单测覆盖 CRUD/树/未读/回执/事件）；菜单种子与权限码自动登记就绪。前端会话组件 ✅ **已落地 V1.0.7**（im/ConversationView 会话管理 + im/MessageView 消息中心[气泡/发送/撤回/已读/未读角标] + api 契约测试 6 例，i18n 双 locale 补齐）。
 

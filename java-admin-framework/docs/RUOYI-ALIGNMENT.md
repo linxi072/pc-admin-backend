@@ -134,7 +134,7 @@
 | P0-2 | `sys_menu` 补 `created_by` | DDL | 否 | 否 | 中 | **已落地**：以 `V83__sys_menu_created_by.sql` 前向追加（V32 基表字节不变），沿用「列缺失才补」幂等写法；`SqlTables.SYS_MENU` / `SysMenuDO` / `MenuService.create` 同步写入当前用户。另以 `MenuTypeRules` 纯函数收敛 `menu_type` 取值域，兼容后端全名与前端单字母两套字面量、不归一化 |
 | P2-1 | 4 组一路径多 Controller 拆分 | 否 | 双挂 | 否（双挂期） | 中 | **已落地（过渡态）**：6 个从属 Controller 类基路径做 `{旧, 新}` 数组双挂，方法级映射一律未动；旧 URL 全部原样可用，前端 5 个 api 文件仍走旧路径、零行为变更。别名清单与后续「前端灰度切换 → 观察 1 版本 → 删旧」见 §3.4 |
 | P2-2 | `alert_rule` → `sys_alert_rule` | 是 | 否 | 否 | 中 | **已落地**：`V84__rename_alert_rule.sql` 幂等 RENAME（V70 字节不变）；`SqlTables.ALERT_RULE` 表名同步；停写窗口、备份与回滚顺序见 §3.5 |
-| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **分批落地中（批次 8：`scaffold-cms` 已完成）**：D12 扩展为多模块解析、§4 增 `scaffold-cms` 3 簇表、15 个 Java 文件迁至 `article/category/support`；余 4 模块按 §3.6 逐模块独立提交 |
+| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **分批落地中（批次 8/9：`scaffold-cms`、`scaffold-im` 已完成）**：D12 多模块解析 + §4 逐模块簇表；cms 15 文件迁 `article/category/support`、im 12 文件迁 `conversation/message/support`；D12 现为 **42 簇 / 3 模块**，余 3 模块按 §3.6 逐模块独立提交 |
 
 > P2-3 仍属大规模类搬迁范畴，须按报告批次 5 逐模块推进、每模块独立提交；
 > 其余已落地项均保持向后兼容（可空列 / 新旧双挂 / 前向追加迁移）。
@@ -185,7 +185,7 @@
 > 本仓已移除 Flyway，应用启动**不会**自动执行 V84；运维须显式执行 `db/init/` 初始化脚本
 > 或单独跑该迁移。这是 P2-2 相对其它条目最需要人工确认的一点。
 
-### 3.6 P2-3 分批实施方案（批次 8：`scaffold-cms` 已落地）
+### 3.6 P2-3 分批实施方案（批次 8–9：`scaffold-cms` / `scaffold-im` 已落地）
 
 **实测盘点（2026-11-10，非报告中的估值）**：5 个模块共 **139 个 Java 文件**，目录形态差异很大，
 不能用一条正则统一搬迁：
@@ -193,7 +193,7 @@
 | 模块 | 文件数 | 当前二级目录（文件数） |
 |---|---|---|
 | `scaffold-cms` | 15 | **已落地**：`article`(7) / `category`(7) / `support`(1) 三簇 |
-| `scaffold-im` | 12 | `controller`(2) / `service`(2) / `domain`(3) / `dto`(4) / 根(1) |
+| `scaffold-im` | 12 | **已落地**：`conversation`(6) / `message`(5) / `support`(1) 三簇 |
 | `scaffold-kafka` | 25 | `adapter`(1) / `config`(1) / `controller`(1) / `domain`(3) / `dto`(2) / `gateway`(1+9 子目录) / `port`(1) / `rules`(1) / `service`(4) |
 | `scaffold-workbench` | 33 | 已有 `dashboard/`(6) 与 `report/`(22) 两个子簇，另有 `controller`(1) / `service`(1) / `dto`(2) 直挂根 |
 | `scaffold-workflow` | 54 | `adapter`(4) / `assignee`(1) / `bootstrap`(1) / `bpmn`(2) / `config`(2) / `controller`(5) / `dto`(18) / `entity`(4) / `model`(2) / `port`(1) / `rules`(4) / `service`(4) / **根包 `approval/` 6 个平铺类（与 `workflow/` 平级）** |
@@ -215,7 +215,7 @@
 4. `scripts/test_check_cluster_layout.py` 由 11 例扩为 **14 例**（新增多模块解析 3 例），
    全仓行为回归口径 **89 例 → 92 例**。
 
-**批次顺序与验证**（报告批次 5）：`cms`(15，已完成) → `im`(12) → `workbench`(33) →
+**批次顺序与验证**（报告批次 5）：`cms`(15，已完成) → `im`(12，已完成) → `workbench`(33) →
 `kafka`(25) → `workflow`(54，最后处理 `approval` 6 个平铺类)。每模块：
 
 ```
@@ -235,13 +235,23 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 | 编译 | 根聚合 POM `mvn -o -f pom.xml compile -Dmaven.resources.skip=true` → **BUILD SUCCESS**，15 个 reactor 项全 SUCCESS |
 | 行为 | 零 HTTP 契约、零表结构、零前端改动；`@ComponentScan` 基包仍为 `com.acme.scaffold`；`article/application` → `category/domain/model` 为单向引用，无新增 H1 包级环 |
 
+**批次 9 落地记录（2026-11-10，`scaffold-im`）**：
+
+| 项 | 结果 |
+|---|---|
+| 搬迁 | 12 个 Java 文件按 SPEC 落到 `conversation/{api,application,domain/model,dto}`、`message/{api,application,domain/model,dto}`、`support/`；旧 `controller/` `service/` `domain/` `dto/` 四个扁平目录清空删除 |
+| FQN | 改写 4 个文件（2 个 Controller + 2 个 Service），含跨簇 `application → 对方 domain/model` 的双向引用；终态旧 FQN 残留 **0**，12 个 package 声明与目录逐项一致 |
+| D12 | 真实门禁 `EXIT=0`：**42 个子域簇 / 3 个模块**（system 36 + cms 3 + im 3）；§4 新增 `scaffold-im` 簇表，**校验脚本本身无需改动**（多模块解析已由批次 8 完成），行为回归仍为 92 例 |
+| 编译 | 根聚合 POM `mvn -o -f pom.xml compile -Dmaven.resources.skip=true` → **BUILD SUCCESS**（28.313 s，15 个 reactor 项全 SUCCESS） |
+| 行为 | 零 HTTP 契约、零表结构、零前端改动；两个 Service 互引对方 DO 但方向恒为 `application → domain/model`，包级依赖图仍为 DAG（H1 无环）；`ImStatus` 只在 `support/` 保留一份 |
+
 **风险**：包级 import 变更可能新建 H1 包级环；`@ComponentScan` 基包须保持
 `com.acme.scaffold`；`approval` 与 `workflow` 平级，合并前须先定 `approval` 是否独立簇。
 本批次**零 HTTP 契约、零表结构、零前端改动**。
 
 > **为何按模块分批**：报告 §7 明确标注「建议单独立项」，§6 批次 5 要求逐模块独立提交 +
 > 每步全量编译与门禁；139 文件一次性搬迁会破坏「每批次独立可回滚」的约束。
-> 余下 `im` / `workbench` / `kafka` / `workflow` 四模块待逐模块确认后按上表推进。
+> 余下 `workbench` / `kafka` / `workflow` 三模块待逐模块确认后按上表推进。
 
 ## 4. 回归验证要点
 
@@ -320,3 +330,8 @@ P2-1（契约门禁支持多路径数组 + 6 个从属 Controller 新旧双挂�
 **39 个子域簇 / 2 个模块**，编译 BUILD SUCCESS，行为回归由 89 例增至 **92 例**。
 本批次零 HTTP 契约、零表结构、零前端改动，详见 §3.6。余下 4 模块仍须逐模块独立提交，
 每模块单独编译与门禁。
+
+**2026-11-10 批次 9 收口（P2-3 第二模块）**：`scaffold-im` 12 个 Java 文件收敛为
+`conversation` / `message` / `support` 三簇，§4 追加第 3 张模块簇表；D12 实跑
+**42 个子域簇 / 3 个模块**，编译 BUILD SUCCESS，行为回归口径仍为 **92 例**（本批次未增删用例）。
+校验脚本无需改动，印证批次 8 的多模块扩展是可复用的：后续每模块只需追加一张 §4 表 + 搬迁源码。
