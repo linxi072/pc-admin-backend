@@ -37,7 +37,7 @@ python3 scripts/check-all.py --test-tmpdir /tmp             # 受限环境钉定
 | 子域簇结构 | `python3 scripts/check-cluster-layout.py` | 退出码 0（D12：§4 子域簇表 ≡ 磁盘现状） |
 | 菜单权限码一致性 | `python3 scripts/check-permission.py` | 退出码 0（P1：菜单权限码 − 豁免 ⊆ 接口权限码，规则见 `docs/NAMING.md` §6） |
 | 前后端契约（信息性） | `python3 scripts/check-api-contract.py` | 默认不阻断；`--strict` 且 `frontend_only` 非空时返回 1。扫描 14 个 `scaffold-*/src/main/java` 源码根 |
-| 校验器行为回归 | `python3 -m unittest discover -s scripts -p "test_*.py" -v` | **81 例全绿**：naming 4 + cluster-layout 11 + permission 12 + directory 29 + api-contract 25 |
+| 校验器行为回归 | `python3 -m unittest discover -s scripts -p "test_*.py" -v` | **89 例全绿**：naming 4 + cluster-layout 11 + permission 12 + directory 29 + api-contract 33 |
 | **统一入口** | `python3 scripts/check-all.py` | 一次编排上述 **7 步**，硬性项全部 `EXIT=0`；契约步仅信息性、不阻断 |
 
 > 注意：从 root 聚合 pom 用 `-pl <module> -am`，**禁止**直接 `-f scaffold-admin/pom.xml` 单独构建；`check-conventions.py` 默认 120s 会被 SIGTERM，须 `dangerouslyDisableSandbox` 且 `timeout>=600000`。

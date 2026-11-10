@@ -22,7 +22,7 @@ java-admin-framework/
 │   ├── check-api-contract.py   前后端接口契约静态对称（多模块源码根扫描）
 │   ├── check-all.py            统一门禁入口：编排上述各项 + scripts 单测
 │   ├── api-contract.json       统一响应 Result<T> 字段口径的唯一事实来源
-│   └── test_*.py               校验器行为回归 81 例（naming / cluster-layout / permission / directory / api-contract）
+│   └── test_*.py               校验器行为回归 89 例（naming / cluster-layout / permission / directory / api-contract）
 ├── docs/                       架构与规范文档（本目录，全部须挂 docs/README.md 索引）
 └── scaffold-<name>/            14 个模块，目录结构统一
     ├── pom.xml
@@ -141,7 +141,7 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | `importer`(8) | api/application/config | 导入中心与导入任务 |
 | `log`(5) | api/application/config | 操作日志与登录日志查询 |
 | `maskstrategy`(9) | api/application/domain{model,rule}/dto | 脱敏策略 |
-| `menu`(7) | api/application/domain{model}/dto | 菜单树与菜单授权 |
+| `menu`(8) | api/application/domain{model,rule}/dto | 菜单树与菜单授权；`domain/rule` 为 P0-2 菜单类型取值域 |
 | `message`(12) | api/application/domain{model,rule}/dto | 站内信与已读回执 |
 | `notification`(45) | adapter/api/application/config/domain{repository,rule}/dto + `unsubscribe/` 子特性 | 通知**投递**（渠道适配与发送）；端口按 `domain/repository`（与 `dashboard/domain/repository/SystemStatsPort` 同先例），退订子特性自带 api/application/config/domain/rule |
 | `notifydigest`(4) | application/domain{model,rule}/job | 通知摘要聚合 |
@@ -214,15 +214,15 @@ pc-admin-vue3-vite/src/
 | 目录结构约定 D1–D11 | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 29 例 |
 | 子域簇结构与 §4 表一致 D12 | `python3 scripts/check-cluster-layout.py`（EXIT=0），行为回归 `scripts/test_check_cluster_layout.py` 11 例 |
 | 菜单权限码 ↔ 接口权限码一致 P1 | `python3 scripts/check-permission.py`（EXIT=0），行为回归 `scripts/test_check_permission.py` 12 例；规则详见 `docs/NAMING.md` §6 |
-| 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 25 例 |
+| 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 33 例 |
 | 统一响应与错误码字段口径 | `scripts/api-contract.json`（唯一事实来源）+ `scripts/check-api-contract.py`（路由静态对称）；`ApiContractConsistencyTest` / `result.test.js` / `CommonConstantsTest` 均为已移除的历史测试资产 |
 | 前端目录与构建可解析 | `node scripts/check-sfc.mjs <file.vue>` + `node scripts/i18n-leak-scan.mjs src` + `npx vite build`（`npm test` 当前不可用） |
-| 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（81 例） |
+| 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（89 例） |
 
 **统一门禁入口**：`python3 scripts/check-all.py` 把 `check-conventions.py`（硬性）、
 `check-naming.py`（硬性）、`check-directory.py`（硬性）、`check-cluster-layout.py`（硬性）、
 `check-permission.py`（硬性）、`check-api-contract.py`（信息性，不阻断）与
-`scripts/test_*.py` 行为回归（硬性，当前 **81 例**）编排成一次运行，共 **7 步**，
+`scripts/test_*.py` 行为回归（硬性，当前 **89 例**）编排成一次运行，共 **7 步**，
 逐项打印 EXIT 与耗时；硬性项任一失败返回 `EXIT=1`，仅信息性项失败返回
 `EXIT=0` 但列出风险提示。常用参数：`--only conventions,directory`、`--skip-tests`、
 `--quiet`；受限环境（沙箱阻止 `tempfile` 默认目录探测）加 `--test-tmpdir <dir>`。

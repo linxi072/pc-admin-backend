@@ -60,7 +60,7 @@
 | `*Mapper.java` + `mapper/*.xml` | 本仓已移除 jOOQ / Flyway，数据访问为自研 DSL（`mybatis/dsl` 38 类），0 个 Mapper XML；回退等于重写 | **架构级**，不做 |
 | 菜单字段 `menu_code` / `route_path` / `permission_code` / `menu_type=CATALOG\|MENU` | 本仓多租户扩展（`tenant_id`、`menu_code` 业务唯一键）优于若依；字段名改造牵动种子与前端 | 形式差异 |
 | 前端 `views/{Module}XxxView.vue`、`src/api/*.js` 平铺 | 69 个 api 文件 + 全部 import 纯搬迁，无功能收益 | 大规模搬迁，不做 |
-| `alert_rule` 表无模块前缀 | 需 `RENAME TABLE` + DSL 常量同步，属结构级变更 | **待确认**（P2-2，见 §3.3） |
+| `alert_rule` 表无模块前缀 | 需 `RENAME TABLE` + DSL 常量同步，属结构级变更 | **已修复**（P2-2，见 §3.3 / §3.5）：V84 幂等重命名 + `SqlTables.ALERT_RULE` 指向 `sys_alert_rule` |
 
 > **2026-11-10 复查落地**：按《若依规范对齐差异清单与重构方案_20261109.md》批次 1–2
 > 修复了 2 条菜单权限码漂移（`system:department:read`→`system:org:read`、
@@ -127,17 +127,107 @@
 ② 增强 `check-api-contract.py` 支持多路径并补行为回归用例；③ 明确废弃策略与前端灰度；
 ④ 按 P2 级别排期（双挂 ≥1 个版本）。
 
-### 3.3 待确认 / 需排期项（暂不落地）
+### 3.3 需确认 / 需排期项的实施状态
 
 | 编号 | 事项 | 改表 | 改接口 | 改前端 | 风险 | 状态与前置 |
 |---|---|---|---|---|---|---|
-| P0-2 | `sys_menu` 补 `created_by` | DDL | 否 | 否 | 中 | **待确认**：属 DDL / 功能增强，非规范对齐；需「列缺失才补」幂等写法 + V32 基线同步 |
-| P2-1 | 4 组一路径多 Controller 拆分 | 否 | 双挂 | 是 | 中 | **需排期**：涉及 5 个前端 api 文件、`api-contract.json`、OpenAPI、E2E；须新旧双挂 ≥1 版本 |
-| P2-2 | `alert_rule` → `sys_alert_rule` | 是 | 否 | 否 | 中 | **待确认**：`RENAME TABLE` 停写窗口 + `SqlTables` 常量同步 + 备份脚本 + 回滚脚本 |
-| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **建议单独立项**：须先扩展 `docs/DIRECTORY.md` §4 与 `check-cluster-layout.py` 扫描根（D12），逐模块提交 |
+| P0-2 | `sys_menu` 补 `created_by` | DDL | 否 | 否 | 中 | **已落地**：以 `V83__sys_menu_created_by.sql` 前向追加（V32 基表字节不变），沿用「列缺失才补」幂等写法；`SqlTables.SYS_MENU` / `SysMenuDO` / `MenuService.create` 同步写入当前用户。另以 `MenuTypeRules` 纯函数收敛 `menu_type` 取值域，兼容后端全名与前端单字母两套字面量、不归一化 |
+| P2-1 | 4 组一路径多 Controller 拆分 | 否 | 双挂 | 否（双挂期） | 中 | **已落地（过渡态）**：6 个从属 Controller 类基路径做 `{旧, 新}` 数组双挂，方法级映射一律未动；旧 URL 全部原样可用，前端 5 个 api 文件仍走旧路径、零行为变更。别名清单与后续「前端灰度切换 → 观察 1 版本 → 删旧」见 §3.4 |
+| P2-2 | `alert_rule` → `sys_alert_rule` | 是 | 否 | 否 | 中 | **已落地**：`V84__rename_alert_rule.sql` 幂等 RENAME（V70 字节不变）；`SqlTables.ALERT_RULE` 表名同步；停写窗口、备份与回滚顺序见 §3.5 |
+| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **独立批次排期**：本轮完成 5 模块实测盘点（共 139 个 Java 文件）与实施方案，见 §3.6；按报告建议逐模块搬迁、每模块独立提交 |
 
-> 以上四项均属会改 HTTP 路径、数据库表列或大规模类搬迁的范畴，按本文件顶部硬约束
-> **只说明、不落地**；需逐项取得确认后再按批次实施。
+> 未标注「已落地」的条目仍属大规模类搬迁范畴，须按报告批次 5 逐模块推进；
+> 已落地项均保持向后兼容（可空列 / 新旧双挂 / 前向追加迁移）。
+
+### 3.4 P2-1 双挂别名清单与后续排期
+
+契约门禁 `scripts/check-api-contract.py` 已增强为支持 `@RequestMapping({"/old","/new"})`
+多路径数组（`quoted_paths` / `split_attrs`），每个方法在各基类路径下分别登记路由，
+并补 8 例行为回归；这是 P1-4 复核时列出的前置条件之一，现已满足。
+
+| 从属 Controller | 旧类基路径 | 新增别名类基路径 | 方法级映射 |
+|---|---|---|---|
+| `TenantOverviewController` | `/api/system/tenants` | `/api/system/tenant-overview` | 不变 |
+| `TenantGovernanceController` | `/api/system/tenants` | `/api/system/tenant-governance` | 不变 |
+| `TenantIsolationStatusController` | `/api/system/tenant-isolation` | `/api/system/tenant-isolation-status` | 不变 |
+| `TenantIsolationAuditController` | `/api/system/tenant-isolation` | `/api/system/tenant-isolation-audit` | 不变 |
+| `AnnouncementReadController` | `/api/system/announcements` | `/api/system/announcement-reads` | 不变 |
+| `MessageReadController` | `/api/system/messages` | `/api/system/message-reads` | 不变 |
+
+**两处刻意偏离报告建议**：报告为「公告阅读 / 消息阅读」建议的子资源路径
+`/api/system/announcements/{id}/reads`、`/api/system/messages/{id}/read` 含路径变量，
+不能作为类基路径，且这两个 Controller 各自还含 `mine/unread`、`mark-all-read`、
+`read-stats/page`、`receipts` 等非子资源端点，统一套一个 `{id}` 前缀会产生错误路由。
+故改用独立命名空间前缀；租户隔离两组同理（方法级已有 `/status` / `/audit` 区分）。
+
+**别名 URL 形态**：`新类基路径 + 原方法级路径`，例如
+`GET /api/system/tenant-overview/overview`、`GET /api/system/announcement-reads/{id}/read`。
+旧路径与别名指向同一方法，`@PreAuthorize` 权限码、参数、响应字段完全一致。
+
+**后续排期（本批次不做）**：① 前端 5 个 api 文件灰度切换到别名；② OpenAPI 文档会
+在每个双挂期内列出新旧两套 operationId，需在切换后复核网关路由规则；③ 观察 ≥1 个版本后
+删除数组中的旧路径，才算真正完成「一路径一 Controller」的拆分。切换前**不得**删旧路径。
+
+### 3.5 P2-2 表重命名的部署约束
+
+`alert_rule` → `sys_alert_rule` 是本批次唯一**结构级不兼容**改动，落地方式与风险如下：
+
+| 项 | 做法 |
+|---|---|
+| 版本文件 | 新增 `V84__rename_alert_rule.sql`，用 `information_schema.TABLES` 双守卫做幂等 `RENAME TABLE`；`V70__alert_rule.sql` 与 `V32` 基表字节保持不变 |
+| 新库 | `V70` 建 `alert_rule` → `V84` 重命名，最终落态为 `sys_alert_rule`；三份派生 SQL 由 `build_reference_modular.py` 整链重生成 |
+| 存量库 | `RENAME TABLE` 为原子 DDL，索引 `idx_metric_enabled`、数据、自增状态随表保留；重复执行命中 `DO 0` 无操作 |
+| Java | 仅 `SqlTables.ALERT_RULE` 的**表名字符串**改为 `sys_alert_rule`，常量名不变，`SqlAlertRuleStore` 引用无需改动；2 处 javadoc 同步 |
+| 前端 / 接口 | 零改动：`/api/monitoring/alert-rules` 路由、参数、响应字段、权限码均不变 |
+| 部署顺序 | ① 备份 `alert_rule` ② 停写窗口执行 V84 ③ 确认新表可读 ④ **再发布**含新常量的应用版本。反向顺序会导致告警规则模块查不到表 |
+| 回滚 | 先下线新版应用，再执行 `RENAME TABLE sys_alert_rule TO alert_rule`，并把 `SqlTables.ALERT_RULE` 表名改回后重新发布；完整语句见 V84 头注释 |
+
+> 本仓已移除 Flyway，应用启动**不会**自动执行 V84；运维须显式执行 `db/init/` 初始化脚本
+> 或单独跑该迁移。这是 P2-2 相对其它条目最需要人工确认的一点。
+
+### 3.6 P2-3 分批实施方案（未落地，待逐模块确认）
+
+**实测盘点（2026-11-10，非报告中的估值）**：5 个模块共 **139 个 Java 文件**，目录形态差异很大，
+不能用一条正则统一搬迁：
+
+| 模块 | 文件数 | 当前二级目录（文件数） |
+|---|---|---|
+| `scaffold-cms` | 15 | `controller`(2) / `service`(2) / `domain`(2) / `dto`(7) / `event`(1) / 根(1) |
+| `scaffold-im` | 12 | `controller`(2) / `service`(2) / `domain`(3) / `dto`(4) / 根(1) |
+| `scaffold-kafka` | 25 | `adapter`(1) / `config`(1) / `controller`(1) / `domain`(3) / `dto`(2) / `gateway`(1+9 子目录) / `port`(1) / `rules`(1) / `service`(4) |
+| `scaffold-workbench` | 33 | 已有 `dashboard/`(6) 与 `report/`(22) 两个子簇，另有 `controller`(1) / `service`(1) / `dto`(2) 直挂根 |
+| `scaffold-workflow` | 54 | `adapter`(4) / `assignee`(1) / `bootstrap`(1) / `bpmn`(2) / `config`(2) / `controller`(5) / `dto`(18) / `entity`(4) / `model`(2) / `port`(1) / `rules`(4) / `service`(4) / **根包 `approval/` 6 个平铺类（与 `workflow/` 平级）** |
+
+**目标骨架**（沿用 §4 记法）：`controller→api`、`service→application`、`dto→簇根 dto/`、
+`domain`/`entity`/`model→domain/model`、`port`/`gateway→domain/repository`、`rules→domain/rule`、
+`config`/`adapter` 保持层名；`event`/`csv`/`export`/`stats`/`bpmn`/`assignee`/`bootstrap` 需逐簇判定归属。
+
+**前置（必须先做，否则 D12 会阻断）**：
+
+1. `scripts/check-cluster-layout.py` 当前硬编码 `MODULE = "scaffold-system"` 与单一
+   `PKG_PATH`，`parse_doc()` 只认一张「子域簇一览」表。须改为「模块 → 包根」映射 +
+   多张簇表解析，并同步 `scripts/test_check_cluster_layout.py` 的 11 例行为回归。
+2. `docs/DIRECTORY.md` §4 现有说明「只覆盖 `scaffold-system` 36 簇」须改为「覆盖全部模块」，
+   并为每个模块新增一张簇表（含 C1 文件数 / C2 层集合 / C3 子目录集合）。
+3. `C5` 禁扁平包清单与 `FORBIDDEN_FLAT` 需确认是否覆盖 `event`/`csv`/`export`/`stats` 等新层。
+
+**批次顺序与验证**（报告批次 5）：`cms`(15) → `im`(12) → `workbench`(33) → `kafka`(25) →
+`workflow`(54，最后处理 `approval` 6 个平铺类)。每模块：
+
+```
+git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
+→ mvn -o -f pom.xml compile -Dmaven.resources.skip=true
+→ python3 scripts/check-all.py --only conventions,naming,directory,cluster-layout,script-tests
+→ 独立提交（不与其他模块混在一笔）
+```
+
+**风险**：包级 import 变更可能新建 H1 包级环；`@ComponentScan` 基包须保持
+`com.acme.scaffold`；`approval` 与 `workflow` 平级，合并前须先定 `approval` 是否独立簇。
+本批次**零 HTTP 契约、零表结构、零前端改动**。
+
+> **为何本轮不落地**：报告 §7 明确标注「建议单独立项」，且 §6 批次 5 要求逐模块独立提交 +
+> 每步全量编译与门禁；139 文件一次性搬迁会与已完成的 P0-2/P2-1/P2-2 混在同一工作区，
+> 破坏「每批次独立可回滚」的约束。待本轮提交收口后按上表逐模块推进。
 
 ## 4. 回归验证要点
 
@@ -152,9 +242,9 @@
    directory / cluster-layout / permission / api-contract（信息性）/ script-tests），
    硬性项全部 `EXIT=0`；受限环境加 `--test-tmpdir <dir>`。
 2. **行为回归**：`python3 -m unittest discover -s scripts -p "test_*.py"`，当前
-   **81 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
+   **89 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
    `test_check_permission.py` 12 + `test_check_directory.py` 29 +
-   `test_check_api_contract.py` 25）；`check-all.py` 第 7 步即调用该命令。
+   `test_check_api_contract.py` 33）；`check-all.py` 第 7 步即调用该命令。
 3. **编译**：`mvn -o -f pom.xml clean compile`，15 个 reactor 项 BUILD SUCCESS。
    测试源码已移除，`mvn test` / `verify` 为空跑，不作为通过标准。
 4. **前端构建**：`npx vite build`（验证 `styles/base.css` 路径可解析）；另有
@@ -194,9 +284,9 @@
 `scaffold-*/src/main/java` 自动发现源码根），并新增 `scripts/check-all.py` 统一门禁入口，
 把约定 / 目录 / 契约 / 校验器单测编排成一次可复现运行（历史「全量 86 例」口径已失效）。
 2026-11-10 起统一门禁为 **7 步**，新增 P1 权限码一致性硬性步骤；现存行为回归
-**81 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
+**89 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
 `test_check_permission.py` 12 + `test_check_directory.py` 29 +
-`test_check_api_contract.py` 25），由 `unittest discover` 自动发现，新增 `test_*.py` 无需改编排。
+`test_check_api_contract.py` 33），由 `unittest discover` 自动发现，新增 `test_*.py` 无需改编排。
 若依的响应体命名、Controller 集中、包根重命名、接口前缀命名等属于**契约级或大规模搬迁**差异，
 在不改变接口行为与避免无关重写的约束下明确保留，并集中于本文件说明，供后续版本按独立变更评估。
 

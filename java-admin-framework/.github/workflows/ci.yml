@@ -4,7 +4,7 @@ name: CI
 # （conventions / naming / directory / cluster-layout / permission / api-contract / script-tests），
 # 任一硬违规即 job 失败并输出失败原因、阻断合并；api-contract 为信息性步骤、不阻断。
 # 说明：后端 *Test / *IT 测试源码已于 087acdb 全量移除，Maven test/verify 阶段为空跑；
-#       当前真实门禁为 convention-check 的 Python 校验器 + scripts/test_*.py 行为回归（81 例）
+#       当前真实门禁为 convention-check 的 Python 校验器 + scripts/test_*.py 行为回归（89 例）
 #       与 build-and-unit-test 的编译校验。业务单测覆盖恢复需单独立项，
 #       汇报不得再引用「全部测试全绿」等历史口径。
 # SCA（OWASP dependency-check，经 -Psca 激活 pom 内 sca profile 策略）对 CVSS>=9 高危 CVE 失败阻断；
@@ -34,7 +34,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: 校验器行为测试
-        # 门禁自身须可信：unittest discover 自动发现 scripts/test_*.py，当前共 81 例
+        # 门禁自身须可信：unittest discover 自动发现 scripts/test_*.py，当前共 89 例
         # （naming 4 + cluster-layout 11 + permission 12 + directory 29 + api-contract 25）
         run: python3 -m unittest discover -s scripts -p "test_*.py"
       - name: 编码约定校验
