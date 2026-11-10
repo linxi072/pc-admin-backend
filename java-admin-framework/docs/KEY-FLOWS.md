@@ -8,7 +8,7 @@
   ├─ 验证码/Captcha（可选） → 校验账号锁定（PasswordPolicy/LockoutRules）
   ├─ 校验密码（BCrypt + PasswordHistoryService 防复用）
   ├─ 签发 JWT（JwtProvider，HS256/RS256）→ 返回 access + refresh
-  ├─ 写入刷新令牌 SysRefreshTokenDO（RefreshTokenServiceImpl）
+  ├─ 写入刷新令牌 SysRefreshTokenDO（RefreshTokenService）
   └─ 记录登录日志（LoginLogRecorder）→ 触发在线会话（OnlineSessionFilter）
 ```
 Token 版本失效：`TokenVersionService` 在改密/踢人时自增版本，`TokenVersionVerifier` 在校验时比对，旧令牌即时失效。

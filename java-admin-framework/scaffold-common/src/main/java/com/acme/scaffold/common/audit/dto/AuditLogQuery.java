@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
  * @param minDurationMs  最小耗时，用于筛慢操作，为空不过滤
  * @param startTime      起始时间（含）
  * @param endTime        截止时间（含）
- * @param sortField      排序字段（服务端白名单映射，见 AuditLogServiceImpl）
+ * @param sortField      排序字段（服务端白名单映射，见 AuditLogService）
  * @param sortDirection  排序方向：ASC / DESC
  */
 public record AuditLogQuery(int page, int size, String moduleCode, String operationType, Long operatorId,

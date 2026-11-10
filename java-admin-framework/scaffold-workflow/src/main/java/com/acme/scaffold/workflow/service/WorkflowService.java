@@ -117,7 +117,7 @@ public class WorkflowService {
                     "processKey", request.processKey(), "instanceId", instance.processInstanceId());
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
                 // 事务提交后再推送：① 回滚时审批人不会收到「假待办」；② 不在持连接期间做网络 IO 拉长事务
-                // （与 AuditLogServiceImpl 的 afterCommit 模式一致）
+                // （与 AuditLogService 的 afterCommit 模式一致）
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
