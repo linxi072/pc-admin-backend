@@ -1,8 +1,7 @@
 package com.acme.scaffold.security.jwt;
 
 import io.jsonwebtoken.security.Keys;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.StringUtils;
 
@@ -14,6 +13,7 @@ import java.util.Base64;
 /**
  * JWT 与账号安全策略配置，绑定自 {@code app.security.*}。
  */
+@Slf4j
 @ConfigurationProperties(prefix = "app.security")
 public class JwtProperties {
 
@@ -301,7 +301,6 @@ public class JwtProperties {
         this.oauth2PrivateKey = oauth2PrivateKey;
     }
 
-    private static final Logger log = LoggerFactory.getLogger(JwtProperties.class);
     private SecretKey signingKey;
     private SecretKey previousSigningKey;
 

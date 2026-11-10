@@ -3,8 +3,7 @@ package com.acme.scaffold.system.notification.adapter;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.system.notification.domain.repository.SmsGateway;
 import com.acme.scaffold.system.notification.domain.rule.SmsRules;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -17,11 +16,10 @@ import java.util.stream.Collectors;
  * <p>适用于开发 / 联调 / CI 环境：验证渠道编排与报文组装而无需网关凭据与费用。
  * 生产环境配置 {@code app.notifications.sms.provider=HTTP} 切换到真实网关。
  */
+@Slf4j
 @Component
 @ConditionalOnProperty(name = "app.notifications.sms.provider", havingValue = "LOG", matchIfMissing = true)
 public class LoggingSmsGateway implements SmsGateway {
-
-    private static final Logger log = LoggerFactory.getLogger(LoggingSmsGateway.class);
 
     @Override
     public void send(SmsRules.SmsDraft draft) {

@@ -5,8 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -32,11 +31,10 @@ import java.util.Map;
  * <p>执行顺序贴近 {@link com.acme.scaffold.security.ratelimit.RateLimitFilter}（HIGHEST_PRECEDENCE+5），
  * 这里取 +4，先于限流执行，使非法/重放请求尽早被拒。
  */
+@Slf4j
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 4)
 public class AntiReplayFilter extends OncePerRequestFilter {
-
-    private static final Logger log = LoggerFactory.getLogger(AntiReplayFilter.class);
 
     private static final List<RequestMatcher> TARGETS = List.of(
             new AntPathRequestMatcher("/api/auth/login", "POST"),

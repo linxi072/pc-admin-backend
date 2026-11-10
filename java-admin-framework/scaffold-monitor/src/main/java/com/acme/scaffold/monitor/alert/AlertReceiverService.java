@@ -1,7 +1,6 @@
 package com.acme.scaffold.monitor.alert;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -15,10 +14,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  * 告警接收服务：接收 Alertmanager webhook 推送，入库内存收件箱并发布 {@link AlertReceivedEvent}，
  * 供后续转发/通知使用。内存收件箱按 {@link AlertProperties#getInboxCapacity()} 环形裁剪。
  */
+@Slf4j
 @Service
 public class AlertReceiverService {
-
-    private static final Logger log = LoggerFactory.getLogger(AlertReceiverService.class);
 
     private final int capacity;
     private final ApplicationEventPublisher eventPublisher;

@@ -1,7 +1,6 @@
 package com.acme.scaffold.observability.export;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -17,9 +16,8 @@ import java.util.List;
  * （Jaeger / Tempo / OTel Collector）。默认关闭（{@code observability.otlp.enabled=false}）；
  * 开启后需配置 Collector 端点。导出失败仅记录日志，绝不抛异常影响主请求链路。
  */
+@Slf4j
 public class OtlpSpanExporter implements SpanExporter {
-
-    private static final Logger log = LoggerFactory.getLogger(OtlpSpanExporter.class);
 
     private final boolean enabled;
     private final String endpoint;

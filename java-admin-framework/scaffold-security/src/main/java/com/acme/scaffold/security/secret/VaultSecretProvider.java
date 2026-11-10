@@ -2,8 +2,7 @@ package com.acme.scaffold.security.secret;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -20,9 +19,9 @@ import java.util.Optional;
  * 该路径下以 {@code value} 字段存放密钥原文（即 {@code data.data.value}）。取数失败仅返回 empty 并记录日志，
  * 不阻断启动（缺失密钥由下游 JWT 配置兜底为随机临时密钥，符合现有安全策略）。
  */
+@Slf4j
 public class VaultSecretProvider implements SecretProvider {
 
-    private static final Logger log = LoggerFactory.getLogger(VaultSecretProvider.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final String address;

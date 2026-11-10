@@ -3,8 +3,7 @@ package com.acme.scaffold.plugin;
 import com.acme.scaffold.common.plugin.ExtensionDescriptor;
 import com.acme.scaffold.common.plugin.ExtensionPoint;
 import com.acme.scaffold.common.plugin.ExtensionRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -27,9 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * 因此扩展类可访问 common 中的扩展点契约）。加载失败时关闭其类加载器并向上抛出，
  * 已部分注册的扩展不会泄漏到注册表。卸载主要释放类加载器资源。
  */
+@Slf4j
 public class PluginManager {
-
-    private static final Logger log = LoggerFactory.getLogger(PluginManager.class);
 
     private final ApplicationContext applicationContext;
     private final ExtensionRegistry registry;

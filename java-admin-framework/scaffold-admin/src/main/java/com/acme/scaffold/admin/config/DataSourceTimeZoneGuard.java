@@ -1,7 +1,6 @@
 package com.acme.scaffold.admin.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
@@ -27,11 +26,10 @@ import java.util.regex.Pattern;
  * 时区参数且与 JVM 偏移量不一致时才拒绝启动。未声明或声明为 {@code SERVER}/无法解析时只告警，
  * 避免误伤合法部署。可用 {@code app.timezone.guard.enabled=false} 显式关闭。</p>
  */
+@Slf4j
 @Component
 @Profile("prod")
 public class DataSourceTimeZoneGuard implements ApplicationRunner {
-
-    private static final Logger log = LoggerFactory.getLogger(DataSourceTimeZoneGuard.class);
 
     static final String ENABLED_PROPERTY = "app.timezone.guard.enabled";
     static final String PRIMARY_URL_PROPERTY = "app.datasources.entries.primary.url";

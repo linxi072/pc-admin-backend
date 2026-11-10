@@ -2,8 +2,7 @@ package com.acme.scaffold.admin.plugin;
 
 import com.acme.scaffold.common.plugin.ExtensionRegistry;
 import com.acme.scaffold.plugin.PluginManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -36,9 +35,8 @@ public class PluginAutoConfiguration {
         return new PluginLoaderRunner(pluginManager, enabled, dir);
     }
 
+    @Slf4j
     static class PluginLoaderRunner implements ApplicationRunner {
-
-        private static final Logger log = LoggerFactory.getLogger(PluginLoaderRunner.class);
 
         private final PluginManager pluginManager;
         private final boolean enabled;

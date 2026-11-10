@@ -6,8 +6,7 @@ import com.acme.scaffold.realtime.gateway.GatewayNode;
 import com.acme.scaffold.realtime.payload.RealtimeMessage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -28,10 +27,9 @@ import java.util.UUID;
  *
  * <p>单用户定向推送遵循 wg「一用户一本节点一条活跃连接」不变量：每次 deliver 命中最新的那条连接。
  */
+@Slf4j
 @Service
 public class RealtimePushService {
-
-    private static final Logger log = LoggerFactory.getLogger(RealtimePushService.class);
 
     public static final String TYPE_UNREAD_MESSAGE = "UNREAD_MESSAGE";
     public static final String TYPE_TODO_REMINDER = "TODO_REMINDER";

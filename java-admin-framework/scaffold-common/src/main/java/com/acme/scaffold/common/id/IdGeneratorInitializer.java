@@ -2,8 +2,7 @@ package com.acme.scaffold.common.id;
 
 import com.acme.scaffold.common.IdGenerator;
 import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -15,10 +14,9 @@ import org.springframework.stereotype.Component;
  * {@code app.id.worker-id}（0~1023）配置接入启动流程；未配置时维持默认值并输出
  * 醒目警告，提醒多实例部署务必为每个实例分配不同值。</p>
  */
+@Slf4j
 @Component
 public class IdGeneratorInitializer {
-
-    private static final Logger log = LoggerFactory.getLogger(IdGeneratorInitializer.class);
 
     private final Long workerId;
 

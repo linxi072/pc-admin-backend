@@ -1,8 +1,7 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.security.jwt.JwtProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -23,10 +22,10 @@ import java.util.Base64;
  * 未配置则生成内存临时密钥（重启失效，并打印告警，与 {@code JWT_SECRET} 缺失告警同口径）。
  * 临时密钥仅用于本地开发/测试；生产必须配置固定私钥，否则已签发令牌无法跨重启校验、JWKS kid 也会变化。</p>
  */
+@Slf4j
 @Component
 public class RsaKeyProvider {
 
-    private static final Logger log = LoggerFactory.getLogger(RsaKeyProvider.class);
     private static final int KEY_SIZE = 2048;
 
     private final RSAPrivateKey privateKey;

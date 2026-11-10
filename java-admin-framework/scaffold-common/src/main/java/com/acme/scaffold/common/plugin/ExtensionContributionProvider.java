@@ -1,7 +1,6 @@
 package com.acme.scaffold.common.plugin;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,10 +13,9 @@ import java.util.List;
  *
  * <p>单个扩展贡献抛异常时仅记录日志并跳过，不阻断其余扩展与宿主启动（错误隔离）。
  */
+@Slf4j
 @Component
 public class ExtensionContributionProvider {
-
-    private static final Logger log = LoggerFactory.getLogger(ExtensionContributionProvider.class);
 
     private final ExtensionRegistry registry;
 

@@ -2,8 +2,7 @@ package com.acme.scaffold.security.secret;
 
 import com.acme.scaffold.security.jwt.JwtProperties;
 import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,11 +14,10 @@ import org.springframework.context.annotation.Configuration;
  * 通过 {@code JwtDecoderConfig.jwtDecoder()} 上的 {@code @DependsOn("secretBootstrap")} 保证
  * 密钥解析先于解码器构建完成。
  */
+@Slf4j
 @Configuration
 @EnableConfigurationProperties(SecretProperties.class)
 public class SecretBootstrap {
-
-    private static final Logger log = LoggerFactory.getLogger(SecretBootstrap.class);
 
     private final SecretProperties props;
     private final JwtProperties jwtProperties;
