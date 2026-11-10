@@ -1,4 +1,4 @@
-package com.acme.scaffold.im.dto;
+package com.acme.scaffold.im.conversation.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

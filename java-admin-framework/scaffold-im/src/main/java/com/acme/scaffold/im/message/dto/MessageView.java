@@ -1,4 +1,4 @@
-package com.acme.scaffold.im.dto;
+package com.acme.scaffold.im.message.dto;
 
 import lombok.Data;
 

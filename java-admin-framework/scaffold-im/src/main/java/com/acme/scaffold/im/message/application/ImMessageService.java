@@ -1,4 +1,4 @@
-package com.acme.scaffold.im.service;
+package com.acme.scaffold.im.message.application;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
@@ -6,12 +6,12 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.event.EventPublisher;
 import com.acme.scaffold.common.event.domain.ImMessageSentEvent;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.im.ImStatus;
-import com.acme.scaffold.im.domain.ImConversationDO;
-import com.acme.scaffold.im.domain.ImConversationMemberDO;
-import com.acme.scaffold.im.domain.ImMessageDO;
-import com.acme.scaffold.im.dto.MessageSendRequest;
-import com.acme.scaffold.im.dto.MessageView;
+import com.acme.scaffold.im.support.ImStatus;
+import com.acme.scaffold.im.conversation.domain.model.ImConversationDO;
+import com.acme.scaffold.im.conversation.domain.model.ImConversationMemberDO;
+import com.acme.scaffold.im.message.domain.model.ImMessageDO;
+import com.acme.scaffold.im.message.dto.MessageSendRequest;
+import com.acme.scaffold.im.message.dto.MessageView;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.mybatis.dsl.SqlTables;

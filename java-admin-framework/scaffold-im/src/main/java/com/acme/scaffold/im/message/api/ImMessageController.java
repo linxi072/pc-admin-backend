@@ -1,11 +1,11 @@
-package com.acme.scaffold.im.controller;
+package com.acme.scaffold.im.message.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.im.dto.MessageSendRequest;
-import com.acme.scaffold.im.dto.MessageView;
-import com.acme.scaffold.im.service.ImMessageService;
+import com.acme.scaffold.im.message.dto.MessageSendRequest;
+import com.acme.scaffold.im.message.dto.MessageView;
+import com.acme.scaffold.im.message.application.ImMessageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

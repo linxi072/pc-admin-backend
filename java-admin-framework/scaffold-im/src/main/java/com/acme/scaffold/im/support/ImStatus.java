@@ -1,4 +1,4 @@
-package com.acme.scaffold.im;
+package com.acme.scaffold.im.support;
 
 /**
  * 站内消息领域常量（ROADMAP R6）。

@@ -1,4 +1,4 @@
-package com.acme.scaffold.im.domain;
+package com.acme.scaffold.im.message.domain.model;
 
 import lombok.Data;
 

@@ -92,9 +92,9 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > **骨架范围（2026-11-10 P2-3 批次更新）**：本节按「**一模块一张子域簇一览表**」组织，
 > `scripts/check-cluster-layout.py`（D12）依表标题中的 `` `scaffold-xxx` `` 推导模块包根并逐表校验；
 > 未标注模块名的旧式标题按 `scaffold-system` 解析。当前已收敛：
-> **`scaffold-system` 36 簇** + **`scaffold-cms` 3 簇**。`im` / `kafka` / `workbench` /
-> `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》P2-3
-> 逐模块推进，每完成一模块再向本节追加一张簇表。
+> **`scaffold-system` 36 簇** + **`scaffold-cms` 3 簇** + **`scaffold-im` 3 簇**（合计 42 簇 / 3 模块）。
+> `kafka` / `workbench` / `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》
+> P2-3 逐模块推进，每完成一模块再向本节追加一张簇表。
 > 本节不代表全仓已按簇骨架归一。
 
 簇内分层：
@@ -181,6 +181,21 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > `category/domain/model/CmsCategoryDO` 的跨簇引用为单向，符合落位口径第 5 条
 > （`domain/model` 不反向依赖 `application`、H1 包级无环）。
 > 跨簇共享支撑类只保留 `support/` 一份，禁止复制（§4 落位口径第 2 条）。
+
+`scaffold-im` 按「会话 / 消息」两个聚合根加一个共享支撑簇划分：
+
+子域簇一览（`scaffold-im`，括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `conversation`(6) | api/application/domain{model}/dto | 会话创建（P2P / 群组）、成员管理、会话列表与未读计数 |
+| `message`(5) | api/application/domain{model}/dto | 消息发送、已读回执、消息分页查询 |
+| `support`(1) | （平铺） | 跨簇共享的会话 / 消息状态常量 `ImStatus` |
+
+> 两个 Service 分别引用对方的 DO（`ImConversationService` 用 `ImMessageDO` 生成会话最后一条
+> 消息，`ImMessageService` 用 `ImConversationDO` / `ImConversationMemberDO` 校验成员），但方向
+> 恒为 `application → 对方 domain/model`，`domain/model` 不反向依赖 `application`，包级依赖图
+> 仍是 DAG（H1 无环）。`ImStatus` 只在 `support/` 保留一份，禁止复制。
 
 ## 5. 前端目录骨架
 
