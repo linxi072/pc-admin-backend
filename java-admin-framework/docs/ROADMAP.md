@@ -78,6 +78,9 @@
 #### R5 · 内容管理 CMS — P1
 - **动机**：后台普遍需要栏目/文章/富文本/媒体库。
 - **候选模块**：`scaffold-cms`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.cms` 下 `domain`（CmsCategoryDO/CmsArticleDO）/`dto`/`service`（栏目树构建 + 文章 CRUD/发布态流转）/`controller`（栏目、文章 REST 端点，@PreAuthorize 权限码经 ApiResourceAutoSyncRunner 自动登记）/`event`（ArticlePublishedEvent 复用 R2 事件总线）；DDL 见 V74__cms.sql（cms_category/cms_article + 菜单种子）；`SqlTables` 新增 `CMS_CATEGORY`/`CMS_ARTICLE` 常量。
+  > 2026-11-10 P2-3 批次 8 起，源码按 `docs/DIRECTORY.md` §4 收敛为 `article` / `category` /
+  > `support` 三簇（包名 `com.acme.scaffold.cms.article.*` / `.category.*` / `.support`）；
+  > 本行保留 V1.0.7 落地时的原始目录快照，HTTP 契约与 DDL 均未变化。
 - **依赖取舍**：为保持 DAG 最小且无环，CMS 仅依赖 `common`（经 SqlWriters 持久化、R2 事件总线发发布事件），未引入 `system`/`plugin`；媒体资源以 `cover_url` 等文本列承载，避免跨模块 Service 直连（与「跨域协作经 Port/事件」铁律一致）。
 - **验收**：栏目树 + 文章 CRUD + 富文本 + 发布态（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数；双门禁全绿（11 个后端单测覆盖）；菜单种子与权限码自动登记就绪。前端视图 ✅ **已落地 V1.0.7**（cms/CategoryView 树形栏目 + cms/ArticleView 发布/下线/详情抽屉 + api 契约测试 6 例，i18n 双 locale 补齐）。
 
