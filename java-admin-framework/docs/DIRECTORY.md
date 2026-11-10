@@ -93,8 +93,8 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > `scripts/check-cluster-layout.py`（D12）依表标题中的 `` `scaffold-xxx` `` 推导模块包根并逐表校验；
 > 未标注模块名的旧式标题按 `scaffold-system` 解析。当前已收敛：
 > **`scaffold-system` 36 簇** + **`scaffold-cms` 3 簇** + **`scaffold-im` 3 簇** +
-> **`scaffold-workbench` 3 簇**（合计 45 簇 / 4 模块）。
-> `kafka` / `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》
+> **`scaffold-workbench` 3 簇** + **`scaffold-kafka` 4 簇**（合计 49 簇 / 5 模块）。
+> `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》
 > P2-3 逐模块推进，每完成一模块再向本节追加一张簇表。
 > 本节不代表全仓已按簇骨架归一。
 
@@ -216,6 +216,30 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > 校验；三簇之间零跨簇引用，包级依赖图仍是 DAG（H1 无环）。`DashboardTemplateDO` 由
 > `dashboard/domain/` 迁入 `dashboard/domain/model/`，满足 C4。`report/dto/` 与 `dashboard/dto/`
 > 因簇名与原特性包名一致，路径与 package 声明保持不变。
+
+`scaffold-kafka` 原为「消费侧 9 个顶层扁平包 + 生产侧 `gateway/` 5 个子目录」的双子系统形态，
+按「消费运维 / 有序消费 / 网关投递 / 共享规则」四个聚合根划分：
+
+子域簇一览（`scaffold-kafka`，括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `monitor`(4) | api/application/dto | 消费容器运行态、死信（毒消息）分页查询与重试/丢弃补偿 |
+| `consumer`(9) | adapter/application/config/domain{model,repository} | 有序消费容器（`SmartLifecycle`）、`RecordSource` 端口与原生 `KafkaConsumer` 适配、条件装配 |
+| `gateway`(11) | adapter/config/domain{model,repository,rule} | 分级投递总线、Topic 拓扑与规格、扇出路由、`RecordSender` 端口与发送适配 |
+| `support`(1) | （平铺） | 跨簇共享的分区键纯函数 `OrderingRules`（murmur2，与 Kafka 默认分区器位级兼容） |
+
+> 归位要点：① `gateway/config/` 两个配置类因簇名与标准层名恰好重合，路径与 package 声明
+> 保持不变；② 原 `gateway/topology/` 的 `TopicNames` / `TopicSpec` / `Topology` 与
+> `TopologyRules` 是**同包隐式引用**，拆分到 `domain/model/` 与 `domain/rule/` 后由
+> `TopicSpec` 显式 import；③ `KafkaOrderedConsumerProperties` 是配置值对象，落
+> `consumer/domain/model/` 而非 `consumer/config/` —— 否则 `consumer/config` 装配
+> `consumer/application` 的容器、容器又反向读取 `config` 属性，会形成 H1 包级环；
+> ④ `OrderingRules` 被 `consumer/application`、`gateway/adapter`、`gateway/domain/rule`
+> 三方引用，按落位口径第 2 条只保留 `support/` 一份；⑤ `RecordSender` 端口的 javadoc
+> 对生产实现改用 `{@code KafkaRecordSender}` 纯文本，避免 `domain/repository → adapter`
+> 的反向 import 造成 H1 环。四簇依赖单向收敛到 `support` 与各簇 `domain`，
+> `monitor/application → consumer/application` 为单向，包级依赖图仍是 DAG。
 
 ## 5. 前端目录骨架
 

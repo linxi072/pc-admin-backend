@@ -1,11 +1,11 @@
 package com.acme.scaffold.kafka.gateway.config;
 
 import com.acme.scaffold.common.messaging.bus.MessageBus;
-import com.acme.scaffold.kafka.gateway.KafkaBus;
-import com.acme.scaffold.kafka.gateway.admin.TopicAdmin;
-import com.acme.scaffold.kafka.gateway.bus.KafkaRecordSender;
-import com.acme.scaffold.kafka.gateway.bus.RecordSender;
-import com.acme.scaffold.kafka.gateway.topology.Topology;
+import com.acme.scaffold.kafka.gateway.adapter.KafkaBus;
+import com.acme.scaffold.kafka.gateway.adapter.TopicAdmin;
+import com.acme.scaffold.kafka.gateway.adapter.KafkaRecordSender;
+import com.acme.scaffold.kafka.gateway.domain.repository.RecordSender;
+import com.acme.scaffold.kafka.gateway.domain.model.Topology;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.producer.KafkaProducer;

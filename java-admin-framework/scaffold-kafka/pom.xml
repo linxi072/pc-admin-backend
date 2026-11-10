@@ -2,9 +2,9 @@
 <!--
   scaffold-kafka：Kafka 顺序消费与分区键约定（海量数据有序消费场景）。
 
-  内容：kafka.rules（纯函数保序规则）、kafka.domain / kafka.port（防腐层）、
-  kafka.adapter（原生 KafkaConsumer + SmartLifecycle 薄封装，不引入 spring-kafka）、
-  kafka.service / kafka.controller / kafka.config（条件装配）。
+  内容：按子域簇组织 —— monitor（消费运维）、consumer（有序消费容器与记录源端口）、
+  gateway（分级投递总线与 Topic 拓扑）、support（跨簇共享的分区键纯函数）。
+  原生 KafkaConsumer + SmartLifecycle 薄封装，不引入 spring-kafka；条件装配默认关闭。
 
   依赖方向：kafka → common only。
 -->
