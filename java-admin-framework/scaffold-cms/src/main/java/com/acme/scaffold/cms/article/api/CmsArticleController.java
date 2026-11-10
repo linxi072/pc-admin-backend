@@ -1,9 +1,9 @@
-package com.acme.scaffold.cms.controller;
+package com.acme.scaffold.cms.article.api;
 
-import com.acme.scaffold.cms.dto.ArticleCreateRequest;
-import com.acme.scaffold.cms.dto.ArticleUpdateRequest;
-import com.acme.scaffold.cms.dto.ArticleView;
-import com.acme.scaffold.cms.service.CmsArticleService;
+import com.acme.scaffold.cms.article.dto.ArticleCreateRequest;
+import com.acme.scaffold.cms.article.dto.ArticleUpdateRequest;
+import com.acme.scaffold.cms.article.dto.ArticleView;
+import com.acme.scaffold.cms.article.application.CmsArticleService;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;

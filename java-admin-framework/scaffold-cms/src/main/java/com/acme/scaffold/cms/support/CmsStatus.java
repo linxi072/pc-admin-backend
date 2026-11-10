@@ -1,4 +1,4 @@
-package com.acme.scaffold.cms;
+package com.acme.scaffold.cms.support;
 
 /**
  * 内容发布态。以 VARCHAR 持久化，应用层负责校验与流转。

@@ -22,7 +22,7 @@ java-admin-framework/
 │   ├── check-api-contract.py   前后端接口契约静态对称（多模块源码根扫描）
 │   ├── check-all.py            统一门禁入口：编排上述各项 + scripts 单测
 │   ├── api-contract.json       统一响应 Result<T> 字段口径的唯一事实来源
-│   └── test_*.py               校验器行为回归 89 例（naming / cluster-layout / permission / directory / api-contract）
+│   └── test_*.py               校验器行为回归 92 例（naming / cluster-layout / permission / directory / api-contract）
 ├── docs/                       架构与规范文档（本目录，全部须挂 docs/README.md 索引）
 └── scaffold-<name>/            14 个模块，目录结构统一
     ├── pom.xml
@@ -82,18 +82,19 @@ java-admin-framework/
 `common.mybatis` 例外：位于 common 模块但包根为 `com.acme.scaffold.mybatis`，只放无状态 DSL 工具，
 不放业务实体、不定义表结构。重排包根需改动全仓数百处 import，属高风险零收益搬迁，保留。
 
-## 4. `scaffold-system` 子域分层骨架
+## 4. 子域分层骨架（多模块）
 
-`scaffold-system` 先按**业务子域**切分为一级子包（簇），簇内再按分层骨架组织。
+各模块先按**业务子域**切分为一级子包（簇），簇内再按分层骨架组织。
 legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平包已于 2026-11-09
-全量打散并删除；此后禁止在 `system/` 根级再出现这五类包（D1 只守护模块级顶层包根，
+在 `system/` 全量打散并删除；此后禁止在簇根再出现这五类包（D1 只守护模块级顶层包根，
 子簇包名不受 D1 约束，但须遵循本节落位口径）。
 
-> **骨架范围（2026-11-10 复核）**：本节与 `scripts/check-cluster-layout.py`（D12）当前
-> **只覆盖 `scaffold-system` 的 36 个业务子域簇**。其余模块（cms / im / kafka /
-> workbench / workflow）仍按特性子包组织，收敛方案见
-> 《若依规范对齐差异清单与重构方案_20261109.md》P2-3，属高风险大规模搬迁，
-> 须单独立项、先扩展本节骨架表与 D12 扫描根，再逐模块提交。
+> **骨架范围（2026-11-10 P2-3 批次更新）**：本节按「**一模块一张子域簇一览表**」组织，
+> `scripts/check-cluster-layout.py`（D12）依表标题中的 `` `scaffold-xxx` `` 推导模块包根并逐表校验；
+> 未标注模块名的旧式标题按 `scaffold-system` 解析。当前已收敛：
+> **`scaffold-system` 36 簇** + **`scaffold-cms` 3 簇**。`im` / `kafka` / `workbench` /
+> `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》P2-3
+> 逐模块推进，每完成一模块再向本节追加一张簇表。
 > 本节不代表全仓已按簇骨架归一。
 
 簇内分层：
@@ -124,7 +125,7 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 8. `system/` 下已无任何簇根 `controller/` / `service/` / `entity/` / `port/` / `rules/` 目录，
    也不设 `api/dto/` —— 全部子域簇已按本节骨架归一（2026-11-09 复检为空）。
 
-子域簇一览（括号内为 Java 文件数）：
+子域簇一览（`scaffold-system`，括号内为 Java 文件数）：
 
 | 簇 | 簇内分层 | 职责 |
 |---|---|---|
@@ -164,6 +165,22 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 | `tenant`(22) | api/application/domain{model,rule}/dto | 多租户管理与隔离 |
 | `token`(1) | adapter | 令牌版本适配器 |
 | `user`(12) | adapter/api/application/domain{model}/dto | 用户与用户关联表 |
+
+`scaffold-cms` 于 P2-3 首个批次完成收敛，按「文章 / 栏目」两个聚合根加一个共享支撑簇划分：
+
+子域簇一览（`scaffold-cms`，括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `article`(7) | api/application/domain{model,event}/dto | 文章 CRUD、发布态流转；`domain/event` 为文章发布领域事件 |
+| `category`(7) | api/application/domain{model}/dto | 树形栏目 CRUD 与栏目树构建 |
+| `support`(1) | （平铺） | 跨簇共享的内容发布态 / 栏目启用态枚举 `CmsStatus` |
+
+> `event` 属业务分层名，不是 legacy 扁平包，故不列入 C5 `FORBIDDEN_FLAT`；领域事件按
+> `domain/event/` 落位，与 `domain/model/` 并列。`article/application` 对
+> `category/domain/model/CmsCategoryDO` 的跨簇引用为单向，符合落位口径第 5 条
+> （`domain/model` 不反向依赖 `application`、H1 包级无环）。
+> 跨簇共享支撑类只保留 `support/` 一份，禁止复制（§4 落位口径第 2 条）。
 
 ## 5. 前端目录骨架
 
@@ -212,17 +229,17 @@ pc-admin-vue3-vite/src/
 | 包级环 / 重复 FQN / 分层 / 数据类 / 模块 DAG（H1–H5 / W1–W4） | `python3 scripts/check-conventions.py`（EXIT=0） |
 | 标识符命名约定 N1–N4 | `python3 scripts/check-naming.py`（EXIT=0），行为回归 `scripts/test_check_naming.py` 4 例 |
 | 目录结构约定 D1–D11 | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 29 例 |
-| 子域簇结构与 §4 表一致 D12 | `python3 scripts/check-cluster-layout.py`（EXIT=0），行为回归 `scripts/test_check_cluster_layout.py` 11 例 |
+| 子域簇结构与 §4 表一致 D12 | `python3 scripts/check-cluster-layout.py`（EXIT=0，多模块逐表校验），行为回归 `scripts/test_check_cluster_layout.py` 14 例 |
 | 菜单权限码 ↔ 接口权限码一致 P1 | `python3 scripts/check-permission.py`（EXIT=0），行为回归 `scripts/test_check_permission.py` 12 例；规则详见 `docs/NAMING.md` §6 |
 | 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 33 例 |
 | 统一响应与错误码字段口径 | `scripts/api-contract.json`（唯一事实来源）+ `scripts/check-api-contract.py`（路由静态对称）；`ApiContractConsistencyTest` / `result.test.js` / `CommonConstantsTest` 均为已移除的历史测试资产 |
 | 前端目录与构建可解析 | `node scripts/check-sfc.mjs <file.vue>` + `node scripts/i18n-leak-scan.mjs src` + `npx vite build`（`npm test` 当前不可用） |
-| 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（89 例） |
+| 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（92 例） |
 
 **统一门禁入口**：`python3 scripts/check-all.py` 把 `check-conventions.py`（硬性）、
 `check-naming.py`（硬性）、`check-directory.py`（硬性）、`check-cluster-layout.py`（硬性）、
 `check-permission.py`（硬性）、`check-api-contract.py`（信息性，不阻断）与
-`scripts/test_*.py` 行为回归（硬性，当前 **89 例**）编排成一次运行，共 **7 步**，
+`scripts/test_*.py` 行为回归（硬性，当前 **92 例**）编排成一次运行，共 **7 步**，
 逐项打印 EXIT 与耗时；硬性项任一失败返回 `EXIT=1`，仅信息性项失败返回
 `EXIT=0` 但列出风险提示。常用参数：`--only conventions,directory`、`--skip-tests`、
 `--quiet`；受限环境（沙箱阻止 `tempfile` 默认目录探测）加 `--test-tmpdir <dir>`。

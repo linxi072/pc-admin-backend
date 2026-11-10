@@ -3,8 +3,8 @@
 """check-cluster-layout.py 的行为回归测试（零依赖，仅标准库）。
 
 通过 subprocess 调用真实脚本，对临时构造的「规范文档 + 子域目录树」夹具做端到端断言，
-覆盖 §4 簇表的五类校验（C1 文件数 / C2 层集合 / C3 子目录集合 / C4 DO 落位 / C5 扁平包）
-以及「子特性子簇不被误判」这一豁免路径。
+覆盖 §4 簇表的五类校验（C1 文件数 / C2 层集合 / C3 子目录集合 / C4 DO 落位 / C5 扁平包）、
+「子特性子簇不被误判」这一豁免路径，以及多模块簇表的解析与错误归属。
 """
 import os
 import subprocess
@@ -25,23 +25,52 @@ DOC_TEMPLATE = """# 目录结构规范
 | `demo`(4) | api/application/domain{model}/dto | 演示簇 |
 """
 
+# 多模块夹具：一张旧式无模块名表（默认 system）+ 一张显式标注 cms 的表。
+MULTI_DOC_TEMPLATE = """# 目录结构规范
+
+## 4. 子域分层骨架
+
+子域簇一览（`scaffold-system`，括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `demo`(4) | api/application/domain{model}/dto | 演示簇 |
+
+子域簇一览（`scaffold-cms`，括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `article`(3) | api/domain{model}/dto | 文章 |
+| `support`(1) | （平铺） | 共享枚举 |
+"""
+
 SYSTEM_REL = os.path.join(
     "scaffold-system", "src", "main", "java", "com", "acme", "scaffold", "system")
+CMS_REL = os.path.join(
+    "scaffold-cms", "src", "main", "java", "com", "acme", "scaffold", "cms")
+MODULE_RELS = {"scaffold-system": SYSTEM_REL, "scaffold-cms": CMS_REL}
 
 
 def build_fixture(doc_text, files):
     """构造临时后端仓：docs/DIRECTORY.md + scaffold-system 子域树。files = [(相对路径, 内容)]"""
+    return build_fixture_multi(doc_text, {"scaffold-system": files})
+
+
+def build_fixture_multi(doc_text, per_module):
+    """构造多模块临时后端仓。per_module = {模块名: [(相对路径, 内容)]}"""
     root = tempfile.mkdtemp()
     docs = os.path.join(root, "docs")
     os.makedirs(docs)
     with open(os.path.join(docs, "DIRECTORY.md"), "w", encoding="utf-8") as fh:
         fh.write(doc_text)
-    os.makedirs(os.path.join(root, SYSTEM_REL), exist_ok=True)
-    for rel, content in files:
-        p = os.path.join(root, SYSTEM_REL, rel)
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p, "w", encoding="utf-8") as fh:
-            fh.write(content)
+    for module, files in per_module.items():
+        module_rel = MODULE_RELS[module]
+        os.makedirs(os.path.join(root, module_rel), exist_ok=True)
+        for rel, content in files:
+            p = os.path.join(root, module_rel, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(content)
     return root
 
 
@@ -58,6 +87,13 @@ CLEAN_FILES = [
     ("demo/application/DemoService.java", "package b;\nclass DemoService {}\n"),
     ("demo/domain/model/DemoDO.java", "package c;\nclass DemoDO {}\n"),
     ("demo/dto/DemoView.java", "package d;\nclass DemoView {}\n"),
+]
+
+CMS_CLEAN_FILES = [
+    ("article/api/ArticleController.java", "package e;\nclass ArticleController {}\n"),
+    ("article/domain/model/ArticleDO.java", "package f;\nclass ArticleDO {}\n"),
+    ("article/dto/ArticleView.java", "package g;\nclass ArticleView {}\n"),
+    ("support/CmsStatus.java", "package h;\nenum CmsStatus {}\n"),
 ]
 
 
@@ -137,6 +173,46 @@ class CheckClusterLayoutTest(unittest.TestCase):
             [sys.executable, SCRIPT, "--backend", os.path.join(tempfile.gettempdir(), "__no_such__")],
             capture_output=True, text=True)
         self.assertEqual(proc.returncode, 2)
+
+    # ---------------- 多模块簇表（P2-3 前置） ----------------
+
+    def test_multi_module_tables_pass(self):
+        """两张簇表分别归属 system / cms，各自独立校验且都通过。"""
+        root = build_fixture_multi(MULTI_DOC_TEMPLATE, {
+            "scaffold-system": CLEAN_FILES,
+            "scaffold-cms": CMS_CLEAN_FILES,
+        })
+        rc, out = run(root)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("子域簇结构校验通过", out)
+        self.assertIn("scaffold-cms", out)
+        self.assertIn("3 个子域簇 / 2 个模块", out)
+
+    def test_multi_module_error_attributed(self):
+        """cms 簇文件数不符时，错误须带模块名以便定位，且不影响 system 簇。"""
+        cms_files = [f for f in CMS_CLEAN_FILES if "article/dto/" not in f[0]]
+        root = build_fixture_multi(MULTI_DOC_TEMPLATE, {
+            "scaffold-system": CLEAN_FILES,
+            "scaffold-cms": cms_files,
+        })
+        rc, out = run(root)
+        self.assertEqual(rc, 1)
+        self.assertIn("[scaffold-cms]", out)
+        self.assertIn("C1 文件数", out)
+        self.assertIn("article", out)
+
+    def test_multi_module_missing_root_returns_2(self):
+        """文档声明了模块但磁盘包根不存在 → 路径级错误 2，而非静默跳过。"""
+        doc = MULTI_DOC_TEMPLATE.replace(
+            "子域簇一览（`scaffold-cms`，括号内为 Java 文件数）：",
+            "子域簇一览（`scaffold-nosuch`，括号内为 Java 文件数）：")
+        root = build_fixture_multi(doc, {
+            "scaffold-system": CLEAN_FILES,
+            "scaffold-cms": CMS_CLEAN_FILES,
+        })
+        rc, out = run(root)
+        self.assertEqual(rc, 2)
+        self.assertIn("工程路径不存在", out)
 
 
 if __name__ == "__main__":

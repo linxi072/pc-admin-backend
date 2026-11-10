@@ -1,4 +1,4 @@
-package com.acme.scaffold.cms.dto;
+package com.acme.scaffold.cms.category.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

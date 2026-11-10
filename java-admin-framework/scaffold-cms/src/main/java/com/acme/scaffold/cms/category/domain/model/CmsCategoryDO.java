@@ -1,4 +1,4 @@
-package com.acme.scaffold.cms.domain;
+package com.acme.scaffold.cms.category.domain.model;
 
 import lombok.Data;
 

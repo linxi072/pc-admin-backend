@@ -1,4 +1,4 @@
-package com.acme.scaffold.cms.dto;
+package com.acme.scaffold.cms.article.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -7,9 +7,12 @@ import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 
 /**
- * 文章创建请求。新建文章默认进入 DRAFT 草稿态。
+ * 文章更新请求（按 id 选择性更新，null 字段不覆盖）。
  */
-public class ArticleCreateRequest implements Serializable {
+public class ArticleUpdateRequest implements Serializable {
+
+    @NotNull
+    private Long id;
 
     @NotNull
     private Long categoryId;
@@ -21,7 +24,6 @@ public class ArticleCreateRequest implements Serializable {
     @Size(max = 512)
     private String summary;
 
-    /** 富文本正文（HTML/Markdown 由前端约定）。 */
     private String content;
 
     @Size(max = 64)
@@ -30,7 +32,15 @@ public class ArticleCreateRequest implements Serializable {
     @Size(max = 512)
     private String coverUrl;
 
-    private String status = "DRAFT";
+    private String status;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 
     public Long getCategoryId() {
         return categoryId;

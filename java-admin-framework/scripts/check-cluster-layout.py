@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""check-cluster-layout.py — `scaffold-system` 子域簇结构与规范文档一致性校验器
+"""check-cluster-layout.py — 子域簇结构与规范文档一致性校验器（D12，多模块）
 
 （零依赖，仅标准库）
 
-背景：``docs/DIRECTORY.md`` §4「`scaffold-system` 子域分层骨架」以「子域簇一览」表
-声明每个业务子簇的**文件数**与**簇内分层**。该表是结构收口的唯一事实来源，但此前
-没有任何机器守护：新增 / 移动目录后表与磁盘会静默漂移。本脚本把该表编码为可执行
-校验，使「文档声明 ≡ 磁盘现状」成为硬性门禁。
+背景：``docs/DIRECTORY.md`` §4「子域分层骨架」以「子域簇一览」表声明每个模块下
+各业务子簇的**文件数**与**簇内分层**。该表是结构收口的唯一事实来源，但此前没有任何
+机器守护：新增 / 移动目录后表与磁盘会静默漂移。本脚本把该表编码为可执行校验，
+使「文档声明 ≡ 磁盘现状」成为硬性门禁。
+
+§4 采用「一模块一张簇表」，标题形如::
+
+    子域簇一览（`scaffold-system`，括号内为 Java 文件数）：
+    子域簇一览（`scaffold-cms`，括号内为 Java 文件数）：
+
+未标注模块名的旧式标题仍按 ``scaffold-system`` 解析（向后兼容既有夹具与历史文档）。
+模块名到包根按 ``scaffold-<suffix>`` → ``com/acme/scaffold/<suffix>`` 自动推导，
+个别不一致的模块可在 ``MODULE_PKG_OVERRIDES`` 中登记。
 
 与既有脚本的职责边界：
 
@@ -24,7 +33,7 @@
   C3（硬）. 各层子目录集合双向一致（含多级路径的中间层）。
   C4（硬）. DO 落位：簇内不得存在**直挂** ``domain/`` 的 Java 文件（须在
             ``domain/model/`` 下），与 §4「领域层 ``domain/model/`` 放 ``*DO``」一致。
-  C5（硬）. 簇内不得出现 §6 禁止的扁平包（``controller`` / ``service`` / ``dto`` /
+  C5（硬）. 簇内不得出现 §6 禁止的扁平包（``controller`` / ``service`` /
             ``entity`` / ``rules`` / ``port``）。
 
 §4 表的记法（本脚本解析）：
@@ -48,12 +57,18 @@ import os
 import re
 import sys
 
-MODULE = "scaffold-system"
-PKG_PATH = os.path.join(MODULE, "src", "main", "java", "com", "acme", "scaffold", "system")
+DEFAULT_MODULE = "scaffold-system"
 TABLE_HEADING = "子域簇一览"
+TABLE_MODULE_RE = re.compile(r"子域簇一览.*?`(scaffold-[a-z0-9-]+)`")
+
+# 模块名 → 包根后缀。默认由模块名去掉 `scaffold-` 前缀推导；
+# 目前 system / cms / im / kafka / workbench 均符合该规律。
+# `scaffold-workflow` 另有与 `workflow/` 平级的 `approval/` 根包，收敛时须单独登记。
+MODULE_PKG_OVERRIDES: dict[str, str] = {}
 
 # §4 落位口径第 8 条 / §6：簇根不得重建的扁平包。
 # 注意：簇根 `dto/` 是 §4 契约层**要求**的位置（「一律簇根 dto/，不设 api/dto/」），不在此列。
+# `event` / `csv` / `export` / `stats` 等属业务分层名，不是 legacy 扁平包，故不列入。
 FORBIDDEN_FLAT = ("controller", "service", "entity", "rules", "port")
 
 # 子特性子簇的识别：§4 表「+」附加说明里以 `xxx/` 形式给出的目录名
@@ -61,6 +76,14 @@ FORBIDDEN_FLAT = ("controller", "service", "entity", "rules", "port")
 SUBCLUSTER_TOKEN_RE = re.compile(r"`([a-z0-9]+)/`")
 
 ROW_RE = re.compile(r"^\|\s*`([a-z0-9]+)`\((\d+)\)\s*\|\s*([^|]+?)\s*\|")
+
+
+def module_pkg_path(module):
+    """模块名 → 该模块子域簇所在的 Java 包根（相对后端仓根）。"""
+    suffix = MODULE_PKG_OVERRIDES.get(module)
+    if suffix is None:
+        suffix = module[len("scaffold-"):] if module.startswith("scaffold-") else module
+    return os.path.join(module, "src", "main", "java", "com", "acme", "scaffold", suffix)
 
 
 def split_top(text):
@@ -125,26 +148,29 @@ def expand_with_parents(paths):
 
 
 def parse_doc(doc_path):
-    """从 DIRECTORY.md 解析 §4 子域簇一览表 → [(簇名, 文件数, 分层描述)]"""
-    rows, in_tbl = [], False
+    """从 DIRECTORY.md 解析 §4 全部簇表 → {模块: [(簇名, 文件数, 分层描述)]}"""
+    tables, current = {}, None
     with open(doc_path, encoding="utf-8") as fh:
         for line in fh:
             if line.startswith(TABLE_HEADING):
-                in_tbl = True
+                m = TABLE_MODULE_RE.search(line)
+                current = m.group(1) if m else DEFAULT_MODULE
+                tables.setdefault(current, [])
                 continue
-            if in_tbl and line.startswith("## "):
-                break
-            if not in_tbl:
+            if current and line.startswith("## "):
+                current = None
+                continue
+            if not current:
                 continue
             m = ROW_RE.match(line)
             if m:
-                rows.append((m.group(1), int(m.group(2)), m.group(3)))
-    return rows
+                tables[current].append((m.group(1), int(m.group(2)), m.group(3)))
+    return tables
 
 
-def disk_cluster(system_root, cluster):
+def disk_cluster(module_root, cluster):
     """→ (java 文件数, {二级层}, {层: 该层下所有子目录相对路径}, 直挂 domain 的文件)"""
-    root = os.path.join(system_root, cluster)
+    root = os.path.join(module_root, cluster)
     total, layers, children, flat = 0, set(), {}, []
     for dirpath, _dirnames, filenames in os.walk(root):
         rel = os.path.relpath(dirpath, root)
@@ -168,13 +194,13 @@ def parse_subclusters(spec):
     return names
 
 
-def check_cluster(system_root, cluster, count, spec, errors):
+def check_cluster(module_root, cluster, count, spec, errors):
     """校验单个子域簇；错误追加到 errors。"""
-    root = os.path.join(system_root, cluster)
+    root = os.path.join(module_root, cluster)
     if not os.path.isdir(root):
         errors.append(f"[缺失簇] {cluster}：磁盘上不存在该子域目录")
         return
-    total, layers, children, flat = disk_cluster(system_root, cluster)
+    total, layers, children, flat = disk_cluster(module_root, cluster)
     if total != count:
         errors.append(f"[C1 文件数] {cluster}：文档声明 {count} / 磁盘实际 {total}")
 
@@ -217,7 +243,7 @@ def default_paths():
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="scaffold-system 子域簇结构与 §4 表一致性校验")
+    ap = argparse.ArgumentParser(description="子域簇结构与 §4 簇表一致性校验（D12，多模块）")
     ap.add_argument("--backend", default=None, help="后端仓根（默认由脚本位置推导）")
     ap.add_argument("--doc", default=None, help="DIRECTORY.md 路径（默认 <backend>/docs/DIRECTORY.md）")
     args = ap.parse_args(argv)
@@ -226,29 +252,34 @@ def main(argv=None):
     backend = os.path.abspath(args.backend) if args.backend else backend
     doc = os.path.abspath(args.doc) if args.doc else doc
 
-    system_root = os.path.join(backend, PKG_PATH)
-    if not os.path.isdir(system_root):
-        print(f"[ERROR] 工程路径不存在: {system_root}", file=sys.stderr)
-        return 2
     if not os.path.isfile(doc):
         print(f"[ERROR] 规范文档不存在: {doc}", file=sys.stderr)
         return 2
 
-    rows = parse_doc(doc)
-    if not rows:
+    tables = parse_doc(doc)
+    if not tables:
         print(f"[ERROR] 未能在 {doc} 中定位「{TABLE_HEADING}」表", file=sys.stderr)
         return 2
 
-    errors = []
-    for cluster, count, spec in rows:
-        check_cluster(system_root, cluster, count, spec, errors)
+    errors, summary = [], []
+    for module, rows in tables.items():
+        module_root = os.path.join(backend, module_pkg_path(module))
+        if not os.path.isdir(module_root):
+            print(f"[ERROR] 工程路径不存在: {module_root}（模块 {module}）", file=sys.stderr)
+            return 2
+        local = []
+        for cluster, count, spec in rows:
+            check_cluster(module_root, cluster, count, spec, local)
+        errors.extend(f"[{module}] {e}" for e in local)
+        summary.append((module, module_root, len(rows)))
 
     print("=" * 64)
     print("子域簇结构校验（D12：§4 簇表 ≡ 磁盘现状）")
     print("=" * 64)
     print(f"规范文档: {doc}")
-    print(f"模块根:   {system_root}")
-    print(f"子域簇:   {len(rows)} 个")
+    for module, module_root, count in summary:
+        print(f"模块根:   {module_root}  [{module}] {count} 簇")
+    print(f"合计:     {sum(c for _, _, c in summary)} 个子域簇 / {len(summary)} 个模块")
     if errors:
         print(f"\n未通过，共 {len(errors)} 项硬性违规：")
         for e in errors:

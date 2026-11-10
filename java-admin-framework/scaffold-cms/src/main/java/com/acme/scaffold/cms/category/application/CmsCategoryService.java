@@ -1,11 +1,11 @@
-package com.acme.scaffold.cms.service;
+package com.acme.scaffold.cms.category.application;
 
-import com.acme.scaffold.cms.CmsStatus;
-import com.acme.scaffold.cms.domain.CmsCategoryDO;
-import com.acme.scaffold.cms.dto.CategoryCreateRequest;
-import com.acme.scaffold.cms.dto.CategoryNode;
-import com.acme.scaffold.cms.dto.CategoryUpdateRequest;
-import com.acme.scaffold.cms.dto.CategoryView;
+import com.acme.scaffold.cms.support.CmsStatus;
+import com.acme.scaffold.cms.category.domain.model.CmsCategoryDO;
+import com.acme.scaffold.cms.category.dto.CategoryCreateRequest;
+import com.acme.scaffold.cms.category.dto.CategoryNode;
+import com.acme.scaffold.cms.category.dto.CategoryUpdateRequest;
+import com.acme.scaffold.cms.category.dto.CategoryView;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;

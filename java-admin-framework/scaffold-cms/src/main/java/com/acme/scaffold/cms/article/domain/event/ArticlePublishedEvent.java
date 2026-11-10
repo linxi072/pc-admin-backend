@@ -1,4 +1,4 @@
-package com.acme.scaffold.cms.event;
+package com.acme.scaffold.cms.article.domain.event;
 
 import com.acme.scaffold.common.event.DomainEvent;
 

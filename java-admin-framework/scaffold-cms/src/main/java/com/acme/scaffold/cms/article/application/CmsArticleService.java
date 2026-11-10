@@ -1,10 +1,10 @@
-package com.acme.scaffold.cms.service;
+package com.acme.scaffold.cms.article.application;
 
-import com.acme.scaffold.cms.domain.CmsArticleDO;
-import com.acme.scaffold.cms.dto.ArticleCreateRequest;
-import com.acme.scaffold.cms.dto.ArticleUpdateRequest;
-import com.acme.scaffold.cms.dto.ArticleView;
-import com.acme.scaffold.cms.event.ArticlePublishedEvent;
+import com.acme.scaffold.cms.article.domain.model.CmsArticleDO;
+import com.acme.scaffold.cms.article.dto.ArticleCreateRequest;
+import com.acme.scaffold.cms.article.dto.ArticleUpdateRequest;
+import com.acme.scaffold.cms.article.dto.ArticleView;
+import com.acme.scaffold.cms.article.domain.event.ArticlePublishedEvent;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.CurrentPrincipal;
@@ -239,7 +239,7 @@ public class CmsArticleService {
         if (categoryId == null || categoryId == 0L) {
             throw BusinessException.badRequest("所属栏目不能为空");
         }
-        if (SqlWriters.fetchById(dsl, SqlTables.CMS_CATEGORY, com.acme.scaffold.cms.domain.CmsCategoryDO.class,
+        if (SqlWriters.fetchById(dsl, SqlTables.CMS_CATEGORY, com.acme.scaffold.cms.category.domain.model.CmsCategoryDO.class,
                 categoryId) == null) {
             throw BusinessException.of(CommonErrorCode.NOT_FOUND, "所属栏目不存在: " + categoryId);
         }

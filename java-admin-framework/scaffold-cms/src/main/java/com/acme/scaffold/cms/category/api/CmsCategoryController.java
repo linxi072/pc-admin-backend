@@ -1,10 +1,10 @@
-package com.acme.scaffold.cms.controller;
+package com.acme.scaffold.cms.category.api;
 
-import com.acme.scaffold.cms.dto.CategoryCreateRequest;
-import com.acme.scaffold.cms.dto.CategoryNode;
-import com.acme.scaffold.cms.dto.CategoryUpdateRequest;
-import com.acme.scaffold.cms.dto.CategoryView;
-import com.acme.scaffold.cms.service.CmsCategoryService;
+import com.acme.scaffold.cms.category.dto.CategoryCreateRequest;
+import com.acme.scaffold.cms.category.dto.CategoryNode;
+import com.acme.scaffold.cms.category.dto.CategoryUpdateRequest;
+import com.acme.scaffold.cms.category.dto.CategoryView;
+import com.acme.scaffold.cms.category.application.CmsCategoryService;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import io.swagger.v3.oas.annotations.Operation;

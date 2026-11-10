@@ -1,4 +1,4 @@
-package com.acme.scaffold.cms.dto;
+package com.acme.scaffold.cms.category.dto;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

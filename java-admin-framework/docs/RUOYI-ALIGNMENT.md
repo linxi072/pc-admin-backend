@@ -134,10 +134,10 @@
 | P0-2 | `sys_menu` 补 `created_by` | DDL | 否 | 否 | 中 | **已落地**：以 `V83__sys_menu_created_by.sql` 前向追加（V32 基表字节不变），沿用「列缺失才补」幂等写法；`SqlTables.SYS_MENU` / `SysMenuDO` / `MenuService.create` 同步写入当前用户。另以 `MenuTypeRules` 纯函数收敛 `menu_type` 取值域，兼容后端全名与前端单字母两套字面量、不归一化 |
 | P2-1 | 4 组一路径多 Controller 拆分 | 否 | 双挂 | 否（双挂期） | 中 | **已落地（过渡态）**：6 个从属 Controller 类基路径做 `{旧, 新}` 数组双挂，方法级映射一律未动；旧 URL 全部原样可用，前端 5 个 api 文件仍走旧路径、零行为变更。别名清单与后续「前端灰度切换 → 观察 1 版本 → 删旧」见 §3.4 |
 | P2-2 | `alert_rule` → `sys_alert_rule` | 是 | 否 | 否 | 中 | **已落地**：`V84__rename_alert_rule.sql` 幂等 RENAME（V70 字节不变）；`SqlTables.ALERT_RULE` 表名同步；停写窗口、备份与回滚顺序见 §3.5 |
-| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **独立批次排期**：本轮完成 5 模块实测盘点（共 139 个 Java 文件）与实施方案，见 §3.6；按报告建议逐模块搬迁、每模块独立提交 |
+| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **分批落地中（批次 8：`scaffold-cms` 已完成）**：D12 扩展为多模块解析、§4 增 `scaffold-cms` 3 簇表、15 个 Java 文件迁至 `article/category/support`；余 4 模块按 §3.6 逐模块独立提交 |
 
-> 未标注「已落地」的条目仍属大规模类搬迁范畴，须按报告批次 5 逐模块推进；
-> 已落地项均保持向后兼容（可空列 / 新旧双挂 / 前向追加迁移）。
+> P2-3 仍属大规模类搬迁范畴，须按报告批次 5 逐模块推进、每模块独立提交；
+> 其余已落地项均保持向后兼容（可空列 / 新旧双挂 / 前向追加迁移）。
 
 ### 3.4 P2-1 双挂别名清单与后续排期
 
@@ -185,14 +185,14 @@
 > 本仓已移除 Flyway，应用启动**不会**自动执行 V84；运维须显式执行 `db/init/` 初始化脚本
 > 或单独跑该迁移。这是 P2-2 相对其它条目最需要人工确认的一点。
 
-### 3.6 P2-3 分批实施方案（未落地，待逐模块确认）
+### 3.6 P2-3 分批实施方案（批次 8：`scaffold-cms` 已落地）
 
 **实测盘点（2026-11-10，非报告中的估值）**：5 个模块共 **139 个 Java 文件**，目录形态差异很大，
 不能用一条正则统一搬迁：
 
 | 模块 | 文件数 | 当前二级目录（文件数） |
 |---|---|---|
-| `scaffold-cms` | 15 | `controller`(2) / `service`(2) / `domain`(2) / `dto`(7) / `event`(1) / 根(1) |
+| `scaffold-cms` | 15 | **已落地**：`article`(7) / `category`(7) / `support`(1) 三簇 |
 | `scaffold-im` | 12 | `controller`(2) / `service`(2) / `domain`(3) / `dto`(4) / 根(1) |
 | `scaffold-kafka` | 25 | `adapter`(1) / `config`(1) / `controller`(1) / `domain`(3) / `dto`(2) / `gateway`(1+9 子目录) / `port`(1) / `rules`(1) / `service`(4) |
 | `scaffold-workbench` | 33 | 已有 `dashboard/`(6) 与 `report/`(22) 两个子簇，另有 `controller`(1) / `service`(1) / `dto`(2) 直挂根 |
@@ -202,17 +202,21 @@
 `domain`/`entity`/`model→domain/model`、`port`/`gateway→domain/repository`、`rules→domain/rule`、
 `config`/`adapter` 保持层名；`event`/`csv`/`export`/`stats`/`bpmn`/`assignee`/`bootstrap` 需逐簇判定归属。
 
-**前置（必须先做，否则 D12 会阻断）**：
+**前置（批次 8 已全部完成）**：
 
-1. `scripts/check-cluster-layout.py` 当前硬编码 `MODULE = "scaffold-system"` 与单一
-   `PKG_PATH`，`parse_doc()` 只认一张「子域簇一览」表。须改为「模块 → 包根」映射 +
-   多张簇表解析，并同步 `scripts/test_check_cluster_layout.py` 的 11 例行为回归。
-2. `docs/DIRECTORY.md` §4 现有说明「只覆盖 `scaffold-system` 36 簇」须改为「覆盖全部模块」，
-   并为每个模块新增一张簇表（含 C1 文件数 / C2 层集合 / C3 子目录集合）。
-3. `C5` 禁扁平包清单与 `FORBIDDEN_FLAT` 需确认是否覆盖 `event`/`csv`/`export`/`stats` 等新层。
+1. `scripts/check-cluster-layout.py` 已改为多模块解析：`TABLE_MODULE_RE` 依表标题中的
+   `` `scaffold-xxx` `` 推导模块包根、`module_pkg_path()` 做模块名→包路径映射，
+   `parse_doc()` 返回 `{模块: rows}`，`main()` 逐表校验且错误带 `[module]` 前缀；
+   旧式无模块名标题按 `DEFAULT_MODULE = "scaffold-system"` 兜底。
+2. `docs/DIRECTORY.md` §4 已改为「一模块一张子域簇一览表」，新增 `scaffold-cms` 3 簇表
+   （`article` 7 / `category` 7 / `support` 1，含 C1 文件数 / C2 层集合 / C3 子目录集合）。
+3. `C5` 维持原 `FORBIDDEN_FLAT` 清单；`event` 判定为业务分层名（`article/domain/event`），
+   不列入禁用平铺层；跨簇共享枚举 `CmsStatus` 只保留 `support/` 一份。
+4. `scripts/test_check_cluster_layout.py` 由 11 例扩为 **14 例**（新增多模块解析 3 例），
+   全仓行为回归口径 **89 例 → 92 例**。
 
-**批次顺序与验证**（报告批次 5）：`cms`(15) → `im`(12) → `workbench`(33) → `kafka`(25) →
-`workflow`(54，最后处理 `approval` 6 个平铺类)。每模块：
+**批次顺序与验证**（报告批次 5）：`cms`(15，已完成) → `im`(12) → `workbench`(33) →
+`kafka`(25) → `workflow`(54，最后处理 `approval` 6 个平铺类)。每模块：
 
 ```
 git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
@@ -221,13 +225,23 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 → 独立提交（不与其他模块混在一笔）
 ```
 
+**批次 8 落地记录（2026-11-10，`scaffold-cms`）**：
+
+| 项 | 结果 |
+|---|---|
+| 搬迁 | 15 个 Java 文件按 SPEC 落到 `article/{api,application,domain/model,domain/event,dto}`、`category/{api,application,domain/model,dto}`、`support/`；旧 `controller/` `service/` `domain/` `dto/` `event/` 五个扁平目录清空删除 |
+| FQN | 改写 4 个文件（`CmsArticleController` / `CmsCategoryController` / `CmsCategoryService` / `CmsArticleService`），含 `CmsArticleService.java` 内联 FQN `com.acme.scaffold.cms.category.domain.model.CmsCategoryDO.class`；终态旧 FQN 残留 **0** |
+| D12 | 真实门禁 `EXIT=0`：**39 个子域簇 / 2 个模块**（`scaffold-system` 36 + `scaffold-cms` 3），簇表与磁盘完全一致 |
+| 编译 | 根聚合 POM `mvn -o -f pom.xml compile -Dmaven.resources.skip=true` → **BUILD SUCCESS**，15 个 reactor 项全 SUCCESS |
+| 行为 | 零 HTTP 契约、零表结构、零前端改动；`@ComponentScan` 基包仍为 `com.acme.scaffold`；`article/application` → `category/domain/model` 为单向引用，无新增 H1 包级环 |
+
 **风险**：包级 import 变更可能新建 H1 包级环；`@ComponentScan` 基包须保持
 `com.acme.scaffold`；`approval` 与 `workflow` 平级，合并前须先定 `approval` 是否独立簇。
 本批次**零 HTTP 契约、零表结构、零前端改动**。
 
-> **为何本轮不落地**：报告 §7 明确标注「建议单独立项」，且 §6 批次 5 要求逐模块独立提交 +
-> 每步全量编译与门禁；139 文件一次性搬迁会与已完成的 P0-2/P2-1/P2-2 混在同一工作区，
-> 破坏「每批次独立可回滚」的约束。待本轮提交收口后按上表逐模块推进。
+> **为何按模块分批**：报告 §7 明确标注「建议单独立项」，§6 批次 5 要求逐模块独立提交 +
+> 每步全量编译与门禁；139 文件一次性搬迁会破坏「每批次独立可回滚」的约束。
+> 余下 `im` / `workbench` / `kafka` / `workflow` 四模块待逐模块确认后按上表推进。
 
 ## 4. 回归验证要点
 
@@ -242,7 +256,7 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
    directory / cluster-layout / permission / api-contract（信息性）/ script-tests），
    硬性项全部 `EXIT=0`；受限环境加 `--test-tmpdir <dir>`。
 2. **行为回归**：`python3 -m unittest discover -s scripts -p "test_*.py"`，当前
-   **89 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
+   **92 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
    `test_check_permission.py` 12 + `test_check_directory.py` 29 +
    `test_check_api_contract.py` 33）；`check-all.py` 第 7 步即调用该命令。
 3. **编译**：`mvn -o -f pom.xml clean compile`，15 个 reactor 项 BUILD SUCCESS。
@@ -284,7 +298,7 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 `scaffold-*/src/main/java` 自动发现源码根），并新增 `scripts/check-all.py` 统一门禁入口，
 把约定 / 目录 / 契约 / 校验器单测编排成一次可复现运行（历史「全量 86 例」口径已失效）。
 2026-11-10 起统一门禁为 **7 步**，新增 P1 权限码一致性硬性步骤；现存行为回归
-**89 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
+**92 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
 `test_check_permission.py` 12 + `test_check_directory.py` 29 +
 `test_check_api_contract.py` 33），由 `unittest discover` 自动发现，新增 `test_*.py` 无需改编排。
 若依的响应体命名、Controller 集中、包根重命名、接口前缀命名等属于**契约级或大规模搬迁**差异，
@@ -295,3 +309,14 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 四项待确认与排期状态；§1 补齐模块数口径复核，`docs/NAMING.md` §6.3 与
 `docs/DIRECTORY.md` §4 同步交叉引用。至此《若依规范对齐差异清单与重构方案_20261109.md》
 §7 中除 P0-2 与 P2 四项外，各条目均已有明确处置结论；剩余四项须逐项取得确认后再落地。
+
+**2026-11-10 批次 7 收口**：P0-2（`V83` 前向追加 `sys_menu.created_by` + `MenuTypeRules`）、
+P2-1（契约门禁支持多路径数组 + 6 个从属 Controller 新旧双挂）、P2-2（`V84` 幂等重命名为
+`sys_alert_rule`）均已落地，部署约束见 §3.5；行为回归由 81 例增至 89 例。
+
+**2026-11-10 批次 8 收口（P2-3 首模块）**：把 D12 从「仅 `scaffold-system`」扩展为
+多模块逐表校验，`docs/DIRECTORY.md` §4 改为「一模块一张簇表」，并完成 `scaffold-cms`
+15 个 Java 文件向 `article` / `category` / `support` 三簇的搬迁；D12 实跑
+**39 个子域簇 / 2 个模块**，编译 BUILD SUCCESS，行为回归由 89 例增至 **92 例**。
+本批次零 HTTP 契约、零表结构、零前端改动，详见 §3.6。余下 4 模块仍须逐模块独立提交，
+每模块单独编译与门禁。
