@@ -1,0 +1,85 @@
+package com.acme.scaffold.workflow.instance.api;
+
+import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.workflow.instance.dto.CompleteTaskRequest;
+import com.acme.scaffold.workflow.instance.dto.DelegateTaskRequest;
+import com.acme.scaffold.workflow.instance.dto.ResolveDelegateRequest;
+import com.acme.scaffold.workflow.instance.dto.TaskView;
+import com.acme.scaffold.workflow.instance.dto.TransferTaskRequest;
+import com.acme.scaffold.workflow.instance.application.WorkflowService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * 工作流任务接口（运行态）。
+ *
+ * <p>提供待办任务查询、审批/驳回（{@code complete}）与转办（{@code transfer}）；
+ * 权限按 {@code workflow:task:*} 分层，由 {@code WorkflowService} 调用 Flowable task API。</p>
+ */
+@Tag(name = "工作流任务")
+@RestController
+@RequestMapping("/api/workflow/tasks")
+@RequiredArgsConstructor
+public class TaskController {
+
+    private final WorkflowService workflowService;
+
+    @Operation(summary = "我的待办任务")
+    @GetMapping("/mine")
+    @PreAuthorize("hasAuthority('workflow:task:read')")
+    public Result<List<TaskView>> mine() {
+        return Result.success(workflowService.myTasks());
+    }
+
+    @Operation(summary = "审批/驳回任务")
+    @PostMapping("/complete")
+    @PreAuthorize("hasAuthority('workflow:task:approve')")
+    @AuditOperation(module = "workflow", type = "APPROVE", name = "审批任务")
+    public Result<Void> complete(@Valid @RequestBody CompleteTaskRequest request) {
+        workflowService.completeTask(request);
+        return Result.success();
+    }
+
+    @Operation(summary = "转办任务")
+    @PostMapping("/transfer")
+    @PreAuthorize("hasAuthority('workflow:task:transfer')")
+    @AuditOperation(module = "workflow", type = "TRANSFER", name = "转办任务")
+    public Result<Void> transfer(@Valid @RequestBody TransferTaskRequest request) {
+        workflowService.transfer(request);
+        return Result.success();
+    }
+
+    @Operation(summary = "委派任务（临时委托他人办理）")
+    @PostMapping("/delegate")
+    @PreAuthorize("hasAuthority('workflow:task:delegate')")
+    @AuditOperation(module = "workflow", type = "DELEGATE", name = "委派任务")
+    public Result<Void> delegate(@Valid @RequestBody DelegateTaskRequest request) {
+        workflowService.delegate(request);
+        return Result.success();
+    }
+
+    @Operation(summary = "办结委派（被委托人交还原审批人）")
+    @PostMapping("/resolve-delegate")
+    @PreAuthorize("hasAuthority('workflow:task:resolve-delegate')")
+    @AuditOperation(module = "workflow", type = "DELEGATE_RESOLVE", name = "办结委派")
+    public Result<Void> resolveDelegate(@Valid @RequestBody ResolveDelegateRequest request) {
+        workflowService.resolveDelegate(request);
+        return Result.success();
+    }
+
+    @Operation(summary = "认领任务")
+    @PostMapping("/{taskId}/claim")
+    @PreAuthorize("hasAuthority('workflow:task:claim')")
+    @AuditOperation(module = "workflow", type = "CLAIM", name = "认领任务")
+    public Result<Void> claim(@PathVariable String taskId) {
+        workflowService.claim(taskId);
+        return Result.success();
+    }
+}

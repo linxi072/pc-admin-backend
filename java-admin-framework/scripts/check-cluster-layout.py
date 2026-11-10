@@ -62,8 +62,9 @@ TABLE_HEADING = "子域簇一览"
 TABLE_MODULE_RE = re.compile(r"子域簇一览.*?`(scaffold-[a-z0-9-]+)`")
 
 # 模块名 → 包根后缀。默认由模块名去掉 `scaffold-` 前缀推导；
-# 目前 system / cms / im / kafka / workbench 均符合该规律。
-# `scaffold-workflow` 另有与 `workflow/` 平级的 `approval/` 根包，收敛时须单独登记。
+# system / cms / im / kafka / workbench / workflow 六个模块均符合该规律，无需 override。
+# 2026-11-10 P2-3 批次 12 起，原与 `workflow/` 平级的 `approval/` 根包已整体并入
+# `workflow/approval/` 簇，故 `scaffold-workflow` 也由默认规则覆盖。
 MODULE_PKG_OVERRIDES: dict[str, str] = {}
 
 # §4 落位口径第 8 条 / §6：簇根不得重建的扁平包。

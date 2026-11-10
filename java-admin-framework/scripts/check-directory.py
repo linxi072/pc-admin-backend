@@ -54,6 +54,8 @@ MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 # config/observability/monitor/chaos；admin 的 JacksonConfig 位于 config 包（跨模块同包）。
 # 2026-11-08 整合：plugin -> common、approval -> workflow、ai -> codegen，
 # 类包路径保持原样，因此这三个包根分别登记到接收模块（不改变任何 FQN）。
+# 2026-11-10 P2-3 批次 12：approval 根包 6 个类整体并入 workflow.approval.*，
+# 该包根从 scaffold-workflow 注销；至此五个 P2-3 模块均只有单一包根。
 # 新增模块或包根时：先改 docs/MODULES.md 与 docs/DIRECTORY.md，再在此登记，否则本校验阻断。
 EXPECTED_ROOTS = {
     "scaffold-admin": {"admin", "config"},
@@ -69,7 +71,7 @@ EXPECTED_ROOTS = {
     "scaffold-security": {"security"},
     "scaffold-system": {"system"},
     "scaffold-workbench": {"workbench"},
-    "scaffold-workflow": {"approval", "workflow"},
+    "scaffold-workflow": {"workflow"},
 }
 
 # D8：src/main/java 一级目录。仅 admin 的 db 为合法例外（数据库引导组件保留位；

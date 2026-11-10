@@ -43,7 +43,7 @@ java-admin-framework/
 | realtime / kafka / cms / im | 同名包根 | 与模块名一致 |
 | **common** | `common.*` + `mybatis.*` + `plugin.*` | `plugin.*` 由并入的 plugin 能力带入 |
 | **codegen** | `codegen.*` + `ai.*` | `ai.*` 由并入的 AI 脚手架带入 |
-| **workflow** | `workflow.*` + `approval.*` | `approval.*` 由并入的审批门户带入 |
+| **workflow** | `workflow.*` | 2026-11-10 P2-3 批次 12 起，原平级 `approval.*` 6 个类并入 `workflow.approval.*`（见 §4） |
 | security / system / monitor / job / workbench / workflow | 同名包根 | 与模块名一致 |
 | **framework** | `config.*` / `observability.*` / `monitor.*` / `chaos.*` | **无 `framework` 包**，历史例外；`monitor` 下分 detection / observability |
 | **admin** | `com.acme.scaffold`（启动类） | 无业务包；`src/main/java/db/` 保留为数据库引导组件例外位（Flyway Java 迁移已移除） |
@@ -93,10 +93,12 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > `scripts/check-cluster-layout.py`（D12）依表标题中的 `` `scaffold-xxx` `` 推导模块包根并逐表校验；
 > 未标注模块名的旧式标题按 `scaffold-system` 解析。当前已收敛：
 > **`scaffold-system` 36 簇** + **`scaffold-cms` 3 簇** + **`scaffold-im` 3 簇** +
-> **`scaffold-workbench` 3 簇** + **`scaffold-kafka` 4 簇**（合计 49 簇 / 5 模块）。
-> `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》
-> P2-3 逐模块推进，每完成一模块再向本节追加一张簇表。
-> 本节不代表全仓已按簇骨架归一。
+> **`scaffold-workbench` 3 簇** + **`scaffold-kafka` 4 簇** + **`scaffold-workflow` 7 簇**
+> （合计 **56 簇 / 6 模块**）。至此 P2-3 五个模块全部收敛，本节六张表覆盖
+> 各自模块包根下的全部 Java 文件；`scaffold-workflow` 原平级根包 `approval/` 已并入
+> `workflow/approval/`，`check-directory.py` 的 `EXPECTED_ROOTS` 同步去掉该包根。
+> 本节不代表全仓已按簇骨架归一（`common` / `framework` / `security` 等非业务模块
+> 仍按各自分层组织）。
 
 簇内分层：
 
@@ -240,6 +242,39 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > 对生产实现改用 `{@code KafkaRecordSender}` 纯文本，避免 `domain/repository → adapter`
 > 的反向 import 造成 H1 环。四簇依赖单向收敛到 `support` 与各簇 `domain`，
 > `monitor/application → consumer/application` 为单向，包级依赖图仍是 DAG。
+
+`scaffold-workflow` 原为「特性子包 + 与 `workflow/` 平级的 `approval/` 根包」双形态。
+本批次把 `com.acme.scaffold.approval` 的 6 个平铺类整体并入 `workflow/approval/` 簇，
+使全模块 Java 文件统一落在 `module_pkg_path("scaffold-workflow")` 推导的包根下
+（`check-directory.py` 的 `EXPECTED_ROOTS` 同步去掉 `approval`）。按「实例与任务 /
+流程设计 / 监控 / 管理治理 / 引擎适配 / 审批门户 / 共享模型」七个聚合根划分：
+
+子域簇一览（`scaffold-workflow`，括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `instance`(17) | api/application/domain{model,rule}/dto | 流程实例发起与详情、任务认领/审批/转办/委派；`Wf*DO` 与 `ClaimRules` |
+| `definition`(14) | api/application/adapter/bootstrap/domain{model,rule}/dto{design} | 流程设计 CRUD 与发布、BPMN 构建与结构校验、办理人解析、内置流程种子 |
+| `monitor`(7) | api/application/config/domain{rule}/dto | 流程监控统计、超时任务催办与最小间隔配置装配 |
+| `approval`(6) | api/application/dto | 审批中心门户（只读聚合 + 可操作动作），薄编排层复用 `instance` / `definition` |
+| `engine`(5) | adapter{step}/domain{repository} | Flowable 引擎适配、BPMN 节点委托、`WorkflowEnginePort` 端口 |
+| `admin`(3) | api/application/domain{rule} | 管理员对流程实例的治理与规则判定 |
+| `support`(2) | （平铺） | 跨簇共享枚举 `ApprovalAction` / `WorkflowNodeType`，只保留一份 |
+
+> 归位要点：① 原 `workflow/dto/` 13 个 DTO 按业务归属拆到 `instance/dto/`(10)、
+> `definition/dto/`(1)、`monitor/dto/`(2)，`dto/design/` 5 个整体落
+> `definition/dto/design/`，簇表以 `dto{design}` 声明子目录；② 4 个 `Wf*DO` 落
+> `domain/model/` 满足 C4，4 个 `*Rules` 与 `WorkflowDesignValidator` 落 `domain/rule/`；
+> ③ `monitor/config/` 两个类保持同包，`@EnableConfigurationProperties` 的直接类引用
+> 无需补 import，且本簇 `application → config` 单向、无 H1 环；④ 拆包前用包级 import 图
+> 预扫描，识别 **10 处同包隐式引用**（`approval` 5 处代码 + `BpmnWorkflowBuilder →
+> WorkflowDesignValidator` 1 处 + 4 处 javadoc `{@link}`），搬迁时一次补齐；补充后包级
+> 依赖图 **28 节点 0 环**；⑤ 七簇依赖单向收敛到 `support` / `instance` / `definition`，
+> `WorkflowService → WorkflowDesignService` 为 `application → application` 单向；
+> ⑥ H3 按包路径最后一段判层，`api` / `dto` / `adapter` / `rule` / `repository` /
+> `bootstrap` 均为 neutral，不参与方向校验。零 HTTP 契约、零表结构、零前端改动：
+> `@SpringBootApplication` 基包仍为 `com.acme.scaffold`，Bean 名（`@Service` /
+> `@RestController` 默认名）与 `@RequestMapping` 路径全部不变。
 
 ## 5. 前端目录骨架
 
