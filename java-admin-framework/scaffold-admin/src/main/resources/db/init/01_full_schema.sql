@@ -1,7 +1,7 @@
 -- ============================================================
 -- 全量初始化脚本（新库专用 / 手工执行）
 -- 由 scripts/build_reference_modular.py 从 db/migration/ 版本化结构链
--- （V32~V81，共 49 个 SQL 文件）按版本号顺序逐字拼接生成，语句顺序与历史执行顺序一致。
+-- （V32~V82，共 50 个 SQL 文件）按版本号顺序逐字拼接生成，语句顺序与历史执行顺序一致。
 --
 -- 【执行方式】mysql --default-character-set=utf8mb4 -u<user> -p <db> < 01_full_schema.sql
 -- 【前置条件】先执行 00_create_database.sql 建库（utf8mb4_0900_ai_ci）。
@@ -1229,8 +1229,8 @@ VALUES
   (1010, 0, 1002, 'system:user',        '用户管理',       'MENU', '/system/user',        NULL, 'system:user:read',        'User',          1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
   (1011, 0, 1002, 'system:role',        '角色管理',       'MENU', '/system/role',        NULL, 'system:role:read',        'Avatar',        1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
   (1012, 0, 1002, 'system:menu',        '菜单管理',       'MENU', '/system/menu',        NULL, 'system:menu:read',        'Menu',          1, 0, 30, 'ACTIVE', NOW(3), NOW(3)),
-  (1013, 0, 1002, 'system:department',  '部门管理',       'MENU', '/system/department',  NULL, 'system:department:read',  'OfficeBuilding',1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
-  (1014, 0, 1002, 'system:api-resource','接口资源管理',   'MENU', '/system/api-resource', NULL, 'system:api-resource:read','Connection',    1, 0, 50, 'ACTIVE', NOW(3), NOW(3)),
+  (1013, 0, 1002, 'system:department',  '部门管理',       'MENU', '/system/department',  NULL, 'system:org:read',        'OfficeBuilding',1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
+  (1014, 0, 1002, 'system:api-resource','接口资源管理',   'MENU', '/system/api-resource', NULL, 'system:api:read',        'Connection',    1, 0, 50, 'ACTIVE', NOW(3), NOW(3)),
   (1015, 0, 1002, 'system:dict',        '字典管理',       'MENU', '/system/dict',        NULL, 'system:dict:read',        'Notebook',      1, 0, 60, 'ACTIVE', NOW(3), NOW(3)),
   (1016, 0, 1002, 'system:config',      '系统变量',       'MENU', '/system/config',      NULL, 'system:config:read',      'Coin',          1, 0, 70, 'ACTIVE', NOW(3), NOW(3)),
   (1017, 0, 1002, 'system:notice',      '消息中心',       'MENU', '/system/notice',      NULL, 'system:announcement:read','Bell',          1, 0, 80, 'ACTIVE', NOW(3), NOW(3)),
@@ -3776,6 +3776,35 @@ CREATE INDEX `idx_operator_occurred` ON `sys_operation_log` (`operator_id`, `occ
 
 CREATE INDEX `idx_occurred_id` ON `sys_operation_log` (`occurred_at`, `id`);
 
+-- ############################################################
+-- 来源: V82__align_menu_permission_codes.sql
+-- ############################################################
+
+-- V82 菜单权限码对齐（若依规范 P0-1）：修正 2 条「菜单授予」与「接口要求」不一致的存量数据。
+--
+-- 背景：V32 基线种子为「部门管理」写入 system:department:read、为「接口资源管理」写入
+--   system:api-resource:read，但后端实际 @PreAuthorize 分别为
+--   system:org:read（OrgController L41）与 system:api:read（ApiResourceController L37）。
+--   SUPER_ADMIN 全量放行掩盖了问题；普通角色按菜单授权后进入页面即 403。
+--   前端无权限码硬编码（已全量核实），改数据不影响可见性逻辑。
+--
+-- 配套：V32 基线种子已同步改为正确值，全新初始化直接得到正确数据；
+--   本脚本仅用于修正「V32 之前已经初始化」的既有库（INSERT IGNORE 不会覆盖旧行）。
+--
+-- 幂等：WHERE 以主键 id 限定且仅当目标值不同才更新，可重复执行；
+--   刻意不写旧权限码字面量，避免被 check-permission.py 误采为菜单种子值。
+-- 影响：2 行数据，无 DDL、无接口变更、无业务列变更。
+
+UPDATE sys_menu
+   SET permission_code = 'system:org:read', updated_at = NOW(3)
+ WHERE id = 1013
+   AND (permission_code IS NULL OR permission_code <> 'system:org:read');
+
+UPDATE sys_menu
+   SET permission_code = 'system:api:read', updated_at = NOW(3)
+ WHERE id = 1014
+   AND (permission_code IS NULL OR permission_code <> 'system:api:read');
+
 
 -- ============================================================
 -- 初始化基线标记（用于 scripts/init/verify_install.py 校验）
@@ -3790,4 +3819,4 @@ CREATE TABLE IF NOT EXISTS `schema_baseline` (
 -- 清掉旧基线，确保表中只保留当前已初始化的版本
 DELETE FROM `schema_baseline`;
 
-INSERT INTO `schema_baseline` (`baseline_version`, `source_count`) VALUES ('V81', 49);
+INSERT INTO `schema_baseline` (`baseline_version`, `source_count`) VALUES ('V82', 50);
