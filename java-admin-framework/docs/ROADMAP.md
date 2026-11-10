@@ -102,6 +102,10 @@
 #### R8 · 数据看板模板库 — P2
 - **动机**：`workbench` 报表为硬编码，缺可复用模板。
 - **候选模块**：`scaffold-workbench` 扩展（✅ **已落地 V1.0.7**）：`com.acme.scaffold.workbench.dashboard` 下 `domain`（DashboardTemplateDO）/`dto`（TemplateSaveRequest/TemplateUpdateRequest/DashboardTemplateVO）/`service`（看板模板 CRUD + 发布态流转 DRAFT/PUBLISHED/OFFLINE + 浏览计数 + layout_json 经 Jackson 合法性校验）/`controller`（看板模板 REST 端点 `/api/dashboard/template/*`，统一权限码 `dashboard:template:manage`，@PreAuthorize 经 ApiResourceAutoSyncRunner 自动登记）；DDL 见 V78__dashboard_template.sql（dashboard_template + 菜单种子：数据看板目录 9701 + 看板模板管理 9702）。`SqlTables` 新增 `DASHBOARD_TEMPLATE` 常量。
+  > 2026-11-10 P2-3 批次 10 起，源码按 `docs/DIRECTORY.md` §4 收敛为 `overview` / `report` /
+  > `dashboard` 三簇（包名 `com.acme.scaffold.workbench.overview.*` / `.report.*` /
+  > `.dashboard.*`；看板模板落 `dashboard/{api,application,domain/model,dto}`）；
+  > 本行保留 V1.0.7 落地时的原始目录快照，HTTP 契约与 DDL 均未变化。
 - **依赖取舍**：为保持 DAG 最小且无环，dashboard 仅依赖 `common` + `system`（与 workbench 既有依赖一致，经 SqlWriters 持久化）；布局配置以 `layout_json`（TEXT）承载，由前端约定结构、后端仅做 JSON 语法校验（不做语义约束），避免引入重量级表单引擎；复用现有 `workbench` 模块而非新建模块。
 - **验收**：看板模板 CRUD + 配置（layout_json 序列化）+ 发布态流转（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数 + 权限码自动登记；双门禁全绿（9 个后端单测覆盖 CRUD/发布/撤销/计数/更新/逻辑删除/分页筛选/非法 JSON 拒绝/缺失模板）。前端视图 ✅ **已落地 V1.0.7**（dashboard/DashboardTemplateView 分页管理 + 拖拽布局配置器[卡片排序 ⇄ layout_json 双向编辑、JSON 校验阻断提交] + 预览抽屉网格渲染 + api 契约测试 7 例，i18n 双 locale 补齐）。
 
