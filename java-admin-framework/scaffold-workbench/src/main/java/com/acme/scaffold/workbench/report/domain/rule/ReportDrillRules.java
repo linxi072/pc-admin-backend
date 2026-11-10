@@ -1,11 +1,10 @@
-package com.acme.scaffold.workbench.report.rules;
+package com.acme.scaffold.workbench.report.domain.rule;
 
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlTables.TableRef;
 import com.acme.scaffold.workbench.report.dto.DrillDimension;
 import com.acme.scaffold.workbench.report.dto.ReportRange;
 import com.acme.scaffold.workbench.report.dto.ReportType;
-import com.acme.scaffold.workbench.report.stats.ReportStats;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.DSL;
@@ -18,7 +17,7 @@ import java.time.format.DateTimeFormatter;
  * 报表下钻纯函数规则（无副作用、可离线单测）。
  *
  * <p>只负责下钻过滤谓词构建、维度适用性判断、父级日期解析与标题拼装等确定性逻辑，
- * 不触碰数据库 / {@code DSLContext} / Spring 上下文，与 {@code report.stats.ReportStats}
+ * 不触碰数据库 / {@code DSLContext} / Spring 上下文，与 {@code report.domain.rule.ReportStats}
  * 同款纯函数范式（{@link ReportService} 的 {@code drill} 统一委托本类，避免私有方法无法单测）。</p>
  */
 public final class ReportDrillRules {

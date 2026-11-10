@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.report.csv;
+package com.acme.scaffold.workbench.report.domain.rule;
 
 import com.acme.scaffold.common.export.CsvExporter;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;

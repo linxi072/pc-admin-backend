@@ -92,8 +92,9 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > **骨架范围（2026-11-10 P2-3 批次更新）**：本节按「**一模块一张子域簇一览表**」组织，
 > `scripts/check-cluster-layout.py`（D12）依表标题中的 `` `scaffold-xxx` `` 推导模块包根并逐表校验；
 > 未标注模块名的旧式标题按 `scaffold-system` 解析。当前已收敛：
-> **`scaffold-system` 36 簇** + **`scaffold-cms` 3 簇** + **`scaffold-im` 3 簇**（合计 42 簇 / 3 模块）。
-> `kafka` / `workbench` / `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》
+> **`scaffold-system` 36 簇** + **`scaffold-cms` 3 簇** + **`scaffold-im` 3 簇** +
+> **`scaffold-workbench` 3 簇**（合计 45 簇 / 4 模块）。
+> `kafka` / `workflow` 仍按特性子包组织，按《若依规范对齐差异清单与重构方案_20261109.md》
 > P2-3 逐模块推进，每完成一模块再向本节追加一张簇表。
 > 本节不代表全仓已按簇骨架归一。
 
@@ -196,6 +197,25 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 > 消息，`ImMessageService` 用 `ImConversationDO` / `ImConversationMemberDO` 校验成员），但方向
 > 恒为 `application → 对方 domain/model`，`domain/model` 不反向依赖 `application`，包级依赖图
 > 仍是 DAG（H1 无环）。`ImStatus` 只在 `support/` 保留一份，禁止复制。
+
+`scaffold-workbench` 按「工作台概览 / 报表 / 看板模板」三个聚合根划分。原 `report/` 下的
+`csv/` `export/` `stats/` `rules/` 是纯函数与导出适配，统一收敛到 `domain/rule/` 与 `adapter/`：
+
+子域簇一览（`scaffold-workbench`，括号内为 Java 文件数）：
+
+| 簇 | 簇内分层 | 职责 |
+|---|---|---|
+| `overview`(4) | api/application/dto | 工作台首页统计卡片、周期型 / 快照型指标对比 |
+| `report`(23) | adapter/api/application/domain{rule}/dto | 报表查询、下钻、CSV / XLSX 导出；`domain/rule` 收纳 4 个零依赖纯函数 |
+| `dashboard`(6) | api/application/domain{model}/dto | 数据看板模板 CRUD 与布局配置 JSON 校验 |
+
+> `ReportCsvWriter` / `ReportSheets` / `ReportStats` / `ReportDrillRules` 四个零 Spring、零 DB 依赖的
+> 纯函数统一落 `report/domain/rule/`；`ReportExportTask`（`@Component`，实现 `ExportTask` 模板）
+> 落 `report/adapter/`，其对 `report/application/ReportService` 的依赖为 `adapter → application`
+> 单向。H3 按包路径最后一段判层，`adapter` / `rule` / `dto` / `api` 均为 neutral，不参与方向
+> 校验；三簇之间零跨簇引用，包级依赖图仍是 DAG（H1 无环）。`DashboardTemplateDO` 由
+> `dashboard/domain/` 迁入 `dashboard/domain/model/`，满足 C4。`report/dto/` 与 `dashboard/dto/`
+> 因簇名与原特性包名一致，路径与 package 声明保持不变。
 
 ## 5. 前端目录骨架
 

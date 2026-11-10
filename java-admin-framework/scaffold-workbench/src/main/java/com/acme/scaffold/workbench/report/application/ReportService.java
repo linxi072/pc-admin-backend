@@ -1,14 +1,14 @@
-package com.acme.scaffold.workbench.report.service;
+package com.acme.scaffold.workbench.report.application;
 
 import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlTables.TableRef;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
+import com.acme.scaffold.workbench.report.domain.rule.ReportCsvWriter;
 import com.acme.scaffold.workbench.report.dto.DrillDimension;
 import com.acme.scaffold.workbench.report.dto.DrillResultVO;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
-import com.acme.scaffold.workbench.report.stats.ReportStats;
+import com.acme.scaffold.workbench.report.domain.rule.ReportStats;
 import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
 import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
 import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
@@ -21,7 +21,7 @@ import com.acme.scaffold.workbench.report.dto.ReportType;
 import com.acme.scaffold.workbench.report.dto.ReportVO;
 import com.acme.scaffold.workbench.report.dto.SortField;
 import com.acme.scaffold.workbench.report.dto.SortOrder;
-import com.acme.scaffold.workbench.report.rules.ReportDrillRules;
+import com.acme.scaffold.workbench.report.domain.rule.ReportDrillRules;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -661,7 +661,7 @@ public class ReportService {
     }
 
     /**
-     * 分布换算：委托 {@link ReportStats#toDistribution}（纯函数已抽离至 {@code report.stats}）。
+     * 分布换算：委托 {@link ReportStats#toDistribution}（纯函数已抽离至 {@code report.domain.rule}）。
      *
      * @param counts 与 {@link ReportStats#DURATION_LABELS} 顺序一致的 6 个分桶计数
      */
@@ -701,7 +701,7 @@ public class ReportService {
     }
 
     /**
-     * P95 计算：委托 {@link ReportStats#p95Of}（纯函数已抽离至 {@code report.stats}）。
+     * P95 计算：委托 {@link ReportStats#p95Of}（纯函数已抽离至 {@code report.domain.rule}）。
      */
     static long p95Of(List<Long> durations) {
         return ReportStats.p95Of(durations);

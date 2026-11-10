@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.report.controller;
+package com.acme.scaffold.workbench.report.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.workbench.report.dto.ReportQuery;
@@ -11,7 +11,7 @@ import com.acme.scaffold.workbench.report.dto.SortOrder;
 import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
 import com.acme.scaffold.workbench.report.dto.DrillDimension;
 import com.acme.scaffold.workbench.report.dto.DrillResultVO;
-import com.acme.scaffold.workbench.report.service.ReportService;
+import com.acme.scaffold.workbench.report.application.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.dashboard.domain;
+package com.acme.scaffold.workbench.dashboard.domain.model;
 
 import lombok.Data;
 

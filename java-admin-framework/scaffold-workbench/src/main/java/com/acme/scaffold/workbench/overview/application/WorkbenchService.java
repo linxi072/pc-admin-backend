@@ -1,9 +1,9 @@
-package com.acme.scaffold.workbench.service;
+package com.acme.scaffold.workbench.overview.application;
 
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.workbench.dto.StatCardVO;
-import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
+import com.acme.scaffold.workbench.overview.dto.StatCardVO;
+import com.acme.scaffold.workbench.overview.dto.WorkbenchStatsVO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DSL;

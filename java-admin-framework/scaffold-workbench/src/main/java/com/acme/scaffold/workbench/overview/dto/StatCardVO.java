@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.dto;
+package com.acme.scaffold.workbench.overview.dto;
 
 /**
  * 工作台统计卡片。

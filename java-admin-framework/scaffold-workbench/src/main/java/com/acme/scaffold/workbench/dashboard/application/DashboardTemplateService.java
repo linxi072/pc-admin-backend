@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.dashboard.service;
+package com.acme.scaffold.workbench.dashboard.application;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -9,7 +9,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.workbench.dashboard.domain.DashboardTemplateDO;
+import com.acme.scaffold.workbench.dashboard.domain.model.DashboardTemplateDO;
 import com.acme.scaffold.workbench.dashboard.dto.DashboardTemplateVO;
 import com.acme.scaffold.workbench.dashboard.dto.TemplateSaveRequest;
 import com.acme.scaffold.workbench.dashboard.dto.TemplateUpdateRequest;

@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.report.stats;
+package com.acme.scaffold.workbench.report.domain.rule;
 
 import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
 import com.acme.scaffold.workbench.report.dto.ReportSeriesPointVO;

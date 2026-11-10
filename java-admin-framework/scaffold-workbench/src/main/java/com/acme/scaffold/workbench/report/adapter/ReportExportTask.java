@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.report.export;
+package com.acme.scaffold.workbench.report.adapter;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -6,12 +6,13 @@ import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
+import com.acme.scaffold.workbench.report.domain.rule.ReportCsvWriter;
+import com.acme.scaffold.workbench.report.domain.rule.ReportSheets;
 import com.acme.scaffold.workbench.report.dto.ReportQuery;
 import com.acme.scaffold.workbench.report.dto.ReportRange;
 import com.acme.scaffold.workbench.report.dto.ReportType;
 import com.acme.scaffold.workbench.report.dto.ReportVO;
-import com.acme.scaffold.workbench.report.service.ReportService;
+import com.acme.scaffold.workbench.report.application.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

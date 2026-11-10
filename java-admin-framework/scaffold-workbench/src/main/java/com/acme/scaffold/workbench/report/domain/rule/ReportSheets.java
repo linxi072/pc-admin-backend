@@ -1,7 +1,6 @@
-package com.acme.scaffold.workbench.report.export;
+package com.acme.scaffold.workbench.report.domain.rule;
 
 import com.acme.scaffold.common.export.XlsxSheet;
-import com.acme.scaffold.workbench.report.csv.ReportCsvWriter;
 import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
 import com.acme.scaffold.workbench.report.dto.ReportQuery;
 import com.acme.scaffold.workbench.report.dto.ReportVO;

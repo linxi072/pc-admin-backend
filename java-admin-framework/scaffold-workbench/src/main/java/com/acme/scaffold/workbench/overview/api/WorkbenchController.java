@@ -1,11 +1,11 @@
-package com.acme.scaffold.workbench.controller;
+package com.acme.scaffold.workbench.overview.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.workbench.dto.WorkbenchStatsVO;
-import com.acme.scaffold.workbench.service.WorkbenchService;
+import com.acme.scaffold.workbench.overview.dto.WorkbenchStatsVO;
+import com.acme.scaffold.workbench.overview.application.WorkbenchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

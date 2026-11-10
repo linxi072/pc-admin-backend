@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.dashboard.controller;
+package com.acme.scaffold.workbench.dashboard.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
@@ -6,7 +6,7 @@ import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.workbench.dashboard.dto.DashboardTemplateVO;
 import com.acme.scaffold.workbench.dashboard.dto.TemplateSaveRequest;
 import com.acme.scaffold.workbench.dashboard.dto.TemplateUpdateRequest;
-import com.acme.scaffold.workbench.dashboard.service.DashboardTemplateService;
+import com.acme.scaffold.workbench.dashboard.application.DashboardTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

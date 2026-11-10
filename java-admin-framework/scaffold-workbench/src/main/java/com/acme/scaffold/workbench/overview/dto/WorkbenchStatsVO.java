@@ -1,4 +1,4 @@
-package com.acme.scaffold.workbench.dto;
+package com.acme.scaffold.workbench.overview.dto;
 
 import java.util.List;
 
