@@ -141,3 +141,10 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
 > 上述差异均为**已声明偏离**，改造成本高于收益（涉及 `api-contract.json`、
 > 51 张表、69 个前端 api 文件与全量角色授权）。详见 `docs/RUOYI-ALIGNMENT.md` §3。
 
+**刻意例外（P1-4 复核，2026-11-10）**：5 个「个人域 / 免登录」端点使用顶级 `/api/...`
+而非 `/api/system/...`，属**有意偏离**（区分管理域与个人域、避免与管理员面通知模板混淆；
+退订端点为邮件 / 短信签名链接，受 `SecurityConfig.BASE_PUBLIC_API` 白名单约束）。
+完整清单与不新增前缀别名的四条理由见 `docs/RUOYI-ALIGNMENT.md` §3.2。
+新增端点仍以 `/api/system/{复数资源}` 为默认；仅当确属「当前用户自身数据」或
+「免登录外部链接」时可用顶级前缀，且必须在 Controller javadoc 写明理由。
+

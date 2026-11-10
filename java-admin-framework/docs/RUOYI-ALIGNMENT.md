@@ -19,6 +19,10 @@
 | 配置管理 | admin 集中 `application.yml` / `application-druid.yml` / `logback.xml`；配置类集中 common.config / framework.config | admin 已集中 yml 与 logback；43 个 `@ConfigurationProperties` 分散在 11 个模块特性包 | 生产 yml 旧 `jobrunr:` 段已随 JobRunr → Quartz 迁移删除；配置类归属写入目录规范，不搬迁 | 部分对齐，配置类保留 |
 | 交互规范 | AjaxResult / TableDataInfo / BaseController.startPage；`@Log`/`@DataScope` 注解；`src/api` 集中请求 + 统一 axios 拦截器拆包 | `Result<T>` 包络 + `PageResult`/`KeysetPageResult` + `PagingRules`；`api-contract.json` 为字段口径唯一事实来源，`check-api-contract.py` 做静态路由对称；前端 `src/api/http.js` 统一注入鉴权头与拆包 | **不改**：响应体改名会破坏契约；仅把前端根级 `styles.css` 归位到 `styles/base.css` | 保留差异，路径归位 |
 
+> **模块数口径复核（2026-11-10）**：对比报告批次 6 曾记本文件「模块数 17≠14」。
+> 已复核消解：根 POM 为 **14 个 `<module>`**（1 父 POM + 14 子模块 = 15 个 reactor 项），
+> 上表口径正确；`docs/MODULES.md` 与 `docs/DIRECTORY.md` §2 均以此为唯一事实来源。
+
 ## 2. 本轮已落地项（零契约风险）
 
 > 历史快照：下表中的 `CommonConstantsTest` 等测试类已于 `087acdb` 随测试源码全量移除，
@@ -56,7 +60,7 @@
 | `*Mapper.java` + `mapper/*.xml` | 本仓已移除 jOOQ / Flyway，数据访问为自研 DSL（`mybatis/dsl` 38 类），0 个 Mapper XML；回退等于重写 | **架构级**，不做 |
 | 菜单字段 `menu_code` / `route_path` / `permission_code` / `menu_type=CATALOG\|MENU` | 本仓多租户扩展（`tenant_id`、`menu_code` 业务唯一键）优于若依；字段名改造牵动种子与前端 | 形式差异 |
 | 前端 `views/{Module}XxxView.vue`、`src/api/*.js` 平铺 | 69 个 api 文件 + 全部 import 纯搬迁，无功能收益 | 大规模搬迁，不做 |
-| `alert_rule` 表无模块前缀 | 需 `RENAME TABLE` + DSL 常量同步，属结构级变更 | **待评估**（P2-2） |
+| `alert_rule` 表无模块前缀 | 需 `RENAME TABLE` + DSL 常量同步，属结构级变更 | **待确认**（P2-2，见 §3.3） |
 
 > **2026-11-10 复查落地**：按《若依规范对齐差异清单与重构方案_20261109.md》批次 1–2
 > 修复了 2 条菜单权限码漂移（`system:department:read`→`system:org:read`、
@@ -64,6 +68,76 @@
 > `scripts/check-permission.py`（P1 硬性门禁，接入 `check-all.py` 第 5 步与 CI），
 > 归一 2 处 Service 双类制、修正前端 3 处命名，并在 `docs/NAMING.md` §6 固化
 > 术语 / 权限码 / 跨层命名口径。其余差异按上表结论保留。
+
+### 3.1 明确不做（P3，8 项正式偏离登记）
+
+> 来源：《若依规范对齐差异清单与重构方案_20261109.md》§3 P3 / §5 风险矩阵（批次 6 收口）。
+> 判定口径：改造面覆盖契约、数据结构或大规模搬迁，收益仅为命名风格一致；
+> 在本文件顶部「硬约束」下一律**明确不做**。后续版本若重启，须单独立项重新评估。
+
+| # | 若依约定 | 不做理由 | 影响面 |
+|---|---|---|---|
+| 1 | `Result<T>` → `AjaxResult`（HashMap 全 200） | `api-contract.json` 已固化 `code:"0"` 与 `data/message` 字段；替换即改响应 JSON | 契约级 |
+| 2 | `TableDataInfo` + PageHelper（`total`/`rows`） | 本仓 `PageResult` / `KeysetPageResult` 支持 keyset 深翻页，改则丢能力 | 契约级 + 能力回退 |
+| 3 | `*Mapper.java` + `mapper/*.xml` | jOOQ / Flyway 已移除，数据访问为自研 DSL（`mybatis/dsl`），全仓 0 个 Mapper XML；回退等于重写 | 架构级 |
+| 4 | 主键 `user_id` / `role_id` | 51 张表 + DSL 自动填充 + 雪花 ID | 数据级，破坏性 DDL |
+| 5 | `created_at` → `create_time` | 全表 + `SqlWriters` 自动填充 + 40+ 前端视图字段名 | 数据级，破坏性 DDL |
+| 6 | `deleted` → `del_flag CHAR(1)` | 语义与类型双改，牵动所有查询条件构造 | 数据级，破坏性 DDL |
+| 7 | Controller 集中到 `scaffold-admin` | 改组件扫描与 14 模块依赖方向 | 部署结构 |
+| 8 | 前端 api 按模块分目录（`api/system/user.js`） | 69 个文件 + 全部 import，纯搬迁无功能收益 | 大规模搬迁 |
+
+配套的**已声明偏离**用词口径见 `docs/NAMING.md` §6.1（org/dept 同义词收敛）、
+§6.2（权限码动作词 `read/create/update/delete`，不引入 `list/add/edit/remove`）、
+§6.3（URL `/api` 前缀 + 复数资源 + kebab 连字符）。
+
+### 3.2 P1-4 复核结论：不新增 `/api/system` 前缀别名
+
+对比报告把「为 5 个越出 `/api/system` 的端点增加前缀别名」列为**可选、低风险、纯新增**。
+2026-11-10 逐文件复核后判定**不落地**，理由如下（均为可核验的代码事实）：
+
+| # | 端点（类级基路径） | 所在 Controller | 复核发现 |
+|---|---|---|---|
+| 1 | `/api/notification-center` | `notifymgmt/api/NotificationCenterController` | javadoc 明示与 M6 `/api/system/notifications` 字面不同、无碰撞 |
+| 2 | `/api/notification-preferences` | `notifypref/api/NotificationPreferenceController` | javadoc 明示「**刻意**使用顶级前缀，表达『我的订阅』非管理域语义」 |
+| 3 | `/api/notification-quiet-hours` | `notifyquiet/api/NotificationQuietHoursController` | 同上，「我的作息」非管理域语义 |
+| 4 | `/api/profile` | `profile/api/ProfileController` | 同上，避免与 `/api/system/users` 管理员批量操作混淆 |
+| 5 | `/api/notification/unsubscribe` | `notification/unsubscribe/api/NotificationUnsubscribeController` | 路径常量为 `NotificationUnsubscribeService.UNSUBSCRIBE_PATH`；**免登录**端点 |
+
+四条阻断理由：
+
+1. **与刻意设计冲突**：2/3/4 三个 Controller 的 javadoc 逐字写明「路径前缀刻意使用顶级
+   `/api/...`（而非 `/api/system/...`）」。这不是遗漏，是有意的域语义划分；加别名会让
+   「管理域 / 个人域」两类端点在同一前缀下并存，反而放大混淆。
+2. **破坏免登录外部链接**：`SecurityConfig.BASE_PUBLIC_API` 只放行
+   `GET /api/notification/unsubscribe`（`SecurityConfig.java` L68），而链接由
+   `NotificationUnsubscribeService.baseUrl() + UNSUBSCRIBE_PATH + "?token=..."` 生成，
+   是邮件 / 短信正文中的 HMAC 签名链接。新增 `/api/system/...` 别名**不在白名单**，
+   会得到一个「看似可用却返回 401」的公开端点；若要可用必须同步改安全配置，
+   已不属于「纯新增」，触及本文件顶部硬约束。
+3. **契约门禁不支持多路径**：`scripts/check-api-contract.py` 的类级基路径用
+   `first_quoted()` 只取注解属性串中的**首个**字符串字面量，数组式
+   `@RequestMapping({old,new})` 会被解析成旧路径，别名不计入后端路由集合；
+   报告批次 3 第 13 步「确认后端集合为超集」无法成立，须先改门禁脚本才能验证。
+4. **`@Deprecated` 语义错位**：Java 的 `@Deprecated` 只能标在类 / 方法上，类级标注会把
+   新旧两个别名**一起**标记为废弃，无法表达「只废弃旧路径」。
+
+**结论**：把「顶级 `/api` 前缀用于个人域 / 免登录端点」登记为第 9 项刻意偏离，
+写入 `docs/NAMING.md` §6.3；旧路径全部保留、不改任何 HTTP 行为、不动安全配置。
+若后续产品侧确需统一前缀，前置条件是：① 同步扩展 `BASE_PUBLIC_API` 并补回归；
+② 增强 `check-api-contract.py` 支持多路径并补行为回归用例；③ 明确废弃策略与前端灰度；
+④ 按 P2 级别排期（双挂 ≥1 个版本）。
+
+### 3.3 待确认 / 需排期项（暂不落地）
+
+| 编号 | 事项 | 改表 | 改接口 | 改前端 | 风险 | 状态与前置 |
+|---|---|---|---|---|---|---|
+| P0-2 | `sys_menu` 补 `created_by` | DDL | 否 | 否 | 中 | **待确认**：属 DDL / 功能增强，非规范对齐；需「列缺失才补」幂等写法 + V32 基线同步 |
+| P2-1 | 4 组一路径多 Controller 拆分 | 否 | 双挂 | 是 | 中 | **需排期**：涉及 5 个前端 api 文件、`api-contract.json`、OpenAPI、E2E；须新旧双挂 ≥1 版本 |
+| P2-2 | `alert_rule` → `sys_alert_rule` | 是 | 否 | 否 | 中 | **待确认**：`RENAME TABLE` 停写窗口 + `SqlTables` 常量同步 + 备份脚本 + 回滚脚本 |
+| P2-3 | cms / im / kafka / workbench / workflow 收敛到簇骨架 | 否 | 否 | 否 | 高 | **建议单独立项**：须先扩展 `docs/DIRECTORY.md` §4 与 `check-cluster-layout.py` 扫描根（D12），逐模块提交 |
+
+> 以上四项均属会改 HTTP 路径、数据库表列或大规模类搬迁的范畴，按本文件顶部硬约束
+> **只说明、不落地**；需逐项取得确认后再按批次实施。
 
 ## 4. 回归验证要点
 
@@ -125,3 +199,9 @@
 `test_check_api_contract.py` 25），由 `unittest discover` 自动发现，新增 `test_*.py` 无需改编排。
 若依的响应体命名、Controller 集中、包根重命名、接口前缀命名等属于**契约级或大规模搬迁**差异，
 在不改变接口行为与避免无关重写的约束下明确保留，并集中于本文件说明，供后续版本按独立变更评估。
+
+**2026-11-10 批次 6 收口**：§3 已升级为正式偏离清单 —— §3.1 登记 P3 八项「明确不做」、
+§3.2 给出 P1-4 增别名的逐文件复核结论（判定不落地）、§3.3 列出 P0-2 / P2-1 / P2-2 / P2-3
+四项待确认与排期状态；§1 补齐模块数口径复核，`docs/NAMING.md` §6.3 与
+`docs/DIRECTORY.md` §4 同步交叉引用。至此《若依规范对齐差异清单与重构方案_20261109.md》
+§7 中除 P0-2 与 P2 四项外，各条目均已有明确处置结论；剩余四项须逐项取得确认后再落地。
