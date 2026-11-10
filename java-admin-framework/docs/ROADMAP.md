@@ -114,7 +114,10 @@
   > 2026-11-10 P2-3 批次 10 起，源码按 `docs/DIRECTORY.md` §4 收敛为 `overview` / `report` /
   > `dashboard` 三簇（包名 `com.acme.scaffold.workbench.overview.*` / `.report.*` /
   > `.dashboard.*`；看板模板落 `dashboard/{api,application,domain/model,dto}`）；
-  > 本行保留 V1.0.7 落地时的原始目录快照，HTTP 契约与 DDL 均未变化。
+  > 本行保留 V1.0.7 落地时的原始目录快照，HTTP 契约与列结构未变化。
+  > 2026-11-10 若依对齐取证收口追加 V85：表名 `dashboard_template` → `sys_dashboard_template`
+  > （幂等 RENAME，索引/数据/自增状态随表保留，需停写窗口「先迁移后发布」）；
+  > 本行的旧表名属历史快照，当前权威口径见 `db/migration/README.md` 表重命名小节。
 - **依赖取舍**：为保持 DAG 最小且无环，dashboard 仅依赖 `common` + `system`（与 workbench 既有依赖一致，经 SqlWriters 持久化）；布局配置以 `layout_json`（TEXT）承载，由前端约定结构、后端仅做 JSON 语法校验（不做语义约束），避免引入重量级表单引擎；复用现有 `workbench` 模块而非新建模块。
 - **验收**：看板模板 CRUD + 配置（layout_json 序列化）+ 发布态流转（DRAFT/PUBLISHED/OFFLINE）+ 浏览计数 + 权限码自动登记；双门禁全绿（9 个后端单测覆盖 CRUD/发布/撤销/计数/更新/逻辑删除/分页筛选/非法 JSON 拒绝/缺失模板）。前端视图 ✅ **已落地 V1.0.7**（dashboard/DashboardTemplateView 分页管理 + 拖拽布局配置器[卡片排序 ⇄ layout_json 双向编辑、JSON 校验阻断提交] + 预览抽屉网格渲染 + api 契约测试 7 例，i18n 双 locale 补齐）。
 

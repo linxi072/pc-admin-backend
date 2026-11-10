@@ -385,8 +385,8 @@ public final class SqlTables {
 
     // ---------------- 数据看板模板库（R8，V78） ----------------
 
-    /** 数据看板模板（看板布局配置 + 发布态）。逻辑删除（deleted），乐观锁（version）。列名与 V78__dashboard_template.sql 严格一致。 */
-    public static final TableRef DASHBOARD_TEMPLATE = new TableRef("dashboard_template",
+    /** 数据看板模板（看板布局配置 + 发布态）。逻辑删除（deleted），乐观锁（version）。列名与 V78__dashboard_template.sql 严格一致；V85 起表名为 sys_dashboard_template（常量名沿用历史命名）。 */
+    public static final TableRef DASHBOARD_TEMPLATE = new TableRef("sys_dashboard_template",
             "id", "tenant_id", "template_code", "template_name", "description", "layout_json",
             "status", "view_count", "version", "deleted", "created_by", "created_at",
             "updated_by", "updated_at");

@@ -5,7 +5,7 @@ build_reference_modular.py — 从版本化结构链派生「手工全量初始�
 
 输入（唯一事实源，只读）：
     scaffold-admin/src/main/resources/db/migration/ 下的**全部** V*.sql
-    （版本范围由脚本运行时探测，2026-11-10 当前快照为 V32~V84，共 52 个 SQL 迁移）
+    （版本范围由脚本运行时探测，2026-11-10 当前快照为 V32~V85，共 53 个 SQL 迁移）
     V57 的存量 tenant_id 回填原为 Java 类迁移，移除 Flyway 后改由
     db/init/02_backfill_tenant_id.sql 提供等价的可选 SQL，不参与本脚本派生。
 
@@ -21,7 +21,7 @@ build_reference_modular.py — 从版本化结构链派生「手工全量初始�
 约束：
     - 仅读取结构链目录，绝不修改任何 V*.sql（版本文件保持不可变）。
     - **版本范围不得写死**：产物 header 由 version_span() 按实际扫描结果动态生成；
-      docstring 中的 V32~V84 只是当前快照说明。新增版本文件后必须重跑本脚本。
+      docstring 中的 V32~V85 只是当前快照说明。新增版本文件后必须重跑本脚本。
     - 2026-10-28 审计整改：数据脚本已统一整合为两个分类参考文件，
       不再生成 db/reference/by-module/ 拆分件（避免散落重复）。
     - 2026-11-08 迁移：运行时已移除 Flyway，结构链降级为「版本化结构源 / 历史记录」，
@@ -134,7 +134,7 @@ def version_of(fn):
 
 
 def version_span(sql_files):
-    """返回结构链实际版本范围（如 V32~V82），供产物 header 动态标注。"""
+    """返回结构链实际版本范围（如 V32~V85），供产物 header 动态标注。"""
     nums = [v for v in (version_of(f) for f in sql_files) if v >= 0]
     return "V%d~V%d" % (min(nums), max(nums)) if nums else "V?"
 

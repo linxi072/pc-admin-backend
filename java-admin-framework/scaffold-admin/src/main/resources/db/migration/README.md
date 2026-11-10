@@ -68,10 +68,11 @@
 | V82 | `V82__align_menu_permission_codes.sql` | 菜单权限码漂移修复（若依对齐 P0-1） | 幂等校正 `sys_menu` id 1013/1014 的 `permission_code` 为 `system:org:read` / `system:api:read`；纯数据修正，无 DDL |
 | V83 | `V83__sys_menu_created_by.sql` | 菜单审计列（若依对齐 P0-2） | 幂等补 `sys_menu.created_by BIGINT UNSIGNED NULL`；可空、不回填存量行，V32 基表字节保持不变 |
 | V84 | `V84__rename_alert_rule.sql` | 告警规则表补前缀（若依对齐 P2-2） | 幂等 `RENAME TABLE alert_rule TO sys_alert_rule`；仅改表名，列/索引/数据不变；需停写窗口与「先迁移后发布」顺序 |
+| V85 | `V85__rename_dashboard_template.sql` | 看板模板表补前缀（若依对齐·取证局限收口） | 幂等 `RENAME TABLE dashboard_template TO sys_dashboard_template`；V32~V84 全量表名抽取（58 张）确认的最后一张裸名表；需停写窗口，可与 V84 合并执行 |
 
-schema 版本当前为 **84**：共 52 个 SQL 迁移（V32~V84）+ 1 个 Java 类迁移（V57）。
+schema 版本当前为 **85**：共 53 个 SQL 迁移（V32~V85）+ 1 个 Java 类迁移（V57）。
 
-## V60–V84 新增表结构与字段变更
+## V60–V85 新增表结构与字段变更
 
 > 本节为**索引性说明**；权威定义始终是 `db/migration/` 迁移文件，派生视图见 `../reference/schema_ddl.sql`。
 > 基表列以 `V32__consolidated_schema.sql` 为准，后续 `ALTER TABLE` 追加的列**不得回填进基表定义**。
@@ -89,7 +90,7 @@ schema 版本当前为 **84**：共 52 个 SQL 迁移（V32~V84）+ 1 个 Java �
 | `im_conversation` | V75 | `id, tenant_id, conversation_type, title, owner_id, status, version, deleted, created_by, created_at, updated_by, updated_at` | IM 会话 |
 | `im_conversation_member` | V75 | `id, tenant_id, conversation_id, user_id, member_role, last_read_message_id, status, version, deleted, created_at, updated_at` | IM 会话成员与已读回执 |
 | `im_message` | V75 | `id, tenant_id, conversation_id, sender_id, content, msg_type, status, reply_to_id, version, deleted, created_by, created_at, updated_by, updated_at` | IM 消息 |
-| `dashboard_template` | V78 | `id, tenant_id, template_code, template_name, description, layout_json, status, view_count, version, deleted, created_by, created_at, updated_by, updated_at` | 看板模板与布局配置 |
+| `sys_dashboard_template` | V78 + V85 | `id, tenant_id, template_code, template_name, description, layout_json, status, view_count, version, deleted, created_by, created_at, updated_by, updated_at` | 看板模板与布局配置 |
 
 ### 既有表新增列（6 列 / 4 张表）
 
@@ -102,17 +103,18 @@ schema 版本当前为 **84**：共 52 个 SQL 迁移（V32~V84）+ 1 个 Java �
 | `wf_task_ext` | `activity_name VARCHAR(255)` | V76 | 活动（节点）名称快照，待办/已办列表无需回查引擎 |
 | `sys_menu` | `created_by BIGINT UNSIGNED NULL` | V83 | 菜单创建人审计（若依对齐 P0-2）；列缺失才补，存量行 NULL |
 
-### 表重命名（1 张）
+### 表重命名（2 张）
 
 | 旧表名 | 新表名 | 迁移 | 说明 |
 | --- | --- | --- | --- |
 | `alert_rule` | `sys_alert_rule` | V84 | 若依对齐 P2-2；`information_schema` 双守卫幂等 `RENAME TABLE`，索引/数据/自增状态随表保留。V70 版本文件字节不变，新库由 V70 建表 → V84 重命名。部署须先备份并在停写窗口执行迁移，确认新表可读后再发布指向新表名的应用版本；反向回滚语句见 V84 头注释 |
+| `dashboard_template` | `sys_dashboard_template` | V85 | 若依对齐·取证局限收口；同构幂等 `RENAME TABLE`，V78 建立的 3 个索引随表保留。V78 版本文件字节不变，新库由 V78 建表 → V85 重命名。部署约束同 V84，两者可合并进同一停写窗口；反向回滚语句见 V85 头注释 |
 
 ### 新增索引（V60+）
 
 - V74：`cms_category` 3 个（租户+父级 / 编码 / 状态）、`cms_article` 3 个（租户+栏目 / 状态 / 标题）。
 - V75：`im_conversation` 2 个、`im_conversation_member` 2 个、`im_message` 2 个。
-- V78：`dashboard_template` 3 个。
+- V78：`dashboard_template` 3 个（V85 重命名后索引随表保留，索引名不变）。
 - V81：`sys_operation_log` 2 个（`idx_operator_occurred`、`idx_occurred_id`），修复审计日志与时间翻页的全表扫描。
 
 > DDL 约定：标识符显式加引号保留 snake_case 小写；索引一律用独立 `CREATE INDEX` 语句，禁止内联 `KEY "x"(...)`（H2 会误解析为 domain）。
@@ -130,3 +132,4 @@ schema 版本当前为 **84**：共 52 个 SQL 迁移（V32~V84）+ 1 个 Java �
 - `V77__ai_scaffold.sql` 头注释仍写「新增 scaffold-ai 模块」；方案 C 后该模块已并入 `scaffold-codegen`。历史版本注释保持原字节，以本节说明为准。
 - V57 原为 Java 类迁移（存量 `tenant_id` 回填），随 Flyway 移除已删除；等价逻辑见 `../init/02_backfill_tenant_id.sql`，全新空库为 no-op。
 - V1~V31 的历史迁移已合并进 V32，不再单独存在；`schema_ddl.sql` 中的 `-- [from V32__...]` 段落即其等价汇总。
+- `V84__rename_alert_rule.sql` 头注释写「alert_rule 是全仓唯一缺少前缀的主数据表」，是当时的快照口径：该结论基于只统计到 V71 的 51 张表。V85 对 V32~V84 全部 `CREATE TABLE` 做全量抽取（实到 58 张表）后，补正 `dashboard_template` 为第二张亦最后一张裸名表。版本文件字节不可变，故 V84 头注释保留原文，以本节与 V85 头注释为准。
