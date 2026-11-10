@@ -77,13 +77,59 @@ def param_key(method: str, path: str) -> str:
     return f"{method.upper()} {'/'.join(parts)}"
 
 
+NON_PATH_ATTR_RE = re.compile(r'^\s*(?:method|produces|consumes|name|params|headers)\s*=')
+NAMED_PATH_RE = re.compile(r'^\s*(?:value|path)\s*=\s*(.*)$', re.S)
+ANY_ASSIGN_RE = re.compile(r'^\s*[A-Za-z_][A-Za-z0-9_]*\s*=')
+
+
+def split_attrs(attrs: str) -> list:
+    """按顶层逗号切分注解属性；花括号内的逗号（路径数组）不切。"""
+    out, buf, depth = [], [], 0
+    for ch in attrs:
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+        if ch == ',' and depth == 0:
+            out.append(''.join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    out.append(''.join(buf))
+    return out
+
+
+def quoted_paths(attrs: str) -> list:
+    """取注解属性串中的**全部**路径字面量（支持多路径别名 / 新旧路径双挂）。
+
+    支持三种写法：
+      * 裸值：``@RequestMapping("/a")`` 或 ``@RequestMapping({"/a", "/b"})``
+      * 具名：``@RequestMapping(value = {"/a", "/b"}, produces = "...")``
+      * 混合：``@GetMapping(value = "/x", method = RequestMethod.GET)``
+
+    ``method`` / ``produces`` / ``consumes`` / ``name`` / ``params`` / ``headers``
+    等非路径属性的字符串值会被剔除；未知具名属性同样不参与，避免把 ``other = "z"``
+    误采为一条路由。无路径属性时返回 ``[""]``，表示「继承类基路径」。
+    """
+    if not attrs or not attrs.strip():
+        return [""]
+    paths = []
+    for idx, raw in enumerate(split_attrs(attrs)):
+        seg = raw.strip()
+        if not seg or NON_PATH_ATTR_RE.match(seg):
+            continue
+        named = NAMED_PATH_RE.match(seg)
+        if named:
+            paths.extend(re.findall(r'"([^"]+)"', named.group(1)))
+        elif idx == 0 and not ANY_ASSIGN_RE.match(seg):
+            # 仅首个裸片段可视为路径值（value 省略的简写形式）
+            paths.extend(re.findall(r'"([^"]+)"', seg))
+    return paths or [""]
+
+
 def first_quoted(attrs: str) -> str:
-    """从注解属性串中取路径：优先 value=/path=，否则取首个字符串字面量。"""
-    m = re.search(r'(?:value|path)\s*=\s*"([^"]+)"', attrs)
-    if m:
-        return m.group(1)
-    m = re.search(r'"([^"]+)"', attrs)
-    return m.group(1) if m else ""
+    """从注解属性串取首个路径（向后兼容的便捷入口）。"""
+    return quoted_paths(attrs)[0]
 
 
 def scan_backend(roots=None) -> set:
@@ -98,22 +144,25 @@ def scan_backend(roots=None) -> set:
                 text = java.read_text(encoding="utf-8")
             except Exception:
                 continue
-            # 类级基路径：取文件内首个 @RequestMapping（可无参，代表根路径）作为前缀
-            base = ""
+            # 类级基路径：取文件内首个 @RequestMapping（可无参，代表根路径）作为前缀。
+            # 支持 @RequestMapping({"/old", "/new"}) 新旧路径双挂：每个方法在每个 base 下
+            # 各登记一条路由，使契约集合与 Spring 实际路由一致（而不是只认第一个字面量）。
             class_base = re.search(r"@RequestMapping\s*(?:\(([^)]*)\))?", text)
             if class_base:
                 cb_attrs = class_base.group(1) if class_base.group(1) is not None else ""
-                base = first_quoted(cb_attrs)
+                bases = quoted_paths(cb_attrs)
                 class_base_start = class_base.start()
             else:
+                bases = [""]
                 class_base_start = -1
             # 方法级映射（显式动词注解）。括号可省略：@GetMapping 即「继承类基路径」
             verb_re = re.compile(r"@(Get|Post|Put|Delete|Patch)Mapping\s*(?:\(([^)]*)\))?")
             for m in verb_re.finditer(text):
                 verb = m.group(1).upper()
                 inner = m.group(2) if m.group(2) is not None else ""
-                path = first_quoted(inner)
-                keys.add(param_key(verb, base + path))
+                for path in quoted_paths(inner):
+                    for base in bases:
+                        keys.add(param_key(verb, base + path))
             # 方法级 @RequestMapping：跳过类级基路径那一条，避免 base+base 重复
             req_re = re.compile(r"@RequestMapping\s*(?:\(([^)]*)\))?")
             for m in req_re.finditer(text):
@@ -122,13 +171,15 @@ def scan_backend(roots=None) -> set:
                 attrs = m.group(1) if m.group(1) is not None else ""
                 if not attrs.strip():
                     # 无参 @RequestMapping：等价于 GET 映射在类基路径
-                    keys.add(param_key("GET", base))
+                    for base in bases:
+                        keys.add(param_key("GET", base))
                     continue
                 methods = re.findall(r"RequestMethod\.(\w+)", attrs)
                 verbs = [v.upper() for v in methods] or ["GET"]
-                path = first_quoted(attrs)
-                for v in verbs:
-                    keys.add(param_key(v, base + path))
+                for path in quoted_paths(attrs):
+                    for v in verbs:
+                        for base in bases:
+                            keys.add(param_key(v, base + path))
     return keys
 
 

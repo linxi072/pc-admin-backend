@@ -8,6 +8,7 @@
   * normalize：查询串 / 片段 / 合并斜杠 / 尾斜杠 / 小写 / 格式化串 / 空路径
   * param_key：{x}、${x}、UUID 等参数段归一化，方法与路径拼接
   * first_quoted：value=/path= 优先、回退首字面量、无引号
+  * quoted_paths / 多路径别名：@RequestMapping({"/old","/new"}) 新旧双挂的笛卡尔积
   * backend_source_roots：仅认 ``scaffold-*/src/main/java``
   * scan_backend：类级 @RequestMapping 基路径、动词注解、方法级 @RequestMapping
   * scan_frontend：request({url,method}) / axios.* / 动态拼接 / 目录不存在
@@ -141,6 +142,64 @@ class FirstQuotedTest(unittest.TestCase):
     def test_no_quoted_literal_returns_empty(self):
         self.assertEqual(mod.first_quoted(""), "")
         self.assertEqual(mod.first_quoted("method = RequestMethod.GET"), "")
+
+
+class MultiPathAliasTest(unittest.TestCase):
+    """P2-1 前置：@RequestMapping 多路径别名 / 新旧路径双挂。"""
+
+    def test_brace_array_returns_all_paths(self):
+        self.assertEqual(mod.quoted_paths('{"/api/old", "/api/new"}'),
+                         ["/api/old", "/api/new"])
+
+    def test_named_array_and_non_path_attributes(self):
+        self.assertEqual(
+            mod.quoted_paths('value = {"/api/old", "/api/new"}, '
+                             'produces = "application/json"'),
+            ["/api/old", "/api/new"])
+
+    def test_unknown_named_attribute_is_not_a_route(self):
+        self.assertEqual(mod.quoted_paths('path = "/api/b", other = "z"'), ["/api/b"])
+
+    def test_no_path_means_inherit_class_base(self):
+        self.assertEqual(mod.quoted_paths(""), [""])
+        self.assertEqual(mod.quoted_paths("method = RequestMethod.GET"), [""])
+
+    def test_first_quoted_is_backward_compatible(self):
+        self.assertEqual(mod.first_quoted('{"/api/old", "/api/new"}'), "/api/old")
+
+    def test_scan_backend_builds_cartesian_product(self):
+        java = ('@RequestMapping({"/api/old", "/api/new"})\n'
+                'class C {\n'
+                '  @GetMapping("/list") void list() {}\n'
+                '  @PostMapping void create() {}\n'
+                '}\n')
+        backend, _ = make_fixture(java_text=java)
+        keys = mod.scan_backend([os.path.join(backend, "scaffold-demo", "src", "main", "java")])
+        self.assertEqual(keys, {
+            "GET /api/old/list", "GET /api/new/list",
+            "POST /api/old", "POST /api/new",
+        })
+
+    def test_method_level_request_mapping_honours_aliases(self):
+        java = ('@RequestMapping({"/api/old", "/api/new"})\n'
+                'class C {\n'
+                '  @RequestMapping(value = "/sync", method = RequestMethod.PUT)\n'
+                '  void sync() {}\n'
+                '}\n')
+        backend, _ = make_fixture(java_text=java)
+        keys = mod.scan_backend([os.path.join(backend, "scaffold-demo", "src", "main", "java")])
+        self.assertIn("PUT /api/old/sync", keys)
+        self.assertIn("PUT /api/new/sync", keys)
+
+    def test_cli_strict_accepts_frontend_on_either_alias(self):
+        java = ('@RequestMapping({"/api/old", "/api/new"})\n'
+                'class C { @GetMapping("/list") void list() {} }\n')
+        js = ("request({ url: '/api/old/list', method: 'get' })\n"
+              "request({ url: '/api/new/list', method: 'get' })\n")
+        backend, api_dir = make_fixture(java_text=java, js_text=js)
+        rc, out, _ = run(backend, api_dir, "--strict")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("未发现前端→后端契约漂移", out)
 
 
 class SourceRootsTest(unittest.TestCase):

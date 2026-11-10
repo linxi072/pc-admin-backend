@@ -24,7 +24,8 @@ import java.util.Map;
  * 由 {@code ApiResourceAutoSyncRunner} 自动登记并授予 SUPER_ADMIN。</p>
  */
 @RestController
-@RequestMapping("/api/system/tenants")
+// P2-1 路径拆分过渡态：新旧类基路径双挂，旧路径保留 ≥1 个版本；方法级映射不变，旧 URL 原样可用。
+@RequestMapping({"/api/system/tenants", "/api/system/tenant-governance"})
 @RequiredArgsConstructor
 public class TenantGovernanceController {
 

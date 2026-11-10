@@ -20,7 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "租户运营总览")
 @RestController
-@RequestMapping("/api/system/tenants")
+// P2-1 路径拆分过渡态：新旧类基路径双挂，旧路径保留 ≥1 个版本；方法级映射不变，旧 URL 原样可用。
+@RequestMapping({"/api/system/tenants", "/api/system/tenant-overview"})
 @RequiredArgsConstructor
 public class TenantOverviewController {
 

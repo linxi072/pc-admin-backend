@@ -32,7 +32,9 @@ import java.util.Map;
 @Tag(name = "站内信已读回执")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/system/messages")
+// P2-1 路径拆分过渡态：新旧类基路径双挂，旧路径保留 ≥1 个版本；方法级映射不变，旧 URL 原样可用。
+// 报告建议的 /{id}/read 含路径变量，不能作类基路径，故改用独立命名空间 /message-reads。
+@RequestMapping({"/api/system/messages", "/api/system/message-reads"})
 public class MessageReadController {
 
     private final MessageReadService readService;
