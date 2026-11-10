@@ -1,7 +1,7 @@
 -- ============================================================
 -- 全量初始化脚本（新库专用 / 手工执行）
 -- 由 scripts/build_reference_modular.py 从 db/migration/ 版本化结构链
--- （V32~V82，共 50 个 SQL 文件）按版本号顺序逐字拼接生成，语句顺序与历史执行顺序一致。
+-- （V32~V84，共 52 个 SQL 文件）按版本号顺序逐字拼接生成，语句顺序与历史执行顺序一致。
 --
 -- 【执行方式】mysql --default-character-set=utf8mb4 -u<user> -p <db> < 01_full_schema.sql
 -- 【前置条件】先执行 00_create_database.sql 建库（utf8mb4_0900_ai_ci）。
@@ -3805,6 +3805,74 @@ UPDATE sys_menu
  WHERE id = 1014
    AND (permission_code IS NULL OR permission_code <> 'system:api:read');
 
+-- ############################################################
+-- 来源: V83__sys_menu_created_by.sql
+-- ############################################################
+
+-- V83 sys_menu 审计创建人补齐（若依规范对齐 P0-2）
+--
+-- 背景：V32 基线中 sys_user / sys_org / sys_role 等主数据表均带 created_by / updated_by
+--   审计列，唯独 sys_menu 缺失 created_by，导致「谁新建了这条菜单」无法追溯。
+--   本版本仅补 created_by（不补 updated_by），保持与报告 §3 P0-2 的改动范围一致。
+--
+-- 版本链约束：db/migration/README.md 明令「版本文件字节不可变、结构性变更一律前向追加」，
+--   故 V32 基表定义保持原样，新库由 V32 建表 → 本文件补列，结果与直接改基表等价。
+--
+-- 幂等：沿用 V32 L518–L535 的「列缺失才补」模式（information_schema 守卫 + 动态 DDL）。
+--   MySQL 无事务性 DDL，迁移中途失败会留下已生效的结构；重复执行命中 'DO 0' 直接无操作，
+--   不会撞 1060 Duplicate column。
+-- 兼容：列可空，存量行一律为 NULL，不回填、不造数据；不影响任何既有查询与写入路径。
+-- 影响：1 张表 1 列；无接口变更、无前端变更。
+
+SET @ddl = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE `sys_menu`
+             ADD COLUMN `created_by` BIGINT UNSIGNED NULL COMMENT ''创建人用户ID'' AFTER `status`',
+        'DO 0')
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_menu' AND COLUMN_NAME = 'created_by'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ############################################################
+-- 来源: V84__rename_alert_rule.sql
+-- ############################################################
+
+-- V84 告警规则表补模块前缀（若依规范对齐 P2-2）：alert_rule -> sys_alert_rule
+--
+-- 背景：V70 建立的 alert_rule 是全仓唯一缺少 sys_/wf_/cms_/im_ 等业务前缀的主数据表，
+--   与「表由模块独占写入、按域加前缀」的既有约定不一致。本版本只改表名，不改任何列、
+--   索引、数据、接口与前端行为。
+--
+-- 版本链约束：db/migration/README.md 明令「版本文件字节不可变、结构性变更一律前向追加」，
+--   故 V70 的 CREATE TABLE alert_rule 保持原样；新库由 V70 建表 → 本文件重命名，
+--   最终落态与「V70 直接建 sys_alert_rule」等价，且存量库可平滑升级。
+--
+-- 幂等：information_schema 双守卫 —— 仅当 alert_rule 存在且 sys_alert_rule 不存在时才 RENAME；
+--   重复执行 / 已是新表名的库命中 'DO 0' 无操作，不会撞 1050/1060 类错误。
+--   MySQL 的 RENAME TABLE 是原子 DDL，索引（idx_metric_enabled）、数据、自增状态均随表保留。
+--
+-- 【部署顺序·必读】这是结构级不兼容变更，Java 侧 SqlTables.ALERT_RULE 已同步指向 sys_alert_rule：
+--   1) 先备份：mysqldump --single-transaction <db> alert_rule > alert_rule_backup.sql
+--   2) 停写窗口内执行本迁移（RENAME 需短暂 MDL 锁，期间告警规则读写会阻塞）
+--   3) 确认 SELECT COUNT(*) FROM sys_alert_rule 可用后，再发布含新常量的应用版本
+--   反向发布（先上应用、后跑迁移）会因表不存在导致告警规则模块整体不可用。
+--
+-- 【回滚】如需回到旧表名，先下线新版应用，再执行（同样需要停写窗口）：
+--   RENAME TABLE `sys_alert_rule` TO `alert_rule`;
+--   并同步把 SqlTables.ALERT_RULE 的表名字符串改回 alert_rule 后重新发布。
+
+SET @ddl = (
+    SELECT IF(
+        (SELECT COUNT(*) FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert_rule') = 1
+        AND (SELECT COUNT(*) FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_alert_rule') = 0,
+        'RENAME TABLE `alert_rule` TO `sys_alert_rule`',
+        'DO 0')
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 
 -- ============================================================
 -- 初始化基线标记（用于 scripts/init/verify_install.py 校验）
@@ -3819,4 +3887,4 @@ CREATE TABLE IF NOT EXISTS `schema_baseline` (
 -- 清掉旧基线，确保表中只保留当前已初始化的版本
 DELETE FROM `schema_baseline`;
 
-INSERT INTO `schema_baseline` (`baseline_version`, `source_count`) VALUES ('V82', 50);
+INSERT INTO `schema_baseline` (`baseline_version`, `source_count`) VALUES ('V84', 52);

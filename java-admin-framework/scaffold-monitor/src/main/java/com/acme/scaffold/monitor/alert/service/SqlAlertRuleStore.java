@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 /**
- * 基于 jOOQ 动态 DSL 的告警规则存储实现（alert_rule 表）。
+ * 基于自研 MyBatis 风格 DSL 的告警规则存储实现（{@code sys_alert_rule} 表；V84 由 {@code alert_rule} 重命名）。
  *
  * <p>写入/读取/逻辑删除统一走 {@link SqlWriters}：自动填充 id / tenant_id / deleted /
  * version / 时间字段，未启用强制租户隔离时 tenant_id 写 0；逻辑删除复用

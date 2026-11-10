@@ -1,6 +1,7 @@
 package com.acme.scaffold.system.menu.application;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 
+import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tree.TreeBuilder;
@@ -12,7 +13,9 @@ import com.acme.scaffold.system.menu.dto.MenuSortItem;
 import com.acme.scaffold.system.menu.dto.MenuTreeVO;
 import com.acme.scaffold.system.menu.dto.UpdateMenuRequest;
 import com.acme.scaffold.system.menu.domain.model.SysMenuDO;
+import com.acme.scaffold.system.menu.domain.rule.MenuTypeRules;
 import com.acme.scaffold.system.role.domain.model.SysRoleMenuDO;
+import com.acme.scaffold.system.support.CurrentUserSupport;
 import com.acme.scaffold.system.user.domain.model.SysUserRoleDO;
 import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -58,6 +61,9 @@ public class MenuService {
     public static final String ALL_KEY = "ALL";
 
     private final DSLContext dsl;
+
+    /** 新建菜单时写入 {@code created_by}；未认证上下文（内部调用）返回 null，列可空。 */
+    private final SecurityContextFacade securityContextFacade;
 
     /** 桥接自代码生成层 {@code Tables.SYS_MENU} 的类型安全表引用（B15）。 */
     private static final SqlTables.TableRef MENU = SqlTables.SYS_MENU;
@@ -150,6 +156,20 @@ public class MenuService {
                 m -> parentIdOf(m) == 0L, MenuService::toMenuTreeVO);
     }
 
+    /**
+     * 菜单类型写入前校验（若依对齐 P0-2）。
+     *
+     * <p>取值域与两套历史字面量的兼容理由见 {@code MenuTypeRules}：此处只拦截集合外的值，
+     * 不做归一化，因此前端单字母与后端种子全名均原样落库，零行为变更。
+     */
+    private static String requireMenuType(String menuType) {
+        if (!MenuTypeRules.isValid(menuType)) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
+                    "menuType 必须为 " + MenuTypeRules.allowedDescription());
+        }
+        return menuType;
+    }
+
     /** 创建菜单。写入后两个菜单缓存均整缓存驱逐（新菜单可能进入任意用户的可见集合）。 */
     @CacheEvict(cacheNames = {MENU_TREE_CACHE, USER_MENUS_CACHE}, allEntries = true)
     @Transactional
@@ -158,7 +178,7 @@ public class MenuService {
         menu.setParentId(request.parentId() == null ? 0L : request.parentId());
         menu.setMenuCode(request.menuCode());
         menu.setMenuName(request.menuName());
-        menu.setMenuType(request.menuType());
+        menu.setMenuType(requireMenuType(request.menuType()));
         menu.setRoutePath(request.routePath());
         menu.setComponentPath(request.componentPath());
         menu.setPermissionCode(request.permissionCode());
@@ -166,6 +186,8 @@ public class MenuService {
         menu.setVisible(request.visible() == null ? 1 : request.visible());
         menu.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
         menu.setStatus(RecordStatus.normalize(request.status()));
+        // V83 审计列：写入当前登录用户；未认证的内部调用保持 NULL，不阻断写入
+        menu.setCreatedBy(CurrentUserSupport.currentUserId(securityContextFacade));
         SqlWriters.insert(dsl, MENU, menu);
         return menu.getId();
     }
@@ -216,7 +238,7 @@ public class MenuService {
         menu.setVersion(existing.getVersion());
         menu.setMenuCode(request.menuCode());
         menu.setMenuName(request.menuName());
-        menu.setMenuType(request.menuType());
+        menu.setMenuType(requireMenuType(request.menuType()));
         menu.setRoutePath(request.routePath());
         menu.setComponentPath(request.componentPath());
         menu.setPermissionCode(request.permissionCode());

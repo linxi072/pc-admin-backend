@@ -44,10 +44,11 @@ public final class SqlTables {
             "id", "tenant_id", "role_code", "role_name", "role_type", "status", "sort_no", "version",
             "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
+    // created_by 由 V83 前向追加（V32 基表字节不可变），新库经 V32 建表 + V83 补列得到同等结构
     public static final TableRef SYS_MENU = new TableRef("sys_menu",
             "id", "tenant_id", "parent_id", "menu_code", "menu_name", "menu_type", "route_path",
             "component_path", "permission_code", "icon", "visible", "keep_alive", "external_url",
-            "sort_no", "status", "deleted", "created_at", "updated_at");
+            "sort_no", "status", "deleted", "created_by", "created_at", "updated_at");
 
     /** 注意：该表无 deleted 列，删除为物理删除。 */
     public static final TableRef SYS_API_RESOURCE = new TableRef("sys_api_resource",
@@ -362,7 +363,8 @@ public final class SqlTables {
             "deleted", "nodes_json", "edges_json", "form_schema", "bpmn_xml", "deployment_id",
             "process_definition_id", "published_by", "published_at", "created_at", "updated_at");
 
-    public static final TableRef ALERT_RULE = new TableRef("alert_rule",
+    /** 告警规则表：V70 建为 {@code alert_rule}，V84 幂等重命名为 {@code sys_alert_rule}（若依对齐 P2-2）。 */
+    public static final TableRef ALERT_RULE = new TableRef("sys_alert_rule",
             "id", "tenant_id", "rule_name", "metric_key", "comparator", "threshold", "severity",
             "for_duration_sec", "consecutive_count", "channel_type", "channel_config", "enabled",
             "remark", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");

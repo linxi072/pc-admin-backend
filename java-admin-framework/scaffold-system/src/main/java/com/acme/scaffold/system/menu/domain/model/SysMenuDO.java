@@ -28,6 +28,9 @@ public class SysMenuDO {
 
     private Integer deleted = 0;
 
+    /** 创建人用户 ID（V83 补列）：种子菜单为 NULL，仅经接口新建的菜单写入当前登录用户。 */
+    private Long createdBy;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -53,7 +53,7 @@
 | V67 | `V67__menu_reorganize.sql` | 菜单体系 | 40+ 功能菜单按业务域重组为 13 个一级分类 |
 | V68 | `V68__oauth2_pkce_consent.sql` | OAuth2 授权码（#900） | 新建 `sys_oauth2_consent`；`sys_openapi_client` 增 `redirect_uris`、`pkce_required`（redirect_uri 白名单 + 强制 PKCE + 用户同意持久化） |
 | V69 | `V69__workflow_delegate.sql` | 工作流委派（#901） | `wf_task_ext` 增 `delegator_user_id`、`delegation_state` |
-| V70 | `V70__alert_rule.sql` | 告警规则闭环（#922） | 新建 `alert_rule`：可配置阈值规则的持久化与周期评估 |
+| V70 | `V70__alert_rule.sql` | 告警规则闭环（#922） | 新建 `alert_rule`：可配置阈值规则的持久化与周期评估（V84 重命名为 `sys_alert_rule`） |
 | V71 | `V71__idempotency_menu.sql` | 幂等运维（M2） | 幂等记录分页 / 统计 / 过期清理菜单 |
 | V72 | `V72__api_docs_menu.sql` | API 文档中心（#972） | 复用 springdoc `/v3/api-docs` 的纯前端浏览器菜单 |
 | V73 | `V73__workflow_instance_admin_menu.sql` | 流程实例治理 | 挂起 / 恢复 / 改派 / 迁移四端点前端入口 |
@@ -66,10 +66,12 @@
 | V80 | `V80__chaos_config_center_menu.sql` | 混沌工程 / 配置中心（R15/R16） | 两个可视化页菜单种子（控制器受 `@ConditionalOnProperty` 守卫） |
 | V81 | `V81__operation_log_query_index.sql` | 审计日志性能（E2E F1/F2） | `sys_operation_log` 补 `idx_operator_occurred`、`idx_occurred_id` 两个查询索引 |
 | V82 | `V82__align_menu_permission_codes.sql` | 菜单权限码漂移修复（若依对齐 P0-1） | 幂等校正 `sys_menu` id 1013/1014 的 `permission_code` 为 `system:org:read` / `system:api:read`；纯数据修正，无 DDL |
+| V83 | `V83__sys_menu_created_by.sql` | 菜单审计列（若依对齐 P0-2） | 幂等补 `sys_menu.created_by BIGINT UNSIGNED NULL`；可空、不回填存量行，V32 基表字节保持不变 |
+| V84 | `V84__rename_alert_rule.sql` | 告警规则表补前缀（若依对齐 P2-2） | 幂等 `RENAME TABLE alert_rule TO sys_alert_rule`；仅改表名，列/索引/数据不变；需停写窗口与「先迁移后发布」顺序 |
 
-schema 版本当前为 **82**：共 50 个 SQL 迁移（V32~V82）+ 1 个 Java 类迁移（V57）。
+schema 版本当前为 **84**：共 52 个 SQL 迁移（V32~V84）+ 1 个 Java 类迁移（V57）。
 
-## V60–V82 新增表结构与字段变更
+## V60–V84 新增表结构与字段变更
 
 > 本节为**索引性说明**；权威定义始终是 `db/migration/` 迁移文件，派生视图见 `../reference/schema_ddl.sql`。
 > 基表列以 `V32__consolidated_schema.sql` 为准，后续 `ALTER TABLE` 追加的列**不得回填进基表定义**。
@@ -81,7 +83,7 @@ schema 版本当前为 **82**：共 50 个 SQL 迁移（V32~V82）+ 1 个 Java �
 | `sys_role_column_permission` | V61 | `id, tenant_id, role_id, resource_code, field, created_at, updated_at` | 角色 × 资源 × 字段的明文可见权（M41） |
 | `sys_oauth2_token` | V64 | `id, tenant_id, jti, client_id, user_id, username, scope, token_type, issued_at, expires_at, status, version, deleted, created_at, updated_at` | 签发令牌注册表，吊销后请求期实时拒绝 |
 | `sys_oauth2_consent` | V68 | `id, tenant_id, user_id, client_id, scopes, status, expires_at, created_at, updated_at` | 授权码流程用户同意（consent）持久化 |
-| `alert_rule` | V70 | `id, tenant_id, rule_name, metric_key, comparator, threshold, severity, for_duration_sec, consecutive_count, channel_type, channel_config, enabled, remark, version, deleted, created_by, created_at, updated_by, updated_at` | 可配置阈值告警规则 |
+| `sys_alert_rule` | V70 + V84 | `id, tenant_id, rule_name, metric_key, comparator, threshold, severity, for_duration_sec, consecutive_count, channel_type, channel_config, enabled, remark, version, deleted, created_by, created_at, updated_by, updated_at` | 可配置阈值告警规则 |
 | `cms_category` | V74 | `id, tenant_id, parent_id, category_code, category_name, description, sort_no, status, version, deleted, created_by, created_at, updated_by, updated_at` | CMS 栏目树 |
 | `cms_article` | V74 | `id, tenant_id, category_id, title, summary, content, author, cover_url, status, view_count, published_at, offline_at, version, deleted, created_by, created_at, updated_by, updated_at` | CMS 文章与发布态 |
 | `im_conversation` | V75 | `id, tenant_id, conversation_type, title, owner_id, status, version, deleted, created_by, created_at, updated_by, updated_at` | IM 会话 |
@@ -89,7 +91,7 @@ schema 版本当前为 **82**：共 50 个 SQL 迁移（V32~V82）+ 1 个 Java �
 | `im_message` | V75 | `id, tenant_id, conversation_id, sender_id, content, msg_type, status, reply_to_id, version, deleted, created_by, created_at, updated_by, updated_at` | IM 消息 |
 | `dashboard_template` | V78 | `id, tenant_id, template_code, template_name, description, layout_json, status, view_count, version, deleted, created_by, created_at, updated_by, updated_at` | 看板模板与布局配置 |
 
-### 既有表新增列（5 列 / 3 张表）
+### 既有表新增列（6 列 / 4 张表）
 
 | 表 | 新增列 | 迁移 | 说明 |
 | --- | --- | --- | --- |
@@ -98,6 +100,13 @@ schema 版本当前为 **82**：共 50 个 SQL 迁移（V32~V82）+ 1 个 Java �
 | `wf_task_ext` | `delegator_user_id BIGINT UNSIGNED` | V69 | 委派发起人（原审批人），非委派任务为 NULL |
 | `wf_task_ext` | `delegation_state VARCHAR(16)` | V69 | `PENDING`=已委派待办、`RESOLVED`=已办结交还、NULL=非委派 |
 | `wf_task_ext` | `activity_name VARCHAR(255)` | V76 | 活动（节点）名称快照，待办/已办列表无需回查引擎 |
+| `sys_menu` | `created_by BIGINT UNSIGNED NULL` | V83 | 菜单创建人审计（若依对齐 P0-2）；列缺失才补，存量行 NULL |
+
+### 表重命名（1 张）
+
+| 旧表名 | 新表名 | 迁移 | 说明 |
+| --- | --- | --- | --- |
+| `alert_rule` | `sys_alert_rule` | V84 | 若依对齐 P2-2；`information_schema` 双守卫幂等 `RENAME TABLE`，索引/数据/自增状态随表保留。V70 版本文件字节不变，新库由 V70 建表 → V84 重命名。部署须先备份并在停写窗口执行迁移，确认新表可读后再发布指向新表名的应用版本；反向回滚语句见 V84 头注释 |
 
 ### 新增索引（V60+）
 

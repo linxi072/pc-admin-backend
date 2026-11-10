@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 告警规则持久化对象（alert_rule 表）。
+ * 告警规则持久化对象（{@code sys_alert_rule} 表；V70 原名 {@code alert_rule}，V84 重命名）。
  *
  * <p>指标键 / 比较符 / 严重度 / 渠道类型均以字符串存储枚举名（由
  * {@code com.acme.scaffold.monitor.alert.rules.AlertRuleRules} 解析校验），
