@@ -65,10 +65,11 @@
 | V79 | `V79__micro_frontend.sql` | 微前端宿主（R12） | 子应用挂载菜单种子（离线自研主壳，无外部依赖） |
 | V80 | `V80__chaos_config_center_menu.sql` | 混沌工程 / 配置中心（R15/R16） | 两个可视化页菜单种子（控制器受 `@ConditionalOnProperty` 守卫） |
 | V81 | `V81__operation_log_query_index.sql` | 审计日志性能（E2E F1/F2） | `sys_operation_log` 补 `idx_operator_occurred`、`idx_occurred_id` 两个查询索引 |
+| V82 | `V82__align_menu_permission_codes.sql` | 菜单权限码漂移修复（若依对齐 P0-1） | 幂等校正 `sys_menu` id 1013/1014 的 `permission_code` 为 `system:org:read` / `system:api:read`；纯数据修正，无 DDL |
 
-schema 版本当前为 **81**：共 49 个 SQL 迁移（V32~V81）+ 1 个 Java 类迁移（V57）。
+schema 版本当前为 **82**：共 50 个 SQL 迁移（V32~V82）+ 1 个 Java 类迁移（V57）。
 
-## V60–V81 新增表结构与字段变更
+## V60–V82 新增表结构与字段变更
 
 > 本节为**索引性说明**；权威定义始终是 `db/migration/` 迁移文件，派生视图见 `../reference/schema_ddl.sql`。
 > 基表列以 `V32__consolidated_schema.sql` 为准，后续 `ALTER TABLE` 追加的列**不得回填进基表定义**。

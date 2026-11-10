@@ -11,6 +11,7 @@
   naming       check-naming.py               硬性    N1–N2 类型/常量命名 + N3–N4 方法/字段命名
   directory    check-directory.py            硬性    D1–D11 目录约定
   cluster-layout check-cluster-layout.py      硬性    D12 子域簇结构与 §4 表一致性
+  permission   check-permission.py           硬性    P1 菜单权限码 ↔ 接口权限码一致性
   api-contract check-api-contract.py         信息性  前后端契约静态对称（不阻断）
   script-tests scripts/test_*.py 单测        硬性    校验器行为回归
   ==========  ============================  ======  ================================
@@ -81,6 +82,7 @@ STEPS = (
     Step("naming", "check-naming.py", True, "N1–N2 类型/常量命名 + N3–N4 方法/字段命名"),
     Step("directory", "check-directory.py", True, "D1–D11 目录约定"),
     Step("cluster-layout", "check-cluster-layout.py", True, "D12 子域簇结构与 §4 表一致性"),
+    Step("permission", "check-permission.py", True, "P1 菜单权限码 ↔ 接口权限码一致性"),
     Step("api-contract", "check-api-contract.py", False, "前后端契约对称性（信息性）"),
     Step("script-tests", None, True, "scripts 行为回归单测"),
 )
@@ -136,7 +138,7 @@ def run_step(cmd, cwd, quiet=False):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="统一门禁入口（约定 / 目录 / 契约 / 脚本单测）")
+    ap = argparse.ArgumentParser(description="统一门禁入口（约定 / 目录 / 权限 / 契约 / 脚本单测）")
     ap.add_argument("--only", default=None, help="逗号分隔的步骤名，仅跑选中项")
     ap.add_argument("--skip-tests", action="store_true", help="跳过 script-tests 步骤")
     ap.add_argument("--scripts-dir", default=SCRIPT_DIR, help="校验脚本目录（单测用）")
