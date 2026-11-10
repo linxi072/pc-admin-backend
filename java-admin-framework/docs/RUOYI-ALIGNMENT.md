@@ -13,13 +13,16 @@
 
 | 维度 | 若依约定 | 本仓现状 | 本轮处理 | 结论 |
 |---|---|---|---|---|
-| 组织方式 | common / framework / system / quartz / generator / admin；父 POM 仅聚合与版本管理；admin 唯一 Web 入口 | 17 个 `scaffold-*` 模块；admin 已是唯一启动模块；父 POM 已聚合 + 版本管理 | 修 `docs/MODULES.md` 的 12→17 模块与「规划中未创建」漂移；父 POM 收敛 `zstd-jni` 版本；新增 `docs/DIRECTORY.md`；补 5 份 `package-info.java` | 部分对齐，结构差异保留 |
+| 组织方式 | common / framework / system / quartz / generator / admin；父 POM 仅聚合与版本管理；admin 唯一 Web 入口 | **14 个** `scaffold-*` 模块（1 父 POM + 14 子模块 = 15 个 reactor 项）；admin 已是唯一启动模块；父 POM 已聚合 + 版本管理 | 修 `docs/MODULES.md` 的模块数口径与「规划中未创建」漂移；父 POM 收敛 `zstd-jni` 版本；新增 `docs/DIRECTORY.md`；补 5 份 `package-info.java` | 部分对齐，结构差异保留 |
 | 职责边界 | 模块内 domain / mapper / service 分层；framework 集中全局装配 | 扁平特性子包；framework 类散在 `config`/`observability`/`monitor.*`/`chaos` | 用包级说明 + 目录规范写明边界与例外，不改包名 | 文档对齐，代码保留 |
-| 公共能力 | `common/constant` 常量包、`common/core/domain` 响应基类、`common/utils` 工具包 | 已有 `api`/`error`/`text`/`tree`/`util` 等单一事实来源，但**无 constant 包**，字面值散落 16 处 | 新增 `common/constant/CommonConstants`，16 处存量改委托且值逐字不变；新增 `CommonConstantsTest` | 已对齐 |
+| 公共能力 | `common/constant` 常量包、`common/core/domain` 响应基类、`common/utils` 工具包 | 已有 `api`/`error`/`text`/`tree`/`util` 等单一事实来源，但**无 constant 包**，字面值散落 16 处 | 新增 `common/constant/CommonConstants`，16 处存量改委托且值逐字不变；新增 `CommonConstantsTest`（历史测试，已随测试源码移除） | 已对齐 |
 | 配置管理 | admin 集中 `application.yml` / `application-druid.yml` / `logback.xml`；配置类集中 common.config / framework.config | admin 已集中 yml 与 logback；43 个 `@ConfigurationProperties` 分散在 11 个模块特性包 | 生产 yml 旧 `jobrunr:` 段已随 JobRunr → Quartz 迁移删除；配置类归属写入目录规范，不搬迁 | 部分对齐，配置类保留 |
-| 交互规范 | AjaxResult / TableDataInfo / BaseController.startPage；`@Log`/`@DataScope` 注解；`src/api` 集中请求 + 统一 axios 拦截器拆包 | `Result<T>` 包络 + `PageResult`/`KeysetPageResult` + `PagingRules`；`api-contract.json` 前后端共同断言；前端 `src/api/http.js` 统一注入鉴权头与拆包 | **不改**：响应体改名会破坏契约测试；仅把前端根级 `styles.css` 归位到 `styles/base.css` | 保留差异，路径归位 |
+| 交互规范 | AjaxResult / TableDataInfo / BaseController.startPage；`@Log`/`@DataScope` 注解；`src/api` 集中请求 + 统一 axios 拦截器拆包 | `Result<T>` 包络 + `PageResult`/`KeysetPageResult` + `PagingRules`；`api-contract.json` 为字段口径唯一事实来源，`check-api-contract.py` 做静态路由对称；前端 `src/api/http.js` 统一注入鉴权头与拆包 | **不改**：响应体改名会破坏契约；仅把前端根级 `styles.css` 归位到 `styles/base.css` | 保留差异，路径归位 |
 
 ## 2. 本轮已落地项（零契约风险）
+
+> 历史快照：下表中的 `CommonConstantsTest` 等测试类已于 `087acdb` 随测试源码全量移除，
+> 仅记录当时的落地动作，不代表当前仍有对应测试资产。
 
 | # | 维度 | 改动 | 行为影响 |
 |---|---|---|---|
@@ -30,15 +33,15 @@
 | 5 | 配置管理 | 父 POM 增 `zstd-jni.version` **并在 `dependencyManagement` 注册该依赖**；`scaffold-kafka/pom.xml` 去掉硬编码 `<version>` | 解析到的版本仍是 `1.5.5-11`；定向构建曾报 `version is missing`，补齐注册后复验通过 |
 | 6 | 配置管理 | `application-prod.yml` 旧 `jobrunr:` 段随 Quartz 迁移删除 | 运行时已无该配置前缀 |
 | 7 | 组织方式 | `src/styles.css` → `src/styles/base.css`，`main.js` import 与 8 处注释同步 | CSS 内容与加载顺序不变，仅路径归位 |
-| 8 | 公共能力 | 新增 `CommonConstantsTest` | 纯测试，锁定字面值与委托一致性 |
+| 8 | 公共能力 | 新增 `CommonConstantsTest`（历史测试，已移除） | 当时用于锁定字面值与委托一致性 |
 
 ## 3. 明确保留的若依差异（尚未对齐）
 
 | 差异 | 为何不改 | 影响 |
 |---|---|---|
-| `IXxxService` + `XxxServiceImpl` 命名 | 本仓用单实现类 + `*Port` 防腐层；重命名会改 Bean 名与全部注入点 | 仅命名风格 |
-| `AjaxResult` / `TableDataInfo` / `BaseController` | `Result<T>` 由 `api-contract.json` 固定，前后端一致性测试共同断言；替换会改响应 JSON 字段 | **契约级**，不可改 |
-| Controller 集中到 `scaffold-admin` | 本仓 Controller 随业务模块分布；搬迁会改组件扫描与 17 模块依赖方向 | 部署结构差异 |
+| `IXxxService` + `XxxServiceImpl` 命名 | 本仓用单实现类 + `*Port` 防腐层；2026-11-10 已把仅存的 2 处「接口 + Impl」归一为单类（FQN 不变），不引入 `I` 前缀 | 仅命名风格，已收敛 |
+| `AjaxResult` / `TableDataInfo` / `BaseController` | `Result<T>` 由 `api-contract.json` 固定为字段口径唯一事实来源；替换会改响应 JSON 字段 | **契约级**，不可改 |
+| Controller 集中到 `scaffold-admin` | 本仓 Controller 随业务模块分布；搬迁会改组件扫描与 14 模块依赖方向 | 部署结构差异 |
 | `com.acme.scaffold.framework` 包根 | 历史类分布在 4 个顶层包；重命名牵动数百处 import | 形式差异 |
 | `common.mybatis` 第二包根 | 同上 | 形式差异（2026-11-08 起为唯一的数据访问包根） |
 | 43 个 `@ConfigurationProperties` 分散在特性包 | 集中会改配置类包路径与 `@EnableConfigurationProperties` 引用 | 组织差异，功能等价 |
@@ -47,20 +50,51 @@
 | `common/util` / `text` / `tree` 三个单文件工具包未合并为 `utils` | 合并会改 FQN | 形式差异 |
 | 生产 `application-prod.yml` 中旧 `jobrunr:` 前缀 | 2026-11-08 已随 JobRunr → Quartz 迁移删除并改写为 `app.quartz` 说明 | **已解决** |
 | `@Log` / `@DataScope` 等注解命名 | 本仓以 `AuditAspect` + `DataScopeConditions` + Port 实现等价能力 | 命名风格 |
+| 权限码动作词 `read/create/update/delete` | 本仓贴合 REST 语义；改成 `list/add/edit/remove` 会动全部 `@PreAuthorize` 与角色授权 | 命名风格，已声明偏离 |
+| URL `/api` 前缀 + 复数资源 + 动作式端点 | 由 `api-contract.json` 与 69 个前端 api 文件固定；改路径属契约级 | **契约级**，不可改 |
+| 主键 `id`、审计列 `created_at/updated_at`、`deleted`、`sort_no` | 51 张表 + DSL 自动填充 + 40+ 前端视图字段；改列名属破坏性 DDL | **数据级**，不做 |
+| `*Mapper.java` + `mapper/*.xml` | 本仓已移除 jOOQ / Flyway，数据访问为自研 DSL（`mybatis/dsl` 38 类），0 个 Mapper XML；回退等于重写 | **架构级**，不做 |
+| 菜单字段 `menu_code` / `route_path` / `permission_code` / `menu_type=CATALOG\|MENU` | 本仓多租户扩展（`tenant_id`、`menu_code` 业务唯一键）优于若依；字段名改造牵动种子与前端 | 形式差异 |
+| 前端 `views/{Module}XxxView.vue`、`src/api/*.js` 平铺 | 69 个 api 文件 + 全部 import 纯搬迁，无功能收益 | 大规模搬迁，不做 |
+| `alert_rule` 表无模块前缀 | 需 `RENAME TABLE` + DSL 常量同步，属结构级变更 | **待评估**（P2-2） |
+
+> **2026-11-10 复查落地**：按《若依规范对齐差异清单与重构方案_20261109.md》批次 1–2
+> 修复了 2 条菜单权限码漂移（`system:department:read`→`system:org:read`、
+> `system:api-resource:read`→`system:api:read`，见 `V32` 与 `V82`），新增
+> `scripts/check-permission.py`（P1 硬性门禁，接入 `check-all.py` 第 5 步与 CI），
+> 归一 2 处 Service 双类制、修正前端 3 处命名，并在 `docs/NAMING.md` §6 固化
+> 术语 / 权限码 / 跨层命名口径。其余差异按上表结论保留。
 
 ## 4. 回归验证要点
 
-1. **契约**：`scripts/check-api-contract.py` + 后端 `ApiContractConsistencyTest` + 前端 `result.test.js`，
-   确认 `Result<T>` 包络、成功码 `"0"`、错误码未变。
-2. **常量委托**：`CommonConstantsTest` 断言 `MAX_PAGE_SIZE=100`、两种时间格式、头像前缀、
-   成功码，并验证 `PagingRules.MAX_PAGE_SIZE` / `PageQuery.MAX_SIZE` /
-   `KeysetPageQuery.MAX_SIZE` / `Result.success().code()` 与常量一致。
-3. **分页与时间格式**：既有 `PagingRulesTest` / `PageResultTest` / `JsonTruncatorTest` 与
-   报表、任务、运行指标、登录设备、通知摘要相关 Service 测试全绿。
-4. **前端样式**：`npx vite build` 成功（验证 `styles/base.css` 路径可解析），
-   人工核对暗色主题变量与全局基础样式仍生效；`npm test` 133 例全绿。
-5. **约定门禁**：`check-conventions.py` EXIT=0（新增 `package-info.java` 不得引入 H1–H5 违规）。
-6. **全量回归**：`mvn -o -f pom.xml clean test` 从根聚合 POM 跑完 18 个 reactor 项。
+> **状态说明（2026-11-10）**：后端测试源码已于 `087acdb` 全量移除，前端 4 个
+> `__tests__/` 目录亦为空，故 `ApiContractConsistencyTest` / `CommonConstantsTest` /
+> `result.test.js` / `PagingRulesTest` 等**当前均不存在**，`npm test` 133 例与
+> 「全量 86 例」同为历史口径，汇报不得再引用旧的「全绿」表述。
+
+### 当前可执行的验证（提交前必过）
+
+1. **统一门禁**：`python3 scripts/check-all.py`（**7 步**：conventions / naming /
+   directory / cluster-layout / permission / api-contract（信息性）/ script-tests），
+   硬性项全部 `EXIT=0`；受限环境加 `--test-tmpdir <dir>`。
+2. **行为回归**：`python3 -m unittest discover -s scripts -p "test_*.py"`，当前
+   **81 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
+   `test_check_permission.py` 12 + `test_check_directory.py` 29 +
+   `test_check_api_contract.py` 25）；`check-all.py` 第 7 步即调用该命令。
+3. **编译**：`mvn -o -f pom.xml clean compile`，15 个 reactor 项 BUILD SUCCESS。
+   测试源码已移除，`mvn test` / `verify` 为空跑，不作为通过标准。
+4. **前端构建**：`npx vite build`（验证 `styles/base.css` 路径可解析）；另有
+   `node scripts/check-sfc.mjs <file.vue>` 与 `node scripts/i18n-leak-scan.mjs src`
+   两个静态检查。`npm test` 当前不可用（`test` 脚本已移除、无用例）。
+5. **契约口径**：`scripts/api-contract.json` 为 `Result<T>` 字段唯一事实来源；
+   `scripts/check-api-contract.py` 做前后端路由静态对称（信息性，`--strict` 才阻断）。
+
+### 历史资产（已移除，勿引用）
+
+原 1–6 项记录的 `ApiContractConsistencyTest` / `CommonConstantsTest` /
+`PagingRulesTest` / `PageResultTest` / `JsonTruncatorTest` / `result.test.js`、
+`npm test` 133 例与 `mvn -o -f pom.xml clean test` 全量回归，均为 2026-11-08 当时的
+测试资产；业务单测覆盖恢复需单独立项。
 
 ## 5. 兼容性风险与未解决项
 
@@ -79,10 +113,15 @@
 后续追加 `scripts/check-directory.py` 把这些约定从「文档要求」升级为可执行守护，并逐步扩展到
 **D1–D11**：新增包根 / 模块、配置散落到非启动模块、根级 CSS 复活、规范文档索引漏挂或死链、
 子模块写死版本、main/test 源码树长出新的一级目录、测试期配置越界都会阻断；脚本只读、
-不参与编译与运行时，行为回归 `scripts/test_check_directory.py` 23 例。
-又补齐两处门禁闭环：修复 `scripts/check-api-contract.py` 在 17 模块拆分后仍指向单体
+不参与编译与运行时。`test_check_directory.py` 早期用例曾随精简移除，2026-11-10 已重建为
+29 例并纳入统一门禁。
+又补齐两处门禁闭环：修复 `scripts/check-api-contract.py` 在 14 模块拆分后仍指向单体
 `ROOT/src/main/java` 的过期目录假设（后端扫描恒为空、197 条前端调用全为假阳性，现按
 `scaffold-*/src/main/java` 自动发现源码根），并新增 `scripts/check-all.py` 统一门禁入口，
-把约定 / 目录 / 契约 / 校验器单测编排成一次可复现运行。三项均有行为回归单测，全量 86 例。
+把约定 / 目录 / 契约 / 校验器单测编排成一次可复现运行（历史「全量 86 例」口径已失效）。
+2026-11-10 起统一门禁为 **7 步**，新增 P1 权限码一致性硬性步骤；现存行为回归
+**81 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 11 +
+`test_check_permission.py` 12 + `test_check_directory.py` 29 +
+`test_check_api_contract.py` 25），由 `unittest discover` 自动发现，新增 `test_*.py` 无需改编排。
 若依的响应体命名、Controller 集中、包根重命名、接口前缀命名等属于**契约级或大规模搬迁**差异，
 在不改变接口行为与避免无关重写的约束下明确保留，并集中于本文件说明，供后续版本按独立变更评估。

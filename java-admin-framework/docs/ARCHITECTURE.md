@@ -83,5 +83,5 @@ admin   ← 全部模块（聚合装配，无可反依赖）
 ### 6.3 对既有架构约束的延续
 - **依赖 DAG 无环（H5）不可破坏**：任一候选模块加入后，须通过 `scripts/check-conventions.py` 校验；特性模块之间不互相直连 Service，协作经 **Port 防腐层** 或上层 `admin` 编排。
 - **`common ↔ mybatis` 环仍在**：新增模块应避免把扩展逻辑塞回 `common`；插件机制以"外部 jar 仅经 Port/事件访问领域"为契约。
-- **双门禁与开发约定不变**：新增模块须 `mvn -o -f pom.xml -pl <module> -am clean test` 全绿 + `check-conventions` exit=0；DDL 引号、i18n 命名空间、权限码自动登记等铁律延续（详见 ROADMAP §5）。
+- **统一门禁与开发约定不变**：新增模块须 `python3 scripts/check-all.py`（7 步，硬性项 EXIT=0）+ `mvn -o -f pom.xml -pl <module> -am clean compile` BUILD SUCCESS；DDL 引号、i18n 命名空间、权限码自动登记等铁律延续（详见 ROADMAP §5）。后端测试源码已移除，`mvn test` 为空跑，不作为通过标准。
 - **当前 §4 依赖 DAG 与 §5 重构说明为权威基线**：候选模块的依赖边不得与现有 12 模块形成环。

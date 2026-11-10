@@ -81,3 +81,63 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
 
 > 参考实现：子域 `com.acme.scaffold.system.notifypref` 已落地
 > `api / application / domain{model,rule}` 标准骨架，可作为新代码的合入模板。
+
+---
+
+## 6. 领域术语、权限码与跨层命名口径（若依对齐结论）
+
+> 本节固化 `若依规范对齐差异清单与重构方案_20261109.md` 的落地结论。
+> N1–N4 只管**大小写风格**；本节管**用词与取值口径**，由
+> `scripts/check-permission.py`（P1）与人工评审共同守护。
+
+### 6.1 同义词收敛表
+
+同一业务概念在本仓历史上有三套词，现统一为**新代码一律用「规范词」**；
+已落库的存量标识（表名、权限码、菜单 code）**保持不变**，避免改授权数据与接口契约。
+
+| 概念 | 规范词（新代码） | 存量标识（保持不动） | 出现位置 |
+|---|---|---|---|
+| 组织 / 部门 | `dept` | `sys_org` 表、`system:org:*` 权限码、`OrgService`、`OrgController` | `system/org/**` |
+| 同上（菜单侧） | — | `menu_code='system:department'`、`route_path='/system/department'`、`DepartmentView.vue` | `V32` L1212、`router/index.js` L62 |
+| 同上（DTO 侧） | `dept` | `deptIds` / `primaryDeptId`（已符合规范词） | `CreateUserRequest` |
+| 同上（任务侧） | `dept` | `DeptImportTask` / `DeptExportTask`（已符合规范词） | `system/importer|export/application` |
+| 公告 / 消息中心 | `announcement` | `menu_code='system:notice'`、`NoticeView.vue`、`/system/notice` | `V32` L1216、前端路由 |
+| 接口资源 | `api` | `menu_code='system:api-resource'`、`/system/api-resource` | `V32` L1214 |
+
+**判据**：新增 Java 类 / 字段 / 方法、新增 DTO 字段、新增菜单 `menu_code` 与权限码时，
+一律使用规范词；**禁止再造第四套同义词**。存量重命名（如 `sys_org` → `sys_dept`）
+属于破坏性变更，须单独立项评估，不在日常收敛范围。
+
+### 6.2 权限码格式（P1）
+
+- 格式：`{模块}:{资源}:{动作}`，全小写，段内允许连字符，至少 3 段（2 个冒号）。
+  形如 `system:form-definition:read`；**两段式 `system:user` 是 `menu_code`，不是权限码**。
+- 动作词沿用本仓 REST 语义：`read` / `create` / `update` / `delete` / `manage` / `write`。
+  若依的 `list` / `query` / `add` / `edit` / `remove` / `export` **不引入**（已声明偏离）。
+- **同源铁律**：`sys_menu.permission_code` 必须能在以下任一处找到同字面的权限码：
+  1. 任意 Controller 的 `@PreAuthorize("hasAuthority('...')")`；
+  2. `sys_api_resource` 种子（历史资源表驱动鉴权，如 `report:usage:read`，见 `V32` L1268–L1270）。
+  否则普通角色按菜单授权后进入页面即 403（SUPER_ADMIN 全量放行会掩盖该问题）。
+- **门禁**：`python3 scripts/check-permission.py`（`check-all.py` 的 `permission` 硬性步骤，
+  行为回归 `scripts/test_check_permission.py` 12 例）。规则只做单向：
+  `菜单权限码 - 豁免 ⊆ 接口权限码`；反向不校验（按钮级增删改本就不挂菜单）。
+- **豁免**：仅 `system:api-docs:read` 一条 —— `V72__api_docs_menu.sql` 明示预留，
+  springdoc `/v3/api-docs` 为纯前端浏览端点、无后端 Controller。
+  新增豁免必须在 `check-permission.py` 的 `DEFAULT_EXEMPT` 中**注明出处与理由**，
+  禁止无理由全盘豁免。
+
+### 6.3 数据库 / URL / 前端命名口径
+
+| 层 | 本仓规范（固化） | 与若依差异 |
+|---|---|---|
+| 表名 | 全小写下划线、单数、**必须有模块前缀**（`sys_` / `wf_`）；新表禁止无前缀 | 若依 `sys_*` / `gen_*` / `qrtz_*` |
+| 主键 / 审计列 | 统一 `id`、`created_by/created_at`、`updated_by/updated_at` | 若依 `user_id`、`create_time`、`update_by` |
+| 逻辑删除 / 状态 / 排序 | `deleted TINYINT`、`status VARCHAR`、`sort_no` | 若依 `del_flag CHAR(1)`、`status CHAR(1)`、`order_num` |
+| 菜单字段 | `menu_code` / `route_path` / `component_path` / `permission_code` / `keep_alive` / `menu_type=CATALOG\|MENU` | 若依 `path` / `component` / `perms` / `is_cache` / `M\|C\|F` |
+| URL | `/api/system/{复数资源}`（kebab 连字符）；新增端点沿用，不改存量 | 若依 `/system/user/list`（无 `/api`、单数、动作式） |
+| 前端 api 文件 | `src/api/*.js`，camelCase（如 `oauth2Token.js`） | 若依 `src/api/system/user.js` |
+| 前端视图 / 路由 name | `views/{Module}XxxView.vue`（PascalCase + `View` 后缀）；`name` 小写 camelCase | 若依 `views/system/user/index.vue` + PascalCase `name` |
+
+> 上述差异均为**已声明偏离**，改造成本高于收益（涉及 `api-contract.json`、
+> 51 张表、69 个前端 api 文件与全量角色授权）。详见 `docs/RUOYI-ALIGNMENT.md` §3。
+

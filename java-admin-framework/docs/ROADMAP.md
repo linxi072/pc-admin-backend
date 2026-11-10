@@ -2,7 +2,7 @@
 
 > **定位**：本文件是 `java-admin-framework`（含前端 `pc-admin-vue3-vite`）的**演进总纲**，描述 V1.0.7 之后的新需求与扩展方向。
 > 现状事实以 `docs/ARCHITECTURE.md` / `MODULES.md` / `KEY-FLOWS.md` / `USAGE.md` 与 `db/migration` 迁移链为准；本文档仅描述**规划中**的内容，不声称任何候选模块已存在。
-> 所有规划项均须沿用既有工程铁律（双门禁、`check-conventions` H1–H5、Port 防腐层、DDL 引号等，见 §5）。
+> 所有规划项均须沿用既有工程铁律（统一门禁 `check-all.py` 7 步 + 编译校验、`check-conventions` H1–H5、Port 防腐层、DDL 引号等，见 §5）。
 
 ---
 
@@ -184,7 +184,7 @@
 
 ## 5. 与现有工程约定的衔接（铁律不变）
 
-1. **双门禁**：任一规划项落地均须 `mvn -o -f pom.xml -pl <module> -am clean test` 全绿 + `scripts/check-conventions.py` exit=0（须 `dangerouslyDisableSandbox` 且 `timeout>=600000`）。
+1. **统一门禁 + 编译校验**：任一规划项落地均须 `python3 scripts/check-all.py`（7 步硬性项 EXIT=0）+ `mvn -o -f pom.xml -pl <module> -am clean compile` BUILD SUCCESS（须 `dangerouslyDisableSandbox` 且 `timeout>=600000`）。后端测试源码已移除，`mvn test` 为空跑，不再作为验收口径。
 2. **依赖无环（H5）**：新增模块须保持 DAG 无环；特性模块不互相直连 Service，协作经 **Port 防腐层** 或上层 `admin` 编排。
 3. **分层（H3）**：`controller → service → domain`；纯函数规则类随数据域走。
 4. **持久层**：统一走 `SqlWriters`，DDL 标识符须显式加引号保留 snake_case 小写；索引用独立 `CREATE INDEX`。

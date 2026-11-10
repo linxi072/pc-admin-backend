@@ -44,7 +44,7 @@
    `<dependencyManagement>`，子模块省略 `<version>`；
 4. 包根 `com.acme.scaffold.xxx`，遵循 `controller → service → domain` 分层（H3 规则）；
 5. 若暴露 HTTP 端点，同步补：前端路由 + i18n 键 + 菜单种子（`db/migration`）+ API 客户端；
-6. 跑双门禁（`mvn -o ... clean test` + `check-conventions.py`）确认无环、无违规，并同步更新本表。
+6. 跑统一门禁（`python3 scripts/check-all.py`，7 步；另加 `mvn -o -f pom.xml clean compile`）确认无环、无违规，并同步更新本表。
 
 ---
 

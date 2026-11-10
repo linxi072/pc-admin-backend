@@ -6,7 +6,8 @@
  * 各模块专属配置前缀——它们已分别由 error.CommonErrorCode、api.PagingRules 与各自的
  * {@code @ConfigurationProperties} 类维护，搬过来只会产生第二个事实来源。</p>
  *
- * <p>新增常量必须同步补 {@code CommonConstantsTest} 的字面值断言，确保后续重构
- * 不会静默改变 HTTP 响应、日期序列化格式或静态资源路径。</p>
+ * <p>新增常量须保证各引用方字面值逐字一致；后端测试源码已移除，当前由
+ * {@code scripts/check-all.py} 的 7 步门禁守护，确保后续重构不会静默改变
+ * HTTP 响应、日期序列化格式或静态资源路径。</p>
  */
 package com.acme.scaffold.common.constant;

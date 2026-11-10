@@ -18,10 +18,11 @@ java-admin-framework/
 │   ├── check-conventions.py    H1–H5 / W1–W4：包级环 / 重复 FQN / 依赖方向 / 数据类 / 模块 DAG
 │   ├── check-directory.py      D1–D11 目录约定守护
 │   ├── check-cluster-layout.py D12：§4 子域簇表 ≡ 磁盘现状（文件数 / 层集合 / DO 落位）
+│   ├── check-permission.py     P1：菜单权限码 ⊆ 接口权限码（注解 / sys_api_resource 种子）
 │   ├── check-api-contract.py   前后端接口契约静态对称（多模块源码根扫描）
 │   ├── check-all.py            统一门禁入口：编排上述各项 + scripts 单测
-│   ├── api-contract.json       统一响应 Result<T> 的唯一事实来源
-│   └── test_*.py               校验器行为回归（check-naming / check-cluster-layout）
+│   ├── api-contract.json       统一响应 Result<T> 字段口径的唯一事实来源
+│   └── test_*.py               校验器行为回归 81 例（naming / cluster-layout / permission / directory / api-contract）
 ├── docs/                       架构与规范文档（本目录，全部须挂 docs/README.md 索引）
 └── scaffold-<name>/            14 个模块，目录结构统一
     ├── pom.xml
@@ -31,8 +32,8 @@ java-admin-framework/
 ```
 
 `scaffold-admin` 是**唯一可部署 / 启动模块**，持有 `FrameworkApplication`、全部
-`application*.yml`、`logback-spring.xml` 与集成/E2E 测试；其它模块不得放启动类或
-运行期配置，也不得反向依赖 admin（W3 守护）。
+`application*.yml` 与 `logback-spring.xml`（测试源码已于 `087acdb` 全量移除，
+当前无集成/E2E 测试）；其它模块不得放启动类或运行期配置，也不得反向依赖 admin（W3 守护）。
 
 ## 2. 模块 ↔ 包根对照
 
@@ -162,10 +163,10 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 ```
 pc-admin-vue3-vite/src/
 ├── main.js / App.vue            应用入口
-├── api/                        约 69 个平铺 JS 文件：API 客户端 + http.js（统一请求封装） + __tests__/
+├── api/                        约 69 个平铺 JS 文件：API 客户端 + http.js（统一请求封装）
 ├── router/  store/  layout/    路由 / 状态 / 外壳
 ├── components/                 跨页面共享组件
-├── composables/  utils/  i18n/ 组合式函数 / 工具 / 国际化（各带 __tests__/）
+├── composables/  utils/  i18n/ 组合式函数 / 工具 / 国际化（__tests__/ 目录当前为空）
 ├── styles/                     base.css（全局基础）+ theme-tokens.css + element-theme.css
 ├── views/                      13 个特性目录（system / workflow / monitor / oauth2 / ...）
 └── micro-apps/                 微前端示例（hello / notes）
@@ -178,8 +179,9 @@ pc-admin-vue3-vite/src/
 
 前端落位约定：HTTP 请求一律放 `src/api`，经 `src/api/http.js` 的 axios 实例统一注入
 鉴权头与拆包（`apiDoc.js` 另有独立实例，仅用于拉取 OpenAPI JSON，不参与业务请求）；
-页面放 `views/<特性>/`；可复用逻辑放 `composables/` 或 `utils/`；纯函数需带
-`src/**/__tests__/*.test.js` 的 `node:test` 用例。
+页面放 `views/<特性>/`；可复用逻辑放 `composables/` 或 `utils/`。
+当前 4 个 `src/**/__tests__/` 目录为空、前端无 `node:test` 用例，`package.json` 已移除
+失效的 `test` 脚本；前端门禁改用 `check-sfc.mjs` / `i18n-leak-scan.mjs` / `vite build`。
 
 > `src/api` 采用平铺而非若依的 `api/system/*.js` 分子目录。分目录需同步改 69 个文件与
 > 全部 import，属大规模搬迁，保留并在差异文档说明。
@@ -202,20 +204,22 @@ pc-admin-vue3-vite/src/
 |---|---|
 | 包级环 / 重复 FQN / 分层 / 数据类 / 模块 DAG（H1–H5 / W1–W4） | `python3 scripts/check-conventions.py`（EXIT=0） |
 | 标识符命名约定 N1–N4 | `python3 scripts/check-naming.py`（EXIT=0），行为回归 `scripts/test_check_naming.py` 4 例 |
-| 目录结构约定 D1–D11 | `python3 scripts/check-directory.py`（EXIT=0） |
+| 目录结构约定 D1–D11 | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 29 例 |
 | 子域簇结构与 §4 表一致 D12 | `python3 scripts/check-cluster-layout.py`（EXIT=0），行为回归 `scripts/test_check_cluster_layout.py` 11 例 |
-| 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断） |
-| 统一响应与错误码 | `scripts/api-contract.json` + 后端 `ApiContractConsistencyTest` + 前端 `result.test.js` |
-| 常量字面值不漂移 | `CommonConstantsTest` |
-| 前端目录与构建可解析 | `env -u NODE_OPTIONS npm test` + `npx vite build` |
-| 全量编译与回归 | `mvn -o -f pom.xml clean test`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`） |
+| 菜单权限码 ↔ 接口权限码一致 P1 | `python3 scripts/check-permission.py`（EXIT=0），行为回归 `scripts/test_check_permission.py` 12 例；规则详见 `docs/NAMING.md` §6 |
+| 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 25 例 |
+| 统一响应与错误码字段口径 | `scripts/api-contract.json`（唯一事实来源）+ `scripts/check-api-contract.py`（路由静态对称）；`ApiContractConsistencyTest` / `result.test.js` / `CommonConstantsTest` 均为已移除的历史测试资产 |
+| 前端目录与构建可解析 | `node scripts/check-sfc.mjs <file.vue>` + `node scripts/i18n-leak-scan.mjs src` + `npx vite build`（`npm test` 当前不可用） |
+| 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（81 例） |
 
 **统一门禁入口**：`python3 scripts/check-all.py` 把 `check-conventions.py`（硬性）、
 `check-naming.py`（硬性）、`check-directory.py`（硬性）、`check-cluster-layout.py`（硬性）、
-`check-api-contract.py`（信息性，不阻断）与 `scripts/test_*.py` 行为回归（硬性）编排成
-一次运行，逐项打印 EXIT 与耗时；硬性项任一失败返回 `EXIT=1`，仅信息性项失败返回
+`check-permission.py`（硬性）、`check-api-contract.py`（信息性，不阻断）与
+`scripts/test_*.py` 行为回归（硬性，当前 **81 例**）编排成一次运行，共 **7 步**，
+逐项打印 EXIT 与耗时；硬性项任一失败返回 `EXIT=1`，仅信息性项失败返回
 `EXIT=0` 但列出风险提示。常用参数：`--only conventions,directory`、`--skip-tests`、
 `--quiet`；受限环境（沙箱阻止 `tempfile` 默认目录探测）加 `--test-tmpdir <dir>`。
+新增 `scripts/test_*.py` 由 `unittest discover` 自动发现，无需改编排。
 各步骤仍可单独执行，本脚本只做编排、不改文件、不参与编译与运行时。
 
 D1–D12 一览（详见 `scripts/check-directory.py` 与 `scripts/check-cluster-layout.py` 文件头 docstring）：
