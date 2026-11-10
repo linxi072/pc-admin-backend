@@ -53,6 +53,10 @@
 #### R2 · 领域事件总线 — P0
 - **动机**：跨域副作用（用户禁用→踢下线→清缓存→发通知）散布在各 Service，靠 Port 直连，难维护难测试。
 - **方案要点**：`common.event` 定义 `DomainEvent` + `EventPublisher`/`EventListener`，默认同步发布、可选经 `scaffold-kafka` 异步桥；`realtime`/`notification` 改为订阅事件而非直连。
+  > 2026-11-10 P2-3 批次 11 起，可选的 `scaffold-kafka` 源码按 `docs/DIRECTORY.md` §4 收敛为
+  > `monitor` / `consumer` / `gateway` / `support` 四簇（包名 `com.acme.scaffold.kafka.monitor.*` /
+  > `.consumer.*` / `.gateway.*` / `.support`）；保序规则、Topic 拓扑与条件装配的
+  > HTTP 契约、DDL、配置前缀均未变化。
 - **候选**：`common.event` 子包（✅ **已落地 V1.0.7**）：`DomainEvent` / `EventPublisher` / `DomainEventListener` / `DefaultEventPublisher`（错误隔离）/ `EventBridge`+`NoOpEventBridge` 已就位；并以「用户禁用 → security 踢下线」完成端到端收敛示范。若需独立运维再升为 `scaffold-event`。
 - **依赖**：Phase 0 先行，供 R1/R5/R6 解耦。
 - **验收**：用户禁用事件被 `online`/`notification` 订阅且零直连；端到端测试覆盖。
