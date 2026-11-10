@@ -78,8 +78,9 @@
         <spring-framework.version>6.1.15</spring-framework.version>
         <jakarta-mail.version>2.1.3</jakarta-mail.version>
         <angus-mail.version>2.0.3</angus-mail.version>
-        <!-- 集成测试默认跳过：本地 mvn test/verify 不触发 *IT；CI 通过 -DskipITs=false + MySQL 服务容器开启。
-             集成测试全部位于 scaffold-admin（需完整 Spring 上下文），其余模块不产生 *IT。 -->
+        <!-- failsafe 开关：CI 通过 -DskipITs=false + MySQL 服务容器开启。
+             当前后端 *Test / *IT 测试源码已于 087acdb 全量移除，test/verify 阶段为空跑，
+             插件配置仅保留骨架，待补回集成测试后无需改流水线。 -->
         <skipITs>true</skipITs>
         <!-- OTel SDK 版本（仅 -Potel 激活时使用；默认离线构建不涉及，故不影响 mvn -o） -->
         <otel.version>1.43.0</otel.version>
@@ -249,7 +250,7 @@
             <!--
               集成测试（*IT）由 failsafe 在 verify 阶段执行。
               默认 skipITs=true，本地 mvn test/verify 不触发；CI 以 -DskipITs=false 配合 MySQL 服务容器开启。
-              *IT 全部位于 scaffold-admin（需完整 Spring 上下文），其余模块无 *IT，插件为空转。
+              当前后端测试源码已全量移除，无任何 *IT，插件为空转；保留骨架待补回集成测试。
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

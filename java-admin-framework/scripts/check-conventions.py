@@ -79,7 +79,7 @@ LAYER_BEARING = {
 # 数据类后缀 -> 允许出现的包段（包路径任意一段命中即合规，如 workflow.dto.design）。
 # 目的：传输对象收敛到 dto/vo 子包、持久化对象收敛到 domain/entity/model 子包，
 # 避免数据类散落在特性包根部。H4 为硬规则：违反即阻断（V1.0.2 起由 W3 警告升级，
-# 历史放置已于拆分迭代中全部归位，见 docs/manual/coding-standard.md §7）。
+# 历史放置已于拆分迭代中全部归位，包层级约定见 docs/DIRECTORY.md §2/§3、命名口径见 docs/NAMING.md）。
 DATA_CLASS_RULES = {
     "DO": {"domain", "entity", "model", "po"},
     "PO": {"domain", "entity", "model", "po"},

@@ -1,21 +1,32 @@
 name: CI
 
-# G4 质量门禁：push / PR 触发；编码约定（convention-check，H1-H4 硬违规即失败并输出失败原因）、
-# 单元（surefire *Test）与集成（failsafe *IT，MySQL 服务容器）全绿方可通过；
-# 任一测试失败即流水线失败并阻断合并。SCA（OWASP dependency-check，经 -Psca 激活 pom 内 sca profile 策略）对 CVSS>=9 高危 CVE 失败阻断；
+# G4 质量门禁：push / PR 触发；convention-check 编排 7 步静态守护
+# （conventions / naming / directory / cluster-layout / permission / api-contract / script-tests），
+# 任一硬违规即 job 失败并输出失败原因、阻断合并；api-contract 为信息性步骤、不阻断。
+# 说明：后端 *Test / *IT 测试源码已于 087acdb 全量移除，Maven test/verify 阶段为空跑；
+#       当前真实门禁为 convention-check 的 Python 校验器 + scripts/test_*.py 行为回归（81 例）
+#       与 build-and-unit-test 的编译校验。业务单测覆盖恢复需单独立项，
+#       汇报不得再引用「全部测试全绿」等历史口径。
+# SCA（OWASP dependency-check，经 -Psca 激活 pom 内 sca profile 策略）对 CVSS>=9 高危 CVE 失败阻断；
 # 低/中危仅入报告。suppression 清单（scripts/dependency-check-suppressions.xml）须逐条注明 CVE 与抑制理由，禁止无理由全盘抑制。
+# 仓库根为 outputs/（含 java-admin-framework/ 与 pc-admin-vue3-vite/ 两个子工程），
+# 故所有 run 步骤统一以 java-admin-framework 为工作目录，否则 scripts/ 与 pom.xml 均不可见。
 on:
   push:
     branches: ["**"]
   pull_request:
-    branches: ["main", "V1.0.4"]
+    # 随当前开发分支更新；V1.0.4 等历史分支已停用，不再作为 PR 目标
+    branches: ["main", "feat/V1.0.8"]
 
 jobs:
   convention-check:
     name: Coding Conventions
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java-admin-framework
     # 零依赖（仅 Python 标准库）：H1 包级循环依赖 / H2 重复 FQN / H3 依赖方向 /
-    # H4 数据类放置，任一硬违规即 job 失败、阻断合并；W* 警告不阻断
+    # H4 数据类放置 / H5 模块级循环依赖，任一硬违规即 job 失败、阻断合并；W* 警告不阻断
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -23,7 +34,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: 校验器行为测试
-        # 门禁自身须可信：check-naming 4 例 + check-cluster-layout 11 例
+        # 门禁自身须可信：unittest discover 自动发现 scripts/test_*.py，当前共 81 例
+        # （naming 4 + cluster-layout 11 + permission 12 + directory 29 + api-contract 25）
         run: python3 -m unittest discover -s scripts -p "test_*.py"
       - name: 编码约定校验
         # 失败时输出 ::error:: 注解，明确失败原因与修复指引
@@ -33,6 +45,22 @@ jobs:
             exit 1
           fi
           echo "::notice::编码约定校验通过（H1-H5 零硬违规，W* 警告不阻断）"
+      - name: 标识符命名校验
+        # N1–N4：类型 / 常量 / 方法 / 字段命名
+        run: |
+          if ! python3 scripts/check-naming.py; then
+            echo "::error::标识符命名校验未通过（N1–N4）。请按上方输出逐项修复。"
+            exit 1
+          fi
+          echo "::notice::标识符命名校验通过（N1–N4 零违规）"
+      - name: 目录约定校验
+        # D1–D11：包根白名单 / 启动类 / 运行期配置 / 全局样式 / 常量与文档 / 版本管理 / 源码树 / 索引 / 测试资源
+        run: |
+          if ! python3 scripts/check-directory.py; then
+            echo "::error::目录约定校验未通过（D1–D11）。请按上方输出逐项修复。"
+            exit 1
+          fi
+          echo "::notice::目录约定校验通过（D1–D11）"
       - name: 子域簇结构校验
         # D12：docs/DIRECTORY.md §4「子域簇一览」表须与 scaffold-system 磁盘现状一致
         run: |
@@ -41,12 +69,27 @@ jobs:
             exit 1
           fi
           echo "::notice::子域簇结构校验通过（§4 簇表 ≡ 磁盘现状）"
+      - name: 菜单权限码一致性校验
+        # P1：sys_menu 种子的 permission_code 须能在 @PreAuthorize 或 sys_api_resource 种子中找到，
+        # 否则普通角色按菜单授权后进入页面即 403（SUPER_ADMIN 全量放行会掩盖该问题）。
+        run: |
+          if ! python3 scripts/check-permission.py; then
+            echo "::error::菜单权限码一致性校验未通过（P1）。sys_menu 的 permission_code 未在接口侧登记：请核对 V32/V82 迁移种子与对应 Controller 的 @PreAuthorize；确属纯前端端点（如 springdoc /v3/api-docs）须在 check-permission.py 的 DEFAULT_EXEMPT 中注明理由后豁免。"
+            exit 1
+          fi
+          echo "::notice::菜单权限码一致性校验通过（菜单权限码 ⊆ 接口权限码）"
+      - name: 前后端契约对称性（信息性）
+        # 与 check-all.py 第 6 步一致：默认信息性、不阻断；--strict 才在 frontend_only 非空时返回 1
+        run: python3 scripts/check-api-contract.py
 
   build-and-unit-test:
     name: Build & Unit Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java-admin-framework
     env:
-      # 与 JDBC serverTimezone=UTC 对齐（千万级测试报告 §8.1），保持 CI 与容器时区口径一致
+      # 与 JDBC serverTimezone=UTC 对齐，供日后补回 *IT 时保持时区口径一致
       TZ: UTC
     steps:
       - uses: actions/checkout@v4
@@ -57,13 +100,19 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Build & run unit tests
-        # surefire 仅执行 *Test；默认 skipITs=true，不会触发集成测试
+        # 当前后端无 *Test 源码，surefire 空跑；本作业实际承担 15 个 reactor 项的编译校验。
+        # 保留 test 阶段骨架，待补回业务单测后无需改流水线。
         run: mvn -B test
 
   integration-test:
     name: Integration Tests (MySQL)
     runs-on: ubuntu-latest
-    # 集成测试需本机/CI MySQL + Flyway 初始化（V1~V18）
+    defaults:
+      run:
+        working-directory: java-admin-framework
+    # 占位作业：当前无 *IT 源码，failsafe 在 verify 阶段空跑；MySQL 服务容器保留为
+    # 日后补回集成测试的骨架。运行时已移除 Flyway，应用启动不执行任何 DDL，
+    # 全新环境由 db/init/ 手工初始化，无需 SPRING_FLYWAY_ENABLED。
     services:
       mysql:
         image: mysql:8.4
@@ -79,13 +128,11 @@ jobs:
           --health-retries=10
     env:
       SPRING_PROFILES_ACTIVE: ci
-      # 关键：surefire/failsafe fork 出的 JVM 读取 TZ，必须与下方 URL 的 serverTimezone=UTC 一致，
-      # 否则 *IT 中真实 MySQL 的 DATETIME 断言会整体 +8h（§8.1）。
+      # 与 JDBC serverTimezone=UTC 对齐，供日后补回 *IT 时保持时区口径一致
       TZ: UTC
       SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/java_admin?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ci_root_pwd
-      SPRING_FLYWAY_ENABLED: "true"
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -95,12 +142,15 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Run integration tests
-        # verify 阶段由 failsafe 执行 *IT（skipITs 关闭）；Flyway 自动建表
+        # verify 阶段由 failsafe 执行 *IT（当前无 *IT，空跑）；数据库初始化见 db/init/
         run: mvn -B verify -DskipITs=false
 
   sca:
     name: Dependency SCA (block on CVSS>=9)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java-admin-framework
     # SCA 门禁：经 -Psca 激活 pom 内 sca profile（failBuildOnCVSS=9 + suppressionFile），
     # 对 CVSS>=9 高危依赖漏洞失败阻断合并；低/中危仅入报告。离线/无 NVD 网络时本作业会因无法拉取
     # NVD 数据而失败——dataDirectory 已锁定至 ~/.m2/repository/org/owasp/dependency-check-data，

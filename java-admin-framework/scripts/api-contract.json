@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "前后端联调统一契约（Single Source of Truth）。后端 ApiContractConsistencyTest 与前端 result.test.js 共同以本文件为唯一断言依据，确保前后端数据格式与业务逻辑一致。覆盖：统一响应体 Result<T> 包络字段、成功码兼容规则、9 个通用错误码（码/HTTP 状态/双语文案）、示例资源 demoItem 的字段约束与分页钳制策略、6+ 异常场景的期望。",
+  "description": "前后端联调统一契约（Single Source of Truth）：统一响应体 Result<T> 包络字段、成功码兼容规则、10 个通用错误码（码/HTTP 状态/双语文案）、示例资源 demoItem 的字段约束与分页钳制策略、9 个异常场景的期望。后端测试源码已于 087acdb 全量移除、前端 __tests__/ 目录为空，故 ApiContractConsistencyTest / result.test.js 均为历史资产；当前可执行的守护为 scripts/check-api-contract.py（前后端路由静态对称，信息性）与 python3 scripts/check-all.py（7 步统一门禁）。本文件仍是字段口径的唯一事实来源，改动须同步前后端实现。",
   "envelope": {
     "type": "object",
     "required": ["code", "message", "data", "traceId", "timestamp"],
@@ -45,7 +45,7 @@
   ],
   "resources": {
     "demoItem": {
-      "description": "示例资源：用于联调测试『数据交互正确性』的最小 CRUD 资源。后端测试以内存 Service 实现，不落库、可离线；前端以其字段形态作为拆包契约校验样本。",
+      "description": "示例资源：用于联调『数据交互正确性』的最小 CRUD 资源，以前端拆包契约的字段形态样本存在。原后端内存 Service 单测已随测试源码移除，当前仅作契约口径说明，不落库、不参与运行时。",
       "createRequest": {
         "required": ["name"],
         "fields": {

@@ -9,7 +9,8 @@ check-api-contract.py — 前后端接口契约对称性静态检查（零依赖
 扫描对象：
   - 后端：``scaffold-*/src/main/java`` 下所有 Controller 的 @RequestMapping/@GetMapping/...
     提取 (HTTP方法, 归一化路径)。
-    V1.0.3 起工程拆分为 17 个 Maven 模块，源码不再位于单体 ``ROOT/src/main/java``；
+    V1.0.3 起工程拆分为 14 个子模块（1 父 POM + 14 子 = 15 个 reactor 项），
+    源码不再位于单体 ``ROOT/src/main/java``；
     旧的单体路径会让后端扫描恒为空、前端调用全部落入 frontend_only（假阳性）。
   - 前端：pc-admin-vue3-vite/src/api/*.js 下 request({method,url}) 与
     axios.get/post/... 调用，提取 (HTTP方法, 归一化路径)。
@@ -40,7 +41,7 @@ VERBS = ("GET", "POST", "PUT", "DELETE", "PATCH")
 def backend_source_roots(root: Path = ROOT):
     """发现多模块工程的全部 Java 源码根（排序保证输出稳定）。
 
-    仅认 ``scaffold-*/src/main/java``：这是根 POM ``<modules>`` 下 17 个模块的
+    仅认 ``scaffold-*/src/main/java``：这是根 POM ``<modules>`` 下 14 个子模块的
     真实源码位置。单体时代的 ``ROOT/src/main/java`` 已不存在，不再作为回退，
     避免「路径写错却静默返回空集合」的假绿。
     """
