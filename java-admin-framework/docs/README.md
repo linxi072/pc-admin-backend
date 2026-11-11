@@ -5,7 +5,7 @@
 ## 核心文档（推荐先读）
 - [架构说明](ARCHITECTURE.md) — 模块化单体总览、分层、关键技术决策、依赖 DAG、本次重构说明
 - [模块职责](MODULES.md) — 14 个模块的单一职责、依赖方向与关键包
-- [目录结构规范](DIRECTORY.md) — 后端 14 模块 / 前端 src 目录树、common 子包职责、system 子域分层骨架、落位决策树、禁止事项与 D1–D11 守护清单
+- [目录结构规范](DIRECTORY.md) — 后端 14 模块 / 前端 src 目录树、common 子包职责、system 子域分层骨架、落位决策树、禁止事项与 D1–D13 守护清单
 - [命名规范](NAMING.md) — 标识符大小写约定（PascalCase 类型 / UPPER_SNAKE 常量 / camelCase 方法·字段），由 `scripts/check-naming.py` 静态守护，并接入 `check-all.py` 的 `naming` 步骤
 - [若依约定对齐说明](RUOYI-ALIGNMENT.md) — 五维差异、已对齐项、保留差异、回归要点与兼容性风险
 - [关键流程](KEY-FLOWS.md) — 认证授权 / OAuth2 / 数据权限 / 工作流 / 多租户 / 幂等 / 可观测性 / 代码生成

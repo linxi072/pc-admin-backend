@@ -4,7 +4,7 @@ name: CI
 # （conventions / naming / directory / cluster-layout / permission / api-contract / script-tests），
 # 任一硬违规即 job 失败并输出失败原因、阻断合并；api-contract 为信息性步骤、不阻断。
 # 说明：后端 *Test / *IT 测试源码已于 087acdb 全量移除，Maven test/verify 阶段为空跑；
-#       当前真实门禁为 convention-check 的 Python 校验器 + scripts/test_*.py 行为回归（92 例）
+#       当前真实门禁为 convention-check 的 Python 校验器 + scripts/test_*.py 行为回归（96 例）
 #       与 build-and-unit-test 的编译校验。业务单测覆盖恢复需单独立项，
 #       汇报不得再引用「全部测试全绿」等历史口径。
 # SCA（OWASP dependency-check，经 -Psca 激活 pom 内 sca profile 策略）对 CVSS>=9 高危 CVE 失败阻断；
@@ -34,8 +34,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: 校验器行为测试
-        # 门禁自身须可信：unittest discover 自动发现 scripts/test_*.py，当前共 92 例
-        # （naming 4 + cluster-layout 14 + permission 12 + directory 29 + api-contract 33）
+        # 门禁自身须可信：unittest discover 自动发现 scripts/test_*.py，当前共 96 例
+        # （naming 4 + cluster-layout 14 + permission 12 + directory 33 + api-contract 33）
         run: python3 -m unittest discover -s scripts -p "test_*.py"
       - name: 编码约定校验
         # 失败时输出 ::error:: 注解，明确失败原因与修复指引
@@ -54,13 +54,13 @@ jobs:
           fi
           echo "::notice::标识符命名校验通过（N1–N4 零违规）"
       - name: 目录约定校验
-        # D1–D11：包根白名单 / 启动类 / 运行期配置 / 全局样式 / 常量与文档 / 版本管理 / 源码树 / 索引 / 测试资源
+        # D1–D13：包根白名单 / 启动类 / 运行期配置 / 全局样式 / 常量与文档 / 版本管理 / 源码树 / 索引 / 测试资源 / 数据访问层单一写法
         run: |
           if ! python3 scripts/check-directory.py; then
-            echo "::error::目录约定校验未通过（D1–D11）。请按上方输出逐项修复。"
+            echo "::error::目录约定校验未通过（D1–D13）。D13=数据访问层单一写法：禁止新增 mapper/ 目录或 *Mapper.xml，且 SqlTables.java 不得缺失；请按上方输出逐项修复。"
             exit 1
           fi
-          echo "::notice::目录约定校验通过（D1–D11）"
+          echo "::notice::目录约定校验通过（D1–D13，含 D13 无 Mapper XML）"
       - name: 子域簇结构校验
         # D12：docs/DIRECTORY.md §4「子域簇一览」表须与 scaffold-system 磁盘现状一致
         run: |
