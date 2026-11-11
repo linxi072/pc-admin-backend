@@ -410,5 +410,46 @@
                 </plugins>
             </build>
         </profile>
+
+        <!--
+          P2-5：Checkstyle 代码规范门禁（默认不激活）。
+          仅 -Pcheckstyle 时挂载 maven-checkstyle-plugin，按仓库根 checkstyle.xml 校验
+          Java 源码；failOnViolation=false + 报告输出，只提示不阻断构建，避免破坏离线
+          mvn -o。规则集仅纳入“客观且当前代码已满足”的项（无 Tab、无尾部空白、
+          static 优先 + 字母序导入、清理冗余/未用导入、行宽 <=160），作为防回归门禁。
+          激活：mvn -Pcheckstyle checkstyle:check
+        -->
+        <profile>
+            <id>checkstyle</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
+                        <version>3.5.0</version>
+                        <configuration>
+                            <configLocation>${user.dir}/checkstyle.xml</configLocation>
+                            <includeTestSourceDirectory>false</includeTestSourceDirectory>
+                            <failsOnError>false</failsOnError>
+                            <failOnViolation>false</failOnViolation>
+                            <violationSeverity>warning</violationSeverity>
+                            <consoleOutput>true</consoleOutput>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>checkstyle-check</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>

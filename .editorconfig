@@ -1,0 +1,24 @@
+# 统一编辑器/IDE 的代码风格基线。
+# 作用：让所有开发者与本仓库交互时自动应用一致的缩进、换行、编码与末尾换行，
+# 防止风格漂移。覆盖全仓库源码（Java 后端 + Vue/JS 前端 + 配置/文档）。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# 后端 / 配置：4 空格缩进（Java 主导缩进已全仓库统一为 4 空格）
+[*.{java,xml,properties,sql}]
+indent_size = 4
+
+# 前端 / JSON / YAML / 样式 / 文档：2 空格缩进（Vue/JS 生态惯例）
+[*.{js,jsx,ts,tsx,vue,json,yml,yaml,css,scss,html}]
+indent_size = 2
+
+# Markdown：保留行尾双空格（用于软换行），关闭末尾空白裁剪
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2

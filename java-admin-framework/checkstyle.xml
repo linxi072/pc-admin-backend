@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  java-admin-framework Checkstyle 规则集（V1.0.9 引入，作为代码规范基线）。
+
+  设计原则：
+  - 只纳入“客观且当前代码已满足”的规则，使门禁默认可绿（防止回归），
+    而非一次性要求整改上千文件的风格。
+  - 通过父 POM 的 -Pcheckstyle 按需激活（与 coverage/otel/sca 同一约定），
+    默认离线 mvn -o 构建不挂载，不破坏既有流水线。
+  - 激活后：mvn -Pcheckstyle checkstyle:check 生成报告（failOnViolation=false，仅提示）。
+
+  规则说明：
+  - FileTabCharacter：禁止 Tab（全仓库已统一为空格缩进）。
+  - 尾部空白：禁止（全仓库已无尾部空白）。
+  - LineLength max=160：仅提示 36 处超长行（多为长注解/SQL 串），供团队复核。
+  - ImportOrder：static 优先 + 字母序，与脚本化归一化结果一致（见提交记录）。
+  - RedundantImport / UnusedImports：清理冗余/未用导入。
+-->
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="warning"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- 文件级：禁止 Tab、禁止尾部空白 -->
+    <module name="FileTabCharacter"/>
+    <module name="RegexpSingleline">
+        <property name="format" value="\s+$"/>
+        <property name="message" value="行尾存在尾部空白，请删除"/>
+    </module>
+
+    <!-- 包声明与导入顺序 -->
+    <module name="TreeWalker">
+        <module name="LineLength">
+            <property name="max" value="160"/>
+            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://"/>
+        </module>
+        <module name="ImportOrder">
+            <property name="option" value="top"/>
+            <property name="sortImportsInGroupAlphabetically" value="true"/>
+            <property name="caseSensitive" value="true"/>
+            <property name="separated" value="false"/>
+        </module>
+        <module name="RedundantImport"/>
+        <module name="UnusedImports"/>
+    </module>
+</module>
