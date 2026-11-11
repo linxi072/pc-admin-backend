@@ -12,7 +12,6 @@
  */
 import { ref, computed } from 'vue'
 import { ping } from '@/api/connectivity'
-import { t, backendLocale } from '@/i18n'
 
 const DRIFT_WARN_SECONDS = 5 // 时钟漂移超过该阈值（秒）视为降级
 const INTERVAL_MS = 30_000 // 周期探测间隔
@@ -62,7 +61,7 @@ async function probe() {
     driftSeconds.value = Math.round(drift * 100) / 100
 
     // 语言协商一致性：后端实际解析到的 locale 应以前端上报的 backendLocale 为前缀
-    const expected = backendLocale()
+    const expected = 'zh_CN'
     localeMismatch.value = !!(data?.receivedLocale && !data.receivedLocale.startsWith(expected))
 
     if (drift >= DRIFT_WARN_SECONDS || localeMismatch.value) {
@@ -103,13 +102,13 @@ async function refresh() {
 const statusText = computed(() => {
   switch (status.value) {
     case 'ok':
-      return t('topbar.connectivity.ok')
+      return '后端连接正常'
     case 'degraded':
-      return t('topbar.connectivity.degraded')
+      return '后端可达（存在时钟漂移或语言协商不一致）'
     case 'offline':
-      return t('topbar.connectivity.offline')
+      return '后端不可达'
     default:
-      return t('topbar.connectivity.init')
+      return '探测中…'
   }
 })
 
@@ -118,21 +117,21 @@ const statusText = computed(() => {
  * el-tooltip 的 #content 插槽天然支持多行 div，无需手动拼接换行。
  */
 const tipLines = computed(() => {
-  const lines = [t('topbar.connectivity.label') + '：' + statusText.value]
+  const lines = ['连接状态' + '：' + statusText.value]
   if (status.value === 'offline') {
-    lines.push(t('topbar.connectivity.error') + (lastError.value || ''))
+    lines.push('探测失败：' + (lastError.value || ''))
   } else {
-    lines.push(t('topbar.connectivity.latency', { ms: latencyMs.value }))
-    lines.push(t('topbar.connectivity.drift', { sec: driftSeconds.value }))
+    lines.push(`往返耗时 ${latencyMs.value} ms`)
+    lines.push(`前后端时钟漂移 ${driftSeconds.value} 秒`)
     if (receivedLocale.value) {
-      lines.push(t('topbar.connectivity.locale', { locale: receivedLocale.value }))
+      lines.push(`语言协商：${receivedLocale.value}`)
     }
     if (framework.value) {
-      lines.push(t('topbar.connectivity.framework', { framework: framework.value }))
+      lines.push(`后端框架：${framework.value}`)
     }
   }
   if (lastProbeAt.value) {
-    lines.push(t('topbar.connectivity.last', { time: formatTime(lastProbeAt.value) }))
+    lines.push(`最近探测：${formatTime(lastProbeAt.value)}`)
   }
   return lines
 })

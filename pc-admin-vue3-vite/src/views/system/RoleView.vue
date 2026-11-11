@@ -1,47 +1,47 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.role') }}</h2>
+    <h2 class="page-title">{{ '角色管理' }}</h2>
     <el-card class="page-card">
       <div class="toolbar">
         <span class="spacer" />
-        <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.role.addTitle') }}</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新增角色' }}</el-button>
       </div>
       <el-table :data="rows" v-loading="loading" border stripe>
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="roleCode" :label="t('system.role.code')" width="140" />
-        <el-table-column prop="roleName" :label="t('system.role.name')" width="140" />
-        <el-table-column :label="t('system.common.type')" width="110">
+        <el-table-column prop="roleCode" :label="'角色编码'" width="140" />
+        <el-table-column prop="roleName" :label="'角色名称'" width="140" />
+        <el-table-column :label="'类型'" width="110">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.roleType === 'SYSTEM' ? t('system.role.sysRole') : t('system.role.bizRole') }}</el-tag>
+            <el-tag size="small">{{ row.roleType === 'SYSTEM' ? '系统角色' : '业务角色' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="90">
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <!-- 状态标签统一走 utils/status 映射 -->
             <el-tag :type="statusTag(row.status).type">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sortNo" :label="t('system.common.sort')" width="80" />
-        <el-table-column :label="t('system.role.permissionOverview')" min-width="200">
+        <el-table-column prop="sortNo" :label="'排序'" width="80" />
+        <el-table-column :label="'权限概览'" min-width="200">
           <template #default="{ row }">
             <span>菜单 {{ row.menuIds?.length || 0 }} · 接口 {{ row.apiIds?.length || 0 }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.role.dataPermission')" width="150">
+        <el-table-column :label="'数据权限'" width="150">
           <template #default="{ row }">
             <el-tag v-if="scopeLabelOf(row.id)" size="small" type="warning">
               {{ scopeLabelOf(row.id) }}
             </el-tag>
-            <el-tag v-else size="small" type="info">{{ t('system.common.notConfiguredAll') }}</el-tag>
+            <el-tag v-else size="small" type="info">{{ '未配置（全部数据）' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="240" fixed="right">
+        <el-table-column :label="'操作'" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-button link type="warning" :icon="Lock" @click="openDataScope(row)">{{ t('system.role.dataPermission') }}</el-button>
-            <el-popconfirm :title="t('system.role.confirmDelete')" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-button link type="warning" :icon="Lock" @click="openDataScope(row)">{{ '数据权限' }}</el-button>
+            <el-popconfirm :title="'确认删除该角色？'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -49,38 +49,38 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? t('system.role.editTitle') : t('system.role.addTitle')" width="640px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑角色' : '新增角色'" width="640px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-        <el-form-item :label="t('system.role.code')" prop="roleCode">
-          <el-input v-model="form.roleCode" :disabled="isEdit" :placeholder="t('system.post.exampleCode')" />
+        <el-form-item :label="'角色编码'" prop="roleCode">
+          <el-input v-model="form.roleCode" :disabled="isEdit" :placeholder="'如 OPERATOR'" />
         </el-form-item>
-        <el-form-item :label="t('system.role.name')" prop="roleName">
+        <el-form-item :label="'角色名称'" prop="roleName">
           <el-input v-model="form.roleName" />
         </el-form-item>
-        <el-form-item :label="t('system.common.type')">
+        <el-form-item :label="'类型'">
           <el-select v-model="form.roleType" style="width: 100%">
-            <el-option :label="t('system.role.bizRole')" value="BUSINESS" />
-            <el-option :label="t('system.role.sysRole')" value="SYSTEM" />
+            <el-option :label="'业务角色'" value="BUSINESS" />
+            <el-option :label="'系统角色'" value="SYSTEM" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('common.status')">
+        <el-form-item :label="'状态'">
           <el-select v-model="form.status" style="width: 100%">
-            <el-option :label="t('common.enabled')" value="ACTIVE" />
-            <el-option :label="t('common.disabled')" value="DISABLED" />
+            <el-option :label="'启用'" value="ACTIVE" />
+            <el-option :label="'禁用'" value="DISABLED" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.common.sort')">
+        <el-form-item :label="'排序'">
           <el-input-number v-model="form.sortNo" :min="0" />
         </el-form-item>
 
         <!-- 权限树：菜单与接口整合为单棵权限树，接口归入所属菜单之下。
              勾选菜单默认勾选其下接口权限；可单独取消某接口；保存时分别回填 menuIds / apiIds。 -->
-        <el-form-item :label="t('system.role.menuApiPermission')">
+        <el-form-item :label="'菜单与接口权限'">
           <div class="perm-toolbar" style="margin-bottom: 8px; display: flex; gap: 4px">
-            <el-button size="small" text type="primary" @click="expandAll">{{ t('system.common.expandAll') }}</el-button>
-            <el-button size="small" text type="primary" @click="collapseAll">{{ t('system.common.collapseAll') }}</el-button>
-            <el-button size="small" text type="primary" @click="checkAll">{{ t('system.common.selectAll') }}</el-button>
-            <el-button size="small" text @click="clearAll">{{ t('system.common.clear') }}</el-button>
+            <el-button size="small" text type="primary" @click="expandAll">{{ '展开全部' }}</el-button>
+            <el-button size="small" text type="primary" @click="collapseAll">{{ '折叠全部' }}</el-button>
+            <el-button size="small" text type="primary" @click="checkAll">{{ '全选' }}</el-button>
+            <el-button size="small" text @click="clearAll">{{ '清空' }}</el-button>
           </div>
           <div class="tree-panel">
             <el-tree
@@ -101,31 +101,31 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 数据权限：按资源配置可见范围。当前「用户数据」「部门数据」已接入过滤，其余资源预留。 -->
-    <el-dialog v-model="scopeVisible" :title="t('system.role.dataPermission')" width="560px">
+    <el-dialog v-model="scopeVisible" :title="'数据权限'" width="560px">
       <el-alert
         type="info"
         :closable="false"
         show-icon
-        :title="t('system.role.dataPermissionDesc')"
-        :description="t('system.config.notConfiguredHint')"
+        :title="'数据权限决定该角色能看到哪些数据，与菜单/接口权限相互独立。'"
+        :description="'未配置的资源默认不限制（全部数据）。修改后立即生效，无需重新登录。'"
         style="margin-bottom: 16px"
       />
       <el-form label-width="110px">
-        <el-form-item :label="t('system.role.label')">
+        <el-form-item :label="'角色'">
           <span>{{ scopeForm.roleName }}</span>
         </el-form-item>
-        <el-form-item :label="t('system.common.resource')">
+        <el-form-item :label="'资源'">
           <el-select v-model="scopeForm.resourceCode" style="width: 100%" @change="onResourceChange">
             <el-option v-for="r in SUPPORTED_RESOURCES" :key="r.code" :label="r.label" :value="r.code" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.role.dataScope')">
+        <el-form-item :label="'数据范围'">
           <el-radio-group v-model="scopeForm.scopeType">
             <el-radio v-for="opt in SCOPE_OPTIONS" :key="opt.value" :value="opt.value">
               {{ opt.label }}
@@ -133,7 +133,7 @@
           </el-radio-group>
           <div class="scope-hint">{{ scopeHint }}</div>
         </el-form-item>
-        <el-form-item v-if="scopeForm.scopeType === 'CUSTOM'" :label="t('system.department.visible')">
+        <el-form-item v-if="scopeForm.scopeType === 'CUSTOM'" :label="'可见部门'">
           <el-tree
             ref="orgTreeRef"
             :data="orgTreeData"
@@ -142,19 +142,19 @@
             show-checkbox
             class="scope-tree"
           />
-          <div v-if="!orgTreeData.length" class="scope-hint">{{ t('system.department.notMaintained') }}</div>
+          <div v-if="!orgTreeData.length" class="scope-hint">{{ '尚未维护部门，无法配置自定义范围。' }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="scopeVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="scopeSaving" @click="onSaveScope">{{ t('common.save') }}</el-button>
+        <el-button @click="scopeVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="scopeSaving" @click="onSaveScope">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Edit, Delete, Lock } from '@element-plus/icons-vue'
@@ -168,17 +168,17 @@ import { validateOrWarn } from '@/utils/validate'
 
 // 数据范围选项，与后端 DataScopeType 一一对应；label 供页面展示，value 直接作为接口入参
 const SCOPE_OPTIONS = [
-  { value: 'ALL', label: t('system.datascope.all'), desc: t('system.datascope.allDesc') },
-  { value: 'DEPT_AND_CHILD', label: t('system.datascope.deptAndSub'), desc: t('system.datascope.userDept') },
-  { value: 'DEPT', label: t('system.department.selfOnly'), desc: t('system.datascope.deptSelfNoSub') },
-  { value: 'SELF', label: t('system.datascope.self'), desc: t('system.datascope.userSelf') },
-  { value: 'CUSTOM', label: t('system.department.custom'), desc: t('system.datascope.deptCustom') }
+  { value: 'ALL', label: '全部数据', desc: '不限制，能看到该资源的全部数据。' },
+  { value: 'DEPT_AND_CHILD', label: '本部门及下级', desc: '用户所在部门，以及该部门所有下级部门的数据。' },
+  { value: 'DEPT', label: '仅本部门', desc: '仅用户所在部门的数据，不含下级部门。' },
+  { value: 'SELF', label: '仅本人', desc: '仅能看自己的数据，与部门无关。' },
+  { value: 'CUSTOM', label: '自定义部门', desc: '仅能看下方勾选部门的数据。' }
 ]
 
 // 当前接入数据权限过滤的资源。前端不提供自由输入，避免配出后端未接线的资源编码导致「配了却不生效」。
 const SUPPORTED_RESOURCES = [
-  { code: 'system:user', label: t('system.user.data') },
-  { code: 'system:org', label: t('system.department.data') }
+  { code: 'system:user', label: '用户数据' },
+  { code: 'system:org', label: '部门数据' }
 ]
 
 const loading = ref(false)
@@ -221,8 +221,8 @@ function scopeLabelOf(roleId) {
 }
 
 const rules = {
-  roleCode: [{ required: true, message: t('system.role.pleaseEnterCode'), trigger: 'blur' }],
-  roleName: [{ required: true, message: t('system.role.pleaseEnterName'), trigger: 'blur' }]
+  roleCode: [{ required: true, message: '请输入角色编码', trigger: 'blur' }],
+  roleName: [{ required: true, message: '请输入角色名称', trigger: 'blur' }]
 }
 
 // ---- 菜单与接口权限整合为单棵权限树 ----
@@ -280,7 +280,7 @@ function buildPermissionTree(menus, apis) {
   // 未能归属到任何菜单的接口，归入「其他接口权限」分组，保证仍可勾选
   const orphans = (apis || []).filter((a) => !usedApiIds.has(a.id))
   if (orphans.length) {
-    tree.push({ id: 'M:orphan', menuId: null, label: t('system.role.otherApiPermission'), children: makeApiNodes(orphans) })
+    tree.push({ id: 'M:orphan', menuId: null, label: '其他接口权限', children: makeApiNodes(orphans) })
   }
   return tree
 }
@@ -465,7 +465,7 @@ async function onSaveScope() {
     // 取勾选的叶子节点即可，避免把父节点也写进规则
     const checked = orgTreeRef.value?.getCheckedKeys(true) || []
     if (!checked.length) {
-      ElMessage.warning(t('system.department.pleaseCheck'))
+      ElMessage.warning('请至少勾选一个部门')
       return
     }
     scopeForm.orgIds = checked
@@ -479,7 +479,7 @@ async function onSaveScope() {
       scopeType: scopeForm.scopeType,
       orgIds: scopeForm.orgIds
     })
-    ElMessage.success(t('system.role.dataPermissionSaved'))
+    ElMessage.success('数据权限已保存')
     scopeVisible.value = false
     // 保存后按加载同口径刷新该角色概览标签：早期直接回写 scopeForm.scopeType（枚举值），
     // 列表会把 "CUSTOM"/"ALL" 原文当文案渲染，且单资源保存会覆盖掉多资源 joined 标签
@@ -528,7 +528,7 @@ async function openEdit(row) {
   try {
     detail = await getRole(row.id)
   } catch (e) {
-    ElMessage.error(t('system.loadFailedX'))
+    ElMessage.error('加载失败')
     return
   }
   Object.assign(form, {
@@ -566,10 +566,10 @@ async function onSubmit() {
     }
     if (isEdit.value) {
       await updateRole(form.id, payload)
-      ElMessage.success(t('system.common.updateSuccess'))
+      ElMessage.success('更新成功')
     } else {
       await createRole(payload)
-      ElMessage.success(t('system.common.createSuccess'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     load()
@@ -581,7 +581,7 @@ async function onSubmit() {
 async function onDelete(row) {
   try {
     await deleteRole(row.id)
-    ElMessage.success(t('system.department.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     /* 拦截器已提示 */

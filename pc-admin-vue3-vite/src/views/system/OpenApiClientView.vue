@@ -1,74 +1,74 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.openApiClient') }}</h2>
+    <h2 class="page-title">{{ '开放平台客户端' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('oauth2Token.clientId') }}</span>
+            <span class="filter-label">{{ '客户端ID' }}</span>
             <el-input
               v-model="query.clientId"
-              :placeholder="t('system.fuzzyMatch')"
+              :placeholder="'模糊匹配'"
               clearable
               style="width: 200px"
               @keyup.enter="onSearch"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.status') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.all')" clearable style="width: 120px">
-              <el-option :label="t('common.enabled')" value="ENABLED" />
-              <el-option :label="t('system.disable')" value="DISABLED" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="query.status" :placeholder="'全部'" clearable style="width: 120px">
+              <el-option :label="'启用'" value="ENABLED" />
+              <el-option :label="'停用'" value="DISABLED" />
             </el-select>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
-            <el-button type="success" :icon="Plus" @click="openCreate">{{ t('system.registerClient') }}</el-button>
-            <el-button :icon="Key" @click="openTokenTest()">{{ t('system.testTokenIssue') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button type="success" :icon="Plus" @click="openCreate">{{ '注册客户端' }}</el-button>
+            <el-button :icon="Key" @click="openTokenTest()">{{ '测试令牌签发' }}</el-button>
           </div>
         </div>
       </div>
 
       <!-- 客户端列表 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="clientId" :label="t('oauth2Token.clientId')" width="200" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="clientName" :label="t('common.name')" width="180" show-overflow-tooltip />
-        <el-table-column prop="scopes" :label="t('oauth2Token.scopes')" min-width="160" show-overflow-tooltip>
+        <el-table-column prop="clientId" :label="'客户端ID'" width="200" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="clientName" :label="'名称'" width="180" show-overflow-tooltip />
+        <el-table-column prop="scopes" :label="'授权范围'" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag v-for="s in splitScopes(row.scopes)" :key="s" size="small" style="margin-right: 4px">{{ s }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="90">
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">
-              {{ row.status === 'ENABLED' ? t('common.enabled') : t('system.disable') }}
+              {{ row.status === 'ENABLED' ? '启用' : '停用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.secretRotatedAt')" width="170">
+        <el-table-column :label="'密钥轮换时间'" width="170">
           <template #default="{ row }">
             <span v-if="row.secretRotatedAt">{{ formatTime(row.secretRotatedAt) }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('monitor.expireTime')" width="170">
+        <el-table-column :label="'过期时间'" width="170">
           <template #default="{ row }">
             <span v-if="row.expiredAt" :class="{ expired: isExpired(row.expiredAt) }">{{ formatTime(row.expiredAt) }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="230" fixed="right">
+        <el-table-column :label="'操作'" width="230" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Refresh" @click="onRotate(row)">{{ t('system.rotateSecret') }}</el-button>
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-popconfirm :title="t('system.deleteThisClient')" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Refresh" @click="onRotate(row)">{{ '轮换密钥' }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-popconfirm :title="'确认删除该客户端？'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -87,76 +87,76 @@
         />
       </div>
       <div class="hint">
-        客户端密钥仅以哈希落库，<b>{{ t('system.plaintextShownOnlyOnceOnRegisterRotateSuccess') }}</b>，请立即保存；丢失只能轮换（旧密钥立即失效）。
+        客户端密钥仅以哈希落库，<b>{{ '明文仅在注册/轮换成功时展示一次' }}</b>，请立即保存；丢失只能轮换（旧密钥立即失效）。
         协议级令牌签发已由独立端点 <code>POST /oauth2/token</code>（client_credentials + RS256）提供，可点「测试令牌签发」自测。
       </div>
     </el-card>
 
     <!-- 注册弹窗 -->
-    <el-dialog v-model="createVisible" :title="t('system.registerClient')" width="560px" @closed="resetCreateForm">
+    <el-dialog v-model="createVisible" :title="'注册客户端'" width="560px" @closed="resetCreateForm">
       <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-width="92px">
-        <el-form-item :label="t('oauth2Token.clientId')" prop="clientId">
-          <el-input v-model="createForm.clientId" :placeholder="t('system.lettersDigitsFirst864CharsAllowHyphenUnderscore')" />
+        <el-form-item :label="'客户端ID'" prop="clientId">
+          <el-input v-model="createForm.clientId" :placeholder="'字母/数字开头，8~64 位，可含中划线/下划线'" />
         </el-form-item>
-        <el-form-item :label="t('system.clientName')" prop="clientName">
-          <el-input v-model="createForm.clientName" :placeholder="t('system.eGPartnerOrderSystem')" />
+        <el-form-item :label="'客户端名称'" prop="clientName">
+          <el-input v-model="createForm.clientName" :placeholder="'如 合作伙伴订单系统'" />
         </el-form-item>
-        <el-form-item :label="t('oauth2Token.scopes')" prop="scopes">
-          <el-input v-model="createForm.scopes" :placeholder="t('system.commaSeparatedEGReadWriteBlankDefaultsToRead')" />
+        <el-form-item :label="'授权范围'" prop="scopes">
+          <el-input v-model="createForm.scopes" :placeholder="'逗号分隔，如 read,write；留空默认 read'" />
         </el-form-item>
-        <el-form-item :label="t('monitor.expireTime')">
+        <el-form-item :label="'过期时间'">
           <el-date-picker
             v-model="createForm.expiredAt"
             type="datetime"
-            :placeholder="t('system.blankForPermanent')"
+            :placeholder="'留空为长期有效'"
             value-format="YYYY-MM-DDTHH:mm:ss"
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item :label="t('job.remark')">
+        <el-form-item :label="'备注'">
           <el-input v-model="createForm.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="createVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="creating" @click="onCreate">{{ t('system.register') }}</el-button>
+        <el-button @click="createVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="creating" @click="onCreate">{{ '注册' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="editVisible" :title="t('system.editClient')" width="560px" @closed="resetEditForm">
+    <el-dialog v-model="editVisible" :title="'编辑客户端'" width="560px" @closed="resetEditForm">
       <el-form :model="editForm" :rules="editRules" ref="editFormRef" label-width="92px">
-        <el-form-item :label="t('oauth2Token.clientId')">
+        <el-form-item :label="'客户端ID'">
           <el-input :model-value="editingClientId" disabled />
         </el-form-item>
-        <el-form-item :label="t('system.clientName')" prop="clientName">
+        <el-form-item :label="'客户端名称'" prop="clientName">
           <el-input v-model="editForm.clientName" />
         </el-form-item>
-        <el-form-item :label="t('oauth2Token.scopes')" prop="scopes">
-          <el-input v-model="editForm.scopes" :placeholder="t('common.commaSeparated')" />
+        <el-form-item :label="'授权范围'" prop="scopes">
+          <el-input v-model="editForm.scopes" :placeholder="'逗号分隔'" />
         </el-form-item>
-        <el-form-item :label="t('common.status')" prop="status">
+        <el-form-item :label="'状态'" prop="status">
           <el-select v-model="editForm.status" style="width: 100%">
-            <el-option :label="t('common.enabled')" value="ENABLED" />
-            <el-option :label="t('system.disable')" value="DISABLED" />
+            <el-option :label="'启用'" value="ENABLED" />
+            <el-option :label="'停用'" value="DISABLED" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('monitor.expireTime')">
+        <el-form-item :label="'过期时间'">
           <el-date-picker
             v-model="editForm.expiredAt"
             type="datetime"
-            :placeholder="t('system.blankForPermanent')"
+            :placeholder="'留空为长期有效'"
             value-format="YYYY-MM-DDTHH:mm:ss"
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item :label="t('job.remark')">
+        <el-form-item :label="'备注'">
           <el-input v-model="editForm.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSave">{{ t('common.save') }}</el-button>
+        <el-button @click="editVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSave">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
 
@@ -166,28 +166,28 @@
         type="warning"
         :closable="false"
         show-icon
-        :title="t('system.thePlaintextSecretIsShownOnlyThisOnceAfterClosingItCannotBeViewedAgainCopyAndStoreItSafelyNow')"
+        :title="'明文密钥仅此一次展示，关闭后无法再次查看；请立即复制并妥善保存。'"
       />
       <div class="secret-box">
         <span class="secret-text">{{ secretValue }}</span>
-        <el-button :icon="CopyDocument" @click="onCopySecret">{{ t('system.copy') }}</el-button>
+        <el-button :icon="CopyDocument" @click="onCopySecret">{{ '复制' }}</el-button>
       </div>
       <template #footer>
-        <el-button type="primary" @click="secretVisible = false">{{ t('system.savedByMe') }}</el-button>
+        <el-button type="primary" @click="secretVisible = false">{{ '我已保存' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 令牌签发自测弹窗（协议级 OAuth2 client_credentials 验证） -->
-    <el-dialog v-model="tokenTestVisible" :title="t('system.tokenSelfTestClientCredentials')" width="600px" @closed="resetTokenTest">
+    <el-dialog v-model="tokenTestVisible" :title="'令牌签发自测 (client_credentials)'" width="600px" @closed="resetTokenTest">
       <el-form :model="tokenForm" label-width="92px">
-        <el-form-item :label="t('oauth2Token.clientId')">
-          <el-input v-model="tokenForm.clientId" :placeholder="t('system.mustMatchAClientIdInTheList')" />
+        <el-form-item :label="'客户端ID'">
+          <el-input v-model="tokenForm.clientId" :placeholder="'与列表中的客户端ID一致'" />
         </el-form-item>
-        <el-form-item :label="t('system.clientSecret')">
-          <el-input v-model="tokenForm.clientSecret" type="password" show-password :placeholder="t('system.plaintextSecretShownOnRegisterRotate')" />
+        <el-form-item :label="'客户端密钥'">
+          <el-input v-model="tokenForm.clientSecret" type="password" show-password :placeholder="'注册/轮换时展示的明文密钥'" />
         </el-form-item>
       </el-form>
-      <el-alert v-if="tokenResult" type="success" :closable="false" show-icon :title="t('system.tokenIssued')">
+      <el-alert v-if="tokenResult" type="success" :closable="false" show-icon :title="'令牌签发成功'">
         <div class="token-result">
           <div class="token-row">
             <span class="token-label">access_token</span>
@@ -203,20 +203,20 @@
           </div>
           <div class="token-row">
             <span class="token-label">scope</span>
-            <span class="token-text">{{ tokenResult.scope || t('system.default') }}</span>
+            <span class="token-text">{{ tokenResult.scope || '（默认）' }}</span>
           </div>
         </div>
       </el-alert>
       <template #footer>
-        <el-button @click="tokenTestVisible = false">{{ t('common.close') }}</el-button>
-        <el-button type="primary" :loading="tokenTesting" @click="onIssueToken">{{ t('system.issueToken') }}</el-button>
+        <el-button @click="tokenTestVisible = false">{{ '关闭' }}</el-button>
+        <el-button type="primary" :loading="tokenTesting" @click="onIssueToken">{{ '签发令牌' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Edit, Search, RefreshLeft, Refresh, CopyDocument, Key } from '@element-plus/icons-vue'
@@ -310,19 +310,19 @@ const createFormRef = ref()
 const createForm = reactive({ clientId: '', clientName: '', scopes: '', expiredAt: '', remark: '' })
 const createRules = {
   clientId: [
-    { required: true, message: t('system.enterClientId'), trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9][a-zA-Z0-9_-]{7,63}$/, message: t('system.lettersDigitsFirst864CharsAllowHyphenUnderscore'), trigger: 'blur' }
+    { required: true, message: '请输入客户端ID', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9][a-zA-Z0-9_-]{7,63}$/, message: '字母/数字开头，8~64 位，可含中划线/下划线', trigger: 'blur' }
   ],
-  clientName: [{ required: true, message: t('system.enterClientName'), trigger: 'blur' }],
+  clientName: [{ required: true, message: '请输入客户端名称', trigger: 'blur' }],
   scopes: [
     {
       validator: (rule, value, callback) => {
         const scopes = splitScopes(value)
         if (scopes.length === 0) return callback() // 留空走默认 read
-        if (scopes.length > 10) return callback(new Error(t('system.noMoreThan10AuthorizedScopes')))
+        if (scopes.length > 10) return callback(new Error('授权 scope 不超过 10 个'))
         for (const s of scopes) {
           if (!/^[a-z][a-z0-9:_-]{0,31}$/.test(s)) {
-            return callback(new Error(t('system.scopeInvalid', { s })))
+            return callback(new Error(`scope 非法：${s}（小写字母开头）`))
           }
         }
         callback()
@@ -353,7 +353,7 @@ async function onCreate() {
       remark: createForm.remark || undefined
     })
     createVisible.value = false
-    showSecret(t('system.registered'), res)
+    showSecret('注册成功', res)
     load()
   } finally {
     creating.value = false
@@ -368,9 +368,9 @@ const editingClientId = ref('')
 const editFormRef = ref()
 const editForm = reactive({ clientName: '', scopes: '', status: 'ENABLED', expiredAt: '', remark: '' })
 const editRules = {
-  clientName: [{ required: true, message: t('system.enterClientName'), trigger: 'blur' }],
+  clientName: [{ required: true, message: '请输入客户端名称', trigger: 'blur' }],
   scopes: [createRules.scopes[0]],
-  status: [{ required: true, message: t('system.selectStatus'), trigger: 'change' }]
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
 function openEdit(row) {
@@ -403,7 +403,7 @@ async function onSave() {
       expiredAt: editForm.expiredAt || undefined,
       remark: editForm.remark || undefined
     })
-    ElMessage.success(t('system.updated'))
+    ElMessage.success('更新成功')
     editVisible.value = false
     load()
   } finally {
@@ -415,7 +415,7 @@ async function onSave() {
 async function onDelete(row) {
   try {
     await deleteOpenApiClient(row.id)
-    ElMessage.success(t('common.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -425,7 +425,7 @@ async function onDelete(row) {
 async function onRotate(row) {
   try {
     const res = await rotateOpenApiClientSecret(row.id)
-    showSecret(t('system.secretRotated'), res)
+    showSecret('密钥已轮换', res)
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -450,9 +450,9 @@ function closeSecret() {
 async function onCopySecret() {
   try {
     await navigator.clipboard.writeText(secretValue.value)
-    ElMessage.success(t('system.copiedToClipboard'))
+    ElMessage.success('已复制到剪贴板')
   } catch (e) {
-    ElMessage.warning(t('system.copyFailedPleaseSelectAndCopyManually'))
+    ElMessage.warning('复制失败，请手动选择复制')
   }
 }
 
@@ -477,7 +477,7 @@ function resetTokenTest() {
 
 async function onIssueToken() {
   if (!tokenForm.clientId || !tokenForm.clientSecret) {
-    ElMessage.warning(t('system.fillClientIdAndSecret'))
+    ElMessage.warning('请填写客户端ID与密钥')
     return
   }
   tokenTesting.value = true
@@ -486,7 +486,7 @@ async function onIssueToken() {
     // issueClientToken 经 requestRaw 返回原始 OAuth2 响应包络 { access_token, token_type, expires_in, scope }
     const resp = await issueClientToken(tokenForm.clientId, tokenForm.clientSecret)
     tokenResult.value = resp.data
-    ElMessage.success(t('system.tokenIssued'))
+    ElMessage.success('令牌签发成功')
   } catch (e) {
     /* handleHttpError 已统一提示（如「客户端认证失败」） */
   } finally {

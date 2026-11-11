@@ -1,14 +1,14 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.tenant') }}</h2>
+    <h2 class="page-title">{{ '租户管理' }}</h2>
     <el-card class="page-card">
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.tenantCode') }}</span>
+            <span class="filter-label">{{ '租户编码' }}</span>
             <el-input
               v-model="query.tenantCode"
-              :placeholder="t('system.searchTenantCode')"
+              :placeholder="'搜索租户编码'"
               clearable
               :prefix-icon="Search"
               style="width: 220px"
@@ -16,57 +16,57 @@
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.status') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.status')" clearable style="width: 140px">
-              <el-option :label="t('common.enabled')" value="ENABLED" />
-              <el-option :label="t('common.disabled')" value="DISABLED" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="query.status" :placeholder="'状态'" clearable style="width: 140px">
+              <el-option :label="'启用'" value="ENABLED" />
+              <el-option :label="'禁用'" value="DISABLED" />
             </el-select>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.newTenant') }}</el-button>
-            <el-button :icon="DataAnalysis" @click="openOverview">{{ t('system.operationsOverview') }}</el-button>
-            <el-button :icon="Operation" @click="governanceVisible = true">{{ t('system.tenantGovernance') }}</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新增租户' }}</el-button>
+            <el-button :icon="DataAnalysis" @click="openOverview">{{ '运营总览' }}</el-button>
+            <el-button :icon="Operation" @click="governanceVisible = true">{{ '租户治理' }}</el-button>
           </div>
         </div>
       </div>
 
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="tenantCode" :label="t('system.tenantCode')" width="180" sortable="custom" />
-        <el-table-column prop="tenantName" :label="t('system.tenantName')" min-width="160" />
-        <el-table-column prop="contactName" :label="t('system.contact')" width="120" />
-        <el-table-column prop="contactPhone" :label="t('system.contactPhone')" width="150" />
-        <el-table-column prop="contactEmail" :label="t('system.contactEmail')" min-width="180" show-overflow-tooltip />
-        <el-table-column :label="t('common.status')" width="90">
+        <el-table-column prop="tenantCode" :label="'租户编码'" width="180" sortable="custom" />
+        <el-table-column prop="tenantName" :label="'租户名称'" min-width="160" />
+        <el-table-column prop="contactName" :label="'联系人'" width="120" />
+        <el-table-column prop="contactPhone" :label="'联系电话'" width="150" />
+        <el-table-column prop="contactEmail" :label="'联系邮箱'" min-width="180" show-overflow-tooltip />
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('monitor.expireTime')" width="160">
+        <el-table-column :label="'过期时间'" width="160">
           <template #default="{ row }">
             <span>{{ fmtDateTime(row.expireAt) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="remark" :label="t('job.remark')" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="createdAt" :label="t('system.createdAt')" width="170" sortable="custom" />
-        <el-table-column :label="t('common.operation')" width="270" fixed="right">
+        <el-table-column prop="remark" :label="'备注'" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="createdAt" :label="'创建时间'" width="170" sortable="custom" />
+        <el-table-column :label="'操作'" width="270" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
             <el-button
               link
               type="success"
               :icon="UserFilled"
               @click="openProvision(row)"
-            >{{ t('system.provision') }}</el-button>
+            >{{ '开通' }}</el-button>
             <el-button
               link
               :type="row.status === 'ENABLED' ? 'warning' : 'success'"
               @click="onToggle(row)"
-            >{{ row.status === 'ENABLED' ? t('common.disabled') : t('common.enabled') }}</el-button>
-            <el-popconfirm :title="t('system.deleteThisTenant')" width="220" @confirm="onDelete(row)">
+            >{{ row.status === 'ENABLED' ? '禁用' : '启用' }}</el-button>
+            <el-popconfirm :title="'确认删除该租户？'" width="220" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -87,94 +87,94 @@
     </el-card>
 
     <!-- 新增 / 编辑租户 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? t('system.editTenant') : t('system.newTenant')" width="560px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑租户' : '新增租户'" width="560px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="92px">
-        <el-form-item :label="t('system.tenantCode')" prop="tenantCode">
+        <el-form-item :label="'租户编码'" prop="tenantCode">
           <el-input
             v-model="form.tenantCode"
             :disabled="isEdit"
-            :placeholder="t('system.eGTAcmeLettersDigitsUnderscoreHyphenImmutableAfterCreation')"
+            :placeholder="'如 T-ACME（字母/数字/下划线/连字符，创建后不可变更）'"
           />
         </el-form-item>
-        <el-form-item :label="t('system.tenantName')" prop="tenantName">
-          <el-input v-model="form.tenantName" :placeholder="t('system.eGSomeTechnologyCoLtd')" />
+        <el-form-item :label="'租户名称'" prop="tenantName">
+          <el-input v-model="form.tenantName" :placeholder="'如 某某科技有限公司'" />
         </el-form-item>
-        <el-form-item :label="t('system.contact')">
-          <el-input v-model="form.contactName" :placeholder="t('system.optional')" />
+        <el-form-item :label="'联系人'">
+          <el-input v-model="form.contactName" :placeholder="'选填'" />
         </el-form-item>
-        <el-form-item :label="t('system.contactPhone')">
-          <el-input v-model="form.contactPhone" :placeholder="t('system.optional')" />
+        <el-form-item :label="'联系电话'">
+          <el-input v-model="form.contactPhone" :placeholder="'选填'" />
         </el-form-item>
-        <el-form-item :label="t('system.contactEmail')">
-          <el-input v-model="form.contactEmail" :placeholder="t('system.optional')" />
+        <el-form-item :label="'联系邮箱'">
+          <el-input v-model="form.contactEmail" :placeholder="'选填'" />
         </el-form-item>
-        <el-form-item :label="t('common.status')">
+        <el-form-item :label="'状态'">
           <el-select v-model="form.status" style="width: 100%">
-            <el-option :label="t('common.enabled')" value="ENABLED" />
-            <el-option :label="t('common.disabled')" value="DISABLED" />
+            <el-option :label="'启用'" value="ENABLED" />
+            <el-option :label="'禁用'" value="DISABLED" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('monitor.expireTime')">
+        <el-form-item :label="'过期时间'">
           <el-date-picker
             v-model="form.expireAt"
             type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
-            :placeholder="t('system.optionalBlankMeansPermanent')"
+            :placeholder="'选填，留空表示长期有效'"
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item :label="t('job.remark')">
-          <el-input v-model="form.remark" type="textarea" :rows="2" :placeholder="t('system.optional')" />
+        <el-form-item :label="'备注'">
+          <el-input v-model="form.remark" type="textarea" :rows="2" :placeholder="'选填'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 开通租户（初始化管理员 / 角色 / 部门） -->
-    <el-dialog v-model="provisionVisible" :title="t('system.provisionTenant')" width="560px">
+    <el-dialog v-model="provisionVisible" :title="'开通租户'" width="560px">
       <el-alert
         type="info"
         :closable="false"
         show-icon
-        :title="t('system.willInitializeForThisTenantDefaultDepartmentTenantAdminRoleFullMenusApisFirstAdminUser')"
+        :title="'将为该租户初始化：默认部门 + 租户管理员角色（绑定全量菜单与接口）+ 首位管理员用户。'"
         style="margin-bottom: 16px"
       />
       <el-form :model="provisionForm" :rules="provisionRules" ref="provisionRef" label-width="96px">
-        <el-form-item :label="t('system.targetTenant')">
+        <el-form-item :label="'目标租户'">
           <el-input :model-value="provisionTenantName" disabled />
         </el-form-item>
-        <el-form-item :label="t('system.adminAccount')" prop="adminUsername">
-          <el-input v-model="provisionForm.adminUsername" :placeholder="t('system.optionalDefaultAdmin')" />
+        <el-form-item :label="'管理员账号'" prop="adminUsername">
+          <el-input v-model="provisionForm.adminUsername" :placeholder="'选填，默认 admin'" />
         </el-form-item>
-        <el-form-item :label="t('system.loginPassword')" prop="adminPassword">
+        <el-form-item :label="'登录密码'" prop="adminPassword">
           <el-input
             v-model="provisionForm.adminPassword"
             type="password"
             show-password
-            :placeholder="t('system.k864CharsUpperLowerCaseLettersDigitsSpecialChars')"
+            :placeholder="'8–64 位，含大小写字母、数字、特殊字符'"
           />
         </el-form-item>
-        <el-form-item :label="t('system.displayName')" prop="adminDisplayName">
-          <el-input v-model="provisionForm.adminDisplayName" :placeholder="t('system.eGTenantAdministrator')" />
+        <el-form-item :label="'显示名'" prop="adminDisplayName">
+          <el-input v-model="provisionForm.adminDisplayName" :placeholder="'如 租户管理员'" />
         </el-form-item>
-        <el-form-item :label="t('common.phone')">
-          <el-input v-model="provisionForm.adminMobile" :placeholder="t('system.optional')" />
+        <el-form-item :label="'手机号'">
+          <el-input v-model="provisionForm.adminMobile" :placeholder="'选填'" />
         </el-form-item>
-        <el-form-item :label="t('common.email')">
-          <el-input v-model="provisionForm.adminEmail" :placeholder="t('system.optional')" />
+        <el-form-item :label="'邮箱'">
+          <el-input v-model="provisionForm.adminEmail" :placeholder="'选填'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="provisionVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="provisioning" @click="onProvision">{{ t('system.confirmProvision') }}</el-button>
+        <el-button @click="provisionVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="provisioning" @click="onProvision">{{ '确认开通' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 跨租户运营总览 -->
-    <el-dialog v-model="overviewVisible" :title="t('system.crossTenantOperationsOverview')" width="900px">
+    <el-dialog v-model="overviewVisible" :title="'跨租户运营总览'" width="900px">
       <div v-loading="overviewLoading">
         <template v-if="overview">
           <!-- enforce 开关状态 -->
@@ -182,50 +182,50 @@
             :type="overview.enforce ? 'success' : 'info'"
             :closable="false"
             show-icon
-            :title="overview.enforce ? t('system.isolationOn') : t('system.isolationOff')"
+            :title="overview.enforce ? '多租户强制隔离已开启（enforce=true）' : '多租户强制隔离未开启（enforce=false，灰度关闭）'"
           />
 
           <!-- 聚合统计卡 -->
           <div class="overview-stats">
             <div class="stat">
               <div class="stat-num">{{ overview.tenantCount }}</div>
-              <div class="stat-label">{{ t('reportDashboard.tenantCount') }}</div>
+              <div class="stat-label">{{ '租户总数' }}</div>
             </div>
             <div class="stat">
               <div class="stat-num">{{ overview.enabledTenantCount }}</div>
-              <div class="stat-label">{{ t('system.enableTenant') }}</div>
+              <div class="stat-label">{{ '启用租户' }}</div>
             </div>
             <div class="stat">
               <div class="stat-num">{{ overview.businessTableCount }}</div>
-              <div class="stat-label">{{ t('system.businessTableCount') }}</div>
+              <div class="stat-label">{{ '业务表数' }}</div>
             </div>
             <div class="stat">
               <div class="stat-num" :class="{ danger: overview.isolationAudit && overview.isolationAudit.violatedTables > 0 }">
                 {{ overview.isolationAudit ? overview.isolationAudit.violatedTables : '—' }}
               </div>
-              <div class="stat-label">{{ t('system.problemTableCount') }}</div>
+              <div class="stat-label">{{ '问题表数' }}</div>
             </div>
             <div class="stat">
               <div class="stat-num" :class="{ danger: overview.isolationAudit && overview.isolationAudit.totalViolatedRows > 0 }">
                 {{ overview.isolationAudit ? overview.isolationAudit.totalViolatedRows : '—' }}
               </div>
-              <div class="stat-label">{{ t('system.unattributedRows') }}</div>
+              <div class="stat-label">{{ '未归属行数' }}</div>
             </div>
             <div class="stat">
               <div class="stat-num">{{ overview.totalUserCount }}</div>
-              <div class="stat-label">{{ t('system.totalUsers') }}</div>
+              <div class="stat-label">{{ '总用户数' }}</div>
             </div>
             <div class="stat">
               <div class="stat-num" :class="{ danger: overview.expiringSoonCount > 0 }">
                 {{ overview.expiringSoonCount }}
               </div>
-              <div class="stat-label">{{ t('system.expiringSoon') }}</div>
+              <div class="stat-label">{{ '即将过期' }}</div>
             </div>
             <div class="stat">
               <div class="stat-num" :class="{ danger: overview.disabledTenantCount > 0 }">
                 {{ overview.disabledTenantCount }}
               </div>
-              <div class="stat-label">{{ t('system.disableTenant') }}</div>
+              <div class="stat-label">{{ '停用租户' }}</div>
             </div>
           </div>
 
@@ -236,7 +236,7 @@
             :type="overview.isolationAudit.safeToEnable ? 'success' : 'warning'"
             :closable="false"
             show-icon
-            :title="overview.isolationAudit.safeToEnable ? t('system.auditSafe') : t('system.auditRisk')"
+            :title="overview.isolationAudit.safeToEnable ? '存量隔离自检通过：可安全开启 enforce' : '存量隔离自检存在风险：开启 enforce 前需处理未归属数据'"
             :description="overview.isolationAudit.message"
           />
           <el-alert
@@ -245,7 +245,7 @@
             type="info"
             :closable="false"
             show-icon
-            :title="t('system.isolationSelfCheckUnavailableCheckDbConnectivity')"
+            :title="'隔离自检暂不可用（请检查数据库连通性）'"
           />
 
           <!-- 租户明细 -->
@@ -255,42 +255,42 @@
             border
             stripe
             default-expand-all
-            :empty-text="t('system.noTenantDataYet')"
+            :empty-text="'暂无租户数据'"
           >
             <el-table-column type="expand">
               <template #default="{ row }">
                 <el-table :data="toPairs(row.tableCounts)" border size="small" style="margin: 8px 0">
-                  <el-table-column prop="name" :label="t('system.businessTable')" min-width="240" />
-                  <el-table-column prop="count" :label="t('formDesigner.rows')" width="140" align="right" />
+                  <el-table-column prop="name" :label="'业务表'" min-width="240" />
+                  <el-table-column prop="count" :label="'行数'" width="140" align="right" />
                 </el-table>
               </template>
             </el-table-column>
-            <el-table-column prop="tenantName" :label="t('system.tenantName')" min-width="200" />
-            <el-table-column prop="tenantId" :label="t('system.tenantId')" width="120" />
-            <el-table-column :label="t('common.status')" width="100">
+            <el-table-column prop="tenantName" :label="'租户名称'" min-width="200" />
+            <el-table-column prop="tenantId" :label="'租户 ID'" width="120" />
+            <el-table-column :label="'状态'" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">
-                  {{ row.status === 'ENABLED' ? t('common.enabled') : t('common.disabled') }}
+                  {{ row.status === 'ENABLED' ? '启用' : '禁用' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column :label="t('monitor.expireTime')" width="160">
+            <el-table-column :label="'过期时间'" width="160">
               <template #default="{ row }">{{ fmtDateTime(row.expireAt) }}</template>
             </el-table-column>
-            <el-table-column prop="userCount" :label="t('system.userCount')" width="110" align="right" />
-            <el-table-column :label="t('system.warning')" width="100">
+            <el-table-column prop="userCount" :label="'用户数'" width="110" align="right" />
+            <el-table-column :label="'预警'" width="100">
               <template #default="{ row }">
-                <el-tag v-if="row.expiringSoon" type="warning" size="small">{{ t('system.expiringSoon') }}</el-tag>
+                <el-tag v-if="row.expiringSoon" type="warning" size="small">{{ '即将过期' }}</el-tag>
                 <span v-else>—</span>
               </template>
             </el-table-column>
-            <el-table-column prop="totalRows" :label="t('system.totalBusinessData')" width="160" align="right" />
+            <el-table-column prop="totalRows" :label="'业务数据总量'" width="160" align="right" />
           </el-table>
         </template>
       </div>
       <template #footer>
-        <el-button @click="overviewVisible = false">{{ t('common.close') }}</el-button>
-        <el-button type="primary" :loading="overviewLoading" @click="loadOverview">{{ t('common.refresh') }}</el-button>
+        <el-button @click="overviewVisible = false">{{ '关闭' }}</el-button>
+        <el-button type="primary" :loading="overviewLoading" @click="loadOverview">{{ '刷新' }}</el-button>
       </template>
     </el-dialog>
 
@@ -300,7 +300,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus, Edit, Delete, DataAnalysis, UserFilled, Operation } from '@element-plus/icons-vue'
@@ -339,8 +339,8 @@ const form = reactive({
   remark: ''
 })
 const rules = {
-  tenantCode: [{ required: true, message: t('system.enterTenantCode'), trigger: 'blur' }],
-  tenantName: [{ required: true, message: t('system.enterTenantName'), trigger: 'blur' }]
+  tenantCode: [{ required: true, message: '请输入租户编码', trigger: 'blur' }],
+  tenantName: [{ required: true, message: '请输入租户名称', trigger: 'blur' }]
 }
 
 // 开通租户
@@ -357,8 +357,8 @@ const provisionForm = reactive({
   adminEmail: ''
 })
 const provisionRules = {
-  adminPassword: [{ required: true, message: t('system.enterInitialPassword'), trigger: 'blur' }],
-  adminDisplayName: [{ required: true, message: t('system.enterAdminDisplayName'), trigger: 'blur' }]
+  adminPassword: [{ required: true, message: '请输入初始密码', trigger: 'blur' }],
+  adminDisplayName: [{ required: true, message: '请输入管理员显示名', trigger: 'blur' }]
 }
 
 // 跨租户运营总览
@@ -366,11 +366,11 @@ const overviewVisible = ref(false)
 const overviewLoading = ref(false)
 const overview = ref(null)
 
-/** LocalDateTime 字符串（"2026-10-26T14:30:00"）→ "2026-10-26 14:30"；空值回落 t('system.permanent')。 */
+/** LocalDateTime 字符串（"2026-10-26T14:30:00"）→ "2026-10-26 14:30"；空值回落 '长期'。 */
 function fmtDateTime(v) {
-  if (!v) return t('system.permanent')
+  if (!v) return '长期'
   const s = String(v).replace('T', ' ').slice(0, 16)
-  return s || t('system.permanent')
+  return s || '长期'
 }
 
 async function load() {
@@ -440,10 +440,10 @@ async function onSubmit() {
     }
     if (isEdit.value) {
       await updateTenant(form.id, payload)
-      ElMessage.success(t('system.updated'))
+      ElMessage.success('更新成功')
     } else {
       await createTenant({ tenantCode: form.tenantCode, ...payload })
-      ElMessage.success(t('system.created'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     load()
@@ -477,7 +477,7 @@ async function onProvision() {
       adminEmail: provisionForm.adminEmail || null
     }
     const view = await provisionTenant(provisionTenantId.value, payload)
-    ElMessage.success(t('system.tenantOpened', { username: view.adminUsername, role: view.roleCode }))
+    ElMessage.success(`开通成功：管理员 ${view.adminUsername}（角色 ${view.roleCode}）`)
     provisionVisible.value = false
     load()
   } catch (e) {
@@ -491,7 +491,7 @@ async function onToggle(row) {
   const enable = row.status === 'DISABLED'
   try {
     await toggleTenant(row.id, enable)
-    ElMessage.success(enable ? t('monitor.enabled') : t('system.disabled'))
+    ElMessage.success(enable ? '已启用' : '已禁用')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -501,7 +501,7 @@ async function onToggle(row) {
 async function onDelete(row) {
   try {
     await removeTenant(row.id)
-    ElMessage.success(t('common.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */

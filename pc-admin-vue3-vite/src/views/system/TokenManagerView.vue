@@ -1,27 +1,27 @@
 <template>
   <div>
-    <h2 class="page-title">{{ $t('route.oauth2Token') }}</h2>
-    <p class="scope-hint">{{ $t('oauth2Token.scope') }}</p>
+    <h2 class="page-title">{{ 'OAuth2 令牌管理' }}</h2>
+    <p class="scope-hint">{{ '本页列出当前有效的 OAuth2 访问令牌（客户端凭证与用户令牌）。吊销后，持有该令牌的客户端在下一次请求时即被拒绝。令牌由授权服务器签发，仅供治理与排障。' }}</p>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ $t('oauth2Token.clientId') }}</span>
+            <span class="filter-label">{{ '客户端ID' }}</span>
             <el-input
               v-model="query.clientId"
-              :placeholder="$t('oauth2Token.clientId')"
+              :placeholder="'客户端ID'"
               clearable
               style="width: 200px"
               @keyup.enter="onSearch"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ $t('oauth2Token.userId') }}</span>
+            <span class="filter-label">{{ '用户ID' }}</span>
             <el-input
               v-model="query.userId"
-              :placeholder="$t('oauth2Token.userId')"
+              :placeholder="'用户ID'"
               clearable
               style="width: 160px"
               @keyup.enter="onSearch"
@@ -30,72 +30,72 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ $t('oauth2Token.reset') }}</el-button>
-            <el-button :icon="Refresh" :loading="loading" @click="load">{{ $t('oauth2Token.refresh') }}</el-button>
-            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button :icon="Refresh" :loading="loading" @click="load">{{ '刷新' }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ '导出当前页 CSV' }}</el-button>
           </div>
         </div>
       </div>
 
       <!-- 活动令牌列表 -->
       <el-table :data="rows" v-loading="loading" border stripe empty-text=" ">
-        <el-table-column prop="jti" :label="$t('oauth2Token.jti')" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="clientId" :label="$t('oauth2Token.clientId')" width="180" show-overflow-tooltip />
-        <el-table-column :label="$t('oauth2Token.userId')" width="100">
+        <el-table-column prop="jti" :label="'令牌标识 (JTI)'" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="clientId" :label="'客户端ID'" width="180" show-overflow-tooltip />
+        <el-table-column :label="'用户ID'" width="100">
           <template #default="{ row }">
             <span v-if="row.userId">{{ row.userId }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="username" :label="$t('oauth2Token.username')" width="140" show-overflow-tooltip>
+        <el-table-column prop="username" :label="'用户名'" width="140" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.username">{{ row.username }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('oauth2Token.scopes')" min-width="160" show-overflow-tooltip>
+        <el-table-column :label="'授权范围'" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag v-for="s in splitScopes(row.scope)" :key="s" size="small" style="margin-right: 4px">{{ s }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('oauth2Token.type')" width="130">
+        <el-table-column :label="'令牌类型'" width="130">
           <template #default="{ row }">
             <el-tag :type="row.tokenType === 'USER' ? 'warning' : 'info'" size="small">
-              {{ row.tokenType === 'USER' ? $t('oauth2Token.typeUser') : $t('oauth2Token.typeClient') }}
+              {{ row.tokenType === 'USER' ? '用户令牌' : '客户端凭证' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('oauth2Token.issuedAt')" width="170">
+        <el-table-column :label="'签发时间'" width="170">
           <template #default="{ row }">
             <span v-if="row.issuedAt">{{ formatTime(row.issuedAt) }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('oauth2Token.expiresAt')" width="170">
+        <el-table-column :label="'过期时间'" width="170">
           <template #default="{ row }">
             <span v-if="row.expiresAt" :class="{ expired: isExpired(row.expiresAt) }">{{ formatTime(row.expiresAt) }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('oauth2Token.status')" width="90">
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">
-              {{ row.status === 'ACTIVE' ? $t('oauth2Token.active') : $t('oauth2Token.revoked') }}
+              {{ row.status === 'ACTIVE' ? '有效' : '已吊销' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('oauth2Token.revoke')" width="90" fixed="right">
+        <el-table-column :label="'吊销'" width="90" fixed="right">
           <template #default="{ row }">
-            <el-popconfirm :title="$t('oauth2Token.revokeConfirm')" @confirm="onRevoke(row)">
+            <el-popconfirm :title="'确认吊销该令牌？吊销后持有者下一次请求将被拒绝。'" @confirm="onRevoke(row)">
               <template #reference>
-                <el-button link type="danger" :icon="CircleClose">{{ $t('oauth2Token.revoke') }}</el-button>
+                <el-button link type="danger" :icon="CircleClose">{{ '吊销' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
         </el-table-column>
         <template #empty>
-          <span class="muted">{{ $t('oauth2Token.empty') }}</span>
+          <span class="muted">{{ '当前没有有效的 OAuth2 令牌。' }}</span>
         </template>
       </el-table>
 
@@ -115,7 +115,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Refresh, CircleClose, Download } from '@element-plus/icons-vue'
@@ -184,7 +184,7 @@ function isExpired(t) {
 async function onRevoke(row) {
   try {
     await revokeToken(row.jti)
-    ElMessage.success(row.jti + ' ' + $t('oauth2Token.revokedHint'))
+    ElMessage.success(row.jti + ' ' + '吊销已提交，持有该令牌的客户端在下次请求时即被拒绝。')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -193,32 +193,32 @@ async function onRevoke(row) {
 
 // ---------------- 导出当前页 CSV ----------------
 const exportColumns = [
-  { label: t('oauth2Token.jti'), get: (r) => r.jti },
-  { label: t('oauth2Token.clientId'), get: (r) => r.clientId },
-  { label: t('oauth2Token.userId'), get: (r) => r.userId || '--' },
-  { label: t('oauth2Token.username'), get: (r) => r.username || '--' },
-  { label: t('oauth2Token.scopes'), get: (r) => splitScopes(r.scope).join(' / ') },
+  { label: '令牌标识 (JTI)', get: (r) => r.jti },
+  { label: '客户端ID', get: (r) => r.clientId },
+  { label: '用户ID', get: (r) => r.userId || '--' },
+  { label: '用户名', get: (r) => r.username || '--' },
+  { label: '授权范围', get: (r) => splitScopes(r.scope).join(' / ') },
   {
-    label: t('oauth2Token.type'),
-    get: (r) => (r.tokenType === 'USER' ? t('oauth2Token.typeUser') : t('oauth2Token.typeClient'))
+    label: '令牌类型',
+    get: (r) => (r.tokenType === 'USER' ? '用户令牌' : '客户端凭证')
   },
-  { label: t('oauth2Token.issuedAt'), get: (r) => formatTime(r.issuedAt) },
-  { label: t('oauth2Token.expiresAt'), get: (r) => formatTime(r.expiresAt) },
+  { label: '签发时间', get: (r) => formatTime(r.issuedAt) },
+  { label: '过期时间', get: (r) => formatTime(r.expiresAt) },
   {
-    label: t('oauth2Token.status'),
-    get: (r) => (r.status === 'ACTIVE' ? t('oauth2Token.active') : t('oauth2Token.revoked'))
+    label: '状态',
+    get: (r) => (r.status === 'ACTIVE' ? '有效' : '已吊销')
   }
 ]
 
 function onExportCsv() {
   if (!rows.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = exportColumns.map((c) => c.label)
   const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
   downloadCsv(`token-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 onMounted(load)

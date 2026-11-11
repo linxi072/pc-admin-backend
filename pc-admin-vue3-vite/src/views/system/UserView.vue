@@ -1,35 +1,35 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.user') }}</h2>
+    <h2 class="page-title">{{ '用户管理' }}</h2>
     <el-card class="page-card">
       <!-- 搜索筛选：条件区（上）/ 操作区（下）分区布局 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.user.username') }}</span>
+            <span class="filter-label">{{ '用户名' }}</span>
             <el-input
               v-model="query.username"
-              :placeholder="t('system.user.usernameFuzzy')"
+              :placeholder="'用户名（模糊）'"
               clearable
               style="width: 180px"
               @keyup.enter="load"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.status') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.status')" clearable style="width: 140px">
-              <el-option :label="t('common.enabled')" value="ACTIVE" />
-              <el-option :label="t('common.disabled')" value="DISABLED" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="query.status" :placeholder="'状态'" clearable style="width: 140px">
+              <el-option :label="'启用'" value="ACTIVE" />
+              <el-option :label="'禁用'" value="DISABLED" />
             </el-select>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="load">{{ t('system.common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="load">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
           </div>
           <div class="action-buttons">
-            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.user.addTitle') }}</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新增用户' }}</el-button>
           </div>
         </div>
       </div>
@@ -39,23 +39,23 @@
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <!-- 雪花 ID 为 19 位字符串，width=70 只能显示前 6 位（E2E F6） -->
         <el-table-column prop="id" label="ID" width="180" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="username" :label="t('system.user.username')" width="130" sortable="custom" />
-        <el-table-column prop="displayName" :label="t('system.user.nickname')" width="120" />
-        <el-table-column prop="mobile" :label="t('system.user.mobile')" width="140" />
-        <el-table-column prop="email" :label="t('system.user.email')" min-width="180" />
-        <el-table-column :label="t('common.status')" width="90">
+        <el-table-column prop="username" :label="'用户名'" width="130" sortable="custom" />
+        <el-table-column prop="displayName" :label="'昵称'" width="120" />
+        <el-table-column prop="mobile" :label="'手机号'" width="140" />
+        <el-table-column prop="email" :label="'邮箱'" min-width="180" />
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <!-- 状态标签统一走 utils/status 映射 -->
             <el-tag :type="statusTag(row.status).type">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.department.label')" min-width="150">
+        <el-table-column :label="'部门'" min-width="150">
           <template #default="{ row }">
             <el-tag v-for="(n, i) in (row.deptNames || [])" :key="'d' + i" class="role-tag" size="small" type="info">{{ n }}</el-tag>
-            <span v-if="!(row.deptNames || []).length" class="text-muted">{{ t('system.common.unassigned') }}</span>
+            <span v-if="!(row.deptNames || []).length" class="text-muted">{{ '未分配' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.role.label')" min-width="180">
+        <el-table-column :label="'角色'" min-width="180">
           <template #default="{ row }">
             <el-tag
               v-for="(n, i) in (row.roleNames || [])"
@@ -64,24 +64,24 @@
               size="small"
               :type="row.roleCodes && row.roleCodes[i] === 'SUPER_ADMIN' ? 'danger' : 'primary'"
             >{{ n }}</el-tag>
-            <span v-if="!(row.roleNames || []).length" class="text-muted">{{ t('system.common.unassigned') }}</span>
+            <span v-if="!(row.roleNames || []).length" class="text-muted">{{ '未分配' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.post.label')" min-width="150">
+        <el-table-column :label="'岗位'" min-width="150">
           <template #default="{ row }">
             <el-tag v-for="(n, i) in (row.postNames || [])" :key="'p' + i" class="role-tag" size="small" type="warning">{{ n }}</el-tag>
-            <span v-if="!(row.postNames || []).length" class="text-muted">{{ t('system.common.unassigned') }}</span>
+            <span v-if="!(row.postNames || []).length" class="text-muted">{{ '未分配' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" :label="t('system.common.createTime')" width="170" sortable="custom" />
-        <el-table-column :label="t('common.operation')" width="250" fixed="right">
+        <el-table-column prop="createdAt" :label="'创建时间'" width="170" sortable="custom" />
+        <el-table-column :label="'操作'" width="250" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-button link type="warning" :icon="Key" @click="openReset(row)">{{ t('system.user.resetPassword') }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-button link type="warning" :icon="Key" @click="openReset(row)">{{ '重置密码' }}</el-button>
             <!-- 硬删除：物理删除，需二次确认 -->
-            <el-popconfirm :title="t('system.user.confirmPhysicalDelete')" width="220" @confirm="onDelete(row)">
+            <el-popconfirm :title="'确认物理删除该用户？此操作不可恢复'" width="220" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -102,82 +102,82 @@
     </el-card>
 
     <!-- 新增 / 编辑 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? t('system.user.editTitle') : t('system.user.addTitle')" width="520px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑用户' : '新增用户'" width="520px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-        <el-form-item :label="t('system.user.username')" prop="username">
+        <el-form-item :label="'用户名'" prop="username">
           <el-input v-model="form.username" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item v-if="!isEdit" :label="t('system.user.password')" prop="password">
-          <el-input v-model="form.password" type="password" show-password :placeholder="t('system.common.atLeast8')" />
+        <el-form-item v-if="!isEdit" :label="'密码'" prop="password">
+          <el-input v-model="form.password" type="password" show-password :placeholder="'至少 8 位'" />
         </el-form-item>
-        <el-form-item :label="t('system.user.nickname')" prop="displayName">
+        <el-form-item :label="'昵称'" prop="displayName">
           <el-input v-model="form.displayName" />
         </el-form-item>
-        <el-form-item :label="t('system.user.mobile')">
+        <el-form-item :label="'手机号'">
           <el-input v-model="form.mobile" />
         </el-form-item>
-        <el-form-item :label="t('system.user.email')">
+        <el-form-item :label="'邮箱'">
           <el-input v-model="form.email" />
         </el-form-item>
-        <el-form-item :label="t('common.status')">
+        <el-form-item :label="'状态'">
           <el-select v-model="form.status" style="width: 100%">
-            <el-option :label="t('common.enabled')" value="ACTIVE" />
-            <el-option :label="t('common.disabled')" value="DISABLED" />
+            <el-option :label="'启用'" value="ACTIVE" />
+            <el-option :label="'禁用'" value="DISABLED" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.department.label')" prop="deptIds">
-          <el-select v-model="form.deptIds" multiple filterable clearable style="width: 100%" :placeholder="t('system.department.selectMulti')">
+        <el-form-item :label="'部门'" prop="deptIds">
+          <el-select v-model="form.deptIds" multiple filterable clearable style="width: 100%" :placeholder="'选择部门（可多选，至少 1 个）'">
             <el-option v-for="o in orgOptions" :key="o.id" :label="o.orgName" :value="o.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.department.primary')">
-          <el-select v-model="form.primaryDeptId" clearable filterable style="width: 100%" :placeholder="t('system.department.defaultFirst')">
+        <el-form-item :label="'主部门'">
+          <el-select v-model="form.primaryDeptId" clearable filterable style="width: 100%" :placeholder="'不选则取首个部门'">
             <el-option v-for="o in selectedDeptOptions" :key="o.id" :label="o.orgName" :value="o.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.role.label')" prop="roleIds">
-          <el-select v-model="form.roleIds" multiple filterable style="width: 100%" :placeholder="t('system.role.selectMulti')">
+        <el-form-item :label="'角色'" prop="roleIds">
+          <el-select v-model="form.roleIds" multiple filterable style="width: 100%" :placeholder="'选择角色（可多选，至少 1 个）'">
             <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.role.primary')">
-          <el-select v-model="form.primaryRoleId" clearable filterable style="width: 100%" :placeholder="t('system.role.defaultFirst')">
+        <el-form-item :label="'主角色'">
+          <el-select v-model="form.primaryRoleId" clearable filterable style="width: 100%" :placeholder="'不选则取首个角色'">
             <el-option v-for="r in selectedRoleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.post.label')">
-          <el-select v-model="form.postIds" multiple filterable clearable style="width: 100%" :placeholder="t('system.post.selectMulti')">
+        <el-form-item :label="'岗位'">
+          <el-select v-model="form.postIds" multiple filterable clearable style="width: 100%" :placeholder="'选择岗位（可多选）'">
             <el-option v-for="p in postOptions" :key="p.id" :label="p.postName" :value="p.id" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 重置密码 -->
-    <el-dialog v-model="resetVisible" :title="t('system.user.resetPassword')" width="420px">
+    <el-dialog v-model="resetVisible" :title="'重置密码'" width="420px">
       <el-form :model="resetForm" ref="resetRef" label-width="90px">
         <el-form-item
-          :label="t('system.user.newPassword')"
+          :label="'新密码'"
           prop="password"
-          :rules="[{ required: true, min: 8, message: t('system.common.atLeast8'), trigger: 'blur' }]"
+          :rules="[{ required: true, min: 8, message: '至少 8 位', trigger: 'blur' }]"
         >
-          <el-input v-model="resetForm.password" type="password" show-password :placeholder="t('system.common.atLeast8')" />
+          <el-input v-model="resetForm.password" type="password" show-password :placeholder="'至少 8 位'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="resetVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="submitReset">{{ t('common.confirm') }}</el-button>
+        <el-button @click="resetVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="submitReset">{{ '确认' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Plus, Edit, Key, Delete } from '@element-plus/icons-vue'
@@ -210,11 +210,11 @@ const form = reactive({
   postIds: []
 })
 const rules = {
-  username: [{ required: true, message: t('system.user.pleaseEnterUsername'), trigger: 'blur' }],
-  password: [{ required: true, min: 8, message: t('system.common.atLeast8'), trigger: 'blur' }],
-  displayName: [{ required: true, message: t('system.user.pleaseEnterNickname'), trigger: 'blur' }],
-  roleIds: [{ required: true, type: 'array', min: 1, message: t('system.user.atLeastOneRole'), trigger: 'change' }],
-  deptIds: [{ required: true, type: 'array', min: 1, message: t('system.user.atLeastOneDept'), trigger: 'change' }]
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, min: 8, message: '至少 8 位', trigger: 'blur' }],
+  displayName: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  roleIds: [{ required: true, type: 'array', min: 1, message: '至少绑定一个角色', trigger: 'change' }],
+  deptIds: [{ required: true, type: 'array', min: 1, message: '至少归属一个部门', trigger: 'change' }]
 }
 // 主角色 / 主部门的候选：仅从已选角色 / 部门中挑选
 const selectedRoleOptions = computed(() => roleOptions.value.filter((r) => form.roleIds.includes(r.id)))
@@ -313,7 +313,7 @@ async function onSubmit() {
         deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined,
         postIds: form.postIds
       })
-      ElMessage.success(t('system.common.updateSuccess'))
+      ElMessage.success('更新成功')
     } else {
       await createUser({
         username: form.username, password: form.password, displayName: form.displayName,
@@ -322,7 +322,7 @@ async function onSubmit() {
         deptIds: form.deptIds, primaryDeptId: form.primaryDeptId || undefined,
         postIds: form.postIds
       })
-      ElMessage.success(t('system.common.createSuccess'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     load()
@@ -342,7 +342,7 @@ async function submitReset() {
   saving.value = true
   try {
     await resetPassword(resetForm.id, resetForm.password)
-    ElMessage.success(t('system.user.passwordReset'))
+    ElMessage.success('密码已重置')
     resetVisible.value = false
   } finally {
     saving.value = false
@@ -353,7 +353,7 @@ async function submitReset() {
 async function onDelete(row) {
   try {
     await deleteUser(row.id)
-    ElMessage.success(t('system.department.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     /* 拦截器已提示 */

@@ -1,24 +1,24 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.cmsCategory') }}</h2>
+    <h2 class="page-title">{{ 'CMS 栏目管理' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="filters">
           <el-input
             v-model="keyword"
-            :placeholder="t('cms.category.keywordPlaceholder')"
+            :placeholder="'按栏目名称/编码搜索'"
             clearable
             style="width: 220px"
             @keyup.enter="load"
           >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <el-button type="primary" :icon="Search" @click="load">{{ t('common.search') }}</el-button>
+          <el-button type="primary" :icon="Search" @click="load">{{ '搜索' }}</el-button>
         </div>
         <div class="actions">
-          <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('common.create') }}</el-button>
-          <el-button :icon="Refresh" @click="load">{{ t('common.refresh') }}</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">{{ '创建' }}</el-button>
+          <el-button :icon="Refresh" @click="load">{{ '刷新' }}</el-button>
         </div>
       </div>
 
@@ -30,20 +30,20 @@
         default-expand-all
         :tree-props="{ children: 'children' }"
       >
-        <el-table-column prop="categoryName" :label="t('cms.category.categoryName')" min-width="180" />
-        <el-table-column prop="categoryCode" :label="t('cms.category.categoryCode')" min-width="140" />
-        <el-table-column prop="description" :label="t('cms.category.description')" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="sortNo" :label="t('cms.category.sortNo')" width="90" align="center" />
-        <el-table-column :label="t('common.status')" width="100" align="center">
+        <el-table-column prop="categoryName" :label="'栏目名称'" min-width="180" />
+        <el-table-column prop="categoryCode" :label="'栏目编码'" min-width="140" />
+        <el-table-column prop="description" :label="'描述'" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="sortNo" :label="'排序'" width="90" align="center" />
+        <el-table-column :label="'状态'" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status).type">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="180" align="center" fixed="right">
+        <el-table-column :label="'操作'" width="180" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Plus" @click="openCreate(row)">{{ t('cms.category.addChild') }}</el-button>
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ t('common.delete') }}</el-button>
+            <el-button link type="primary" :icon="Plus" @click="openCreate(row)">{{ '加子栏目' }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ '删除' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -51,9 +51,9 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-        <el-form-item :label="t('cms.category.parent')" prop="parentId">
-          <el-select v-model="form.parentId" :placeholder="t('cms.category.parentPlaceholder')" clearable style="width: 100%">
-            <el-option :label="t('cms.category.root')" :value="null" />
+        <el-form-item :label="'父栏目'" prop="parentId">
+          <el-select v-model="form.parentId" :placeholder="'选择父栏目（可选）'" clearable style="width: 100%">
+            <el-option :label="'根栏目'" :value="null" />
             <el-option
               v-for="item in parentOptions"
               :key="item.id"
@@ -63,35 +63,35 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('cms.category.categoryCode')" prop="categoryCode">
-          <el-input v-model="form.categoryCode" :placeholder="t('cms.category.categoryCodePlaceholder')" />
+        <el-form-item :label="'栏目编码'" prop="categoryCode">
+          <el-input v-model="form.categoryCode" :placeholder="'请输入栏目编码'" />
         </el-form-item>
-        <el-form-item :label="t('cms.category.categoryName')" prop="categoryName">
-          <el-input v-model="form.categoryName" :placeholder="t('cms.category.categoryNamePlaceholder')" />
+        <el-form-item :label="'栏目名称'" prop="categoryName">
+          <el-input v-model="form.categoryName" :placeholder="'请输入栏目名称'" />
         </el-form-item>
-        <el-form-item :label="t('cms.category.description')" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="t('cms.category.descriptionPlaceholder')" />
+        <el-form-item :label="'描述'" prop="description">
+          <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="'请输入栏目描述'" />
         </el-form-item>
-        <el-form-item :label="t('cms.category.sortNo')" prop="sortNo">
+        <el-form-item :label="'排序'" prop="sortNo">
           <el-input-number v-model="form.sortNo" :min="0" :max="9999" />
         </el-form-item>
-        <el-form-item :label="t('common.status')" prop="status">
+        <el-form-item :label="'状态'" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio value="ACTIVE">{{ t('common.statusActive') }}</el-radio>
-            <el-radio value="DISABLED">{{ t('common.statusDisabled') }}</el-radio>
+            <el-radio value="ACTIVE">{{ '启用' }}</el-radio>
+            <el-radio value="DISABLED">{{ '停用' }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="onSubmit">{{ t('common.confirm') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="onSubmit">{{ '确认' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Refresh } from '@element-plus/icons-vue'
@@ -117,12 +117,12 @@ const form = reactive({
 })
 
 const rules = {
-  categoryCode: [{ required: true, message: t('cms.category.categoryCodeRequired'), trigger: 'blur' }],
-  categoryName: [{ required: true, message: t('cms.category.categoryNameRequired'), trigger: 'blur' }]
+  categoryCode: [{ required: true, message: '请输入栏目编码', trigger: 'blur' }],
+  categoryName: [{ required: true, message: '请输入栏目名称', trigger: 'blur' }]
 }
 
 const isEdit = computed(() => form.id != null)
-const dialogTitle = computed(() => (isEdit.value ? t('cms.category.editTitle') : t('cms.category.createTitle')))
+const dialogTitle = computed(() => (isEdit.value ? '编辑栏目' : '新增栏目'))
 
 // 父栏目下拉排除自身及其后代，避免形成环
 const parentOptions = computed(() => {
@@ -214,11 +214,11 @@ function onSubmit() {
       }
       if (isEdit.value) {
         await updateCategory(body)
-        ElMessage.success(t('common.updateSuccess'))
+        ElMessage.success('更新成功')
       } else {
         delete body.id
         await createCategory(body)
-        ElMessage.success(t('common.createSuccess'))
+        ElMessage.success('创建成功')
       }
       dialogVisible.value = false
       await load()
@@ -229,14 +229,14 @@ function onSubmit() {
 }
 
 async function onDelete(row) {
-  const confirmed = await ElMessageBox.confirm(t('cms.category.deleteConfirm', { name: row.categoryName }), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm(`确认删除栏目「${row.categoryName}」吗？若存在子栏目或关联文章，删除将被拒绝。`, '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await deleteCategory(row.id)
-  ElMessage.success(t('common.deleteSuccess'))
+  ElMessage.success('删除成功')
   await load()
 }
 

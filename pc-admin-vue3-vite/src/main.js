@@ -11,7 +11,6 @@ import router from './router'
 import './styles/base.css'
 import './styles/theme-tokens.css'
 import './styles/element-theme.css'
-import { t } from './i18n'
 import { initTheme } from './utils/theme'
 
 const app = createApp(App)
@@ -38,7 +37,7 @@ function reportError(err, info) {
     lastErrorAt = now
     const message = (err && err.message) || String(err)
     ElNotification({
-      title: t('app.errorTitle') || '页面渲染出错',
+      title: '页面渲染出错',
       message: message + (info ? `（${info}）` : ''),
       type: 'error',
       duration: 6000,
@@ -59,13 +58,6 @@ window.addEventListener('unhandledrejection', (e) => {
 for (const [name, comp] of Object.entries(ElementPlusIconsVue)) {
   app.component(name, comp)
 }
-
-// 注册全局 $t，便于任意模板在不显式 import 的情况下使用翻译；
-// 组件内也可直接从 '@/i18n' 导入 t / backendLocale / elLocale。
-app.config.globalProperties.$t = t
-// 兜底别名：模板中若直接写 t(...) 而未在 <script setup> 导入，也能解析到 i18n 函数，
-// 避免“t is not a function”这类因漏导入导致的整页渲染报错（见工作台首页历史回归）。
-app.config.globalProperties.t = t
 
 app.use(router)
 app.use(ElementPlus)

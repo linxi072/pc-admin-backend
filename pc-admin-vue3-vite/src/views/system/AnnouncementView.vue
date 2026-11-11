@@ -1,12 +1,12 @@
 <template>
   <div>
-    <h2 v-if="!embedded" class="page-title">{{ t('system.systemAnnouncement') }}</h2>
+    <h2 v-if="!embedded" class="page-title">{{ '系统公告' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <el-alert type="info" :closable="false" show-icon>
         <template #title>
-          状态说明：<b>{{ t('common.draft') }}</b>{{ t('system.adminOnlyEditable') }}<b>{{ t('common.published') }}</b>（到达生效时间后对所有人可见） →
-          <b>{{ t('system.signedOut') }}</b>（停止展示）。已发布公告需先下线才能编辑，避免线上内容被静默篡改。
+          状态说明：<b>{{ '草稿' }}</b>{{ '（仅管理员可见，可编辑） →' }}<b>{{ '已发布' }}</b>（到达生效时间后对所有人可见） →
+          <b>{{ '已下线' }}</b>（停止展示）。已发布公告需先下线才能编辑，避免线上内容被静默篡改。
         </template>
       </el-alert>
     </el-card>
@@ -15,42 +15,42 @@
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.keyword') }}</span>
+            <span class="filter-label">{{ '关键字' }}</span>
             <el-input
               v-model="query.keyword"
-              :placeholder="t('system.searchByTitleContent')"
+              :placeholder="'按标题/内容搜索'"
               clearable
               style="width: 240px"
               @keyup.enter="onSearch"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.status') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.status')" clearable style="width: 140px">
-              <el-option :label="t('common.draft')" value="DRAFT" />
-              <el-option :label="t('common.published')" value="PUBLISHED" />
-              <el-option :label="t('system.signedOut')" value="OFFLINE" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="query.status" :placeholder="'状态'" clearable style="width: 140px">
+              <el-option :label="'草稿'" value="DRAFT" />
+              <el-option :label="'已发布'" value="PUBLISHED" />
+              <el-option :label="'已下线'" value="OFFLINE" />
             </el-select>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
           </div>
           <div class="action-buttons">
-            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.newAnnouncement') }}</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新建公告' }}</el-button>
           </div>
         </div>
       </div>
 
       <el-table :data="list" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column :label="t('common.title')" min-width="220" show-overflow-tooltip prop="title" sortable="custom">
+        <el-table-column :label="'标题'" min-width="220" show-overflow-tooltip prop="title" sortable="custom">
           <template #default="{ row }">
-            <el-tag v-if="row.isTop === 1" type="danger" size="small" style="margin-right: 6px">{{ t('topbar.pinned') }}</el-tag>
+            <el-tag v-if="row.isTop === 1" type="danger" size="small" style="margin-right: 6px">{{ '置顶' }}</el-tag>
             <a @click="openDetail(row)">{{ row.title }}</a>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="100">
+        <el-table-column :label="'状态'" width="100">
           <template #default="{ row }">
             <!-- 状态标签统一走 utils/status 映射 -->
             <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
@@ -59,12 +59,12 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="publishAt" :label="t('monitor.effectiveTime')" width="160" sortable="custom" />
-        <el-table-column prop="expireAt" :label="t('system.validUntil')" width="160" sortable="custom">
-          <template #default="{ row }">{{ row.expireAt || t('topbar.longTerm') }}</template>
+        <el-table-column prop="publishAt" :label="'生效时间'" width="160" sortable="custom" />
+        <el-table-column prop="expireAt" :label="'有效期至'" width="160" sortable="custom">
+          <template #default="{ row }">{{ row.expireAt || '长期有效' }}</template>
         </el-table-column>
-        <el-table-column prop="viewCount" :label="t('system.browse')" width="80" />
-        <el-table-column :label="t('system.readProgress')" width="150">
+        <el-table-column prop="viewCount" :label="'浏览'" width="80" />
+        <el-table-column :label="'已读进度'" width="150">
           <template #default="{ row }">
             <!-- audienceCount 为发布时活跃用户快照（已读率分母）；0 表示 V40 前存量公告，无分母不展示 -->
             <template v-if="row.audienceCount > 0">
@@ -79,7 +79,7 @@
             <span v-else class="receipt-count">—</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="380" fixed="right">
+        <el-table-column :label="'操作'" width="380" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.status !== 'PUBLISHED'"
@@ -87,22 +87,22 @@
               type="success"
               :icon="Promotion"
               @click="openPublish(row)"
-            >{{ t('common.publish') }}</el-button>
+            >{{ '发布' }}</el-button>
             <el-button
               v-if="row.status === 'PUBLISHED'"
               link
               type="warning"
               :icon="VideoPause"
               @click="onOffline(row)"
-            >{{ t('profile.offline') }}</el-button>
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            >{{ '下线' }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
             <el-button link type="warning" :icon="Top" @click="onToggleTop(row)">
-              {{ row.isTop === 1 ? t('system.unpin') : t('topbar.pinned') }}
+              {{ row.isTop === 1 ? '取消置顶' : '置顶' }}
             </el-button>
-            <el-button link type="info" :icon="Reading" @click="openReceipts(row)">{{ t('system.readReceipt') }}</el-button>
-            <el-popconfirm :title="t('system.deleteThisAnnouncement')" @confirm="onDelete(row)">
+            <el-button link type="info" :icon="Reading" @click="openReceipts(row)">{{ '已读回执' }}</el-button>
+            <el-popconfirm :title="'确认删除该公告？'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -124,77 +124,77 @@
     </el-card>
 
     <!-- 新建 / 编辑 -->
-    <el-dialog v-model="dialogVisible" :title="editingId !== null ? t('system.editAnnouncement') : t('system.newAnnouncement')" width="680px">
+    <el-dialog v-model="dialogVisible" :title="editingId !== null ? '编辑公告' : '新建公告'" width="680px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-        <el-form-item :label="t('common.title')" prop="title">
-          <el-input v-model="form.title" :placeholder="t('system.enterAnnouncementTitle')" maxlength="200" show-word-limit />
+        <el-form-item :label="'标题'" prop="title">
+          <el-input v-model="form.title" :placeholder="'请输入公告标题'" maxlength="200" show-word-limit />
         </el-form-item>
-        <el-form-item :label="t('system.content')" prop="content">
-          <el-input v-model="form.content" type="textarea" :rows="6" :placeholder="t('system.enterAnnouncementBody')" />
+        <el-form-item :label="'内容'" prop="content">
+          <el-input v-model="form.content" type="textarea" :rows="6" :placeholder="'请输入公告内容'" />
         </el-form-item>
-        <el-form-item :label="t('system.pinNow')">
+        <el-form-item :label="'立即置顶'">
           <el-switch v-model="form.isTop" :active-value="1" :inactive-value="0" />
         </el-form-item>
-        <el-form-item :label="t('monitor.effectiveTime')">
+        <el-form-item :label="'生效时间'">
           <el-date-picker
             v-model="form.publishAt"
             type="datetime"
-            :placeholder="t('system.blankMeansEffectiveOnPublish')"
+            :placeholder="'留空表示发布即生效'"
             value-format="YYYY-MM-DDTHH:mm:ss"
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item :label="t('system.validUntil')">
+        <el-form-item :label="'有效期至'">
           <el-date-picker
             v-model="form.expireAt"
             type="datetime"
-            :placeholder="t('system.blankMeansPermanent')"
+            :placeholder="'留空表示长期有效'"
             value-format="YYYY-MM-DDTHH:mm:ss"
             style="width: 100%"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('system.saveAsDraft') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存为草稿' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 发布（可定时生效） -->
-    <el-dialog v-model="publishVisible" :title="t('system.publishAnnouncement')" width="520px">
+    <el-dialog v-model="publishVisible" :title="'发布公告'" width="520px">
       <el-form label-width="100px">
-        <el-form-item :label="t('monitor.effectiveTime')">
+        <el-form-item :label="'生效时间'">
           <el-date-picker
             v-model="publishForm.publishAt"
             type="datetime"
-            :placeholder="t('system.blankMeansEffectiveImmediately')"
+            :placeholder="'留空表示立即生效'"
             value-format="YYYY-MM-DDTHH:mm:ss"
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item :label="t('system.validUntil')">
+        <el-form-item :label="'有效期至'">
           <el-date-picker
             v-model="publishForm.expireAt"
             type="datetime"
-            :placeholder="t('system.blankMeansPermanent')"
+            :placeholder="'留空表示长期有效'"
             value-format="YYYY-MM-DDTHH:mm:ss"
             style="width: 100%"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="publishVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="publishing" @click="onPublish">{{ t('system.confirmPublish') }}</el-button>
+        <el-button @click="publishVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="publishing" @click="onPublish">{{ '确认发布' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 详情 -->
-    <el-dialog v-model="detailVisible" :title="t('topbar.announcementDetail')" width="680px">
+    <el-dialog v-model="detailVisible" :title="'公告详情'" width="680px">
       <h3 class="detail-title">{{ current?.title }}</h3>
       <div class="detail-meta">
         <el-tag :type="statusTag(current?.status).type" size="small">{{ statusTag(current?.status).label }}</el-tag>
-        <span class="meta-item">生效：{{ current?.publishAt || t('system.now') }}</span>
-        <span class="meta-item">有效期至：{{ current?.expireAt || t('topbar.longTerm') }}</span>
+        <span class="meta-item">生效：{{ current?.publishAt || '立即' }}</span>
+        <span class="meta-item">有效期至：{{ current?.expireAt || '长期有效' }}</span>
         <span class="meta-item">浏览：{{ current?.viewCount ?? 0 }}</span>
       </div>
       <el-divider />
@@ -202,7 +202,7 @@
     </el-dialog>
 
     <!-- 已读回执中心（V40）：统计 + 回执分页 + 催办未读 -->
-    <el-dialog v-model="receiptVisible" :title="t('system.readReceipt')" width="680px">
+    <el-dialog v-model="receiptVisible" :title="'已读回执'" width="680px">
       <div v-if="receiptStats" class="receipt-summary">
         <el-progress
           :percentage="receiptStats.readRate ?? 0"
@@ -215,15 +215,15 @@
           受众 {{ receiptStats.audienceCount ?? 0 }} 人
         </span>
       </div>
-      <div v-else class="receipt-figures">{{ t('system.loadingStats') }}</div>
+      <div v-else class="receipt-figures">{{ '统计加载中…' }}</div>
 
       <div class="toolbar receipt-toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.reader') }}</span>
+            <span class="filter-label">{{ '阅读人' }}</span>
             <el-input
               v-model="receiptQuery.keyword"
-              :placeholder="t('system.searchByNameAccount')"
+              :placeholder="'按姓名/账号搜索'"
               clearable
               style="width: 200px"
               @keyup.enter="loadReceipts"
@@ -232,13 +232,13 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button :icon="Search" @click="loadReceipts">{{ t('common.query') }}</el-button>
+            <el-button :icon="Search" @click="loadReceipts">{{ '查询' }}</el-button>
             <el-popconfirm
-              :title="t('system.willSendAnInSiteNudgeToUnreadUsersContinue')"
+              :title="'将给未读用户发送站内信催办，确认继续？'"
               @confirm="onRemindUnread"
             >
               <template #reference>
-                <el-button type="warning" :icon="Bell" :loading="reminding">{{ t('system.urgeUnread') }}</el-button>
+                <el-button type="warning" :icon="Bell" :loading="reminding">{{ '催办未读' }}</el-button>
               </template>
             </el-popconfirm>
           </div>
@@ -246,12 +246,12 @@
       </div>
 
       <el-table :data="receipts" v-loading="receiptLoading" border stripe max-height="360">
-        <el-table-column :label="t('system.reader')" min-width="160">
+        <el-table-column :label="'阅读人'" min-width="160">
           <template #default="{ row }">
-            {{ row.displayName || (t('system.userPrefix') + row.userId) }}
+            {{ row.displayName || ('用户#' + row.userId) }}
           </template>
         </el-table-column>
-        <el-table-column prop="readAt" :label="t('system.readAt')" min-width="180" />
+        <el-table-column prop="readAt" :label="'已读时间'" min-width="180" />
       </el-table>
 
       <div class="pager">
@@ -270,7 +270,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Edit, Delete, Search, Promotion, VideoPause, Top, Reading, Bell } from '@element-plus/icons-vue'
@@ -327,8 +327,8 @@ const reminding = ref(false)
 const receiptQuery = reactive({ page: 1, size: 10, keyword: '' })
 
 const rules = {
-  title: [{ required: true, message: t('system.enterAnnouncementTitle'), trigger: 'blur' }],
-  content: [{ required: true, message: t('system.enterAnnouncementBody'), trigger: 'blur' }]
+  title: [{ required: true, message: '请输入公告标题', trigger: 'blur' }],
+  content: [{ required: true, message: '请输入公告内容', trigger: 'blur' }]
 }
 
 async function load() {
@@ -404,10 +404,10 @@ async function onSubmit() {
   try {
     if (editingId.value !== null) {
       await updateAnnouncement(editingId.value, body)
-      ElMessage.success(t('common.saved'))
+      ElMessage.success('已保存')
     } else {
       await createAnnouncement(body)
-      ElMessage.success(t('system.createdAsDraft'))
+      ElMessage.success('已创建为草稿')
     }
     dialogVisible.value = false
     load()
@@ -432,7 +432,7 @@ async function onPublish() {
       publishAt: publishForm.publishAt || undefined,
       expireAt: publishForm.expireAt || undefined
     })
-    ElMessage.success(t('common.published'))
+    ElMessage.success('已发布')
     publishVisible.value = false
     load()
   } catch (e) {
@@ -445,7 +445,7 @@ async function onPublish() {
 async function onOffline(row) {
   try {
     await offlineAnnouncement(row.id)
-    ElMessage.success(t('system.signedOut'))
+    ElMessage.success('已下线')
     load()
   } catch (e) {
     // 拦截器已提示
@@ -464,7 +464,7 @@ async function onToggleTop(row) {
 async function onDelete(row) {
   try {
     await deleteAnnouncement(row.id)
-    ElMessage.success(t('common.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     // 拦截器已提示
@@ -526,7 +526,7 @@ async function onRemindUnread() {
   try {
     const res = await remindAnnouncementUnread(receiptTarget.value.id)
     const count = res?.reminded ?? res?.data?.reminded ?? 0
-    ElMessage.success(t('system.urgedUnreadUsers', { count }))
+    ElMessage.success(`已向 ${count} 位未读用户发送催办`)
   } catch (e) {
     // 拦截器已提示（如「当前没有未读用户」）
   } finally {

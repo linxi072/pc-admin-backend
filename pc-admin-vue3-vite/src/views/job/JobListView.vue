@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('job.title') }}</h2>
+    <h2 class="page-title">{{ '定时任务' }}</h2>
 
     <!-- 调度引擎不可用提示 -->
     <el-alert
@@ -9,41 +9,41 @@
       type="warning"
       show-icon
       :closable="false"
-      :title="t('job.engineUnavailable')"
+      :title="'调度引擎当前不可用：任务可正常配置，但「启动」将无法生效。请联系管理员检查 JobRunr 配置。'"
     />
 
     <!-- 筛选工具栏：条件区（筛选控件分组）/ 操作区（查询动作与主操作分层） -->
     <el-card class="toolbar" shadow="never">
       <div class="toolbar-filters">
         <div class="filter-group">
-          <span class="filter-label">{{ t('job.taskName') }}</span>
+          <span class="filter-label">{{ '任务名称' }}</span>
           <el-input
             v-model="query.jobName"
-            :placeholder="t('job.taskName')"
+            :placeholder="'任务名称'"
             clearable
             style="width: 170px"
             @keyup.enter="onSearch"
           />
         </div>
         <div class="filter-group">
-          <span class="filter-label">{{ t('common.status') }}</span>
-          <el-select v-model="query.status" :placeholder="t('job.allStatus')" clearable style="width: 170px" @change="onSearch">
-            <el-option :label="t('job.running')" value="RUNNING" />
-            <el-option :label="t('job.paused')" value="PAUSED" />
-            <el-option :label="t('job.completed')" value="COMPLETED" />
+          <span class="filter-label">{{ '状态' }}</span>
+          <el-select v-model="query.status" :placeholder="'全部状态'" clearable style="width: 170px" @change="onSearch">
+            <el-option :label="'运行中'" value="RUNNING" />
+            <el-option :label="'已暂停'" value="PAUSED" />
+            <el-option :label="'已完成'" value="COMPLETED" />
           </el-select>
         </div>
         <div class="filter-group">
-          <span class="filter-label">{{ t('job.triggerType') }}</span>
-          <el-select v-model="query.triggerType" :placeholder="t('job.allTriggerType')" clearable style="width: 170px" @change="onSearch">
-            <el-option :label="t('job.cronExpr')" value="CRON" />
-            <el-option :label="t('job.fixedInterval')" value="SIMPLE" />
-            <el-option :label="t('job.singleRun')" value="ONE_TIME" />
+          <span class="filter-label">{{ '触发类型' }}</span>
+          <el-select v-model="query.triggerType" :placeholder="'全部触发类型'" clearable style="width: 170px" @change="onSearch">
+            <el-option :label="'cron 表达式'" value="CRON" />
+            <el-option :label="'固定间隔'" value="SIMPLE" />
+            <el-option :label="'单次执行'" value="ONE_TIME" />
           </el-select>
         </div>
         <div class="filter-group">
-          <span class="filter-label">{{ t('job.processor') }}</span>
-          <el-select v-model="query.taskKey" :placeholder="t('job.allProcessor')" clearable style="width: 170px" @change="onSearch">
+          <span class="filter-label">{{ '处理器' }}</span>
+          <el-select v-model="query.taskKey" :placeholder="'全部处理器'" clearable style="width: 170px" @change="onSearch">
             <el-option v-for="h in handlers" :key="h.key" :label="h.name" :value="h.key" />
           </el-select>
         </div>
@@ -51,13 +51,13 @@
 
       <div class="toolbar-actions">
         <div class="action-buttons">
-          <el-button :loading="loading" @click="onSearch">{{ t('common.query') }}</el-button>
-          <el-button @click="reset">{{ t('common.reset') }}</el-button>
-          <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
-          <el-switch v-model="autoRefresh" :active-text="t('job.autoRefresh')" inline-prompt />
+          <el-button :loading="loading" @click="onSearch">{{ '查询' }}</el-button>
+          <el-button @click="reset">{{ '重置' }}</el-button>
+          <el-button :icon="Download" @click="onExportCsv">{{ '导出当前页 CSV' }}</el-button>
+          <el-switch v-model="autoRefresh" :active-text="'自动刷新'" inline-prompt />
         </div>
         <div class="action-buttons">
-          <el-button type="primary" @click="openCreate">{{ t('job.newTask') }}</el-button>
+          <el-button type="primary" @click="openCreate">{{ '新建任务' }}</el-button>
         </div>
       </div>
     </el-card>
@@ -67,76 +67,76 @@
       <el-skeleton v-if="loading && !rows.length" :rows="6" animated />
       <template v-else>
         <el-table :data="rows" border stripe size="small" style="width: 100%">
-          <el-table-column prop="jobName" :label="t('job.taskName')" min-width="150" show-overflow-tooltip>
+          <el-table-column prop="jobName" :label="'任务名称'" min-width="150" show-overflow-tooltip>
             <template #default="{ row }">
               <div class="cell-name">{{ row.jobName }}</div>
               <div class="cell-sub">{{ row.jobGroup }}</div>
             </template>
           </el-table-column>
-          <el-table-column :label="t('job.processor')" min-width="130">
+          <el-table-column :label="'处理器'" min-width="130">
             <template #default="{ row }">
               <el-tooltip :content="row.taskKey" placement="top">
                 <span>{{ row.taskKeyName || row.taskKey }}</span>
               </el-tooltip>
             </template>
           </el-table-column>
-          <el-table-column :label="t('job.triggerRule')" min-width="180">
+          <el-table-column :label="'触发规则'" min-width="180">
             <template #default="{ row }">
               <el-tag size="small" effect="plain" class="mr-6">{{ row.triggerTypeLabel || row.triggerType }}</el-tag>
               <span class="rule-text">{{ ruleText(row) }}</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('job.dependencyOrchestration')" min-width="200">
+          <el-table-column :label="'依赖编排'" min-width="200">
             <template #default="{ row }">
               <div class="dag-line">
-                <span class="dag-label">{{ t('job.dependency') }}</span>
+                <span class="dag-label">{{ '依赖' }}</span>
                 <template v-if="row.dependsOn && row.dependsOn.length">
                   <el-tag v-for="d in row.dependsOn" :key="'up'+d" size="small" type="info" effect="plain" class="mr-4">{{ jobNameOf(d) }}</el-tag>
                 </template>
-                <span v-else class="cell-sub">{{ t('common.none') }}</span>
+                <span v-else class="cell-sub">{{ '无' }}</span>
               </div>
               <div class="dag-line">
-                <span class="dag-label">{{ t('job.downstream') }}</span>
+                <span class="dag-label">{{ '下游' }}</span>
                 <template v-if="row.dependents && row.dependents.length">
                   <el-tag v-for="d in row.dependents" :key="'down'+d" size="small" type="success" effect="plain" class="mr-4">{{ jobNameOf(d) }}</el-tag>
                 </template>
-                <span v-else class="cell-sub">{{ t('common.none') }}</span>
+                <span v-else class="cell-sub">{{ '无' }}</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column :label="t('job.params')" min-width="120" show-overflow-tooltip>
+          <el-table-column :label="'参数'" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <span class="mono">{{ row.jobParams || '—' }}</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('common.status')" width="100" align="center">
+          <el-table-column :label="'状态'" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.status)" size="small">{{ row.statusLabel || row.status }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column :label="t('job.lastExec')" width="150">
+          <el-table-column :label="'上次执行'" width="150">
             <template #default="{ row }">
               <div>{{ fmtTime(row.lastFireTime) }}</div>
               <div v-if="row.lastStatus" class="cell-sub">
                 <el-tag :type="row.lastStatus === 'SUCCESS' ? 'success' : 'danger'" size="small" effect="plain">
-                  {{ row.lastStatus === 'SUCCESS' ? t('common.success') : t('common.failed') }}
+                  {{ row.lastStatus === 'SUCCESS' ? '成功' : '失败' }}
                 </el-tag>
                 <span v-if="row.lastDurationMs != null" class="ml-4">{{ row.lastDurationMs }}ms</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column :label="t('job.nextExec')" width="150">
+          <el-table-column :label="'下次执行'" width="150">
             <template #default="{ row }">
               <span :class="{ 'text-strong': !!row.nextFireTime }">{{ fmtTime(row.nextFireTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column :label="t('job.execCount')" width="120" align="center">
+          <el-table-column :label="'执行次数'" width="120" align="center">
             <template #default="{ row }">
               <div>{{ row.totalRuns ?? 0 }}</div>
               <div class="cell-sub">成功 {{ row.successRuns ?? 0 }} / 失败 {{ row.failureRuns ?? 0 }}</div>
             </template>
           </el-table-column>
-          <el-table-column :label="t('common.operation')" width="260" fixed="right">
+          <el-table-column :label="'操作'" width="260" fixed="right">
             <template #default="{ row }">
               <el-button
                 v-if="row.status !== 'RUNNING'"
@@ -144,33 +144,33 @@
                 type="success"
                 size="small"
                 @click="onStart(row)"
-              >{{ t('job.start') }}</el-button>
+              >{{ '启动' }}</el-button>
               <el-button
                 v-else
                 link
                 type="warning"
                 size="small"
                 @click="onPause(row)"
-              >{{ t('job.pause') }}</el-button>
-              <el-button link type="primary" size="small" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+              >{{ '暂停' }}</el-button>
+              <el-button link type="primary" size="small" @click="openEdit(row)">{{ '编辑' }}</el-button>
               <el-button
                 v-if="row.dependents && row.dependents.length"
                 link
                 type="warning"
                 size="small"
                 @click="onTriggerDownstream(row)"
-              >{{ t('job.triggerDownstream') }}</el-button>
-              <el-button link type="info" size="small" @click="openLogs(row)">{{ t('job.log') }}</el-button>
-              <el-popconfirm :title="t('job.confirmDelete')" @confirm="onDelete(row)">
+              >{{ '触发下游' }}</el-button>
+              <el-button link type="info" size="small" @click="openLogs(row)">{{ '日志' }}</el-button>
+              <el-popconfirm :title="'确认删除该任务？'" @confirm="onDelete(row)">
                 <template #reference>
-                  <el-button link type="danger" size="small">{{ t('common.delete') }}</el-button>
+                  <el-button link type="danger" size="small">{{ '删除' }}</el-button>
                 </template>
               </el-popconfirm>
             </template>
           </el-table-column>
         </el-table>
 
-        <el-empty v-if="!rows.length && !loading" :description="t('job.empty')" />
+        <el-empty v-if="!rows.length && !loading" :description="'暂无定时任务'" />
 
         <div class="pager">
           <el-pagination
@@ -187,25 +187,25 @@
     </el-card>
 
     <!-- 新建 / 编辑对话框 -->
-    <el-dialog v-model="dialog.visible" :title="dialog.mode === 'create' ? t('job.addTitle') : t('job.editTitle')" width="620px">
+    <el-dialog v-model="dialog.visible" :title="dialog.mode === 'create' ? '新建定时任务' : '编辑定时任务'" width="620px">
       <el-form :model="form" label-width="96px">
-        <el-form-item :label="t('job.taskName')" required>
-          <el-input v-model="form.jobName" maxlength="128" :placeholder="t('job.exampleName')" />
+        <el-form-item :label="'任务名称'" required>
+          <el-input v-model="form.jobName" maxlength="128" :placeholder="'例如：每日数据同步'" />
         </el-form-item>
-        <el-form-item :label="t('job.taskGroup')">
-          <el-input v-model="form.jobGroup" maxlength="64" :placeholder="t('job.defaultGroup')" />
+        <el-form-item :label="'任务分组'">
+          <el-input v-model="form.jobGroup" maxlength="64" :placeholder="'默认 DEFAULT'" />
         </el-form-item>
-        <el-form-item :label="t('job.processor')" required>
-          <el-select v-model="form.taskKey" :placeholder="t('job.pleaseSelectProcessor')" style="width: 100%">
+        <el-form-item :label="'处理器'" required>
+          <el-select v-model="form.taskKey" :placeholder="'请选择任务处理器'" style="width: 100%">
             <el-option v-for="h in handlers" :key="h.key" :label="`${h.name}（${h.key}）`" :value="h.key" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('job.upstreamDependency')">
+        <el-form-item :label="'前置依赖'">
           <el-select
             v-model="form.dependsOn"
             multiple
             filterable
-            :placeholder="t('job.dependencyHint')"
+            :placeholder="'可选：所依赖的上游任务（依赖满足后自动触发本任务）'"
             style="width: 100%"
           >
             <el-option
@@ -215,106 +215,106 @@
               :value="Number(j.id)"
             />
           </el-select>
-          <div class="hint">{{ t('job.waitDependencyHint') }}</div>
+          <div class="hint">{{ '配置后本任务进入「等待依赖」状态，待上游任务成功执行后才被自动触发；可留空。' }}</div>
         </el-form-item>
-        <el-form-item :label="t('job.triggerType')" required>
+        <el-form-item :label="'触发类型'" required>
           <el-radio-group v-model="form.triggerType">
-            <el-radio-button value="CRON">{{ t('job.cronExpr') }}</el-radio-button>
-            <el-radio-button value="SIMPLE">{{ t('job.fixedInterval') }}</el-radio-button>
-            <el-radio-button value="ONE_TIME">{{ t('job.singleRun') }}</el-radio-button>
+            <el-radio-button value="CRON">{{ 'cron 表达式' }}</el-radio-button>
+            <el-radio-button value="SIMPLE">{{ '固定间隔' }}</el-radio-button>
+            <el-radio-button value="ONE_TIME">{{ '单次执行' }}</el-radio-button>
           </el-radio-group>
         </el-form-item>
 
         <el-form-item v-if="form.triggerType === 'CRON'" label="cron" required>
-          <el-input v-model="form.cronExpression" :placeholder="t('job.cronExample')" />
-          <div class="hint">{{ t('job.cronHint') }}</div>
+          <el-input v-model="form.cronExpression" :placeholder="'例如：*/5 * * * *（分 时 日 月 周，支持 6 段秒精度）'" />
+          <div class="hint">{{ '支持 5 段（分钟精度）与 6 段（秒精度），例如「0 0 * * *」为每天 0 点。' }}</div>
         </el-form-item>
 
-        <el-form-item v-if="form.triggerType === 'SIMPLE'" :label="t('job.interval')" required>
+        <el-form-item v-if="form.triggerType === 'SIMPLE'" :label="'执行间隔'" required>
           <div class="interval-row">
             <el-input-number v-model="form.intervalValue" :min="1" :max="100000" controls-position="right" />
             <el-select v-model="form.intervalUnit" class="unit-select">
-              <el-option :label="t('job.second')" value="SECONDS" />
-              <el-option :label="t('job.minute')" value="MINUTES" />
-              <el-option :label="t('job.hour')" value="HOURS" />
-              <el-option :label="t('job.day')" value="DAYS" />
+              <el-option :label="'秒'" value="SECONDS" />
+              <el-option :label="'分钟'" value="MINUTES" />
+              <el-option :label="'小时'" value="HOURS" />
+              <el-option :label="'天'" value="DAYS" />
             </el-select>
           </div>
           <div class="hint">最小间隔 {{ meta.smallestIntervalSeconds || 5 }} 秒。</div>
         </el-form-item>
 
-        <el-form-item v-if="form.triggerType === 'ONE_TIME'" :label="t('job.execTime')" required>
+        <el-form-item v-if="form.triggerType === 'ONE_TIME'" :label="'执行时间'" required>
           <el-date-picker
             v-model="form.oneTimeAt"
             type="datetime"
             value-format="YYYY-MM-DDTHH:mm:ss"
-            :placeholder="t('job.execTimeHint')"
+            :placeholder="'选择执行时间（须晚于当前时间）'"
             style="width: 100%"
           />
         </el-form-item>
 
-        <el-form-item :label="t('job.taskParams')">
+        <el-form-item :label="'任务参数'">
           <el-input
             v-model="form.jobParams"
             type="textarea"
             :rows="3"
-            :placeholder="t('job.paramsExample')"
+            :placeholder="'可选，JSON 字符串，例如 {"biz":"sync"}'"
           />
-          <div class="hint">{{ t('job.paramsJsonHint') }}</div>
+          <div class="hint">{{ '须为合法 JSON；将原样透传给处理器。' }}</div>
         </el-form-item>
-        <el-form-item :label="t('job.remark')">
-          <el-input v-model="form.remark" maxlength="255" :placeholder="t('common.optional')" />
+        <el-form-item :label="'备注'">
+          <el-input v-model="form.remark" maxlength="255" :placeholder="'可选'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialog.visible = false">{{ t('common.cancel') }}</el-button>
+        <el-button @click="dialog.visible = false">{{ '取消' }}</el-button>
         <el-button type="primary" :loading="dialog.saving" @click="onSubmit">
-          {{ dialog.mode === 'create' ? t('job.create') : t('common.save') }}
+          {{ dialog.mode === 'create' ? '创建' : '保存' }}
         </el-button>
       </template>
     </el-dialog>
 
     <!-- 执行日志对话框 -->
-    <el-dialog v-model="logDialog.visible" :title="t('job.logTitle') + ' · ' + logDialog.jobName" width="760px">
+    <el-dialog v-model="logDialog.visible" :title="'执行日志' + ' · ' + logDialog.jobName" width="760px">
       <el-skeleton v-if="logDialog.loading" :rows="5" animated />
       <template v-else>
-        <el-empty v-if="!logDialog.rows.length" :description="t('job.noExecRecord')" :image-size="80" />
+        <el-empty v-if="!logDialog.rows.length" :description="'暂无执行记录'" :image-size="80" />
         <template v-else>
-          <el-card shadow="never" :header="t('job.durationTrend')" class="mb-12">
+          <el-card shadow="never" :header="'耗时趋势（近 30 次，按触发顺序）'" class="mb-12">
             <BaseChart :option="logChartOption" height="200px" />
           </el-card>
           <el-table :data="logDialog.rows" border size="small" max-height="320">
-            <el-table-column :label="t('job.triggerTime')" width="160">
+            <el-table-column :label="'触发时间'" width="160">
               <template #default="{ row }">{{ fmtTime(row.fireTime) }}</template>
             </el-table-column>
-            <el-table-column :label="t('job.result')" width="90" align="center">
+            <el-table-column :label="'结果'" width="90" align="center">
               <template #default="{ row }">
                 <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'" size="small">
-                  {{ row.status === 'SUCCESS' ? t('common.success') : t('common.failed') }}
+                  {{ row.status === 'SUCCESS' ? '成功' : '失败' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column :label="t('job.duration')" width="90" align="right">
+            <el-table-column :label="'耗时'" width="90" align="right">
               <template #default="{ row }">{{ row.durationMs != null ? row.durationMs + ' ms' : '—' }}</template>
             </el-table-column>
             <el-table-column label="traceId" width="160" show-overflow-tooltip>
               <template #default="{ row }"><span class="mono">{{ row.traceId || '—' }}</span></template>
             </el-table-column>
-            <el-table-column :label="t('job.errorMsg')" min-width="200" show-overflow-tooltip>
+            <el-table-column :label="'错误信息'" min-width="200" show-overflow-tooltip>
               <template #default="{ row }"><span class="err-text">{{ row.errorMessage || '—' }}</span></template>
             </el-table-column>
           </el-table>
         </template>
       </template>
       <template #footer>
-        <el-button @click="logDialog.visible = false">{{ t('common.close') }}</el-button>
+        <el-button @click="logDialog.visible = false">{{ '关闭' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
@@ -381,43 +381,43 @@ function ruleText(row) {
 
 // ---------------- 导出当前页 CSV ----------------
 const exportColumns = [
-  { label: t('job.taskName'), get: (r) => r.jobName },
-  { label: t('job.taskGroup'), get: (r) => r.jobGroup || '' },
-  { label: t('job.processor'), get: (r) => r.taskKeyName || r.taskKey },
+  { label: '任务名称', get: (r) => r.jobName },
+  { label: '任务分组', get: (r) => r.jobGroup || '' },
+  { label: '处理器', get: (r) => r.taskKeyName || r.taskKey },
   {
-    label: t('job.triggerRule'),
+    label: '触发规则',
     get: (r) => {
       const trig = r.triggerTypeLabel || r.triggerType
       const rule = ruleText(r)
       return rule && rule !== '—' ? `${trig} ${rule}` : trig
     }
   },
-  { label: t('common.status'), get: (r) => r.statusLabel || r.status },
-  { label: t('job.lastExec'), get: (r) => fmtTime(r.lastFireTime) },
+  { label: '状态', get: (r) => r.statusLabel || r.status },
+  { label: '上次执行', get: (r) => fmtTime(r.lastFireTime) },
   {
-    label: t('job.result'),
+    label: '结果',
     get: (r) =>
       r.lastStatus
-        ? (r.lastStatus === 'SUCCESS' ? t('common.success') : t('common.failed'))
+        ? (r.lastStatus === 'SUCCESS' ? '成功' : '失败')
         : ''
   },
-  { label: t('job.nextExec'), get: (r) => fmtTime(r.nextFireTime) },
+  { label: '下次执行', get: (r) => fmtTime(r.nextFireTime) },
   {
-    label: t('job.execCount'),
+    label: '执行次数',
     get: (r) =>
-      `${r.totalRuns ?? 0}（${t('common.success')} ${r.successRuns ?? 0} / ${t('common.failed')} ${r.failureRuns ?? 0}）`
+      `${r.totalRuns ?? 0}（${'成功'} ${r.successRuns ?? 0} / ${'失败'} ${r.failureRuns ?? 0}）`
   }
 ]
 
 function onExportCsv() {
   if (!rows.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = exportColumns.map((c) => c.label)
   const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
   downloadCsv(`job-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 // ---------------- 数据加载 ----------------
@@ -578,21 +578,21 @@ function openEdit(row) {
 }
 
 function validateForm() {
-  if (!form.jobName || !form.jobName.trim()) return t('job.pleaseEnterName')
-  if (!form.taskKey) return t('job.pleaseSelectProcessor')
+  if (!form.jobName || !form.jobName.trim()) return '请填写任务名称'
+  if (!form.taskKey) return '请选择任务处理器'
   if (form.triggerType === 'CRON') {
-    if (!form.cronExpression || !form.cronExpression.trim()) return t('job.pleaseEnterCron')
+    if (!form.cronExpression || !form.cronExpression.trim()) return '请填写 cron 表达式'
   } else if (form.triggerType === 'SIMPLE') {
-    if (!form.intervalValue || form.intervalValue <= 0) return t('job.intervalMustBePositive')
-    if (!form.intervalUnit) return t('job.pleaseSelectIntervalUnit')
+    if (!form.intervalValue || form.intervalValue <= 0) return '执行间隔必须为正整数'
+    if (!form.intervalUnit) return '请选择执行间隔单位'
   } else if (form.triggerType === 'ONE_TIME') {
-    if (!form.oneTimeAt) return t('job.pleaseSelectExecTime')
+    if (!form.oneTimeAt) return '请选择单次执行时间'
   }
   if (form.jobParams && form.jobParams.trim()) {
     try {
       JSON.parse(form.jobParams)
     } catch (e) {
-      return t('job.paramsMustBeJson')
+      return '任务参数必须是合法 JSON'
     }
   }
   return null
@@ -621,10 +621,10 @@ async function onSubmit() {
   try {
     if (dialog.mode === 'create') {
       await jobCreate(payload)
-      ElMessage.success(t('job.createSuccessHint'))
+      ElMessage.success('创建成功（默认暂停，请手动启动）')
     } else {
       await jobUpdate(dialog.id, payload)
-      ElMessage.success(t('common.saveSuccess'))
+      ElMessage.success('保存成功')
     }
     dialog.visible = false
     load()
@@ -639,7 +639,7 @@ async function onSubmit() {
 async function onStart(row) {
   try {
     await jobStart(row.id)
-    ElMessage.success(t('job.started'))
+    ElMessage.success('已启动，调度已即时生效')
     load()
   } catch (e) {
     // 拦截器已提示
@@ -649,7 +649,7 @@ async function onStart(row) {
 async function onPause(row) {
   try {
     await jobPause(row.id)
-    ElMessage.success(t('job.paused'))
+    ElMessage.success('已暂停')
     load()
   } catch (e) {
     // 拦截器已提示
@@ -659,7 +659,7 @@ async function onPause(row) {
 async function onDelete(row) {
   try {
     await jobDelete(row.id)
-    ElMessage.success(t('job.deleted'))
+    ElMessage.success('已删除')
     if (rows.value.length === 1 && query.page > 1) query.page -= 1
     load()
   } catch (e) {
@@ -672,9 +672,9 @@ async function onTriggerDownstream(row) {
   try {
     const count = await jobTriggerDownstream(row.id)
     if (count && count > 0) {
-      ElMessage.success(t('job.triggeredDownstream', { count }))
+      ElMessage.success(`已触发 ${count} 个就绪下游任务`)
     } else {
-      ElMessage.info(t('job.noReadyDownstream'))
+      ElMessage.info('没有就绪的下游任务（需上游先成功执行且下游处于等待依赖态）')
     }
     load()
   } catch (e) {

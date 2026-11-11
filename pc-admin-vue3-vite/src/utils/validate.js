@@ -8,7 +8,6 @@
 // 提示：优先取校验器给出的第一条错误文案，取不到再回退到通用的「必填」。
 
 import { ElMessage } from 'element-plus'
-import { t } from '@/i18n'
 
 /**
  * 从 el-form 校验失败的回执里取第一条错误文案。
@@ -41,7 +40,7 @@ export async function validateOrWarn(formRef) {
     await target.validate()
     return true
   } catch (err) {
-    ElMessage.warning(firstValidationMessage(err) || t('common.required'))
+    ElMessage.warning(firstValidationMessage(err) || '必填')
     return false
   }
 }

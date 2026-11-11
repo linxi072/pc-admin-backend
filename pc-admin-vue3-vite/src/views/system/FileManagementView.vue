@@ -1,17 +1,17 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.file') }}</h2>
+    <h2 class="page-title">{{ '文件管理' }}</h2>
 
     <!-- 上传区：记录来源功能模块与上传人（上传人由后端取当前登录用户，前端不传） -->
     <el-card class="page-card" shadow="never">
       <template #header>
-        <span class="card-title">{{ t('system.uploadFile') }}</span>
+        <span class="card-title">{{ '上传文件' }}</span>
       </template>
       <el-form :inline="true" class="upload-form" @submit.prevent>
-        <el-form-item :label="t('system.sourceModule')" required>
+        <el-form-item :label="'来源功能模块'" required>
           <el-select
             v-model="uploadForm.sourceModule"
-            :placeholder="t('system.selectOrInputSourceModule')"
+            :placeholder="'选择或输入来源模块'"
             filterable
             allow-create
             default-first-option
@@ -25,10 +25,10 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.bizRefId')">
-          <el-input v-model="uploadForm.bizId" :placeholder="t('system.optionalWorkflowReportId')" clearable style="width: 220px" />
+        <el-form-item :label="'业务关联 ID'">
+          <el-input v-model="uploadForm.bizId" :placeholder="'可选，如流程实例/报表 ID'" clearable style="width: 220px" />
         </el-form-item>
-        <el-form-item :label="t('system.fileLabel')">
+        <el-form-item :label="'文件'">
           <el-upload
             ref="uploadRef"
             :auto-upload="false"
@@ -39,7 +39,7 @@
             style="width: 320px"
           >
             <template #trigger>
-              <el-button :icon="Upload">{{ t('system.selectFile') }}</el-button>
+              <el-button :icon="Upload">{{ '选择文件' }}</el-button>
             </template>
             <template #tip>
               <div class="el-upload__tip">
@@ -49,7 +49,7 @@
           </el-upload>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :icon="UploadFilled" :loading="uploading" @click="onSubmit">{{ t('common.upload') }}</el-button>
+          <el-button type="primary" :icon="UploadFilled" :loading="uploading" @click="onSubmit">{{ '上传' }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -57,16 +57,16 @@
     <!-- 存储统计：总量 / 占用空间 / 按来源模块拆分（V50） -->
     <el-card class="page-card" shadow="never" v-loading="statsLoading">
       <template #header>
-        <span class="card-title">{{ t('system.storageStats') }}</span>
+        <span class="card-title">{{ '存储统计' }}</span>
       </template>
       <div class="stats-row">
         <div class="stat-item">
           <div class="stat-value">{{ stats.totalCount }}</div>
-          <div class="stat-label">{{ t('system.fileTotal') }}</div>
+          <div class="stat-label">{{ '文件总数' }}</div>
         </div>
         <div class="stat-item">
           <div class="stat-value">{{ fmtSize(stats.totalSize) }}</div>
-          <div class="stat-label">{{ t('system.usedSpace') }}</div>
+          <div class="stat-label">{{ '占用空间' }}</div>
         </div>
         <div class="stat-item stat-modules">
           <el-tag
@@ -78,7 +78,7 @@
           >
             {{ m.sourceModule }} · {{ m.fileCount }} 个 / {{ fmtSize(m.totalSize) }}
           </el-tag>
-          <span v-if="!stats.modules.length" class="muted">{{ t('system.noFile') }}</span>
+          <span v-if="!stats.modules.length" class="muted">{{ '暂无文件' }}</span>
         </div>
       </div>
     </el-card>
@@ -88,8 +88,8 @@
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.sourceModule') }}</span>
-            <el-select v-model="query.sourceModule" :placeholder="t('common.all')" clearable filterable style="width: 180px">
+            <span class="filter-label">{{ '来源功能模块' }}</span>
+            <el-select v-model="query.sourceModule" :placeholder="'全部'" clearable filterable style="width: 180px">
               <el-option
                 v-for="opt in sourceModuleOptions"
                 :key="opt.value"
@@ -99,12 +99,12 @@
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.uploader') }}</span>
-            <el-input v-model="query.uploaderName" :placeholder="t('system.uploaderBlurred')" clearable style="width: 160px" @keyup.enter="load" />
+            <span class="filter-label">{{ '上传人' }}</span>
+            <el-input v-model="query.uploaderName" :placeholder="'上传人（模糊）'" clearable style="width: 160px" @keyup.enter="load" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.fileName') }}</span>
-            <el-input v-model="query.originalName" :placeholder="t('system.fileNameBlurred')" clearable style="width: 180px" @keyup.enter="load" />
+            <span class="filter-label">{{ '文件名' }}</span>
+            <el-input v-model="query.originalName" :placeholder="'文件名（模糊）'" clearable style="width: 180px" @keyup.enter="load" />
           </div>
         </div>
         <div class="toolbar-actions">
@@ -117,8 +117,8 @@
             >
               批量删除{{ selectedRows.length ? `（${selectedRows.length}）` : '' }}
             </el-button>
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
           </div>
         </div>
       </div>
@@ -126,36 +126,36 @@
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="45" />
-        <el-table-column prop="originalName" :label="t('system.fileName')" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="sourceModule" :label="t('system.sourceModule')" width="150">
+        <el-table-column prop="originalName" :label="'文件名'" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="sourceModule" :label="'来源功能模块'" width="150">
           <template #default="{ row }">
             <el-tag size="small" type="info">{{ row.sourceModule || '--' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.instantTransfer')" width="80">
+        <el-table-column :label="'秒传'" width="80">
           <template #default="{ row }">
-            <el-tag v-if="row.deduplicated" size="small" type="warning">{{ t('system.instantTransfer') }}</el-tag>
+            <el-tag v-if="row.deduplicated" size="small" type="warning">{{ '秒传' }}</el-tag>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="uploaderName" :label="t('system.uploader')" width="140" />
-        <el-table-column prop="fileSize" :label="t('system.sizeSys')" width="120" sortable="custom">
+        <el-table-column prop="uploaderName" :label="'上传人'" width="140" />
+        <el-table-column prop="fileSize" :label="'大小'" width="120" sortable="custom">
           <template #default="{ row }">{{ fmtSize(row.fileSize) }}</template>
         </el-table-column>
-        <el-table-column prop="contentType" :label="t('common.type')" width="160" show-overflow-tooltip>
+        <el-table-column prop="contentType" :label="'类型'" width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.contentType">{{ row.contentType }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="downloadCount" :label="t('system.downloadCount')" width="110" sortable="custom" />
-        <el-table-column prop="createdAt" :label="t('system.uploadTime')" width="180" sortable="custom" />
-        <el-table-column :label="t('common.operation')" width="150" fixed="right">
+        <el-table-column prop="downloadCount" :label="'下载次数'" width="110" sortable="custom" />
+        <el-table-column prop="createdAt" :label="'上传时间'" width="180" sortable="custom" />
+        <el-table-column :label="'操作'" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Download" @click="onDownload(row)">{{ t('common.download') }}</el-button>
-            <el-popconfirm :title="t('system.confirmDeleteFile')" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Download" @click="onDownload(row)">{{ '下载' }}</el-button>
+            <el-popconfirm :title="'确认删除该文件？'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -179,7 +179,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { Search, RefreshLeft, Upload, UploadFilled, Download, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -189,12 +189,12 @@ import { saveBlobFromResponse } from '@/utils/download'
 
 // 来源功能模块候选（业务模块调用时也可自由输入，allow-create 兜底）
 const sourceModuleOptions = [
-  { value: 'file-management', label: t('route.file') },
-  { value: 'workflow', label: t('system.workflow') },
-  { value: 'report', label: t('dashboard.reportMgmt') },
-  { value: 'user', label: t('route.user') },
-  { value: 'role', label: t('route.role') },
-  { value: 'system', label: t('system.systemConfig') }
+  { value: 'file-management', label: '文件管理' },
+  { value: 'workflow', label: '工作流' },
+  { value: 'report', label: '报表管理' },
+  { value: 'user', label: '用户管理' },
+  { value: 'role', label: '角色管理' },
+  { value: 'system', label: '系统配置' }
 ]
 
 // 与后端 app.file.* 一致的客户端提示与预校验（权威校验仍在后端）
@@ -296,35 +296,35 @@ function onSortChange({ prop, order }) {
 }
 
 function onExceed() {
-  ElMessage.warning(t('system.oneFileOnly'))
+  ElMessage.warning('一次仅可上传一个文件，请先移除已选文件')
 }
 
 /** 上传：先做客户端预校验（模块必填 / 大小 / 扩展名），再秒传预检，最后调用后端公共上传接口。 */
 async function onSubmit() {
   if (!uploadForm.sourceModule) {
-    ElMessage.warning(t('system.selectOrInputModule'))
+    ElMessage.warning('请选择或输入来源功能模块')
     return
   }
   const fileList = uploadRef.value?.uploadFiles || []
   const picked = fileList[0]?.raw
   if (!picked) {
-    ElMessage.warning(t('system.selectFileFirst'))
+    ElMessage.warning('请先选择文件')
     return
   }
   if (picked.size > maxBytes) {
-    ElMessage.error(t('system.fileSizeExceeded', { maxSizeMB }))
+    ElMessage.error(`文件大小不能超过 ${maxSizeMB}MB`)
     return
   }
   const ext = (picked.name.split('.').pop() || '').toLowerCase()
   if (!allowedExts.includes(ext)) {
-    ElMessage.error(t('system.unsupportedType', { ext }))
+    ElMessage.error('不支持的文件类型：.${ext}')
     return
   }
   await precheckDedup(picked)
   uploading.value = true
   try {
     const view = await uploadFile(picked, uploadForm.sourceModule, uploadForm.bizId || undefined)
-    ElMessage.success(view?.deduplicated ? t('system.uploadSuccessDedup') : t('system.uploadSuccess'))
+    ElMessage.success(view?.deduplicated ? '上传成功（秒传复用，未占用额外空间）' : '上传成功')
     uploadRef.value?.clearFiles()
     uploadForm.bizId = ''
     query.page = 1
@@ -350,7 +350,7 @@ async function precheckDedup(picked) {
     const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
     const res = await checkDedup(hex)
     if (res?.exists) {
-      ElMessage.info(t('system.sameFileInstant', { name: res.originalName || '' }))
+      ElMessage.info('检测到相同内容文件「${res.originalName || \'\'}」，将秒传复用，不占用额外空间')
     }
   } catch (e) {
     // 预检失败不阻断上传（后端仍会计算哈希去重）
@@ -361,7 +361,7 @@ async function precheckDedup(picked) {
 async function onDownload(row) {
   try {
     const resp = await downloadFile(row.id)
-    const ok = await saveBlobFromResponse(resp, row.originalName || `file-${row.id}`, '', t('codegen.downloadFailed'))
+    const ok = await saveBlobFromResponse(resp, row.originalName || `file-${row.id}`, '', '下载失败')
     if (!ok) return
     // 下载计数由后端自增，刷新列表以展示最新下载次数
     load()
@@ -374,7 +374,7 @@ async function onDelete(row) {
   try {
     await deleteFile(row.id)
     // 文案统一为「已删除」，与其余列表页一致
-    ElMessage.success(t('common.deleted'))
+    ElMessage.success('已删除')
     load()
     loadStats()
   } catch (e) {
@@ -394,7 +394,7 @@ function onSelectionChange(rows) {
 async function onBatchDelete() {
   if (!selectedRows.value.length) return
   try {
-    await ElMessageBox.confirm(t('system.confirmDeleteFiles', { count: selectedRows.value.length }), t('system.batchDelete'), { type: 'warning' })
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedRows.value.length} 个文件？`, '批量删除', { type: 'warning' })
   } catch (e) {
     return // 用户取消
   }
@@ -402,9 +402,9 @@ async function onBatchDelete() {
     const res = await batchDeleteFiles(selectedRows.value.map((r) => r.id))
     const failed = res?.failures || []
     if (failed.length) {
-      ElMessage.warning(t('system.deletedFilesSummary', { deletedCount: res.deletedCount, failedCount: failed.length, details: failed.map((f) => `#${f.id} ${f.reason}`).join('；') }))
+      ElMessage.warning('已删除 {deletedCount} 个，{failedCount} 个失败：{details}')
     } else {
-      ElMessage.success(t('system.deletedFiles', { count: res.deletedCount }))
+      ElMessage.success(`已删除 ${res.deletedCount} 个文件`)
     }
     load()
     loadStats()

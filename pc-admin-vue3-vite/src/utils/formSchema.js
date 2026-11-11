@@ -103,8 +103,8 @@ export function buildRules(fields, t) {
     const list = []
     if (f.required) {
       const msg = f.type === 'SWITCH'
-        ? t('form.enableRequired', { label: f.label })
-        : t('form.required', { label: f.label })
+        ? `请开启${f.label}`
+        : `${f.label}不能为空`
       list.push({ required: true, message: msg, trigger: f.type === 'SWITCH' ? 'change' : 'blur' })
     }
     const min = Number.isInteger(f.minLength) ? f.minLength : undefined
@@ -129,7 +129,7 @@ export function buildRules(fields, t) {
           validator: (rule, value, cb) => {
             if (value == null || value === '') return cb()
             if (re.test(String(value))) return cb()
-            cb(new Error(t('form.pattern', { label: f.label })))
+            cb(new Error(`${f.label}格式不正确`))
           },
           trigger: 'blur'
         })
@@ -143,8 +143,8 @@ export function buildRules(fields, t) {
 function makeLengthValidator(f, min, max, t) {
   return (rule, value, cb) => {
     const len = value == null ? 0 : String(value).length
-    if (min !== undefined && len < min) return cb(new Error(t('form.minLength', { label: f.label, min })))
-    if (max !== undefined && len > max) return cb(new Error(t('form.maxLength', { label: f.label, max })))
+    if (min !== undefined && len < min) return cb(new Error(`${f.label}至少 ${min} 个字符`))
+    if (max !== undefined && len > max) return cb(new Error(`${f.label}不超过 ${max} 个字符`))
     cb()
   }
 }
@@ -153,9 +153,9 @@ function makeNumberRangeValidator(f, nmin, nmax, t) {
   return (rule, value, cb) => {
     if (value == null || value === '') return cb()
     const n = Number(value)
-    if (Number.isNaN(n)) return cb(new Error(t('form.required', { label: f.label })))
-    if (nmin !== undefined && n < nmin) return cb(new Error(t('form.numberMin', { label: f.label, min: nmin })))
-    if (nmax !== undefined && n > nmax) return cb(new Error(t('form.numberMax', { label: f.label, max: nmax })))
+    if (Number.isNaN(n)) return cb(new Error(`${f.label}不能为空`))
+    if (nmin !== undefined && n < nmin) return cb(new Error(`${f.label}不能小于 ${nmin}`))
+    if (nmax !== undefined && n > nmax) return cb(new Error(`${f.label}不能大于 ${nmax}`))
     cb()
   }
 }
@@ -177,7 +177,7 @@ export function validateForm(model, schema, t) {
     const label = f.label || f.key
     if (f.required) {
       if (isBlank(value, f.type)) {
-        errors[f.key] = t('form.required', { label })
+        errors[f.key] = `${label}不能为空`
         continue
       }
     }
@@ -185,11 +185,11 @@ export function validateForm(model, schema, t) {
     if (f.type === 'INPUT' || f.type === 'TEXTAREA') {
       const len = String(value).length
       if (Number.isInteger(f.minLength) && len < f.minLength) {
-        errors[f.key] = t('form.minLength', { label, min: f.minLength })
+        errors[f.key] = `${label}至少 ${f.minLength} 个字符`
         continue
       }
       if (Number.isInteger(f.maxLength) && len > f.maxLength) {
-        errors[f.key] = t('form.maxLength', { label, max: f.maxLength })
+        errors[f.key] = `${label}不超过 ${f.maxLength} 个字符`
         continue
       }
     }
@@ -197,11 +197,11 @@ export function validateForm(model, schema, t) {
       const n = Number(value)
       if (!Number.isNaN(n)) {
         if (typeof f.min === 'number' && n < f.min) {
-          errors[f.key] = t('form.numberMin', { label, min: f.min })
+          errors[f.key] = `${label}不能小于 ${f.min}`
           continue
         }
         if (typeof f.max === 'number' && n > f.max) {
-          errors[f.key] = t('form.numberMax', { label, max: f.max })
+          errors[f.key] = `${label}不能大于 ${f.max}`
           continue
         }
       }
@@ -214,7 +214,7 @@ export function validateForm(model, schema, t) {
         re = null
       }
       if (re && !re.test(String(value))) {
-        errors[f.key] = t('form.pattern', { label })
+        errors[f.key] = `${label}格式不正确`
         continue
       }
     }

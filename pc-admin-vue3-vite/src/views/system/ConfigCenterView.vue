@@ -1,53 +1,53 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.configCenter') }}</h2>
+    <h2 class="page-title">{{ '配置中心' }}</h2>
 
-    <el-empty v-if="denied" :description="t('configCenter.featureDisabled')">
-      <el-button type="primary" @click="load">{{ t('common.reload') }}</el-button>
+    <el-empty v-if="denied" :description="'配置中心未启用（app.config-center.enabled=false），后端控制器未注册，暂不可操作。'">
+      <el-button type="primary" @click="load">{{ '重新加载' }}</el-button>
     </el-empty>
 
     <template v-else>
-      <el-card class="page-card" shadow="never" :header="t('configCenter.status')">
+      <el-card class="page-card" shadow="never" :header="'运行状态'">
         <el-descriptions :column="3" border v-loading="statusLoading">
-          <el-descriptions-item :label="t('configCenter.centerType')">{{ status.centerType || '--' }}</el-descriptions-item>
-          <el-descriptions-item :label="t('configCenter.dynamicRefresh')">
+          <el-descriptions-item :label="'中心类型'">{{ status.centerType || '--' }}</el-descriptions-item>
+          <el-descriptions-item :label="'动态刷新'">
             <el-tag :type="status.dynamicRefreshSupported ? 'success' : 'info'" size="small">
-              {{ status.dynamicRefreshSupported ? t('configCenter.dynamicYes') : t('configCenter.dynamicNo') }}
+              {{ status.dynamicRefreshSupported ? '支持' : '不支持' }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item :label="t('configCenter.effectiveCount')">{{ status.effectiveCount ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item :label="'生效配置数'">{{ status.effectiveCount ?? 0 }}</el-descriptions-item>
         </el-descriptions>
-        <div v-if="lastRefreshCount != null" class="hint">{{ t('configCenter.lastRefresh', { count: lastRefreshCount }) }}</div>
+        <div v-if="lastRefreshCount != null" class="hint">{{ `上次刷新：成功生效 ${lastRefreshCount} 条配置` }}</div>
       </el-card>
 
-      <el-card class="page-card" shadow="never" :header="t('configCenter.snapshot')">
+      <el-card class="page-card" shadow="never" :header="'配置快照'">
         <div class="toolbar">
           <div class="toolbar-filters">
-            <el-input v-model="prefix" :placeholder="t('configCenter.prefix')" clearable style="width: 260px"
+            <el-input v-model="prefix" :placeholder="'前缀过滤'" clearable style="width: 260px"
               @keyup.enter="load" @clear="load" />
           </div>
           <div class="toolbar-actions">
             <div class="action-buttons">
               <el-button type="primary" :loading="refreshing" :icon="Refresh" @click="onRefresh">
-                {{ refreshing ? t('configCenter.refreshing') : t('configCenter.refresh') }}
+                {{ refreshing ? '刷新中…' : '热刷新' }}
               </el-button>
-              <el-button :icon="Search" @click="load">{{ t('common.search') }}</el-button>
+              <el-button :icon="Search" @click="load">{{ '搜索' }}</el-button>
             </div>
           </div>
         </div>
 
         <el-table :data="snapshotRows" v-loading="loading" border stripe>
-          <el-table-column prop="key" :label="t('configCenter.key')" min-width="280" show-overflow-tooltip />
-          <el-table-column prop="value" :label="t('configCenter.value')" min-width="280" show-overflow-tooltip />
+          <el-table-column prop="key" :label="'配置项'" min-width="280" show-overflow-tooltip />
+          <el-table-column prop="value" :label="'配置值'" min-width="280" show-overflow-tooltip />
         </el-table>
-        <el-empty v-if="!loading && !snapshotRows.length" :description="t('configCenter.emptySnapshot')" :image-size="80" />
+        <el-empty v-if="!loading && !snapshotRows.length" :description="'暂无配置快照'" :image-size="80" />
       </el-card>
     </template>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
@@ -96,7 +96,7 @@ async function onRefresh() {
     const res = await refreshConfig()
     const cnt = res?.effectiveCount ?? 0
     lastRefreshCount.value = cnt
-    ElMessage.success(t('configCenter.refreshSuccess', { count: cnt }))
+    ElMessage.success(`热刷新成功，已生效 ${cnt} 条`)
     load()
   } catch (e) {
     // 拦截器已提示

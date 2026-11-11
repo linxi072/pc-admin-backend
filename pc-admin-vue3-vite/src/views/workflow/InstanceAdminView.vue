@@ -1,24 +1,24 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('workflow.instanceAdmin.title') }}</h2>
+    <h2 class="page-title">{{ '流程实例治理' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.status') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.running')" clearable style="width: 130px" @change="onSearch">
-              <el-option :label="t('common.running')" value="RUNNING" />
-              <el-option :label="t('common.approved')" value="APPROVED" />
-              <el-option :label="t('common.rejected')" value="REJECTED" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="query.status" :placeholder="'运行中'" clearable style="width: 130px" @change="onSearch">
+              <el-option :label="'运行中'" value="RUNNING" />
+              <el-option :label="'已通过'" value="APPROVED" />
+              <el-option :label="'已驳回'" value="REJECTED" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.keyword') }}</span>
+            <span class="filter-label">{{ '关键字' }}</span>
             <el-input
               v-model="query.keyword"
-              :placeholder="t('workflow.titleOrBusinessNo')"
+              :placeholder="'标题 / 业务单号'"
               clearable
               style="width: 220px"
               @keyup.enter="onSearch"
@@ -27,50 +27,50 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
-            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ '导出当前页 CSV' }}</el-button>
           </div>
         </div>
       </div>
 
       <el-table :data="rows" v-loading="loading" border stripe empty-text=" ">
-        <el-table-column prop="processInstanceId" :label="t('common.processInstance')" width="280" show-overflow-tooltip />
-        <el-table-column prop="title" :label="t('common.title')" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="businessType" :label="t('common.businessType')" width="110" />
-        <el-table-column prop="businessId" :label="t('workflow.businessNo')" width="120" show-overflow-tooltip />
-        <el-table-column :label="t('common.status')" width="100">
+        <el-table-column prop="processInstanceId" :label="'流程实例'" width="280" show-overflow-tooltip />
+        <el-table-column prop="title" :label="'标题'" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="businessType" :label="'业务类型'" width="110" />
+        <el-table-column prop="businessId" :label="'业务单号'" width="120" show-overflow-tooltip />
+        <el-table-column :label="'状态'" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status).type" size="small">
               {{ statusTag(row.status).label }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('workflow.instanceAdmin.suspended')" width="90">
+        <el-table-column :label="'已挂起'" width="90">
           <template #default="{ row }">
-            <el-tag v-if="isSuspended(row)" type="warning" size="small">{{ t('workflow.instanceAdmin.suspended') }}</el-tag>
+            <el-tag v-if="isSuspended(row)" type="warning" size="small">{{ '已挂起' }}</el-tag>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('workflow.currentNode')" width="120" show-overflow-tooltip>
+        <el-table-column :label="'当前节点'" width="120" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.currentActivityId">{{ row.currentActivityId }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('workflow.initiator')" width="120" show-overflow-tooltip>
+        <el-table-column :label="'发起人'" width="120" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.starterUsername">{{ row.starterUsername }}</span>
             <span v-else class="muted">#{{ row.starterUserId }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="startedAt" :label="t('workflow.startTime')" width="170" />
-        <el-table-column :label="t('workflow.stay')" width="100">
+        <el-table-column prop="startedAt" :label="'发起时间'" width="170" />
+        <el-table-column :label="'停留'" width="100">
           <template #default="{ row }">
             <span :class="{ 'overdue-text': row.stayedMinutes >= 1440 }">{{ formatMinutes(row.stayedMinutes) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="260" fixed="right">
+        <el-table-column :label="'操作'" width="260" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="!isSuspended(row)"
@@ -79,7 +79,7 @@
               :icon="VideoPause"
               :loading="acting === row.processInstanceId + ':suspend'"
               @click="onSuspend(row)"
-            >{{ t('workflow.instanceAdmin.suspend') }}</el-button>
+            >{{ '挂起' }}</el-button>
             <el-button
               v-else
               link
@@ -87,21 +87,21 @@
               :icon="VideoPlay"
               :loading="acting === row.processInstanceId + ':resume'"
               @click="onResume(row)"
-            >{{ t('workflow.instanceAdmin.resume') }}</el-button>
+            >{{ '恢复' }}</el-button>
             <el-button
               link
               type="primary"
               :icon="Switch"
               :loading="acting === row.processInstanceId + ':reassign'"
               @click="openReassign(row)"
-            >{{ t('workflow.instanceAdmin.reassign') }}</el-button>
+            >{{ '改派' }}</el-button>
             <el-button
               link
               type="primary"
               :icon="Promotion"
               :loading="acting === row.processInstanceId + ':migrate'"
               @click="openMigrate(row)"
-            >{{ t('workflow.instanceAdmin.migrate') }}</el-button>
+            >{{ '迁移' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -117,16 +117,16 @@
           @size-change="onSizeChange"
         />
       </div>
-      <div class="hint">{{ t('workflow.instanceAdmin.desc') }}</div>
+      <div class="hint">{{ '对运行中的流程实例执行挂起 / 恢复 / 改派 / 迁移等治理操作，用于异常处理与版本热升级。挂起态为引擎态，列表中仍标记为「运行中」。' }}</div>
     </el-card>
 
     <!-- 改派对话框 -->
-    <el-dialog v-model="reassignVisible" :title="t('workflow.instanceAdmin.reassignTitle')" width="460px" @open="loadUsers">
+    <el-dialog v-model="reassignVisible" :title="'改派流程实例'" width="460px" @open="loadUsers">
       <el-form label-width="100px">
-        <el-form-item :label="t('workflow.instanceAdmin.reassignTarget')">
+        <el-form-item :label="'目标办理人'">
           <el-select
             v-model="reassignForm.toUserId"
-            :placeholder="t('workflow.instanceAdmin.reassignPlaceholder')"
+            :placeholder="'请选择目标办理人'"
             filterable
             style="width: 100%"
             :loading="userLoading"
@@ -141,23 +141,23 @@
         </el-form-item>
       </el-form>
       <div class="dialog-hint">
-        {{ t('workflow.instanceAdmin.reassignConfirm', { title: currentRow?.title || '--', name: selectedUserName || '--' }) }}
+        {{ `确认将实例「${currentRow?.title || '--'}」的全部活跃任务改派给「${selectedUserName || '--'}」？` }}
       </div>
       <template #footer>
-        <el-button @click="reassignVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button @click="reassignVisible = false">{{ '取消' }}</el-button>
         <el-button type="primary" :loading="submitting" :disabled="!reassignForm.toUserId" @click="submitReassign">
-          {{ t('common.confirm') }}
+          {{ '确认' }}
         </el-button>
       </template>
     </el-dialog>
 
     <!-- 迁移对话框 -->
-    <el-dialog v-model="migrateVisible" :title="t('workflow.instanceAdmin.migrateTitle')" width="460px" @open="loadDefinitions">
+    <el-dialog v-model="migrateVisible" :title="'迁移流程实例'" width="460px" @open="loadDefinitions">
       <el-form label-width="100px">
-        <el-form-item :label="t('workflow.instanceAdmin.migrateTarget')">
+        <el-form-item :label="'目标流程定义'">
           <el-select
             v-model="migrateForm.toProcessDefinitionId"
-            :placeholder="t('workflow.instanceAdmin.migratePlaceholder')"
+            :placeholder="'请选择目标流程定义版本'"
             filterable
             style="width: 100%"
             :loading="defLoading"
@@ -172,12 +172,12 @@
         </el-form-item>
       </el-form>
       <div class="dialog-hint">
-        {{ t('workflow.instanceAdmin.migrateConfirm', { title: currentRow?.title || '--', name: selectedDefName || '--' }) }}
+        {{ `确认将实例「${currentRow?.title || '--'}」迁移到「${selectedDefName || '--'}」？` }}
       </div>
       <template #footer>
-        <el-button @click="migrateVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button @click="migrateVisible = false">{{ '取消' }}</el-button>
         <el-button type="primary" :loading="submitting" :disabled="!migrateForm.toProcessDefinitionId" @click="submitMigrate">
-          {{ t('common.confirm') }}
+          {{ '确认' }}
         </el-button>
       </template>
     </el-dialog>
@@ -185,7 +185,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, VideoPause, VideoPlay, Switch, Promotion, Download } from '@element-plus/icons-vue'
@@ -250,28 +250,28 @@ function resetQuery() {
 
 function statusTag(s) {
   const map = {
-    RUNNING: { type: 'primary', label: t('common.running') },
-    APPROVED: { type: 'success', label: t('common.approved') },
-    REJECTED: { type: 'danger', label: t('common.rejected') }
+    RUNNING: { type: 'primary', label: '运行中' },
+    APPROVED: { type: 'success', label: '已通过' },
+    REJECTED: { type: 'danger', label: '已驳回' }
   }
   return map[s] || { type: 'info', label: s || '--' }
 }
 
 function formatMinutes(m) {
   const total = Number(m) || 0
-  if (total < 60) return total + ' ' + t('workflow.minuteUnit')
+  if (total < 60) return total + ' ' + '分'
   const h = Math.floor(total / 60)
   const rest = total % 60
-  if (h < 24) return rest === 0 ? h + ' ' + t('workflow.hourUnit') : h + ' ' + t('workflow.hourUnit') + ' ' + rest + ' ' + t('workflow.minuteUnit')
+  if (h < 24) return rest === 0 ? h + ' ' + '小时' : h + ' ' + '小时' + ' ' + rest + ' ' + '分'
   const d = Math.floor(h / 24)
   const rh = h % 24
-  return rh === 0 ? d + ' ' + t('workflow.dayUnit') : d + ' ' + t('workflow.dayUnit') + ' ' + rh + ' ' + t('workflow.hourUnit')
+  return rh === 0 ? d + ' ' + '天' : d + ' ' + '天' + ' ' + rh + ' ' + '小时'
 }
 
 // ---- 挂起 / 恢复 ----
 async function onSuspend(row) {
   try {
-    await ElMessageBox.confirm(t('workflow.instanceAdmin.suspendConfirm'), t('common.tip'), { type: 'warning' })
+    await ElMessageBox.confirm('确认挂起该流程实例？挂起后所有在途任务将被冻结。', '提示', { type: 'warning' })
   } catch {
     return
   }
@@ -279,7 +279,7 @@ async function onSuspend(row) {
   try {
     await suspendInstance(row.processInstanceId)
     setSuspended(row.processInstanceId, true)
-    ElMessage.success(t('workflow.instanceAdmin.suspendSuccess'))
+    ElMessage.success('已挂起')
   } catch (e) {
     // 拦截器已统一提示（含 409 已挂起）
   } finally {
@@ -289,7 +289,7 @@ async function onSuspend(row) {
 
 async function onResume(row) {
   try {
-    await ElMessageBox.confirm(t('workflow.instanceAdmin.resumeConfirm'), t('common.tip'), { type: 'warning' })
+    await ElMessageBox.confirm('确认恢复该流程实例？', '提示', { type: 'warning' })
   } catch {
     return
   }
@@ -297,7 +297,7 @@ async function onResume(row) {
   try {
     await resumeInstance(row.processInstanceId)
     setSuspended(row.processInstanceId, false)
-    ElMessage.success(t('workflow.instanceAdmin.resumeSuccess'))
+    ElMessage.success('已恢复')
   } catch (e) {
     // 拦截器已统一提示（含 409 未挂起）
   } finally {
@@ -341,7 +341,7 @@ async function submitReassign() {
   acting.value = currentRow.value.processInstanceId + ':reassign'
   try {
     await reassignInstance(currentRow.value.processInstanceId, reassignForm.toUserId)
-    ElMessage.success(t('workflow.instanceAdmin.reassignSuccess'))
+    ElMessage.success('已改派')
     reassignVisible.value = false
   } catch (e) {
     // 拦截器已统一提示（含 400/404/409）
@@ -385,7 +385,7 @@ async function submitMigrate() {
   acting.value = currentRow.value.processInstanceId + ':migrate'
   try {
     await migrateInstance(currentRow.value.processInstanceId, migrateForm.toProcessDefinitionId)
-    ElMessage.success(t('workflow.instanceAdmin.migrateSuccess'))
+    ElMessage.success('已迁移')
     migrateVisible.value = false
   } catch (e) {
     // 拦截器已统一提示（含 400/404 目标不存在或相同）
@@ -396,26 +396,26 @@ async function submitMigrate() {
 }
 
 const exportColumns = [
-  { label: t('common.processInstance'), get: (r) => r.processInstanceId },
-  { label: t('common.title'), get: (r) => r.title },
-  { label: t('common.businessType'), get: (r) => r.businessType || '--' },
-  { label: t('workflow.businessNo'), get: (r) => r.businessId || '--' },
-  { label: t('common.status'), get: (r) => statusTag(r.status).label },
-  { label: t('workflow.instanceAdmin.suspended'), get: (r) => (isSuspended(r) ? t('workflow.instanceAdmin.suspended') : '--') },
-  { label: t('workflow.currentNode'), get: (r) => r.currentActivityId || '--' },
-  { label: t('workflow.initiator'), get: (r) => r.starterUsername || `#${r.starterUserId}` },
-  { label: t('workflow.startTime'), get: (r) => r.startedAt || '--' },
-  { label: t('workflow.stay'), get: (r) => formatMinutes(r.stayedMinutes) }
+  { label: '流程实例', get: (r) => r.processInstanceId },
+  { label: '标题', get: (r) => r.title },
+  { label: '业务类型', get: (r) => r.businessType || '--' },
+  { label: '业务单号', get: (r) => r.businessId || '--' },
+  { label: '状态', get: (r) => statusTag(r.status).label },
+  { label: '已挂起', get: (r) => (isSuspended(r) ? '已挂起' : '--') },
+  { label: '当前节点', get: (r) => r.currentActivityId || '--' },
+  { label: '发起人', get: (r) => r.starterUsername || `#${r.starterUserId}` },
+  { label: '发起时间', get: (r) => r.startedAt || '--' },
+  { label: '停留', get: (r) => formatMinutes(r.stayedMinutes) }
 ]
 function onExportCsv() {
   if (!rows.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = exportColumns.map((c) => c.label)
   const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
   downloadCsv(`instance-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 onMounted(load)

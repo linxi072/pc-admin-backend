@@ -1,14 +1,14 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.department') }}</h2>
+    <h2 class="page-title">{{ '部门管理' }}</h2>
     <el-card class="page-card">
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.common.keyword') }}</span>
+            <span class="filter-label">{{ '关键字' }}</span>
             <el-input
               v-model="keyword"
-              :placeholder="t('system.department.searchPlaceholder')"
+              :placeholder="'搜索部门名称 / 编码'"
               clearable
               :prefix-icon="Search"
               style="width: 240px"
@@ -18,7 +18,7 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.department.addTitle') }}</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新增部门' }}</el-button>
           </div>
         </div>
       </div>
@@ -32,33 +32,33 @@
         stripe
         default-expand-all
       >
-        <el-table-column prop="orgName" :label="t('system.department.name')" min-width="160" />
-        <el-table-column prop="orgCode" :label="t('system.department.code')" width="150" />
-        <el-table-column :label="t('system.common.type')" width="100">
+        <el-table-column prop="orgName" :label="'部门名称'" min-width="160" />
+        <el-table-column prop="orgCode" :label="'部门编码'" width="150" />
+        <el-table-column :label="'类型'" width="100">
           <template #default="{ row }">
             <el-tag size="small">{{ typeLabel(row.orgType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sortNo" :label="t('system.common.sort')" width="80" />
-        <el-table-column :label="t('system.common.owner')" min-width="140">
+        <el-table-column prop="sortNo" :label="'排序'" width="80" />
+        <el-table-column :label="'负责人'" min-width="140">
           <template #default="{ row }">
             <span v-if="row.leaderUserName">{{ row.leaderUserName }}</span>
-            <span v-else class="text-muted">{{ t('system.common.notSet') }}</span>
+            <span v-else class="text-muted">{{ '未设置' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="90">
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">
-              {{ row.status === 'ACTIVE' ? t('common.enabled') : t('common.disabled') }}
+              {{ row.status === 'ACTIVE' ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="170" fixed="right">
+        <el-table-column :label="'操作'" width="170" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-popconfirm :title="t('system.department.confirmDelete')" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-popconfirm :title="'确认删除该部门？'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -66,36 +66,36 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editingId !== null ? t('system.department.editTitle') : t('system.department.addTitle')" width="600px">
+    <el-dialog v-model="dialogVisible" :title="editingId !== null ? '编辑部门' : '新增部门'" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item :label="t('system.department.parent')">
-          <el-select v-model="form.parentId" clearable :placeholder="t('system.department.top')" style="width: 100%">
+        <el-form-item :label="'上级部门'">
+          <el-select v-model="form.parentId" clearable :placeholder="'顶级部门'" style="width: 100%">
             <el-option v-for="m in parentOptions" :key="m.id" :label="m.label" :value="m.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.department.code')" prop="orgCode">
-          <el-input v-model="form.orgCode" :placeholder="t('system.department.exampleCode')" />
+        <el-form-item :label="'部门编码'" prop="orgCode">
+          <el-input v-model="form.orgCode" :placeholder="'如 tech-dept'" />
         </el-form-item>
-        <el-form-item :label="t('system.department.name')" prop="orgName">
+        <el-form-item :label="'部门名称'" prop="orgName">
           <el-input v-model="form.orgName" />
         </el-form-item>
-        <el-form-item :label="t('system.department.type')" prop="orgType">
+        <el-form-item :label="'部门类型'" prop="orgType">
           <el-select v-model="form.orgType" style="width: 100%">
-            <el-option :label="t('system.org.typeCompany')" value="COMPANY" />
-            <el-option :label="t('system.org.typeDepartment')" value="DEPARTMENT" />
-            <el-option :label="t('system.org.typeTeam')" value="TEAM" />
+            <el-option :label="'公司 (COMPANY)'" value="COMPANY" />
+            <el-option :label="'部门 (DEPARTMENT)'" value="DEPARTMENT" />
+            <el-option :label="'小组 (TEAM)'" value="TEAM" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.common.sort')">
+        <el-form-item :label="'排序'">
           <el-input-number v-model="form.sortNo" :min="0" />
         </el-form-item>
-        <el-form-item :label="t('system.common.owner')">
+        <el-form-item :label="'负责人'">
           <el-select
             v-model="form.leaderUserId"
             filterable
             remote
             clearable
-            :placeholder="t('system.user.searchPlaceholder')"
+            :placeholder="'输入用户名 / 昵称搜索'"
             :remote-method="onLeaderSearch"
             :loading="leaderLoading"
             style="width: 100%"
@@ -109,28 +109,28 @@
             />
             <template #empty>
               <div class="leader-empty">
-                {{ leaderLoading ? t('system.common.searching') : leaderSearched ? t('system.user.noMatch') : t('system.user.searchKeyword') }}
+                {{ leaderLoading ? '搜索中…' : leaderSearched ? '未找到匹配用户' : '输入关键词搜索用户' }}
               </div>
             </template>
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('common.status')">
+        <el-form-item :label="'状态'">
           <el-select v-model="form.status" style="width: 100%">
-            <el-option :label="t('common.enabled')" value="ACTIVE" />
-            <el-option :label="t('common.disabled')" value="DISABLED" />
+            <el-option :label="'启用'" value="ACTIVE" />
+            <el-option :label="'禁用'" value="DISABLED" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Search, Edit } from '@element-plus/icons-vue'
@@ -192,7 +192,7 @@ async function fetchLeaderCandidates(kw) {
     if (seq !== leaderSearchSeq) return
     leaderOptions.value = []
     // 无 system:user:read 权限时后端 403，明确提示而非静默空列表
-    ElMessage.warning(t('system.user.listLoadFailed'))
+    ElMessage.warning('用户列表加载失败（可能需要用户查询权限）')
   } finally {
     if (seq === leaderSearchSeq) leaderLoading.value = false
   }
@@ -218,13 +218,13 @@ function onLeaderDropdown(open) {
 }
 
 const rules = {
-  orgCode: [{ required: true, message: t('system.department.pleaseEnterCode'), trigger: 'blur' }],
-  orgName: [{ required: true, message: t('system.department.pleaseEnterName'), trigger: 'blur' }],
-  orgType: [{ required: true, message: t('system.department.pleaseSelectType'), trigger: 'change' }]
+  orgCode: [{ required: true, message: '请输入部门编码', trigger: 'blur' }],
+  orgName: [{ required: true, message: '请输入部门名称', trigger: 'blur' }],
+  orgType: [{ required: true, message: '请选择部门类型', trigger: 'change' }]
 }
 
 function typeLabel(t) {
-  return t === 'COMPANY' ? t('system.org.company') : t === 'TEAM' ? t('system.org.team') : t('system.department.label')
+  return t === 'COMPANY' ? '公司' : t === 'TEAM' ? '小组' : '部门'
 }
 
 const flatOrgs = computed(() => flattenTree(rawTree.value, { nameKey: 'orgName' }))
@@ -313,10 +313,10 @@ async function onSubmit() {
     const payload = { ...form, leaderUserId: form.leaderUserId || null }
     if (editingId.value != null) {
       await updateOrg(editingId.value, payload)
-      ElMessage.success(t('system.common.updateSuccess'))
+      ElMessage.success('更新成功')
     } else {
       await createOrg(payload)
-      ElMessage.success(t('system.common.createSuccess'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     editingId.value = null
@@ -331,7 +331,7 @@ async function onSubmit() {
 async function onDelete(row) {
   try {
     await deleteOrg(row.id)
-    ElMessage.success(t('system.department.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */

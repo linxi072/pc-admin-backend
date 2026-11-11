@@ -1,87 +1,87 @@
 <template>
-  <el-dialog v-model="visible" :title="t('system.tenantGovernance')" width="960px" @open="loadOverview">
+  <el-dialog v-model="visible" :title="'租户治理'" width="960px" @open="loadOverview">
     <el-alert
       type="warning"
       :closable="false"
       show-icon
-      :title="t('system.governanceDestructiveWarning')"
+      :title="'跨租户治理为破坏性操作：归位会改写历史数据的租户归属，迁移会移动整表数据。请务必确认目标租户无误，操作不可回滚。'"
       class="mb-12"
     />
 
     <el-tabs v-model="active">
-      <el-tab-pane :label="t('system.governanceDataOverview')" name="overview">
+      <el-tab-pane :label="'数据总览'" name="overview">
         <div v-loading="loading">
-          <el-table :data="overview" border stripe default-expand-all :empty-text="t('system.empty')">
+          <el-table :data="overview" border stripe default-expand-all :empty-text="'（空）'">
             <el-table-column type="expand">
               <template #default="{ row }">
                 <el-table :data="toPairs(row.tableCounts)" border size="small" style="margin: 8px 0">
-                  <el-table-column prop="name" :label="t('system.businessTable')" min-width="240" />
-                  <el-table-column prop="count" :label="t('formDesigner.rows')" width="140" align="right" />
+                  <el-table-column prop="name" :label="'业务表'" min-width="240" />
+                  <el-table-column prop="count" :label="'行数'" width="140" align="right" />
                 </el-table>
               </template>
             </el-table-column>
-            <el-table-column prop="tenantName" :label="t('system.tenantName')" min-width="200" />
-            <el-table-column prop="tenantId" :label="t('system.tenantId')" width="120" />
-            <el-table-column prop="totalRows" :label="t('system.totalBusinessData')" width="160" align="right" />
+            <el-table-column prop="tenantName" :label="'租户名称'" min-width="200" />
+            <el-table-column prop="tenantId" :label="'租户 ID'" width="120" />
+            <el-table-column prop="totalRows" :label="'业务数据总量'" width="160" align="right" />
           </el-table>
         </div>
       </el-tab-pane>
 
-      <el-tab-pane :label="t('system.backfill')" name="backfill">
+      <el-tab-pane :label="'存量归位'" name="backfill">
         <el-form :model="backfillForm" label-width="160px">
-          <el-form-item :label="t('system.backfillTargetTenantId')" required>
+          <el-form-item :label="'归位目标租户 ID'" required>
             <el-input
               v-model.number="backfillForm.targetTenantId"
               type="number"
-              :placeholder="t('system.enterTargetTenantId')"
+              :placeholder="'请输入目标租户 ID'"
             />
           </el-form-item>
           <el-popconfirm
-            :title="t('system.confirmBackfill', { id: backfillForm.targetTenantId || '?' })"
+            :title="`确认将全部业务表的历史数据归位到目标租户 ${backfillForm.targetTenantId || '?'}？此操作将改写数据租户归属且不可回滚。`"
             width="320"
             @confirm="onBackfill"
           >
             <template #reference>
-              <el-button type="danger" :loading="backfillLoading">{{ t('system.backfill') }}</el-button>
+              <el-button type="danger" :loading="backfillLoading">{{ '存量归位' }}</el-button>
             </template>
           </el-popconfirm>
         </el-form>
       </el-tab-pane>
 
-      <el-tab-pane :label="t('system.reassign')" name="reassign">
+      <el-tab-pane :label="'跨租户迁移'" name="reassign">
         <el-form :model="reassignForm" label-width="160px">
-          <el-form-item :label="t('system.reassignFromTenantId')">
+          <el-form-item :label="'迁移源租户 ID'">
             <el-input
               v-model.number="reassignForm.fromTenantId"
               type="number"
-              :placeholder="t('system.optional')"
+              :placeholder="'选填'"
             />
           </el-form-item>
-          <el-form-item :label="t('system.reassignToTenantId')" required>
+          <el-form-item :label="'迁移目标租户 ID'" required>
             <el-input
               v-model.number="reassignForm.toTenantId"
               type="number"
-              :placeholder="t('system.enterTargetTenantId')"
+              :placeholder="'请输入目标租户 ID'"
             />
           </el-form-item>
-          <el-form-item :label="t('system.tablesOptional')">
+          <el-form-item :label="'迁移表（留空=全部业务表）'">
             <el-select
               v-model="reassignForm.tables"
               multiple
               filterable
-              :placeholder="t('system.leaveEmptyForAllTables')"
+              :placeholder="'留空表示迁移全部业务表'"
               style="width: 100%"
             >
               <el-option v-for="name in tableOptions" :key="name" :label="name" :value="name" />
             </el-select>
           </el-form-item>
           <el-popconfirm
-            :title="t('system.confirmReassign', { from: reassignForm.fromTenantId || '?', to: reassignForm.toTenantId || '?' })"
+            :title="`确认将源租户 ${reassignForm.fromTenantId || '?'} 的数据迁移到目标租户 ${reassignForm.toTenantId || '?'}？此操作不可回滚。`"
             width="320"
             @confirm="onReassign"
           >
             <template #reference>
-              <el-button type="danger" :loading="reassignLoading">{{ t('system.reassign') }}</el-button>
+              <el-button type="danger" :loading="reassignLoading">{{ '跨租户迁移' }}</el-button>
             </template>
           </el-popconfirm>
         </el-form>
@@ -89,13 +89,13 @@
     </el-tabs>
 
     <template #footer>
-      <el-button @click="visible = false">{{ t('common.close') }}</el-button>
+      <el-button @click="visible = false">{{ '关闭' }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchTenantDataOverview, backfillTenantData, reassignTenantData } from '@/api/tenantGovernance'
@@ -146,13 +146,13 @@ async function loadOverview() {
 
 async function onBackfill() {
   if (!backfillForm.targetTenantId) {
-    ElMessage.warning(t('system.enterTargetTenantId'))
+    ElMessage.warning('请输入目标租户 ID')
     return
   }
   backfillLoading.value = true
   try {
     const res = await backfillTenantData({ targetTenantId: backfillForm.targetTenantId })
-    ElMessage.success(t('system.backfillDone', { n: res.affectedRows }))
+    ElMessage.success(`存量归位完成，影响 ${res.affectedRows} 行`)
     await loadOverview()
   } catch (e) {
     // 拦截器已统一提示
@@ -163,7 +163,7 @@ async function onBackfill() {
 
 async function onReassign() {
   if (!reassignForm.toTenantId) {
-    ElMessage.warning(t('system.enterTargetTenantId'))
+    ElMessage.warning('请输入目标租户 ID')
     return
   }
   reassignLoading.value = true
@@ -173,7 +173,7 @@ async function onReassign() {
       toTenantId: reassignForm.toTenantId,
       tables: reassignForm.tables && reassignForm.tables.length ? reassignForm.tables : null
     })
-    ElMessage.success(t('system.reassignDone', { n: res.affectedRows }))
+    ElMessage.success(`跨租户迁移完成，影响 ${res.affectedRows} 行`)
     await loadOverview()
   } catch (e) {
     // 拦截器已统一提示

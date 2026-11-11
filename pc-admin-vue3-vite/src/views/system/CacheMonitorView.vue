@@ -1,19 +1,19 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.cacheMonitor') }}</h2>
+    <h2 class="page-title">{{ '缓存监控' }}</h2>
 
     <!-- 汇总指标卡 + 操作区 -->
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="toolbar-filters">
-          <span class="card-title">{{ t('system.cacheOverview') }}</span>
+          <span class="card-title">{{ '进程内缓存总览' }}</span>
           <div class="filter-group">
-            <el-checkbox v-model="autoRefresh">{{ t('system.autoRefresh10s') }}</el-checkbox>
+            <el-checkbox v-model="autoRefresh">{{ '自动刷新(10s)' }}</el-checkbox>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">{{ t('common.refresh') }}</el-button>
+            <el-button type="primary" :icon="Refresh" :loading="loading" @click="load">{{ '刷新' }}</el-button>
           </div>
         </div>
       </div>
@@ -21,21 +21,21 @@
       <el-row :gutter="16">
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">{{ t('system.cacheInstances') }}</div>
+            <div class="metric-label">{{ '缓存实例数' }}</div>
             <div class="metric-value">{{ caches.length }}</div>
-            <div class="metric-sub">{{ t('system.registeredCaches') }}</div>
+            <div class="metric-sub">{{ '当前进程内注册的缓存' }}</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">{{ t('system.cacheEntryTotal') }}</div>
+            <div class="metric-label">{{ '缓存条目总数' }}</div>
             <div class="metric-value">{{ summary.entries }}</div>
-            <div class="metric-sub">{{ t('system.cacheResidentEntries') }}</div>
+            <div class="metric-sub">{{ '各缓存当前驻留条目' }}</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">{{ t('system.overallHitRate') }}</div>
+            <div class="metric-label">{{ '综合命中率' }}</div>
             <div class="metric-value">{{ fmtPct(summary.hitRate) }}</div>
             <el-progress :percentage="pctNum(summary.hitRate)" :stroke-width="8" :show-text="false" />
             <div class="metric-sub">命中 {{ summary.hit }} / 未命中 {{ summary.miss }}</div>
@@ -43,9 +43,9 @@
         </el-col>
         <el-col :span="6">
           <div class="metric-card">
-            <div class="metric-label">{{ t('system.cumulativeEvictions') }}</div>
+            <div class="metric-label">{{ '累计淘汰数' }}</div>
             <div class="metric-value">{{ summary.evict }}</div>
-            <div class="metric-sub">{{ t('system.cacheStrategyNote') }}</div>
+            <div class="metric-sub">{{ '过期清理 + 主动失效 + 手动清理' }}</div>
           </div>
         </el-col>
       </el-row>
@@ -54,12 +54,12 @@
     <!-- 缓存明细 -->
     <el-card class="page-card">
       <el-table :data="caches" v-loading="loading" border stripe>
-        <el-table-column prop="name" :label="t('system.cacheNameSys')" width="160" />
-        <el-table-column prop="type" :label="t('system.implType')" width="200" />
-        <el-table-column prop="entries" :label="t('system.entryCount')" width="100" sortable />
-        <el-table-column prop="hitCount" :label="t('system.colHit')" width="100" sortable />
-        <el-table-column prop="missCount" :label="t('system.notHit')" width="100" sortable />
-        <el-table-column :label="t('system.hitRateSys')" min-width="160">
+        <el-table-column prop="name" :label="'缓存名称'" width="160" />
+        <el-table-column prop="type" :label="'实现类型'" width="200" />
+        <el-table-column prop="entries" :label="'条目数'" width="100" sortable />
+        <el-table-column prop="hitCount" :label="'命中'" width="100" sortable />
+        <el-table-column prop="missCount" :label="'未命中'" width="100" sortable />
+        <el-table-column :label="'命中率'" min-width="160">
           <template #default="{ row }">
             <div class="hit-cell">
               <span class="hit-text">{{ fmtPct(row.hitRate == null ? null : row.hitRate * 100) }}</span>
@@ -67,16 +67,16 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="evictCount" :label="t('system.colEvict')" width="90" sortable />
+        <el-table-column prop="evictCount" :label="'淘汰'" width="90" sortable />
         <el-table-column label="TTL" width="110">
           <template #default="{ row }">
-            {{ row.ttlMillis == null ? t('system.neverExpires') : (row.ttlMillis / 1000) + ' s' }}
+            {{ row.ttlMillis == null ? '不过期' : (row.ttlMillis / 1000) + ' s' }}
           </template>
         </el-table-column>
-        <el-table-column prop="description" :label="t('system.colUsage')" min-width="220" show-overflow-tooltip />
-        <el-table-column :label="t('common.operation')" width="110" fixed="right">
+        <el-table-column prop="description" :label="'用途'" min-width="220" show-overflow-tooltip />
+        <el-table-column :label="'操作'" width="110" fixed="right">
           <template #default="{ row }">
-            <el-button type="danger" size="small" :icon="Delete" @click="onClear(row)">{{ t('system.cleanup') }}</el-button>
+            <el-button type="danger" size="small" :icon="Delete" @click="onClear(row)">{{ '清理' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -89,7 +89,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Delete } from '@element-plus/icons-vue'
@@ -132,8 +132,8 @@ async function load() {
 async function onClear(row) {
   try {
     await ElMessageBox.confirm(
-      t('system.confirmClearCache', { name: row.name }),
-      t('monitor.cleanConfirm'),
+      `确认清理缓存「${row.name}」？清理后下一次读取将回源数据库。`,
+      '清理确认',
       { type: 'warning' }
     )
   } catch {
@@ -141,7 +141,7 @@ async function onClear(row) {
   }
   try {
     await clearCache(row.name)
-    ElMessage.success(t('system.cacheCleared', { name: row.name }))
+    ElMessage.success(`已清理缓存「${row.name}」`)
     load()
   } catch (e) {
     // 拦截器已提示

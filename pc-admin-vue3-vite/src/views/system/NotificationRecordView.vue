@@ -1,55 +1,55 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.notificationRecord') }}</h2>
+    <h2 class="page-title">{{ '通知记录' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.channel') }}</span>
-            <el-select v-model="query.channel" :placeholder="t('common.all')" clearable style="width: 140px">
-              <el-option :label="t('common.stationMsg')" value="IN_APP" />
+            <span class="filter-label">{{ '渠道' }}</span>
+            <el-select v-model="query.channel" :placeholder="'全部'" clearable style="width: 140px">
+              <el-option :label="'站内信'" value="IN_APP" />
               <el-option label="Webhook" value="WEBHOOK" />
               <el-option label="WebSocket" value="WEBSOCKET" />
-              <el-option :label="t('common.mail')" value="EMAIL" />
-              <el-option :label="t('common.sms')" value="SMS" />
-              <el-option :label="t('system.wecomBot')" value="WECOM" />
-              <el-option :label="t('system.dingtalkBot')" value="DINGTALK" />
+              <el-option :label="'邮件'" value="EMAIL" />
+              <el-option :label="'短信'" value="SMS" />
+              <el-option :label="'企业微信机器人'" value="WECOM" />
+              <el-option :label="'钉钉机器人'" value="DINGTALK" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('job.result') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.all')" clearable style="width: 120px">
-              <el-option :label="t('common.success')" value="SUCCESS" />
-              <el-option :label="t('common.failed')" value="FAILED" />
-              <el-option :label="t('system.skippedSys')" value="SKIPPED" />
-              <el-option :label="t('system.aggregatingSys')" value="DIGEST_PENDING" />
+            <span class="filter-label">{{ '结果' }}</span>
+            <el-select v-model="query.status" :placeholder="'全部'" clearable style="width: 120px">
+              <el-option :label="'成功'" value="SUCCESS" />
+              <el-option :label="'失败'" value="FAILED" />
+              <el-option :label="'已跳过'" value="SKIPPED" />
+              <el-option :label="'聚合中'" value="DIGEST_PENDING" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('monitor.timeRange') }}</span>
+            <span class="filter-label">{{ '时间范围' }}</span>
             <el-date-picker
               v-model="dateRange"
               type="datetimerange"
-              :range-separator="t('common.to')"
-              :start-placeholder="t('common.startTime')"
-              :end-placeholder="t('monitor.endTime')"
+              :range-separator="'至'"
+              :start-placeholder="'开始时间'"
+              :end-placeholder="'结束时间'"
               value-format="YYYY-MM-DDTHH:mm:ss"
               :default-time="[new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]"
               style="width: 360px"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.keyword') }}</span>
-            <el-input v-model="query.keyword" :placeholder="t('system.channelTemplateSummaryTraceOperator')" clearable style="width: 260px" @keyup.enter="load" />
+            <span class="filter-label">{{ '关键字' }}</span>
+            <el-input v-model="query.keyword" :placeholder="'渠道/模板/摘要/失败原因/traceId/操作人'" clearable style="width: 260px" @keyup.enter="load" />
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
-            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ '导出当前页 CSV' }}</el-button>
           </div>
         </div>
       </div>
@@ -59,85 +59,85 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ summary.total ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.totalRecords') }}</div>
+            <div class="stat-label">{{ '总记录' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-ok">{{ summary.success ?? '--' }}</div>
-            <div class="stat-label">{{ t('common.success') }}</div>
+            <div class="stat-label">{{ '成功' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ summary.failure ?? '--' }}</div>
-            <div class="stat-label">{{ t('common.failed') }}</div>
+            <div class="stat-label">{{ '失败' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-warning">{{ summary.skipped ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.skippedSys') }}</div>
+            <div class="stat-label">{{ '已跳过' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-info">{{ summary.digestPending ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.aggregatingSys') }}</div>
+            <div class="stat-label">{{ '聚合中' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ fmtPct(summary.failureRate) }}</div>
-            <div class="stat-label">{{ t('system.failureRate') }}</div>
+            <div class="stat-label">{{ '失败率' }}</div>
           </div>
         </el-col>
         <el-col :span="8">
           <div class="stat-card">
             <div class="stat-num stat-time">{{ fmtTime(summary.lastSentAt) }}</div>
-            <div class="stat-label">{{ t('system.lastSent') }}</div>
+            <div class="stat-label">{{ '最近发送' }}</div>
           </div>
         </el-col>
       </el-row>
 
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="sentAt" :label="t('system.time')" width="180" sortable="custom" />
-        <el-table-column :label="t('common.channel')" width="110">
+        <el-table-column prop="sentAt" :label="'时间'" width="180" sortable="custom" />
+        <el-table-column :label="'渠道'" width="110">
           <template #default="{ row }">
             <el-tag :type="channelTagType(row.channel)" size="small" effect="light">
               {{ channelLabel(row.channel) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="templateCode" :label="t('system.sourceTemplate')" width="150" sortable="custom" show-overflow-tooltip>
+        <el-table-column prop="templateCode" :label="'来源模板'" width="150" sortable="custom" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.templateCode">{{ row.templateCode }}</span>
-            <span v-else class="muted">{{ t('system.directSys') }}</span>
+            <span v-else class="muted">{{ '直发' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="titleSummary" :label="t('system.titleSummary')" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="contentSummary" :label="t('system.contentSummary')" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="receiverSummary" :label="t('system.recipientMasked')" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="receiverCount" :label="t('system.targetCountSys')" width="90" sortable="custom" />
-        <el-table-column prop="delivered" :label="t('system.deliverCountSys')" width="90" />
-        <el-table-column :label="t('job.result')" width="100">
+        <el-table-column prop="titleSummary" :label="'标题摘要'" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="contentSummary" :label="'内容摘要'" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="receiverSummary" :label="'接收方（掩码）'" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="receiverCount" :label="'目标数'" width="90" sortable="custom" />
+        <el-table-column prop="delivered" :label="'投递数'" width="90" />
+        <el-table-column :label="'结果'" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)" size="small">
               {{ statusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="errorMessage" :label="t('system.failSkipReason')" min-width="160" show-overflow-tooltip>
+        <el-table-column prop="errorMessage" :label="'失败/跳过原因'" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.errorMessage" :class="row.status === 'SKIPPED' ? 'skip-text' : 'error-text'">{{ row.errorMessage }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="operatorName" :label="t('system.operator')" width="120" sortable="custom">
+        <el-table-column prop="operatorName" :label="'操作人'" width="120" sortable="custom">
           <template #default="{ row }">
             <span v-if="row.operatorName">{{ row.operatorName }}</span>
-            <span v-else class="muted">{{ t('system.system') }}</span>
+            <span v-else class="muted">{{ '系统' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
@@ -154,13 +154,13 @@
           @size-change="onSizeChange"
         />
       </div>
-      <div class="hint">{{ t('system.notifyRecordDesc') }}</div>
+      <div class="hint">{{ '默认查询最近 7 天记录；覆盖 IN_APP/WEBHOOK/WEBSOCKET/EMAIL/SMS 全渠道的每次投递尝试（含被拒、失败与跳过），标题/正文为摘要、接收方已掩码；短信网关对账请到「短信记录」页；「来源模板」为 M11 按模板发送回填，直发为空；「已跳过」为 M13 通知偏好生效——定向接收者全部退订该类型，非故障、不计入失败率；「聚合中」为 M17 聚合摘要生效——命中类型的定向消息已合并进摘要队列等待阈值/限时合并投递，属独立生命周期态、不计入失败率，且原消息不单独投递。' }}</div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Download } from '@element-plus/icons-vue'
@@ -186,13 +186,13 @@ const query = reactive({
 
 /** 渠道展示名与标签色调（与后端 Channel 枚举一一对应）。 */
 const CHANNEL_META = {
-  IN_APP: { label: t('common.stationMsg'), type: 'primary' },
+  IN_APP: { label: '站内信', type: 'primary' },
   WEBHOOK: { label: 'Webhook', type: 'warning' },
   WEBSOCKET: { label: 'WebSocket', type: 'success' },
-  EMAIL: { label: t('common.mail'), type: 'info' },
-  SMS: { label: t('common.sms'), type: 'danger' },
-  WECOM: { label: t('system.wecomBot'), type: 'success' },
-  DINGTALK: { label: t('system.dingtalkBot'), type: 'primary' }
+  EMAIL: { label: '邮件', type: 'info' },
+  SMS: { label: '短信', type: 'danger' },
+  WECOM: { label: '企业微信机器人', type: 'success' },
+  DINGTALK: { label: '钉钉机器人', type: 'primary' }
 }
 const channelLabel = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].label : c || '--')
 const channelTagType = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].type : 'info')
@@ -200,10 +200,10 @@ const channelTagType = (c) => (CHANNEL_META[c] ? CHANNEL_META[c].type : 'info')
 /** 结果四态（M13 起支持 SKIPPED：定向接收者全部退订，非故障不计入失败；
  *  M17 起支持 DIGEST_PENDING：消息进入聚合摘要队列等待合并投递，属独立生命周期态、不计失败）。 */
 const STATUS_META = {
-  SUCCESS: { label: t('common.success'), type: 'success' },
-  FAILED: { label: t('common.failed'), type: 'danger' },
-  SKIPPED: { label: t('system.skippedSys'), type: 'warning' },
-  DIGEST_PENDING: { label: t('system.aggregatingSys'), type: 'info' }
+  SUCCESS: { label: '成功', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' },
+  SKIPPED: { label: '已跳过', type: 'warning' },
+  DIGEST_PENDING: { label: '聚合中', type: 'info' }
 }
 const statusLabel = (s) => (STATUS_META[s] ? STATUS_META[s].label : s || '--')
 const statusTagType = (s) => (STATUS_META[s] ? STATUS_META[s].type : 'info')
@@ -280,28 +280,28 @@ const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '--')
 
 /** 导出当前页为 CSV：仅导出已加载的明细，不触发后端请求；渠道/结果用可读标签。 */
 const exportColumns = [
-  { label: t('system.time'), get: (r) => r.sentAt },
-  { label: t('common.channel'), get: (r) => channelLabel(r.channel) },
-  { label: t('system.sourceTemplate'), get: (r) => r.templateCode },
-  { label: t('system.titleSummary'), get: (r) => r.titleSummary },
-  { label: t('system.contentSummary'), get: (r) => r.contentSummary },
-  { label: t('system.recipientMasked'), get: (r) => r.receiverSummary },
-  { label: t('system.targetCountSys'), get: (r) => r.receiverCount },
-  { label: t('system.deliverCountSys'), get: (r) => r.delivered },
-  { label: t('job.result'), get: (r) => statusLabel(r.status) },
-  { label: t('system.failSkipReason'), get: (r) => r.errorMessage },
-  { label: t('system.operator'), get: (r) => r.operatorName },
+  { label: '时间', get: (r) => r.sentAt },
+  { label: '渠道', get: (r) => channelLabel(r.channel) },
+  { label: '来源模板', get: (r) => r.templateCode },
+  { label: '标题摘要', get: (r) => r.titleSummary },
+  { label: '内容摘要', get: (r) => r.contentSummary },
+  { label: '接收方（掩码）', get: (r) => r.receiverSummary },
+  { label: '目标数', get: (r) => r.receiverCount },
+  { label: '投递数', get: (r) => r.delivered },
+  { label: '结果', get: (r) => statusLabel(r.status) },
+  { label: '失败/跳过原因', get: (r) => r.errorMessage },
+  { label: '操作人', get: (r) => r.operatorName },
   { label: 'TraceId', get: (r) => r.traceId }
 ]
 function onExportCsv() {
   if (!rows.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = exportColumns.map((c) => c.label)
   const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
   downloadCsv(`notification-record-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 onMounted(load)

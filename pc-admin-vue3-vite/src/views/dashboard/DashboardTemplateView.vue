@@ -1,13 +1,13 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.dashboardTemplate') }}</h2>
+    <h2 class="page-title">{{ '看板模板管理' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="filters">
           <el-input
             v-model="query.templateCode"
-            :placeholder="t('dashboardTemplate.codePlaceholder')"
+            :placeholder="'请输入模板编码'"
             clearable
             style="width: 180px"
             @keyup.enter="onSearch"
@@ -16,52 +16,52 @@
           </el-input>
           <el-input
             v-model="query.templateName"
-            :placeholder="t('dashboardTemplate.namePlaceholder')"
+            :placeholder="'请输入模板名称'"
             clearable
             style="width: 180px"
             @keyup.enter="onSearch"
           />
-          <el-select v-model="query.status" :placeholder="t('dashboardTemplate.statusPlaceholder')" clearable style="width: 130px">
-            <el-option :label="t('dashboardTemplate.status.draft')" value="DRAFT" />
-            <el-option :label="t('dashboardTemplate.status.published')" value="PUBLISHED" />
-            <el-option :label="t('dashboardTemplate.status.offline')" value="OFFLINE" />
+          <el-select v-model="query.status" :placeholder="'状态'" clearable style="width: 130px">
+            <el-option :label="'草稿'" value="DRAFT" />
+            <el-option :label="'已发布'" value="PUBLISHED" />
+            <el-option :label="'已下线'" value="OFFLINE" />
           </el-select>
-          <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.search') }}</el-button>
+          <el-button type="primary" :icon="Search" @click="onSearch">{{ '搜索' }}</el-button>
         </div>
         <div class="actions">
-          <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('common.create') }}</el-button>
-          <el-button :icon="Refresh" @click="load">{{ t('common.refresh') }}</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">{{ '创建' }}</el-button>
+          <el-button :icon="Refresh" @click="load">{{ '刷新' }}</el-button>
         </div>
       </div>
 
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <el-table-column prop="id" label="ID" width="90" />
-        <el-table-column prop="templateCode" :label="t('dashboardTemplate.code')" width="160" show-overflow-tooltip sortable="custom" />
-        <el-table-column prop="templateName" :label="t('dashboardTemplate.name')" min-width="180" show-overflow-tooltip sortable="custom" />
-        <el-table-column prop="description" :label="t('common.description')" min-width="200" show-overflow-tooltip />
-        <el-table-column :label="t('common.status')" width="110" align="center">
+        <el-table-column prop="templateCode" :label="'模板编码'" width="160" show-overflow-tooltip sortable="custom" />
+        <el-table-column prop="templateName" :label="'模板名称'" min-width="180" show-overflow-tooltip sortable="custom" />
+        <el-table-column prop="description" :label="'描述'" min-width="200" show-overflow-tooltip />
+        <el-table-column :label="'状态'" width="110" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status).type">{{ statusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="viewCount" :label="t('dashboardTemplate.viewCount')" width="90" align="center" sortable="custom" />
-        <el-table-column prop="updatedAt" :label="t('dashboardTemplate.updatedAt')" width="170" sortable="custom">
+        <el-table-column prop="viewCount" :label="'浏览量'" width="90" align="center" sortable="custom" />
+        <el-table-column prop="updatedAt" :label="'更新时间'" width="170" sortable="custom">
           <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="330" align="center" fixed="right">
+        <el-table-column :label="'操作'" width="330" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="View" @click="openPreview(row)">{{ t('dashboardTemplate.preview') }}</el-button>
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button link type="primary" :icon="View" @click="openPreview(row)">{{ '预览' }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
             <el-button
               v-if="row.status === 'DRAFT' || row.status === 'OFFLINE'"
               link
               type="success"
               @click="onPublish(row)"
-            >{{ t('common.publish') }}</el-button>
+            >{{ '发布' }}</el-button>
             <el-button v-if="row.status === 'PUBLISHED'" link type="warning" @click="onUnpublish(row)">
-              {{ t('dashboardTemplate.unpublish') }}
+              {{ '撤销发布' }}
             </el-button>
-            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ t('common.delete') }}</el-button>
+            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ '删除' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -81,29 +81,29 @@
     <!-- 编辑弹窗：基础信息 + 布局配置器（拖拽排序卡片 / JSON 双向编辑） -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="860px" destroy-on-close top="5vh">
       <el-tabs v-model="editorTab">
-        <el-tab-pane :label="t('dashboardTemplate.tab.basic')" name="basic">
+        <el-tab-pane :label="'基础信息'" name="basic">
           <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-            <el-form-item :label="t('dashboardTemplate.code')" prop="templateCode">
-              <el-input v-model="form.templateCode" :placeholder="t('dashboardTemplate.codePlaceholder')" maxlength="64" />
+            <el-form-item :label="'模板编码'" prop="templateCode">
+              <el-input v-model="form.templateCode" :placeholder="'请输入模板编码'" maxlength="64" />
             </el-form-item>
-            <el-form-item :label="t('dashboardTemplate.name')" prop="templateName">
-              <el-input v-model="form.templateName" :placeholder="t('dashboardTemplate.namePlaceholder')" maxlength="128" />
+            <el-form-item :label="'模板名称'" prop="templateName">
+              <el-input v-model="form.templateName" :placeholder="'请输入模板名称'" maxlength="128" />
             </el-form-item>
-            <el-form-item :label="t('common.description')" prop="description">
+            <el-form-item :label="'描述'" prop="description">
               <el-input v-model="form.description" type="textarea" :rows="2" maxlength="512" show-word-limit />
             </el-form-item>
-            <el-form-item :label="t('common.status')" prop="status">
+            <el-form-item :label="'状态'" prop="status">
               <el-radio-group v-model="form.status">
-                <el-radio value="DRAFT">{{ t('dashboardTemplate.status.draft') }}</el-radio>
-                <el-radio value="PUBLISHED">{{ t('dashboardTemplate.status.published') }}</el-radio>
-                <el-radio value="OFFLINE">{{ t('dashboardTemplate.status.offline') }}</el-radio>
+                <el-radio value="DRAFT">{{ '草稿' }}</el-radio>
+                <el-radio value="PUBLISHED">{{ '已发布' }}</el-radio>
+                <el-radio value="OFFLINE">{{ '已下线' }}</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-form>
         </el-tab-pane>
 
-        <el-tab-pane :label="t('dashboardTemplate.tab.layout')" name="layout">
-          <el-alert :title="t('dashboardTemplate.layoutHint')" type="info" :closable="false" class="layout-alert" />
+        <el-tab-pane :label="'布局配置'" name="layout">
+          <el-alert :title="'拖拽卡片调整顺序；每张卡片可配置标题、组件标识与栅格跨度（1~24，24 为整行）；JSON 视图与卡片列表双向同步。'" type="info" :closable="false" class="layout-alert" />
           <div class="layout-designer">
             <!-- 卡片列表（HTML5 原生拖拽排序） -->
             <div class="card-pool">
@@ -119,24 +119,24 @@
               >
                 <div class="layout-card-header">
                   <el-icon class="drag-handle"><Rank /></el-icon>
-                  <el-input v-model="card.title" :placeholder="t('dashboardTemplate.cardTitle')" size="small" class="card-title-input" />
+                  <el-input v-model="card.title" :placeholder="'卡片标题'" size="small" class="card-title-input" />
                   <el-button link type="danger" size="small" :icon="Delete" @click="removeCard(index)" />
                 </div>
                 <div class="layout-card-body">
-                  <el-input v-model="card.component" :placeholder="t('dashboardTemplate.componentPlaceholder')" size="small" style="flex: 1" />
+                  <el-input v-model="card.component" :placeholder="'组件标识（如 metric-card）'" size="small" style="flex: 1" />
                   <el-select v-model="card.span" size="small" style="width: 110px">
-                    <el-option v-for="n in 24" :key="n" :label="t('dashboardTemplate.spanN', { n })" :value="n" />
+                    <el-option v-for="n in 24" :key="n" :label="`跨度 ${n}/24`" :value="n" />
                   </el-select>
                   <el-button link size="small" @click="moveCard(index, -1)" :disabled="index === 0">↑</el-button>
                   <el-button link size="small" @click="moveCard(index, 1)" :disabled="index === layoutCards.length - 1">↓</el-button>
                 </div>
               </div>
-              <el-button type="primary" plain :icon="Plus" class="add-card-btn" @click="addCard">{{ t('dashboardTemplate.addCard') }}</el-button>
+              <el-button type="primary" plain :icon="Plus" class="add-card-btn" @click="addCard">{{ '添加卡片' }}</el-button>
             </div>
 
             <!-- JSON 双向编辑 -->
             <div class="json-editor">
-              <div class="json-editor-header">{{ t('dashboardTemplate.layoutJson') }}</div>
+              <div class="json-editor-header">{{ '布局 JSON（layout_json）' }}</div>
               <el-input
                 v-model="layoutJsonText"
                 type="textarea"
@@ -151,19 +151,19 @@
       </el-tabs>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="onSubmit">{{ t('common.confirm') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="onSubmit">{{ '确认' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 预览抽屉：解析 layoutJson 渲染卡片网格 -->
-    <el-drawer v-model="previewVisible" :title="t('dashboardTemplate.preview')" size="55%">
+    <el-drawer v-model="previewVisible" :title="'预览'" size="55%">
       <div v-loading="previewLoading">
         <template v-if="previewTemplate">
           <el-descriptions :column="2" border size="small">
-            <el-descriptions-item :label="t('dashboardTemplate.code')">{{ previewTemplate.templateCode }}</el-descriptions-item>
-            <el-descriptions-item :label="t('dashboardTemplate.name')">{{ previewTemplate.templateName }}</el-descriptions-item>
-            <el-descriptions-item :label="t('common.description')" :span="2">{{ previewTemplate.description || '-' }}</el-descriptions-item>
+            <el-descriptions-item :label="'模板编码'">{{ previewTemplate.templateCode }}</el-descriptions-item>
+            <el-descriptions-item :label="'模板名称'">{{ previewTemplate.templateName }}</el-descriptions-item>
+            <el-descriptions-item :label="'描述'" :span="2">{{ previewTemplate.description || '-' }}</el-descriptions-item>
           </el-descriptions>
           <div class="preview-grid">
             <div
@@ -172,10 +172,10 @@
               class="preview-card"
               :style="{ gridColumn: `span ${card.span || 24}` }"
             >
-              <div class="preview-card-title">{{ card.title || t('dashboardTemplate.unnamedCard') }}</div>
-              <div class="preview-card-body">{{ card.component || t('dashboardTemplate.noComponent') }}</div>
+              <div class="preview-card-title">{{ card.title || '（未命名卡片）' }}</div>
+              <div class="preview-card-body">{{ card.component || '（未配置组件）' }}</div>
             </div>
-            <el-empty v-if="previewCards.length === 0" :description="t('dashboardTemplate.emptyLayout')" :image-size="70" />
+            <el-empty v-if="previewCards.length === 0" :description="'布局为空，请先配置卡片'" :image-size="70" />
           </div>
         </template>
       </div>
@@ -184,7 +184,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Refresh, View, Rank } from '@element-plus/icons-vue'
@@ -236,12 +236,12 @@ const jsonError = ref('')
 const dragIndex = ref(null)
 
 const rules = {
-  templateCode: [{ required: true, message: t('dashboardTemplate.codeRequired'), trigger: 'blur' }],
-  templateName: [{ required: true, message: t('dashboardTemplate.nameRequired'), trigger: 'blur' }]
+  templateCode: [{ required: true, message: '请输入模板编码', trigger: 'blur' }],
+  templateName: [{ required: true, message: '请输入模板名称', trigger: 'blur' }]
 }
 
 const isEdit = computed(() => form.id != null)
-const dialogTitle = computed(() => (isEdit.value ? t('dashboardTemplate.editTitle') : t('dashboardTemplate.createTitle')))
+const dialogTitle = computed(() => (isEdit.value ? '编辑看板模板' : '新建看板模板'))
 
 function formatTime(value) {
   if (!value) return '-'
@@ -257,7 +257,7 @@ function cardsToJson(cards) {
 function jsonToCards(text) {
   const parsed = JSON.parse(text)
   const cards = Array.isArray(parsed) ? parsed : parsed.cards
-  if (!Array.isArray(cards)) throw new Error(t('dashboardTemplate.jsonFormatError'))
+  if (!Array.isArray(cards)) throw new Error('布局 JSON 须为对象且含 cards 数组，或直接为卡片数组')
   return cards.map((card, index) => ({
     id: card.id ?? index + 1,
     title: card.title || '',
@@ -276,7 +276,7 @@ function onJsonTextChange() {
     layoutCards.value = jsonToCards(layoutJsonText.value)
     jsonError.value = ''
   } catch (e) {
-    jsonError.value = t('dashboardTemplate.jsonInvalid', { msg: e.message })
+    jsonError.value = `布局 JSON 非法：${e.message}`
   }
 }
 
@@ -377,14 +377,14 @@ function onSubmit() {
     if (!valid) return
     // 布局 JSON 以 textarea 最新内容为准（允许直接手写 JSON）；非法 JSON 阻断提交
     if (jsonError.value) {
-      ElMessage.warning(t('dashboardTemplate.jsonFixFirst'))
+      ElMessage.warning('布局 JSON 存在错误，请先修正再提交')
       editorTab.value = 'layout'
       return
     }
     try {
       JSON.parse(layoutJsonText.value)
     } catch (e) {
-      jsonError.value = t('dashboardTemplate.jsonInvalid', { msg: e.message })
+      jsonError.value = `布局 JSON 非法：${e.message}`
       editorTab.value = 'layout'
       return
     }
@@ -400,11 +400,11 @@ function onSubmit() {
       }
       if (isEdit.value) {
         await updateDashboardTemplate(body)
-        ElMessage.success(t('common.updateSuccess'))
+        ElMessage.success('更新成功')
       } else {
         delete body.id
         await createDashboardTemplate(body)
-        ElMessage.success(t('common.createSuccess'))
+        ElMessage.success('创建成功')
       }
       dialogVisible.value = false
       await load()
@@ -438,38 +438,38 @@ const previewCards = computed(() => {
 })
 
 async function onPublish(row) {
-  const confirmed = await ElMessageBox.confirm(t('dashboardTemplate.publishConfirm', { name: row.templateName }), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm(`确认发布看板模板「${row.templateName}」吗？发布后可被前台使用。`, '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await publishDashboardTemplate(row.id)
-  ElMessage.success(t('dashboardTemplate.publishSuccess'))
+  ElMessage.success('发布成功')
   await load()
 }
 
 async function onUnpublish(row) {
-  const confirmed = await ElMessageBox.confirm(t('dashboardTemplate.unpublishConfirm', { name: row.templateName }), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm(`确认撤销发布看板模板「${row.templateName}」吗？撤销后前台不可用。`, '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await unpublishDashboardTemplate(row.id)
-  ElMessage.success(t('dashboardTemplate.unpublishSuccess'))
+  ElMessage.success('已撤销发布')
   await load()
 }
 
 async function onDelete(row) {
-  const confirmed = await ElMessageBox.confirm(t('dashboardTemplate.deleteConfirm', { name: row.templateName }), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm(`确认删除看板模板「${row.templateName}」吗？`, '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await deleteDashboardTemplate(row.id)
-  ElMessage.success(t('common.deleteSuccess'))
+  ElMessage.success('删除成功')
   await load()
 }
 

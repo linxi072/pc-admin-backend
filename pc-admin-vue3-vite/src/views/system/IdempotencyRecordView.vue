@@ -1,39 +1,39 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.idempotency') }}</h2>
+    <h2 class="page-title">{{ '幂等记录' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.idempotency.status') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.all')" clearable style="width: 130px">
-              <el-option :label="t('system.idempotency.processing')" value="PROCESSING" />
-              <el-option :label="t('system.idempotency.success')" value="SUCCESS" />
-              <el-option :label="t('system.idempotency.failed')" value="FAILED" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="query.status" :placeholder="'全部'" clearable style="width: 130px">
+              <el-option :label="'处理中'" value="PROCESSING" />
+              <el-option :label="'成功'" value="SUCCESS" />
+              <el-option :label="'失败'" value="FAILED" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.idempotency.scope') }}</span>
-            <el-input v-model="query.apiScope" :placeholder="t('system.idempotency.scope')" clearable style="width: 160px" @keyup.enter="load" />
+            <span class="filter-label">{{ '接口域' }}</span>
+            <el-input v-model="query.apiScope" :placeholder="'接口域'" clearable style="width: 160px" @keyup.enter="load" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.idempotency.userId') }}</span>
-            <el-input v-model="query.userId" :placeholder="t('system.idempotency.userId')" clearable style="width: 130px" @keyup.enter="load" />
+            <span class="filter-label">{{ '用户ID' }}</span>
+            <el-input v-model="query.userId" :placeholder="'用户ID'" clearable style="width: 130px" @keyup.enter="load" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.keyword') }}</span>
-            <el-input v-model="query.keyword" :placeholder="t('system.idempotency.key')" clearable style="width: 220px" @keyup.enter="load" />
+            <span class="filter-label">{{ '关键字' }}</span>
+            <el-input v-model="query.keyword" :placeholder="'幂等键'" clearable style="width: 220px" @keyup.enter="load" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('monitor.timeRange') }}</span>
+            <span class="filter-label">{{ '时间范围' }}</span>
             <el-date-picker
               v-model="dateRange"
               type="datetimerange"
-              :range-separator="t('common.to')"
-              :start-placeholder="t('common.startTime')"
-              :end-placeholder="t('monitor.endTime')"
+              :range-separator="'至'"
+              :start-placeholder="'开始时间'"
+              :end-placeholder="'结束时间'"
               value-format="YYYY-MM-DDTHH:mm:ss"
               style="width: 360px"
             />
@@ -41,10 +41,10 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
-            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
-            <el-button type="warning" :icon="Delete" :loading="purging" @click="onPurge">{{ t('system.idempotency.purge') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ '导出当前页 CSV' }}</el-button>
+            <el-button type="warning" :icon="Delete" :loading="purging" @click="onPurge">{{ '清理过期记录' }}</el-button>
           </div>
         </div>
       </div>
@@ -54,37 +54,37 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ summary.total ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.idempotency.total') }}</div>
+            <div class="stat-label">{{ '总记录' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-warn">{{ summary.processing ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.idempotency.processing') }}</div>
+            <div class="stat-label">{{ '处理中' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-ok">{{ summary.success ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.idempotency.success') }}</div>
+            <div class="stat-label">{{ '成功' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ summary.failed ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.idempotency.failed') }}</div>
+            <div class="stat-label">{{ '失败' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ summary.expiredPending ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.idempotency.expiredPending') }}</div>
+            <div class="stat-label">{{ '待清理(已过期)' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ fmtPct(summary.processingShare) }}</div>
-            <div class="stat-label">{{ t('system.idempotency.processingShare') }}</div>
+            <div class="stat-label">{{ '处理中占比' }}</div>
           </div>
         </el-col>
       </el-row>
@@ -92,42 +92,42 @@
         <el-col :span="24">
           <div class="stat-card stat-wide">
             <div class="stat-num stat-time">{{ fmtTime(summary.lastCreatedAt) }}</div>
-            <div class="stat-label">{{ t('system.idempotency.lastCreatedAt') }}</div>
+            <div class="stat-label">{{ '最近登记' }}</div>
           </div>
         </el-col>
       </el-row>
 
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="idempotencyKey" :label="t('system.idempotency.key')" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="apiScope" :label="t('system.idempotency.scope')" width="150" show-overflow-tooltip />
-        <el-table-column prop="userId" :label="t('system.idempotency.userId')" width="100" />
-        <el-table-column prop="requestFingerprint" :label="t('system.idempotency.fingerprint')" min-width="160" show-overflow-tooltip />
-        <el-table-column :label="t('system.idempotency.status')" width="100">
+        <el-table-column prop="idempotencyKey" :label="'幂等键'" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="apiScope" :label="'接口域'" width="150" show-overflow-tooltip />
+        <el-table-column prop="userId" :label="'用户ID'" width="100" />
+        <el-table-column prop="requestFingerprint" :label="'请求指纹'" min-width="160" show-overflow-tooltip />
+        <el-table-column :label="'状态'" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status).type" size="small">
               {{ statusTag(row.status).label }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="errorCode" :label="t('system.idempotency.errorCode')" width="130" show-overflow-tooltip>
+        <el-table-column prop="errorCode" :label="'错误码'" width="130" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.errorCode">{{ row.errorCode }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('system.idempotency.errorMsg')" min-width="180" show-overflow-tooltip>
+        <el-table-column :label="'失败原因'" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.errorMessage" class="error-text">{{ row.errorMessage }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="expiresAt" :label="t('system.idempotency.expiresAt')" width="180" sortable="custom" />
-        <el-table-column prop="createdAt" :label="t('system.idempotency.createdAt')" width="180" sortable="custom" />
-        <el-table-column prop="updatedAt" :label="t('system.idempotency.updatedAt')" width="180" sortable="custom" />
-        <el-table-column :label="t('system.idempotency.expired')" width="90">
+        <el-table-column prop="expiresAt" :label="'过期时间'" width="180" sortable="custom" />
+        <el-table-column prop="createdAt" :label="'登记时间'" width="180" sortable="custom" />
+        <el-table-column prop="updatedAt" :label="'更新时间'" width="180" sortable="custom" />
+        <el-table-column :label="'已过期'" width="90">
           <template #default="{ row }">
-            <el-tag v-if="row.expired" type="danger" size="small">{{ t('system.idempotency.expired') }}</el-tag>
+            <el-tag v-if="row.expired" type="danger" size="small">{{ '已过期' }}</el-tag>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
@@ -144,13 +144,13 @@
           @size-change="onSizeChange"
         />
       </div>
-      <div class="hint">{{ t('system.idempotency.desc') }}</div>
+      <div class="hint">{{ '幂等记录用于防止重复提交：同一幂等键在有效期内仅首次生效。PROCESSING 多为客户端中断的残留；「待清理」持续增长说明清理任务未运行。' }}</div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Delete, Download } from '@element-plus/icons-vue'
@@ -244,23 +244,23 @@ function onSortChange({ prop, order }) {
 
 /** 状态标签：PROCESSING→warning / SUCCESS→success / FAILED→danger。 */
 function statusTag(status) {
-  if (status === 'SUCCESS') return { type: 'success', label: t('system.idempotency.success') }
-  if (status === 'FAILED') return { type: 'danger', label: t('system.idempotency.failed') }
-  if (status === 'PROCESSING') return { type: 'warning', label: t('system.idempotency.processing') }
+  if (status === 'SUCCESS') return { type: 'success', label: '成功' }
+  if (status === 'FAILED') return { type: 'danger', label: '失败' }
+  if (status === 'PROCESSING') return { type: 'warning', label: '处理中' }
   return { type: 'info', label: status || '--' }
 }
 
 /** 手动清理过期记录：二次确认 + 加载态 + 成功提示，失败由拦截器统一提示。 */
 async function onPurge() {
   try {
-    await ElMessageBox.confirm(t('system.idempotency.purgeConfirm'), t('common.tip'), { type: 'warning' })
+    await ElMessageBox.confirm('确认清理全部已过期幂等记录？该操作不可撤销，仅移除 expires_at 早于当前的记录。', '提示', { type: 'warning' })
   } catch {
     return
   }
   purging.value = true
   try {
     const n = await purgeIdempotencyRecords()
-    ElMessage.success(t('system.idempotency.purged', { n: n ?? 0 }))
+    ElMessage.success(`已清理 ${n ?? 0} 条过期幂等记录`)
     load()
   } catch (e) {
     // 拦截器已统一提示
@@ -277,27 +277,27 @@ const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '--')
 
 /** 导出当前页为 CSV：仅导出已加载的明细，不触发后端请求。 */
 const exportColumns = [
-  { label: t('system.idempotency.key'), get: (r) => r.idempotencyKey },
-  { label: t('system.idempotency.scope'), get: (r) => r.apiScope },
-  { label: t('system.idempotency.userId'), get: (r) => r.userId },
-  { label: t('system.idempotency.fingerprint'), get: (r) => r.requestFingerprint },
-  { label: t('system.idempotency.status'), get: (r) => r.status },
-  { label: t('system.idempotency.errorCode'), get: (r) => r.errorCode },
-  { label: t('system.idempotency.errorMsg'), get: (r) => r.errorMessage },
-  { label: t('system.idempotency.expiresAt'), get: (r) => r.expiresAt },
-  { label: t('system.idempotency.createdAt'), get: (r) => r.createdAt },
-  { label: t('system.idempotency.updatedAt'), get: (r) => r.updatedAt },
-  { label: t('system.idempotency.expired'), get: (r) => r.expired }
+  { label: '幂等键', get: (r) => r.idempotencyKey },
+  { label: '接口域', get: (r) => r.apiScope },
+  { label: '用户ID', get: (r) => r.userId },
+  { label: '请求指纹', get: (r) => r.requestFingerprint },
+  { label: '状态', get: (r) => r.status },
+  { label: '错误码', get: (r) => r.errorCode },
+  { label: '失败原因', get: (r) => r.errorMessage },
+  { label: '过期时间', get: (r) => r.expiresAt },
+  { label: '登记时间', get: (r) => r.createdAt },
+  { label: '更新时间', get: (r) => r.updatedAt },
+  { label: '已过期', get: (r) => r.expired }
 ]
 function onExportCsv() {
   if (!rows.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = exportColumns.map((c) => c.label)
   const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
   downloadCsv(`idempotency-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 onMounted(load)

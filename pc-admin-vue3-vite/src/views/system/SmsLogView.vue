@@ -1,48 +1,48 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.smsRecord') }}</h2>
+    <h2 class="page-title">{{ '短信记录' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('job.result') }}</span>
-            <el-select v-model="query.status" :placeholder="t('common.all')" clearable style="width: 120px">
-              <el-option :label="t('common.success')" value="SUCCESS" />
-              <el-option :label="t('common.failed')" value="FAILED" />
+            <span class="filter-label">{{ '结果' }}</span>
+            <el-select v-model="query.status" :placeholder="'全部'" clearable style="width: 120px">
+              <el-option :label="'成功'" value="SUCCESS" />
+              <el-option :label="'失败'" value="FAILED" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.gatewaySys') }}</span>
-            <el-select v-model="query.provider" :placeholder="t('common.all')" clearable style="width: 120px">
-              <el-option :label="t('system.logDev')" value="LOG" />
-              <el-option :label="t('system.httpProd')" value="HTTP" />
+            <span class="filter-label">{{ '网关' }}</span>
+            <el-select v-model="query.provider" :placeholder="'全部'" clearable style="width: 120px">
+              <el-option :label="'LOG（开发）'" value="LOG" />
+              <el-option :label="'HTTP（生产）'" value="HTTP" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('monitor.timeRange') }}</span>
+            <span class="filter-label">{{ '时间范围' }}</span>
             <el-date-picker
               v-model="dateRange"
               type="datetimerange"
-              :range-separator="t('common.to')"
-              :start-placeholder="t('common.startTime')"
-              :end-placeholder="t('monitor.endTime')"
+              :range-separator="'至'"
+              :start-placeholder="'开始时间'"
+              :end-placeholder="'结束时间'"
               value-format="YYYY-MM-DDTHH:mm:ss"
               :default-time="[new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]"
               style="width: 360px"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.keyword') }}</span>
-            <el-input v-model="query.keyword" :placeholder="t('system.batchNoOperatorTrace')" clearable style="width: 240px" @keyup.enter="load" />
+            <span class="filter-label">{{ '关键字' }}</span>
+            <el-input v-model="query.keyword" :placeholder="'批次号/操作人/失败原因/traceId'" clearable style="width: 240px" @keyup.enter="load" />
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
-            <el-button :icon="Download" @click="onExportCsv">{{ t('common.exportCurrentPageCsv') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button :icon="Download" @click="onExportCsv">{{ '导出当前页 CSV' }}</el-button>
           </div>
         </div>
       </div>
@@ -52,60 +52,60 @@
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ summary.total ?? '--' }}</div>
-            <div class="stat-label">{{ t('system.totalRecords') }}</div>
+            <div class="stat-label">{{ '总记录' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-ok">{{ summary.success ?? '--' }}</div>
-            <div class="stat-label">{{ t('common.success') }}</div>
+            <div class="stat-label">{{ '成功' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num stat-danger">{{ summary.failure ?? '--' }}</div>
-            <div class="stat-label">{{ t('common.failed') }}</div>
+            <div class="stat-label">{{ '失败' }}</div>
           </div>
         </el-col>
         <el-col :span="4">
           <div class="stat-card">
             <div class="stat-num">{{ fmtPct(summary.failureRate) }}</div>
-            <div class="stat-label">{{ t('system.failureRate') }}</div>
+            <div class="stat-label">{{ '失败率' }}</div>
           </div>
         </el-col>
         <el-col :span="8">
           <div class="stat-card">
             <div class="stat-num stat-time">{{ fmtTime(summary.lastSentAt) }}</div>
-            <div class="stat-label">{{ t('system.lastSent') }}</div>
+            <div class="stat-label">{{ '最近发送' }}</div>
           </div>
         </el-col>
       </el-row>
 
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="sentAt" :label="t('system.time')" width="180" sortable="custom" />
-        <el-table-column prop="batchNo" :label="t('system.batchNoSys')" width="180" show-overflow-tooltip />
-        <el-table-column prop="mobilesMasked" :label="t('system.recvNumberMasked')" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="mobileCount" :label="t('system.numberCountSys')" width="90" sortable="custom" />
-        <el-table-column prop="contentSummary" :label="t('system.contentSummary')" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="provider" :label="t('system.gatewaySys')" width="110" sortable="custom" />
-        <el-table-column :label="t('job.result')" width="90">
+        <el-table-column prop="sentAt" :label="'时间'" width="180" sortable="custom" />
+        <el-table-column prop="batchNo" :label="'批次号'" width="180" show-overflow-tooltip />
+        <el-table-column prop="mobilesMasked" :label="'接收号码（掩码）'" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="mobileCount" :label="'号码数'" width="90" sortable="custom" />
+        <el-table-column prop="contentSummary" :label="'内容摘要'" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="provider" :label="'网关'" width="110" sortable="custom" />
+        <el-table-column :label="'结果'" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'SUCCESS' ? t('common.success') : t('common.failed') }}
+              {{ row.status === 'SUCCESS' ? '成功' : '失败' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="errorMessage" :label="t('monitor.failReason')" min-width="160" show-overflow-tooltip>
+        <el-table-column prop="errorMessage" :label="'失败原因'" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.errorMessage" class="error-text">{{ row.errorMessage }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="operatorName" :label="t('system.operator')" width="120" sortable="custom">
+        <el-table-column prop="operatorName" :label="'操作人'" width="120" sortable="custom">
           <template #default="{ row }">
             <span v-if="row.operatorName">{{ row.operatorName }}</span>
-            <span v-else class="muted">{{ t('system.system') }}</span>
+            <span v-else class="muted">{{ '系统' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
@@ -122,13 +122,13 @@
           @size-change="onSizeChange"
         />
       </div>
-      <div class="hint">{{ t('system.smsLogDesc') }}</div>
+      <div class="hint">{{ '默认查询最近 7 天记录；手机号入库前已掩码（如 138****8000），号码数以「号码数」列为准；「网关」为 LOG 时仅开发联调，未真实发送。' }}</div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Download } from '@element-plus/icons-vue'
@@ -224,26 +224,26 @@ const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '--')
 
 /** 导出当前页为 CSV：仅导出已加载的明细，不触发后端请求。 */
 const exportColumns = [
-  { label: t('system.time'), get: (r) => r.sentAt },
-  { label: t('system.batchNoSys'), get: (r) => r.batchNo },
-  { label: t('system.recvNumberMasked'), get: (r) => r.mobilesMasked },
-  { label: t('system.numberCountSys'), get: (r) => r.mobileCount },
-  { label: t('system.contentSummary'), get: (r) => r.contentSummary },
-  { label: t('system.gatewaySys'), get: (r) => r.provider },
-  { label: t('job.result'), get: (r) => r.status },
-  { label: t('monitor.failReason'), get: (r) => r.errorMessage },
-  { label: t('system.operator'), get: (r) => r.operatorName },
+  { label: '时间', get: (r) => r.sentAt },
+  { label: '批次号', get: (r) => r.batchNo },
+  { label: '接收号码（掩码）', get: (r) => r.mobilesMasked },
+  { label: '号码数', get: (r) => r.mobileCount },
+  { label: '内容摘要', get: (r) => r.contentSummary },
+  { label: '网关', get: (r) => r.provider },
+  { label: '结果', get: (r) => r.status },
+  { label: '失败原因', get: (r) => r.errorMessage },
+  { label: '操作人', get: (r) => r.operatorName },
   { label: 'TraceId', get: (r) => r.traceId }
 ]
 function onExportCsv() {
   if (!rows.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = exportColumns.map((c) => c.label)
   const data = rows.value.map((r) => exportColumns.map((c) => c.get(r)))
   downloadCsv(`sms-log-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 onMounted(load)

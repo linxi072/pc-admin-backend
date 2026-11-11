@@ -1,6 +1,6 @@
 <template>
   <div class="api-doc">
-    <h2 class="page-title">{{ t('system.apiDocs.title') }}</h2>
+    <h2 class="page-title">{{ 'API 文档中心' }}</h2>
 
     <!-- 工具栏：搜索 + 统计 + 分组筛选 -->
     <el-card class="page-card">
@@ -8,17 +8,17 @@
         <div class="toolbar-filters">
           <el-input
             v-model="search"
-            :placeholder="t('system.apiDocs.searchPlaceholder')"
+            :placeholder="'搜索接口路径 / 描述 / 分组'"
             clearable
             :prefix-icon="Search"
             style="width: 360px"
           />
           <span class="endpoint-count">
-            {{ t('system.apiDocs.endpointCount') }}：<b>{{ filtered.length }}</b> / {{ operations.length }}
+            {{ '接口总数' }}：<b>{{ filtered.length }}</b> / {{ operations.length }}
           </span>
         </div>
         <div class="toolbar-actions">
-          <el-button :icon="Refresh" :loading="loading" @click="load">{{ t('common.refresh') }}</el-button>
+          <el-button :icon="Refresh" :loading="loading" @click="load">{{ '刷新' }}</el-button>
         </div>
       </div>
 
@@ -29,7 +29,7 @@
           class="tag-chip"
           @click="activeTag = ''"
         >
-          {{ t('common.all') }}
+          {{ '全部' }}
         </el-tag>
         <el-tag
           v-for="tg in tags"
@@ -58,9 +58,9 @@
       <template #default>
         <div class="alert-actions">
           <el-button size="small" type="primary" :loading="loading" @click="load">
-            {{ t('common.retry') }}
+            {{ '重试' }}
           </el-button>
-          <span class="alert-hint">{{ t('system.apiDocs.loadFailed') }}</span>
+          <span class="alert-hint">{{ '加载 OpenAPI 文档失败，请确认后端已启用 springdoc（开发/本地环境）' }}</span>
         </div>
       </template>
     </el-alert>
@@ -68,7 +68,7 @@
     <!-- 空态 -->
     <el-empty
       v-else-if="filtered.length === 0"
-      :description="t('system.apiDocs.empty')"
+      :description="'未匹配到接口'"
       class="page-card"
     />
 
@@ -93,7 +93,7 @@
               {{ op.method }}
             </el-tag>
             <span class="op-path" :title="op.path">{{ op.path }}</span>
-            <span v-if="op.deprecated" class="op-deprecated">{{ t('system.apiDocs.deprecated') }}</span>
+            <span v-if="op.deprecated" class="op-deprecated">{{ '已废弃' }}</span>
             <span class="op-summary">{{ op.summary }}</span>
             <el-icon class="op-caret" :class="{ 'is-open': expanded[op.key] }">
               <ArrowRight />
@@ -104,42 +104,42 @@
           <div v-show="expanded[op.key]" class="op-detail">
             <div class="detail-actions">
               <el-button size="small" :icon="DocumentCopy" @click="copyPath(op.path)">
-                {{ t('system.apiDocs.copyPath') }}
+                {{ '复制路径' }}
               </el-button>
             </div>
 
             <div v-if="op.description" class="detail-block">
-              <div class="detail-label">{{ t('system.apiDocs.description') }}</div>
+              <div class="detail-label">{{ '描述' }}</div>
               <div class="detail-value">{{ op.description }}</div>
             </div>
 
             <div v-if="op.parameters.length" class="detail-block">
-              <div class="detail-label">{{ t('system.apiDocs.parameters') }}</div>
+              <div class="detail-label">{{ '参数' }}</div>
               <el-table :data="op.parameters" border size="small" class="param-table">
-                <el-table-column :label="t('common.name')" prop="name" min-width="140" />
-                <el-table-column :label="t('system.apiDocs.inLocation')" prop="in" width="120" />
-                <el-table-column :label="t('system.apiDocs.type')" width="100">
+                <el-table-column :label="'名称'" prop="name" min-width="140" />
+                <el-table-column :label="'位置'" prop="in" width="120" />
+                <el-table-column :label="'类型'" width="100">
                   <template #default="{ row }">{{ row.schema?.type || (row.schema?.$ref ? refName(row.schema.$ref) : '-') }}</template>
                 </el-table-column>
-                <el-table-column :label="t('common.status')" width="100">
+                <el-table-column :label="'状态'" width="100">
                   <template #default="{ row }">
                     <el-tag :type="row.required ? 'danger' : 'info'" size="small">
-                      {{ row.required ? t('system.apiDocs.required') : t('system.apiDocs.optional') }}
+                      {{ row.required ? '必填' : '可选' }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('system.apiDocs.description')" min-width="200" show-overflow-tooltip>
+                <el-table-column :label="'描述'" min-width="200" show-overflow-tooltip>
                   <template #default="{ row }">{{ row.description || '-' }}</template>
                 </el-table-column>
               </el-table>
             </div>
             <div v-else class="detail-block">
-              <div class="detail-label">{{ t('system.apiDocs.parameters') }}</div>
-              <div class="detail-value muted">{{ t('system.apiDocs.noParams') }}</div>
+              <div class="detail-label">{{ '参数' }}</div>
+              <div class="detail-value muted">{{ '无参数' }}</div>
             </div>
 
             <div v-if="op.requestBody" class="detail-block">
-              <div class="detail-label">{{ t('system.apiDocs.requestBody') }}</div>
+              <div class="detail-label">{{ '请求体' }}</div>
               <div class="detail-value">
                 <el-tag
                   v-for="(schema, ct) in requestBodyContent(op.requestBody)"
@@ -164,7 +164,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, ArrowRight, FolderOpened, DocumentCopy } from '@element-plus/icons-vue'
-import { t } from '@/i18n'
+
 import { getApiDocs } from '@/api/apiDoc'
 
 const loading = ref(false)
@@ -183,7 +183,7 @@ async function load() {
     raw.value = doc
   } catch (e) {
     raw.value = null
-    error.value = e?.response?.data?.message || e?.message || t('system.apiDocs.loadFailed')
+    error.value = e?.response?.data?.message || e?.message || '加载 OpenAPI 文档失败，请确认后端已启用 springdoc（开发/本地环境）'
   } finally {
     loading.value = false
   }
@@ -258,7 +258,7 @@ function requestBodyContent(rb) {
 async function copyPath(path) {
   try {
     await navigator.clipboard.writeText(path)
-    ElMessage.success(t('system.apiDocs.copied'))
+    ElMessage.success('已复制')
   } catch (e) {
     // 剪贴板不可用时静默降级（如非安全上下文）
   }

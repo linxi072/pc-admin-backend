@@ -1,65 +1,65 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('workflow.myTodo') }}</h2>
+    <h2 class="page-title">{{ '我的待办' }}</h2>
     <el-card class="page-card">
       <div class="toolbar">
         <span class="spacer" />
-        <el-button :icon="Refresh" :loading="loading" @click="load">{{ t('common.refresh') }}</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="load">{{ '刷新' }}</el-button>
       </div>
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="taskId" :label="t('workflow.taskId')" width="100" />
-        <el-table-column prop="name" :label="t('workflow.taskName')" width="160" />
-        <el-table-column prop="processInstanceId" :label="t('common.processInstance')" width="140" />
-        <el-table-column :label="t('common.status')" width="160">
+        <el-table-column prop="taskId" :label="'任务ID'" width="100" />
+        <el-table-column prop="name" :label="'任务名称'" width="160" />
+        <el-table-column prop="processInstanceId" :label="'流程实例'" width="140" />
+        <el-table-column :label="'状态'" width="160">
           <template #default="{ row }">
-            <el-tag v-if="row.delegationState === 'PENDING'" type="danger">{{ t('workflow.delegatedTodo') }}</el-tag>
-            <el-tag v-else-if="row.delegationState === 'RESOLVED'" type="warning">{{ t('workflow.delegationReturned') }}</el-tag>
+            <el-tag v-if="row.delegationState === 'PENDING'" type="danger">{{ '委派待办' }}</el-tag>
+            <el-tag v-else-if="row.delegationState === 'RESOLVED'" type="warning">{{ '委派已交还' }}</el-tag>
             <el-tag v-else :type="row.status === 'PENDING' ? 'warning' : 'success'">
-              {{ row.status === 'PENDING' ? t('common.pending') : t('common.completed') }}
+              {{ row.status === 'PENDING' ? '待处理' : '已完成' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="dueAt" :label="t('workflow.deadline')" width="170" />
-        <el-table-column :label="t('common.operation')" width="340" fixed="right">
+        <el-table-column prop="dueAt" :label="'截止时间'" width="170" />
+        <el-table-column :label="'操作'" width="340" fixed="right">
           <template #default="{ row }">
             <template v-if="row.delegationState === 'PENDING'">
-              <el-button link type="success" :icon="Promotion" @click="openResolve(row)">{{ t('workflow.completeAndReturn') }}</el-button>
+              <el-button link type="success" :icon="Promotion" @click="openResolve(row)">{{ '办结交还' }}</el-button>
             </template>
             <template v-else>
-              <el-button link type="primary" :icon="Select" @click="openApprove(row)">{{ t('workflow.approval') }}</el-button>
-              <el-button link type="danger" :icon="Close" @click="openReject(row)">{{ t('common.reject') }}</el-button>
-              <el-button link type="warning" :icon="Share" @click="openTransfer(row)">{{ t('workflow.transfer') }}</el-button>
-              <el-button link type="info" :icon="Switch" @click="openDelegate(row)">{{ t('workflow.delegate') }}</el-button>
+              <el-button link type="primary" :icon="Select" @click="openApprove(row)">{{ '审批' }}</el-button>
+              <el-button link type="danger" :icon="Close" @click="openReject(row)">{{ '驳回' }}</el-button>
+              <el-button link type="warning" :icon="Share" @click="openTransfer(row)">{{ '转办' }}</el-button>
+              <el-button link type="info" :icon="Switch" @click="openDelegate(row)">{{ '委派' }}</el-button>
             </template>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="approveVisible" :title="rejectMode ? t('workflow.rejectTask') : t('workflow.approveTask')" width="460px">
+    <el-dialog v-model="approveVisible" :title="rejectMode ? '驳回任务' : '审批任务'" width="460px">
       <el-form label-width="90px">
-        <el-form-item :label="t('common.task')">
+        <el-form-item :label="'任务'">
           <span>{{ current?.name }}（{{ current?.taskId }}）</span>
         </el-form-item>
-        <el-form-item :label="t('workflow.opinion')">
-          <el-input v-model="opinion" type="textarea" :rows="3" :placeholder="t('workflow.approvalOpinion')" />
+        <el-form-item :label="'意见'">
+          <el-input v-model="opinion" type="textarea" :rows="3" :placeholder="'审批意见'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="approveVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button @click="approveVisible = false">{{ '取消' }}</el-button>
         <el-button :type="rejectMode ? 'danger' : 'primary'" :loading="acting" @click="submitApprove">
-          确定{{ rejectMode ? t('common.reject') : t('common.approve') }}
+          确定{{ rejectMode ? '驳回' : '通过' }}
         </el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="transferVisible" :title="t('workflow.transferTask')" width="460px">
+    <el-dialog v-model="transferVisible" :title="'转办任务'" width="460px">
       <el-form label-width="90px">
-        <el-form-item :label="t('common.task')">
+        <el-form-item :label="'任务'">
           <span>{{ current?.name }}（{{ current?.taskId }}）</span>
         </el-form-item>
-        <el-form-item :label="t('workflow.transferTo')">
-          <el-select v-model="transferTo" style="width: 100%" :placeholder="t('workflow.selectHandler')">
+        <el-form-item :label="'转给'">
+          <el-select v-model="transferTo" style="width: 100%" :placeholder="'选择处理人'">
             <el-option
               v-for="u in userOptions"
               :key="u.id"
@@ -68,23 +68,23 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('workflow.opinion')">
+        <el-form-item :label="'意见'">
           <el-input v-model="opinion" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="transferVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="warning" :loading="acting" @click="submitTransfer">{{ t('workflow.confirmTransfer') }}</el-button>
+        <el-button @click="transferVisible = false">{{ '取消' }}</el-button>
+        <el-button type="warning" :loading="acting" @click="submitTransfer">{{ '确定转办' }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="delegateVisible" :title="t('workflow.delegateTask')" width="460px">
+    <el-dialog v-model="delegateVisible" :title="'委派任务'" width="460px">
       <el-form label-width="90px">
-        <el-form-item :label="t('common.task')">
+        <el-form-item :label="'任务'">
           <span>{{ current?.name }}（{{ current?.taskId }}）</span>
         </el-form-item>
-        <el-form-item :label="t('workflow.delegateTo')">
-          <el-select v-model="delegateTo" style="width: 100%" :placeholder="t('workflow.selectDelegatee')">
+        <el-form-item :label="'委派给'">
+          <el-select v-model="delegateTo" style="width: 100%" :placeholder="'选择被委托人'">
             <el-option
               v-for="u in userOptions"
               :key="u.id"
@@ -93,35 +93,35 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('workflow.opinion')">
-          <el-input v-model="opinion" type="textarea" :rows="2" :placeholder="t('workflow.delegateNote')" />
+        <el-form-item :label="'意见'">
+          <el-input v-model="opinion" type="textarea" :rows="2" :placeholder="'委派说明'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="delegateVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="acting" @click="submitDelegate">{{ t('workflow.confirmDelegate') }}</el-button>
+        <el-button @click="delegateVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="acting" @click="submitDelegate">{{ '确定委派' }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="resolveVisible" :title="t('workflow.completeAndReturn')" width="460px">
+    <el-dialog v-model="resolveVisible" :title="'办结交还'" width="460px">
       <el-form label-width="90px">
-        <el-form-item :label="t('common.task')">
+        <el-form-item :label="'任务'">
           <span>{{ current?.name }}（{{ current?.taskId }}）</span>
         </el-form-item>
-        <el-form-item :label="t('workflow.handlingOpinion')">
-          <el-input v-model="opinion" type="textarea" :rows="3" :placeholder="t('workflow.completionOpinion')" />
+        <el-form-item :label="'办理意见'">
+          <el-input v-model="opinion" type="textarea" :rows="3" :placeholder="'办结意见'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="resolveVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="success" :loading="acting" @click="submitResolve">{{ t('workflow.confirmReturn') }}</el-button>
+        <el-button @click="resolveVisible = false">{{ '取消' }}</el-button>
+        <el-button type="success" :loading="acting" @click="submitResolve">{{ '确定交还' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Select, Close, Share, Refresh, Switch, Promotion } from '@element-plus/icons-vue'
@@ -179,7 +179,7 @@ async function submitApprove() {
       opinion: opinion.value,
       operationId: genOpId()
     })
-    ElMessage.success(rejectMode.value ? t('common.rejected') : t('common.approved'))
+    ElMessage.success(rejectMode.value ? '已驳回' : '已通过')
     approveVisible.value = false
     load()
   } finally {
@@ -195,7 +195,7 @@ function openTransfer(row) {
 }
 async function submitTransfer() {
   if (!transferTo.value) {
-    ElMessage.warning(t('workflow.pleaseSelectTransfer'))
+    ElMessage.warning('请选择转办人')
     return
   }
   acting.value = true
@@ -206,7 +206,7 @@ async function submitTransfer() {
       opinion: opinion.value,
       operationId: genOpId()
     })
-    ElMessage.success(t('workflow.transferred'))
+    ElMessage.success('已转办')
     transferVisible.value = false
     load()
   } finally {
@@ -222,7 +222,7 @@ function openDelegate(row) {
 }
 async function submitDelegate() {
   if (!delegateTo.value) {
-    ElMessage.warning(t('workflow.pleaseSelectDelegatee'))
+    ElMessage.warning('请选择被委托人')
     return
   }
   acting.value = true
@@ -233,7 +233,7 @@ async function submitDelegate() {
       opinion: opinion.value,
       operationId: genOpId()
     })
-    ElMessage.success(t('workflow.delegated'))
+    ElMessage.success('已委派')
     delegateVisible.value = false
     load()
   } finally {
@@ -254,7 +254,7 @@ async function submitResolve() {
       opinion: opinion.value,
       operationId: genOpId()
     })
-    ElMessage.success(t('workflow.returnedToApprover'))
+    ElMessage.success('已交还原审批人')
     resolveVisible.value = false
     load()
   } finally {

@@ -1,13 +1,13 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.imMessage') }}</h2>
+    <h2 class="page-title">{{ 'IM 消息中心' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="im-layout">
         <!-- 左侧：会话列表 -->
         <div class="conv-list">
           <div class="conv-header">
-            <span>{{ t('im.message.myConversations') }}</span>
+            <span>{{ '我的会话' }}</span>
             <el-badge :value="totalUnread" :hidden="!totalUnread" type="danger">
               <el-button link :icon="Refresh" @click="loadConversations" />
             </el-badge>
@@ -23,18 +23,18 @@
               <div class="conv-item-main">
                 <div class="conv-item-title">
                   <el-tag size="small" :type="conv.conversationType === 'GROUP' ? 'warning' : 'primary'">
-                    {{ conv.conversationType === 'GROUP' ? t('im.type.group') : t('im.type.p2p') }}
+                    {{ conv.conversationType === 'GROUP' ? '群聊' : '单聊' }}
                   </el-tag>
-                  <span class="title-text">{{ conv.title || t('im.conversation.unnamed') }}</span>
+                  <span class="title-text">{{ conv.title || '（未命名会话）' }}</span>
                 </div>
-                <div class="conv-item-preview">{{ conv.lastMessagePreview || t('im.message.noMessages') }}</div>
+                <div class="conv-item-preview">{{ conv.lastMessagePreview || '暂无消息' }}</div>
               </div>
               <div class="conv-item-side">
                 <span class="conv-item-time">{{ shortTime(conv.lastMessageAt) }}</span>
                 <el-badge v-if="conv.unreadCount" :value="conv.unreadCount" type="danger" />
               </div>
             </div>
-            <el-empty v-if="!loadingConversations && conversations.length === 0" :description="t('im.message.noConversations')" />
+            <el-empty v-if="!loadingConversations && conversations.length === 0" :description="'暂无会话'" />
           </el-scrollbar>
         </div>
 
@@ -64,10 +64,10 @@
                 >
                   <div class="msg-bubble-wrap">
                     <div class="msg-meta">
-                      <span>{{ t('im.message.sender') }} #{{ msg.senderId }}</span>
+                      <span>{{ '发送者' }} #{{ msg.senderId }}</span>
                       <span>{{ formatTime(msg.createdAt) }}</span>
                     </div>
-                    <div v-if="isRecalled(msg)" class="msg-recalled">{{ t('im.message.recalled') }}</div>
+                    <div v-if="isRecalled(msg)" class="msg-recalled">{{ '消息已撤回' }}</div>
                     <div v-else class="msg-bubble">{{ msg.content }}</div>
                     <el-button
                       v-if="isMine(msg) && !isRecalled(msg)"
@@ -77,11 +77,11 @@
                       class="msg-recall"
                       @click="onRecall(msg)"
                     >
-                      {{ t('im.message.recall') }}
+                      {{ '撤回' }}
                     </el-button>
                   </div>
                 </div>
-                <el-empty v-if="!loadingMessages && messages.length === 0" :description="t('im.message.noMessages')" />
+                <el-empty v-if="!loadingMessages && messages.length === 0" :description="'暂无消息'" />
               </div>
             </el-scrollbar>
             <div class="msg-input">
@@ -89,15 +89,15 @@
                 v-model="draft"
                 type="textarea"
                 :rows="2"
-                :placeholder="t('im.message.inputPlaceholder')"
+                :placeholder="'输入消息，Enter 发送'"
                 maxlength="4000"
                 show-word-limit
                 @keydown.enter.exact.prevent="onSend"
               />
-              <el-button type="primary" :loading="sending" @click="onSend">{{ t('im.message.send') }}</el-button>
+              <el-button type="primary" :loading="sending" @click="onSend">{{ '发送' }}</el-button>
             </div>
           </template>
-          <el-empty v-else :description="t('im.message.pickConversation')" class="msg-empty" />
+          <el-empty v-else :description="'请从左侧选择一个会话开始聊天'" class="msg-empty" />
         </div>
       </div>
     </el-card>
@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -139,7 +139,7 @@ const totalUnread = computed(() =>
 )
 const activeTitle = computed(() => {
   const conv = conversations.value.find((c) => c.id === activeConversationId.value)
-  return conv ? conv.title || t('im.conversation.unnamed') : ''
+  return conv ? conv.title || '（未命名会话）' : ''
 })
 
 function isMine(msg) {
@@ -222,14 +222,14 @@ async function onSend() {
 }
 
 async function onRecall(msg) {
-  const confirmed = await ElMessageBox.confirm(t('im.message.recallConfirm'), t('common.tip'), {
+  const confirmed = await ElMessageBox.confirm('确认撤回这条消息吗？', '提示', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await recallMessage(msg.id)
-  ElMessage.success(t('im.message.recallSuccess'))
+  ElMessage.success('已撤回')
   await loadMessages()
 }
 

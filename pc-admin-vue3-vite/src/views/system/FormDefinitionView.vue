@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.formDefinition') }}</h2>
+    <h2 class="page-title">{{ '表单定义管理' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
@@ -9,8 +9,8 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.newForm') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="loadDefinitions">{{ t('common.refresh') }}</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新建表单' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="loadDefinitions">{{ '刷新' }}</el-button>
           </div>
         </div>
       </div>
@@ -20,29 +20,29 @@
         :data="definitions"
         border
         size="small"
-        :empty-text="t('system.noFormDefinitions')"
+        :empty-text="'暂无表单定义'"
       >
-        <el-table-column prop="formCode" :label="t('formSubmission.formCode')" width="180" />
-        <el-table-column prop="formName" :label="t('formSubmission.formName')" min-width="160" />
-        <el-table-column :label="t('system.bindTarget')" width="150">
+        <el-table-column prop="formCode" :label="'表单编码'" width="180" />
+        <el-table-column prop="formName" :label="'表单名称'" min-width="160" />
+        <el-table-column :label="'绑定目标'" width="150">
           <template #default="{ row }">
             <el-tag :type="targetTagType(row.targetType)" size="small">
               {{ targetLabel(row.targetType) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="90">
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'" size="small">
-              {{ row.enabled ? t('common.enabled') : t('system.disable') }}
+              {{ row.enabled ? '启用' : '停用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="remark" :label="t('job.remark')" min-width="160" show-overflow-tooltip />
-        <el-table-column :label="t('common.operation')" width="160" fixed="right">
+        <el-table-column prop="remark" :label="'备注'" min-width="160" show-overflow-tooltip />
+        <el-table-column :label="'操作'" width="160" fixed="right">
           <template #default="{ row }">
-            <el-button text type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-button text type="danger" :icon="Delete" @click="onRemove(row)">{{ t('common.delete') }}</el-button>
+            <el-button text type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-button text type="danger" :icon="Delete" @click="onRemove(row)">{{ '删除' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -57,7 +57,7 @@
     <!-- 新建 / 编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? t('system.editFormDef') : t('system.newFormDef')"
+      :title="isEdit ? '编辑表单定义' : '新建表单定义'"
       width="1080px"
       top="5vh"
       :close-on-click-modal="false"
@@ -67,33 +67,33 @@
         <!-- 左：基本信息 + Schema 编辑器 -->
         <el-col :span="13">
           <el-form :model="form" label-width="92px" :disabled="saving">
-            <el-form-item :label="t('formSubmission.formCode')" required>
-              <el-input v-model="form.formCode" :placeholder="t('system.phFormCode')" :disabled="isEdit" />
+            <el-form-item :label="'表单编码'" required>
+              <el-input v-model="form.formCode" :placeholder="'如 contact-feedback（驼峰/连字符）'" :disabled="isEdit" />
             </el-form-item>
-            <el-form-item :label="t('formSubmission.formName')" required>
-              <el-input v-model="form.formName" :placeholder="t('system.phFormName')" />
+            <el-form-item :label="'表单名称'" required>
+              <el-input v-model="form.formName" :placeholder="'如 联系反馈'" />
             </el-form-item>
-            <el-form-item :label="t('system.bindTarget')">
+            <el-form-item :label="'绑定目标'">
               <el-select v-model="form.targetType" style="width: 100%">
-                <el-option :label="t('system.noneDefOnly')" value="NONE" />
-                <el-option :label="t('system.businessTable')" value="BUSINESS_TABLE" />
-                <el-option :label="t('system.submitTable')" value="FORM_SUBMISSION" />
+                <el-option :label="'无（仅定义）'" value="NONE" />
+                <el-option :label="'业务表'" value="BUSINESS_TABLE" />
+                <el-option :label="'提交表（FORM_SUBMISSION）'" value="FORM_SUBMISSION" />
               </el-select>
             </el-form-item>
-            <el-form-item :label="t('common.enabled')">
+            <el-form-item :label="'启用'">
               <el-switch v-model="form.enabled" />
             </el-form-item>
-            <el-form-item :label="t('job.remark')">
-              <el-input v-model="form.remark" type="textarea" :rows="2" :placeholder="t('common.optional')" />
+            <el-form-item :label="'备注'">
+              <el-input v-model="form.remark" type="textarea" :rows="2" :placeholder="'可选'" />
             </el-form-item>
           </el-form>
 
           <div class="schema-section">
             <div class="schema-editor-head">
-              <span class="schema-editor-tip">{{ t('system.formSchema') }}</span>
+              <span class="schema-editor-tip">{{ '表单 Schema（version + fields[]）' }}</span>
               <el-radio-group v-model="designMode" size="small">
-                <el-radio-button value="design">{{ $t('formDesigner.visualDesign') }}</el-radio-button>
-                <el-radio-button value="json">{{ $t('formDesigner.jsonSource') }}</el-radio-button>
+                <el-radio-button value="design">{{ '可视化设计' }}</el-radio-button>
+                <el-radio-button value="json">{{ 'JSON 源码' }}</el-radio-button>
               </el-radio-group>
             </div>
 
@@ -102,7 +102,7 @@
             <template v-else>
               <div class="schema-editor-head" style="margin-top: 8px">
                 <span class="schema-editor-tip">JSON Schema（version + fields[]）</span>
-                <el-button link type="primary" :icon="MagicStick" @click="formatSchema">{{ t('system.formatSys') }}</el-button>
+                <el-button link type="primary" :icon="MagicStick" @click="formatSchema">{{ '格式化' }}</el-button>
               </div>
               <el-input
                 v-model="form.schemaJson"
@@ -118,7 +118,7 @@
               </div>
               <div v-else class="schema-ok">
                 <el-icon><CircleCheckFilled /></el-icon>
-                <span>{{ t('system.schemaParseable') }}</span>
+                <span>{{ 'Schema 可解析，右侧为实时预览' }}</span>
               </div>
             </template>
           </div>
@@ -126,7 +126,7 @@
 
         <!-- 右：实时预览 -->
         <el-col :span="11">
-          <div class="preview-title">{{ t('system.livePreview') }}</div>
+          <div class="preview-title">{{ '实时预览（DynamicForm 渲染）' }}</div>
           <div class="preview-body">
             <DynamicForm
               v-if="previewSchema"
@@ -134,21 +134,21 @@
               :schema="previewSchema"
               v-model="previewModel"
             />
-            <el-empty v-else :description="t('system.schemaParseFailed')" :image-size="80" />
+            <el-empty v-else :description="'Schema 解析失败，无可预览内容'" :image-size="80" />
           </div>
         </el-col>
       </el-row>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSave">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSave">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, RefreshLeft, Edit, Delete, MagicStick, WarningFilled, CircleCheckFilled } from '@element-plus/icons-vue'
@@ -175,8 +175,8 @@ const designMode = ref('design')
 const schemaPlaceholder = computed(() =>
   JSON.stringify({
     version: 1,
-    title: t('system.formTitle'),
-    fields: [{ key: 'name', label: t('system.name'), type: 'INPUT', required: true }]
+    title: '表单标题',
+    fields: [{ key: 'name', label: '姓名', type: 'INPUT', required: true }]
   })
 )
 
@@ -200,17 +200,17 @@ const previewSchema = computed(() => {
   }
 })
 const schemaError = computed(() => {
-  if (!form.schemaJson) return t('system.schemaNotEmpty')
+  if (!form.schemaJson) return 'Schema 不能为空'
   try {
     JSON.parse(form.schemaJson)
     return ''
   } catch (e) {
-    return t('system.jsonSyntaxError') + e.message
+    return 'JSON 语法错误：' + e.message
   }
 })
 
 function targetLabel(t) {
-  return { NONE: t('common.none'), BUSINESS_TABLE: t('system.businessTable'), FORM_SUBMISSION: t('system.submitTableShort') }[t] || t || t('common.none')
+  return { NONE: '无', BUSINESS_TABLE: '业务表', FORM_SUBMISSION: '提交表' }[t] || t || '无'
 }
 function targetTagType(t) {
   return { NONE: 'info', BUSINESS_TABLE: 'warning', FORM_SUBMISSION: 'success' }[t] || 'info'
@@ -273,27 +273,27 @@ function onSchemaInput() {
 
 function formatSchema() {
   if (schemaError.value && schemaError.value.includes('JSON')) {
-    ElMessage.warning(t('system.jsonBadFormat'))
+    ElMessage.warning('当前 JSON 语法有误，无法格式化')
     return
   }
   try {
     form.schemaJson = JSON.stringify(JSON.parse(form.schemaJson), null, 2)
   } catch {
-    ElMessage.warning(t('system.jsonBadFormat'))
+    ElMessage.warning('当前 JSON 语法有误，无法格式化')
   }
 }
 
 async function onSave() {
   if (!form.formCode.trim()) {
-    ElMessage.warning(t('system.needFormCode'))
+    ElMessage.warning('请填写表单编码')
     return
   }
   if (!form.formName.trim()) {
-    ElMessage.warning(t('system.needFormName'))
+    ElMessage.warning('请填写表单名称')
     return
   }
   if (schemaError.value) {
-    ElMessage.warning(t('system.fixSchemaFirst') + schemaError.value)
+    ElMessage.warning('请先修正 Schema：' + schemaError.value)
     return
   }
   const payload = {
@@ -308,10 +308,10 @@ async function onSave() {
   try {
     if (isEdit.value) {
       await updateFormDefinition(editingId.value, payload)
-      ElMessage.success(t('system.updated'))
+      ElMessage.success('更新成功')
     } else {
       await createFormDefinition(payload)
-      ElMessage.success(t('system.created'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     await loadDefinitions()
@@ -324,17 +324,17 @@ async function onSave() {
 
 async function onRemove(row) {
   try {
-    await ElMessageBox.confirm(t('system.confirmDeleteForm', { name: row.formName, code: row.formCode }), t('monitor.deleteConfirm'), {
+    await ElMessageBox.confirm('确认删除表单「${row.formName}（${row.formCode}）」？', '删除确认', {
       type: 'warning',
-      confirmButtonText: t('common.delete'),
-      cancelButtonText: t('common.cancel')
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
     })
   } catch {
     return
   }
   try {
     await deleteFormDefinition(row.id)
-    ElMessage.success(t('formSubmission.deletedHint'))
+    ElMessage.success('删除成功')
     await loadDefinitions()
   } catch (e) {
     /* 拦截器已统一提示 */

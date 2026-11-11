@@ -1,77 +1,77 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.aiScaffold') }}</h2>
+    <h2 class="page-title">{{ 'AI 脚手架' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <el-form :model="form" label-width="90px">
-        <el-form-item :label="t('ai.moduleName')">
-          <el-input v-model="form.moduleName" :placeholder="t('ai.moduleNamePlaceholder')" clearable />
+        <el-form-item :label="'目标模块'">
+          <el-input v-model="form.moduleName" :placeholder="'可选，留空则按提示词推断（如 order、user_point）'" clearable />
         </el-form-item>
-        <el-form-item :label="t('ai.prompt')">
-          <el-input v-model="form.prompt" type="textarea" :rows="5" :placeholder="t('ai.promptPlaceholder')" />
+        <el-form-item :label="'提示词'">
+          <el-input v-model="form.prompt" type="textarea" :rows="5" :placeholder="'用自然语言描述要生成的表/功能，例如：用户积分流水表，含 user_id、变更积分、余额、备注、创建时间'" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" :icon="MagicStick" @click="onGenerate">
-            {{ loading ? t('ai.generating') : t('ai.generate') }}
+            {{ loading ? '生成中…' : '生成脚手架' }}
           </el-button>
-          <el-button :icon="RefreshLeft" @click="onReset">{{ t('common.reset') }}</el-button>
+          <el-button :icon="RefreshLeft" @click="onReset">{{ '重置' }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
-    <el-empty v-if="!loading && !result" :description="t('ai.emptyHint')" />
+    <el-empty v-if="!loading && !result" :description="'输入提示词并点击生成，查看表结构 / 建表 DDL / 代码草稿。'" />
 
     <template v-if="result">
-      <el-alert :title="t('ai.resultHint')" type="warning" :closable="false" show-icon class="page-card" />
+      <el-alert :title="'以下为 AI 生成的脚手架草稿，请人工复核后再落地。'" type="warning" :closable="false" show-icon class="page-card" />
 
       <el-row :gutter="12" class="summary-row">
         <el-col :span="8">
           <div class="stat-card">
             <div class="stat-num">{{ result.provider || '--' }}</div>
-            <div class="stat-label">{{ t('ai.provider') }}</div>
+            <div class="stat-label">{{ '提供方' }}</div>
           </div>
         </el-col>
         <el-col :span="8">
           <div class="stat-card">
             <div class="stat-num">{{ result.estimatedTokens ?? '--' }}</div>
-            <div class="stat-label">{{ t('ai.estimatedTokens') }}</div>
+            <div class="stat-label">{{ '预估 Token' }}</div>
           </div>
         </el-col>
         <el-col :span="8">
           <div class="stat-card">
             <el-tag :type="result.needsReview ? 'danger' : 'success'" size="small">
-              {{ result.needsReview ? t('common.yes') : t('common.no') }}
+              {{ result.needsReview ? '是' : '否' }}
             </el-tag>
-            <div class="stat-label">{{ t('ai.needsReview') }}</div>
+            <div class="stat-label">{{ '需人工复核' }}</div>
           </div>
         </el-col>
       </el-row>
 
-      <el-card class="page-card" shadow="never" :header="t('ai.tableSpec')">
+      <el-card class="page-card" shadow="never" :header="'表结构'">
         <el-descriptions :column="2" border v-if="result.tableSpec">
-          <el-descriptions-item :label="t('ai.tableName')">{{ result.tableSpec.tableName }}</el-descriptions-item>
-          <el-descriptions-item :label="t('ai.comment')">{{ result.tableSpec.comment || '--' }}</el-descriptions-item>
+          <el-descriptions-item :label="'表名'">{{ result.tableSpec.tableName }}</el-descriptions-item>
+          <el-descriptions-item :label="'说明'">{{ result.tableSpec.comment || '--' }}</el-descriptions-item>
         </el-descriptions>
         <el-table :data="result.tableSpec?.columns || []" border stripe class="block-top">
-          <el-table-column prop="columnName" :label="t('ai.columnName')" width="180" />
-          <el-table-column prop="dataType" :label="t('ai.dataType')" width="120" />
-          <el-table-column prop="javaField" :label="t('ai.javaField')" width="160" />
-          <el-table-column prop="javaType" :label="t('ai.javaType')" width="160" />
-          <el-table-column :label="t('ai.primaryKey')" width="90" align="center">
+          <el-table-column prop="columnName" :label="'字段名'" width="180" />
+          <el-table-column prop="dataType" :label="'数据类型'" width="120" />
+          <el-table-column prop="javaField" :label="'Java 属性'" width="160" />
+          <el-table-column prop="javaType" :label="'Java 类型'" width="160" />
+          <el-table-column :label="'主键'" width="90" align="center">
             <template #default="{ row }">
-              <el-tag v-if="row.primaryKey" type="warning" size="small">{{ t('common.yes') }}</el-tag>
-              <span v-else>{{ t('common.no') }}</span>
+              <el-tag v-if="row.primaryKey" type="warning" size="small">{{ '是' }}</el-tag>
+              <span v-else>{{ '否' }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="comment" :label="t('ai.comment')" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="comment" :label="'说明'" min-width="160" show-overflow-tooltip />
         </el-table>
       </el-card>
 
-      <el-card class="page-card" shadow="never" :header="t('ai.ddl')">
+      <el-card class="page-card" shadow="never" :header="'建表 DDL'">
         <pre class="code-block">{{ result.ddl }}</pre>
       </el-card>
 
-      <el-card class="page-card" shadow="never" :header="t('ai.files')">
+      <el-card class="page-card" shadow="never" :header="'生成文件'">
         <el-collapse v-if="result.files && result.files.length">
           <el-collapse-item v-for="(f, i) in result.files" :key="i" :name="i">
             <template #title>
@@ -81,14 +81,14 @@
             <pre class="code-block">{{ f.content }}</pre>
           </el-collapse-item>
         </el-collapse>
-        <el-empty v-else :description="t('ai.noFiles')" :image-size="60" />
+        <el-empty v-else :description="'无生成文件'" :image-size="60" />
       </el-card>
     </template>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick, RefreshLeft } from '@element-plus/icons-vue'
@@ -100,7 +100,7 @@ const result = ref(null)
 
 async function onGenerate() {
   if (!form.prompt || !form.prompt.trim()) {
-    ElMessage.warning(t('ai.promptRequired'))
+    ElMessage.warning('请输入提示词')
     return
   }
   loading.value = true
@@ -109,7 +109,7 @@ async function onGenerate() {
     const data = await generateScaffold({ moduleName: form.moduleName || null, prompt: form.prompt.trim() })
     result.value = data || {}
     if (!result.value.tableSpec && !result.value.ddl) {
-      ElMessage.warning(t('ai.emptyResult'))
+      ElMessage.warning('AI 未返回有效结果，请调整提示词后重试。')
     }
   } catch (e) {
     // 拦截器已统一提示

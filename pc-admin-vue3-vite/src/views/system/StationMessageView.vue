@@ -1,59 +1,59 @@
 <template>
   <div>
-    <h2 v-if="!embedded" class="page-title">{{ t('common.stationMsg') }}<el-badge :value="unread" :hidden="unread === 0" type="danger" class="unread-badge">
+    <h2 v-if="!embedded" class="page-title">{{ '站内信' }}<el-badge :value="unread" :hidden="unread === 0" type="danger" class="unread-badge">
         <span class="unread-label">未读 {{ unread }}</span>
       </el-badge>
     </h2>
 
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <!-- 收件箱 -->
-      <el-tab-pane :label="t('system.myMessages')" name="mine">
+      <el-tab-pane :label="'我的消息'" name="mine">
         <el-card class="page-card">
           <div class="toolbar">
             <div class="toolbar-filters">
               <div class="filter-group">
-                <el-checkbox v-model="onlyUnread" @change="onSearch">{{ t('system.unreadOnly') }}</el-checkbox>
+                <el-checkbox v-model="onlyUnread" @change="onSearch">{{ '仅看未读' }}</el-checkbox>
               </div>
             </div>
             <div class="toolbar-actions">
               <div class="action-buttons">
-                <el-button :icon="Select" @click="onReadAll">{{ t('system.markAllRead') }}</el-button>
+                <el-button :icon="Select" @click="onReadAll">{{ '全部标记已读' }}</el-button>
               </div>
               <div class="action-buttons">
-                <el-button type="primary" :icon="Promotion" @click="openSend">{{ t('system.sendInSiteMessage') }}</el-button>
-                <el-button :icon="Download" @click="onExportMine">{{ t('common.exportCurrentPageCsv') }}</el-button>
+                <el-button type="primary" :icon="Promotion" @click="openSend">{{ '发送站内信' }}</el-button>
+                <el-button :icon="Download" @click="onExportMine">{{ '导出当前页 CSV' }}</el-button>
               </div>
             </div>
           </div>
 
           <el-table :data="list" v-loading="loading" border stripe>
-            <el-table-column :label="t('common.title')" min-width="200" show-overflow-tooltip>
+            <el-table-column :label="'标题'" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-badge :is-dot="!row.isRead" class="dot-badge">
                   <a @click="openDetail(row)">{{ row.title }}</a>
                 </el-badge>
               </template>
             </el-table-column>
-            <el-table-column prop="msgType" :label="t('common.type')" width="90">
+            <el-table-column prop="msgType" :label="'类型'" width="90">
               <template #default="{ row }">
                 <el-tag size="small" :type="row.msgType === 'ALERT' ? 'danger' : 'info'">
                   {{ typeText(row.msgType) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="senderName" :label="t('system.sender')" width="120" />
-            <el-table-column prop="sentAt" :label="t('system.sentAt')" width="160" />
-            <el-table-column :label="t('common.status')" width="150">
+            <el-table-column prop="senderName" :label="'发送人'" width="120" />
+            <el-table-column prop="sentAt" :label="'发送时间'" width="160" />
+            <el-table-column :label="'状态'" width="150">
               <template #default="{ row }">
                 <el-tag :type="row.isRead ? 'success' : 'warning'" size="small">
-                  {{ row.isRead ? t('system.read') : t('system.unread') }}
+                  {{ row.isRead ? '已读' : '未读' }}
                 </el-tag>
                 <div v-if="row.isRead && row.readAt" class="read-at">回执 {{ row.readAt }}</div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.operation')" width="90" fixed="right">
+            <el-table-column :label="'操作'" width="90" fixed="right">
               <template #default="{ row }">
-                <el-button v-if="!row.isRead" link type="primary" @click="onRead(row)">{{ t('system.markRead') }}</el-button>
+                <el-button v-if="!row.isRead" link type="primary" @click="onRead(row)">{{ '标记已读' }}</el-button>
                 <span v-else class="text-muted">—</span>
               </template>
             </el-table-column>
@@ -75,22 +75,22 @@
       </el-tab-pane>
 
       <!-- 我发出的 -->
-      <el-tab-pane :label="t('system.sentByMe')" name="sent">
+      <el-tab-pane :label="'我发出的'" name="sent">
         <el-card class="page-card">
           <div class="toolbar">
             <div class="toolbar-actions">
               <div class="action-buttons">
-                <el-button :icon="Download" @click="onExportSent">{{ t('common.exportCurrentPageCsv') }}</el-button>
+                <el-button :icon="Download" @click="onExportSent">{{ '导出当前页 CSV' }}</el-button>
               </div>
             </div>
           </div>
           <el-table :data="sentList" v-loading="sentLoading" border stripe>
-            <el-table-column prop="title" :label="t('common.title')" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="msgType" :label="t('common.type')" width="90">
+            <el-table-column prop="title" :label="'标题'" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="msgType" :label="'类型'" width="90">
               <template #default="{ row }">{{ typeText(row.msgType) }}</template>
             </el-table-column>
-            <el-table-column prop="totalCount" :label="t('system.recipient')" width="90" />
-            <el-table-column :label="t('system.readUnread')" width="140">
+            <el-table-column prop="totalCount" :label="'接收人'" width="90" />
+            <el-table-column :label="'已读/未读'" width="140">
               <template #default="{ row }">
                 <el-progress
                   :percentage="readPercent(row)"
@@ -99,10 +99,10 @@
                 />
               </template>
             </el-table-column>
-            <el-table-column prop="sentAt" :label="t('system.sentAt')" width="160" />
-            <el-table-column :label="t('common.operation')" width="120" fixed="right">
+            <el-table-column prop="sentAt" :label="'发送时间'" width="160" />
+            <el-table-column :label="'操作'" width="120" fixed="right">
               <template #default="{ row }">
-                <el-button link type="info" :icon="Reading" @click="openReceipts(row)">{{ t('system.readReceipt') }}</el-button>
+                <el-button link type="info" :icon="Reading" @click="openReceipts(row)">{{ '已读回执' }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -125,50 +125,50 @@
     <!-- 发送弹窗：渠道（站内信 / 邮件 / 短信）× 单条 / 批量 -->
     <el-dialog v-model="sendVisible" :title="sendDialogTitle" width="640px">
       <el-form :model="sendForm" :rules="sendRules" ref="sendFormRef" label-width="90px">
-        <el-form-item :label="t('system.noticeChannel')">
+        <el-form-item :label="'通知渠道'">
           <el-radio-group v-model="sendChannel">
-            <el-radio label="IN_APP">{{ t('common.stationMsg') }}</el-radio>
-            <el-radio label="EMAIL">{{ t('common.mail') }}</el-radio>
-            <el-radio label="SMS">{{ t('common.sms') }}</el-radio>
+            <el-radio label="IN_APP">{{ '站内信' }}</el-radio>
+            <el-radio label="EMAIL">{{ '邮件' }}</el-radio>
+            <el-radio label="SMS">{{ '短信' }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
         <!-- 站内信：既有完整形态不变 -->
         <template v-if="sendChannel === 'IN_APP'">
-          <el-form-item :label="t('common.title')" prop="title">
+          <el-form-item :label="'标题'" prop="title">
             <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
           </el-form-item>
-          <el-form-item :label="t('system.content')" prop="content">
+          <el-form-item :label="'内容'" prop="content">
             <el-input v-model="sendForm.content" type="textarea" :rows="5" />
           </el-form-item>
-          <el-form-item :label="t('common.type')">
+          <el-form-item :label="'类型'">
             <el-radio-group v-model="sendForm.msgType">
-              <el-radio label="NOTICE">{{ t('system.notice') }}</el-radio>
-              <el-radio label="ALERT">{{ t('common.alert') }}</el-radio>
-              <el-radio label="SYSTEM">{{ t('system.system') }}</el-radio>
+              <el-radio label="NOTICE">{{ '通知' }}</el-radio>
+              <el-radio label="ALERT">{{ '告警' }}</el-radio>
+              <el-radio label="SYSTEM">{{ '系统' }}</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item :label="t('system.sendMethod')">
+          <el-form-item :label="'发送方式'">
             <el-radio-group v-model="sendMode">
-              <el-radio label="batch">{{ t('system.batchByRoleDepartment') }}</el-radio>
-              <el-radio label="single">{{ t('system.specifiedRecipient') }}</el-radio>
+              <el-radio label="batch">{{ '按角色/部门批量' }}</el-radio>
+              <el-radio label="single">{{ '指定接收人' }}</el-radio>
             </el-radio-group>
           </el-form-item>
 
           <template v-if="sendMode === 'batch'">
-            <el-form-item :label="t('common.byRole')">
-              <el-select v-model="sendForm.roleIds" multiple :placeholder="t('system.selectRoleOrWithDepartment')" style="width: 100%">
+            <el-form-item :label="'按角色'">
+              <el-select v-model="sendForm.roleIds" multiple :placeholder="'选择角色（与部门为或关系）'" style="width: 100%">
                 <el-option v-for="r in roleOptions" :key="r.id" :label="r.roleName" :value="r.id" />
               </el-select>
             </el-form-item>
-            <el-form-item :label="t('common.byDept')">
-              <el-select v-model="sendForm.orgIds" multiple :placeholder="t('system.selectDepartmentOrWithRole')" style="width: 100%">
+            <el-form-item :label="'按部门'">
+              <el-select v-model="sendForm.orgIds" multiple :placeholder="'选择部门（与角色为或关系）'" style="width: 100%">
                 <el-option v-for="o in orgFlatOptions" :key="o.id" :label="o.orgName" :value="o.id" />
               </el-select>
             </el-form-item>
           </template>
-          <el-form-item v-else :label="t('system.recipient')">
-            <el-select v-model="sendForm.receiverIds" multiple filterable :placeholder="t('system.selectRecipient')" style="width: 100%">
+          <el-form-item v-else :label="'接收人'">
+            <el-select v-model="sendForm.receiverIds" multiple filterable :placeholder="'选择接收人'" style="width: 100%">
               <el-option v-for="u in userOptions" :key="u.id" :label="`${u.displayName}(${u.username})`" :value="u.id" />
             </el-select>
           </el-form-item>
@@ -176,48 +176,48 @@
 
         <!-- 邮件：主题 + 正文 + 收件人地址列表 -->
         <template v-if="sendChannel === 'EMAIL'">
-          <el-form-item :label="t('system.emailSubject')" prop="title">
+          <el-form-item :label="'邮件主题'" prop="title">
             <el-input v-model="sendForm.title" maxlength="200" show-word-limit />
           </el-form-item>
-          <el-form-item :label="t('system.emailBody')" prop="content">
+          <el-form-item :label="'邮件正文'" prop="content">
             <el-input v-model="sendForm.content" type="textarea" :rows="5" />
           </el-form-item>
-          <el-form-item :label="t('system.recipient_1')" prop="emails">
+          <el-form-item :label="'收件人'" prop="emails">
             <el-input
               v-model="sendForm.emails"
               type="textarea"
               :rows="3"
-              :placeholder="t('system.oneEmailPerLineOrCommaSemicolonSeparatedMax50PerEmail')"
+              :placeholder="'每行一个邮箱，或用逗号 / 分号分隔（单封上限 50）'"
             />
           </el-form-item>
         </template>
 
         <!-- 短信：正文 + 接收手机号列表（无主题；渠道未启用时后端返回校验错误） -->
         <template v-if="sendChannel === 'SMS'">
-          <el-form-item :label="t('system.smsContent')" prop="content">
+          <el-form-item :label="'短信内容'" prop="content">
             <el-input v-model="sendForm.content" type="textarea" :rows="4" maxlength="500" show-word-limit />
           </el-form-item>
-          <el-form-item :label="t('system.recipientPhone')" prop="mobiles">
+          <el-form-item :label="'接收手机'" prop="mobiles">
             <el-input
               v-model="sendForm.mobiles"
               type="textarea"
               :rows="3"
-              :placeholder="t('system.onePhonePerLineOrCommaSemicolonSeparatedMax100PerSend')"
+              :placeholder="'每行一个手机号，或用逗号 / 分号分隔（单次上限 100）'"
             />
           </el-form-item>
         </template>
       </el-form>
       <template #footer>
-        <el-button @click="sendVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="sending" @click="onSend">{{ t('system.send') }}</el-button>
+        <el-button @click="sendVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="sending" @click="onSend">{{ '发送' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 详情 -->
-    <el-dialog v-model="detailVisible" :title="t('system.messageDetail')" width="640px">
+    <el-dialog v-model="detailVisible" :title="'消息详情'" width="640px">
       <h3 class="detail-title">{{ current?.title }}</h3>
       <div class="detail-meta">
-        <span class="meta-item">发送人：{{ current?.senderName || t('system.system') }}</span>
+        <span class="meta-item">发送人：{{ current?.senderName || '系统' }}</span>
         <span class="meta-item">时间：{{ current?.sentAt }}</span>
         <el-tag v-if="current?.isRead" type="success" size="small">已读 {{ current?.readAt }}</el-tag>
       </div>
@@ -226,7 +226,7 @@
     </el-dialog>
 
     <!-- 已读回执中心（M8）：统计 + 回执分页 + 催办未读（eager 投递模型，分母=回执总行数） -->
-    <el-dialog v-model="receiptVisible" :title="t('system.inSiteMessageReadReceipt')" width="680px">
+    <el-dialog v-model="receiptVisible" :title="'站内信已读回执'" width="680px">
       <div v-if="receiptStats" class="receipt-summary">
         <el-progress
           :percentage="receiptStats.readRate ?? 0"
@@ -239,37 +239,37 @@
           接收人 {{ receiptStats.totalCount ?? 0 }} 人
         </span>
       </div>
-      <div v-else class="receipt-figures">{{ t('system.loadingStats') }}</div>
+      <div v-else class="receipt-figures">{{ '统计加载中…' }}</div>
 
       <div class="toolbar receipt-toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.recipient') }}</span>
+            <span class="filter-label">{{ '接收人' }}</span>
             <el-input
               v-model="receiptQuery.keyword"
-              :placeholder="t('system.searchByNameAccount')"
+              :placeholder="'按姓名/账号搜索'"
               clearable
               style="width: 200px"
               @keyup.enter="loadReceipts"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.status') }}</span>
-            <el-select v-model="receiptQuery.readStatus" :placeholder="t('common.all')" clearable style="width: 120px">
-              <el-option :label="t('system.read')" value="READ" />
-              <el-option :label="t('system.unread')" value="UNREAD" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="receiptQuery.readStatus" :placeholder="'全部'" clearable style="width: 120px">
+              <el-option :label="'已读'" value="READ" />
+              <el-option :label="'未读'" value="UNREAD" />
             </el-select>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button :icon="Search" @click="loadReceipts">{{ t('common.query') }}</el-button>
+            <el-button :icon="Search" @click="loadReceipts">{{ '查询' }}</el-button>
             <el-popconfirm
-              :title="t('system.willSendAnInSiteNudgeToUnreadUsersContinue')"
+              :title="'将给未读用户发送站内信催办，确认继续？'"
               @confirm="onRemindUnread"
             >
               <template #reference>
-                <el-button type="warning" :icon="Bell" :loading="reminding">{{ t('system.urgeUnread') }}</el-button>
+                <el-button type="warning" :icon="Bell" :loading="reminding">{{ '催办未读' }}</el-button>
               </template>
             </el-popconfirm>
           </div>
@@ -277,20 +277,20 @@
       </div>
 
       <el-table :data="receipts" v-loading="receiptLoading" border stripe max-height="360">
-        <el-table-column :label="t('system.recipient')" min-width="160">
+        <el-table-column :label="'接收人'" min-width="160">
           <template #default="{ row }">
-            {{ row.displayName || (t('system.userPrefix') + row.userId) }}
+            {{ row.displayName || ('用户#' + row.userId) }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="100">
+        <el-table-column :label="'状态'" width="100">
           <template #default="{ row }">
             <el-tag :type="row.isRead ? 'success' : 'warning'" size="small">
-              {{ row.isRead ? t('system.read') : t('system.unread') }}
+              {{ row.isRead ? '已读' : '未读' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="readAt" :label="t('system.readAt')" min-width="180">
-          <template #default="{ row }">{{ row.readAt || t('system.unread') }}</template>
+        <el-table-column prop="readAt" :label="'已读时间'" min-width="180">
+          <template #default="{ row }">{{ row.readAt || '未读' }}</template>
         </el-table-column>
       </el-table>
 
@@ -310,7 +310,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Promotion, Select, Reading, Bell, Search, Download } from '@element-plus/icons-vue'
@@ -365,14 +365,14 @@ const sendForm = reactive({
 // 短信无主题，标题不作为必填项；其余渠道标题必填
 const sendRules = computed(() =>
   sendChannel.value === 'SMS'
-    ? { content: [{ required: true, message: t('system.enterSmsContent'), trigger: 'blur' }] }
+    ? { content: [{ required: true, message: '请输入短信内容', trigger: 'blur' }] }
     : {
-        title: [{ required: true, message: t('system.enterTitle'), trigger: 'blur' }],
-        content: [{ required: true, message: t('system.enterContent'), trigger: 'blur' }]
+        title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+        content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
       }
 )
 const sendDialogTitle = computed(
-  () => ({ IN_APP: t('system.sendInSiteMessage'), EMAIL: t('system.sendEmail'), SMS: t('system.sendSms') }[sendChannel.value])
+  () => ({ IN_APP: '发送站内信', EMAIL: '发送邮件', SMS: '发送短信' }[sendChannel.value])
 )
 // 列表型文本域拆分：逗号 / 分号 / 换行分隔，trim 去空项
 const splitList = (text) =>
@@ -395,7 +395,7 @@ const receiptLoading = ref(false)
 const reminding = ref(false)
 const receiptQuery = reactive({ page: 1, size: 10, keyword: '', readStatus: '' })
 
-const typeText = (t) => ({ NOTICE: t('system.notice'), ALERT: t('common.alert'), SYSTEM: t('system.system') }[t] || t)
+const typeText = (t) => ({ NOTICE: '通知', ALERT: '告警', SYSTEM: '系统' }[t] || t)
 
 const readPercent = (row) =>
   row.totalCount ? Math.round((row.readCount / row.totalCount) * 100) : 0
@@ -465,46 +465,46 @@ function onSearch() {
 
 // ---- 导出当前页 CSV（收件箱 / 我发出的）----
 const mineExportColumns = [
-  { label: t('common.title'), get: (r) => r.title },
-  { label: t('common.type'), get: (r) => typeText(r.msgType) },
-  { label: t('system.sender'), get: (r) => r.senderName || t('system.system') },
-  { label: t('system.sentAt'), get: (r) => r.sentAt || '--' },
-  { label: t('common.status'), get: (r) => (r.isRead ? t('system.read') : t('system.unread')) },
-  { label: t('system.readAt'), get: (r) => r.readAt || '--' }
+  { label: '标题', get: (r) => r.title },
+  { label: '类型', get: (r) => typeText(r.msgType) },
+  { label: '发送人', get: (r) => r.senderName || '系统' },
+  { label: '发送时间', get: (r) => r.sentAt || '--' },
+  { label: '状态', get: (r) => (r.isRead ? '已读' : '未读') },
+  { label: '已读时间', get: (r) => r.readAt || '--' }
 ]
 function onExportMine() {
   if (!list.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = mineExportColumns.map((c) => c.label)
   const data = list.value.map((r) => mineExportColumns.map((c) => c.get(r)))
   downloadCsv(`message-mine-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 const sentExportColumns = [
-  { label: t('common.title'), get: (r) => r.title },
-  { label: t('common.type'), get: (r) => typeText(r.msgType) },
-  { label: t('system.recipient'), get: (r) => r.totalCount ?? 0 },
-  { label: t('system.readUnread'), get: (r) => `${r.readCount ?? 0}/${r.totalCount ?? 0}` },
-  { label: t('system.sentAt'), get: (r) => r.sentAt || '--' }
+  { label: '标题', get: (r) => r.title },
+  { label: '类型', get: (r) => typeText(r.msgType) },
+  { label: '接收人', get: (r) => r.totalCount ?? 0 },
+  { label: '已读/未读', get: (r) => `${r.readCount ?? 0}/${r.totalCount ?? 0}` },
+  { label: '发送时间', get: (r) => r.sentAt || '--' }
 ]
 function onExportSent() {
   if (!sentList.value.length) {
-    ElMessage.warning(t('common.exportEmpty'))
+    ElMessage.warning('当前页无数据可导出')
     return
   }
   const headers = sentExportColumns.map((c) => c.label)
   const data = sentList.value.map((r) => sentExportColumns.map((c) => c.get(r)))
   downloadCsv(`message-sent-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(headers, data))
-  ElMessage.success(t('common.exportSuccess', { n: data.length }))
+  ElMessage.success(`已导出 ${data.length} 行`)
 }
 
 async function onRead(row) {
   try {
     await markMessageRead(row.messageId)
-    ElMessage.success(t('system.markedAllAsRead'))
+    ElMessage.success('已标记为已读')
     load()
   } catch (e) {
     // 拦截器已提示
@@ -514,7 +514,7 @@ async function onRead(row) {
 async function onReadAll() {
   try {
     const res = await markAllMessagesRead()
-    ElMessage.success(t('system.markedReadN', { n: res?.updated ?? 0 }))
+    ElMessage.success(`已标记 ${res?.updated ?? 0} 条为已读`)
     load()
   } catch (e) {
     // 拦截器已提示
@@ -585,7 +585,7 @@ async function onRemindUnread() {
   try {
     const res = await remindMessageUnread(receiptTarget.value.messageId ?? receiptTarget.value.id)
     const count = res?.reminded ?? res?.data?.reminded ?? 0
-    ElMessage.success(t('system.urgedUnreadUsers', { count }))
+    ElMessage.success(`已向 ${count} 位未读用户发送催办`)
     // 催办后未读数下降，刷新统计与回执
     receiptStats.value = await getMessageReadStats(receiptTarget.value.messageId ?? receiptTarget.value.id)
     loadReceipts()
@@ -607,7 +607,7 @@ async function loadOptions() {
     orgFlatOptions.value = flattenTree(tree, { nameKey: 'orgName', labelKey: 'orgName' })
     userOptions.value = users?.records || []
   } catch (e) {
-    console.warn(t('system.failedToLoadRecipientOptions'), e)
+    console.warn('加载收件人选项失败', e)
   }
 }
 
@@ -628,27 +628,27 @@ async function sendViaNotification() {
   if (sendChannel.value === 'EMAIL') {
     const emails = splitList(sendForm.emails)
     if (emails.length === 0) {
-      ElMessage.warning(t('system.fillAtLeastOneRecipientEmail'))
+      ElMessage.warning('请至少填写一个收件人邮箱')
       return
     }
     const res = await sendNotification({
       channel: 'EMAIL', title: sendForm.title, content: sendForm.content,
       msgType: sendForm.msgType, emails
     })
-    ElMessage.success(t('system.sentToEmails', { n: res?.delivered ?? 0 }))
+    ElMessage.success(`已发送给 ${res?.delivered ?? 0} 个邮箱地址`)
     return
   }
   const mobiles = splitList(sendForm.mobiles)
   if (mobiles.length === 0) {
-    ElMessage.warning(t('system.fillAtLeastOneRecipientPhone'))
+    ElMessage.warning('请至少填写一个接收手机号')
     return
   }
   const res = await sendNotification({
     // 短信无主题：title 仅作审计标识（后端不随短信发送），取内容前缀便于审计识别
-    channel: 'SMS', title: sendForm.content.slice(0, 50) || t('profile.smsNotify'),
+    channel: 'SMS', title: sendForm.content.slice(0, 50) || '短信通知',
     content: sendForm.content, mobiles
   })
-  ElMessage.success(t('system.sentToPhones', { n: res?.delivered ?? 0 }))
+  ElMessage.success(`已发送给 ${res?.delivered ?? 0} 个手机号`)
 }
 
 async function onSend() {
@@ -671,11 +671,11 @@ async function onSend() {
 
   // 校验：批量模式至少选一个角色或部门；单条模式至少选一个接收人
   if (sendMode.value === 'batch' && sendForm.roleIds.length === 0 && sendForm.orgIds.length === 0) {
-    ElMessage.warning(t('system.selectAtLeastOneRoleOrDepartment'))
+    ElMessage.warning('请至少选择一个角色或一个部门')
     return
   }
   if (sendMode.value === 'single' && sendForm.receiverIds.length === 0) {
-    ElMessage.warning(t('system.selectAtLeastOneRecipient'))
+    ElMessage.warning('请至少选择一位接收人')
     return
   }
 
@@ -690,7 +690,7 @@ async function onSend() {
   sending.value = true
   try {
     const res = await sendMessage(body)
-    ElMessage.success(t('system.sentToPersons', { n: res?.receiverCount ?? 0 }))
+    ElMessage.success(`已发送给 ${res?.receiverCount ?? 0} 人`)
     sendVisible.value = false
     activeTab.value = 'sent'
     loadSent()

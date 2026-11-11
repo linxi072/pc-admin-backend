@@ -1,29 +1,29 @@
 <template>
   <!-- 图标选择器：菜单管理「图标」字段的可视化选择入口，替代手背 Element Plus 图标名 -->
   <div class="icon-picker">
-    <el-input :model-value="displayValue" readonly :placeholder="t('iconPicker.triggerPlaceholder')" class="icon-trigger">
+    <el-input :model-value="displayValue" readonly :placeholder="'点击选择图标（留空则不显示）'" class="icon-trigger">
       <template #prepend>
         <el-icon v-if="safePreview" class="icon-preview"><component :is="safePreview" /></el-icon>
         <el-icon v-else><Picture /></el-icon>
       </template>
       <template #append>
-        <el-button v-if="modelValue" size="small" text class="icon-clear" :title="t('iconPicker.clear')" @click.stop="clear">
+        <el-button v-if="modelValue" size="small" text class="icon-clear" :title="'清除图标'" @click.stop="clear">
           <el-icon><Close /></el-icon>
         </el-button>
-        <el-button v-else size="small" text :title="t('iconPicker.select')" @click.stop="open">
+        <el-button v-else size="small" text :title="'选择图标'" @click.stop="open">
           <el-icon><Search /></el-icon>
         </el-button>
       </template>
     </el-input>
 
-    <el-dialog v-model="visible" :title="t('iconPicker.select')" width="720px" append-to-body destroy-on-close>
-      <el-input v-model="query" :placeholder="t('iconPicker.searchPlaceholder')" clearable class="icon-search">
+    <el-dialog v-model="visible" :title="'选择图标'" width="720px" append-to-body destroy-on-close>
+      <el-input v-model="query" :placeholder="'搜索图标名（支持中文关键字，如：监控/用户/定时）'" clearable class="icon-search">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
       <el-alert type="info" :closable="false" show-icon class="icon-tip"
-        :title="t('iconPicker.libNote')" />
+        :title="'图标来自 Element Plus 图标库（全局注册），按语义分组；运维管理相关图标已归入「监控运维」组。'" />
       <div v-for="group in filteredGroups" :key="group.i18nKey" class="icon-group">
-        <div class="icon-group-title">{{ t('iconPicker.' + group.i18nKey) }}（{{ group.icons.length }}）</div>
+        <div class="icon-group-title">{{ tx('iconPicker.' + group.i18nKey) }}（{{ group.icons.length }}）</div>
         <div class="icon-grid">
           <div v-for="name in group.icons" :key="name"
             class="icon-cell" :class="{ 'is-active': name === modelValue }"
@@ -32,12 +32,12 @@
             <span class="icon-cell-name">{{ name }}</span>
           </div>
         </div>
-        <el-empty v-if="!group.icons.length" :image-size="40" :description="t('iconPicker.noMatch')" />
+        <el-empty v-if="!group.icons.length" :image-size="40" :description="'无匹配图标'" />
       </div>
-      <el-empty v-if="!filteredGroups.length" :description="t('iconPicker.notFound')" />
+      <el-empty v-if="!filteredGroups.length" :description="'未找到匹配图标'" />
       <template #footer>
-        <el-button @click="visible = false">{{ t('iconPicker.cancel') }}</el-button>
-        <el-button v-if="modelValue" @click="clear">{{ t('iconPicker.clearCurrent') }}</el-button>
+        <el-button @click="visible = false">{{ '取消' }}</el-button>
+        <el-button v-if="modelValue" @click="clear">{{ '清除当前图标' }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -47,7 +47,7 @@
 import { ref, computed } from 'vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { Close, Picture, Search } from '@element-plus/icons-vue'
-import { t } from '@/i18n'
+import { tx } from '@/locales/zh-cn'
 
 /**
  * 图标选择器（菜单管理「图标」字段）。

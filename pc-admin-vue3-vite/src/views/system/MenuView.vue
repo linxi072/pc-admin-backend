@@ -1,14 +1,14 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.menu') }}</h2>
+    <h2 class="page-title">{{ '菜单管理' }}</h2>
     <el-card class="page-card">
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.common.keyword') }}</span>
+            <span class="filter-label">{{ '关键字' }}</span>
             <el-input
               v-model="keyword"
-              :placeholder="t('system.menu.searchPlaceholder')"
+              :placeholder="'搜索菜单名称 / 编码'"
               clearable
               :prefix-icon="Search"
               style="width: 240px"
@@ -18,7 +18,7 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.menu.addTitle') }}</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新增菜单' }}</el-button>
           </div>
         </div>
       </div>
@@ -26,7 +26,7 @@
       <el-table
         :data="treeData"
         v-loading="loading"
-        element-:loading-text="t('system.common.loadingEllipsis')"
+        element-:loading-text="'加载中...'"
         row-key="id"
         :row-class-name="rowClassName"
         :tree-props="{ children: 'children' }"
@@ -34,7 +34,7 @@
         stripe
         default-expand-all
       >
-        <el-table-column :label="t('system.menu.name')" min-width="200">
+        <el-table-column :label="'菜单名称'" min-width="200">
           <template #default="{ row }">
             <span
               class="drag-handle"
@@ -52,17 +52,17 @@
             <span class="menu-name">{{ row.menuName }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="menuCode" :label="t('system.menu.code')" width="150" />
-        <el-table-column :label="t('system.common.type')" width="90">
+        <el-table-column prop="menuCode" :label="'菜单编码'" width="150" />
+        <el-table-column :label="'类型'" width="90">
           <template #default="{ row }">
             <el-tag size="small">{{ typeLabel(row.menuType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="routePath" :label="t('system.menu.routePath')" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="permissionCode" :label="t('system.role.permissionKey')" min-width="170" show-overflow-tooltip />
-        <el-table-column :label="t('system.common.sort')" width="100">
+        <el-table-column prop="routePath" :label="'路由地址'" min-width="170" show-overflow-tooltip />
+        <el-table-column prop="permissionCode" :label="'权限标识'" min-width="170" show-overflow-tooltip />
+        <el-table-column :label="'排序'" width="100">
           <template #header>
-            <span>{{ t('system.common.sort') }}</span>
+            <span>{{ '排序' }}</span>
             <el-tooltip placement="top" raw-content>
               <template #content>
                 同级菜单按排序值升序展示，值相同按创建先后（后端 sort_no ASC, id ASC 二级键）。<br />
@@ -75,21 +75,21 @@
             <span class="sort-no">{{ row.sortNo || 0 }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="90">
+        <el-table-column :label="'状态'" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">
-              {{ row.status === 'ENABLED' ? t('common.enabled') : t('common.disabled') }}
+              {{ row.status === 'ENABLED' ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="230" fixed="right">
+        <el-table-column :label="'操作'" width="230" fixed="right">
           <template #default="{ row }">
             <el-button
               link
               type="primary"
               :icon="Top"
               :disabled="!!keyword || sorting || isFirstSibling(row)"
-              :title="t('formDesigner.moveUp')"
+              :title="'上移'"
               @click="moveMenu(row, -1)"
             />
             <el-button
@@ -97,13 +97,13 @@
               type="primary"
               :icon="Bottom"
               :disabled="!!keyword || sorting || isLastSibling(row)"
-              :title="t('formDesigner.moveDown')"
+              :title="'下移'"
               @click="moveMenu(row, 1)"
             />
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-popconfirm :title="t('system.menu.confirmDelete')" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-popconfirm :title="'确认删除该菜单？'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -114,80 +114,80 @@
           <div class="table-empty">
             <template v-if="loadError">
               <el-icon class="empty-icon empty-icon--error"><WarningFilled /></el-icon>
-              <p>{{ t('system.menu.loadFailed') }}</p>
-              <el-button size="small" @click="load">{{ t('system.common.reload') }}</el-button>
+              <p>{{ '菜单加载失败，请重试' }}</p>
+              <el-button size="small" @click="load">{{ '重新加载' }}</el-button>
             </template>
             <template v-else-if="keyword">
               <el-icon class="empty-icon"><Search /></el-icon>
               <p>未找到匹配「{{ keyword }}」的菜单</p>
-              <el-button size="small" @click="keyword = ''">{{ t('system.common.clearKeyword') }}</el-button>
+              <el-button size="small" @click="keyword = ''">{{ '清空关键字' }}</el-button>
             </template>
             <template v-else>
               <el-icon class="empty-icon"><MenuIcon /></el-icon>
-              <p>{{ t('system.menu.empty') }}</p>
-              <el-button size="small" type="primary" :icon="Plus" @click="openCreate">{{ t('system.menu.addTitle') }}</el-button>
+              <p>{{ '暂无菜单数据' }}</p>
+              <el-button size="small" type="primary" :icon="Plus" @click="openCreate">{{ '新增菜单' }}</el-button>
             </template>
           </div>
         </template>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editingId !== null ? t('system.menu.editTitle') : t('system.menu.addTitle')" width="600px">
+    <el-dialog v-model="dialogVisible" :title="editingId !== null ? '编辑菜单' : '新增菜单'" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item :label="t('system.menu.parent')">
-          <el-select v-model="form.parentId" clearable :placeholder="t('system.menu.top')" style="width: 100%">
+        <el-form-item :label="'上级菜单'">
+          <el-select v-model="form.parentId" clearable :placeholder="'顶级菜单'" style="width: 100%">
             <el-option v-for="m in parentOptions" :key="m.id" :label="m.label" :value="m.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.menu.code')" prop="menuCode">
-          <el-input v-model="form.menuCode" :placeholder="t('system.common.examplePerm')" />
+        <el-form-item :label="'菜单编码'" prop="menuCode">
+          <el-input v-model="form.menuCode" :placeholder="'如 sys:user'" />
         </el-form-item>
-        <el-form-item :label="t('system.menu.name')" prop="menuName">
+        <el-form-item :label="'菜单名称'" prop="menuName">
           <el-input v-model="form.menuName" />
         </el-form-item>
-        <el-form-item :label="t('system.menu.type')" prop="menuType">
+        <el-form-item :label="'菜单类型'" prop="menuType">
           <el-select v-model="form.menuType" style="width: 100%">
-            <el-option :label="t('system.menu.typeCatalog')" value="C" />
-            <el-option :label="t('system.menu.typeMenu')" value="M" />
-            <el-option :label="t('system.menu.typeButton')" value="B" />
+            <el-option :label="'目录 (C)'" value="C" />
+            <el-option :label="'菜单 (M)'" value="M" />
+            <el-option :label="'按钮 (B)'" value="B" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.menu.routePath')">
+        <el-form-item :label="'路由地址'">
           <el-input v-model="form.routePath" placeholder="/system/user" />
         </el-form-item>
-        <el-form-item :label="t('system.menu.componentPath')">
+        <el-form-item :label="'组件路径'">
           <el-input v-model="form.componentPath" placeholder="views/system/User.vue" />
         </el-form-item>
-        <el-form-item :label="t('system.role.permissionKey')">
+        <el-form-item :label="'权限标识'">
           <el-input v-model="form.permissionCode" placeholder="system:menu:read" />
         </el-form-item>
-        <el-form-item :label="t('system.common.icon')">
+        <el-form-item :label="'图标'">
           <IconPicker v-model="form.icon" />
         </el-form-item>
-        <el-form-item :label="t('system.menu.visible')">
+        <el-form-item :label="'是否显示'">
           <el-switch v-model="form.visible" :active-value="1" :inactive-value="0" />
         </el-form-item>
-        <el-form-item :label="t('system.common.sort')">
+        <el-form-item :label="'排序'">
           <el-input-number v-model="form.sortNo" :min="0" @change="sortNoTouched = true" />
-          <span class="sort-hint">{{ t('system.menu.sortDefaultHint') }}</span>
+          <span class="sort-hint">{{ '留空按 0 处理；同级按升序展示，新菜单默认排在同级末尾' }}</span>
         </el-form-item>
-        <el-form-item :label="t('common.status')">
+        <el-form-item :label="'状态'">
           <el-select v-model="form.status" style="width: 100%">
-            <el-option :label="t('common.enabled')" value="ENABLED" />
-            <el-option :label="t('common.disabled')" value="DISABLED" />
+            <el-option :label="'启用'" value="ENABLED" />
+            <el-option :label="'禁用'" value="DISABLED" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Search, Edit, Top, Bottom, More, QuestionFilled, WarningFilled, Menu as MenuIcon } from '@element-plus/icons-vue'
@@ -232,13 +232,13 @@ const form = reactive({
   status: 'ENABLED'
 })
 const rules = {
-  menuCode: [{ required: true, message: t('system.menu.pleaseEnterCode'), trigger: 'blur' }],
-  menuName: [{ required: true, message: t('system.menu.pleaseEnterName'), trigger: 'blur' }],
-  menuType: [{ required: true, message: t('system.menu.pleaseSelectType'), trigger: 'change' }]
+  menuCode: [{ required: true, message: '请输入菜单编码', trigger: 'blur' }],
+  menuName: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }],
+  menuType: [{ required: true, message: '请选择菜单类型', trigger: 'change' }]
 }
 
 function typeLabel(t) {
-  return t === 'C' ? t('system.common.directory') : t === 'B' ? t('system.common.button') : t('system.common.menu')
+  return t === 'C' ? '目录' : t === 'B' ? '按钮' : '菜单'
 }
 
 // ------------------------------------------------------------------
@@ -318,7 +318,7 @@ async function load() {
     rawTree.value = await menuTree()
   } catch (e) {
     loadError.value = true
-    ElMessage.error(t('system.menu.loadFailed'))
+    ElMessage.error('菜单加载失败，请重试')
   } finally {
     loading.value = false
   }
@@ -340,9 +340,9 @@ async function load() {
 // ------------------------------------------------------------------
 
 const dragHandleTitle = computed(() => {
-  if (sorting.value) return t('system.common.sortSaving')
-  if (keyword.value) return t('system.menu.noDragWhileSearch')
-  return t('system.menu.dragHint')
+  if (sorting.value) return '排序保存中，请稍候'
+  if (keyword.value) return '搜索状态下不可拖拽，请清空关键字后调整顺序'
+  return '拖拽调整同级菜单顺序'
 })
 
 /** 行样式：拖拽源行半透明、目标行上下沿指示线、新操作行高亮（视觉反馈）。 */
@@ -368,7 +368,7 @@ function onDragStart(e, row) {
   if (keyword.value) {
     // 搜索态拖的是过滤视图，顺序不代表真实同级集合，直接拒绝
     e.preventDefault()
-    ElMessage.warning(t('system.menu.noDragWhileSearch'))
+    ElMessage.warning('搜索状态下不可拖拽，请清空关键字后调整顺序')
     return
   }
   dragState.value = { dragId: row.id, dragParentId: parentIdOf(row), overId: null, position: null }
@@ -407,7 +407,7 @@ function onDrop(row) {
   dragState.value = null
   if (!s || s.dragId === row.id || !s.overId) return
   if (parentIdOf(row) !== s.dragParentId) {
-    ElMessage.warning(t('system.menu.sortHint'))
+    ElMessage.warning('仅支持同级菜单排序；调整上级请用「编辑」')
     return
   }
   applyReorder(s.dragId, s.overId, s.position)
@@ -417,7 +417,7 @@ function onDrop(row) {
 async function moveMenu(row, dir) {
   if (sorting.value) return
   if (keyword.value) {
-    ElMessage.warning(t('system.menu.noSortWhileSearch'))
+    ElMessage.warning('搜索状态下不可调整顺序，请清空关键字后操作')
     return
   }
   const entry = nodeIndex.value.byId.get(row.id)
@@ -464,10 +464,10 @@ async function applyReorder(dragId, targetId, position) {
   sorting.value = true
   try {
     await sortMenus(payload)
-    ElMessage.success(t('system.common.sortSaved'))
+    ElMessage.success('排序已保存')
   } catch (e) {
     // 拦截器已统一提示错误原因；本地可能已改动，重新拉取保证与后端一致
-    ElMessage.error(t('system.common.sortSaveFailed'))
+    ElMessage.error('排序保存失败，已刷新列表')
     try {
       await load()
     } catch {
@@ -563,11 +563,11 @@ async function onSubmit() {
     let operatedId = editingId.value
     if (editingId.value != null) {
       await updateMenu(editingId.value, { ...form })
-      ElMessage.success(t('system.common.updateSuccess'))
+      ElMessage.success('更新成功')
     } else {
       // 后端 create 返回新菜单 id（字符串化雪花 ID）
       operatedId = await createMenu({ ...form })
-      ElMessage.success(t('system.common.createSuccess'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     editingId.value = null
@@ -583,7 +583,7 @@ async function onSubmit() {
 async function onDelete(row) {
   try {
     await deleteMenu(row.id)
-    ElMessage.success(t('system.department.deleted'))
+    ElMessage.success('已删除')
     await load()
   } catch (e) {
     // 拦截器已统一提示（含存在子菜单等业务拒绝），列表保持原状

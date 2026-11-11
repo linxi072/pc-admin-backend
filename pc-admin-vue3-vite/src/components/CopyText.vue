@@ -7,7 +7,7 @@
       text
       size="small"
       :icon="DocumentCopy"
-      :aria-label="t('common.copy')"
+      :aria-label="'复制'"
       @click="onCopy"
     />
   </span>
@@ -17,7 +17,6 @@
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
-import { t } from '@/i18n'
 
 const props = defineProps({
   // 待复制的原始文本（可为数字，内部转为字符串）
@@ -38,7 +37,7 @@ const displayText = computed(() => (props.display !== '' ? String(props.display)
 async function onCopy() {
   const text = source.value
   if (!text) {
-    ElMessage.warning(t('common.copyEmpty'))
+    ElMessage.warning('暂无内容可复制')
     return
   }
   try {
@@ -47,14 +46,14 @@ async function onCopy() {
     } else {
       fallbackCopy(text)
     }
-    ElMessage.success(t('common.copied'))
+    ElMessage.success('已复制')
   } catch (e) {
     // 现代 API 失败时退回到 execCommand 兜底
     try {
       fallbackCopy(text)
-      ElMessage.success(t('common.copied'))
+      ElMessage.success('已复制')
     } catch (_) {
-      ElMessage.error(t('common.copyFailed'))
+      ElMessage.error('复制失败')
     }
   }
 }

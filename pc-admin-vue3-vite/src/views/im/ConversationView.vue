@@ -1,110 +1,110 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.imConversation') }}</h2>
+    <h2 class="page-title">{{ 'IM 会话管理' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="filters">
           <el-input
             v-model="keyword"
-            :placeholder="t('im.conversation.keywordPlaceholder')"
+            :placeholder="'按会话标题/最近消息搜索'"
             clearable
             style="width: 220px"
             @keyup.enter="onSearch"
           >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <el-select v-model="filterType" :placeholder="t('im.conversation.typePlaceholder')" clearable style="width: 140px">
-            <el-option :label="t('im.type.p2p')" value="P2P" />
-            <el-option :label="t('im.type.group')" value="GROUP" />
+          <el-select v-model="filterType" :placeholder="'会话类型'" clearable style="width: 140px">
+            <el-option :label="'单聊'" value="P2P" />
+            <el-option :label="'群聊'" value="GROUP" />
           </el-select>
-          <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.search') }}</el-button>
+          <el-button type="primary" :icon="Search" @click="onSearch">{{ '搜索' }}</el-button>
         </div>
         <div class="actions">
-          <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('im.conversation.create') }}</el-button>
-          <el-button :icon="Refresh" @click="load">{{ t('common.refresh') }}</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">{{ '创建会话' }}</el-button>
+          <el-button :icon="Refresh" @click="load">{{ '刷新' }}</el-button>
         </div>
       </div>
 
       <el-table :data="rows" v-loading="loading" border stripe>
         <el-table-column prop="id" label="ID" width="90" />
-        <el-table-column :label="t('im.conversation.type')" width="100" align="center">
+        <el-table-column :label="'类型'" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.conversationType === 'GROUP' ? 'warning' : 'primary'">
-              {{ row.conversationType === 'GROUP' ? t('im.type.group') : t('im.type.p2p') }}
+              {{ row.conversationType === 'GROUP' ? '群聊' : '单聊' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="title" :label="t('im.conversation.title')" min-width="160" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.title || t('im.conversation.unnamed') }}</template>
+        <el-table-column prop="title" :label="'会话标题'" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.title || '（未命名会话）' }}</template>
         </el-table-column>
-        <el-table-column prop="memberCount" :label="t('im.conversation.memberCount')" width="90" align="center" />
-        <el-table-column prop="unreadCount" :label="t('im.conversation.unread')" width="90" align="center">
+        <el-table-column prop="memberCount" :label="'成员数'" width="90" align="center" />
+        <el-table-column prop="unreadCount" :label="'未读'" width="90" align="center">
           <template #default="{ row }">
             <el-badge :value="row.unreadCount" :hidden="!row.unreadCount" type="danger">
               <span>{{ row.unreadCount ?? 0 }}</span>
             </el-badge>
           </template>
         </el-table-column>
-        <el-table-column prop="lastMessagePreview" :label="t('im.conversation.lastMessage')" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="lastMessageAt" :label="t('im.conversation.lastMessageAt')" width="170">
+        <el-table-column prop="lastMessagePreview" :label="'最近消息'" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="lastMessageAt" :label="'最近消息时间'" width="170">
           <template #default="{ row }">{{ formatTime(row.lastMessageAt) }}</template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="270" align="center" fixed="right">
+        <el-table-column :label="'操作'" width="270" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="ChatDotRound" @click="goMessage(row)">{{ t('im.conversation.goMessage') }}</el-button>
-            <el-button link type="primary" :icon="Plus" @click="openAddMember(row)">{{ t('im.conversation.addMember') }}</el-button>
-            <el-button link type="warning" @click="onQuit(row)">{{ t('im.conversation.quit') }}</el-button>
-            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ t('common.delete') }}</el-button>
+            <el-button link type="primary" :icon="ChatDotRound" @click="goMessage(row)">{{ '发消息' }}</el-button>
+            <el-button link type="primary" :icon="Plus" @click="openAddMember(row)">{{ '加成员' }}</el-button>
+            <el-button link type="warning" @click="onQuit(row)">{{ '退出' }}</el-button>
+            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ '删除' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
     <!-- 创建会话弹窗 -->
-    <el-dialog v-model="createVisible" :title="t('im.conversation.create')" width="520px" destroy-on-close>
+    <el-dialog v-model="createVisible" :title="'创建会话'" width="520px" destroy-on-close>
       <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-width="90px">
-        <el-form-item :label="t('im.conversation.type')" prop="conversationType">
+        <el-form-item :label="'类型'" prop="conversationType">
           <el-radio-group v-model="createForm.conversationType">
-            <el-radio value="P2P">{{ t('im.type.p2p') }}</el-radio>
-            <el-radio value="GROUP">{{ t('im.type.group') }}</el-radio>
+            <el-radio value="P2P">{{ '单聊' }}</el-radio>
+            <el-radio value="GROUP">{{ '群聊' }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item :label="t('im.conversation.title')" prop="title">
-          <el-input v-model="createForm.title" :placeholder="t('im.conversation.titlePlaceholder')" maxlength="255" />
+        <el-form-item :label="'会话标题'" prop="title">
+          <el-input v-model="createForm.title" :placeholder="'请输入会话标题'" maxlength="255" />
         </el-form-item>
-        <el-form-item :label="t('im.conversation.members')" prop="memberIds">
+        <el-form-item :label="'对方成员'" prop="memberIds">
           <el-input
             v-model="memberIdsText"
             type="textarea"
             :rows="2"
-            :placeholder="t('im.conversation.membersPlaceholder')"
+            :placeholder="'输入用户 ID，逗号分隔（单聊仅 1 人，群聊至少 1 人）'"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="createVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="onCreateSubmit">{{ t('common.confirm') }}</el-button>
+        <el-button @click="createVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="onCreateSubmit">{{ '确认' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 添加成员弹窗 -->
-    <el-dialog v-model="addMemberVisible" :title="t('im.conversation.addMember')" width="420px" destroy-on-close>
+    <el-dialog v-model="addMemberVisible" :title="'加成员'" width="420px" destroy-on-close>
       <el-form :model="addMemberForm" :rules="addMemberRules" ref="addMemberFormRef" label-width="90px">
-        <el-form-item :label="t('im.conversation.memberUserId')" prop="userId">
+        <el-form-item :label="'成员 ID'" prop="userId">
           <el-input-number v-model="addMemberForm.userId" :min="1" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="addMemberVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="onAddMemberSubmit">{{ t('common.confirm') }}</el-button>
+        <el-button @click="addMemberVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="onAddMemberSubmit">{{ '确认' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -138,11 +138,11 @@ const memberIdsText = ref('')
 const addMemberForm = reactive({ conversationId: null, userId: 1 })
 
 const createRules = {
-  conversationType: [{ required: true, message: t('im.conversation.typeRequired'), trigger: 'change' }],
-  title: [{ required: true, message: t('im.conversation.titleRequired'), trigger: 'blur' }]
+  conversationType: [{ required: true, message: '请选择会话类型', trigger: 'change' }],
+  title: [{ required: true, message: '请输入会话标题', trigger: 'blur' }]
 }
 const addMemberRules = {
-  userId: [{ required: true, message: t('im.conversation.userIdRequired'), trigger: 'blur' }]
+  userId: [{ required: true, message: '请输入成员用户 ID', trigger: 'blur' }]
 }
 
 // 关键字 + 类型过滤（前端过滤，/my 返回全量会话）
@@ -199,11 +199,11 @@ function onCreateSubmit() {
     if (!valid) return
     const memberIds = parseMemberIds(memberIdsText.value)
     if (memberIds.length === 0) {
-      ElMessage.warning(t('im.conversation.membersRequired'))
+      ElMessage.warning('请至少输入一个成员 ID')
       return
     }
     if (createForm.conversationType === 'P2P' && memberIds.length !== 1) {
-      ElMessage.warning(t('im.conversation.p2pSingleMember'))
+      ElMessage.warning('单聊仅允许 1 名对方成员')
       return
     }
     submitting.value = true
@@ -213,7 +213,7 @@ function onCreateSubmit() {
         title: createForm.title,
         memberIds
       })
-      ElMessage.success(t('common.createSuccess'))
+      ElMessage.success('创建成功')
       createVisible.value = false
       await load()
     } finally {
@@ -238,7 +238,7 @@ function onAddMemberSubmit() {
     submitting.value = true
     try {
       await addMember(addMemberForm.conversationId, addMemberForm.userId)
-      ElMessage.success(t('im.conversation.memberAdded'))
+      ElMessage.success('成员已添加')
       addMemberVisible.value = false
       await load()
     } finally {
@@ -248,26 +248,26 @@ function onAddMemberSubmit() {
 }
 
 async function onQuit(row) {
-  const confirmed = await ElMessageBox.confirm(t('im.conversation.quitConfirm'), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm('确认退出该会话吗？退出后将不再接收该会话消息。', '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await quitConversation(row.id)
-  ElMessage.success(t('im.conversation.quitSuccess'))
+  ElMessage.success('已退出会话')
   await load()
 }
 
 async function onDelete(row) {
-  const confirmed = await ElMessageBox.confirm(t('im.conversation.deleteConfirm'), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm('确认删除该会话吗？仅群主可删除，删除后成员不可见。', '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await deleteConversation(row.id)
-  ElMessage.success(t('common.deleteSuccess'))
+  ElMessage.success('删除成功')
   await load()
 }
 

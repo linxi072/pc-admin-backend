@@ -2,7 +2,7 @@
   <div class="fd">
     <!-- 字段类型面板（点击添加） -->
     <div class="fd-pane fd-palette">
-      <div class="fd-pane-title">{{ $t('formDesigner.palette') }}</div>
+      <div class="fd-pane-title">{{ '字段类型' }}</div>
       <el-button
         v-for="t in palette"
         :key="t.type"
@@ -11,17 +11,17 @@
         :icon="Plus"
         @click="addField(t.type)"
       >
-        {{ $t(t.labelKey) }}
+        {{ tx(t.labelKey) }}
       </el-button>
-      <div class="fd-palette-hint">{{ $t('formDesigner.paletteHint') }}</div>
+      <div class="fd-palette-hint">{{ '点击添加字段到表单' }}</div>
     </div>
 
     <!-- 字段列表（选中编辑 / 上下移 / 删除） -->
     <div class="fd-pane fd-list">
       <div class="fd-pane-title">
-        {{ $t('formDesigner.fieldList') }}（{{ fields.length }}）
+        {{ '字段列表' }}（{{ fields.length }}）
       </div>
-      <div v-if="!fields.length" class="fd-empty">{{ $t('formDesigner.empty') }}</div>
+      <div v-if="!fields.length" class="fd-empty">{{ '从左侧点击添加字段' }}</div>
       <div
         v-for="(f, i) in fields"
         :key="i"
@@ -31,7 +31,7 @@
       >
         <span class="fd-field-idx">{{ i + 1 }}</span>
         <span class="fd-field-main">
-          <span class="fd-field-label">{{ f.label || $t('formDesigner.unnamed') }}</span>
+          <span class="fd-field-label">{{ f.label || '（未命名）' }}</span>
           <span class="fd-field-meta">
             <el-tag size="small" effect="plain">{{ typeLabel(f.type) }}</el-tag>
             <span class="fd-field-key">{{ f.key }}</span>
@@ -39,101 +39,101 @@
           </span>
         </span>
         <span class="fd-field-ops">
-          <el-button link size="small" :disabled="i === 0" @click.stop="move(i, -1)">{{ $t('formDesigner.moveUp') }}</el-button>
-          <el-button link size="small" :disabled="i === fields.length - 1" @click.stop="move(i, 1)">{{ $t('formDesigner.moveDown') }}</el-button>
-          <el-button link type="danger" size="small" :icon="Delete" @click.stop="remove(i)">{{ $t('formDesigner.delete') }}</el-button>
+          <el-button link size="small" :disabled="i === 0" @click.stop="move(i, -1)">{{ '上移' }}</el-button>
+          <el-button link size="small" :disabled="i === fields.length - 1" @click.stop="move(i, 1)">{{ '下移' }}</el-button>
+          <el-button link type="danger" size="small" :icon="Delete" @click.stop="remove(i)">{{ '删除' }}</el-button>
         </span>
       </div>
     </div>
 
     <!-- 选中字段属性面板 -->
     <div class="fd-pane fd-prop">
-      <div class="fd-pane-title">{{ $t('formDesigner.properties') }}</div>
+      <div class="fd-pane-title">{{ '字段属性' }}</div>
       <el-form v-if="current" label-width="78px" size="small" @submit.prevent>
-        <el-form-item :label="$t('formDesigner.key')">
+        <el-form-item :label="'字段键'">
           <el-input v-model="current.key" @input="onKeyInput" />
           <div v-if="keyError" class="fd-field-error">{{ keyError }}</div>
         </el-form-item>
-        <el-form-item :label="$t('formDesigner.label')">
+        <el-form-item :label="'标签'">
           <el-input v-model="current.label" />
         </el-form-item>
-        <el-form-item :label="$t('formDesigner.type')">
+        <el-form-item :label="'类型'">
           <el-select v-model="current.type" style="width: 100%" @change="onTypeChange">
             <el-option v-for="t in palette" :key="t.type" :label="t.label" :value="t.type" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="$t('formDesigner.required')">
+        <el-form-item :label="'必填'">
           <el-switch v-model="current.required" />
         </el-form-item>
-        <el-form-item v-if="hasPlaceholder(current.type)" :label="$t('formDesigner.placeholder')">
+        <el-form-item v-if="hasPlaceholder(current.type)" :label="'占位提示'">
           <el-input v-model="current.placeholder" />
         </el-form-item>
         <template v-if="current.type === 'INPUT' || current.type === 'TEXTAREA'">
-          <el-form-item :label="$t('formDesigner.maxLength')">
+          <el-form-item :label="'最大长度'">
             <el-input-number v-model="current.maxLength" :min="0" :max="4000" controls-position="right" style="width: 100%" />
           </el-form-item>
-          <el-form-item :label="$t('formDesigner.minLength')">
+          <el-form-item :label="'最小长度'">
             <el-input-number v-model="current.minLength" :min="0" :max="4000" controls-position="right" style="width: 100%" />
           </el-form-item>
-          <el-form-item :label="$t('form.pattern')">
+          <el-form-item :label="'{label}格式不正确'">
             <el-input v-model="current.pattern" :placeholder="'^(?=.*[A-Za-z])(?=.*\\d).+$'" />
           </el-form-item>
         </template>
-        <el-form-item v-if="current.type === 'TEXTAREA'" :label="$t('formDesigner.rows')">
+        <el-form-item v-if="current.type === 'TEXTAREA'" :label="'行数'">
           <el-input-number v-model="current.rows" :min="1" :max="20" controls-position="right" style="width: 100%" />
         </el-form-item>
         <template v-if="current.type === 'NUMBER'">
-          <el-form-item :label="$t('form.numberMin')">
+          <el-form-item :label="'{label}不能小于 {min}'">
             <el-input-number v-model="current.min" controls-position="right" style="width: 100%" />
           </el-form-item>
-          <el-form-item :label="$t('form.numberMax')">
+          <el-form-item :label="'{label}不能大于 {max}'">
             <el-input-number v-model="current.max" controls-position="right" style="width: 100%" />
           </el-form-item>
         </template>
-        <el-form-item v-if="current.type === 'SELECT' || current.type === 'RADIO'" :label="$t('formDesigner.options')">
+        <el-form-item v-if="current.type === 'SELECT' || current.type === 'RADIO'" :label="'选项'">
           <div v-for="(o, oi) in current.options" :key="oi" class="fd-opt-row">
-            <el-input v-model="o.label" :placeholder="$t('formDesigner.optionLabel')" size="small" />
-            <el-input v-model="o.value" :placeholder="$t('formDesigner.optionValue')" size="small" />
+            <el-input v-model="o.label" :placeholder="'标签'" size="small" />
+            <el-input v-model="o.value" :placeholder="'值'" size="small" />
             <el-button link type="danger" :icon="Delete" @click="current.options.splice(oi, 1)" />
           </div>
           <el-button size="small" :icon="Plus" @click="current.options.push({ label: '', value: '' })">
-            {{ $t('formDesigner.addOption') }}
+            {{ '添加选项' }}
           </el-button>
         </el-form-item>
-        <el-form-item :label="$t('form.conditional')">
+        <el-form-item :label="'显示条件'">
           <el-switch :model-value="!!current.visibleWhen" @change="toggleVisibleWhen" />
         </el-form-item>
         <template v-if="current.visibleWhen">
-          <el-form-item :label="$t('form.visibleWhenField')">
+          <el-form-item :label="'依赖字段'">
             <el-select v-model="current.visibleWhen.field" style="width: 100%">
               <el-option v-for="o in otherFields" :key="o.key" :label="o.label" :value="o.key" />
             </el-select>
           </el-form-item>
-          <el-form-item :label="$t('form.visibleWhenOp')">
+          <el-form-item :label="'运算符'">
             <el-select v-model="current.visibleWhen.op" style="width: 100%">
-              <el-option v-for="(lbl, k) in opOptions" :key="k" :label="$t(lbl)" :value="k" />
+              <el-option v-for="(lbl, k) in opOptions" :key="k" :label="tx(lbl)" :value="k" />
             </el-select>
           </el-form-item>
-          <el-form-item v-if="!['truthy', 'falsy'].includes(current.visibleWhen.op)" :label="$t('form.visibleWhenValue')">
+          <el-form-item v-if="!['truthy', 'falsy'].includes(current.visibleWhen.op)" :label="'比较值'">
             <el-input v-model="current.visibleWhen.value" />
           </el-form-item>
         </template>
-        <el-form-item :label="$t('form.colSpan')">
+        <el-form-item :label="'栅格列宽'">
           <el-select v-model="current.colSpan" style="width: 100%">
             <el-option :label="'全宽'" :value="2" />
             <el-option :label="'半宽'" :value="1" />
           </el-select>
         </el-form-item>
       </el-form>
-      <el-empty v-else :description="$t('formDesigner.noSelection')" :image-size="60" />
+      <el-empty v-else :description="'请选择左侧字段进行配置'" :image-size="60" />
     </div>
 
     <!-- 实时预览（复用 DynamicForm 渲染器，与运行时口径一致） -->
     <div class="fd-pane fd-preview">
-      <div class="fd-pane-title">{{ $t('formDesigner.preview') }}</div>
+      <div class="fd-pane-title">{{ '实时预览' }}</div>
       <div class="fd-preview-body">
         <DynamicForm v-if="schemaObject && schemaObject.fields.length" :schema="schemaObject" v-model="previewModel" />
-        <el-empty v-else :description="$t('formDesigner.previewEmpty')" :image-size="60" />
+        <el-empty v-else :description="'暂无字段可预览'" :image-size="60" />
       </div>
     </div>
   </div>
@@ -143,6 +143,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import DynamicForm from '@/components/DynamicForm.vue'
+import { tx } from '@/locales/zh-cn'
 
 const props = defineProps({
   /** Schema JSON 字符串（与表单定义管理后端契约一致：{version,title,fields[]}）。 */
@@ -193,23 +194,16 @@ const schemaObject = computed(() => ({ version: 1, title: title.value, fields: f
 
 const keyError = computed(() => {
   const f = current.value
-  if (!f || !f.key) return $tSafe('formDesigner.keyRequired')
-  if (!KEY_PATTERN.test(f.key)) return $tSafe('formDesigner.keyInvalid')
+  if (!f || !f.key) return tx('formDesigner.keyRequired')
+  if (!KEY_PATTERN.test(f.key)) return tx('formDesigner.keyInvalid')
   const dup = fields.filter((x) => x.key === f.key).length > 1
-  return dup ? $tSafe('formDesigner.duplicateKey') : ''
+  return dup ? tx('formDesigner.duplicateKey') : ''
 })
 
-function $tSafe(k) {
-  try {
-    return typeof $t === 'function' ? $t(k) : k
-  } catch {
-    return k
-  }
-}
 
 function typeLabel(t) {
   const found = palette.find((p) => p.type === t)
-  return found ? $t(found.labelKey) : t
+  return found ? tx(found.labelKey) : t
 }
 
 function hasPlaceholder(t) {

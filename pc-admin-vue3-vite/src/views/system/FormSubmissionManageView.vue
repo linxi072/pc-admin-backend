@@ -1,45 +1,45 @@
 <template>
   <div>
-    <h2 class="page-title">{{ $t('route.formSubmission') }}</h2>
-    <p class="scope-hint">{{ $t('formSubmission.scope') }}</p>
+    <h2 class="page-title">{{ '表单提交管理' }}</h2>
+    <p class="scope-hint">{{ '本页跨表单统一检索全部低代码表单的提交记录，提供分页、按表单聚合统计、详情查看与逻辑删除治理能力；也可一键导出当前筛选结果。' }}</p>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ $t('formSubmission.formCode') }}</span>
-            <el-input v-model="query.formCode" :placeholder="$t('formSubmission.formCodePlaceholder')" clearable style="width: 160px" @keyup.enter="onSearch" />
+            <span class="filter-label">{{ '表单编码' }}</span>
+            <el-input v-model="query.formCode" :placeholder="'表单编码（精确）'" clearable style="width: 160px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ $t('formSubmission.submittedBy') }}</span>
-            <el-input v-model="query.submittedBy" :placeholder="$t('formSubmission.submittedByPlaceholder')" clearable style="width: 150px" @keyup.enter="onSearch" />
+            <span class="filter-label">{{ '提交人' }}</span>
+            <el-input v-model="query.submittedBy" :placeholder="'提交人（模糊）'" clearable style="width: 150px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ $t('formSubmission.keyword') }}</span>
-            <el-input v-model="query.keyword" :placeholder="$t('formSubmission.keywordPlaceholder')" clearable style="width: 200px" @keyup.enter="onSearch" />
+            <span class="filter-label">{{ '内容关键词' }}</span>
+            <el-input v-model="query.keyword" :placeholder="'提交内容 JSON 关键词'" clearable style="width: 200px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ $t('formSubmission.sortField') }}</span>
-            <el-select v-model="query.sortField" :placeholder="$t('formSubmission.sortField')" style="width: 140px" @change="onSearch">
-              <el-option :label="$t('formSubmission.sortByCreatedAt')" value="created_at" />
-              <el-option :label="$t('formSubmission.sortBySubmittedBy')" value="submitted_by" />
-              <el-option :label="$t('formSubmission.sortByFormCode')" value="form_code" />
+            <span class="filter-label">{{ '排序字段' }}</span>
+            <el-select v-model="query.sortField" :placeholder="'排序字段'" style="width: 140px" @change="onSearch">
+              <el-option :label="'提交时间'" value="created_at" />
+              <el-option :label="'提交人'" value="submitted_by" />
+              <el-option :label="'表单编码'" value="form_code" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ $t('formSubmission.sortDir') }}</span>
-            <el-select v-model="query.sortDir" :placeholder="$t('formSubmission.sortDir')" style="width: 120px" @change="onSearch">
-              <el-option :label="$t('formSubmission.desc')" value="DESC" />
-              <el-option :label="$t('formSubmission.asc')" value="ASC" />
+            <span class="filter-label">{{ '排序方向' }}</span>
+            <el-select v-model="query.sortDir" :placeholder="'排序方向'" style="width: 120px" @change="onSearch">
+              <el-option :label="'降序'" value="DESC" />
+              <el-option :label="'升序'" value="ASC" />
             </el-select>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ $t('formSubmission.search') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ $t('formSubmission.reset') }}</el-button>
-            <el-button :icon="Download" :loading="exporting" @click="onExport">{{ $t('formSubmission.export') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button :icon="Download" :loading="exporting" @click="onExport">{{ '导出' }}</el-button>
           </div>
         </div>
       </div>
@@ -49,12 +49,12 @@
         <el-col :span="6">
           <div class="stat-card stat-total">
             <div class="stat-num">{{ stats.totalCount ?? 0 }}</div>
-            <div class="stat-label">{{ $t('formSubmission.totalCount') }}</div>
+            <div class="stat-label">{{ '提交总数' }}</div>
           </div>
         </el-col>
         <el-col :span="18">
           <div class="stat-card stat-breakdown">
-            <div class="stat-label stat-breakdown-title">{{ $t('formSubmission.byForm') }}</div>
+            <div class="stat-label stat-breakdown-title">{{ '按表单分布' }}</div>
             <div v-if="stats.byForm && stats.byForm.length" class="breakdown-list">
               <span v-for="item in topForms" :key="item.formCode" class="breakdown-item">
                 <span class="breakdown-name">{{ item.formName || item.formCode }}</span>
@@ -64,25 +64,25 @@
                 +{{ stats.byForm.length - topForms.length }}
               </span>
             </div>
-            <div v-else class="muted">{{ $t('formSubmission.noData') }}</div>
+            <div v-else class="muted">{{ '暂无提交记录' }}</div>
           </div>
         </el-col>
       </el-row>
 
       <!-- 明细表格 -->
       <el-table :data="rows" v-loading="loading" border stripe>
-        <el-table-column prop="id" :label="$t('formSubmission.id')" width="90" />
-        <el-table-column prop="formCode" :label="$t('formSubmission.formCode')" width="150" show-overflow-tooltip />
-        <el-table-column prop="formName" :label="$t('formSubmission.formName')" width="170" show-overflow-tooltip />
-        <el-table-column prop="submittedBy" :label="$t('formSubmission.submittedBy')" width="140" />
-        <el-table-column prop="dataJson" :label="$t('formSubmission.dataJson')" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="createdAt" :label="$t('formSubmission.createdAt')" width="180" />
-        <el-table-column :label="$t('formSubmission.actions')" width="150" fixed="right">
+        <el-table-column prop="id" :label="'提交ID'" width="90" />
+        <el-table-column prop="formCode" :label="'表单编码'" width="150" show-overflow-tooltip />
+        <el-table-column prop="formName" :label="'表单名称'" width="170" show-overflow-tooltip />
+        <el-table-column prop="submittedBy" :label="'提交人'" width="140" />
+        <el-table-column prop="dataJson" :label="'提交内容'" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="createdAt" :label="'提交时间'" width="180" />
+        <el-table-column :label="'操作'" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="View" @click="openDetail(row)">{{ $t('formSubmission.detail') }}</el-button>
-            <el-popconfirm :title="$t('formSubmission.deleteConfirm')" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="View" @click="openDetail(row)">{{ '详情' }}</el-button>
+            <el-popconfirm :title="'确认删除该提交记录？删除后不可恢复。'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ $t('formSubmission.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -104,19 +104,19 @@
     </el-card>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="detailVisible" :title="$t('formSubmission.detailTitle')" width="640px">
+    <el-dialog v-model="detailVisible" :title="'提交详情'" width="640px">
       <el-descriptions v-if="detail" :column="1" border>
-        <el-descriptions-item :label="$t('formSubmission.id')">{{ detail.id }}</el-descriptions-item>
-        <el-descriptions-item :label="$t('formSubmission.formCode')">{{ detail.formCode }}</el-descriptions-item>
-        <el-descriptions-item :label="$t('formSubmission.formName')">{{ detail.formName }}</el-descriptions-item>
-        <el-descriptions-item :label="$t('formSubmission.submittedBy')">{{ detail.submittedBy || '--' }}</el-descriptions-item>
-        <el-descriptions-item :label="$t('formSubmission.createdAt')">{{ detail.createdAt || '--' }}</el-descriptions-item>
-        <el-descriptions-item :label="$t('formSubmission.dataJson')">
+        <el-descriptions-item :label="'提交ID'">{{ detail.id }}</el-descriptions-item>
+        <el-descriptions-item :label="'表单编码'">{{ detail.formCode }}</el-descriptions-item>
+        <el-descriptions-item :label="'表单名称'">{{ detail.formName }}</el-descriptions-item>
+        <el-descriptions-item :label="'提交人'">{{ detail.submittedBy || '--' }}</el-descriptions-item>
+        <el-descriptions-item :label="'提交时间'">{{ detail.createdAt || '--' }}</el-descriptions-item>
+        <el-descriptions-item :label="'提交内容'">
           <pre class="data-json">{{ formatData(detail.dataJson) }}</pre>
         </el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button @click="detailVisible = false">{{ $t('formSubmission.close') }}</el-button>
+        <el-button @click="detailVisible = false">{{ '关闭' }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -126,7 +126,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Download, View, Delete } from '@element-plus/icons-vue'
-import { t } from '@/i18n'
+
 import {
   pageSubmissions,
   getSubmissionStats,
@@ -219,7 +219,7 @@ async function openDetail(row) {
 async function onDelete(row) {
   try {
     await removeSubmission(row.id)
-    ElMessage.success(t('formSubmission.deletedHint'))
+    ElMessage.success('删除成功')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -230,7 +230,7 @@ async function onExport() {
   exporting.value = true
   try {
     const ok = await exportSubmissions(buildParams())
-    if (ok) ElMessage.success(t('formSubmission.exportedHint'))
+    if (ok) ElMessage.success('导出已触发')
   } finally {
     exporting.value = false
   }

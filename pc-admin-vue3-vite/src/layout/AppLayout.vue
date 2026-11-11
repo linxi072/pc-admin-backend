@@ -29,8 +29,8 @@
       </el-main>
     </el-container>
     <el-footer v-if="!isMobile" class="app-footer" height="40px">
-      {{ t('app.footer') }}
-      <span class="muted">{{ t('app.internalUseOnly') }}</span>
+      {{ '© 2026 运营管理后台 · 基于 Vue3 + Element Plus + Vite ·' }}
+      <span class="muted">{{ '仅供内部使用' }}</span>
     </el-footer>
   </el-container>
 </template>
@@ -40,7 +40,7 @@ import { ref, onMounted } from 'vue'
 import Topbar from './Topbar.vue'
 import Sidebar from './Sidebar.vue'
 import { authState, isAuthenticated, loadMenus } from '@/store/auth'
-import { t } from '@/i18n'
+
 import { useBreakpoint } from '@/composables'
 
 const { isMobile } = useBreakpoint()

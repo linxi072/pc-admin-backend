@@ -1,29 +1,29 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.notificationTemplate') }}</h2>
+    <h2 class="page-title">{{ '通知模板' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <div class="toolbar-filters">
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.channel') }}</span>
-            <el-select v-model="query.channel" :placeholder="t('common.all')" clearable style="width: 140px">
+            <span class="filter-label">{{ '渠道' }}</span>
+            <el-select v-model="query.channel" :placeholder="'全部'" clearable style="width: 140px">
               <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.status') }}</span>
-            <el-select v-model="query.enabled" :placeholder="t('common.all')" clearable style="width: 120px">
-              <el-option :label="t('common.enabled')" :value="true" />
-              <el-option :label="t('system.disable')" :value="false" />
+            <span class="filter-label">{{ '状态' }}</span>
+            <el-select v-model="query.enabled" :placeholder="'全部'" clearable style="width: 120px">
+              <el-option :label="'启用'" :value="true" />
+              <el-option :label="'停用'" :value="false" />
             </el-select>
           </div>
           <div class="filter-group">
-            <span class="filter-label">{{ t('common.keyword') }}</span>
+            <span class="filter-label">{{ '关键字' }}</span>
             <el-input
               v-model="query.keyword"
-              :placeholder="t('system.codeNameBody')"
+              :placeholder="'编码/名称/正文'"
               clearable
               style="width: 220px"
               @keyup.enter="load"
@@ -32,30 +32,30 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.query') }}</el-button>
-            <el-button :icon="RefreshLeft" @click="resetQuery">{{ t('common.reset') }}</el-button>
-            <el-button type="success" :icon="Plus" @click="openCreate">{{ t('system.newTemplate') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
+            <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
+            <el-button type="success" :icon="Plus" @click="openCreate">{{ '新建模板' }}</el-button>
           </div>
         </div>
       </div>
 
       <!-- 模板列表 -->
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
-        <el-table-column prop="templateCode" :label="t('system.code')" width="180" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="templateName" :label="t('common.name')" width="160" show-overflow-tooltip />
-        <el-table-column :label="t('common.channel')" width="120">
+        <el-table-column prop="templateCode" :label="'编码'" width="180" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="templateName" :label="'名称'" width="160" show-overflow-tooltip />
+        <el-table-column :label="'渠道'" width="120">
           <template #default="{ row }">
             <el-tag :type="channelTag(row.channel).type" size="small">{{ channelTag(row.channel).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="title" :label="t('common.title')" width="160" show-overflow-tooltip>
+        <el-table-column prop="title" :label="'标题'" width="160" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.title">{{ row.title }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="content" :label="t('system.bodyWithPlaceholder', { ph: '${var}' })" min-width="240" show-overflow-tooltip />
-        <el-table-column :label="t('common.enabled')" width="90">
+        <el-table-column prop="content" :label="`正文（含 ${'${var}'} 占位）`" min-width="240" show-overflow-tooltip />
+        <el-table-column :label="'启用'" width="90">
           <template #default="{ row }">
             <el-switch
               v-model="row.enabled"
@@ -64,14 +64,14 @@
             />
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="260" fixed="right">
+        <el-table-column :label="'操作'" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Promotion" @click="openSend(row)">{{ t('system.send') }}</el-button>
-            <el-button link type="primary" :icon="View" @click="openPreview(row)">{{ t('system.preview') }}</el-button>
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-            <el-popconfirm :title="t('system.deleteThisTemplate')" @confirm="onDelete(row)">
+            <el-button link type="primary" :icon="Promotion" @click="openSend(row)">{{ '发送' }}</el-button>
+            <el-button link type="primary" :icon="View" @click="openPreview(row)">{{ '预览' }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-popconfirm :title="'确认删除该模板？'" @confirm="onDelete(row)">
               <template #reference>
-                <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -98,105 +98,105 @@
     <!-- 新建 / 编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="editingId !== null ? t('system.editTemplate') : t('system.newTemplate')"
+      :title="editingId !== null ? '编辑模板' : '新建模板'"
       width="640px"
       @closed="resetForm"
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="92px">
-        <el-form-item :label="t('system.templateCode')" prop="templateCode">
+        <el-form-item :label="'模板编码'" prop="templateCode">
           <el-input
             v-model="form.templateCode"
-            :placeholder="t('system.eGOrderShippedUppercaseUniqueWithinTenant')"
+            :placeholder="'如 ORDER_SHIPPED（全大写，租户内唯一）'"
             :disabled="editingId !== null"
           />
         </el-form-item>
-        <el-form-item :label="t('system.templateName')" prop="templateName">
-          <el-input v-model="form.templateName" :placeholder="t('system.eGOrderShippedNotification')" />
+        <el-form-item :label="'模板名称'" prop="templateName">
+          <el-input v-model="form.templateName" :placeholder="'如 订单发货通知'" />
         </el-form-item>
-        <el-form-item :label="t('common.channel')" prop="channel">
+        <el-form-item :label="'渠道'" prop="channel">
           <el-select v-model="form.channel" style="width: 100%" @change="onChannelChange">
             <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('common.title')">
-          <el-input v-model="form.title" :placeholder="t('system.smsChannelIgnoresTitle')" />
+        <el-form-item :label="'标题'">
+          <el-input v-model="form.title" :placeholder="'短信渠道忽略标题'" />
         </el-form-item>
-        <el-form-item :label="t('system.body')" prop="content">
+        <el-form-item :label="'正文'" prop="content">
           <el-input
             v-model="form.content"
             type="textarea"
             :rows="5"
-            :placeholder="t('system.supportsPlaceholders', { a: orderNo, b: amount })"
+            :placeholder="`支持 ${orderNo} / ${amount} 等占位变量`"
           />
         </el-form-item>
-        <el-form-item :label="t('system.messageType')">
+        <el-form-item :label="'消息类型'">
           <el-select v-model="form.msgType" style="width: 100%">
-            <el-option :label="t('system.notice_1')" value="NOTICE" />
-            <el-option :label="t('system.alert')" value="ALERT" />
-            <el-option :label="t('system.system_1')" value="SYSTEM" />
+            <el-option :label="'通知 NOTICE'" value="NOTICE" />
+            <el-option :label="'告警 ALERT'" value="ALERT" />
+            <el-option :label="'系统 SYSTEM'" value="SYSTEM" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('common.enabled')">
+        <el-form-item :label="'启用'">
           <el-switch v-model="form.enabled" />
         </el-form-item>
-        <el-form-item :label="t('job.remark')">
+        <el-form-item :label="'备注'">
           <el-input v-model="form.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 渲染预览弹窗 -->
-    <el-dialog v-model="previewVisible" :title="t('system.renderPreview')" width="640px" @closed="closePreview">
+    <el-dialog v-model="previewVisible" :title="'渲染预览'" width="640px" @closed="closePreview">
       <template v-if="previewRow">
         <el-descriptions :column="2" border size="small" style="margin-bottom: 12px">
-          <el-descriptions-item :label="t('system.code')">{{ previewRow.templateCode }}</el-descriptions-item>
-          <el-descriptions-item :label="t('common.channel')">{{ channelTag(previewRow.channel).label }}</el-descriptions-item>
+          <el-descriptions-item :label="'编码'">{{ previewRow.templateCode }}</el-descriptions-item>
+          <el-descriptions-item :label="'渠道'">{{ channelTag(previewRow.channel).label }}</el-descriptions-item>
         </el-descriptions>
 
         <div v-if="previewVariables.length" class="preview-vars">
-          <div class="preview-vars-title">{{ t('system.variableAssignment') }}</div>
+          <div class="preview-vars-title">{{ '变量赋值' }}</div>
           <el-form label-width="120px">
             <el-form-item v-for="v in previewVariables" :key="v" :label="v">
-              <el-input v-model="previewVarValues[v]" :placeholder="t('system.fillValueOf', { v })" />
+              <el-input v-model="previewVarValues[v]" :placeholder="`请填写 ${v} 的取值`" />
             </el-form-item>
           </el-form>
-          <el-button type="primary" :loading="previewing" @click="renderPreview">{{ t('system.renderPreview') }}</el-button>
+          <el-button type="primary" :loading="previewing" @click="renderPreview">{{ '渲染预览' }}</el-button>
         </div>
-        <el-empty v-else :description="t('system.thisTemplateDeclaresNoVariables')" :image-size="60" />
+        <el-empty v-else :description="'该模板未声明变量'" :image-size="60" />
 
         <el-alert
           v-if="previewMissing.length"
           type="warning"
           :closable="false"
           show-icon
-          :title="t('system.varsNotAssigned', { vars: previewMissing.join('、') })"
+          :title="`以下变量尚未赋值：${previewMissing.join('、')}`"
           style="margin: 12px 0"
         />
         <div v-if="renderedText !== null" class="preview-result">
-          <div class="preview-result-title">{{ t('system.renderResult') }}</div>
+          <div class="preview-result-title">{{ '渲染结果' }}</div>
           <pre class="preview-result-body">{{ renderedText }}</pre>
         </div>
       </template>
     </el-dialog>
 
     <!-- 按模板发送弹窗（M11）：渠道/标题/正文取自模板，请求侧只填变量与接收人 -->
-    <el-dialog v-model="sendVisible" :title="t('system.sendByTemplate')" width="600px" @closed="closeSend">
+    <el-dialog v-model="sendVisible" :title="'按模板发送'" width="600px" @closed="closeSend">
       <template v-if="sendRow">
         <el-descriptions :column="2" border size="small" style="margin-bottom: 12px">
-          <el-descriptions-item :label="t('system.code')">{{ sendRow.templateCode }}</el-descriptions-item>
-          <el-descriptions-item :label="t('common.channel')">{{ channelTag(sendRow.channel).label }}</el-descriptions-item>
+          <el-descriptions-item :label="'编码'">{{ sendRow.templateCode }}</el-descriptions-item>
+          <el-descriptions-item :label="'渠道'">{{ channelTag(sendRow.channel).label }}</el-descriptions-item>
         </el-descriptions>
         <el-alert type="info" :closable="false" show-icon style="margin-bottom: 12px" :title="sendRecipientHint" />
 
         <div v-if="sendVariables.length" class="preview-vars">
-          <div class="preview-vars-title">{{ t('system.variableAssignment') }}</div>
+          <div class="preview-vars-title">{{ '变量赋值' }}</div>
           <el-form label-width="120px">
             <el-form-item v-for="v in sendVariables" :key="v" :label="v">
-              <el-input v-model="sendVarValues[v]" :placeholder="t('system.fillValueOf', { v })" />
+              <el-input v-model="sendVarValues[v]" :placeholder="`请填写 ${v} 的取值`" />
             </el-form-item>
           </el-form>
         </div>
@@ -204,37 +204,37 @@
         <el-form label-width="120px">
           <el-form-item
             v-if="sendNeedField('receiverIds')"
-            :label="t('system.recipientId')"
+            :label="'接收人ID'"
             :required="sendNeedField('receiverIds')"
           >
             <el-input
               v-model="sendForm.receiverIds"
               type="textarea"
               :rows="2"
-              :placeholder="t('system.commaSeparatedEG10011002BlankWebsocketMeansBroadcast')"
+              :placeholder="'多个用逗号分隔，如 1001,1002；WebSocket 留空为广播'"
             />
           </el-form-item>
-          <el-form-item v-if="sendNeedField('emails')" :label="t('system.recipientEmail')" :required="sendNeedField('emails')">
-            <el-input v-model="sendForm.emails" type="textarea" :rows="2" :placeholder="t('system.multipleValuesSeparatedByCommas')" />
+          <el-form-item v-if="sendNeedField('emails')" :label="'收件邮箱'" :required="sendNeedField('emails')">
+            <el-input v-model="sendForm.emails" type="textarea" :rows="2" :placeholder="'多个用逗号分隔'" />
           </el-form-item>
-          <el-form-item v-if="sendNeedField('mobiles')" :label="t('system.recipientPhoneNumber')" :required="sendNeedField('mobiles')">
-            <el-input v-model="sendForm.mobiles" type="textarea" :rows="2" :placeholder="t('system.multipleValuesSeparatedByCommas')" />
+          <el-form-item v-if="sendNeedField('mobiles')" :label="'接收手机号'" :required="sendNeedField('mobiles')">
+            <el-input v-model="sendForm.mobiles" type="textarea" :rows="2" :placeholder="'多个用逗号分隔'" />
           </el-form-item>
-          <el-form-item v-if="channelUsesWebhookUrl(sendRow.channel)" :label="t('system.botWebhookUrl')">
-            <el-input v-model="sendForm.webhookUrl" :placeholder="t('system.blankUsesTheConfiguredDefaultAddress')" />
+          <el-form-item v-if="channelUsesWebhookUrl(sendRow.channel)" :label="'机器人 Webhook 地址'">
+            <el-input v-model="sendForm.webhookUrl" :placeholder="'留空走配置默认地址'" />
           </el-form-item>
         </el-form>
       </template>
       <template #footer>
-        <el-button @click="sendVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="sending" @click="onSend">{{ t('system.send') }}</el-button>
+        <el-button @click="sendVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="sending" @click="onSend">{{ '发送' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Edit, Search, RefreshLeft, View, Promotion } from '@element-plus/icons-vue'
@@ -252,23 +252,23 @@ import { validateOrWarn } from '@/utils/validate'
 
 // 与后端 Channel 枚举一致（M35 新增企业微信/钉钉机器人渠道）
 const channelOptions = [
-  { value: 'IN_APP', label: t('common.stationMsg') },
-  { value: 'EMAIL', label: t('common.mail') },
-  { value: 'SMS', label: t('common.sms') },
+  { value: 'IN_APP', label: '站内信' },
+  { value: 'EMAIL', label: '邮件' },
+  { value: 'SMS', label: '短信' },
   { value: 'WEBHOOK', label: 'Webhook' },
   { value: 'WEBSOCKET', label: 'WebSocket' },
-  { value: 'WECOM', label: t('system.wecomBot') },
-  { value: 'DINGTALK', label: t('system.dingtalkBot') }
+  { value: 'WECOM', label: '企业微信机器人' },
+  { value: 'DINGTALK', label: '钉钉机器人' }
 ]
 const channelTag = (ch) => {
   const map = {
-    IN_APP: { type: 'info', label: t('common.stationMsg') },
-    EMAIL: { type: 'primary', label: t('common.mail') },
-    SMS: { type: 'success', label: t('common.sms') },
+    IN_APP: { type: 'info', label: '站内信' },
+    EMAIL: { type: 'primary', label: '邮件' },
+    SMS: { type: 'success', label: '短信' },
     WEBHOOK: { type: 'warning', label: 'Webhook' },
     WEBSOCKET: { type: 'danger', label: 'WebSocket' },
-    WECOM: { type: 'success', label: t('system.wecomBot') },
-    DINGTALK: { type: 'primary', label: t('system.dingtalkBot') }
+    WECOM: { type: 'success', label: '企业微信机器人' },
+    DINGTALK: { type: 'primary', label: '钉钉机器人' }
   }
   return map[ch] || { type: 'info', label: ch || '--' }
 }
@@ -345,7 +345,7 @@ async function onToggle(row, val) {
   row.__toggling = true
   try {
     await toggleNotificationTemplate(row.id, val)
-    ElMessage.success(val ? t('monitor.enabled') : t('monitor.disabled'))
+    ElMessage.success(val ? '已启用' : '已停用')
   } catch (e) {
     row.enabled = !val // 失败时回滚开关
   } finally {
@@ -356,7 +356,7 @@ async function onToggle(row, val) {
 async function onDelete(row) {
   try {
     await deleteNotificationTemplate(row.id)
-    ElMessage.success(t('common.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */
@@ -379,10 +379,10 @@ const form = reactive({
   remark: ''
 })
 const rules = {
-  templateCode: [{ required: true, message: t('system.enterTemplateCode'), trigger: 'blur' }],
-  templateName: [{ required: true, message: t('system.enterTemplateName'), trigger: 'blur' }],
-  channel: [{ required: true, message: t('system.selectChannel'), trigger: 'change' }],
-  content: [{ required: true, message: t('system.enterBody'), trigger: 'blur' }]
+  templateCode: [{ required: true, message: '请输入模板编码', trigger: 'blur' }],
+  templateName: [{ required: true, message: '请输入模板名称', trigger: 'blur' }],
+  channel: [{ required: true, message: '请选择渠道', trigger: 'change' }],
+  content: [{ required: true, message: '请输入正文', trigger: 'blur' }]
 }
 
 function resetForm() {
@@ -430,10 +430,10 @@ async function onSubmit() {
     const payload = { ...form }
     if (editingId.value != null) {
       await updateNotificationTemplate(editingId.value, payload)
-      ElMessage.success(t('system.updated'))
+      ElMessage.success('更新成功')
     } else {
       await createNotificationTemplate(payload)
-      ElMessage.success(t('system.created'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     load()
@@ -497,13 +497,13 @@ const sendForm = reactive({ receiverIds: '', emails: '', mobiles: '', webhookUrl
 /** 渠道 → 接收字段填写提示（随所选模板联动）。 */
 const sendRecipientHint = computed(() => {
   const map = {
-    IN_APP: t('system.inSiteMessageFillRecipientIdCommaSeparatedForMultiple'),
-    EMAIL: t('system.emailFillTheRecipientEmail'),
-    SMS: t('system.smsFillTheRecipientPhoneNumber'),
-    WEBSOCKET: t('system.realtimePushFillRecipientIdToTargetBlankMeansBroadcast'),
-    WEBHOOK: t('system.webhookEnterATargetUrlBlankUsesTheConfiguredDefault')
+    IN_APP: '站内信：请填写「接收人ID」（多个用逗号分隔）',
+    EMAIL: '邮件：请填写「收件邮箱」',
+    SMS: '短信：请填写「接收手机号」',
+    WEBSOCKET: '实时推送：填写「接收人ID」定向，留空为广播',
+    WEBHOOK: 'Webhook：可填写目标地址，留空走配置默认地址'
   }
-  return map[sendRow.value?.channel] || t('system.fillRecipientsPerChannel')
+  return map[sendRow.value?.channel] || '请按渠道填写接收人'
 })
 
 /** 当前渠道是否需要展示/必填某接收字段。 */
@@ -557,7 +557,7 @@ async function onSend() {
     if (sendNeedField('mobiles') && sendForm.mobiles) body.mobiles = splitCsv(sendForm.mobiles)
     if (channelUsesWebhookUrl(sendRow.value.channel) && sendForm.webhookUrl) body.webhookUrl = sendForm.webhookUrl
     const res = await sendWithTemplateNotification(body)
-    ElMessage.success(t('system.sentDeliveredUnits', { n: res?.delivered ?? 0 }))
+    ElMessage.success(`已发送，投递 ${res?.delivered ?? 0} 个单元`)
     sendVisible.value = false
   } finally {
     sending.value = false

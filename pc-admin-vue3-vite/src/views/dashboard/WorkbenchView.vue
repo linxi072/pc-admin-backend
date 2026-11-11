@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('dashboard.title') }}</h2>
+    <h2 class="page-title">{{ '工作台' }}</h2>
 
     <!-- 统计卡片：数据全部来自 GET /api/workbench/stats，前端不硬编码 -->
     <div v-if="loading" class="stat-grid">
@@ -23,11 +23,11 @@
     >
       <template #title>
         <span>{{ error }}</span>
-        <el-button size="small" text type="primary" class="retry-btn" @click="loadStats">{{ t('dashboard.retry') }}</el-button>
+        <el-button size="small" text type="primary" class="retry-btn" @click="loadStats">{{ '重试' }}</el-button>
       </template>
     </el-alert>
 
-    <el-empty v-else-if="!cards.length" :description="t('dashboard.noStats')" />
+    <el-empty v-else-if="!cards.length" :description="'暂无统计数据'" />
 
     <div v-else class="stat-grid">
       <div
@@ -54,21 +54,21 @@
     <!-- 下半区：最近动态 + 快捷入口/系统信息 -->
     <el-row :gutter="16" class="lower-row">
       <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
-        <el-card class="page-card" :header="t('dashboard.recent')">
+        <el-card class="page-card" :header="'最近动态'">
           <el-skeleton v-if="recentLoading" :rows="4" animated />
           <el-alert v-else-if="recentError" type="error" show-icon :closable="false">
             <template #title>
               <span>{{ recentError }}</span>
-              <el-button size="small" text type="primary" class="retry-btn" @click="loadRecent">{{ t('dashboard.retry') }}</el-button>
+              <el-button size="small" text type="primary" class="retry-btn" @click="loadRecent">{{ '重试' }}</el-button>
             </template>
           </el-alert>
-          <el-empty v-else-if="!recent.length" :description="t('dashboard.noRecent')" :image-size="60" />
+          <el-empty v-else-if="!recent.length" :description="'暂无操作记录'" :image-size="60" />
           <ul v-else class="recent-list">
             <li v-for="(r, i) in recent" :key="i" class="recent-item">
               <el-icon class="recent-dot" :class="r.success ? 'is-ok' : 'is-fail'">
                 <CircleCheck v-if="r.success" /><CircleClose v-else />
               </el-icon>
-              <span class="recent-name">{{ r.operationName || t('dashboard.operation') }}</span>
+              <span class="recent-name">{{ r.operationName || '操作' }}</span>
               <el-tag size="small" type="info" effect="plain">{{ r.moduleCode || '—' }}</el-tag>
               <span class="recent-time" :title="fmtTime(r.occurredAt)">{{ relativeTime(r.occurredAt) }}</span>
             </li>
@@ -77,24 +77,24 @@
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-          <el-card class="page-card" :header="t('dashboard.quickEntry')">
+          <el-card class="page-card" :header="'快捷入口'">
           <div class="quick">
-            <el-button type="primary" @click="go('user')">{{ t('dashboard.userMgmt') }}</el-button>
-            <el-button type="primary" @click="go('role')">{{ t('dashboard.roleMgmt') }}</el-button>
-            <el-button type="primary" @click="go('task')">{{ t('dashboard.myTasks') }}</el-button>
-            <el-button type="primary" @click="go('instance')">{{ t('dashboard.myInstances') }}</el-button>
+            <el-button type="primary" @click="go('user')">{{ '用户管理' }}</el-button>
+            <el-button type="primary" @click="go('role')">{{ '角色管理' }}</el-button>
+            <el-button type="primary" @click="go('task')">{{ '我的待办' }}</el-button>
+            <el-button type="primary" @click="go('instance')">{{ '我发起的流程' }}</el-button>
             <el-button type="success" @click="go('reportJobExec')">
-              <el-icon class="btn-icon"><DataAnalysis /></el-icon>{{ t('dashboard.reportMgmt') }}
+              <el-icon class="btn-icon"><DataAnalysis /></el-icon>{{ '报表管理' }}
             </el-button>
             <el-button type="success" @click="go('jobList')">
-              <el-icon class="btn-icon"><Timer /></el-icon>{{ t('dashboard.jobMgmt') }}
+              <el-icon class="btn-icon"><Timer /></el-icon>{{ '定时任务' }}
             </el-button>
           </div>
         </el-card>
-        <el-card class="page-card" :header="t('dashboard.systemInfo')">
+        <el-card class="page-card" :header="'系统信息'">
           <el-descriptions :column="1" border>
-            <el-descriptions-item :label="t('dashboard.frontendFramework')">Vue 3 + Element Plus + Vite</el-descriptions-item>
-            <el-descriptions-item :label="t('dashboard.backendService')">java-admin-framework（jOOQ / JobRunr / Flowable）</el-descriptions-item>
+            <el-descriptions-item :label="'前端框架'">Vue 3 + Element Plus + Vite</el-descriptions-item>
+            <el-descriptions-item :label="'后端服务'">java-admin-framework（jOOQ / JobRunr / Flowable）</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-col>
@@ -117,7 +117,7 @@ import { useRouter } from 'vue-router'
 import { CircleCheck, CircleClose, DataAnalysis, Timer } from '@element-plus/icons-vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
 import { workbenchStats, recentActivities } from '@/api/workbench'
-import { t } from '@/i18n'
+import { tx } from '@/locales/zh-cn'
 
 const router = useRouter()
 const loading = ref(false)
@@ -158,7 +158,7 @@ const METRIC_LABEL = {
 const drillVisible = ref(false)
 const drillMetric = ref('')
 const drillDate = ref('')
-const drillTitle = ref(t('dashboard.drillTitle'))
+const drillTitle = ref('下钻详情')
 
 function todayISO() {
   const d = new Date()
@@ -183,7 +183,7 @@ function onStatCardClick(c) {
   const action = CARD_ACTION[c.key]
   if (!action) return
   if (action.type === 'drill') {
-    openDashboardDrill(action.metric, todayISO(), `${t(METRIC_LABEL[action.metric])} · ${t('dashboard.todayHourly')}`)
+    openDashboardDrill(action.metric, todayISO(), `${tx(METRIC_LABEL[action.metric])} · ${'今日逐小时分布'}`)
   } else if (action.type === 'route') {
     router.push({ name: action.name, query: action.query || {} })
   }
@@ -197,7 +197,7 @@ async function loadStats() {
     cards.value = Array.isArray(res?.cards) ? res.cards : []
   } catch (e) {
     cards.value = []
-    error.value = e.message || t('dashboard.statsLoadFailed')
+    error.value = e.message || '统计数据加载失败'
   } finally {
     loading.value = false
   }
@@ -211,7 +211,7 @@ async function loadRecent() {
     recent.value = Array.isArray(list) ? list : []
   } catch (e) {
     recent.value = []
-    recentError.value = e.message || t('dashboard.recentLoadFailed')
+    recentError.value = e.message || '动态加载失败'
   } finally {
     recentLoading.value = false
   }
@@ -224,7 +224,7 @@ function trendClass(trend) {
 }
 
 function trendText(c) {
-  if (c.trend === 'FLAT') return t('dashboard.trendFlat')
+  if (c.trend === 'FLAT') return '持平'
   return `${c.trend === 'UP' ? '↑' : '↓'} ${Math.abs(c.changeRate)}%`
 }
 
@@ -245,14 +245,14 @@ function relativeTime(iso) {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return '—'
   const diff = Date.now() - then
-  if (diff < 0) return t('dashboard.justNow')
+  if (diff < 0) return '刚刚'
   const min = Math.floor(diff / 60000)
-  if (min < 1) return t('dashboard.justNow')
-  if (min < 60) return t('dashboard.minutesAgo', { min })
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min} 分钟前`
   const hour = Math.floor(min / 60)
-  if (hour < 24) return t('dashboard.hoursAgo', { hour })
+  if (hour < 24) return `${hour} 小时前`
   const day = Math.floor(hour / 24)
-  if (day <= 7) return t('dashboard.daysAgo', { day })
+  if (day <= 7) return `${day} 天前`
   return fmtTime(iso)
 }
 

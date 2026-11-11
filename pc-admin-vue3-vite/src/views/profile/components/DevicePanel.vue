@@ -2,13 +2,13 @@
   <div class="panel">
     <div class="panel-head">
       <div>
-        <h3 class="panel-title">{{ t('profile.loginDevice') }}</h3>
+        <h3 class="panel-title">{{ '登录设备' }}</h3>
         <p class="panel-desc">
           展示当前账号的活跃会话。发现陌生设备可立即下线；下线后该设备需重新登录。
         </p>
       </div>
       <div class="head-actions">
-        <el-button :icon="Refresh" :loading="loading" @click="load">{{ t('common.refresh') }}</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="load">{{ '刷新' }}</el-button>
         <el-button
           type="danger"
           plain
@@ -16,7 +16,7 @@
           :disabled="otherCount === 0"
           :loading="loggingOut"
           @click="onLogoutOthers"
-        >{{ t('profile.logoutOthers') }}<template v-if="otherCount > 0">（{{ otherCount }}）</template>
+        >{{ '退出其他设备' }}<template v-if="otherCount > 0">（{{ otherCount }}）</template>
         </el-button>
       </div>
     </div>
@@ -28,45 +28,45 @@
     <el-result
       v-else-if="error"
       icon="error"
-      :title="t('profile.deviceListLoadFailed')"
+      :title="'设备列表加载失败'"
       :sub-title="error"
     >
       <template #extra>
-        <el-button type="primary" @click="load">{{ t('common.reload') }}</el-button>
+        <el-button type="primary" @click="load">{{ '重新加载' }}</el-button>
       </template>
     </el-result>
 
     <!-- 空态 -->
     <el-empty
       v-else-if="!devices.length"
-      :description="t('profile.noLoginDevice')"
+      :description="'暂无登录设备记录'"
     />
 
     <el-table v-else :data="devices" v-loading="loading" border stripe>
-      <el-table-column :label="t('profile.device')" min-width="180">
+      <el-table-column :label="'设备'" min-width="180">
         <template #default="{ row }">
           <div class="device-cell">
             <el-icon class="device-icon"><Monitor /></el-icon>
             <div class="device-text">
               <div class="device-name">
-                {{ row.deviceName || t('profile.unknownDevice') }}
-                <el-tag v-if="row.current" type="success" size="small" effect="dark">{{ t('common.current') }}</el-tag>
+                {{ row.deviceName || '未知设备' }}
+                <el-tag v-if="row.current" type="success" size="small" effect="dark">{{ '当前' }}</el-tag>
               </div>
               <div class="device-ua">{{ row.userAgent || '-' }}</div>
             </div>
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="ipAddress" :label="t('profile.ipAddress')" width="130">
+      <el-table-column prop="ipAddress" :label="'IP 地址'" width="130">
         <template #default="{ row }">{{ row.ipAddress || '-' }}</template>
       </el-table-column>
-      <el-table-column :label="t('profile.lastUsed')" width="160">
+      <el-table-column :label="'最近使用'" width="160">
         <template #default="{ row }">{{ formatTime(row.lastUsedAt || row.issuedAt) }}</template>
       </el-table-column>
-      <el-table-column :label="t('profile.loginTime')" width="160">
+      <el-table-column :label="'登录时间'" width="160">
         <template #default="{ row }">{{ formatTime(row.issuedAt) }}</template>
       </el-table-column>
-      <el-table-column :label="t('common.operation')" width="100" fixed="right">
+      <el-table-column :label="'操作'" width="100" fixed="right">
         <template #default="{ row }">
           <el-button
             text
@@ -75,7 +75,7 @@
             :loading="revoking === row.sessionId"
             @click="onRevoke(row)"
           >
-            {{ row.current ? t('profile.currentDevice') : t('profile.offline') }}
+            {{ row.current ? '当前设备' : '下线' }}
           </el-button>
         </template>
       </el-table-column>
@@ -84,7 +84,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Monitor, Refresh, SwitchButton } from '@element-plus/icons-vue'
@@ -117,7 +117,7 @@ async function load() {
     devices.value = Array.isArray(list) ? list : []
   } catch (e) {
     if (e?.code !== 'COMMON_401' && e?.response?.status !== 401) {
-      error.value = e?.message || t('profile.deviceListLoadFailed')
+      error.value = e?.message || '设备列表加载失败'
     }
     devices.value = []
   } finally {
@@ -128,9 +128,9 @@ async function load() {
 async function onRevoke(row) {
   try {
     await ElMessageBox.confirm(
-      t('profile.confirmOfflineDevice', { name: row.deviceName || t('profile.thisDevice') }),
-      t('profile.offlineDevice'),
-      { confirmButtonText: t('profile.confirmOffline'), cancelButtonText: t('common.cancel'), type: 'warning' }
+      `确认下线「${row.deviceName || '该设备'}」吗？该设备上的登录状态将立即失效，需重新登录。`,
+      '下线设备',
+      { confirmButtonText: '确认下线', cancelButtonText: '取消', type: 'warning' }
     )
   } catch (e) {
     return // 用户取消
@@ -139,7 +139,7 @@ async function onRevoke(row) {
   revoking.value = row.sessionId
   try {
     await revokeDevice(row.sessionId)
-    ElMessage.success(t('profile.deviceOffline'))
+    ElMessage.success('设备已下线')
     await load()
   } catch (e) {
     // 错误提示已统一处理
@@ -151,9 +151,9 @@ async function onRevoke(row) {
 async function onLogoutOthers() {
   try {
     await ElMessageBox.confirm(
-      t('profile.confirmLogoutOthers', { count: otherCount.value }),
-      t('profile.logoutOthers'),
-      { confirmButtonText: t('profile.confirmLogout'), cancelButtonText: t('common.cancel'), type: 'warning' }
+      `将强制退出除当前设备外的 ${otherCount.value} 台设备，当前设备不受影响。确认继续吗？`,
+      '退出其他设备',
+      { confirmButtonText: '确认退出', cancelButtonText: '取消', type: 'warning' }
     )
   } catch (e) {
     return
@@ -162,7 +162,7 @@ async function onLogoutOthers() {
   loggingOut.value = true
   try {
     await logoutOtherDevices()
-    ElMessage.success(t('profile.othersLoggedOut'))
+    ElMessage.success('其他设备已退出')
     await load()
   } catch (e) {
     // 错误提示已统一处理

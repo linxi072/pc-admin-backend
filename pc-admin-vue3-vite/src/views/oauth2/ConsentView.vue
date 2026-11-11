@@ -4,34 +4,34 @@
       <!-- 加载态 -->
       <div v-if="!ready" class="state-box">
         <el-icon class="state-icon is-loading"><Loading /></el-icon>
-        <p>{{ $t('oauth2Consent.loading') }}</p>
+        <p>{{ '正在加载授权信息…' }}</p>
       </div>
 
       <!-- 异常态（令牌缺失/无效） -->
       <div v-else-if="error" class="state-box">
         <el-icon class="state-icon state-error"><WarningFilled /></el-icon>
         <p class="state-msg">{{ error }}</p>
-        <el-button type="primary" @click="goHome">{{ $t('oauth2Consent.backToHome') }}</el-button>
+        <el-button type="primary" @click="goHome">{{ '返回工作台' }}</el-button>
       </div>
 
       <!-- 同意页主体 -->
       <template v-else>
-        <h1 class="consent-title">{{ $t('oauth2Consent.title') }}</h1>
-        <p class="consent-subtitle">{{ $t('oauth2Consent.subtitle') }}</p>
+        <h1 class="consent-title">{{ '授权请求' }}</h1>
+        <p class="consent-subtitle">{{ '以下应用请求访问您的账号，请确认是否授权：' }}</p>
 
         <div class="app-block">
           <div class="app-row">
-            <span class="app-key">{{ $t('oauth2Consent.appLabel') }}</span>
-            <span class="app-val">{{ clientId || $t('oauth2Consent.unknownApp') }}</span>
+            <span class="app-key">{{ '应用' }}</span>
+            <span class="app-val">{{ clientId || '未知应用' }}</span>
           </div>
           <div v-if="redirectUri" class="app-row">
-            <span class="app-key">{{ $t('oauth2Consent.redirectLabel') }}</span>
+            <span class="app-key">{{ '授权后将跳转至' }}</span>
             <span class="app-val app-link" :title="redirectUri">{{ redirectUri }}</span>
           </div>
         </div>
 
         <div class="scopes-block">
-          <div class="block-title">{{ $t('oauth2Consent.scopesTitle') }}</div>
+          <div class="block-title">{{ '该应用将获得以下权限' }}</div>
           <ul v-if="scopes.length" class="scope-list">
             <li v-for="s in scopes" :key="s">
               <el-icon class="scope-icon"><Select /></el-icon>
@@ -41,11 +41,11 @@
               </div>
             </li>
           </ul>
-          <p v-else class="scope-empty">{{ $t('oauth2Consent.noScope') }}</p>
+          <p v-else class="scope-empty">{{ '（未申请具体权限范围）' }}</p>
         </div>
 
         <el-checkbox v-model="remember" class="remember-box">
-          {{ $t('oauth2Consent.remember') }}
+          {{ '记住此授权（30 天内不再询问）' }}
         </el-checkbox>
 
         <div class="actions">
@@ -55,10 +55,10 @@
             :loading="submitting"
             @click="onAllow"
           >
-            {{ submitting ? $t('oauth2Consent.submitting') : $t('oauth2Consent.allow') }}
+            {{ submitting ? '提交中…' : '允许' }}
           </el-button>
           <el-button size="large" :disabled="submitting" @click="onDeny">
-            {{ $t('oauth2Consent.deny') }}
+            {{ '拒绝' }}
           </el-button>
         </div>
       </template>
@@ -71,7 +71,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { decodeJwtPayload, splitScopes, submitConsent, buildCodeRedirectUrl } from '@/api/oauth2'
-import { t } from '@/i18n'
+import { tx } from '@/locales/zh-cn'
 
 const route = useRoute()
 const router = useRouter()
@@ -89,14 +89,14 @@ const remember = ref(true)
 onMounted(() => {
   const token = route.query.consent_token
   if (!token || typeof token !== 'string') {
-    error.value = t('oauth2Consent.invalidToken')
+    error.value = '授权令牌无效或缺失，请重新发起授权。'
     ready.value = true
     return
   }
   consentToken.value = token
   const payload = decodeJwtPayload(token)
   if (!payload) {
-    error.value = t('oauth2Consent.invalidToken')
+    error.value = '授权令牌无效或缺失，请重新发起授权。'
     ready.value = true
     return
   }
@@ -112,7 +112,7 @@ onMounted(() => {
 // scope 描述：命中多语言字典则展示，否则留空（仅显示原始 scope 名）
 function scopeDesc(s) {
   const key = 'oauth2Consent.scopeDescs.' + s
-  const d = t(key)
+  const d = tx(key)
   return d === key ? '' : d
 }
 
@@ -131,7 +131,7 @@ async function onAllow() {
     })
     const target = buildCodeRedirectUrl(redirectUri.value, data.code, state.value)
     if (!target) {
-      ElMessage.error(t('oauth2Consent.invalidRedirect'))
+      ElMessage.error('回调地址缺失，无法完成授权跳转。')
       submitting.value = false
       return
     }
@@ -152,7 +152,7 @@ function onDeny() {
     if (state.value) url += `&state=${encodeURIComponent(state.value)}`
     window.location.href = url
   } else {
-    error.value = t('oauth2Consent.deniedHint')
+    error.value = '您已拒绝该授权请求。'
     ready.value = true
   }
 }

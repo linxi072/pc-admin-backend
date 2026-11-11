@@ -1,14 +1,14 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.microHost') }}</h2>
+    <h2 class="page-title">{{ '微前端宿主' }}</h2>
 
-    <el-alert :title="t('micro.hint')" type="info" :closable="false" class="host-alert" />
+    <el-alert :title="'离线安全微前端主壳：扫描 src/micro-apps/*/index.js，按 mount/unmount 契约懒加载子应用（零外部依赖，任意技术栈可挂载）。'" type="info" :closable="false" class="host-alert" />
 
     <div class="host-layout">
       <!-- 子应用清单：由 src/micro-apps/*/index.js 目录结构驱动 -->
       <el-card shadow="never" class="app-list-card">
         <template #header>
-          <span>{{ t('micro.appList') }}（{{ apps.length }}）</span>
+          <span>{{ '可用子应用' }}（{{ apps.length }}）</span>
         </template>
         <div
           v-for="app in apps"
@@ -21,16 +21,16 @@
           <span class="app-name">{{ app.title }}</span>
           <span class="app-code">{{ app.name }}</span>
         </div>
-        <el-empty v-if="apps.length === 0" :description="t('micro.noApps')" :image-size="70" />
+        <el-empty v-if="apps.length === 0" :description="'未发现子应用（micro-apps 目录为空）'" :image-size="70" />
       </el-card>
 
       <!-- 挂载容器：mount/unmount 生命周期由主壳调度 -->
       <el-card shadow="never" class="mount-card">
         <template #header>
-          <span>{{ t('micro.mountedApp') }}：{{ activeTitle || t('micro.none') }}</span>
+          <span>{{ '已挂载子应用' }}：{{ activeTitle || '无' }}</span>
         </template>
         <div ref="mountContainer" class="mount-container">
-          <el-empty v-if="!activeAppName" :description="t('micro.pickApp')" />
+          <el-empty v-if="!activeAppName" :description="'请选择左侧子应用进行挂载'" />
         </div>
       </el-card>
     </div>
@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, computed, watch, nextTick, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -71,7 +71,7 @@ async function selectApp(name) {
 async function mountApp(name) {
   const app = apps.find((a) => a.name === name)
   if (!app) {
-    ElMessage.warning(t('micro.appNotFound', { name }))
+    ElMessage.warning(`子应用不存在：${name}`)
     return
   }
   // 先卸载当前子应用，保证容器独占与生命周期对称
@@ -80,7 +80,7 @@ async function mountApp(name) {
     const mod = await app.loader()
     const definition = mod.default || mod
     if (typeof definition?.mount !== 'function') {
-      ElMessage.error(t('micro.invalidContract', { name }))
+      ElMessage.error(`子应用「${name}」缺少 mount 契约，无法挂载`)
       return
     }
     mountedApp = definition
@@ -91,7 +91,7 @@ async function mountApp(name) {
     await nextTick()
     await definition.mount(mountContainer.value, { locale: navigator.language || 'zh-CN' })
   } catch (e) {
-    ElMessage.error(t('micro.mountFailed', { msg: e?.message || e }))
+    ElMessage.error(`子应用挂载失败：${e?.message || e}`)
     mountedApp = null
     activeAppName.value = ''
   }

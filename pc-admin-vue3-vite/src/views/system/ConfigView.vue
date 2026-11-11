@@ -1,14 +1,14 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.config') }}</h2>
+    <h2 class="page-title">{{ '系统变量' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="toolbar-filters">
-          <span class="card-title">{{ t('system.config.dynamicRead') }}</span>
+          <span class="card-title">{{ '动态读取（按配置键）' }}</span>
           <div class="filter-group">
-            <span class="filter-label">{{ t('system.config.key') }}</span>
-            <el-input v-model="readKey" :placeholder="t('system.config.inputKeyHint')" clearable style="width: 260px" @keyup.enter="onRead" />
+            <span class="filter-label">{{ '配置键' }}</span>
+            <el-input v-model="readKey" :placeholder="'输入配置键，如 sys.title'" clearable style="width: 260px" @keyup.enter="onRead" />
           </div>
         </div>
         <div class="toolbar-actions">
@@ -16,10 +16,10 @@
             <el-tag v-if="readResult" type="success">
               {{ readResult.configName }} = {{ readResult.configValue }}（{{ readResult.configType }}）
             </el-tag>
-            <el-tag v-else-if="readMiss" type="info">{{ t('system.config.keyNotFound') }}</el-tag>
+            <el-tag v-else-if="readMiss" type="info">{{ '未找到该配置键' }}</el-tag>
           </div>
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="onRead">{{ t('system.common.read') }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onRead">{{ '读取' }}</el-button>
           </div>
         </div>
       </div>
@@ -27,10 +27,10 @@
 
     <el-card class="page-card">
       <div class="toolbar">
-        <span class="card-title">{{ t('system.config.listTitle') }}</span>
+        <span class="card-title">{{ '参数配置列表' }}</span>
         <span class="spacer" />
-        <el-button :icon="Refresh" :loading="refreshing" @click="onRefresh">{{ t('system.config.refreshCache') }}</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('system.config.addTitle') }}</el-button>
+        <el-button :icon="Refresh" :loading="refreshing" @click="onRefresh">{{ '刷新配置缓存' }}</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">{{ '新增配置' }}</el-button>
       </div>
 
       <el-collapse v-if="groups.length" class="config-groups">
@@ -41,27 +41,27 @@
           :title="`${g.label}（${g.items.length}）`"
         >
           <el-table :data="g.items" v-loading="loading" border stripe>
-            <el-table-column prop="configKey" :label="t('system.config.key')" min-width="160" />
-            <el-table-column prop="configName" :label="t('system.config.name')" min-width="120" />
-            <el-table-column prop="configValue" :label="t('system.config.value')" min-width="160" show-overflow-tooltip />
-            <el-table-column :label="t('system.common.type')" width="100">
+            <el-table-column prop="configKey" :label="'配置键'" min-width="160" />
+            <el-table-column prop="configName" :label="'配置名称'" min-width="120" />
+            <el-table-column prop="configValue" :label="'配置值'" min-width="160" show-overflow-tooltip />
+            <el-table-column :label="'类型'" width="100">
               <template #default="{ row }">
                 <el-tag size="small">{{ row.configType }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="remark" :label="t('system.common.remark')" min-width="140" show-overflow-tooltip />
-            <el-table-column :label="t('common.status')" width="90">
+            <el-table-column prop="remark" :label="'备注'" min-width="140" show-overflow-tooltip />
+            <el-table-column :label="'状态'" width="90">
               <template #default="{ row }">
                 <!-- 状态标签统一走 utils/status 映射 -->
                 <el-tag :type="statusTag(row.status).type" size="small">{{ statusTag(row.status).label }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.operation')" width="170" fixed="right">
+            <el-table-column :label="'操作'" width="170" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
-                <el-popconfirm :title="t('system.config.confirmDelete')" @confirm="onDelete(row)">
+                <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+                <el-popconfirm :title="'确认删除该配置？'" @confirm="onDelete(row)">
                   <template #reference>
-                    <el-button link type="danger" :icon="Delete">{{ t('common.delete') }}</el-button>
+                    <el-button link type="danger" :icon="Delete">{{ '删除' }}</el-button>
                   </template>
                 </el-popconfirm>
               </template>
@@ -69,21 +69,21 @@
           </el-table>
         </el-collapse-item>
       </el-collapse>
-      <el-empty v-else :description="t('system.config.empty')" />
+      <el-empty v-else :description="'暂无配置'" />
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editingId !== null ? t('system.config.editTitle') : t('system.config.addTitle')" width="560px">
+    <el-dialog v-model="dialogVisible" :title="editingId !== null ? '编辑配置' : '新增配置'" width="560px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-        <el-form-item :label="t('system.config.key')" prop="configKey">
-          <el-input v-model="form.configKey" :placeholder="t('system.config.exampleKey')" :disabled="editingId !== null" />
+        <el-form-item :label="'配置键'" prop="configKey">
+          <el-input v-model="form.configKey" :placeholder="'如 sys.title'" :disabled="editingId !== null" />
         </el-form-item>
-        <el-form-item :label="t('system.config.name')" prop="configName">
+        <el-form-item :label="'配置名称'" prop="configName">
           <el-input v-model="form.configName" />
         </el-form-item>
-        <el-form-item :label="t('system.config.value')" prop="configValue">
+        <el-form-item :label="'配置值'" prop="configValue">
           <el-input v-model="form.configValue" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item :label="t('system.common.type')" prop="configType">
+        <el-form-item :label="'类型'" prop="configType">
           <el-select v-model="form.configType" style="width: 100%">
             <el-option label="STRING" value="STRING" />
             <el-option label="INT" value="INT" />
@@ -91,26 +91,26 @@
             <el-option label="JSON" value="JSON" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('common.status')">
+        <el-form-item :label="'状态'">
           <el-select v-model="form.status" style="width: 100%">
-            <el-option :label="t('common.enabled')" value="ACTIVE" />
-            <el-option :label="t('common.disabled')" value="DISABLED" />
+            <el-option :label="'启用'" value="ACTIVE" />
+            <el-option :label="'禁用'" value="DISABLED" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('system.common.remark')">
+        <el-form-item :label="'备注'">
           <el-input v-model="form.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">{{ t('common.save') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="onSubmit">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Search, Edit, Refresh } from '@element-plus/icons-vue'
@@ -136,9 +136,9 @@ const form = reactive({
   remark: ''
 })
 const rules = {
-  configKey: [{ required: true, message: t('system.config.pleaseEnterKey'), trigger: 'blur' }],
-  configName: [{ required: true, message: t('system.config.pleaseEnterName'), trigger: 'blur' }],
-  configType: [{ required: true, message: t('system.common.pleaseSelectType'), trigger: 'change' }]
+  configKey: [{ required: true, message: '请输入配置键', trigger: 'blur' }],
+  configName: [{ required: true, message: '请输入配置名称', trigger: 'blur' }],
+  configType: [{ required: true, message: '请选择类型', trigger: 'change' }]
 }
 
 // 动态读取演示
@@ -171,7 +171,7 @@ async function onRefresh() {
   refreshing.value = true
   try {
     await refreshConfigs()
-    ElMessage.success(t('system.config.cacheRefreshed'))
+    ElMessage.success('配置缓存已刷新')
     await load()
   } finally {
     refreshing.value = false
@@ -210,10 +210,10 @@ async function onSubmit() {
   try {
     if (editingId.value != null) {
       await updateConfig(editingId.value, { ...form })
-      ElMessage.success(t('system.common.updateSuccess'))
+      ElMessage.success('更新成功')
     } else {
       await createConfig({ ...form })
-      ElMessage.success(t('system.common.createSuccess'))
+      ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     editingId.value = null
@@ -226,7 +226,7 @@ async function onSubmit() {
 async function onDelete(row) {
   try {
     await deleteConfig(row.id)
-    ElMessage.success(t('system.department.deleted'))
+    ElMessage.success('已删除')
     load()
   } catch (e) {
     /* 拦截器已统一提示 */

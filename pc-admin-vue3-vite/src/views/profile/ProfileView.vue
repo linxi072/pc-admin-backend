@@ -18,7 +18,7 @@
           <el-tabs v-model="activeTab">
             <el-tab-pane name="security">
               <template #label>
-                <span class="tab-label"><el-icon><Lock /></el-icon>{{ t('profile.accountSecurity') }}</span>
+                <span class="tab-label"><el-icon><Lock /></el-icon>{{ '账号安全' }}</span>
               </template>
               <PasswordPanel
                 @success="onPasswordChanged"
@@ -32,28 +32,28 @@
 
             <el-tab-pane name="device">
               <template #label>
-                <span class="tab-label"><el-icon><Monitor /></el-icon>{{ t('profile.loginDevice') }}</span>
+                <span class="tab-label"><el-icon><Monitor /></el-icon>{{ '登录设备' }}</span>
               </template>
               <DevicePanel :profile="profile" />
             </el-tab-pane>
 
             <el-tab-pane name="preference">
               <template #label>
-                <span class="tab-label"><el-icon><Setting /></el-icon>{{ t('profile.noticePrivacy') }}</span>
+                <span class="tab-label"><el-icon><Setting /></el-icon>{{ '通知与隐私' }}</span>
               </template>
               <PreferencePanel :profile="profile" />
             </el-tab-pane>
 
             <el-tab-pane name="subscription">
               <template #label>
-                <span class="tab-label"><el-icon><Bell /></el-icon>{{ t('profile.noticeSubscribe') }}</span>
+                <span class="tab-label"><el-icon><Bell /></el-icon>{{ '通知订阅' }}</span>
               </template>
               <NotificationPreferencePanel :profile="profile" />
             </el-tab-pane>
 
             <el-tab-pane name="quietHours">
               <template #label>
-                <span class="tab-label"><el-icon><Moon /></el-icon>{{ t('profile.dnd') }}</span>
+                <span class="tab-label"><el-icon><Moon /></el-icon>{{ '免打扰' }}</span>
               </template>
               <NotificationQuietHoursPanel />
             </el-tab-pane>
@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -98,7 +98,7 @@ async function loadProfile() {
   } catch (e) {
     // 401 已由 http 拦截器统一跳转登录页，此处仅处理非登录态错误
     if (e?.code !== 'COMMON_401' && e?.response?.status !== 401) {
-      cardError.value = e?.message || t('profile.profileLoadFailed')
+      cardError.value = e?.message || '个人资料加载失败'
     }
   } finally {
     cardLoading.value = false
@@ -117,14 +117,14 @@ async function onAvatarChange(next) {
 async function onPasswordChanged() {
   try {
     await ElMessageBox.confirm(
-      t('profile.pwdChangedRelogin'),
-      t('profile.pleaseRelogin'),
-      { confirmButtonText: t('profile.loginNow'), cancelButtonText: t('profile.later'), type: 'success' }
+      '密码修改成功，出于安全考虑需要重新登录。是否立即前往登录页？',
+      '请重新登录',
+      { confirmButtonText: '立即登录', cancelButtonText: '稍后再说', type: 'success' }
     )
   } catch (e) {
     // 用户选择稍后：给出提示后清理本地会话并跳转
   }
-  ElMessage.warning(t('profile.sessionExpired'))
+  ElMessage.warning('当前登录状态已失效，请重新登录')
   clearAuth()
   router.replace('/login')
 }

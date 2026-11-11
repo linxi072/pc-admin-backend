@@ -1,26 +1,26 @@
 <template>
   <div>
-    <h2 class="page-title">{{ $t('route.health') }}</h2>
+    <h2 class="page-title">{{ '健康探针' }}</h2>
     <p class="scope-hint">
-      {{ $t('health.scope') }}
+      {{ '存活探针（liveness）仅依赖 JVM，就绪探针（readiness）检查数据库等必需依赖。两者均为 k8s 风格根路径端点，实时反映实例健康态，仅供运维只读诊断。' }}
     </p>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
-        <el-button type="primary" :loading="loading" @click="refresh">{{ $t('health.refresh') }}</el-button>
+        <el-button type="primary" :loading="loading" @click="refresh">{{ '刷新' }}</el-button>
         <el-switch
           v-model="autoRefresh"
-          :active-text="$t('health.autoRefresh')"
+          :active-text="'自动刷新（10s）'"
           @change="onAutoToggle"
         />
-        <span v-if="lastRefresh" class="muted">{{ $t('health.lastRefresh') }}：{{ lastRefreshText }}</span>
+        <span v-if="lastRefresh" class="muted">{{ '最近刷新' }}：{{ lastRefreshText }}</span>
       </div>
 
       <el-alert
         v-if="bothFailed"
         type="error"
         :closable="false"
-        :title="$t('health.unreachableHint')"
+        :title="'存活与就绪探针均不可达，请确认后端已启动且 vite 代理已转发 /livez、/readyz。'"
         show-icon
         style="margin-bottom: 12px"
       />
@@ -30,7 +30,7 @@
           <el-card shadow="hover" class="probe-card">
             <template #header>
               <div class="probe-header">
-                <span>{{ $t('health.liveness') }}</span>
+                <span>{{ '存活探针' }}</span>
                 <el-tag :type="tagType(live)" effect="dark" size="small">{{ statusText(live) }}</el-tag>
               </div>
             </template>
@@ -39,7 +39,7 @@
                 v-if="live && !live.ok"
                 type="error"
                 :closable="false"
-                :title="$t(live.error || 'health.unreachable')"
+                :title="tx(live.error || 'health.unreachable')"
                 show-icon
               />
               <template v-else-if="live && live.ok">
@@ -58,7 +58,7 @@
           <el-card shadow="hover" class="probe-card">
             <template #header>
               <div class="probe-header">
-                <span>{{ $t('health.readiness') }}</span>
+                <span>{{ '就绪探针' }}</span>
                 <el-tag :type="tagType(ready)" effect="dark" size="small">{{ statusText(ready) }}</el-tag>
               </div>
             </template>
@@ -67,7 +67,7 @@
                 v-if="ready && !ready.ok"
                 type="error"
                 :closable="false"
-                :title="$t(ready.error || 'health.unreachable')"
+                :title="tx(ready.error || 'health.unreachable')"
                 show-icon
               />
               <template v-else-if="ready && ready.ok">
@@ -89,6 +89,7 @@
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { getLiveness, getReadiness } from '@/api/health'
+import { tx } from '@/locales/zh-cn'
 
 // 两个探针各自独立加载（一个失败不阻塞另一个）；loading 与结果分别持有。
 const live = ref(null)

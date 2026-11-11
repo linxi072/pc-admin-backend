@@ -1,65 +1,65 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('route.cmsArticle') }}</h2>
+    <h2 class="page-title">{{ 'CMS 文章管理' }}</h2>
 
     <el-card class="page-card" shadow="never">
       <div class="toolbar">
         <div class="filters">
           <el-input
             v-model="query.title"
-            :placeholder="t('cms.article.titlePlaceholder')"
+            :placeholder="'请输入文章标题'"
             clearable
             style="width: 200px"
             @keyup.enter="onSearch"
           >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <el-select v-model="query.categoryId" :placeholder="t('cms.article.categoryPlaceholder')" clearable style="width: 160px">
+          <el-select v-model="query.categoryId" :placeholder="'选择所属栏目'" clearable style="width: 160px">
             <el-option v-for="item in categories" :key="item.id" :label="item.categoryName" :value="item.id" />
           </el-select>
-          <el-select v-model="query.status" :placeholder="t('cms.article.statusPlaceholder')" clearable style="width: 130px">
-            <el-option :label="t('cms.status.draft')" value="DRAFT" />
-            <el-option :label="t('cms.status.published')" value="PUBLISHED" />
-            <el-option :label="t('cms.status.offline')" value="OFFLINE" />
+          <el-select v-model="query.status" :placeholder="'全部状态'" clearable style="width: 130px">
+            <el-option :label="'草稿'" value="DRAFT" />
+            <el-option :label="'已发布'" value="PUBLISHED" />
+            <el-option :label="'已下线'" value="OFFLINE" />
           </el-select>
-          <el-button type="primary" :icon="Search" @click="onSearch">{{ t('common.search') }}</el-button>
+          <el-button type="primary" :icon="Search" @click="onSearch">{{ '搜索' }}</el-button>
         </div>
         <div class="actions">
-          <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('common.create') }}</el-button>
-          <el-button :icon="Refresh" @click="load">{{ t('common.refresh') }}</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">{{ '创建' }}</el-button>
+          <el-button :icon="Refresh" @click="load">{{ '刷新' }}</el-button>
         </div>
       </div>
 
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
         <el-table-column prop="id" label="ID" width="90" />
-        <el-table-column prop="title" :label="t('cms.article.title')" min-width="200" show-overflow-tooltip />
-        <el-table-column :label="t('cms.article.category')" width="130">
+        <el-table-column prop="title" :label="'文章标题'" min-width="200" show-overflow-tooltip />
+        <el-table-column :label="'所属栏目'" width="130">
           <template #default="{ row }">{{ categoryName(row.categoryId) }}</template>
         </el-table-column>
-        <el-table-column prop="author" :label="t('cms.article.author')" width="110" show-overflow-tooltip />
-        <el-table-column prop="viewCount" :label="t('cms.article.viewCount')" width="90" align="center" sortable="custom" />
-        <el-table-column :label="t('common.status')" width="100" align="center">
+        <el-table-column prop="author" :label="'作者'" width="110" show-overflow-tooltip />
+        <el-table-column prop="viewCount" :label="'浏览量'" width="90" align="center" sortable="custom" />
+        <el-table-column :label="'状态'" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="articleStatusTag(row.status).type">{{ articleStatusTag(row.status).label }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="publishedAt" :label="t('cms.article.publishedAt')" width="170" sortable="custom">
+        <el-table-column prop="publishedAt" :label="'发布时间'" width="170" sortable="custom">
           <template #default="{ row }">{{ formatTime(row.publishedAt) }}</template>
         </el-table-column>
-        <el-table-column prop="updatedAt" :label="t('cms.article.updatedAt')" width="170" sortable="custom">
+        <el-table-column prop="updatedAt" :label="'更新时间'" width="170" sortable="custom">
           <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="270" align="center" fixed="right">
+        <el-table-column :label="'操作'" width="270" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="View" @click="openDetail(row)">{{ t('cms.article.detail') }}</el-button>
-            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+            <el-button link type="primary" :icon="View" @click="openDetail(row)">{{ '详情' }}</el-button>
+            <el-button link type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
             <el-button v-if="row.status === 'DRAFT' || row.status === 'OFFLINE'" link type="success" @click="onPublish(row)">
-              {{ t('cms.article.publish') }}
+              {{ '发布' }}
             </el-button>
             <el-button v-if="row.status === 'PUBLISHED'" link type="warning" @click="onOffline(row)">
-              {{ t('cms.article.offlineAction') }}
+              {{ '下线' }}
             </el-button>
-            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ t('common.delete') }}</el-button>
+            <el-button link type="danger" :icon="Delete" @click="onDelete(row)">{{ '删除' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -79,30 +79,30 @@
     <!-- 编辑弹窗 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px" destroy-on-close top="6vh">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-        <el-form-item :label="t('cms.article.title')" prop="title">
-          <el-input v-model="form.title" :placeholder="t('cms.article.titlePlaceholder')" maxlength="200" show-word-limit />
+        <el-form-item :label="'文章标题'" prop="title">
+          <el-input v-model="form.title" :placeholder="'请输入文章标题'" maxlength="200" show-word-limit />
         </el-form-item>
-        <el-form-item :label="t('cms.article.category')" prop="categoryId">
-          <el-select v-model="form.categoryId" :placeholder="t('cms.article.categoryPlaceholder')" style="width: 100%">
+        <el-form-item :label="'所属栏目'" prop="categoryId">
+          <el-select v-model="form.categoryId" :placeholder="'选择所属栏目'" style="width: 100%">
             <el-option v-for="item in categories" :key="item.id" :label="item.categoryName" :value="item.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('cms.article.author')" prop="author">
-          <el-input v-model="form.author" :placeholder="t('cms.article.authorPlaceholder')" />
+        <el-form-item :label="'作者'" prop="author">
+          <el-input v-model="form.author" :placeholder="'请输入作者'" />
         </el-form-item>
-        <el-form-item :label="t('cms.article.coverUrl')" prop="coverUrl">
-          <el-input v-model="form.coverUrl" :placeholder="t('cms.article.coverUrlPlaceholder')" />
+        <el-form-item :label="'封面图'" prop="coverUrl">
+          <el-input v-model="form.coverUrl" :placeholder="'请输入封面图 URL（可选）'" />
         </el-form-item>
-        <el-form-item :label="t('cms.article.summary')" prop="summary">
-          <el-input v-model="form.summary" type="textarea" :rows="2" maxlength="500" show-word-limit :placeholder="t('cms.article.summaryPlaceholder')" />
+        <el-form-item :label="'摘要'" prop="summary">
+          <el-input v-model="form.summary" type="textarea" :rows="2" maxlength="500" show-word-limit :placeholder="'请输入文章摘要（可选）'" />
         </el-form-item>
-        <el-form-item :label="t('cms.article.content')" prop="content">
-          <el-input v-model="form.content" type="textarea" :rows="12" :placeholder="t('cms.article.contentPlaceholder')" />
+        <el-form-item :label="'正文内容'" prop="content">
+          <el-input v-model="form.content" type="textarea" :rows="12" :placeholder="'请输入文章正文'" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="onSubmit">{{ t('common.confirm') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="onSubmit">{{ '确认' }}</el-button>
       </template>
     </el-dialog>
 
@@ -110,10 +110,10 @@
     <el-drawer v-model="detailVisible" :title="detailData.title" size="50%">
       <div class="detail-meta">
         <el-tag :type="articleStatusTag(detailData.status).type">{{ articleStatusTag(detailData.status).label }}</el-tag>
-        <span class="meta-item">{{ t('cms.article.category') }}：{{ categoryName(detailData.categoryId) }}</span>
-        <span class="meta-item">{{ t('cms.article.author') }}：{{ detailData.author || '-' }}</span>
-        <span class="meta-item">{{ t('cms.article.viewCount') }}：{{ detailData.viewCount ?? 0 }}</span>
-        <span class="meta-item">{{ t('cms.article.publishedAt') }}：{{ formatTime(detailData.publishedAt) }}</span>
+        <span class="meta-item">{{ '所属栏目' }}：{{ categoryName(detailData.categoryId) }}</span>
+        <span class="meta-item">{{ '作者' }}：{{ detailData.author || '-' }}</span>
+        <span class="meta-item">{{ '浏览量' }}：{{ detailData.viewCount ?? 0 }}</span>
+        <span class="meta-item">{{ '发布时间' }}：{{ formatTime(detailData.publishedAt) }}</span>
       </div>
       <el-divider />
       <p v-if="detailData.summary" class="detail-summary">{{ detailData.summary }}</p>
@@ -123,7 +123,7 @@
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Refresh, View } from '@element-plus/icons-vue'
@@ -170,16 +170,16 @@ const form = reactive({
 })
 
 const rules = {
-  title: [{ required: true, message: t('cms.article.titleRequired'), trigger: 'blur' }],
-  categoryId: [{ required: true, message: t('cms.article.categoryRequired'), trigger: 'change' }],
-  content: [{ required: true, message: t('cms.article.contentRequired'), trigger: 'blur' }]
+  title: [{ required: true, message: '请输入文章标题', trigger: 'blur' }],
+  categoryId: [{ required: true, message: '请选择所属栏目', trigger: 'change' }],
+  content: [{ required: true, message: '请输入文章正文', trigger: 'blur' }]
 }
 
 const isEdit = computed(() => form.id != null)
-const dialogTitle = computed(() => (isEdit.value ? t('cms.article.editTitle') : t('cms.article.createTitle')))
+const dialogTitle = computed(() => (isEdit.value ? '编辑文章' : '新增文章'))
 
 function articleStatusTag(status) {
-  if (status === 'DRAFT') return { type: 'info', label: t('cms.status.draft') }
+  if (status === 'DRAFT') return { type: 'info', label: '草稿' }
   if (status === 'PUBLISHED') return statusTag('PUBLISHED')
   if (status === 'OFFLINE') return statusTag('OFFLINE')
   return { type: 'info', label: status || '-' }
@@ -274,11 +274,11 @@ function onSubmit() {
       const body = { ...form }
       if (isEdit.value) {
         await updateArticle(body)
-        ElMessage.success(t('common.updateSuccess'))
+        ElMessage.success('更新成功')
       } else {
         delete body.id
         await createArticle(body)
-        ElMessage.success(t('common.createSuccess'))
+        ElMessage.success('创建成功')
       }
       dialogVisible.value = false
       await load()
@@ -289,38 +289,38 @@ function onSubmit() {
 }
 
 async function onPublish(row) {
-  const confirmed = await ElMessageBox.confirm(t('cms.article.publishConfirm', { title: row.title }), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm(`确认发布文章「${row.title}」吗？发布后前台可见。`, '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await publishArticle(row.id)
-  ElMessage.success(t('cms.article.publishSuccess'))
+  ElMessage.success('发布成功')
   await load()
 }
 
 async function onOffline(row) {
-  const confirmed = await ElMessageBox.confirm(t('cms.article.offlineConfirm', { title: row.title }), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm(`确认下线文章「${row.title}」吗？下线后前台不可见。`, '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await offlineArticle(row.id)
-  ElMessage.success(t('cms.article.offlineSuccess'))
+  ElMessage.success('下线成功')
   await load()
 }
 
 async function onDelete(row) {
-  const confirmed = await ElMessageBox.confirm(t('cms.article.deleteConfirm', { title: row.title }), t('common.warning'), {
+  const confirmed = await ElMessageBox.confirm(`确认删除文章「${row.title}」吗？`, '警告', {
     type: 'warning',
-    confirmButtonText: t('common.confirm'),
-    cancelButtonText: t('common.cancel')
+    confirmButtonText: '确认',
+    cancelButtonText: '取消'
   }).catch(() => false)
   if (!confirmed) return
   await deleteArticle(row.id)
-  ElMessage.success(t('common.deleteSuccess'))
+  ElMessage.success('删除成功')
   await load()
 }
 

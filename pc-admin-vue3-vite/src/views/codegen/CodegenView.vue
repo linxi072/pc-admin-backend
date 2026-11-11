@@ -1,11 +1,11 @@
 <template>
   <div>
-    <h2 class="page-title">{{ t('codegen.title') }}</h2>
+    <h2 class="page-title">{{ '代码生成' }}</h2>
 
     <el-alert class="mb-12" type="info" :closable="false" show-icon>
       <template #title>
         按数据库表结构生成 CRUD 骨架：后端六层（DO / VO / Query / Controller / Service / ServiceImpl）与前端两文件（Vue 页面 / api.js）。
-        生成结果为<b>{{ t('codegen.textPreview') }}</b>，服务端不落盘——可单文件复制或打包 zip 下载后自行入库，业务规则需手工补齐。
+        生成结果为<b>{{ '文本预览' }}</b>，服务端不落盘——可单文件复制或打包 zip 下载后自行入库，业务规则需手工补齐。
       </template>
     </el-alert>
 
@@ -13,10 +13,10 @@
     <el-card class="mb-12" shadow="never">
       <div class="toolbar-filters">
         <div class="filter-group">
-          <span class="filter-label">{{ t('codegen.dataTable') }}</span>
+          <span class="filter-label">{{ '数据表' }}</span>
           <el-select
             v-model="form.tableName"
-            :placeholder="t('codegen.selectTable')"
+            :placeholder="'选择表（可搜索）'"
             filterable
             clearable
             style="width: 260px"
@@ -27,23 +27,23 @@
           </el-select>
         </div>
         <div class="filter-group">
-          <span class="filter-label">{{ t('codegen.moduleName') }}</span>
-          <el-input v-model="form.moduleName" :placeholder="t('codegen.moduleNameExample')" style="width: 160px" />
+          <span class="filter-label">{{ '模块名' }}</span>
+          <el-input v-model="form.moduleName" :placeholder="'如 user / order-item'" style="width: 160px" />
         </div>
         <div class="filter-group">
-          <span class="filter-label">{{ t('codegen.functionName') }}</span>
-          <el-input v-model="form.functionName" :placeholder="t('codegen.pageTitle')" style="width: 160px" />
+          <span class="filter-label">{{ '功能名' }}</span>
+          <el-input v-model="form.functionName" :placeholder="'页面标题，如 用户管理'" style="width: 160px" />
         </div>
         <div class="filter-group">
-          <span class="filter-label">{{ t('codegen.entityClass') }}</span>
-          <el-input v-model="form.className" :placeholder="t('codegen.entityClassHint')" style="width: 140px" />
+          <span class="filter-label">{{ '实体类名' }}</span>
+          <el-input v-model="form.className" :placeholder="'留空按表名推导'" style="width: 140px" />
         </div>
         <div class="filter-group">
-          <span class="filter-label">{{ t('codegen.author') }}</span>
-          <el-input v-model="form.author" :placeholder="t('codegen.authorHint')" style="width: 120px" />
+          <span class="filter-label">{{ '作者' }}</span>
+          <el-input v-model="form.author" :placeholder="'文件头注释作者'" style="width: 120px" />
         </div>
         <div class="filter-group">
-          <el-checkbox v-model="form.withFrontend">{{ t('codegen.genFrontend') }}</el-checkbox>
+          <el-checkbox v-model="form.withFrontend">{{ '同时生成前端（Vue + api.js）' }}</el-checkbox>
         </div>
       </div>
 
@@ -61,28 +61,28 @@
     </el-card>
 
     <!-- 字段元信息（选表后展示） -->
-    <el-card v-if="meta" class="mb-12" shadow="never" :header="t('codegen.fieldMeta')">
+    <el-card v-if="meta" class="mb-12" shadow="never" :header="'字段元信息'">
       <el-table :data="meta.columns" border stripe size="small" max-height="280">
-        <el-table-column prop="columnName" :label="t('codegen.columnName')" min-width="140" />
-        <el-table-column prop="dataType" :label="t('codegen.dbType')" min-width="110" />
-        <el-table-column prop="javaType" :label="t('codegen.javaType')" min-width="110" />
-        <el-table-column prop="javaField" :label="t('codegen.fieldName')" min-width="120" />
-        <el-table-column prop="comment" :label="t('codegen.comment')" min-width="140" show-overflow-tooltip />
-        <el-table-column :label="t('codegen.primaryKey')" width="70">
+        <el-table-column prop="columnName" :label="'列名'" min-width="140" />
+        <el-table-column prop="dataType" :label="'数据库类型'" min-width="110" />
+        <el-table-column prop="javaType" :label="'Java 类型'" min-width="110" />
+        <el-table-column prop="javaField" :label="'字段名'" min-width="120" />
+        <el-table-column prop="comment" :label="'注释'" min-width="140" show-overflow-tooltip />
+        <el-table-column :label="'主键'" width="70">
           <template #default="{ row }">
             <el-tag v-if="row.primaryKey" type="danger" size="small">PK</el-tag>
             <span v-else>—</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('codegen.autoIncrement')" width="70">
+        <el-table-column :label="'自增'" width="70">
           <template #default="{ row }">
             <el-tag v-if="row.autoIncrement" type="warning" size="small">AI</el-tag>
             <span v-else>—</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('codegen.nullable')" width="70">
+        <el-table-column :label="'可空'" width="70">
           <template #default="{ row }">
-            <el-tag :type="row.nullable ? 'info' : 'success'" size="small">{{ row.nullable ? t('codegen.yes') : t('codegen.no') }}</el-tag>
+            <el-tag :type="row.nullable ? 'info' : 'success'" size="small">{{ row.nullable ? '是' : '否' }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -93,7 +93,7 @@
       <template #header>
         <div class="preview-header">
           <span>生成预览（{{ files.length }} 个文件）</span>
-          <el-button link type="primary" :icon="CopyDocument" @click="copyActive">{{ t('codegen.copyCurrent') }}</el-button>
+          <el-button link type="primary" :icon="CopyDocument" @click="copyActive">{{ '复制当前文件' }}</el-button>
         </div>
       </template>
       <el-tabs v-model="activeTab" type="border-card">
@@ -110,12 +110,12 @@
       </el-tabs>
     </el-card>
 
-    <el-empty v-else-if="!previewing" :description="t('codegen.selectToPreviewHint')" />
+    <el-empty v-else-if="!previewing" :description="'选择数据表并点击「生成预览」查看骨架代码'" />
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick, Download, CopyDocument } from '@element-plus/icons-vue'
@@ -139,8 +139,8 @@ const form = reactive({
 })
 
 const tableHint = computed(() => {
-  if (!meta.value) return t('codegen.autoFillHint')
-  return t('codegen.tableMeta', { table: meta.value.tableName + (meta.value.comment ? '（' + meta.value.comment + '）' : ''), count: meta.value.columns.length })
+  if (!meta.value) return '选择数据表后自动带出模块名 / 功能名 / 类名'
+  return `表 ${meta.value.tableName + (meta.value.comment ? '（' + meta.value.comment + '）' : '')} · ${meta.value.columns.length} 个字段`
 })
 
 // 表名 → 模块名：去 sys_/t_ 前缀，下划线转连字符
@@ -200,7 +200,7 @@ async function onPreview() {
     const list = await codegenPreview(currentOption())
     files.value = list || []
     activeTab.value = list && list.length ? list[0].path : ''
-    if (!list || !list.length) ElMessage.warning(t('codegen.empty'))
+    if (!list || !list.length) ElMessage.warning('未生成任何文件')
   } catch (e) { /* 已提示 */ } finally {
     previewing.value = false
   }
@@ -223,7 +223,7 @@ async function onDownload() {
     a.download = 'codegen-' + form.tableName + '.zip'
     a.click()
     URL.revokeObjectURL(url)
-    ElMessage.success(t('codegen.downloadStarted'))
+    ElMessage.success('已开始下载')
   } catch (e) { /* 已提示 */ } finally {
     downloading.value = false
   }
@@ -232,9 +232,9 @@ async function onDownload() {
 function parseErrMsg(text) {
   try {
     const j = JSON.parse(text)
-    return j.message || t('codegen.downloadFailed')
+    return j.message || '下载失败'
   } catch (e) {
-    return t('codegen.downloadFailed')
+    return '下载失败'
   }
 }
 
@@ -243,7 +243,7 @@ async function copyActive() {
   if (!f) return
   try {
     await navigator.clipboard.writeText(f.content)
-    ElMessage.success(t('codegen.copied') + ' ' + fileName(f.path))
+    ElMessage.success('已复制' + ' ' + fileName(f.path))
   } catch (e) {
     // 剪贴板不可用时的降级：临时 textarea
     const ta = document.createElement('textarea')
@@ -252,7 +252,7 @@ async function copyActive() {
     ta.select()
     document.execCommand('copy')
     document.body.removeChild(ta)
-    ElMessage.success(t('codegen.copied') + ' ' + fileName(f.path))
+    ElMessage.success('已复制' + ' ' + fileName(f.path))
   }
 }
 

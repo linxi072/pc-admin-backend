@@ -19,7 +19,7 @@
       <el-input
         v-if="f.type === 'INPUT'"
         v-model="model[f.key]"
-        :placeholder="f.placeholder || t('form.placeholderInput', { label: f.label })"
+        :placeholder="f.placeholder || `请输入${f.label}`"
         :maxlength="f.maxLength || undefined"
         clearable
       />
@@ -29,7 +29,7 @@
         v-model="model[f.key]"
         type="textarea"
         :rows="f.rows || 3"
-        :placeholder="f.placeholder || t('form.placeholderInput', { label: f.label })"
+        :placeholder="f.placeholder || `请输入${f.label}`"
         :maxlength="f.maxLength || undefined"
         show-word-limit
       />
@@ -47,7 +47,7 @@
       <el-select
         v-else-if="f.type === 'SELECT'"
         v-model="model[f.key]"
-        :placeholder="f.placeholder || t('form.placeholderSelect', { label: f.label })"
+        :placeholder="f.placeholder || `请选择${f.label}`"
         style="width: 100%"
         clearable
       >
@@ -80,7 +80,7 @@
         v-model="model[f.key]"
         type="date"
         value-format="YYYY-MM-DD"
-        :placeholder="f.placeholder || t('form.placeholderDate')"
+        :placeholder="f.placeholder || '请选择日期'"
         style="width: 100%"
       />
       <!-- 未支持类型：显式降级提示，避免静默丢失字段 -->
@@ -89,7 +89,7 @@
         type="warning"
         :closable="false"
         show-icon
-        :title="t('form.unsupportedType', { type: f.type })"
+        :title="`不支持的字段类型：${f.type}`"
       />
     </el-form-item>
   </el-form>
@@ -97,7 +97,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { t } from '@/i18n'
+
 import { buildRules, visibleFields, defaultValueFor } from '@/utils/formSchema'
 
 const props = defineProps({

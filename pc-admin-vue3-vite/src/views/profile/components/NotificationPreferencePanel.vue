@@ -1,6 +1,6 @@
 <template>
   <div class="panel">
-    <h3 class="panel-title">{{ t('profile.noticeSubscribe') }}</h3>
+    <h3 class="panel-title">{{ '通知订阅' }}</h3>
     <p class="panel-desc">
       按渠道与消息类型控制是否接收通知：未单独设置的格子默认开通；
       渠道总开关（「通知与隐私」）关闭时，该渠道全部类型不再接收。
@@ -19,18 +19,18 @@
     >
       <template #title>订阅设置加载失败：{{ error }}</template>
       <template #default>
-        <el-button size="small" @click="load">{{ t('common.reload') }}</el-button>
+        <el-button size="small" @click="load">{{ '重新加载' }}</el-button>
       </template>
     </el-alert>
 
     <template v-else>
       <el-table :data="rows" border size="small" class="matrix">
-        <el-table-column :label="t('common.channel')" width="170">
+        <el-table-column :label="'渠道'" width="170">
           <template #default="{ row }">
             <div class="channel-cell">
               <span class="channel-name">{{ CHANNEL_LABELS[row.channel] || row.channel }}</span>
               <el-tag v-if="!row.channelEnabled" type="info" size="small" effect="plain">
-                {{ row.channel === 'EMAIL' && !profile?.emailBound ? t('profile.needBindEmail') : row.channel === 'SMS' && !profile?.mobileBound ? t('profile.needBindPhone') : t('profile.masterSwitchOff') }}
+                {{ row.channel === 'EMAIL' && !profile?.emailBound ? '需先绑定邮箱' : row.channel === 'SMS' && !profile?.mobileBound ? '需先绑定手机号' : '总开关已关闭' }}
               </el-tag>
             </div>
           </template>
@@ -62,7 +62,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.operation')" width="100" align="center">
+        <el-table-column :label="'操作'" width="100" align="center">
           <template #default="{ row }">
             <el-button
               link
@@ -86,15 +86,15 @@
         <el-button type="primary" :loading="saving" :disabled="!dirty" @click="onSave">
           保存订阅
         </el-button>
-        <el-button :disabled="!dirty" @click="reset">{{ t('common.restore') }}</el-button>
-        <span v-if="!dirty && loaded" class="saved-tip">{{ t('common.saved') }}</span>
+        <el-button :disabled="!dirty" @click="reset">{{ '还原' }}</el-button>
+        <span v-if="!dirty && loaded" class="saved-tip">{{ '已保存' }}</span>
       </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { t } from '@/i18n'
+
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMyNotificationPreference, updateMyNotificationPreference } from '@/api/notificationPreference'
@@ -106,17 +106,17 @@ const props = defineProps({
 /** 矩阵列序与后端 MSG_TYPES 白名单一致（NOTICE/ALERT/SYSTEM/CC）。 */
 const MSG_TYPES = ['NOTICE', 'ALERT', 'SYSTEM', 'CC']
 const MSG_TYPE_LABELS = {
-  NOTICE: t('profile.generalNotice'),
-  ALERT: t('common.alert'),
-  SYSTEM: t('common.systemMessage'),
-  CC: t('common.cc')
+  NOTICE: '一般通知',
+  ALERT: '告警',
+  SYSTEM: '系统消息',
+  CC: '抄送'
 }
 /** 渠道展示名（与通知记录页 CHANNEL_META 同口径）。 */
 const CHANNEL_LABELS = {
-  IN_APP: t('common.stationMsg'),
-  EMAIL: t('common.mail'),
-  SMS: t('common.sms'),
-  WEBSOCKET: t('common.realtimePush')
+  IN_APP: '站内信',
+  EMAIL: '邮件',
+  SMS: '短信',
+  WEBSOCKET: '实时推送'
 }
 
 const loading = ref(false)
@@ -183,7 +183,7 @@ async function load() {
   } catch (e) {
     // 401 已由 http 拦截器统一跳转登录页，此处仅处理非登录态错误
     if (e?.code !== 'COMMON_401' && e?.response?.status !== 401) {
-      error.value = e?.message || t('profile.subLoadFailed')
+      error.value = e?.message || '订阅设置加载失败'
     }
   } finally {
     loading.value = false
@@ -216,7 +216,7 @@ async function onSave() {
   try {
     // 后端返回更新后的完整矩阵，直接刷新快照，无需再次回查
     applyMatrix(await updateMyNotificationPreference(items))
-    ElMessage.success(t('profile.subSaved'))
+    ElMessage.success('订阅设置已保存')
   } catch (e) {
     // 错误提示已统一处理
   } finally {
