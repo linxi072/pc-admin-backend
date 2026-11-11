@@ -146,7 +146,7 @@ public class FormSubmissionService {
      *
      * @param id 提交记录 ID
      */
-    public void removeSubmission(Long id) {
+    public void deleteSubmission(Long id) {
         FormSubmissionDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.FORM_SUBMISSION, FormSubmissionDO.class, id), "表单提交记录不存在");
         SqlWriters.delete(dsl, SqlTables.FORM_SUBMISSION, id, true);
     }

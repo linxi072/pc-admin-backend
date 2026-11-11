@@ -98,8 +98,8 @@ public class OpenApiClientController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('system:openapi-client:manage')")
     @AuditOperation(module = "system", type = "DELETE", name = "删除开放平台客户端")
-    public Result<Void> remove(@PathVariable Long id) {
-        service.remove(id);
+    public Result<Void> delete(@PathVariable Long id) {
+        service.delete(id);
         return Result.success();
     }
 

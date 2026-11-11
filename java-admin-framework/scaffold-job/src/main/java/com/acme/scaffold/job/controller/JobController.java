@@ -134,8 +134,8 @@ public class JobController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('job:manage')")
     @AuditOperation(module = "job", type = "DELETE", name = "删除定时任务")
-    public Result<Void> remove(@PathVariable Long id) {
-        jobService.remove(id);
+    public Result<Void> delete(@PathVariable Long id) {
+        jobService.delete(id);
         return Result.success();
     }
 

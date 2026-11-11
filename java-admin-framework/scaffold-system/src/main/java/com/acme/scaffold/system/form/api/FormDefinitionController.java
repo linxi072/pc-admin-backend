@@ -77,8 +77,8 @@ public class FormDefinitionController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('system:form-definition:delete')")
     @AuditOperation(module = "system", type = "DELETE", name = "删除表单定义")
-    public Result<Void> remove(@PathVariable Long id) {
-        service.remove(id);
+    public Result<Void> delete(@PathVariable Long id) {
+        service.delete(id);
         return Result.success();
     }
 }

@@ -193,7 +193,7 @@ public class NotificationTemplateService {
     }
 
     /** 删除模板（逻辑删除，便于审计与恢复）。 */
-    public void remove(Long id) {
+    public void delete(Long id) {
         requireById(id);
         SqlWriters.delete(dsl, TEMPLATE, id, true);
     }

@@ -95,8 +95,8 @@ public class TenantController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('system:tenant:manage')")
     @AuditOperation(module = "system", type = "DELETE", name = "删除租户")
-    public Result<Void> remove(@PathVariable Long id) {
-        service.remove(id);
+    public Result<Void> delete(@PathVariable Long id) {
+        service.delete(id);
         return Result.success();
     }
 

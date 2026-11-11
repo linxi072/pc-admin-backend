@@ -281,7 +281,7 @@ public class JobService {
     }
 
     /** 删除任务（逻辑删除）：运行中先取消调度。执行日志保留以便追溯。被其他任务依赖时拒绝删除。 */
-    public void remove(Long id) {
+    public void delete(Long id) {
         SysJobDO job = require(id);
         // 依赖编排删除守卫：存在下游依赖时拒绝，避免悬空依赖边
         dagService.assertNoDependents(id);

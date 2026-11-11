@@ -229,7 +229,7 @@ public class MaskStrategyService {
     }
 
     /** 删除策略（逻辑删除，便于审计与恢复）。 */
-    public void remove(Long id) {
+    public void delete(Long id) {
         requireById(id);
         SqlWriters.delete(dsl, SqlTables.MASK_STRATEGY, id, true);
         invalidate(0L);

@@ -70,8 +70,8 @@ public class FormSubmissionAdminController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('system:form-submission:delete')")
     @AuditOperation(module = "system", type = "DELETE", name = "删除表单提交记录")
-    public Result<Void> remove(@PathVariable Long id) {
-        submissionService.removeSubmission(id);
+    public Result<Void> delete(@PathVariable Long id) {
+        submissionService.deleteSubmission(id);
         return Result.success();
     }
 }

@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p><b>只读面</b>（list / getByCode / getEnabledByCode）+ 按编码缓存沿用 spike 实现。</p>
  *
- * <p><b>管理写面</b>（create / update / remove，本期正式立项）：落库前经
+ * <p><b>管理写面</b>（create / update / delete，本期正式立项）：落库前经
  * {@link FormSchemaRules#validate} 校验 Schema 结构（version / title / fields / 字段键 / 类型白名单 /
  * options / 长度属性），并对 {@code form_code} 做租户内唯一性校验；写操作后统一
  * {@link #refreshCache()} 失效按编码缓存，保证下发面不会命中写操作前的旧快照。绑定目标
@@ -142,7 +142,7 @@ public class FormDefinitionService {
 
     /** 删除表单定义（逻辑删除），写库后失效缓存。 */
     @Transactional
-    public void remove(Long id) {
+    public void delete(Long id) {
         FormDefinitionDO existing = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.FORM_DEFINITION, FormDefinitionDO.class, id), "表单定义不存在");
         SqlWriters.delete(dsl, SqlTables.FORM_DEFINITION, id, true);
         refreshCache();

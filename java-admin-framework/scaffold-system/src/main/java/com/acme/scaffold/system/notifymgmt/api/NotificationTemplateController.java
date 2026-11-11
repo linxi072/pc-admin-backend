@@ -98,8 +98,8 @@ public class NotificationTemplateController {
     @Operation(summary = "删除通知模板（逻辑删除）")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('system:notification-template:manage')")
-    public Result<Void> remove(@PathVariable Long id) {
-        service.remove(id);
+    public Result<Void> delete(@PathVariable Long id) {
+        service.delete(id);
         return Result.success();
     }
 

@@ -42,7 +42,7 @@ import java.util.Map;
  * 与 P1 的解析层、P3 的隔离层共用同一份口径，保证「存什么、查什么、按什么隔离」三处一致。</p>
  *
  * <p><b>缓存</b>：租户维度表行数极少且读多写少，{@link #list()} 整表缓存，
- * 写路径（create/update/remove/toggle）统一整缓存驱逐。陈旧仅影响管理页列表，
+ * 写路径（create/update/delete/toggle）统一整缓存驱逐。陈旧仅影响管理页列表，
  * 不影响隔离安全（隔离由 P3 在 SQL 层强制）。</p>
  */
 @Slf4j
@@ -177,7 +177,7 @@ public class TenantService {
     /** 删除租户（逻辑删除，便于审计与恢复）。 */
     @CacheEvict(cacheNames = TENANT_LIST_CACHE, allEntries = true)
     @Transactional
-    public void remove(Long id) {
+    public void delete(Long id) {
         requireById(id);
         SqlWriters.delete(dsl, TN, id, true);
     }

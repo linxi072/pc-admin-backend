@@ -165,7 +165,7 @@ public class OpenApiClientService {
     }
 
     /** 删除客户端（逻辑删除，便于审计与恢复）。 */
-    public void remove(Long id) {
+    public void delete(Long id) {
         requireById(id);
         SqlWriters.delete(dsl, SqlTables.OPENAPI_CLIENT, id, true);
     }
