@@ -49,17 +49,17 @@
 | `com.acme.scaffold.framework` 包根 | 历史类分布在 4 个顶层包；重命名牵动数百处 import | 形式差异 |
 | `common.mybatis` 第二包根 | 同上 | 形式差异（2026-11-08 起为唯一的数据访问包根） |
 | 43 个 `@ConfigurationProperties` 分散在特性包 | 集中会改配置类包路径与 `@EnableConfigurationProperties` 引用 | 组织差异，功能等价 |
-| `src/api` 69 文件平铺（若依按模块分目录） | 需同步改 69 个文件与全部 import | 大规模搬迁 |
+| `src/api` 68 文件平铺（若依按模块分目录） | 需同步改 68 个文件与全部 import | 大规模搬迁 |
 | `src/api/http.js` 与 `apiDoc.js` 两个 axios 实例 | 后者 baseURL 为 `/`、独立超时与鉴权逻辑，仅用于拉 OpenAPI JSON；合并会改变文档请求行为 | 语义不同，刻意保留 |
 | `common/util` / `text` / `tree` 三个单文件工具包未合并为 `utils` | 合并会改 FQN | 形式差异 |
 | 生产 `application-prod.yml` 中旧 `jobrunr:` 前缀 | 2026-11-08 已随 JobRunr → Quartz 迁移删除并改写为 `app.quartz` 说明 | **已解决** |
 | `@Log` / `@DataScope` 等注解命名 | 本仓以 `AuditAspect` + `DataScopeConditions` + Port 实现等价能力 | 命名风格 |
 | 权限码动作词 `read/create/update/delete` | 本仓贴合 REST 语义；改成 `list/add/edit/remove` 会动全部 `@PreAuthorize` 与角色授权 | 命名风格，已声明偏离 |
-| URL `/api` 前缀 + 复数资源 + 动作式端点 | 由 `api-contract.json` 与 69 个前端 api 文件固定；改路径属契约级 | **契约级**，不可改 |
-| 主键 `id`、审计列 `created_at/updated_at`、`deleted`、`sort_no` | 51 张表 + DSL 自动填充 + 40+ 前端视图字段；改列名属破坏性 DDL | **数据级**，不做 |
+| URL `/api` 前缀 + 复数资源 + 动作式端点 | 由 `api-contract.json` 与 68 个前端 api 文件固定；改路径属契约级 | **契约级**，不可改 |
+| 主键 `id`、审计列 `created_at/updated_at`、`deleted`、`sort_no` | 58 张表 + DSL 自动填充 + 40+ 前端视图字段；改列名属破坏性 DDL | **数据级**，不做 |
 | `*Mapper.java` + `mapper/*.xml` | 本仓已移除 jOOQ / Flyway，数据访问为自研 DSL（`mybatis/dsl` 38 类），0 个 Mapper XML；回退等于重写 | **架构级**，不做 |
 | 菜单字段 `menu_code` / `route_path` / `permission_code` / `menu_type=CATALOG\|MENU` | 本仓多租户扩展（`tenant_id`、`menu_code` 业务唯一键）优于若依；字段名改造牵动种子与前端 | 形式差异 |
-| 前端 `views/{Module}XxxView.vue`、`src/api/*.js` 平铺 | 69 个 api 文件 + 全部 import 纯搬迁，无功能收益 | 大规模搬迁，不做 |
+| 前端 `views/{模块}/XxxView.vue`、`src/api/*.js` 平铺 | 68 个 api 文件 + 全部 import 纯搬迁，无功能收益 | 大规模搬迁，不做 |
 | `alert_rule` 表无模块前缀 | 需 `RENAME TABLE` + DSL 常量同步，属结构级变更 | **已修复**（P2-2，见 §3.3 / §3.5）：V84 幂等重命名 + `SqlTables.ALERT_RULE` 指向 `sys_alert_rule` |
 
 > **2026-11-10 复查落地**：按《若依规范对齐差异清单与重构方案_20261109.md》批次 1–2
@@ -80,11 +80,11 @@
 | 1 | `Result<T>` → `AjaxResult`（HashMap 全 200） | `api-contract.json` 已固化 `code:"0"` 与 `data/message` 字段；替换即改响应 JSON | 契约级 |
 | 2 | `TableDataInfo` + PageHelper（`total`/`rows`） | 本仓 `PageResult` / `KeysetPageResult` 支持 keyset 深翻页，改则丢能力 | 契约级 + 能力回退 |
 | 3 | `*Mapper.java` + `mapper/*.xml` | jOOQ / Flyway 已移除，数据访问为自研 DSL（`mybatis/dsl`），全仓 0 个 Mapper XML；回退等于重写 | 架构级 |
-| 4 | 主键 `user_id` / `role_id` | 51 张表 + DSL 自动填充 + 雪花 ID | 数据级，破坏性 DDL |
+| 4 | 主键 `user_id` / `role_id` | 58 张表 + DSL 自动填充 + 雪花 ID | 数据级，破坏性 DDL |
 | 5 | `created_at` → `create_time` | 全表 + `SqlWriters` 自动填充 + 40+ 前端视图字段名 | 数据级，破坏性 DDL |
 | 6 | `deleted` → `del_flag CHAR(1)` | 语义与类型双改，牵动所有查询条件构造 | 数据级，破坏性 DDL |
 | 7 | Controller 集中到 `scaffold-admin` | 改组件扫描与 14 模块依赖方向 | 部署结构 |
-| 8 | 前端 api 按模块分目录（`api/system/user.js`） | 69 个文件 + 全部 import，纯搬迁无功能收益 | 大规模搬迁 |
+| 8 | 前端 api 按模块分目录（`api/system/user.js`） | 68 个文件 + 全部 import，纯搬迁无功能收益 | 大规模搬迁 |
 
 配套的**已声明偏离**用词口径见 `docs/NAMING.md` §6.1（org/dept 同义词收敛）、
 §6.2（权限码动作词 `read/create/update/delete`，不引入 `list/add/edit/remove`）、
@@ -114,18 +114,23 @@
    是邮件 / 短信正文中的 HMAC 签名链接。新增 `/api/system/...` 别名**不在白名单**，
    会得到一个「看似可用却返回 401」的公开端点；若要可用必须同步改安全配置，
    已不属于「纯新增」，触及本文件顶部硬约束。
-3. **契约门禁不支持多路径**：`scripts/check-api-contract.py` 的类级基路径用
-   `first_quoted()` 只取注解属性串中的**首个**字符串字面量，数组式
-   `@RequestMapping({old,new})` 会被解析成旧路径，别名不计入后端路由集合；
-   报告批次 3 第 13 步「确认后端集合为超集」无法成立，须先改门禁脚本才能验证。
+3. **〔2026-11-11 订正：此理由已解除〕** 当时 `scripts/check-api-contract.py` 的类级
+   基路径用 `first_quoted()` 只取注解属性串中的**首个**字符串字面量，数组式
+   `@RequestMapping({old,new})` 会被解析成旧路径，别名不计入后端路由集合。
+   后续 P2-1 双挂落地时门禁已增强：`quoted_paths()` 取全部路径字面量，类基路径 ×
+   方法路径做笛卡尔积，`test_check_api_contract.py` 亦有专门用例覆盖（33 例之一）。
+   **该前置条件现已满足，但不改变本项目结论** —— 理由 1 / 2 / 4 仍是硬阻断。
 4. **`@Deprecated` 语义错位**：Java 的 `@Deprecated` 只能标在类 / 方法上，类级标注会把
    新旧两个别名**一起**标记为废弃，无法表达「只废弃旧路径」。
 
 **结论**：把「顶级 `/api` 前缀用于个人域 / 免登录端点」登记为第 9 项刻意偏离，
 写入 `docs/NAMING.md` §6.3；旧路径全部保留、不改任何 HTTP 行为、不动安全配置。
-若后续产品侧确需统一前缀，前置条件是：① 同步扩展 `BASE_PUBLIC_API` 并补回归；
-② 增强 `check-api-contract.py` 支持多路径并补行为回归用例；③ 明确废弃策略与前端灰度；
-④ 按 P2 级别排期（双挂 ≥1 个版本）。
+理由 3 的解除只是少了一条技术障碍，理由 1（javadoc 刻意的域语义划分）、
+理由 2（免登录 HMAC 签名链接与 `BASE_PUBLIC_API` 白名单）、理由 4（`@Deprecated`
+无法只废弃旧路径）三条均仍成立，故**仍不新增别名**。若后续产品侧确需统一前缀，
+前置条件为：① 同步扩展 `BASE_PUBLIC_API` 并补回归；② ~~增强 `check-api-contract.py`
+支持多路径并补行为回归用例~~（**已完成**，P2-1 双挂落地时随门禁增强补齐）；
+③ 明确废弃策略与前端灰度；④ 按 P2 级别排期（双挂 ≥1 个版本）。
 
 ### 3.3 需确认 / 需排期项的实施状态
 
@@ -336,11 +341,11 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 
 | # | 原始出处 | 实测结论 | 处置 |
 |---|---|---|---|
-| 1 | §2.2.2 方法命名「属可保留差异，**但需成文**」 | 本仓 Controller 主流 `list/get/create/update/delete`，`getInfo` / `add` / `edit` 全仓零命中；`remove(...)` 有 7 处历史混用（`JobController` + 6 个 `system` Controller），均只影响 Java 方法名 | 成文 `docs/NAMING.md` **§6.4** 的 REST 动词映射表与「新代码统一 / 存量不动」条款；登记第 12 项偏离 |
+| 1 | §2.2.2 方法命名「属可保留差异，**但需成文**」 | 本仓 Controller 主流 `list/get/create/update/delete`，`getInfo` / `add` / `edit` 全仓零命中；`remove(...)` 有 7 处历史混用（`JobController` + 6 个 `system` Controller），均只影响 Java 方法名 | 成文 `docs/NAMING.md` **§6.4** REST 动词映射表；当时按「存量不动」登记第 12 项偏离，**2026-11-11 复核判定为误判、7 处已归一为 `delete`（见 §3.9）** |
 | 2 | §2.6「仅需在文档中固化本仓不使用 Mapper XML，并在**评审规则**中写明新增 SQL 的唯一写法」 | 全仓 0 个 `@Mapper` 接口、0 个 Mapper XML；但存在 4 个合法 `*Mapper.java`（DSL 行映射内部类 3 + 代码生成类型映射 1），**文件名匹配会误伤** | 成文 `docs/NAMING.md` **§6.5** 的四条评审 checklist；并把纸面结论升级为 `check-directory.py` 的 **D13 硬性门禁**（只查 `mapper/` 目录与 `*Mapper.xml` 路径 + 断言 `SqlTables.java` 存在） |
 | 3 | §2.8 O-2 `db/migration` 为 Flyway 遗留目录名、易误导 | Flyway 运行期确已移除；该目录现为 53 个版本文件的「版本化结构源」、`build_reference_modular.py` 的输入，改名会断历史可追溯性与三份派生件路径 | 在 `db/migration/README.md` 补「目录名沿革」说明；登记第 14 项偏离（不改为若依的 `sql/`） |
 | 4 | §2.2.4「`sys_oauth` 名称过泛」 | **全仓不存在 `sys_oauth` 表**：实际为 `sys_openapi_client`（V48）、`sys_oauth2_token`（V64）、`sys_oauth2_consent`（V68）三张命名精确的表；原结论系当时检索快照的表述误差 | 取证更正，无需改表；在 `docs/NAMING.md` §6.3 以 58 张表口径替换旧的 51 张快照 |
-| 5 | §2.2.5 views 根 4 个散落 View、路由 name / path 残留 | 4 个根级 `XxxView.vue` 各有 `router/index.js` 唯一动态 import；`oauth2token.js` / `NotificationTemplate.vue` 两处已修；`system/announcement` 已补 `name`，`system/message` 是刻意的 query 保留 redirect；复数 path 已普及（远不止原记 2 处） | 校正 `docs/NAMING.md` §6.3 的 `views/{Module}XxxView.vue` 漂移表述；登记第 13 项偏离 |
+| 5 | §2.2.5 views 根 4 个散落 View、路由 name / path 残留 | 4 个根级 `XxxView.vue` 各有 `router/index.js` 唯一动态 import；`oauth2token.js` / `NotificationTemplate.vue` 两处已修；`system/announcement` 已补 `name`，`system/message` 是刻意的 query 保留 redirect；复数 path 已普及（远不止原记 2 处） | 校正 `docs/NAMING.md` §6.3 的 `views/{Module}XxxView.vue` 漂移表述；当时登记第 13 项偏离，**2026-11-11 复核后 4 个 View 已归位、仅保留「不统一 path 单复数」（见 §3.9）** |
 | 6 | §2.8 O-6 空 `__tests__/` 4 目录 + 失效 `npm test` | 4 目录均为空、**git 完全未追踪**（仅工作区残留），`package.json` 的失效 `test` 脚本已删，假绿问题已闭环；空目录不构成仓库内容 | 不删除、不纳入仓库变更；登记第 15 项偏离 |
 
 > **口径说明**：第 4 项是原始清单自身的取证误差，不是「刻意不做」的差异，故不占偏离编号；
@@ -350,8 +355,8 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 
 | # | 项 | 不做理由 |
 |---|---|---|
-| 12 | 把 Controller / Service 方法改为若依 CRUD 命名（`getInfo` / `add` / `edit` / `remove`） | REST 动词已与权限码动作词、HTTP 方法、URL 复数资源成体系；改名不动契约但牵动调用方与审计文案，零功能收益。7 处存量 `remove` 与新代码 `delete` 的边界已在 `NAMING.md` §6.4 写明 |
-| 13 | 把 `views/` 根 4 个 `XxxView.vue` 归位到模块目录并统一 `router.path` 单复数 | 归位需同步 router 动态 import 与菜单 `component_path` 字符串，属纯搬迁且会动路由可见行为；复数形态已是当前主流，强行改回单数才是破坏性变更 |
+| 12 | 不把主流 REST 动词（`list/get/create/update/delete`）改为若依 CRUD 命名（`getInfo` / `add` / `edit` / `remove`） | 权限码动作词、HTTP 方法、URL 复数资源已与 REST 动词成体系，改名是纯风格倒退。**原登记的「7 处存量 `remove` 刻意保留」经 §3.9 复核判定为误判，已全量归一为 `delete`**；本项不再包含任何存量不一致 |
+| 13 | 不统一 `router.path` 单复数 | 改 URL 会同时破坏历史书签与后端菜单 `route_path`，复数形态已是当前主流，强行改回单数才是破坏性变更。**原登记的「4 个根级 View 不归位」经 §3.9 复核判定为误判（菜单 `component_path` 理由不成立），已归位并由 D14 守护** |
 | 14 | `db/migration/` 改名为若依的 `sql/` | 纯形式改动，但会切断 53 个版本文件的历史可追溯性、生成脚本输入路径与三份派生 SQL 中的版本注释；已在 README 写明「Flyway 遗留命名 / 当前语义为版本化结构源」消除误导 |
 | 15 | 删除 4 个空 `__tests__/` 目录 | 目录为空且 git 未追踪，删除只是本机清理、不产生仓库变更；失效 `npm test` 脚本移除后已无假绿风险。待前端单测立项时直接复用占位即可 |
 
@@ -359,6 +364,47 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 路径形态与 `SqlTables.java` 存在性，**零内容扫描、不读 Java 源码、不按 `*Mapper.java`
 文件名匹配**，因此不会误伤 DSL 内部类，也不增加门禁耗时。行为回归
 `test_check_directory.py` 由 29 例增至 **33 例**，全仓 `script-tests` 由 **92 例增至 96 例**。
+
+### 3.9 刻意偏离复核：第 12 / 13 项误判纠正（2026-11-11 追加批次）
+
+§3.8 收口时把两处「其实可以零风险修复」的结论一并登记成了刻意偏离。本批次对
+§3.1（P3 八项）、§3.2（第 9 项）、§3.7（第 10 / 11 项）、§3.8（第 12–15 项）
+**15 项登记**逐条重验，**仅这两项**存在取证错误，其余 13 项理由均成立、维持原判。
+逐项取证如下（均为实测，非设计预期）：
+
+| # | 原登记理由 | 复核取证 | 结论 |
+|---|---|---|---|
+| 12 | 「改名不动契约但牵动调用方与审计文案，零功能收益」 | 7 个 `remove` 端点的调用链均为仓内 `Controller → Service` 单层，无 `::remove` 方法引用、无同名 `delete` 冲突；`@AuditOperation` 是注解字符串、不引用方法名，`@DeleteMapping` / `@PreAuthorize` / 响应体均不变。且全仓另有 20+ 个 Controller `public Result<Void> delete(...)` 与 20+ 个 Service `public void delete(Long id)` —— **`delete` 才是本仓自身规范（`NAMING.md` §6.4）**，7 处 `remove` 是违反本仓规范的孤群，并非「向若依靠拢」值得保留的差异 | **误判**：把「不改成若依 CRUD」与「保留内部不一致」混为一谈。7 个 Controller + 7 个 Service 删除方法归一为 `delete` / `deleteSubmission`；第 12 项收窄为「不把主流 REST 动词改成若依 CRUD 动词」 |
+| 13 | 「归位需同步 router 动态 import 与菜单 `component_path` 字符串，属纯搬迁且会动路由可见行为」 | 种子 `component_path` 全为 `NULL`（`01_full_schema.sql` 中 `.vue` 出现 **0** 次），前端 `src/` 中 `componentPath` / `component_path` **零匹配**；归位只改 `router/index.js` 4 行 `import()` 路径，`path` / `name` / `meta` / 权限码 / 菜单全部不变；4 个 View 内部 import 全用 `@/` alias，无相对路径 | **部分误判**：归位可零风险落地，4 个 View 已移入 `auth/` · `dashboard/` · `job/` · `codegen/`；**「不统一 `router.path` 单复数」理由成立，保留为本项偏离** |
+
+**落地清单**：
+
+- 后端 **14 个 Java 文件**：7 个 `@DeleteMapping` 端点方法 + 7 个 Service 删除方法
+  （含 `FormSubmissionService.removeSubmission` → `deleteSubmission`）及 2 处写路径
+  javadoc 清单同步；URL / 权限码 / 审计注解 / 响应体零改动。
+- 前端 **5 个文件**：4 个 View 归位（3 个新特性目录按各页主 API 模块命名，工作台与
+  `/dashboard` 路由同属仪表盘特性、归既有 `dashboard/`）+ `router/index.js` 4 行
+  动态 import；`path` / `name` / `meta` 零改动。
+- **D14 硬性门禁**：`check-directory.py` 断言 `src/views/` 存在且根级无 `*.vue`，
+  只查根级扩展名、不递归、不读内容、不登记特性目录白名单（与 D4 / D13 同一取向，
+  新增特性目录无需改脚本）。`test_check_directory.py` 由 **33 例增至 37 例**，全仓
+  `script-tests` 由 **96 例增至 100 例**。
+
+> **复核范围说明**：§3.1 的 P3 八项、§3.2 第 9 项、§3.7 第 10 / 11 项、§3.8 第 14 / 15 项
+> 的理由逐条重验后结论均成立（分别涉及契约级改造、`BASE_PUBLIC_API` 白名单与
+> Controller javadoc 刻意设计、`scaffold-common` 公共 API 兼容、53 个版本文件的历史
+> 可追溯性、git 未追踪的空目录），**未发现第三处误判**。其中第 9 项四条阻断理由里的
+> 「契约门禁不支持多路径」一条已在 P2-1 双挂落地时解除（门禁现支持多路径数组 +
+> 笛卡尔积并有回归用例），已订正 §3.2；其余三条仍是硬阻断，故「不新增别名」结论不变。
+> 复核另顺带校正两类陈旧口径，均不改变
+> 「不做」结论：① §3 / §3.1 的 3 处（2 处「51 张表」→「58 张表」、1 处
+> `views/{Module}XxxView.vue` → `views/{模块}/XxxView.vue`）；② 全量复核时实测
+> `src/api/*.js` 为 **68** 个（`git ls-files` 亦为 68；目录内另有 `.DS_Store` 与空
+> `__tests__/` 两个非 JS 条目），故把 `RUOYI-ALIGNMENT.md` §3 / §3.1、
+> `DIRECTORY.md` §5、`NAMING.md` §6.3 共 7 处「69」统一订正为「68」。
+> 迁移链去重表数复核为 **58**（剥离注释后：sys 45 / wf 6 / cms 2 / im 3 / 裸名 2；
+> 若计入注释里的 `CREATE TABLE IF NOT EXISTS` 会得到 59），与 §3.7 一致。
+> 至此原始清单的正式编号、§2 正文、文末附录与全部偏离登记均已完成复核，无未处置条目。
 
 ## 4. 回归验证要点
 
@@ -373,8 +419,8 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
    directory / cluster-layout / permission / api-contract（信息性）/ script-tests），
    硬性项全部 `EXIT=0`；受限环境加 `--test-tmpdir <dir>`。
 2. **行为回归**：`python3 -m unittest discover -s scripts -p "test_*.py"`，当前
-   **96 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
-   `test_check_permission.py` 12 + `test_check_directory.py` 33 +
+   **100 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
+   `test_check_permission.py` 12 + `test_check_directory.py` 37 +
    `test_check_api_contract.py` 33）；`check-all.py` 第 7 步即调用该命令。
 3. **编译**：`mvn -o -f pom.xml clean compile`，15 个 reactor 项 BUILD SUCCESS。
    测试源码已移除，`mvn test` / `verify` 为空跑，不作为通过标准。
@@ -406,18 +452,19 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 本轮完成的是**目录结构与公共能力的低风险对齐**：把散落的通用字面值收敛到若依约定位置、
 用包级说明与目录规范固化职责边界、修正文档漂移、统一版本管理、归位前端样式文件。
 后续追加 `scripts/check-directory.py` 把这些约定从「文档要求」升级为可执行守护，并逐步扩展到
-**D1–D13**：新增包根 / 模块、配置散落到非启动模块、根级 CSS 复活、规范文档索引漏挂或死链、
+**D1–D14**：新增包根 / 模块、配置散落到非启动模块、根级 CSS 复活、规范文档索引漏挂或死链、
 子模块写死版本、main/test 源码树长出新的一级目录、测试期配置越界，以及
-**新增 Mapper XML / `mapper/` 目录或删除 `SqlTables.java`**（D13）都会阻断；脚本只读、
+**新增 Mapper XML / `mapper/` 目录或删除 `SqlTables.java`**（D13）、
+**`src/views/` 根重新散落 `*.vue`**（D14）都会阻断；脚本只读、
 不参与编译与运行时。`test_check_directory.py` 早期用例曾随精简移除，2026-11-10 已重建为
-29 例并纳入统一门禁，2026-11-11 随 D13 扩为 33 例。
+29 例并纳入统一门禁，2026-11-11 随 D13 扩为 33 例、随 D14 扩为 37 例。
 又补齐两处门禁闭环：修复 `scripts/check-api-contract.py` 在 14 模块拆分后仍指向单体
 `ROOT/src/main/java` 的过期目录假设（后端扫描恒为空、197 条前端调用全为假阳性，现按
 `scaffold-*/src/main/java` 自动发现源码根），并新增 `scripts/check-all.py` 统一门禁入口，
 把约定 / 目录 / 契约 / 校验器单测编排成一次可复现运行（历史「全量 86 例」口径已失效）。
 2026-11-10 起统一门禁为 **7 步**，新增 P1 权限码一致性硬性步骤；现存行为回归
-**96 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
-`test_check_permission.py` 12 + `test_check_directory.py` 33 +
+**100 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
+`test_check_permission.py` 12 + `test_check_directory.py` 37 +
 `test_check_api_contract.py` 33），由 `unittest discover` 自动发现，新增 `test_*.py` 无需改编排。
 若依的响应体命名、Controller 集中、包根重命名、接口前缀命名等属于**契约级或大规模搬迁**差异，
 在不改变接口行为与避免无关重写的约束下明确保留，并集中于本文件说明，供后续版本按独立变更评估。
@@ -479,7 +526,14 @@ P2-3 五模块 **139 个 Java 文件全部收敛**，批次 8–12 共 10 笔独
 目录未被 git 追踪、假绿已闭环。新增第 12–15 项刻意偏离，P3 八项不扩容。
 至此原始清单 §2 全部结论均已有明文档案或可执行守护。
 
-### 当前终态（截至 §2 散落结论成文批次）
+**2026-11-11 刻意偏离复核批次（收官）**：对 §3.1 / §3.2 / §3.7 / §3.8 的 **15 项登记**
+逐条重验，发现第 12 / 13 项取证错误（详见 §3.9）：① 7 个 `remove` 端点与 7 个 Service
+删除方法归一为 `delete`；② 4 个 `views/` 根级 View 归位到 `auth/` · `dashboard/` ·
+`job/` · `codegen/`，「不统一 `router.path` 单复数」维持为偏离；③ 新增
+`check-directory.py` 的 **D14** 硬性门禁与 4 例行为回归（33 → 37 例，全仓 96 → 100 例）。
+至此正式编号、§2 正文、文末附录与全部偏离登记均已完成复核，无未处置条目。
+
+### 当前终态（截至刻意偏离复核批次）
 
 本节上方各批次段落按时间顺序记录当时的推进状态，其中「剩余 / 余下 / 待确认」等措辞均指
 该批次收口时的快照，**不代表当前仍有待办**。《若依规范对齐差异清单与重构方案_20261109.md》
@@ -488,10 +542,12 @@ P1-4 经逐文件复核判定不落地，登记为第 9 项刻意偏离（见 §
 `docs/NAMING.md` §6.3）；P3 八项在 §3.1 登记为「明确不做」。文末「附：取证局限」
 另由 §3.7 全量复核收口，派生出 V85 表名归一、15 处 `@Slf4j` 统一、`USAGE.md` 口径修正
 三项落地与第 10 / 11 项偏离登记；§2 正文残余的 6 处散落结论由 §3.8 成文收口，
-派生出 D13 门禁与第 12–15 项偏离登记。**原始清单已无未处置条目**。
+派生出 D13 门禁与第 12–15 项偏离登记；再由 §3.9 对 15 项偏离登记逐条重验，纠正
+第 12 / 13 项误判（删除动词归一 + 4 个 View 归位）并新增 D14 门禁。
+**原始清单已无未处置条目**。
 
-当前校验口径：统一门禁 **7 步**（硬性项全部 `EXIT=0`，`directory` 步骤含 D1–D13）、
-行为回归 **96 例全绿**、D12 **56 个子域簇 / 6 个模块**、SQL 迁移 **V32~V85 共 53 个**、
+当前校验口径：统一门禁 **7 步**（硬性项全部 `EXIT=0`，`directory` 步骤含 D1–D14）、
+行为回归 **100 例全绿**、D12 **56 个子域簇 / 6 个模块**、SQL 迁移 **V32~V85 共 53 个**、
 后端根聚合 POM 15 个 reactor 项编译 BUILD SUCCESS。契约门禁为信息性步骤，稳定输出
 `matched=196 / backend_only=180 / frontend_only=1`，唯一 `GET /v3/api-docs` 为既有已知风险。
 

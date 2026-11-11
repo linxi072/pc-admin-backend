@@ -138,18 +138,23 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
 | 前端 api 文件 | `src/api/*.js`，camelCase（如 `oauth2Token.js`） | 若依 `src/api/system/user.js` |
 | 前端视图 / 路由 name | 主形态 `views/{模块}/XxxView.vue`（PascalCase + `View` 后缀）；`router.name` 小写 camelCase；`router.path` 单数 kebab 为主、复数并存 | 若依 `views/system/user/index.vue` + PascalCase `name` |
 
-**现状校正（2026-11-11 实测）**：本行原写作 `views/{Module}XxxView.vue`，与磁盘不符 —— 实际除
-`views/system/` 等模块目录外，仍有 **4 个历史根级视图**
-`LoginView.vue` / `WorkbenchView.vue` / `JobListView.vue` / `CodegenView.vue`
-直接放在 `src/views/` 根，各自对应 `router/index.js` 中唯一的动态 import；
-`router.path` 的复数形态也远不止原清单所记的 2 处（`system/notification-templates`、
-`-records`、`system/tenants`、`system/oauth2-tokens` 等）。二者均属**刻意保留的历史形态**，
-不归位、不统一单复数（理由见 `docs/RUOYI-ALIGNMENT.md` §3.8 第 13 项）。
-已修复的两处命名残留：`oauth2token.js` → `oauth2Token.js`（camelCase）、
+**现状校正（2026-11-11 实测，同日复核归位）**：本行原写作 `views/{Module}XxxView.vue`，
+与磁盘不符，已校正为 `views/{模块}/XxxView.vue`。此前确有 **4 个历史根级视图**
+（`LoginView.vue` / `WorkbenchView.vue` / `JobListView.vue` / `CodegenView.vue`）直接放在
+`src/views/` 根；复核后确认「归位会动菜单 `component_path` 与路由可见行为」的理由不成立
+（种子 `component_path` 全为 `NULL`、前端零消费；归位只改 `router/index.js` 的动态 import），
+已于 2026-11-11 归位到 `auth/` · `dashboard/` · `job/` · `codegen/` 四个特性目录，并由
+`check-directory.py` **D14** 硬性守护「`views/` 根不得散落 `*.vue`」。
+另两处命名残留亦已修复：`oauth2token.js` → `oauth2Token.js`（camelCase）、
 `NotificationTemplate.vue` → `NotificationTemplateView.vue`（补 `View` 后缀）。
 
-> 上述差异均为**已声明偏离**，改造成本高于收益（涉及 `api-contract.json`、
-> 58 张表、69 个前端 api 文件与全量角色授权）。详见 `docs/RUOYI-ALIGNMENT.md` §3。
+**仍刻意保留**：`router.path` 的单复数混用（复数形态远不止原清单所记的 2 处：
+`system/notification-templates`、`-records`、`system/tenants`、`system/oauth2-tokens` 等）。
+改 URL 会同时破坏历史书签与后端菜单 `route_path`，复数已是当前主流，故不统一
+（第 13 项偏离，见 `docs/RUOYI-ALIGNMENT.md` §3.8 / §3.9）。
+
+> 表中其余差异均为**已声明偏离**，改造成本高于收益（涉及 `api-contract.json`、
+> 58 张表、68 个前端 api 文件与全量角色授权）。详见 `docs/RUOYI-ALIGNMENT.md` §3。
 
 **刻意例外（P1-4 复核，2026-11-10）**：5 个「个人域 / 免登录」端点使用顶级 `/api/...`
 而非 `/api/system/...`，属**有意偏离**（区分管理域与个人域、避免与管理员面通知模板混淆；
@@ -179,16 +184,20 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
    `updateXxx` / `deleteXxxById` 等 CRUD 式命名。
 2. Service 层允许 `getView` / `codes` / `save` 等领域语义词，不要求与 Controller 同名；
    但不得出现 `select*List` / `insert*` / `*ById` 这类以持久化操作为中心的名字。
-3. 存量方法**不主动重命名**：改名虽不动 HTTP 路径与响应体，但会牵动调用方、
-   `@AuditOperation` 文案与排查索引，收益仅为风格一致。
+3. 存量删除动词已于 2026-11-11 全量归一为 `delete`（7 个 Controller + 7 个 Service
+   方法，见 `RUOYI-ALIGNMENT.md` §3.9）；其余存量方法仍不主动重命名 —— 改名虽不动
+   HTTP 路径与响应体，仍需逐处核对调用方。复合领域动词（`removeMember` /
+   `removeUserPosts` 表达「移除关联 / 成员」而非「按 id 删除实体」）不在本节约束范围。
 
-**实测（2026-11-11）**：全仓 Controller 中 `getInfo` / `add` / `edit` **零命中**；
-`remove(...)` 共 **7 处**（`JobController` 及 `system` 的
+**实测（2026-11-11，偏离复核批次后）**：全仓 Controller 中 `getInfo` / `add` / `edit`
+**零命中**；此前 7 处 `remove(...)` 历史混用（`JobController` 及 `system` 的
 `TenantController` / `FormDefinitionController` / `FormSubmissionAdminController` /
-`OpenApiClientController` / `MaskStrategyController` / `NotificationTemplateController`），
-是删除动词的历史混用孤群。它们只影响 Java 方法名，`@DeleteMapping("/{id}")` 路径、
-`@PreAuthorize` 权限码、`@AuditOperation` 与响应字段均未受影响，判定为**刻意保留**
-（第 12 项偏离，见 `RUOYI-ALIGNMENT.md` §3.8）；新代码删除方法统一用 `delete`。
+`OpenApiClientController` / `MaskStrategyController` / `NotificationTemplateController`）
+已连同 7 个 Service 删除方法（含 `FormSubmissionService.removeSubmission` →
+`deleteSubmission`）统一改名。改名只动 Java 方法名与仓内同层调用点，
+`@DeleteMapping("/{id}")` 路径、`@PreAuthorize` 权限码、`@AuditOperation` 注解与
+响应字段全部未变。全仓 CRUD 端点的删除动词现为 `delete` 单一形态；第 12 项偏离
+已收窄为「不把主流 REST 动词改成若依 CRUD 动词」，不再包含任何存量不一致。
 
 ### 6.5 新增 SQL 的唯一写法（评审规则）
 

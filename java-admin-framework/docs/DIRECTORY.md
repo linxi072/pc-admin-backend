@@ -3,7 +3,7 @@
 > 适用范围：`java-admin-framework/`（14 个 Maven 模块）与 `pc-admin-vue3-vite/src/`。
 > 权威判据：根 `pom.xml` 的 `<modules>`、`scripts/check-conventions.py`（H1–H5 / W1–W4）、
 > `scripts/api-contract.json`（交互契约）、`scripts/check-api-contract.py`（前后端契约）、
-> `scripts/check-directory.py`（D1–D13 目录约定，含 D13 数据访问层单一写法）、
+> `scripts/check-directory.py`（D1–D14 目录约定，含 D13 数据访问层单一写法与 D14 前端视图落位）、
 > `scripts/check-cluster-layout.py`（D12 子域簇结构与本文档 §4 表一致性）；
 > 统一执行入口 `scripts/check-all.py`。
 > 本文档只描述**目录与包的归属约定**，模块职责见 [MODULES.md](MODULES.md)，
@@ -16,13 +16,13 @@ java-admin-framework/
 ├── pom.xml                     父 POM：仅聚合 + 版本管理（子模块不写第三方版本号）
 ├── scripts/                    约定校验与交互契约（不参与编译）
 │   ├── check-conventions.py    H1–H5 / W1–W4：包级环 / 重复 FQN / 依赖方向 / 数据类 / 模块 DAG
-│   ├── check-directory.py      D1–D13 目录约定守护（D13：无 Mapper XML / DSL 入口常在）
+│   ├── check-directory.py      D1–D14 目录约定守护（D13：无 Mapper XML / DSL 入口常在；D14：views 根无 *.vue）
 │   ├── check-cluster-layout.py D12：§4 子域簇表 ≡ 磁盘现状（文件数 / 层集合 / DO 落位）
 │   ├── check-permission.py     P1：菜单权限码 ⊆ 接口权限码（注解 / sys_api_resource 种子）
 │   ├── check-api-contract.py   前后端接口契约静态对称（多模块源码根扫描）
 │   ├── check-all.py            统一门禁入口：编排上述各项 + scripts 单测
 │   ├── api-contract.json       统一响应 Result<T> 字段口径的唯一事实来源
-│   └── test_*.py               校验器行为回归 96 例（naming / cluster-layout / permission / directory / api-contract）
+│   └── test_*.py               校验器行为回归 100 例（naming / cluster-layout / permission / directory / api-contract）
 ├── docs/                       架构与规范文档（本目录，全部须挂 docs/README.md 索引）
 └── scaffold-<name>/            14 个模块，目录结构统一
     ├── pom.xml
@@ -284,12 +284,12 @@ legacy 的全局 `controller/` `service/` `dto/` `entity/` `rules/` 五个扁平
 ```
 pc-admin-vue3-vite/src/
 ├── main.js / App.vue            应用入口
-├── api/                        约 69 个平铺 JS 文件：API 客户端 + http.js（统一请求封装）
+├── api/                        68 个平铺 JS 文件：API 客户端 + http.js（统一请求封装）
 ├── router/  store/  layout/    路由 / 状态 / 外壳
 ├── components/                 跨页面共享组件
 ├── composables/  utils/  i18n/ 组合式函数 / 工具 / 国际化（__tests__/ 目录当前为空）
 ├── styles/                     base.css（全局基础）+ theme-tokens.css + element-theme.css
-├── views/                      13 个特性目录（system / workflow / monitor / oauth2 / ...）
+├── views/                      16 个特性目录（system / workflow / monitor / oauth2 / ...）
 └── micro-apps/                 微前端示例（hello / notes）
 ```
 
@@ -301,10 +301,17 @@ pc-admin-vue3-vite/src/
 前端落位约定：HTTP 请求一律放 `src/api`，经 `src/api/http.js` 的 axios 实例统一注入
 鉴权头与拆包（`apiDoc.js` 另有独立实例，仅用于拉取 OpenAPI JSON，不参与业务请求）；
 页面放 `views/<特性>/`；可复用逻辑放 `composables/` 或 `utils/`。
+**D14**：`views/` 根只允许特性目录，不得直接放 `*.vue`。归位页面只需同步
+`router/index.js` 里唯一的动态 `import()` 路径 —— `path` / `name` / `meta` / 权限码与
+菜单 `route_path` 均不变（`component_path` 种子全为 `NULL`、前端亦不消费），页面内部
+import 一律用 `@/` alias，无相对路径风险。2026-11-11 已把 4 个历史根级 View 全部归位：
+`LoginView.vue` → `auth/`、`WorkbenchView.vue` → `dashboard/`、
+`JobListView.vue` → `job/`、`CodegenView.vue` → `codegen/`（按各页主 API 模块 /
+后端模块归位；工作台与 `/dashboard` 路由同属仪表盘特性，归既有 `dashboard/`）。
 当前 4 个 `src/**/__tests__/` 目录为空、前端无 `node:test` 用例，`package.json` 已移除
 失效的 `test` 脚本；前端门禁改用 `check-sfc.mjs` / `i18n-leak-scan.mjs` / `vite build`。
 
-> `src/api` 采用平铺而非若依的 `api/system/*.js` 分子目录。分目录需同步改 69 个文件与
+> `src/api` 采用平铺而非若依的 `api/system/*.js` 分子目录。分目录需同步改 68 个文件与
 > 全部 import，属大规模搬迁，保留并在差异文档说明。
 
 ## 6. 禁止事项
@@ -319,7 +326,9 @@ pc-admin-vue3-vite/src/
 8. 不在 `scaffold-system` 根级重建 `controller/` / `service/` / `dto/` / `entity/` / `rules/`
    扁平包（2026-11-09 已全量打散并删除）；新类一律按 §4 归入对应子簇的分层目录；
 9. 不新增 `src/main/resources/mapper/` 目录、`*Mapper.xml` 或 `@Mapper` 接口，不在 Java 里
-   硬编码表名 / 列名字符串（D13 阻断前两者，评审口径见 `docs/NAMING.md` §6.5）。
+   硬编码表名 / 列名字符串（D13 阻断前两者，评审口径见 `docs/NAMING.md` §6.5）；
+10. 不在 `src/views/` 根直接放 `*.vue`（D14 阻断）；页面归位时须同步
+    `router/index.js` 的动态 `import()` 路径，但不改任何路由可见行为。
 
 ## 7. 守护机制
 
@@ -327,25 +336,25 @@ pc-admin-vue3-vite/src/
 |---|---|
 | 包级环 / 重复 FQN / 分层 / 数据类 / 模块 DAG（H1–H5 / W1–W4） | `python3 scripts/check-conventions.py`（EXIT=0） |
 | 标识符命名约定 N1–N4 | `python3 scripts/check-naming.py`（EXIT=0），行为回归 `scripts/test_check_naming.py` 4 例 |
-| 目录结构约定 D1–D13 | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 33 例 |
+| 目录结构约定 D1–D14 | `python3 scripts/check-directory.py`（EXIT=0），行为回归 `scripts/test_check_directory.py` 37 例 |
 | 子域簇结构与 §4 表一致 D12 | `python3 scripts/check-cluster-layout.py`（EXIT=0，多模块逐表校验），行为回归 `scripts/test_check_cluster_layout.py` 14 例 |
 | 菜单权限码 ↔ 接口权限码一致 P1 | `python3 scripts/check-permission.py`（EXIT=0），行为回归 `scripts/test_check_permission.py` 12 例；规则详见 `docs/NAMING.md` §6 |
 | 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 33 例 |
 | 统一响应与错误码字段口径 | `scripts/api-contract.json`（唯一事实来源）+ `scripts/check-api-contract.py`（路由静态对称）；`ApiContractConsistencyTest` / `result.test.js` / `CommonConstantsTest` 均为已移除的历史测试资产 |
 | 前端目录与构建可解析 | `node scripts/check-sfc.mjs <file.vue>` + `node scripts/i18n-leak-scan.mjs src` + `npx vite build`（`npm test` 当前不可用） |
-| 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（96 例） |
+| 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（100 例） |
 
 **统一门禁入口**：`python3 scripts/check-all.py` 把 `check-conventions.py`（硬性）、
 `check-naming.py`（硬性）、`check-directory.py`（硬性）、`check-cluster-layout.py`（硬性）、
 `check-permission.py`（硬性）、`check-api-contract.py`（信息性，不阻断）与
-`scripts/test_*.py` 行为回归（硬性，当前 **96 例**）编排成一次运行，共 **7 步**，
+`scripts/test_*.py` 行为回归（硬性，当前 **100 例**）编排成一次运行，共 **7 步**，
 逐项打印 EXIT 与耗时；硬性项任一失败返回 `EXIT=1`，仅信息性项失败返回
 `EXIT=0` 但列出风险提示。常用参数：`--only conventions,directory`、`--skip-tests`、
 `--quiet`；受限环境（沙箱阻止 `tempfile` 默认目录探测）加 `--test-tmpdir <dir>`。
 新增 `scripts/test_*.py` 由 `unittest discover` 自动发现，无需改编排。
 各步骤仍可单独执行，本脚本只做编排、不改文件、不参与编译与运行时。
 
-D1–D13 一览（详见 `scripts/check-directory.py` 与 `scripts/check-cluster-layout.py` 文件头 docstring）：
+D1–D14 一览（详见 `scripts/check-directory.py` 与 `scripts/check-cluster-layout.py` 文件头 docstring）：
 
 | 编号 | 守护内容 |
 |---|---|
@@ -362,6 +371,7 @@ D1–D13 一览（详见 `scripts/check-directory.py` 与 `scripts/check-cluster
 | D11 | `src/test/resources` 仅 admin 可持 `application*.yml` / `logback*.xml`（当前测试资源已移除） |
 | D12 | §4「子域簇一览」表 ≡ 磁盘现状：每簇文件数、二级层集合、各层子目录集合双向一致；DO 不得直挂 `domain/`；簇根不得重建 `controller/` `service/` `entity/` `rules/` `port/` 扁平包 |
 | D13 | **数据访问层单一写法**：任一模块 `src/main/resources/` 下不得出现 `mapper/` 目录或 `*Mapper.xml`；`scaffold-common/.../mybatis/dsl/SqlTables.java` 必须存在。只查路径、零内容扫描、不按 `*Mapper.java` 文件名匹配（4 个合法类均非 MyBatis Mapper） |
+| D14 | **前端视图归位**：`src/views/` 必须存在，且根级不得有 `*.vue`；页面一律放 `views/<特性>/`。只查根级扩展名、不递归、不读内容、不登记特性目录白名单（新增特性目录无需改脚本） |
 
 新增目录 / 包后必须同步更新本文档、`docs/MODULES.md` **与 `scripts/check-directory.py` 的
 `EXPECTED_ROOTS` 白名单**，否则目录校验会阻断（D1）；新增 main/test 一级目录还须同步
