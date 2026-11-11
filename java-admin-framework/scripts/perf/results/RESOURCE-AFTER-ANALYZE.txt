@@ -1,7 +1,0 @@
-sys_login_log|dataMB=50.6|indexMB=70.8|rows=396570
-sys_message|dataMB=25.6|indexMB=4.5|rows=98490
-sys_message_receipt|dataMB=19.5|indexMB=42.7|rows=299040
-sys_monitor_sample|dataMB=10.5|indexMB=3.5|rows=99450
-sys_notification_record|dataMB=26.6|indexMB=28.6|rows=198420
-sys_operation_log|dataMB=1947.0|indexMB=1294.8|rows=12661680
-sys_user|dataMB=23.6|indexMB=18.1|rows=98555
