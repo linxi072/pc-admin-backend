@@ -88,7 +88,7 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
 
 > 本节固化 `若依规范对齐差异清单与重构方案_20261109.md` 的落地结论。
 > N1–N4 只管**大小写风格**；本节管**用词与取值口径**，由
-> `scripts/check-permission.py`（P1）与人工评审共同守护。
+> `scripts/check-permission.py`（P1）、`scripts/check-directory.py`（D13）与人工评审共同守护。
 
 ### 6.1 同义词收敛表
 
@@ -136,10 +136,20 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
 | 菜单字段 | `menu_code` / `route_path` / `component_path` / `permission_code` / `keep_alive` / `menu_type=CATALOG\|MENU` | 若依 `path` / `component` / `perms` / `is_cache` / `M\|C\|F` |
 | URL | `/api/system/{复数资源}`（kebab 连字符）；新增端点沿用，不改存量 | 若依 `/system/user/list`（无 `/api`、单数、动作式） |
 | 前端 api 文件 | `src/api/*.js`，camelCase（如 `oauth2Token.js`） | 若依 `src/api/system/user.js` |
-| 前端视图 / 路由 name | `views/{Module}XxxView.vue`（PascalCase + `View` 后缀）；`name` 小写 camelCase | 若依 `views/system/user/index.vue` + PascalCase `name` |
+| 前端视图 / 路由 name | 主形态 `views/{模块}/XxxView.vue`（PascalCase + `View` 后缀）；`router.name` 小写 camelCase；`router.path` 单数 kebab 为主、复数并存 | 若依 `views/system/user/index.vue` + PascalCase `name` |
+
+**现状校正（2026-11-11 实测）**：本行原写作 `views/{Module}XxxView.vue`，与磁盘不符 —— 实际除
+`views/system/` 等模块目录外，仍有 **4 个历史根级视图**
+`LoginView.vue` / `WorkbenchView.vue` / `JobListView.vue` / `CodegenView.vue`
+直接放在 `src/views/` 根，各自对应 `router/index.js` 中唯一的动态 import；
+`router.path` 的复数形态也远不止原清单所记的 2 处（`system/notification-templates`、
+`-records`、`system/tenants`、`system/oauth2-tokens` 等）。二者均属**刻意保留的历史形态**，
+不归位、不统一单复数（理由见 `docs/RUOYI-ALIGNMENT.md` §3.8 第 13 项）。
+已修复的两处命名残留：`oauth2token.js` → `oauth2Token.js`（camelCase）、
+`NotificationTemplate.vue` → `NotificationTemplateView.vue`（补 `View` 后缀）。
 
 > 上述差异均为**已声明偏离**，改造成本高于收益（涉及 `api-contract.json`、
-> 51 张表、69 个前端 api 文件与全量角色授权）。详见 `docs/RUOYI-ALIGNMENT.md` §3。
+> 58 张表、69 个前端 api 文件与全量角色授权）。详见 `docs/RUOYI-ALIGNMENT.md` §3。
 
 **刻意例外（P1-4 复核，2026-11-10）**：5 个「个人域 / 免登录」端点使用顶级 `/api/...`
 而非 `/api/system/...`，属**有意偏离**（区分管理域与个人域、避免与管理员面通知模板混淆；
@@ -147,4 +157,69 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
 完整清单与不新增前缀别名的四条理由见 `docs/RUOYI-ALIGNMENT.md` §3.2。
 新增端点仍以 `/api/system/{复数资源}` 为默认；仅当确属「当前用户自身数据」或
 「免登录外部链接」时可用顶级前缀，且必须在 Controller javadoc 写明理由。
+
+### 6.4 方法命名语义：REST（本仓）vs CRUD（若依）
+
+> 固化原始清单 §2.2.2 的「属可保留差异，**但需成文**」结论。N1–N4 只约束大小写，
+> 本节约束**动词用词**，由人工评审守护（语义无法静态判定，不新增机器规则）。
+
+| HTTP | 本仓 Controller | 本仓 Service | 若依 Controller | 若依 Service |
+|---|---|---|---|---|
+| `GET` 集合 | `list` | `list` / `page` | `list` | `selectXxxList` |
+| `GET` 单个 | `get` | `getView` / `get` | `getInfo` | `selectXxxById` |
+| `POST` | `create` | `create` / `save` | `add` | `insertXxx` |
+| `PUT` / `PATCH` | `update` | `update` / `save` | `edit` | `updateXxx` |
+| `DELETE` | `delete` | `delete` | `remove` | `deleteXxxById` |
+
+**规则**：
+
+1. 新增 Controller / Service 方法一律用「本仓」列，与 §6.2 的权限码动作词
+   `read / create / update / delete`、URL 复数资源、HTTP 方法三者同构；
+   **不引入** `getInfo` / `add` / `edit` / `selectXxxList` / `insertXxx` /
+   `updateXxx` / `deleteXxxById` 等 CRUD 式命名。
+2. Service 层允许 `getView` / `codes` / `save` 等领域语义词，不要求与 Controller 同名；
+   但不得出现 `select*List` / `insert*` / `*ById` 这类以持久化操作为中心的名字。
+3. 存量方法**不主动重命名**：改名虽不动 HTTP 路径与响应体，但会牵动调用方、
+   `@AuditOperation` 文案与排查索引，收益仅为风格一致。
+
+**实测（2026-11-11）**：全仓 Controller 中 `getInfo` / `add` / `edit` **零命中**；
+`remove(...)` 共 **7 处**（`JobController` 及 `system` 的
+`TenantController` / `FormDefinitionController` / `FormSubmissionAdminController` /
+`OpenApiClientController` / `MaskStrategyController` / `NotificationTemplateController`），
+是删除动词的历史混用孤群。它们只影响 Java 方法名，`@DeleteMapping("/{id}")` 路径、
+`@PreAuthorize` 权限码、`@AuditOperation` 与响应字段均未受影响，判定为**刻意保留**
+（第 12 项偏离，见 `RUOYI-ALIGNMENT.md` §3.8）；新代码删除方法统一用 `delete`。
+
+### 6.5 新增 SQL 的唯一写法（评审规则）
+
+> 固化原始清单 §2.6 结论：「仅需在文档中固化本仓不使用 Mapper XML，并在**评审规则**中
+> 写明新增 SQL 的唯一写法」。原 §3.1 第 3 项只登记了「不做」，本条补齐合入准则。
+
+**架构事实**：本仓已移除 jOOQ 与 Flyway，数据访问层的唯一事实来源是自研 MyBatis 风格 DSL
+`com.acme.scaffold.mybatis.dsl`（`SqlTables` / `SqlWriters` / `SqlSorts` / `FetchSupport` /
+`KeysetPager` 等），全仓 **0 个 `@Mapper` 接口、0 个 Mapper XML**。回退到 XML 映射等于重写
+数据访问层，属架构级差异，已登记为 P3 第 3 项「明确不做」。
+
+**新代码 / 新 SQL 的唯一写法**（评审 checklist，逐条必过）：
+
+1. **表与列**：一律通过 `SqlTables.SYS_Xxx` 的 `TableRef` 与
+   `field("col", Type.class)` 引用；新增表先在 `SqlTables` 登记常量，
+   **禁止**在 Java 代码里硬编码表名 / 列名字符串字面量。
+2. **读写与排序**：走 `SqlWriters` / `SqlSorts` / `FetchSupport` / `KeysetPager`；
+   动态条件用 DSL 的 `DynamicSqlProvider` 等既有能力，**禁止**拼接 SQL 字符串。
+3. **禁止新增**：`src/main/resources/mapper/` 目录、`*Mapper.xml`、`@Mapper` 接口，
+   以及任何第二套 SQL 组织方式。`D13` 会在门禁里硬性阻断前两者（见下）。
+4. **DDL**：只以 `db/migration/V{N}__*.sql` **前向追加**，已发布版本文件字节不可变；
+   新增后重跑 `scripts/build_reference_modular.py` 同步 `db/init/01_full_schema.sql`
+   与 `db/reference/{schema_ddl,data_dml}.sql` 三份派生件，并同步 `SqlTables` 表名串。
+
+> ⚠️ **不得按文件名匹配 `*Mapper.java` 做门禁**：全仓 4 个合法同名类均非 MyBatis Mapper ——
+> `mybatis/dsl` 的 `RecordMapper` / `DynamicMapper` / `SnakeRecordMapper` 是 DSL 行映射内部类，
+> `codegen` 的 `JavaTypeMapper` 是代码生成的类型映射表。按文件名一刀切会误伤并阻断编译。
+
+**门禁 `D13`**（`scripts/check-directory.py`，第 3 步 `directory` 硬性步骤）：
+只做路径级检查、零内容扫描、不读 Java 源码 —— ① 任一模块 `src/main/resources/` 下出现
+`mapper/` 目录或 `*Mapper.xml` 即阻断；② `scaffold-common/.../mybatis/dsl/SqlTables.java`
+必须存在（DSL 单一入口不被删除或改名）。行为回归 `scripts/test_check_directory.py` 覆盖
+「目录 / XML / 常量缺失」三类违规与「合法 `*Mapper.java` 不误伤」一类豁免。
 

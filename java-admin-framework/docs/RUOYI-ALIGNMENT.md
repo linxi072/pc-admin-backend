@@ -328,6 +328,38 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 | 10 | 删除 `CreateGroup` / `UpdateGroup` 零引用死代码 | 二者是 `scaffold-common` 对外暴露的 Bean Validation 分组契约；仓内零引用不等于无下游使用，删除属公共 API 破坏。已在类 javadoc 明示零引用状态与保留理由 |
 | 11 | 补齐 `v-hasPermi` / `utils/permission.js` 按钮级权限指令 | 需前端权限模型 + 菜单按钮种子 + 40+ 视图改造，属架构级新增能力而非规范对齐；建议单独立项 |
 
+### 3.8 §2 散落结论成文（2026-11-11 追加批次）
+
+§7 的 12 个编号与文末「附：本次取证的局限」已在前述批次全部处置，但 **§2 正文**
+仍有 6 处写着「需成文 / 仅需在文档中固化 / 待确认」却从未进入 §7 清单的散落结论，
+此前各批次未给处置。本批次逐项取证并收口（**实测，非设计预期**）：
+
+| # | 原始出处 | 实测结论 | 处置 |
+|---|---|---|---|
+| 1 | §2.2.2 方法命名「属可保留差异，**但需成文**」 | 本仓 Controller 主流 `list/get/create/update/delete`，`getInfo` / `add` / `edit` 全仓零命中；`remove(...)` 有 7 处历史混用（`JobController` + 6 个 `system` Controller），均只影响 Java 方法名 | 成文 `docs/NAMING.md` **§6.4** 的 REST 动词映射表与「新代码统一 / 存量不动」条款；登记第 12 项偏离 |
+| 2 | §2.6「仅需在文档中固化本仓不使用 Mapper XML，并在**评审规则**中写明新增 SQL 的唯一写法」 | 全仓 0 个 `@Mapper` 接口、0 个 Mapper XML；但存在 4 个合法 `*Mapper.java`（DSL 行映射内部类 3 + 代码生成类型映射 1），**文件名匹配会误伤** | 成文 `docs/NAMING.md` **§6.5** 的四条评审 checklist；并把纸面结论升级为 `check-directory.py` 的 **D13 硬性门禁**（只查 `mapper/` 目录与 `*Mapper.xml` 路径 + 断言 `SqlTables.java` 存在） |
+| 3 | §2.8 O-2 `db/migration` 为 Flyway 遗留目录名、易误导 | Flyway 运行期确已移除；该目录现为 53 个版本文件的「版本化结构源」、`build_reference_modular.py` 的输入，改名会断历史可追溯性与三份派生件路径 | 在 `db/migration/README.md` 补「目录名沿革」说明；登记第 14 项偏离（不改为若依的 `sql/`） |
+| 4 | §2.2.4「`sys_oauth` 名称过泛」 | **全仓不存在 `sys_oauth` 表**：实际为 `sys_openapi_client`（V48）、`sys_oauth2_token`（V64）、`sys_oauth2_consent`（V68）三张命名精确的表；原结论系当时检索快照的表述误差 | 取证更正，无需改表；在 `docs/NAMING.md` §6.3 以 58 张表口径替换旧的 51 张快照 |
+| 5 | §2.2.5 views 根 4 个散落 View、路由 name / path 残留 | 4 个根级 `XxxView.vue` 各有 `router/index.js` 唯一动态 import；`oauth2token.js` / `NotificationTemplate.vue` 两处已修；`system/announcement` 已补 `name`，`system/message` 是刻意的 query 保留 redirect；复数 path 已普及（远不止原记 2 处） | 校正 `docs/NAMING.md` §6.3 的 `views/{Module}XxxView.vue` 漂移表述；登记第 13 项偏离 |
+| 6 | §2.8 O-6 空 `__tests__/` 4 目录 + 失效 `npm test` | 4 目录均为空、**git 完全未追踪**（仅工作区残留），`package.json` 的失效 `test` 脚本已删，假绿问题已闭环；空目录不构成仓库内容 | 不删除、不纳入仓库变更；登记第 15 项偏离 |
+
+> **口径说明**：第 4 项是原始清单自身的取证误差，不是「刻意不做」的差异，故不占偏离编号；
+> 本批次把 4 项真正需要「保留 + 说明理由」的结论登记为第 12–15 项。
+
+**新增偏离登记**（承接 §3.7 第 10 / 11 项；§3.1 的 P3 八项不扩容）：
+
+| # | 项 | 不做理由 |
+|---|---|---|
+| 12 | 把 Controller / Service 方法改为若依 CRUD 命名（`getInfo` / `add` / `edit` / `remove`） | REST 动词已与权限码动作词、HTTP 方法、URL 复数资源成体系；改名不动契约但牵动调用方与审计文案，零功能收益。7 处存量 `remove` 与新代码 `delete` 的边界已在 `NAMING.md` §6.4 写明 |
+| 13 | 把 `views/` 根 4 个 `XxxView.vue` 归位到模块目录并统一 `router.path` 单复数 | 归位需同步 router 动态 import 与菜单 `component_path` 字符串，属纯搬迁且会动路由可见行为；复数形态已是当前主流，强行改回单数才是破坏性变更 |
+| 14 | `db/migration/` 改名为若依的 `sql/` | 纯形式改动，但会切断 53 个版本文件的历史可追溯性、生成脚本输入路径与三份派生 SQL 中的版本注释；已在 README 写明「Flyway 遗留命名 / 当前语义为版本化结构源」消除误导 |
+| 15 | 删除 4 个空 `__tests__/` 目录 | 目录为空且 git 未追踪，删除只是本机清理、不产生仓库变更；失效 `npm test` 脚本移除后已无假绿风险。待前端单测立项时直接复用占位即可 |
+
+**D13 的边界**：它是 §2.6「评审规则」的可执行化，而非新的风格偏好 —— 规则只断言
+路径形态与 `SqlTables.java` 存在性，**零内容扫描、不读 Java 源码、不按 `*Mapper.java`
+文件名匹配**，因此不会误伤 DSL 内部类，也不增加门禁耗时。行为回归
+`test_check_directory.py` 由 29 例增至 **33 例**，全仓 `script-tests` 由 **92 例增至 96 例**。
+
 ## 4. 回归验证要点
 
 > **状态说明（2026-11-10）**：后端测试源码已于 `087acdb` 全量移除，前端 4 个
@@ -341,8 +373,8 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
    directory / cluster-layout / permission / api-contract（信息性）/ script-tests），
    硬性项全部 `EXIT=0`；受限环境加 `--test-tmpdir <dir>`。
 2. **行为回归**：`python3 -m unittest discover -s scripts -p "test_*.py"`，当前
-   **92 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
-   `test_check_permission.py` 12 + `test_check_directory.py` 29 +
+   **96 例全绿**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
+   `test_check_permission.py` 12 + `test_check_directory.py` 33 +
    `test_check_api_contract.py` 33）；`check-all.py` 第 7 步即调用该命令。
 3. **编译**：`mvn -o -f pom.xml clean compile`，15 个 reactor 项 BUILD SUCCESS。
    测试源码已移除，`mvn test` / `verify` 为空跑，不作为通过标准。
@@ -374,17 +406,18 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 本轮完成的是**目录结构与公共能力的低风险对齐**：把散落的通用字面值收敛到若依约定位置、
 用包级说明与目录规范固化职责边界、修正文档漂移、统一版本管理、归位前端样式文件。
 后续追加 `scripts/check-directory.py` 把这些约定从「文档要求」升级为可执行守护，并逐步扩展到
-**D1–D11**：新增包根 / 模块、配置散落到非启动模块、根级 CSS 复活、规范文档索引漏挂或死链、
-子模块写死版本、main/test 源码树长出新的一级目录、测试期配置越界都会阻断；脚本只读、
+**D1–D13**：新增包根 / 模块、配置散落到非启动模块、根级 CSS 复活、规范文档索引漏挂或死链、
+子模块写死版本、main/test 源码树长出新的一级目录、测试期配置越界，以及
+**新增 Mapper XML / `mapper/` 目录或删除 `SqlTables.java`**（D13）都会阻断；脚本只读、
 不参与编译与运行时。`test_check_directory.py` 早期用例曾随精简移除，2026-11-10 已重建为
-29 例并纳入统一门禁。
+29 例并纳入统一门禁，2026-11-11 随 D13 扩为 33 例。
 又补齐两处门禁闭环：修复 `scripts/check-api-contract.py` 在 14 模块拆分后仍指向单体
 `ROOT/src/main/java` 的过期目录假设（后端扫描恒为空、197 条前端调用全为假阳性，现按
 `scaffold-*/src/main/java` 自动发现源码根），并新增 `scripts/check-all.py` 统一门禁入口，
 把约定 / 目录 / 契约 / 校验器单测编排成一次可复现运行（历史「全量 86 例」口径已失效）。
 2026-11-10 起统一门禁为 **7 步**，新增 P1 权限码一致性硬性步骤；现存行为回归
-**92 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
-`test_check_permission.py` 12 + `test_check_directory.py` 29 +
+**96 例**（`test_check_naming.py` 4 + `test_check_cluster_layout.py` 14 +
+`test_check_permission.py` 12 + `test_check_directory.py` 33 +
 `test_check_api_contract.py` 33），由 `unittest discover` 自动发现，新增 `test_*.py` 无需改编排。
 若依的响应体命名、Controller 集中、包根重命名、接口前缀命名等属于**契约级或大规模搬迁**差异，
 在不改变接口行为与避免无关重写的约束下明确保留，并集中于本文件说明，供后续版本按独立变更评估。
@@ -437,7 +470,16 @@ delegate 运行时类名字符串**（2 处随包迁移同步）。至此《若�
 P2-3 五模块 **139 个 Java 文件全部收敛**，批次 8–12 共 10 笔独立提交，全部零 HTTP 契约 /
 零表结构 / 零前端改动。
 
-### 当前终态（截至取证收口批次）
+**2026-11-11 §2 散落结论成文批次（收官）**：§7 编号与文末「取证局限」之外，§2 正文另有
+6 处「需成文 / 待确认」未纳入排期的散落结论，本批次逐项取证收口（详见 §3.8）：
+① REST 方法命名成文 `NAMING.md` §6.4；②「新增 SQL 唯一写法」成文 §6.5 **并升级为
+`check-directory.py` 的 D13 硬性门禁**（29 → 33 例回归，全仓 92 → 96 例）；
+③ `db/migration/README.md` 补目录名沿革；④ 更正原清单「`sys_oauth` 名称过泛」的取证误差
+（该表不存在）；⑤ 校正 `NAMING.md` §6.3 的 views 命名口径漂移；⑥ 确认空 `__tests__/`
+目录未被 git 追踪、假绿已闭环。新增第 12–15 项刻意偏离，P3 八项不扩容。
+至此原始清单 §2 全部结论均已有明文档案或可执行守护。
+
+### 当前终态（截至 §2 散落结论成文批次）
 
 本节上方各批次段落按时间顺序记录当时的推进状态，其中「剩余 / 余下 / 待确认」等措辞均指
 该批次收口时的快照，**不代表当前仍有待办**。《若依规范对齐差异清单与重构方案_20261109.md》
@@ -445,11 +487,12 @@ P2-3 五模块 **139 个 Java 文件全部收敛**，批次 8–12 共 10 笔独
 P1-4 经逐文件复核判定不落地，登记为第 9 项刻意偏离（见 §3.2 结论与
 `docs/NAMING.md` §6.3）；P3 八项在 §3.1 登记为「明确不做」。文末「附：取证局限」
 另由 §3.7 全量复核收口，派生出 V85 表名归一、15 处 `@Slf4j` 统一、`USAGE.md` 口径修正
-三项落地与第 10 / 11 项偏离登记。
+三项落地与第 10 / 11 项偏离登记；§2 正文残余的 6 处散落结论由 §3.8 成文收口，
+派生出 D13 门禁与第 12–15 项偏离登记。**原始清单已无未处置条目**。
 
-当前校验口径：统一门禁 **7 步**（硬性项全部 `EXIT=0`）、行为回归 **92 例全绿**、
-D12 **56 个子域簇 / 6 个模块**、SQL 迁移 **V32~V85 共 53 个**、后端根聚合 POM
-15 个 reactor 项编译 BUILD SUCCESS。契约门禁为信息性步骤，稳定输出
+当前校验口径：统一门禁 **7 步**（硬性项全部 `EXIT=0`，`directory` 步骤含 D1–D13）、
+行为回归 **96 例全绿**、D12 **56 个子域簇 / 6 个模块**、SQL 迁移 **V32~V85 共 53 个**、
+后端根聚合 POM 15 个 reactor 项编译 BUILD SUCCESS。契约门禁为信息性步骤，稳定输出
 `matched=196 / backend_only=180 / frontend_only=1`，唯一 `GET /v3/api-docs` 为既有已知风险。
 
 仍需人工决策、不属于代码待办的仅有四项：① V84 / V85 两个表重命名须合并同一停写窗口，

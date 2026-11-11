@@ -1,5 +1,13 @@
 # 版本化结构源索引（db/migration/）
 
+> **目录名沿革（O-2，2026-11-11 补注）**：`migration` 是 Flyway 时代的遗留命名，容易让人误以为
+> 启动期会自动执行迁移或维护 `flyway_schema_history`。当前语义已降为「**版本化结构源 / 历史记录**」：
+> 本目录只作为 `scripts/build_reference_modular.py` 的输入，由 DBA 手工执行 `db/init/` 下的
+> 派生脚本完成初始化，应用启动**不会**读取本目录。刻意**不改名**为若依所用的 `sql/` —— 改名
+> 会同时切断 53 个版本文件的历史可追溯性、生成脚本的输入路径，以及 `db/init/01_full_schema.sql`
+> 与 `db/reference/{schema_ddl,data_dml}.sql` 三份派生件中的版本注释；纯形式改动，风险大于收益。
+> 该命名差异已在 `docs/RUOYI-ALIGNMENT.md` §3.8 登记为第 14 项刻意偏离。
+
 > 2026-11-08 起运行时已**移除 Flyway**：应用启动不再扫描、也不执行本目录下任何文件，
 > 不再维护 `flyway_schema_history`。本目录降级为「版本化结构源 / 历史记录」，同时作为
 > `scripts/build_reference_modular.py` 的输入，派生出**唯一可执行的新库初始化脚本**
