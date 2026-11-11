@@ -2,15 +2,15 @@ package com.acme.scaffold.security.secret;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-
 import java.net.URI;
+
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * HashiCorp Vault 密钥源（KV v2）。零 Spring Cloud Vault 依赖，使用 JDK 内置 HttpClient。

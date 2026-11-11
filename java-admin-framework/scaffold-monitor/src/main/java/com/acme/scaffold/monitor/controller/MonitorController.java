@@ -1,31 +1,31 @@
 package com.acme.scaffold.monitor.controller;
 
-import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
 import com.acme.scaffold.common.error.CommonErrorCode;
+import com.acme.scaffold.monitor.domain.ServerMetrics;
 import com.acme.scaffold.monitor.dto.CacheStatView;
 import com.acme.scaffold.monitor.dto.OnlineSessionView;
 import com.acme.scaffold.monitor.dto.PoolStatView;
-import com.acme.scaffold.monitor.domain.ServerMetrics;
-import com.acme.scaffold.monitor.service.MonitorService;
 import com.acme.scaffold.monitor.entity.SysMonitorSampleDO;
+import com.acme.scaffold.monitor.service.MonitorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 系统监控接口。统一要求 monitor:read 权限，属敏感运维数据。

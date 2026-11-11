@@ -3,11 +3,11 @@ package com.acme.scaffold.realtime.listener;
 import com.acme.scaffold.common.event.DomainEventListener;
 import com.acme.scaffold.common.event.domain.ImMessageSentEvent;
 import com.acme.scaffold.realtime.service.RealtimePushService;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import org.springframework.stereotype.Component;
 
 /**
  * 站内消息实时推送订阅者（ROADMAP R6 · 解耦示范）。

@@ -1,8 +1,8 @@
 package com.acme.scaffold.workbench.dashboard.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 数据看板模板实体（对应 {@code sys_dashboard_template}，DDL 见 V78__dashboard_template.sql，

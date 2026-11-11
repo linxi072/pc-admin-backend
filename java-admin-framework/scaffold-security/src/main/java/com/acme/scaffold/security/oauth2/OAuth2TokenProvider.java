@@ -2,13 +2,13 @@ package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.security.jwt.JwtProperties;
 import io.jsonwebtoken.Jwts;
-import org.springframework.stereotype.Component;
-
 import java.security.interfaces.RSAPrivateKey;
+
 import java.util.Date;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
 
 /**
  * OAuth2 客户端令牌签发（RS256）。

@@ -1,9 +1,9 @@
 package com.acme.scaffold.system.permission.adapter;
 
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.user.domain.model.SysUserRoleDO;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
 
 import java.util.List;
 import java.util.Set;

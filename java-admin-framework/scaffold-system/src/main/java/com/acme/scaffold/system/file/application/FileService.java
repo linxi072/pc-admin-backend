@@ -1,39 +1,31 @@
 package com.acme.scaffold.system.file.application;
 
-import com.acme.scaffold.system.file.domain.model.BatchDeleteFailure;
-import com.acme.scaffold.system.file.domain.model.FileDownload;
-import com.acme.scaffold.system.file.domain.model.ModuleFileStat;
-import com.acme.scaffold.system.file.domain.rule.FileDedupRules;
-import com.acme.scaffold.system.file.domain.rule.FileValidator;
-import com.acme.scaffold.system.file.enums.FileErrorCode;
-
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.mybatis.dsl.SqlSorts;
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.mybatis.dsl.KeysetPager;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.system.file.domain.model.SysFileDO;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
+import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.KeysetPager;
 import com.acme.scaffold.mybatis.dsl.Record2;
 import com.acme.scaffold.mybatis.dsl.Record3;
 import com.acme.scaffold.mybatis.dsl.Result;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.system.file.domain.model.BatchDeleteFailure;
+import com.acme.scaffold.system.file.domain.model.FileDownload;
+import com.acme.scaffold.system.file.domain.model.ModuleFileStat;
+import com.acme.scaffold.system.file.domain.model.SysFileDO;
+import com.acme.scaffold.system.file.domain.rule.FileDedupRules;
+import com.acme.scaffold.system.file.domain.rule.FileValidator;
+import com.acme.scaffold.system.file.enums.FileErrorCode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -41,8 +33,16 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+
 import java.util.Map;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 文件管理公共接口（可复用）：供「文件管理」菜单与任意业务模块调用。

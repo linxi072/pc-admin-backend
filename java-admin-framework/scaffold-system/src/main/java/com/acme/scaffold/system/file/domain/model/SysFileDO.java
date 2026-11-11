@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.file.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 文件实体（对应 {@code sys_file}，DDL 见 V33__file_management.sql）。

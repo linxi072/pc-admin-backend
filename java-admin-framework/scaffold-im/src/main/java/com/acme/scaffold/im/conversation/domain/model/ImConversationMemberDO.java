@@ -1,8 +1,8 @@
 package com.acme.scaffold.im.conversation.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 会话成员实体（对应 im_conversation_member，DDL 见 V75__im.sql）。

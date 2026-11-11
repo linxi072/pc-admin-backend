@@ -3,12 +3,12 @@ package com.acme.scaffold.system.importer.application;
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.common.importer.ImportValidators;
-import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
 import com.acme.scaffold.system.dict.application.DictDataService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
+import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * 字典数据导入模板（试点实现）。

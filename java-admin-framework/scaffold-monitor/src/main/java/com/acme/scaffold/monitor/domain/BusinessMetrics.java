@@ -3,9 +3,9 @@ package com.acme.scaffold.monitor.domain;
 import com.acme.scaffold.observability.metrics.MetricsRegistry;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
-import org.springframework.stereotype.Component;
-
 import java.util.concurrent.TimeUnit;
+
+import org.springframework.stereotype.Component;
 
 /**
  * 业务指标：登录成功/失败计数、审批耗时等，经 {@link MetricsRegistry} 桥接至 Micrometer / Prometheus / Grafana。

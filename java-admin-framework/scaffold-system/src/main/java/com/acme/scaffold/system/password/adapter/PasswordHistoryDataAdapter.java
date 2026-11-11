@@ -1,17 +1,17 @@
 package com.acme.scaffold.system.password.adapter;
 
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.password.PasswordHistoryDataPort;
 import com.acme.scaffold.security.password.PasswordHistoryRecord;
 import com.acme.scaffold.system.password.domain.model.SysPasswordHistoryDO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Component;
-
 import java.time.LocalDateTime;
 import java.util.List;
+
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * {@link PasswordHistoryDataPort} 的 system 侧适配器实现。

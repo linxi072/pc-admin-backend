@@ -9,15 +9,15 @@ import com.acme.scaffold.realtime.service.RealtimeAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 实时推送管理接口：暴露在线会话视图与运维侧手动推送能力，补齐 realtime 模块缺失的 REST 入口。

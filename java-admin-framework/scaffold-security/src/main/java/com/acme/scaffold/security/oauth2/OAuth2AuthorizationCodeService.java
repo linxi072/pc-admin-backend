@@ -3,19 +3,19 @@ package com.acme.scaffold.security.oauth2;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import io.jsonwebtoken.Jwts;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtException;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.stereotype.Component;
-
 import java.security.interfaces.RSAPrivateKey;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Date;
+
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.stereotype.Component;
 
 /**
  * OAuth2 {@code authorization_code} 授权码签发 / 兑换（一次性、短时效）。

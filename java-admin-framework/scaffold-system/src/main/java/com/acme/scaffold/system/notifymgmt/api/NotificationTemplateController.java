@@ -2,14 +2,16 @@ package com.acme.scaffold.system.notifymgmt.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
 import com.acme.scaffold.system.notifymgmt.dto.CreateNotificationTemplateRequest;
 import com.acme.scaffold.system.notifymgmt.dto.NotificationTemplateView;
 import com.acme.scaffold.system.notifymgmt.dto.PreviewNotificationTemplateRequest;
 import com.acme.scaffold.system.notifymgmt.dto.UpdateNotificationTemplateRequest;
-import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,11 +21,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * 通知模板中心接口（V41 通知模板中心）。

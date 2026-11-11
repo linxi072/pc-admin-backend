@@ -1,5 +1,8 @@
 package com.acme.scaffold.system.permission.adapter;
 
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.DataScopeDataPort;
@@ -7,16 +10,13 @@ import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeOrgDO;
 import com.acme.scaffold.system.user.domain.model.SysUserOrgDO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
+
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * {@link DataScopeDataPort} 的 system 侧适配器实现。

@@ -3,18 +3,18 @@ package com.acme.scaffold.kafka.consumer.adapter;
 import com.acme.scaffold.kafka.consumer.domain.model.KafkaOrderedConsumerProperties;
 import com.acme.scaffold.kafka.consumer.domain.model.OrderedRecord;
 import com.acme.scaffold.kafka.consumer.domain.repository.RecordSource;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-
 import java.io.Closeable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 /**
  * Kafka 有序记录拉取源（{@link RecordSource} 的生产实现）。

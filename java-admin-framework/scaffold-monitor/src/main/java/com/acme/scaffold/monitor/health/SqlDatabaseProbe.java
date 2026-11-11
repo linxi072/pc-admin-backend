@@ -1,7 +1,7 @@
 package com.acme.scaffold.monitor.health;
 
-import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.stereotype.Component;
 
 /**

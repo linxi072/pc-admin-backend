@@ -1,43 +1,43 @@
 package com.acme.scaffold.system.announcement.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.api.dto.PageQuery;
+
 import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.OrderField;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.system.announcement.domain.model.SysAnnouncementDO;
+import com.acme.scaffold.system.announcement.domain.model.SysAnnouncementReadDO;
+import com.acme.scaffold.system.announcement.domain.rule.AnnouncementReadRules;
 import com.acme.scaffold.system.announcement.dto.AnnouncementReadStatsView;
 import com.acme.scaffold.system.announcement.dto.AnnouncementReceiptQuery;
 import com.acme.scaffold.system.announcement.dto.AnnouncementReceiptView;
 import com.acme.scaffold.system.announcement.dto.AnnouncementView;
+import com.acme.scaffold.system.message.application.MessageService;
 import com.acme.scaffold.system.message.dto.SendMessageRequest;
-import com.acme.scaffold.system.announcement.domain.model.SysAnnouncementDO;
-import com.acme.scaffold.system.announcement.domain.model.SysAnnouncementReadDO;
+import com.acme.scaffold.system.support.CurrentUserSupport;
 import com.acme.scaffold.system.user.domain.model.SysUserDO;
-import com.acme.scaffold.system.announcement.domain.rule.AnnouncementReadRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.OrderField;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.acme.scaffold.system.message.application.MessageService;
-import com.acme.scaffold.system.support.CurrentUserSupport;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 公告已读回执中心：标记已读、我的未读、回执分页、已读统计、催办未读。

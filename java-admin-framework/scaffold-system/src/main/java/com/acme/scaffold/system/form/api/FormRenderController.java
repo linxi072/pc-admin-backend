@@ -1,15 +1,17 @@
 package com.acme.scaffold.system.form.api;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.system.form.application.FormDefinitionService;
 import com.acme.scaffold.system.form.application.FormSubmissionService;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.FormSubmissionView;
-import com.acme.scaffold.common.api.dto.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,11 +19,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * 表单渲染与提交接口（V47 低代码表单试点 / M22 spike + V53 正式立项）。

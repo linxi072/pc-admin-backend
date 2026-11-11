@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.password.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 密码历史记录：落地设计文档 §5.3「保留最近 5 次密码哈希，禁止重复使用」安全基线。

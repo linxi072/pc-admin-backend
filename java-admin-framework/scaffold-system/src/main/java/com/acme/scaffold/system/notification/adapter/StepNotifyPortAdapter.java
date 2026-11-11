@@ -2,10 +2,10 @@ package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.common.notification.StepNotifyPort;
 import com.acme.scaffold.system.message.application.MessageService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * {@link StepNotifyPort} 的 system 侧适配器：委托 {@code MessageService#sendCcNotification} 落地站内信抄送。

@@ -6,14 +6,14 @@ import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.EmailProperties;
 import com.acme.scaffold.system.notification.domain.repository.MailClient;
 import com.acme.scaffold.system.notification.domain.rule.EmailRules;
-import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeAppendRules;
 import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
+import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeAppendRules;
 import java.util.List;
 import java.util.Locale;
+
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * 邮件渠道适配器：把渠道无关消息经 SMTP 发送给 {@code emails} 收件人列表。

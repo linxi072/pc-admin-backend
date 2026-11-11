@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.smslog.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 短信发送记录实体（对应 {@code sys_sms_record}，DDL 见 V37__sms_record.sql）。

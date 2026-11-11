@@ -2,6 +2,7 @@ package com.acme.scaffold.system.profile.application;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.error.SecurityErrorCode;
@@ -10,15 +11,14 @@ import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.profile.dto.ChangePasswordRequest;
+import com.acme.scaffold.system.support.CurrentUserSupport;
 import com.acme.scaffold.system.user.domain.model.SysUserDO;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import com.acme.scaffold.system.support.CurrentUserSupport;
 
 /**
  * 个人中心「自助改密」子域（从 {@link ProfileService} 抽离，C2 重构）。

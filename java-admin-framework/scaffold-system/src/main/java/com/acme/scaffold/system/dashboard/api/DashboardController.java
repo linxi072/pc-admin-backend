@@ -1,23 +1,23 @@
 package com.acme.scaffold.system.dashboard.api;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.tenant.TenantIgnorable;
 import com.acme.scaffold.system.dashboard.application.DashboardService;
-import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
-import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillVO;
-import com.acme.scaffold.common.tenant.TenantIgnorable;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 运营总览看板接口（M27 报表大屏）。

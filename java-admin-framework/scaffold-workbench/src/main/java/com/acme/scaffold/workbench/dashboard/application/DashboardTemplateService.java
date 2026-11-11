@@ -6,6 +6,10 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
@@ -14,19 +18,15 @@ import com.acme.scaffold.workbench.dashboard.dto.DashboardTemplateVO;
 import com.acme.scaffold.workbench.dashboard.dto.TemplateSaveRequest;
 import com.acme.scaffold.workbench.dashboard.dto.TemplateUpdateRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 数据看板模板服务：模板 CRUD、配置（layout_json 以 JSON 字符串存储并经 Jackson 校验）、

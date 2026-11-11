@@ -5,13 +5,13 @@ import com.acme.scaffold.observability.dto.TenantMetricView;
 import com.acme.scaffold.observability.service.TenantMetricsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 租户维度可观测接口（R14 租户维度）：按租户聚合的请求量 / 错误率 / 平均时延，供 APM 大盘下钻。

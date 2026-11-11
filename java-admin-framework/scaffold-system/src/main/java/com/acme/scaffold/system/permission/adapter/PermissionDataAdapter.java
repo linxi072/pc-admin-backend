@@ -1,5 +1,7 @@
 package com.acme.scaffold.system.permission.adapter;
 
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.PermissionDataPort;
@@ -8,15 +10,13 @@ import com.acme.scaffold.system.menu.domain.model.SysMenuDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleApiDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleMenuDO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Component;
-
 import java.util.HashSet;
 import java.util.List;
+
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * {@link PermissionDataPort} 的 system 侧适配器实现。

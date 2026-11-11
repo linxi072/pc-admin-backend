@@ -1,6 +1,10 @@
 package com.acme.scaffold.workbench.report.api;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.workbench.report.application.ReportService;
+import com.acme.scaffold.workbench.report.dto.DrillDimension;
+import com.acme.scaffold.workbench.report.dto.DrillResultVO;
+import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
 import com.acme.scaffold.workbench.report.dto.ReportQuery;
 import com.acme.scaffold.workbench.report.dto.ReportRange;
 import com.acme.scaffold.workbench.report.dto.ReportType;
@@ -8,28 +12,24 @@ import com.acme.scaffold.workbench.report.dto.ReportTypeMeta;
 import com.acme.scaffold.workbench.report.dto.ReportVO;
 import com.acme.scaffold.workbench.report.dto.SortField;
 import com.acme.scaffold.workbench.report.dto.SortOrder;
-import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
-import com.acme.scaffold.workbench.report.dto.DrillDimension;
-import com.acme.scaffold.workbench.report.dto.DrillResultVO;
-import com.acme.scaffold.workbench.report.application.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 报表管理接口。

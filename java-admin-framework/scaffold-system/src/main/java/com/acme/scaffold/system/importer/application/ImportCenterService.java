@@ -17,15 +17,15 @@ import com.acme.scaffold.common.importer.SegmentSpec;
 import com.acme.scaffold.common.importer.TabularData;
 import com.acme.scaffold.common.importer.XlsxDataReader;
 import com.acme.scaffold.system.importer.config.ImportProperties;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+
 import java.util.Map;
 import java.util.TreeMap;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 导入中心运行时：收集全部 {@link ImportTask} Bean，统一完成「格式识别 → 解析 → 表头校验 → 逐行校验/导入」。

@@ -5,10 +5,10 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.realtime.payload.RealtimeNotificationPayload;
 import com.acme.scaffold.realtime.service.RealtimePushService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * WebSocket 实时推送渠道适配器：把渠道无关的消息实时推送到在线会话。

@@ -3,14 +3,14 @@ package com.acme.scaffold.observability.recorder;
 import com.acme.scaffold.observability.export.ObservabilityProperties;
 import com.acme.scaffold.observability.export.OtlpSpan;
 import com.acme.scaffold.observability.export.SpanExporter;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
+
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.LongAdder;
+import org.springframework.stereotype.Component;
 
 /**
  * 租户维度请求聚合（R14 租户维度）：作为 {@link SpanExporter} sink 之一，

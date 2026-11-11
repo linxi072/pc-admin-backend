@@ -1,13 +1,13 @@
 package com.acme.scaffold.observability.export;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.net.URI;
+
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 零依赖 OTLP/HTTP span 导出器（不使用官方 opentelemetry-sdk，以兼容离线构建）。

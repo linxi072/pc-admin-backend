@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.role.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 角色字段级（列级）数据权限分配记录。

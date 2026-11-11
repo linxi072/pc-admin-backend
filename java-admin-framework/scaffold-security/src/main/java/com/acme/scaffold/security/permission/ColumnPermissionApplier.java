@@ -2,20 +2,20 @@ package com.acme.scaffold.security.permission;
 
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.sensitive.SensitiveType;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.util.ReflectionUtils;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
+
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.util.ReflectionUtils;
 
 /**
  * 字段级数据权限执行器：按当前主体对各受控字段的列权限，对目标对象的敏感字段做脱敏/隐藏。

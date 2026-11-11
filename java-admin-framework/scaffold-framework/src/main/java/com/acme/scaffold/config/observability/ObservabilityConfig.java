@@ -3,16 +3,16 @@ package com.acme.scaffold.config.observability;
 import com.acme.scaffold.observability.export.ObservabilityProperties;
 import com.acme.scaffold.observability.export.OtlpSpanExporter;
 import io.micrometer.core.instrument.config.MeterFilter;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.TaskScheduler;
+
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-
-import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 可观测性与异步配置：审计日志异步线程池，以及指标公共标签与命名归一。

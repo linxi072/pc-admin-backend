@@ -1,13 +1,13 @@
 package com.acme.scaffold.workflow.engine.adapter.step;
 
 import com.acme.scaffold.common.notification.StepNotifyPort;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
-import org.springframework.stereotype.Component;
 
-import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * 自定义工作流「执行步骤(SERVICE)」节点委托：流程流转到该节点时自动执行。

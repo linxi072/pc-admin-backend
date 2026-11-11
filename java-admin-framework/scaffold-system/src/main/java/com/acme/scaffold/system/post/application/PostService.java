@@ -1,36 +1,36 @@
 package com.acme.scaffold.system.post.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.api.dto.PageResult;
+
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.system.post.domain.model.SysPostDO;
+import com.acme.scaffold.system.post.domain.rule.PostRules;
 import com.acme.scaffold.system.post.dto.AssignUserPostsRequest;
 import com.acme.scaffold.system.post.dto.CreatePostRequest;
 import com.acme.scaffold.system.post.dto.PostOptionVO;
 import com.acme.scaffold.system.post.dto.PostQuery;
 import com.acme.scaffold.system.post.dto.PostView;
 import com.acme.scaffold.system.post.dto.UpdatePostRequest;
-import com.acme.scaffold.system.post.domain.model.SysPostDO;
 import com.acme.scaffold.system.user.domain.model.SysUserPostDO;
-import com.acme.scaffold.system.post.domain.rule.PostRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 岗位管理服务：岗位 CRUD、下拉选项、用户岗位分配。

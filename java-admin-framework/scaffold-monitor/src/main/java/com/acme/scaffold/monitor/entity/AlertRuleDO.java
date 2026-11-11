@@ -1,9 +1,9 @@
 package com.acme.scaffold.monitor.entity;
 
-import lombok.Data;
-
 import java.math.BigDecimal;
+
 import java.time.LocalDateTime;
+import lombok.Data;
 
 /**
  * 告警规则持久化对象（{@code sys_alert_rule} 表；V70 原名 {@code alert_rule}，V84 重命名）。

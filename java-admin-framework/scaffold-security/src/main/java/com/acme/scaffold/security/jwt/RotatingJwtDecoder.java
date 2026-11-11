@@ -1,10 +1,10 @@
 package com.acme.scaffold.security.jwt;
 
+import java.util.Optional;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtException;
 
-import java.util.Optional;
+import org.springframework.security.oauth2.jwt.JwtException;
 
 /**
  * 轮换友好型 JWT 解码器：优先用当前生效密钥解码；失败（如签名密钥不匹配）时，

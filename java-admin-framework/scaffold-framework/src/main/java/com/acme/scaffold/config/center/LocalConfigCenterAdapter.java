@@ -1,10 +1,10 @@
 package com.acme.scaffold.config.center;
 
-import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.PropertySource;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.PropertySource;
 
 /**
  * 本地配置中心适配器（R16 默认实现，零依赖）。

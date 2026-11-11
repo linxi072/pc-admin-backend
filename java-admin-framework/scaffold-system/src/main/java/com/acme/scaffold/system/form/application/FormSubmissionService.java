@@ -1,36 +1,36 @@
 package com.acme.scaffold.system.form.application;
-import com.acme.scaffold.common.constant.CommonConstants;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
+
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.OrderField;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.form.domain.model.FormSubmissionDO;
+import com.acme.scaffold.system.form.domain.rule.FormSubmissionRules;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.FormSubmissionAdminQuery;
 import com.acme.scaffold.system.form.dto.FormSubmissionFormCount;
 import com.acme.scaffold.system.form.dto.FormSubmissionManageView;
 import com.acme.scaffold.system.form.dto.FormSubmissionStat;
 import com.acme.scaffold.system.form.dto.FormSubmissionView;
-import com.acme.scaffold.system.form.domain.rule.FormSubmissionRules;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.OrderField;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 表单提交应用服务（V53 / M22 正式立项）。

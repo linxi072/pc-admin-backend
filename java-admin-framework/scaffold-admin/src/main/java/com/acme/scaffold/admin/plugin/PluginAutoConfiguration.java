@@ -2,17 +2,17 @@ package com.acme.scaffold.admin.plugin;
 
 import com.acme.scaffold.common.plugin.ExtensionRegistry;
 import com.acme.scaffold.plugin.PluginManager;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * 插件装配（默认关闭，需 {@code scaffold.plugin.enabled=true} 才激活加载）。

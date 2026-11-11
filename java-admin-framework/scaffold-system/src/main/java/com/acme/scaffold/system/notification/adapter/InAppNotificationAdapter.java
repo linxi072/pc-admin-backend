@@ -3,8 +3,8 @@ package com.acme.scaffold.system.notification.adapter;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
-import com.acme.scaffold.system.message.dto.SendMessageRequest;
 import com.acme.scaffold.system.message.application.MessageService;
+import com.acme.scaffold.system.message.dto.SendMessageRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.notifysupport.application;
 
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 
 import java.util.ArrayList;
 import java.util.HashMap;

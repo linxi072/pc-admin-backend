@@ -1,19 +1,19 @@
 package com.acme.scaffold.security.token.service;
 
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Record1;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.rules.TokenVersionRules;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Record1;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.util.Collection;
+
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * Token 版本服务：让「权限变更」能立即（最多一个缓存窗口）作废已签发凭证。

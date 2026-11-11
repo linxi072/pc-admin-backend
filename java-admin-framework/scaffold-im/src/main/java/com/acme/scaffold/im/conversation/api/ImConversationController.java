@@ -2,12 +2,13 @@ package com.acme.scaffold.im.conversation.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.im.conversation.application.ImConversationService;
 import com.acme.scaffold.im.conversation.dto.ConversationCreateRequest;
 import com.acme.scaffold.im.conversation.dto.ConversationView;
-import com.acme.scaffold.im.conversation.application.ImConversationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,9 +17,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 会话管理接口。管理类操作统一要求 im:conversation:manage（更细权限由 ApiResourceAutoSyncRunner 自动登记）。

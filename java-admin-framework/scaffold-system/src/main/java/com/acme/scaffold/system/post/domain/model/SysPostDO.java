@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.post.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 岗位。

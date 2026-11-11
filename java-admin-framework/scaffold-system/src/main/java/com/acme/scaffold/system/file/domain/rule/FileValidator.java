@@ -2,12 +2,12 @@ package com.acme.scaffold.system.file.domain.rule;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.system.file.enums.FileErrorCode;
-import org.springframework.util.StringUtils;
-
 import java.io.IOException;
+
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Set;
+import org.springframework.util.StringUtils;
 
 /**
  * 上传文件校验：扩展名白名单 + 关键类型魔数二次校验。

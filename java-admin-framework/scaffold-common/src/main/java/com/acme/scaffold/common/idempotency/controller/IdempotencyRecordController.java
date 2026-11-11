@@ -8,6 +8,7 @@ import com.acme.scaffold.common.idempotency.dto.IdempotencyStatsView;
 import com.acme.scaffold.common.idempotency.service.IdempotencyRecordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,9 +16,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 幂等记录管理接口（M2 幂等模块的运维侧面，{@code /api/system/idempotency-records}）。

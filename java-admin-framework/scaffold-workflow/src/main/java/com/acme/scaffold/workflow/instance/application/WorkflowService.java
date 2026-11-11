@@ -1,14 +1,24 @@
 package com.acme.scaffold.workflow.instance.application;
 
+import com.acme.scaffold.common.context.CurrentPrincipal;
+import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.idempotency.Idempotent;
+import com.acme.scaffold.monitor.domain.BusinessMetrics;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.monitor.domain.BusinessMetrics;
-import com.acme.scaffold.common.context.CurrentPrincipal;
-import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.realtime.service.RealtimePushService;
 import com.acme.scaffold.system.user.domain.model.SysUserDO;
+import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
+import com.acme.scaffold.workflow.engine.domain.repository.WorkflowEnginePort;
+import com.acme.scaffold.workflow.instance.domain.model.WfApprovalRecordDO;
+import com.acme.scaffold.workflow.instance.domain.model.WfInstanceExtDO;
+import com.acme.scaffold.workflow.instance.domain.model.WfTaskExtDO;
+import com.acme.scaffold.workflow.instance.domain.rule.ClaimRules;
 import com.acme.scaffold.workflow.instance.dto.ApprovalRecordView;
 import com.acme.scaffold.workflow.instance.dto.CompleteTaskRequest;
 import com.acme.scaffold.workflow.instance.dto.DelegateTaskRequest;
@@ -18,31 +28,21 @@ import com.acme.scaffold.workflow.instance.dto.ResolveDelegateRequest;
 import com.acme.scaffold.workflow.instance.dto.StartProcessRequest;
 import com.acme.scaffold.workflow.instance.dto.TaskView;
 import com.acme.scaffold.workflow.instance.dto.TransferTaskRequest;
-import com.acme.scaffold.workflow.instance.domain.model.WfApprovalRecordDO;
-import com.acme.scaffold.workflow.instance.domain.model.WfInstanceExtDO;
-import com.acme.scaffold.workflow.instance.domain.model.WfTaskExtDO;
 import com.acme.scaffold.workflow.support.ApprovalAction;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
-import com.acme.scaffold.realtime.service.RealtimePushService;
-import com.acme.scaffold.workflow.engine.domain.repository.WorkflowEnginePort;
-import com.acme.scaffold.workflow.instance.domain.rule.ClaimRules;
-import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 工作流应用服务：编排引擎端口与业务扩展表，保证审批记录不可变且写操作幂等。

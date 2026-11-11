@@ -1,14 +1,14 @@
 package com.acme.scaffold.common.i18n;
 
+import jakarta.validation.Validator;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Role;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import jakarta.validation.Validator;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 /**
  * Bean Validation 消息键化装配：把约束注解的 {@code message} 从硬编码文本改为资源束键，

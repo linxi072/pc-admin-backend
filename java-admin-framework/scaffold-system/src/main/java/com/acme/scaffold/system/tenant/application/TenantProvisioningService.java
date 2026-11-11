@@ -4,29 +4,29 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.tenant.TenantContext;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.org.dto.CreateOrgRequest;
-import com.acme.scaffold.system.role.dto.CreateRoleRequest;
-import com.acme.scaffold.system.user.dto.CreateUserRequest;
 import com.acme.scaffold.system.apiresource.domain.model.SysApiResourceDO;
 import com.acme.scaffold.system.menu.domain.model.SysMenuDO;
 import com.acme.scaffold.system.org.application.OrgService;
+import com.acme.scaffold.system.org.dto.CreateOrgRequest;
 import com.acme.scaffold.system.role.application.RoleService;
-import com.acme.scaffold.system.user.application.UserService;
-import com.acme.scaffold.system.tenant.dto.TenantProvisioningRequest;
+import com.acme.scaffold.system.role.dto.CreateRoleRequest;
 import com.acme.scaffold.system.tenant.domain.rule.TenantProvisioningRules;
+import com.acme.scaffold.system.tenant.dto.TenantProvisioningRequest;
 import com.acme.scaffold.system.tenant.dto.TenantProvisioningView;
 import com.acme.scaffold.system.tenant.dto.TenantView;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.acme.scaffold.system.user.application.UserService;
+import com.acme.scaffold.system.user.dto.CreateUserRequest;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 租户开通服务（M19 SaaS 开通 / 生产启用闭环）。

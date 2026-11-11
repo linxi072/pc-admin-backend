@@ -1,9 +1,9 @@
 package com.acme.scaffold.security.secret;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.HashMap;
+
 import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 外部密钥源配置。前缀 {@code secret}。默认 provider=local（沿用环境变量 / 随机临时密钥，离线可用）。

@@ -1,19 +1,19 @@
 package com.acme.scaffold.system.message.api;
 
-import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.message.application.MessageReadService;
 import com.acme.scaffold.system.message.dto.MessageReadStatsView;
 import com.acme.scaffold.system.message.dto.MessageReceiptQuery;
 import com.acme.scaffold.system.message.dto.MessageReceiptView;
-import com.acme.scaffold.system.message.application.MessageReadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 站内信已读回执接口（M8）。

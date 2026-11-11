@@ -2,16 +2,16 @@ package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.system.notification.config.EmailProperties;
 import com.acme.scaffold.system.notification.domain.repository.MailClient;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.stereotype.Component;
-
 import jakarta.mail.internet.MimeMessage;
 import java.util.List;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailException;
+import org.springframework.mail.javamail.JavaMailSender;
+
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Component;
 
 /**
  * 基于 Spring {@link JavaMailSender} 的邮件发送实现。

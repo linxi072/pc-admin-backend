@@ -1,9 +1,14 @@
 package com.acme.scaffold.workflow.definition.adapter;
 
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeDTO;
 import com.acme.scaffold.workflow.definition.domain.rule.WorkflowDesignValidator;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeDTO;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
 import com.acme.scaffold.workflow.support.WorkflowNodeType;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.flowable.bpmn.converter.BpmnXMLConverter;
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.bpmn.model.EndEvent;
@@ -11,17 +16,12 @@ import org.flowable.bpmn.model.ExclusiveGateway;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.ImplementationType;
 import org.flowable.bpmn.model.MultiInstanceLoopCharacteristics;
+
 import org.flowable.bpmn.model.Process;
 import org.flowable.bpmn.model.SequenceFlow;
 import org.flowable.bpmn.model.ServiceTask;
 import org.flowable.bpmn.model.StartEvent;
 import org.flowable.bpmn.model.UserTask;
-
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * 将设计态的「节点 + 连线」图编译为合法 BPMN 2.0 XML，再经 Flowable 部署为新版本流程定义。

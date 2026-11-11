@@ -1,8 +1,8 @@
 package com.acme.scaffold.workflow.instance.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 不可变审批记录。一旦写入不更新，用于审计与流程回溯。

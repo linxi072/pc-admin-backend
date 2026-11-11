@@ -3,19 +3,19 @@ package com.acme.scaffold.system.menu.api;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.system.menu.application.MenuService;
 import com.acme.scaffold.system.menu.dto.CreateMenuRequest;
 import com.acme.scaffold.system.menu.dto.MenuSortItem;
 import com.acme.scaffold.system.menu.dto.MenuTreeVO;
 import com.acme.scaffold.system.menu.dto.UpdateMenuRequest;
-import com.acme.scaffold.system.menu.application.MenuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 菜单管理接口（系统管理 → 菜单管理）。

@@ -1,15 +1,15 @@
 package com.acme.scaffold.security.oauth2;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.math.BigInteger;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * JWKS 端点（{@code GET /oauth2/jwks}）：暴露 OAuth2 RS256 公钥，供资源方/外部系统

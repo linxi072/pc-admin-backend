@@ -1,33 +1,33 @@
 package com.acme.scaffold.system.profile.application;
 
-import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.profile.dto.BindContactRequest;
 import com.acme.scaffold.system.profile.dto.DeviceView;
 import com.acme.scaffold.system.profile.dto.PreferenceView;
 import com.acme.scaffold.system.profile.dto.ProfileView;
 import com.acme.scaffold.system.profile.dto.UpdatePreferenceRequest;
 import com.acme.scaffold.system.profile.dto.UpdateProfileRequest;
-import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDO;
+import com.acme.scaffold.system.support.CurrentUserSupport;
 import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import com.acme.scaffold.system.user.domain.model.SysUserOrgDO;
 import com.acme.scaffold.system.user.domain.model.SysUserRoleDO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import java.util.regex.Pattern;
-import com.acme.scaffold.system.support.CurrentUserSupport;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 个人中心 / 账号设置应用服务（C2 重构：设备 / 改密子域已抽离至

@@ -1,28 +1,28 @@
 package com.acme.scaffold.system.role.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.error.CommonErrorCode;
+
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.role.dto.CreateRoleRequest;
-import com.acme.scaffold.system.role.dto.RoleView;
+import com.acme.scaffold.system.menu.application.MenuService;
 import com.acme.scaffold.system.role.domain.model.SysRoleApiDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleMenuDO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.acme.scaffold.system.role.dto.CreateRoleRequest;
+import com.acme.scaffold.system.role.dto.RoleView;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.acme.scaffold.system.menu.application.MenuService;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 角色应用服务：角色 CRUD 与菜单 / 接口权限分配。持久层由 MyBatis-Plus 迁移为 jOOQ。

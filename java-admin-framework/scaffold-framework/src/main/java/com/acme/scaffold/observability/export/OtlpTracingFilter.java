@@ -1,20 +1,20 @@
 package com.acme.scaffold.observability.export;
 
+import com.acme.scaffold.common.tenant.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.MDC;
-import com.acme.scaffold.common.tenant.TenantContext;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.List;
+import org.slf4j.MDC;
+
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * 请求级 span 采集过滤器：在 {@code TraceIdFilter}（HIGHEST_PRECEDENCE）之后运行，

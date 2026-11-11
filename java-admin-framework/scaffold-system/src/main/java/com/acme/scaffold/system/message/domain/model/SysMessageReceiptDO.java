@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.message.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 站内信收件明细：记录「某人收到某条消息」及其已读状态与回执时间。

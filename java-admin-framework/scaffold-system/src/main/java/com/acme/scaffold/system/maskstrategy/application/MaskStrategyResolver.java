@@ -6,10 +6,10 @@ import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategyDO;
 import com.acme.scaffold.system.maskstrategy.domain.rule.MaskStrategyRules;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * 脱敏策略解析器（V46 脱敏策略中心统一分派入口）。

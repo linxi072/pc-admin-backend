@@ -3,19 +3,19 @@ package com.acme.scaffold.job.port;
 import com.acme.scaffold.job.domain.JobDagRules;
 import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.entity.SysJobDO;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Component;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * 基于手写 jOOQ DSL 的 {@link JobDagPort} 实现：从 {@code sys_job} 全量加载并构建反向依赖索引。

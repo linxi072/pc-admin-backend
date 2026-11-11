@@ -2,9 +2,9 @@ package com.acme.scaffold.monitor.detection;
 
 import com.acme.scaffold.mybatis.dsl.ExecuteContext;
 import com.acme.scaffold.mybatis.dsl.ExecuteListener;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.concurrent.TimeUnit;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 慢 SQL 监控监听器（MyBatis 兼容层版）。

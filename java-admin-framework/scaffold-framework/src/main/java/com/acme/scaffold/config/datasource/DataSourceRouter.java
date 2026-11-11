@@ -1,10 +1,10 @@
 package com.acme.scaffold.config.datasource;
 
 import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Service;
-
 import java.util.Map;
+
 import java.util.concurrent.Callable;
+import org.springframework.stereotype.Service;
 
 /**
  * 编程式数据源路由服务（不依赖 AOP）。

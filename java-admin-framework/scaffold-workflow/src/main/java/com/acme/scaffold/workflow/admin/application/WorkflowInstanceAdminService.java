@@ -4,25 +4,25 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.realtime.service.RealtimePushService;
-import com.acme.scaffold.workflow.instance.domain.model.WfApprovalRecordDO;
-import com.acme.scaffold.workflow.engine.domain.repository.WorkflowEnginePort;
 import com.acme.scaffold.workflow.admin.domain.rule.WorkflowInstanceAdminRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
+import com.acme.scaffold.workflow.engine.domain.repository.WorkflowEnginePort;
+import com.acme.scaffold.workflow.instance.domain.model.WfApprovalRecordDO;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 流程实例治理服务（M23 续）：管理员视角的实例高风险写操作——重新指派、挂起/恢复、跨版本迁移。

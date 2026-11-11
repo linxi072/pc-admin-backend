@@ -4,11 +4,11 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.security.jwt.JwtKeyRotationService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
 import java.util.Date;
+
 import java.util.UUID;
+import javax.crypto.SecretKey;
+import org.springframework.stereotype.Component;
 
 /**
  * Access Token 签发与解析。使用 HS256，密钥来自 {@link JwtKeyRotationService}（支持密钥轮换）。

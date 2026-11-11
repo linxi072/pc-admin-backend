@@ -3,6 +3,9 @@ package com.acme.scaffold.security.oauth2;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.oauth2.OpenApiClientRules;
 import com.acme.scaffold.security.oauth2.dto.ConsentRequest;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -10,13 +13,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.web.bind.annotation.PostMapping;
+
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * OAuth2 用户同意(consent)端点（{@code POST /oauth2/consent}，#900）。

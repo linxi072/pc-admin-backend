@@ -6,12 +6,12 @@ import com.acme.scaffold.kafka.consumer.application.OrderedKafkaConsumer;
 import com.acme.scaffold.kafka.consumer.domain.model.PoisonMessage;
 import com.acme.scaffold.kafka.monitor.dto.KafkaConsumerStatusView;
 import com.acme.scaffold.kafka.monitor.dto.KafkaPoisonMessageView;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Service;
-
 import java.util.Comparator;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Service;
 
 /**
  * Kafka 有序消费运维服务：聚合 {@link OrderedKafkaConsumer} 的运行指标与死信存储，向 REST 层提供只读视图与补偿操作。

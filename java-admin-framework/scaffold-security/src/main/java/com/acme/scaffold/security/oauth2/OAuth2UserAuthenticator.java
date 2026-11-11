@@ -5,10 +5,10 @@ import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.permission.PermissionService;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-
 import java.util.Set;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import org.springframework.stereotype.Component;
 
 /**
  * OAuth2 {@code password} 授权模式的轻量用户认证（零新增依赖）。

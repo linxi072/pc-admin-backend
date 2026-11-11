@@ -4,6 +4,9 @@ import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.tenant.TenantProperties;
 import com.acme.scaffold.config.multiregion.MultiRegionInterceptor;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,13 +16,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 
 /**
  * Web 配置：CORS 仅允许开发前端来源；生产应由网关/反向代理控制，不要在此放开通配。

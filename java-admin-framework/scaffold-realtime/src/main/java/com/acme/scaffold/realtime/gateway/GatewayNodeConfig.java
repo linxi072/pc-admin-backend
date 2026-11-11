@@ -2,17 +2,17 @@ package com.acme.scaffold.realtime.gateway;
 
 import com.acme.scaffold.common.messaging.bus.MessageBus;
 import com.acme.scaffold.realtime.gateway.bus.LocalBus;
+import java.net.InetAddress;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 
-import java.net.InetAddress;
+import org.springframework.scheduling.annotation.Scheduled;
 /**
  * 实时网关节点装配（{@code realtime.gateway}）。
  *

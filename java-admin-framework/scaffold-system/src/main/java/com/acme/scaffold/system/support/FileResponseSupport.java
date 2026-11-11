@@ -1,12 +1,12 @@
 package com.acme.scaffold.system.support;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 
 /**
  * 文件下载响应共享构造方法。

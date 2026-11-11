@@ -1,15 +1,15 @@
 package com.acme.scaffold.monitor.alert.rules;
 
-import com.acme.scaffold.monitor.alert.AlertInboxEntry;
+import com.acme.scaffold.common.text.TextUtils;
 
+import com.acme.scaffold.monitor.alert.AlertInboxEntry;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
-import com.acme.scaffold.common.text.TextUtils;
+import java.util.TreeMap;
 
 /**
  * 告警收件箱查询纯函数规则：筛选值归一、读取上限钳制、汇总统计。

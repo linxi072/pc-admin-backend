@@ -1,16 +1,16 @@
 package com.acme.scaffold.system.token.adapter;
 
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.service.TokenVersionDataPort;
 import com.acme.scaffold.system.user.domain.model.SysUserRoleDO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Set;
+
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * {@link TokenVersionDataPort} 的 system 侧适配器实现。

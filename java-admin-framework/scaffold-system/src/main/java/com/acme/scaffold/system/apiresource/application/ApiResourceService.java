@@ -1,34 +1,34 @@
 package com.acme.scaffold.system.apiresource.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.exception.BusinessException;
+
 import com.acme.scaffold.common.validation.RecordStatus;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.system.apiresource.domain.model.SysApiResourceDO;
 import com.acme.scaffold.system.apiresource.dto.ApiResourceScanResult;
 import com.acme.scaffold.system.apiresource.dto.ApiResourceSyncResult;
 import com.acme.scaffold.system.apiresource.dto.ApiResourceView;
 import com.acme.scaffold.system.apiresource.dto.CreateApiResourceRequest;
 import com.acme.scaffold.system.apiresource.dto.ScannedApiResource;
 import com.acme.scaffold.system.apiresource.dto.UpdateApiResourceRequest;
-import com.acme.scaffold.system.apiresource.domain.model.SysApiResourceDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleApiDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDO;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 接口资源服务。sys_api_resource 无 deleted 列，删除为物理删除（与原实现保持一致）。

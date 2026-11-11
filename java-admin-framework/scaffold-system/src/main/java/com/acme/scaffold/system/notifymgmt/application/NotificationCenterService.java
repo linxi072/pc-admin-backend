@@ -1,17 +1,17 @@
 package com.acme.scaffold.system.notifymgmt.application;
 
+import com.acme.scaffold.system.announcement.application.AnnouncementReadService;
+import com.acme.scaffold.system.message.application.MessageService;
+import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationCenterRules;
 import com.acme.scaffold.system.notifymgmt.dto.NotificationItemView;
 import com.acme.scaffold.system.notifymgmt.dto.NotificationSummaryView;
-import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationCenterRules;
+import java.util.List;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Map;
-import com.acme.scaffold.system.announcement.application.AnnouncementReadService;
-import com.acme.scaffold.system.message.application.MessageService;
 
 /**
  * 通知中心聚合服务：贯穿全站的统一未读入口。

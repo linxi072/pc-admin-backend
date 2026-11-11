@@ -1,20 +1,20 @@
 package com.acme.scaffold.system.tenant.api;
 
-import com.acme.scaffold.system.tenant.application.TenantGovernanceService;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
+import com.acme.scaffold.system.tenant.application.TenantGovernanceService;
 import com.acme.scaffold.system.tenant.dto.BackfillTenantRequest;
 import com.acme.scaffold.system.tenant.dto.ReassignTenantRequest;
 import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * 租户治理控制器（M19 正式立项 / 平台跨租户治理通道）。

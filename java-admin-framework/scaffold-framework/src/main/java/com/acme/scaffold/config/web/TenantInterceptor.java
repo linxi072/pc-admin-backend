@@ -7,13 +7,13 @@ import com.acme.scaffold.common.tenant.TenantProperties;
 import com.acme.scaffold.common.tenant.TenantResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.servlet.HandlerInterceptor;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * 租户上下文拦截器（M19 P3）：在每个 Web 请求开始时解析并写入 {@link TenantContext}，

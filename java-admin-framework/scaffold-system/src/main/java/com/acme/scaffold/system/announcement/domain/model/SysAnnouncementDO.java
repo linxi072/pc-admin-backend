@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.announcement.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 系统公告持久化对象。

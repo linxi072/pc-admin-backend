@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.notifyquiet.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalTime;
+
+import lombok.Data;
 
 /**
  * 通知免打扰时段实体（对应 {@code sys_notification_quiet_hours}，DDL 见 V44__notification_quiet_hours.sql）。

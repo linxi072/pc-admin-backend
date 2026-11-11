@@ -1,18 +1,18 @@
 package com.acme.scaffold.security.permission;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.lang.NonNull;
-import org.springframework.stereotype.Component;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.ReflectionUtils;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.core.annotation.AnnotationUtils;
+
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.ReflectionUtils;
 
 /**
  * 字段级数据权限资源注册表：启动时扫描全量 Bean 方法上的 {@link ColumnPermission} 注解，

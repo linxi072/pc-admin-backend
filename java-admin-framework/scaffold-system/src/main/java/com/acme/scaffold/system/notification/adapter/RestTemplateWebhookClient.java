@@ -5,15 +5,15 @@ import com.acme.scaffold.system.notification.domain.repository.WebhookClient;
 import com.acme.scaffold.system.notification.domain.rule.WebhookSignatureRules;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
+import java.util.Map;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-
-import java.time.Duration;
-import java.util.Map;
 
 /**
  * 基于 Spring {@link RestTemplate} 的 Webhook 实现（POST JSON）。

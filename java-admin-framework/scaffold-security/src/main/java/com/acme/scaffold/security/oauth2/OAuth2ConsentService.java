@@ -1,11 +1,11 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.oauth2.OpenApiClientRules;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.time.LocalDateTime;
 import java.util.Set;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * OAuth2 用户同意(consent)应用服务（#900）。

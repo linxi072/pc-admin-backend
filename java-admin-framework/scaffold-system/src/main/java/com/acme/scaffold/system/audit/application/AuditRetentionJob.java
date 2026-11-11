@@ -3,12 +3,12 @@ package com.acme.scaffold.system.audit.application;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditProperties;
 import com.acme.scaffold.common.audit.AuditRetentionRules;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import org.springframework.stereotype.Component;
 
 /**
  * 审计日志留存清理定时任务（M20 增强）。

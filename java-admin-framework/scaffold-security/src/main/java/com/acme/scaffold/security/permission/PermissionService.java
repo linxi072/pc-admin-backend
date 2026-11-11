@@ -1,9 +1,9 @@
 package com.acme.scaffold.security.permission;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Service;
 
 /**
  * 权限聚合：根据用户角色汇总接口权限码与角色码，供 JWT 签发与接口鉴权使用。

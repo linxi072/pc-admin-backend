@@ -1,8 +1,8 @@
 package com.acme.scaffold.workflow.instance.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 @Data
 public class WfInstanceExtDO {

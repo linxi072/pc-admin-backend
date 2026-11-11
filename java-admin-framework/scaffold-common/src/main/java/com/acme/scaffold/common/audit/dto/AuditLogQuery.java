@@ -3,9 +3,9 @@ package com.acme.scaffold.common.audit.dto;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import org.springframework.util.StringUtils;
-
 import java.time.LocalDateTime;
+
+import org.springframework.util.StringUtils;
 
 /**
  * 审计日志查询入参。

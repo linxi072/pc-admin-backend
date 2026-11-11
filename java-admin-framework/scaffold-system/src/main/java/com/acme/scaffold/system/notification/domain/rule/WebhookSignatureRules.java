@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.notification.domain.rule;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import com.acme.scaffold.common.security.ConstantTime;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import javax.crypto.Mac;
 
-import com.acme.scaffold.common.security.ConstantTime;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Webhook 外发 HMAC 签名规则（M18）：对「外发报文 + 时间戳 + 一次性 nonce」做 HMAC-SHA256 签名，

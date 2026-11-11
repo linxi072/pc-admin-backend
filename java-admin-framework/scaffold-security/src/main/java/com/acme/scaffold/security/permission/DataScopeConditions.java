@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.permission;
 
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.Record1;
+import com.acme.scaffold.mybatis.dsl.Select;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.Record1;
-import com.acme.scaffold.mybatis.dsl.Select;
-import com.acme.scaffold.mybatis.dsl.DSL;
 
 /**
  * 把 {@link DataScopeContext} 里的范围结果翻译成 jOOQ 查询条件，供 Service 直接拼进 WHERE。

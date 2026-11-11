@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.apiresource.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 @Data
 public class SysApiResourceDO {

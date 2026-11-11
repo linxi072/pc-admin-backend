@@ -2,11 +2,11 @@ package com.acme.scaffold.monitor.alert.scheduler;
 
 import com.acme.scaffold.monitor.alert.AlertProperties;
 import com.acme.scaffold.monitor.alert.service.AlertRuleService;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 
-import java.time.Instant;
+import org.springframework.stereotype.Component;
 
 /**
  * 告警规则周期评估调度器。

@@ -1,20 +1,20 @@
 package com.acme.scaffold.system.announcement.api;
 
-import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.announcement.application.AnnouncementReadService;
 import com.acme.scaffold.system.announcement.dto.AnnouncementReadStatsView;
 import com.acme.scaffold.system.announcement.dto.AnnouncementReceiptQuery;
 import com.acme.scaffold.system.announcement.dto.AnnouncementReceiptView;
 import com.acme.scaffold.system.announcement.dto.AnnouncementView;
-import com.acme.scaffold.system.announcement.application.AnnouncementReadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 公告已读回执接口（V40）。

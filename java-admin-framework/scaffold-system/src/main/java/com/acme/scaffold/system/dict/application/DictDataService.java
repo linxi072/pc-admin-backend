@@ -1,26 +1,26 @@
 package com.acme.scaffold.system.dict.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.error.CommonErrorCode;
+
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.system.dict.domain.model.SysDictDataDO;
 import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
 import com.acme.scaffold.system.dict.dto.DictDataVO;
 import com.acme.scaffold.system.dict.dto.UpdateDictDataRequest;
-import com.acme.scaffold.system.dict.domain.model.SysDictDataDO;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor

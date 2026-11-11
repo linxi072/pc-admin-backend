@@ -7,15 +7,15 @@ import com.acme.scaffold.monitor.dto.NPlusOneSuspectView;
 import com.acme.scaffold.monitor.service.NPlusOneService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * N+1 查询探测接口。与 {@link MonitorController} 统一要求 monitor:read 权限，属敏感运维数据。

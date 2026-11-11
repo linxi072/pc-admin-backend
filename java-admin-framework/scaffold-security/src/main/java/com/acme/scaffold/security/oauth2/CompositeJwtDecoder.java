@@ -1,10 +1,10 @@
 package com.acme.scaffold.security.oauth2;
 
+import java.util.List;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtException;
 
-import java.util.List;
+import org.springframework.security.oauth2.jwt.JwtException;
 
 /**
  * 复合 JWT 解码器：依次尝试内部解码器，捕获 {@link JwtException} 逐个回退，

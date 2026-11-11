@@ -1,10 +1,10 @@
 package com.acme.scaffold.security.password;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
-
 import java.util.ArrayList;
+
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * 密码历史复用判定纯规则（无 Spring / 无 DB 依赖，便于离线单测）。

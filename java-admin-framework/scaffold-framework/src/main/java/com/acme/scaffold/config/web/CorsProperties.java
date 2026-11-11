@@ -1,9 +1,9 @@
 package com.acme.scaffold.config.web;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.ArrayList;
+
 import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * WebSocket 跨域允许源配置（{@code app.cors.*}）。

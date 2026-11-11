@@ -2,14 +2,14 @@ package com.acme.scaffold.workflow.definition.adapter;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * 审批节点受让人解析：支持按人员(USER)、角色(ROLE)、部门(ORG)、发起人(INITIATOR)、发起人主管(INITIATOR_MANAGER)解析。

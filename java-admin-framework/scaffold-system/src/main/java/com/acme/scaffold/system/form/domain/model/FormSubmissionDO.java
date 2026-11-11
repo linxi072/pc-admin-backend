@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.form.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 表单提交实体（对应 {@code sys_form_submission}，V53 / M22 正式立项）。

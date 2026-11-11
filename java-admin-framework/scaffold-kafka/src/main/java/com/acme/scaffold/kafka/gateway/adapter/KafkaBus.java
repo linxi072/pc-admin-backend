@@ -6,9 +6,9 @@ import com.acme.scaffold.common.messaging.bus.ProduceResult;
 import com.acme.scaffold.common.messaging.codec.FrameCodec;
 import com.acme.scaffold.common.messaging.domain.Envelope;
 import com.acme.scaffold.common.messaging.domain.Tier;
-import com.acme.scaffold.kafka.gateway.domain.repository.RecordSender;
 import com.acme.scaffold.kafka.gateway.domain.model.TopicSpec;
 import com.acme.scaffold.kafka.gateway.domain.model.Topology;
+import com.acme.scaffold.kafka.gateway.domain.repository.RecordSender;
 import com.acme.scaffold.kafka.support.OrderingRules;
 
 import java.nio.charset.StandardCharsets;

@@ -1,14 +1,14 @@
 package com.acme.scaffold.security.jwt;
 
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.util.StringUtils;
-
-import javax.crypto.SecretKey;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
+
+import javax.crypto.SecretKey;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.StringUtils;
 
 /**
  * JWT 与账号安全策略配置，绑定自 {@code app.security.*}。

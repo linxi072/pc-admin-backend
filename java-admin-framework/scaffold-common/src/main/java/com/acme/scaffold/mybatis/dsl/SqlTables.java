@@ -1,9 +1,9 @@
 package com.acme.scaffold.mybatis.dsl;
 
+import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.Record;
 import com.acme.scaffold.mybatis.dsl.Table;
-import com.acme.scaffold.mybatis.dsl.DSL;
 
 import java.util.Set;
 

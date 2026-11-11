@@ -6,14 +6,14 @@ import com.acme.scaffold.realtime.gateway.Session;
 import com.acme.scaffold.realtime.gateway.SpringConnChannel;
 import com.acme.scaffold.realtime.gateway.SpringHandshakeAuthenticator;
 import com.acme.scaffold.realtime.port.HandshakeTokenAuthenticator;
+import java.nio.ByteBuffer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 
-import java.nio.ByteBuffer;
+import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 
 /**
  * 实时 WebSocket 处理器：将连接生命周期接入 {@link GatewayNode}。

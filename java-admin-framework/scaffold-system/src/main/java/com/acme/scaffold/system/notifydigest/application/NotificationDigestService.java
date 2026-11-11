@@ -3,31 +3,31 @@ package com.acme.scaffold.system.notifydigest.application;
 import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import com.acme.scaffold.system.notification.config.NotificationDigestProperties;
 import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
 import com.acme.scaffold.system.notifydigest.domain.rule.NotificationDigestRules;
-import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
 import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationTemplateRules;
+import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
+import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 通知聚合摘要应用服务（V45 聚合中心）：低价值高频通知先聚合、按阈值或最大等待时长

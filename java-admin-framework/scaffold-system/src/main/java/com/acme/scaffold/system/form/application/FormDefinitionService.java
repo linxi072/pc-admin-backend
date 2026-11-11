@@ -1,26 +1,26 @@
 package com.acme.scaffold.system.form.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.error.CommonErrorCode;
+
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.form.domain.model.FormDefinitionDO;
+import com.acme.scaffold.system.form.domain.rule.FormSchemaRules;
 import com.acme.scaffold.system.form.dto.CreateFormDefinitionRequest;
 import com.acme.scaffold.system.form.dto.FormDefinitionView;
 import com.acme.scaffold.system.form.dto.UpdateFormDefinitionRequest;
-import com.acme.scaffold.system.form.domain.rule.FormSchemaRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 表单定义应用服务（V47 低代码表单试点 / M22 spike → M22 深化：表单定义管理 CRUD）。

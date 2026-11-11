@@ -11,14 +11,14 @@ import com.acme.scaffold.observability.recorder.SpanRecorder;
 import io.micrometer.core.instrument.Measurement;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 /**
  * 可观测性运维服务：聚合本地 span 记录器（{@link SpanRecorder}）与 Micrometer 指标注册表

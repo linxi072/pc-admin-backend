@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.notifylog.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 通知发送记录实体（对应 {@code sys_notification_record}，DDL 见 V42__notification_record.sql）。

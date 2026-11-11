@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.oauth2;
 
-import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
+import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Service;
 
 /**
  * OAuth2 令牌管理应用服务（M43 令牌治理）。

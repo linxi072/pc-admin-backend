@@ -10,11 +10,11 @@ import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationReq
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 跨渠道通知接口。权限复用站内信发送（system:message:send）；

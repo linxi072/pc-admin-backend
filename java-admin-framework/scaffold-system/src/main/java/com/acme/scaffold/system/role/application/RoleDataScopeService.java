@@ -2,29 +2,29 @@ package com.acme.scaffold.system.role.application;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.DataScopeType;
 import com.acme.scaffold.security.token.service.TokenVersionService;
-import com.acme.scaffold.system.role.dto.DataScopeRuleView;
-import com.acme.scaffold.system.role.dto.SaveDataScopeRequest;
 import com.acme.scaffold.system.org.domain.model.SysOrgDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeDO;
 import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeOrgDO;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.acme.scaffold.system.role.dto.DataScopeRuleView;
+import com.acme.scaffold.system.role.dto.SaveDataScopeRequest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 角色数据权限配置服务。

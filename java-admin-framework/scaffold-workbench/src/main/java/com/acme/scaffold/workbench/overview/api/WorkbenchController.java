@@ -4,17 +4,17 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.workbench.overview.dto.WorkbenchStatsVO;
 import com.acme.scaffold.workbench.overview.application.WorkbenchService;
+import com.acme.scaffold.workbench.overview.dto.WorkbenchStatsVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 工作台接口。

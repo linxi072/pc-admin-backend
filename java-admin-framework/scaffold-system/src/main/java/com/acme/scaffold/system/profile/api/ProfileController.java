@@ -1,10 +1,11 @@
 package com.acme.scaffold.system.profile.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.system.profile.application.ProfileService;
 import com.acme.scaffold.system.profile.dto.BindContactRequest;
 import com.acme.scaffold.system.profile.dto.ChangePasswordRequest;
 import com.acme.scaffold.system.profile.dto.DeviceView;
@@ -12,25 +13,9 @@ import com.acme.scaffold.system.profile.dto.PreferenceView;
 import com.acme.scaffold.system.profile.dto.ProfileView;
 import com.acme.scaffold.system.profile.dto.UpdatePreferenceRequest;
 import com.acme.scaffold.system.profile.dto.UpdateProfileRequest;
-import com.acme.scaffold.system.profile.application.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -43,6 +28,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 个人中心 / 账号设置接口。

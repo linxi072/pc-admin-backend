@@ -2,16 +2,16 @@ package com.acme.scaffold.system.export.application;
 
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.export.ExportTask;
+import com.acme.scaffold.system.post.application.PostService;
 import com.acme.scaffold.system.post.dto.PostQuery;
 import com.acme.scaffold.system.post.dto.PostView;
-import com.acme.scaffold.system.post.application.PostService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 /**
  * 岗位列表导出（导出中心内置模板，M26 组织数据导出四件套之一）。

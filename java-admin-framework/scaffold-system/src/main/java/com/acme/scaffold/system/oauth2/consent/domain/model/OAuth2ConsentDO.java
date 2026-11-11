@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.oauth2.consent.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 用户同意(consent)实体（对应 {@code sys_oauth2_consent}，V68 #900）。

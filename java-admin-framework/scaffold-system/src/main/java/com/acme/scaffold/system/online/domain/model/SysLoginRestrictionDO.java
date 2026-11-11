@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.online.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 临时登录限制实体（V27，sys_login_restriction）。

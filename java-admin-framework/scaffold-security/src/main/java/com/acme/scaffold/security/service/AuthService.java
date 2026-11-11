@@ -1,10 +1,10 @@
 package com.acme.scaffold.security.service;
 
 import com.acme.scaffold.common.constant.CommonConstants;
-import com.acme.scaffold.common.error.CommonErrorCode;
-import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.common.error.CommonErrorCode;
+import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.security.captcha.CaptchaProperties;
 import com.acme.scaffold.security.captcha.CaptchaService;
 import com.acme.scaffold.security.dto.LoginCommand;
@@ -27,18 +27,18 @@ import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
 import com.acme.scaffold.security.user.UserAccountPatch;
 import com.acme.scaffold.security.vo.TokenView;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import org.springframework.context.annotation.Lazy;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 认证应用服务：登录、刷新、登出，负责密码校验、账号锁定、令牌签发与轮换。

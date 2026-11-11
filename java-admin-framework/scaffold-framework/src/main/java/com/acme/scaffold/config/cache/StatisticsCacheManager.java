@@ -1,12 +1,12 @@
 package com.acme.scaffold.config.cache;
 
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-
 import java.util.Collection;
 import java.util.List;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 /**
  * 缓存管理器装饰器：委托真实 {@link CacheManager}（生产为 Redis 实现），

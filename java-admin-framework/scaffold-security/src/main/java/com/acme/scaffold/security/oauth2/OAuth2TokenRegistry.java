@@ -1,8 +1,8 @@
 package com.acme.scaffold.security.oauth2;
 
-import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
 
 import java.time.LocalDateTime;
 import java.util.Set;

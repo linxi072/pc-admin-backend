@@ -2,8 +2,8 @@ package com.acme.scaffold.system.online.adapter;
 
 import com.acme.scaffold.security.online.LoginRestriction;
 import com.acme.scaffold.security.online.LoginRestrictionDataPort;
-import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
 import com.acme.scaffold.system.online.application.LoginRestrictionService;
+import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

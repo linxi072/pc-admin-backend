@@ -2,23 +2,23 @@ package com.acme.scaffold.system.role.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.role.application.RoleColumnPermissionService;
+import com.acme.scaffold.system.role.application.RoleDataScopeService;
+import com.acme.scaffold.system.role.application.RoleService;
 import com.acme.scaffold.system.role.dto.CreateRoleRequest;
 import com.acme.scaffold.system.role.dto.DataScopeRuleView;
 import com.acme.scaffold.system.role.dto.RoleView;
 import com.acme.scaffold.system.role.dto.SaveDataScopeRequest;
 import com.acme.scaffold.system.role.dto.SaveRoleColumnPermissionRequest;
-import com.acme.scaffold.system.role.application.RoleColumnPermissionService;
-import com.acme.scaffold.system.role.application.RoleDataScopeService;
-import com.acme.scaffold.system.role.application.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 角色管理接口（RBAC 核心）。

@@ -3,20 +3,20 @@ package com.acme.scaffold.system.notification.unsubscribe.application;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
-import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeTokenRules;
+import com.acme.scaffold.system.notification.unsubscribe.config.NotificationUnsubscribeProperties;
 import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeTokenRules.UnsubscribeTarget;
+import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeTokenRules;
 import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
 import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import com.acme.scaffold.system.notification.unsubscribe.config.NotificationUnsubscribeProperties;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 通知退订应用服务（M15）：邮件/短信正文中的「免登录退订」闭环。

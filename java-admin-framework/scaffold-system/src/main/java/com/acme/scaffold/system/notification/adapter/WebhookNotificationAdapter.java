@@ -5,11 +5,11 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.WebhookProperties;
 import com.acme.scaffold.system.notification.domain.repository.WebhookClient;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * Webhook 渠道适配器：将消息 POST 到目标地址（消息自带 url 优先，否则取配置默认地址）。

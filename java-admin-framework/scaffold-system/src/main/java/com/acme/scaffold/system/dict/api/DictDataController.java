@@ -2,18 +2,18 @@ package com.acme.scaffold.system.dict.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.dict.application.DictDataService;
 import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
 import com.acme.scaffold.system.dict.dto.DictDataVO;
 import com.acme.scaffold.system.dict.dto.UpdateDictDataRequest;
-import com.acme.scaffold.system.dict.application.DictDataService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 字典数据管理接口。

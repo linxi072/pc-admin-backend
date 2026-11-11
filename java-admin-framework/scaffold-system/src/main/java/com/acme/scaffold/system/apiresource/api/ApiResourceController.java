@@ -2,20 +2,20 @@ package com.acme.scaffold.system.apiresource.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.apiresource.application.ApiResourceService;
 import com.acme.scaffold.system.apiresource.dto.ApiResourceScanResult;
 import com.acme.scaffold.system.apiresource.dto.ApiResourceSyncResult;
 import com.acme.scaffold.system.apiresource.dto.ApiResourceView;
 import com.acme.scaffold.system.apiresource.dto.CreateApiResourceRequest;
 import com.acme.scaffold.system.apiresource.dto.UpdateApiResourceRequest;
-import com.acme.scaffold.system.apiresource.application.ApiResourceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 接口资源管理接口（系统管理 → 接口资源）。

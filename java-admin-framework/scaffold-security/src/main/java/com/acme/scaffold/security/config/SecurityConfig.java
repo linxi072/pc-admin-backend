@@ -1,17 +1,17 @@
 package com.acme.scaffold.security.config;
 
+import com.acme.scaffold.security.antireplay.AntiReplayProperties;
+import com.acme.scaffold.security.captcha.CaptchaProperties;
 import com.acme.scaffold.security.jwt.JwtAuthConverter;
 import com.acme.scaffold.security.jwt.JwtProperties;
-import com.acme.scaffold.security.captcha.CaptchaProperties;
-import com.acme.scaffold.security.antireplay.AntiReplayProperties;
-import com.acme.scaffold.security.online.OnlineSessionFilter;
-import com.acme.scaffold.security.oauth2.OAuth2TokenRevocationFilter;
 import com.acme.scaffold.security.oauth2.OAuth2TokenRegistry;
+import com.acme.scaffold.security.oauth2.OAuth2TokenRevocationFilter;
+import com.acme.scaffold.security.online.OnlineSessionFilter;
 import com.acme.scaffold.security.token.TokenVersionVerifier;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
@@ -24,9 +24,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
  * 安全配置：基于 Bearer JWT 的无状态资源服务器。

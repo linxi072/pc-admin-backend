@@ -3,19 +3,19 @@ package com.acme.scaffold.plugin;
 import com.acme.scaffold.common.plugin.ExtensionDescriptor;
 import com.acme.scaffold.common.plugin.ExtensionPoint;
 import com.acme.scaffold.common.plugin.ExtensionRegistry;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.context.ApplicationContext;
-
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.context.ApplicationContext;
 
 /**
  * 插件生命周期管理器：加载外部 jar，按清单实例化 {@link ExtensionPoint} 实现，

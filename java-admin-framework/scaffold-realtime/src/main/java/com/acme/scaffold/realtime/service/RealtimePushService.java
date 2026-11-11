@@ -6,13 +6,13 @@ import com.acme.scaffold.realtime.gateway.GatewayNode;
 import com.acme.scaffold.realtime.payload.RealtimeMessage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Service;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Service;
 
 /**
  * 实时推送服务：将业务事件（未读消息、待办提醒、系统通知）按 userId 定向推送到在线 WebSocket 会话。

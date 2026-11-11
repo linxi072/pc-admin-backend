@@ -2,11 +2,11 @@ package com.acme.scaffold.security.controller;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.web.ClientIpResolver;
-import com.acme.scaffold.security.service.AuthService;
 import com.acme.scaffold.security.dto.AuthChangePasswordRequest;
 import com.acme.scaffold.security.dto.ForgotPasswordRequest;
 import com.acme.scaffold.security.dto.LoginCommand;
 import com.acme.scaffold.security.dto.RefreshCommand;
+import com.acme.scaffold.security.service.AuthService;
 import com.acme.scaffold.security.vo.TokenView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

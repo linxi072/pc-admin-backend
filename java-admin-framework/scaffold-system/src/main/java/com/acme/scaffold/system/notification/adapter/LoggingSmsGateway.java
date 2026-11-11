@@ -3,11 +3,11 @@ package com.acme.scaffold.system.notification.adapter;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.system.notification.domain.repository.SmsGateway;
 import com.acme.scaffold.system.notification.domain.rule.SmsRules;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
-import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
 
 /**
  * 开发默认短信网关：不真实发送，仅输出脱敏日志（手机号掩码中间四位，

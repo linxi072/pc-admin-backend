@@ -1,32 +1,32 @@
 package com.acme.scaffold.system.notifypref.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.context.SecurityContextFacade;
+
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.user.domain.model.SysUserDO;
-import com.acme.scaffold.system.notifysupport.application.NotificationSupport;
 import com.acme.scaffold.system.notifypref.domain.model.SysNotificationPreferenceDO;
+import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules.NotificationPreferenceMatrix;
+import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules;
 import com.acme.scaffold.system.notifypref.dto.PreferenceItemRequest;
 import com.acme.scaffold.system.notifypref.dto.UpdateNotificationPreferenceRequest;
-import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules;
-import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules.NotificationPreferenceMatrix;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.acme.scaffold.system.notifysupport.application.NotificationSupport;
+import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 通知偏好应用服务（V43 通知偏好中心）：「个人中心 → 通知订阅」自服务页数据源，

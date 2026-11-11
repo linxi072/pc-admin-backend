@@ -1,12 +1,12 @@
 package com.acme.scaffold.config.datasource;
 
 import com.zaxxer.hikari.HikariDataSource;
-import org.springframework.stereotype.Component;
-
-import javax.sql.DataSource;
 import java.util.Collection;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.sql.DataSource;
+import org.springframework.stereotype.Component;
 
 /**
  * 持有全部具名 Hikari 数据源，供 {@link RoutingDataSource} 路由与按名查找使用。

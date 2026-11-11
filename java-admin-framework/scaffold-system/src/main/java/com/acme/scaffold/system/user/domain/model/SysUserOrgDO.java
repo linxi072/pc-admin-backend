@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.user.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 用户-部门关联（多对多）。

@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.message.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 站内信发件主表：一次发送动作 = 一条记录。

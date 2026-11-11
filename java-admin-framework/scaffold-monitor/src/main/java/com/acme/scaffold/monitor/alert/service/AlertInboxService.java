@@ -2,15 +2,15 @@ package com.acme.scaffold.monitor.alert.service;
 
 import com.acme.scaffold.monitor.alert.AlertInboxEntry;
 import com.acme.scaffold.monitor.alert.AlertReceiverService;
-import com.acme.scaffold.monitor.alert.rules.AlertInboxRules;
 import com.acme.scaffold.monitor.alert.rules.AlertInboxRules.Summary;
+import com.acme.scaffold.monitor.alert.rules.AlertInboxRules;
 import com.acme.scaffold.monitor.dto.AlertInboxItemView;
 import com.acme.scaffold.monitor.dto.AlertInboxStatsView;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 /**
  * 告警收件箱运维查询服务（告警接收模块的管理侧面）。

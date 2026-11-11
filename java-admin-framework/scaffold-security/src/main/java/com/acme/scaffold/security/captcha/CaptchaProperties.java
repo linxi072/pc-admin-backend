@@ -1,9 +1,9 @@
 package com.acme.scaffold.security.captcha;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.ArrayList;
+
 import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 登录验证码开关与参数。

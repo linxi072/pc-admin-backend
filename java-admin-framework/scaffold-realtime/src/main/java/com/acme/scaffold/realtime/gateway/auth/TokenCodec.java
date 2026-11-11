@@ -1,13 +1,13 @@
 package com.acme.scaffold.realtime.gateway.auth;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import com.acme.scaffold.common.security.ConstantTime;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.Base64;
 import java.util.Optional;
+import javax.crypto.Mac;
 
-import com.acme.scaffold.common.security.ConstantTime;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 短期令牌编解码（演示级实现，对应设计稿 §3.2「短期令牌 + 防重放」）。

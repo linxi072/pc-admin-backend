@@ -5,18 +5,18 @@ import com.acme.scaffold.kafka.consumer.domain.model.OrderedRecord;
 import com.acme.scaffold.kafka.consumer.domain.model.PoisonMessage;
 import com.acme.scaffold.kafka.consumer.domain.repository.RecordSource;
 import com.acme.scaffold.kafka.support.OrderingRules;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.DisposableBean;
-import org.springframework.context.SmartLifecycle;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.context.SmartLifecycle;
 
 /**
  * 海量数据有序消费容器（SmartLifecycle）。

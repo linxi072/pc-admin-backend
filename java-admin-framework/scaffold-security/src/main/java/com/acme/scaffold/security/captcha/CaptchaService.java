@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.captcha;
 
-import org.springframework.stereotype.Service;
-
 import java.security.SecureRandom;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Service;
 
 /**
  * 登录验证码服务：生成「四则运算题」验证码（加 / 减 / 乘 / 除，运算符集合可配置），

@@ -1,13 +1,13 @@
 package com.acme.scaffold.realtime.websocket;
 
 import com.acme.scaffold.realtime.websocket.WebSocketOriginPolicy;
-import org.springframework.stereotype.Component;
+import java.util.Map;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
-import org.springframework.web.socket.server.HandshakeInterceptor;
 
-import java.util.Map;
+import org.springframework.web.socket.server.HandshakeInterceptor;
 
 /**
  * 握手拦截器：从 query {@code ?token=} 取令牌，经 {@link WebSocketOriginPolicy} 做 CSWSH 源站白名单校验，

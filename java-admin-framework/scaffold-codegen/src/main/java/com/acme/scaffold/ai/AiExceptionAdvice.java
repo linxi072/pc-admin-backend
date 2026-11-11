@@ -1,14 +1,14 @@
 package com.acme.scaffold.ai;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * AI 模块异常建议（F5）：以最高优先级拦截 {@link LlmNotImplementedException}，

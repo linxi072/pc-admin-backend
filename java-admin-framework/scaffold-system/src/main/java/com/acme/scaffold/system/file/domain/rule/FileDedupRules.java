@@ -2,9 +2,8 @@ package com.acme.scaffold.system.file.domain.rule;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.system.file.enums.FileErrorCode;
-import org.springframework.util.StringUtils;
-
 import java.io.IOException;
+
 import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -14,6 +13,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.util.StringUtils;
 
 /**
  * 文件秒传去重纯函数集合（V50）。

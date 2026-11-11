@@ -8,16 +8,16 @@ import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
 import com.acme.scaffold.system.tenant.dto.TenantOverviewItem;
 import com.acme.scaffold.system.tenant.dto.TenantOverviewView;
 import com.acme.scaffold.system.tenant.dto.TenantView;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 跨租户运营总览服务（M46 只读聚合）。

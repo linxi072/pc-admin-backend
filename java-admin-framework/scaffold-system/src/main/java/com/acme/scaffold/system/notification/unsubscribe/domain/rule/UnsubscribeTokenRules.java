@@ -2,15 +2,15 @@ package com.acme.scaffold.system.notification.unsubscribe.domain.rule;
 
 import com.acme.scaffold.common.notification.Channel;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import com.acme.scaffold.common.security.ConstantTime;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Optional;
+import javax.crypto.Mac;
 
-import com.acme.scaffold.common.security.ConstantTime;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 退订令牌纯函数规则（M15）：HMAC-SHA256 签名的「免登录退订」凭证编解码。

@@ -2,20 +2,20 @@ package com.acme.scaffold.system.notifymgmt.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.notifymgmt.application.NotificationCenterService;
 import com.acme.scaffold.system.notifymgmt.dto.NotificationItemView;
 import com.acme.scaffold.system.notifymgmt.dto.NotificationSummaryView;
-import com.acme.scaffold.system.notifymgmt.application.NotificationCenterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * 通知中心接口（M9）。

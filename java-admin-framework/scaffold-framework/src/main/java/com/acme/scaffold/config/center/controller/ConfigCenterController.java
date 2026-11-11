@@ -6,6 +6,7 @@ import com.acme.scaffold.config.center.ConfigCenterService;
 import com.acme.scaffold.config.center.dto.ConfigCenterStatusView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,9 +14,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 配置中心管理接口（R16）。

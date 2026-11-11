@@ -2,19 +2,19 @@ package com.acme.scaffold.system.dashboard.application;
 
 import com.acme.scaffold.common.observability.ObservabilitySnapshot;
 import com.acme.scaffold.common.observability.ObservabilityStatsPort;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillVO;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
-import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
 import com.acme.scaffold.system.dashboard.domain.model.HourlyPoint;
-import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillVO;
-import com.acme.scaffold.system.dashboard.domain.rule.DashboardRules;
 import com.acme.scaffold.system.dashboard.domain.repository.SystemStatsPort;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
+import com.acme.scaffold.system.dashboard.domain.rule.DashboardRules;
 import java.time.LocalDate;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * 运营总览聚合服务（M27 报表大屏）。

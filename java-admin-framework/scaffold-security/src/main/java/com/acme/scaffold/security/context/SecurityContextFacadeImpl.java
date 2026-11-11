@@ -4,12 +4,12 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 
-import java.util.Optional;
+import org.springframework.stereotype.Component;
 
 /**
  * 基于 Spring SecurityContextHolder 的安全上下文实现。

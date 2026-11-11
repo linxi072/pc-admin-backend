@@ -5,13 +5,13 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.realtime.port.RealtimeTemplatePort;
 import com.acme.scaffold.realtime.port.RealtimeTemplateRenderResult;
+import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
 import com.acme.scaffold.system.notifymgmt.domain.model.SysNotificationTemplateDO;
 import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationTemplateRules;
-import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * 实时推送模板渲染适配器：实现 realtime 模块 {@link RealtimeTemplatePort} 端口，

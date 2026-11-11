@@ -1,9 +1,9 @@
 package com.acme.scaffold.security.oauth2;
 
-import org.springframework.security.oauth2.jwt.Jwt;
-
 import java.util.LinkedHashMap;
+
 import java.util.Map;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
  * OAuth2 令牌自省（RFC 7662）响应纯函数规则。

@@ -5,6 +5,9 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.error.ErrorCode;
 import com.acme.scaffold.common.i18n.I18nService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -18,13 +21,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.concurrent.TimeoutException;
 
 /**
  * 全局异常映射：将异常转换为统一响应体，敏感细节只进日志不回传客户端。

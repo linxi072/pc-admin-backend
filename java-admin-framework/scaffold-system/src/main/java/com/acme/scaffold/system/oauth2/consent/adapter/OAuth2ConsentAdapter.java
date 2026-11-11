@@ -1,16 +1,16 @@
 package com.acme.scaffold.system.oauth2.consent.adapter;
 
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.oauth2.OAuth2ConsentDataPort;
 import com.acme.scaffold.security.oauth2.OAuth2ConsentInfo;
 import com.acme.scaffold.system.oauth2.consent.domain.model.OAuth2ConsentDO;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Component;
-
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * {@link OAuth2ConsentDataPort} 的 system 侧适配器：经 jOOQ 读写 {@code sys_oauth2_consent}（V68 #900）。

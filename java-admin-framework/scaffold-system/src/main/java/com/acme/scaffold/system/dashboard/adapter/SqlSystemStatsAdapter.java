@@ -1,28 +1,28 @@
 package com.acme.scaffold.system.dashboard.adapter;
 
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
-import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.Record2;
 import com.acme.scaffold.mybatis.dsl.Result;
-import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
 import com.acme.scaffold.system.dashboard.domain.model.HourlyPoint;
 import com.acme.scaffold.system.dashboard.domain.model.TrendPoint;
 import com.acme.scaffold.system.dashboard.domain.repository.SystemStatsPort;
-import org.springframework.stereotype.Component;
-
+import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * 基于手写 jOOQ DSL 的系统统计适配器（M27）。复用 {@code SqlTables} 表引用与

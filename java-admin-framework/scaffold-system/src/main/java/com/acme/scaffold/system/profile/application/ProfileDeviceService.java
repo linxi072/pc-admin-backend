@@ -5,19 +5,19 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.entity.SysRefreshTokenDO;
+import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.system.profile.dto.DeviceView;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 个人中心「登录设备」子域（从 {@link ProfileService} 抽离，C2 重构）。

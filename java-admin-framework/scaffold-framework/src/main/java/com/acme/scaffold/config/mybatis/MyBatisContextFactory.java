@@ -3,13 +3,13 @@ package com.acme.scaffold.config.mybatis;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DynamicMapper;
 import com.acme.scaffold.mybatis.dsl.ExecuteListener;
+import java.util.List;
+import javax.sql.DataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.type.JdbcType;
+
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
-
-import javax.sql.DataSource;
-import java.util.List;
 
 /** 为具名数据源构建独立 DSLContext（多数据源显式按名访问路径）。 */
 public final class MyBatisContextFactory {

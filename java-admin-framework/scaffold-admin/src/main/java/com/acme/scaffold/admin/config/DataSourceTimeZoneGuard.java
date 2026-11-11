@@ -1,18 +1,18 @@
 package com.acme.scaffold.admin.config;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Profile;
-import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
-
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
 
 /**
  * 生产启动时校验「JDBC 连接声明的时区」与「JVM 默认时区」是否一致。

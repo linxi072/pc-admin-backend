@@ -1,10 +1,10 @@
 package com.acme.scaffold.job.handler;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Collections;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Component;
 
 /**
  * 内置周期任务的注册表（任务 key → 可执行的 Spring Bean 方法）。

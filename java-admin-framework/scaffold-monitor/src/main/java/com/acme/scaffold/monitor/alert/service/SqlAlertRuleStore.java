@@ -1,14 +1,14 @@
 package com.acme.scaffold.monitor.alert.service;
 
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.monitor.entity.AlertRuleDO;
-import lombok.RequiredArgsConstructor;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Repository;
-
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Repository;
 
 /**
  * 基于自研 MyBatis 风格 DSL 的告警规则存储实现（{@code sys_alert_rule} 表；V84 由 {@code alert_rule} 重命名）。

@@ -1,11 +1,15 @@
 package com.acme.scaffold.system.openapi.application;
-import com.acme.scaffold.common.util.MergeFields;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
+
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.oauth2.OpenApiClientRules;
+import com.acme.scaffold.common.util.MergeFields;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
@@ -14,20 +18,16 @@ import com.acme.scaffold.system.openapi.dto.ClientSecretView;
 import com.acme.scaffold.system.openapi.dto.CreateOpenApiClientRequest;
 import com.acme.scaffold.system.openapi.dto.OpenApiClientView;
 import com.acme.scaffold.system.openapi.dto.UpdateOpenApiClientRequest;
-import com.acme.scaffold.common.oauth2.OpenApiClientRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 开放平台客户端应用服务（V48 API 开放平台 / M24）。

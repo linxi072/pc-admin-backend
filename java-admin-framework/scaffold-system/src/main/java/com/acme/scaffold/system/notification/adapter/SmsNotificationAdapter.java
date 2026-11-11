@@ -6,14 +6,14 @@ import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.SmsProperties;
 import com.acme.scaffold.system.notification.domain.repository.SmsGateway;
 import com.acme.scaffold.system.notification.domain.rule.SmsRules;
-import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeAppendRules;
 import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
+import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeAppendRules;
 import com.acme.scaffold.system.smslog.application.SmsRecordRecorder;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * 短信渠道适配器：把渠道无关消息经 {@link SmsGateway} 发送给 {@code mobiles} 手机号列表。

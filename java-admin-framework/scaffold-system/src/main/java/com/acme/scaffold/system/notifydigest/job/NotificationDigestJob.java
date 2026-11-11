@@ -4,12 +4,12 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.system.notification.application.NotificationService;
 import com.acme.scaffold.system.notifydigest.application.NotificationDigestService;
 import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 
-import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * 通知聚合摘要兜底刷新定时任务（M17）：周期扫描 {@code last_at} 超过

@@ -10,14 +10,14 @@ import com.acme.scaffold.realtime.gateway.GatewayNode;
 import com.acme.scaffold.realtime.payload.RealtimeNotificationPayload;
 import com.acme.scaffold.realtime.port.RealtimeTemplatePort;
 import com.acme.scaffold.realtime.port.RealtimeTemplateRenderResult;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Service;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Service;
 
 /**
  * 实时推送管理应用服务：把 {@link GatewayNode}（在线会话只读视图与下行投递）与

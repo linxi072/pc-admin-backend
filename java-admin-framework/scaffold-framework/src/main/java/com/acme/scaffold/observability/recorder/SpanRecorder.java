@@ -3,14 +3,14 @@ package com.acme.scaffold.observability.recorder;
 import com.acme.scaffold.observability.export.ObservabilityProperties;
 import com.acme.scaffold.observability.export.OtlpSpan;
 import com.acme.scaffold.observability.export.SpanExporter;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayDeque;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.LongAdder;
+import org.springframework.stereotype.Component;
 
 /**
  * 请求级 span 本地记录器（有界内存环形缓冲），实现 {@link SpanExporter}——

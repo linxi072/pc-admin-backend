@@ -1,12 +1,12 @@
 package com.acme.scaffold.mybatis.dsl;
 
-import org.apache.ibatis.annotations.DeleteProvider;
-import org.apache.ibatis.annotations.InsertProvider;
-import org.apache.ibatis.annotations.SelectProvider;
-import org.apache.ibatis.annotations.UpdateProvider;
-
 import java.util.List;
 import java.util.Map;
+import org.apache.ibatis.annotations.DeleteProvider;
+import org.apache.ibatis.annotations.InsertProvider;
+
+import org.apache.ibatis.annotations.SelectProvider;
+import org.apache.ibatis.annotations.UpdateProvider;
 
 /**
  * 通用动态 SQL Mapper：所有兼容层查询最终经此接口由 MyBatis SqlSession 执行。

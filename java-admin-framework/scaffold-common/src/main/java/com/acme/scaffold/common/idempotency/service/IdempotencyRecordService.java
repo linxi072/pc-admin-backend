@@ -8,20 +8,20 @@ import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordDO;
 import com.acme.scaffold.common.idempotency.dto.IdempotencyRecordView;
 import com.acme.scaffold.common.idempotency.dto.IdempotencyStatsView;
 import com.acme.scaffold.common.idempotency.rules.IdempotencyRecordRules;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 幂等记录运维查询服务（M2 幂等模块的管理侧面）。

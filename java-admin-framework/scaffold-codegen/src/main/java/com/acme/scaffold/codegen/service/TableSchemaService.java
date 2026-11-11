@@ -2,13 +2,13 @@ package com.acme.scaffold.codegen.service;
 
 import com.acme.scaffold.codegen.dto.ColumnMetaVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 表结构读取服务：从当前库 information_schema 拉取表清单与字段元信息。

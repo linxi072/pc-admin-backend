@@ -3,42 +3,42 @@ package com.acme.scaffold.system.notification.application;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
-import com.acme.scaffold.common.validation.DomainValidators;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.common.notification.NotificationRouter;
 import com.acme.scaffold.common.resilience.CircuitBreaker;
-import com.acme.scaffold.system.notifymgmt.domain.model.SysNotificationTemplateDO;
+import com.acme.scaffold.common.validation.DomainValidators;
 import com.acme.scaffold.system.notification.config.NotificationFailoverProperties;
 import com.acme.scaffold.system.notification.config.NotificationRetryProperties;
-import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
 import com.acme.scaffold.system.notification.domain.rule.DeliveryRetryRules;
-import com.acme.scaffold.system.notifydigest.application.NotificationDigestService;
+import com.acme.scaffold.system.notification.dto.SendWithTemplateNotificationRequest;
 import com.acme.scaffold.system.notifydigest.application.NotificationDigestService.EnqueueResult;
+import com.acme.scaffold.system.notifydigest.application.NotificationDigestService;
 import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
 import com.acme.scaffold.system.notifydigest.domain.rule.NotificationDigestRules;
 import com.acme.scaffold.system.notifylog.application.NotificationRecordRecorder;
+import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
+import com.acme.scaffold.system.notifymgmt.domain.model.SysNotificationTemplateDO;
+import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationTemplateRules;
 import com.acme.scaffold.system.notifypref.application.NotificationPreferenceService;
 import com.acme.scaffold.system.notifypref.domain.rule.NotificationPreferenceRules;
 import com.acme.scaffold.system.notifyquiet.application.NotificationQuietHoursService;
 import com.acme.scaffold.system.notifyquiet.domain.rule.NotificationQuietHoursRules;
-import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationTemplateRules;
-import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 通知编排：按消息渠道路由到对应 {@link NotificationPort} 适配器并投递。

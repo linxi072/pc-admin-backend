@@ -6,15 +6,15 @@ import com.acme.scaffold.common.api.dto.ConnectivitySlowProbe;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.i18n.I18nService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
+
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 联通探针端点：极轻量、零数据库依赖，专供前端健康检查与前后端联通测试使用。

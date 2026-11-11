@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.ratelimit;
 
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.data.redis.core.script.RedisScript;
 
-import java.util.List;
+import org.springframework.data.redis.core.script.RedisScript;
 
 /**
  * 基于 Redis 的分布式固定窗口限流器：多实例共享同一计数，按 key 维度（IP / 用户 / 全局）

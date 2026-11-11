@@ -9,16 +9,16 @@ import com.acme.scaffold.monitor.detection.SlowQueryListener;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.DynamicMapper;
 import com.acme.scaffold.mybatis.dsl.ExecuteListener;
+import java.util.List;
+import javax.sql.DataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.type.JdbcType;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import javax.sql.DataSource;
-import java.util.List;
 
 /**
  * MyBatis 装配中心（替代原 JooqConfig）。

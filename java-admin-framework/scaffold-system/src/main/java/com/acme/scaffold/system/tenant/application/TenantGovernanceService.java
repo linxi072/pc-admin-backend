@@ -1,22 +1,22 @@
 package com.acme.scaffold.system.tenant.application;
 
-import com.acme.scaffold.mybatis.dsl.TenantTables;
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.tenant.domain.model.SysTenantDO;
-import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
 import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.mybatis.dsl.TenantTables;
+import com.acme.scaffold.system.tenant.domain.model.SysTenantDO;
+import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
 import java.util.ArrayList;
 import java.util.HashMap;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 /**
  * 租户治理服务（M19 正式立项 / 平台跨租户治理通道）。

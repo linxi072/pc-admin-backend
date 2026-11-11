@@ -2,12 +2,12 @@ package com.acme.scaffold.system.log.application;
 
 import com.acme.scaffold.common.audit.AuditRetentionRules;
 import com.acme.scaffold.system.log.config.LoginLogProperties;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import org.springframework.stereotype.Component;
 
 /**
  * 登录日志留存清理定时任务（对应 operations §27.6「后续方向」，与 {@code AuditRetentionJob} 同范式）。

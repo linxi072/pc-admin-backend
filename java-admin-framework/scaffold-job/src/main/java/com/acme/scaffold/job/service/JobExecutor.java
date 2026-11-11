@@ -6,24 +6,24 @@ import com.acme.scaffold.job.domain.JobHandler;
 import com.acme.scaffold.job.domain.JobNextFire;
 import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.domain.JobTriggerType;
-import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.job.port.JobInvoker;
+import com.acme.scaffold.job.service.JobDagService;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.slf4j.MDC;
-import org.springframework.stereotype.Component;
-
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashSet;
+
 import java.util.Optional;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.stereotype.Component;
 
 /**
  * 任务执行器：调度器到点触发后由 Quartz Job 回调本类的 {@link #run(Long)}。

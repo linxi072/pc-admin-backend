@@ -2,19 +2,19 @@ package com.acme.scaffold.system.notifylog.application;
 
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.notification.NotificationMessage;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.notifylog.domain.model.SysNotificationRecordDO;
 import com.acme.scaffold.system.notifylog.domain.rule.NotificationRecordRules;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 通知发送记录器：{@code NotificationService.dispatch} 每次投递尝试（含被拒与失败）

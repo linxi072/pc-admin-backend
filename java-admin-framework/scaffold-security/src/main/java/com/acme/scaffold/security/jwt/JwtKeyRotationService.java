@@ -1,9 +1,9 @@
 package com.acme.scaffold.security.jwt;
 
-import org.springframework.stereotype.Service;
+import java.util.Optional;
 
 import javax.crypto.SecretKey;
-import java.util.Optional;
+import org.springframework.stereotype.Service;
 
 /**
  * JWT 密钥轮换解析：统一管理「当前生效密钥」与「上一版本密钥（仅校验）」。

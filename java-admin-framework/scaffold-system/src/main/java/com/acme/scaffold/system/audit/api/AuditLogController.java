@@ -1,29 +1,29 @@
 package com.acme.scaffold.system.audit.api;
 
+import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.audit.AuditLogService;
+import com.acme.scaffold.common.audit.AuditLogSummary;
+import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.audit.AuditProperties;
 import com.acme.scaffold.common.audit.AuditRead;
 import com.acme.scaffold.common.audit.AuditRetentionView;
 import com.acme.scaffold.common.audit.dto.AuditLogQuery;
-import com.acme.scaffold.common.audit.AuditLogService;
-import com.acme.scaffold.common.audit.AuditLogSummary;
-import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * 审计日志接口（设计方案 §20：审计日志可按 traceId 查询且无敏感字段）。

@@ -5,14 +5,14 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.system.notification.config.SmsProperties;
 import com.acme.scaffold.system.notification.domain.repository.SmsGateway;
 import com.acme.scaffold.system.notification.domain.rule.SmsRules;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * 通用 HTTP 短信网关：POST JSON 到 {@code app.notifications.sms.gateway-url}。

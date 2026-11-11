@@ -3,12 +3,12 @@ package com.acme.scaffold.ai.port;
 import com.acme.scaffold.ai.dto.ColumnSpec;
 import com.acme.scaffold.ai.dto.TableSpec;
 import com.acme.scaffold.codegen.service.JavaTypeMapper;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 /**
  * 离线启发式大模型提供者（默认）：基于关键词的确定性表结构推断，无外部依赖，可过双门禁。

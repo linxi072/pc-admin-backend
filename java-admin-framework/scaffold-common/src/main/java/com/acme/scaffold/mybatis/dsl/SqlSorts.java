@@ -2,14 +2,14 @@ package com.acme.scaffold.mybatis.dsl;
 
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.SortItem;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.OrderField;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.OrderField;
 
 /**
  * 服务端排序：把客户端传入的字段名经白名单映射为数据库列，再转成 jOOQ 的 {@link OrderField}。

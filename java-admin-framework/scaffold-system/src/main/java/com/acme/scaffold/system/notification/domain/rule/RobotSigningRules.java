@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.notification.domain.rule;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.Base64;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 机器人渠道（企业微信 / 钉钉）加签规则（M35）：纯函数、无 Spring 依赖、无副作用，可离线单测。

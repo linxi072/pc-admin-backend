@@ -7,6 +7,7 @@ import com.acme.scaffold.job.handler.BuiltinQuartzJob;
 import com.acme.scaffold.job.handler.DemoJob;
 import com.acme.scaffold.job.handler.IdempotencyCleanupJob;
 import com.acme.scaffold.job.handler.MonitorSampleJob;
+import java.util.Properties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.CronScheduleBuilder;
@@ -25,9 +26,8 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-import java.util.Properties;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * Quartz 调度装配与内置周期任务注册。

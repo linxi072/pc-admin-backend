@@ -4,14 +4,14 @@ import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportValidators;
 import com.acme.scaffold.common.importer.MultiSegmentImportTask;
 import com.acme.scaffold.common.importer.SegmentSpec;
-import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
-import com.acme.scaffold.system.dict.dto.CreateDictTypeRequest;
 import com.acme.scaffold.system.dict.application.DictDataService;
 import com.acme.scaffold.system.dict.application.DictTypeService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
+import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
+import com.acme.scaffold.system.dict.dto.CreateDictTypeRequest;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * 字典完整包导入模板（多段结构试点实现）：一个 XLSX 工作簿含两张工作表——

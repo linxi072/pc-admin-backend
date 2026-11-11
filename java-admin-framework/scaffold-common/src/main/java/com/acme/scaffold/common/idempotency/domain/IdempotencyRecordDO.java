@@ -1,8 +1,8 @@
 package com.acme.scaffold.common.idempotency.domain;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 幂等记录持久化对象。列与 {@code V16__idempotency_record.sql} 严格一致。

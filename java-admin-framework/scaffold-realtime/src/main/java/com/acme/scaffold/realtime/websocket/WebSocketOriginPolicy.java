@@ -1,9 +1,9 @@
 package com.acme.scaffold.realtime.websocket;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
+
+import org.springframework.stereotype.Component;
 
 /**
  * WebSocket 握手 Origin 来源策略（CSWSH 纵深防御）。

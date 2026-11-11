@@ -1,14 +1,14 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * OAuth2 端点共享静态支撑方法。

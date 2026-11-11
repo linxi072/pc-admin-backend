@@ -1,5 +1,6 @@
 package com.acme.scaffold.common.i18n;
 
+import java.util.Locale;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.MessageSource;
@@ -10,9 +11,8 @@ import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
-import org.springframework.web.servlet.i18n.SessionLocaleResolver;
 
-import java.util.Locale;
+import org.springframework.web.servlet.i18n.SessionLocaleResolver;
 
 /**
  * 国际化装配：声明 {@link MessageSource}（资源束 {@code i18n/messages}）、

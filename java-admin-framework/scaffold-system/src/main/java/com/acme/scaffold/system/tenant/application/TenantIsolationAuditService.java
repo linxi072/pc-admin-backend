@@ -1,18 +1,18 @@
 package com.acme.scaffold.system.tenant.application;
 
-import com.acme.scaffold.mybatis.dsl.TenantTables;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
 import com.acme.scaffold.common.tenant.TenantIsolationTableViolation;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.DataAccessException;
-import org.springframework.stereotype.Service;
-
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.TenantTables;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 存量隔离自检服务（M45）：扫描全部业务表，统计 tenant_id 未归属（NULL 或 0、且未逻辑删除）的行，

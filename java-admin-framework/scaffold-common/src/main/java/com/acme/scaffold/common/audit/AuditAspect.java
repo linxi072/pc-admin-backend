@@ -1,24 +1,24 @@
 package com.acme.scaffold.common.audit;
 
+import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.web.ClientIpResolver;
-import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.AnnotationUtils;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Random;
 
 
 /**

@@ -2,10 +2,11 @@ package com.acme.scaffold.kafka.gateway.config;
 
 import com.acme.scaffold.common.messaging.bus.MessageBus;
 import com.acme.scaffold.kafka.gateway.adapter.KafkaBus;
-import com.acme.scaffold.kafka.gateway.adapter.TopicAdmin;
 import com.acme.scaffold.kafka.gateway.adapter.KafkaRecordSender;
-import com.acme.scaffold.kafka.gateway.domain.repository.RecordSender;
+import com.acme.scaffold.kafka.gateway.adapter.TopicAdmin;
 import com.acme.scaffold.kafka.gateway.domain.model.Topology;
+import com.acme.scaffold.kafka.gateway.domain.repository.RecordSender;
+import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -13,9 +14,8 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-import java.util.Properties;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * Kafka 网关装配（消息生产侧，{@code kafka.gateway}）。

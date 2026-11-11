@@ -14,10 +14,10 @@ import com.acme.scaffold.codegen.dto.GeneratedFileVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;
 import com.acme.scaffold.codegen.service.CodeTemplates;
 import com.acme.scaffold.codegen.service.JavaTypeMapper;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
+
+import org.springframework.stereotype.Service;
 
 /**
  * AI 脚手架编排服务：提示词成本门禁 → 表规格解析 → 迁移 SQL + 代码草稿，并标记需人工复核。

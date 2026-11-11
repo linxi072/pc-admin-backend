@@ -4,14 +4,6 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.oauth2.OpenApiClientRules;
 import io.jsonwebtoken.Jwts;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.security.interfaces.RSAPrivateKey;
 import java.time.Duration;
 import java.util.Date;
@@ -19,7 +11,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * OAuth2 授权端点（{@code GET /oauth2/authorize}，{@code response_type=code}）。

@@ -5,36 +5,36 @@ import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.text.TextUtils;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
+import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
+import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
+import com.acme.scaffold.system.online.domain.rule.OnlineSessionRules;
 import com.acme.scaffold.system.online.dto.LoginRestrictionView;
 import com.acme.scaffold.system.online.dto.OnlineUserQuery;
 import com.acme.scaffold.system.online.dto.OnlineUserView;
 import com.acme.scaffold.system.online.dto.RestrictLoginRequest;
-import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
-import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
 import com.acme.scaffold.system.user.domain.model.SysUserDO;
-import com.acme.scaffold.system.online.domain.rule.OnlineSessionRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+
 import java.util.Map;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 在线用户管理服务（V27，C2 重构：登录限制子域已抽离至 {@link LoginRestrictionService}）。

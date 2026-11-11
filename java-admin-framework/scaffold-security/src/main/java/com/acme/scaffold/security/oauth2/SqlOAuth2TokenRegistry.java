@@ -1,20 +1,20 @@
 package com.acme.scaffold.security.oauth2;
 
-import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Repository;
-
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Repository;
 
 /**
  * 基于 jOOQ 动态 DSL 的 OAuth2 令牌注册表实现（M43）。

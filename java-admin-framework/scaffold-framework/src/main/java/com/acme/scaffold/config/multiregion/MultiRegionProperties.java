@@ -1,11 +1,11 @@
 package com.acme.scaffold.config.multiregion;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.ArrayList;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 多区域 / 多集群部署支撑配置（R4），绑定前缀 {@code app.multiregion}。

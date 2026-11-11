@@ -2,11 +2,11 @@ package com.acme.scaffold.system.notification.config;
 
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.resilience.CircuitBreaker;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-import java.util.Map;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * 通知投递韧性配置（P1-6 / P7）。

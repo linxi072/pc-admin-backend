@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.online.dto;
 
-import com.acme.scaffold.system.online.domain.rule.RestrictionRules;
 import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
+import com.acme.scaffold.system.online.domain.rule.RestrictionRules;
 
 import java.time.LocalDateTime;
 

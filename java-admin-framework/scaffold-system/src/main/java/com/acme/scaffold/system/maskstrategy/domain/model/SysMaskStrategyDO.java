@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.maskstrategy.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 脱敏策略实体（对应 {@code sys_mask_strategy}，DDL 见 V46__mask_strategy_center.sql）。

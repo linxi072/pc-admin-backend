@@ -3,11 +3,11 @@ package com.acme.scaffold.kafka.gateway.adapter;
 import com.acme.scaffold.common.messaging.bus.ProduceResult;
 import com.acme.scaffold.common.messaging.domain.Tier;
 import com.acme.scaffold.kafka.gateway.domain.repository.RecordSender;
+import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 
-import java.util.concurrent.ExecutionException;
+import org.apache.kafka.clients.producer.RecordMetadata;
 
 /**
  * 真实 Kafka 发送器（包裹 {@link KafkaProducer}）。

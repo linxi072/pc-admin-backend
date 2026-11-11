@@ -2,10 +2,10 @@ package com.acme.scaffold.observability.service;
 
 import com.acme.scaffold.observability.dto.TenantMetricView;
 import com.acme.scaffold.observability.recorder.TenantMetrics;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Service;
 
 /**
  * 租户维度聚合服务（R14 租户维度）：读取 {@link TenantMetrics} 快照，向 REST 层提供按租户下钻的

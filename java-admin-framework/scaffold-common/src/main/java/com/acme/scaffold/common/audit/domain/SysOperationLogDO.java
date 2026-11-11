@@ -1,8 +1,8 @@
 package com.acme.scaffold.common.audit.domain;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 操作审计日志持久化对象。原则上不可更新；归档/删除需独立权限与审批。

@@ -12,14 +12,14 @@ import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
 import com.acme.scaffold.system.dashboard.domain.model.TrendPoint;
 import com.acme.scaffold.system.dashboard.domain.rule.DashboardRules;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * 运营大屏数据导出（导出中心模板，M32；承接 M27 报表大屏）。

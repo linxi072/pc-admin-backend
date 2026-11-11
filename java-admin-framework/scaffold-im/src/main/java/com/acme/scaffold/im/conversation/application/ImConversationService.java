@@ -4,26 +4,26 @@ import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.im.support.ImStatus;
 import com.acme.scaffold.im.conversation.domain.model.ImConversationDO;
 import com.acme.scaffold.im.conversation.domain.model.ImConversationMemberDO;
-import com.acme.scaffold.im.message.domain.model.ImMessageDO;
 import com.acme.scaffold.im.conversation.dto.ConversationCreateRequest;
 import com.acme.scaffold.im.conversation.dto.ConversationView;
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import com.acme.scaffold.im.message.domain.model.ImMessageDO;
+import com.acme.scaffold.im.support.ImStatus;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 会话服务：点对点/群组会话的创建、成员管理、退出/删除，以及我的会话列表（含未读计数与最近消息预览）。

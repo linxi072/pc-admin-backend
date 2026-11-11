@@ -1,14 +1,14 @@
 package com.acme.scaffold.monitor.alert;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
 
 /**
  * 告警接收服务：接收 Alertmanager webhook 推送，入库内存收件箱并发布 {@link AlertReceivedEvent}，

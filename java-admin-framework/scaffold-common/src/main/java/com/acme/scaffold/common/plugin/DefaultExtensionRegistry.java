@@ -1,15 +1,15 @@
 package com.acme.scaffold.common.plugin;
 
-import org.springframework.beans.factory.SmartInitializingSingleton;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.stereotype.Component;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.stereotype.Component;
 
 /**
  * 默认扩展注册表：

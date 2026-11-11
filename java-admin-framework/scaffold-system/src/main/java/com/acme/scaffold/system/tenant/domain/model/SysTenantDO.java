@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.tenant.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 租户实体（对应 {@code sys_tenant}，V51 租户管理域 / M19 P2）。

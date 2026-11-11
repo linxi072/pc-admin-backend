@@ -1,34 +1,34 @@
 package com.acme.scaffold.system.maskstrategy.application;
-import com.acme.scaffold.common.util.MergeFields;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
+
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.sensitive.SensitiveType;
+import com.acme.scaffold.common.util.MergeFields;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategyDO;
+import com.acme.scaffold.system.maskstrategy.domain.rule.MaskStrategyRules;
 import com.acme.scaffold.system.maskstrategy.dto.CreateMaskStrategyRequest;
 import com.acme.scaffold.system.maskstrategy.dto.MaskStrategyView;
 import com.acme.scaffold.system.maskstrategy.dto.UpdateMaskStrategyRequest;
-import com.acme.scaffold.system.maskstrategy.domain.rule.MaskStrategyRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 脱敏策略中心应用服务（V46 脱敏策略中心）。

@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.openapi.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 开放平台客户端实体（对应 {@code sys_openapi_client}，V48 API 开放平台客户端注册与密钥治理）。

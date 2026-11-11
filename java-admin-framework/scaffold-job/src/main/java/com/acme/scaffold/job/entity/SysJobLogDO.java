@@ -1,8 +1,8 @@
 package com.acme.scaffold.job.entity;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 定时任务执行日志实体（对应 {@code sys_job_log}）。

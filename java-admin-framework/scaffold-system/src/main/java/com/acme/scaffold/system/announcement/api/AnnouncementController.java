@@ -1,22 +1,22 @@
 package com.acme.scaffold.system.announcement.api;
 
-import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.announcement.application.AnnouncementService;
 import com.acme.scaffold.system.announcement.dto.AnnouncementQuery;
 import com.acme.scaffold.system.announcement.dto.AnnouncementView;
 import com.acme.scaffold.system.announcement.dto.CreateAnnouncementRequest;
 import com.acme.scaffold.system.announcement.dto.UpdateAnnouncementRequest;
-import com.acme.scaffold.system.announcement.application.AnnouncementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 系统公告接口。

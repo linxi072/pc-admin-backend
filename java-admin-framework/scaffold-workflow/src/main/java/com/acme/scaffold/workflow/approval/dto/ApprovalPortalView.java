@@ -1,8 +1,8 @@
 package com.acme.scaffold.workflow.approval.dto;
 
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
 import com.acme.scaffold.workflow.instance.dto.InstanceView;
 import com.acme.scaffold.workflow.instance.dto.TaskView;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
 
 import java.util.List;
 

@@ -6,15 +6,15 @@ import com.acme.scaffold.codegen.dto.GeneratedFileVO;
 import com.acme.scaffold.codegen.dto.TableMetaVO;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 代码生成服务：拉取表结构 → 渲染后端六层与前端两文件 → 预览 / 打包下载。

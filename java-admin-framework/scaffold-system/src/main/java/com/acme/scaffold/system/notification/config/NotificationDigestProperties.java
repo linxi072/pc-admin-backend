@@ -1,9 +1,9 @@
 package com.acme.scaffold.system.notification.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.ArrayList;
+
 import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 通知聚合摘要配置（M17）：{@code app.notifications.digest.*}。

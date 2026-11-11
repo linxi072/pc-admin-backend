@@ -1,23 +1,23 @@
 package com.acme.scaffold.system.post.api;
 
-import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.post.application.PostService;
 import com.acme.scaffold.system.post.dto.AssignUserPostsRequest;
 import com.acme.scaffold.system.post.dto.CreatePostRequest;
 import com.acme.scaffold.system.post.dto.PostOptionVO;
 import com.acme.scaffold.system.post.dto.PostQuery;
 import com.acme.scaffold.system.post.dto.PostView;
 import com.acme.scaffold.system.post.dto.UpdatePostRequest;
-import com.acme.scaffold.system.post.application.PostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 岗位管理接口。

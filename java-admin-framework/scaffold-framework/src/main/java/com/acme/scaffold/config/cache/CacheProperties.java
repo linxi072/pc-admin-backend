@@ -1,8 +1,8 @@
 package com.acme.scaffold.config.cache;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.time.Duration;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 缓存管理配置：{@code app.cache.*}。

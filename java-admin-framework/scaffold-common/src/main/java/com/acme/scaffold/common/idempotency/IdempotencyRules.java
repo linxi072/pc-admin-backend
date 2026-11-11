@@ -1,13 +1,13 @@
 package com.acme.scaffold.common.idempotency;
 
 import com.acme.scaffold.common.exception.BusinessException;
-import org.springframework.util.StringUtils;
-
 import java.nio.charset.StandardCharsets;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import org.springframework.util.StringUtils;
 
 /**
  * 幂等性纯规则（无 Spring / 无 DB 依赖，便于单测）。

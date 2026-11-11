@@ -1,8 +1,8 @@
 package com.acme.scaffold.cms.article.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 内容文章实体（对应 {@code cms_article}，DDL 见 V74__cms.sql）。

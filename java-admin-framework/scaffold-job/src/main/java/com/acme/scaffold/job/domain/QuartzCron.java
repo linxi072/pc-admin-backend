@@ -1,12 +1,12 @@
 package com.acme.scaffold.job.domain;
 
-import org.quartz.CronExpression;
-
 import java.text.ParseException;
+
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.TimeZone;
+import org.quartz.CronExpression;
 
 /**
  * Quartz cron 归一化与解析（纯函数，无 Spring / DB 依赖）。

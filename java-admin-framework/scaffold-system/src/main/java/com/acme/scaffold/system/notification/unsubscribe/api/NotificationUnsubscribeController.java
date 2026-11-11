@@ -2,6 +2,7 @@ package com.acme.scaffold.system.notification.unsubscribe.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.security.ratelimit.RateLimit;
+import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
 
 /**
  * 通知退订接口（M15）：邮件/短信正文中的签名链接目标，<b>免登录</b>。

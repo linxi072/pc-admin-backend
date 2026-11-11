@@ -1,12 +1,12 @@
 package com.acme.scaffold.config.cache;
 
-import org.springframework.cache.Cache;
-import org.springframework.cache.interceptor.CacheErrorHandler;
-
 import java.util.Locale;
 import java.util.Map;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.LongAdder;
+import org.springframework.cache.Cache;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 
 /**
  * 缓存统计装饰器：委托底层 {@link Cache}，以进程内计数器记录命中 / 未命中 / 淘汰。

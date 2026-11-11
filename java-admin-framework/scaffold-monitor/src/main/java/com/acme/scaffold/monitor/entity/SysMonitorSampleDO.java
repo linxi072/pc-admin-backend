@@ -1,9 +1,9 @@
 package com.acme.scaffold.monitor.entity;
 
-import lombok.Data;
-
 import java.math.BigDecimal;
+
 import java.time.LocalDateTime;
+import lombok.Data;
 
 /**
  * 系统监控采样记录（由 Quartz 周期任务写入，供趋势查询）。

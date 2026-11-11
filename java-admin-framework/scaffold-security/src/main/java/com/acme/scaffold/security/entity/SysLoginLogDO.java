@@ -1,8 +1,8 @@
 package com.acme.scaffold.security.entity;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 登录日志实体（对应 {@code sys_login_log}，DDL 见 V2__security.sql）。

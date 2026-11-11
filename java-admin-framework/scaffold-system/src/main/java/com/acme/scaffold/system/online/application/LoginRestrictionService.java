@@ -1,33 +1,33 @@
 package com.acme.scaffold.system.online.application;
-import com.acme.scaffold.mybatis.dsl.FetchSupport;
-
 import com.acme.scaffold.common.api.dto.PageQuery;
+
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
-import com.acme.scaffold.system.online.dto.LoginRestrictionView;
-import com.acme.scaffold.system.online.dto.RestrictLoginRequest;
 import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
 import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
-import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import com.acme.scaffold.system.online.domain.rule.RestrictionRules;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
+import com.acme.scaffold.system.online.dto.LoginRestrictionView;
+import com.acme.scaffold.system.online.dto.RestrictLoginRequest;
+import com.acme.scaffold.system.user.domain.model.SysUserDO;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 登录限制子域（从 {@link OnlineUserService} 抽离，C2 重构）。

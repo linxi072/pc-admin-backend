@@ -1,14 +1,23 @@
 package com.acme.scaffold.workbench.report.application;
 
 import com.acme.scaffold.common.constant.CommonConstants;
-import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.Record2;
+import com.acme.scaffold.mybatis.dsl.Record3;
+import com.acme.scaffold.mybatis.dsl.Record4;
+import com.acme.scaffold.mybatis.dsl.Result;
 import com.acme.scaffold.mybatis.dsl.SqlTables.TableRef;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.workbench.report.domain.rule.ReportCsvWriter;
+import com.acme.scaffold.workbench.report.domain.rule.ReportDrillRules;
+import com.acme.scaffold.workbench.report.domain.rule.ReportStats;
 import com.acme.scaffold.workbench.report.dto.DrillDimension;
 import com.acme.scaffold.workbench.report.dto.DrillResultVO;
 import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
-import com.acme.scaffold.workbench.report.domain.rule.ReportStats;
 import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
 import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
 import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
@@ -21,20 +30,9 @@ import com.acme.scaffold.workbench.report.dto.ReportType;
 import com.acme.scaffold.workbench.report.dto.ReportVO;
 import com.acme.scaffold.workbench.report.dto.SortField;
 import com.acme.scaffold.workbench.report.dto.SortOrder;
-import com.acme.scaffold.workbench.report.domain.rule.ReportDrillRules;
-import lombok.RequiredArgsConstructor;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
-import com.acme.scaffold.mybatis.dsl.Record2;
-import com.acme.scaffold.mybatis.dsl.Record3;
-import com.acme.scaffold.mybatis.dsl.Record4;
-import com.acme.scaffold.mybatis.dsl.Result;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -44,6 +42,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 /**
  * 报表管理聚合：不引入独立统计表，直接对业务日志做聚合查询。

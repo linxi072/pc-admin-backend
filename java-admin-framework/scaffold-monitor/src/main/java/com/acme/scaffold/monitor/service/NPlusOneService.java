@@ -6,10 +6,10 @@ import com.acme.scaffold.monitor.detection.NPlusOneSuspect;
 import com.acme.scaffold.monitor.detection.NPlusOneSuspectRegistry;
 import com.acme.scaffold.monitor.dto.NPlusOneStatusView;
 import com.acme.scaffold.monitor.dto.NPlusOneSuspectView;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Service;
 
 /**
  * N+1 查询探测运维服务：聚合 {@link NPlusOneProbe}（线程级探测）与

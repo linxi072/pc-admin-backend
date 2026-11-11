@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.tenant.dto;
 
-import lombok.Data;
-
 import java.util.List;
+
+import lombok.Data;
 
 /**
  * 跨租户数据迁移请求：将指定业务表的数据从 {@code fromTenantId} 迁移到 {@code toTenantId}。

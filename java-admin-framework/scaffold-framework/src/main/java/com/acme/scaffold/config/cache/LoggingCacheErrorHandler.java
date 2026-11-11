@@ -1,8 +1,8 @@
 package com.acme.scaffold.config.cache;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.interceptor.CacheErrorHandler;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * 缓存异常处理器（P1-3 防雪崩）：仅记录日志并降级，不向上抛出异常，避免缓存层故障穿透到业务事务。

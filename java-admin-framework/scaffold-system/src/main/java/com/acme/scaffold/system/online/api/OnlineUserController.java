@@ -1,14 +1,14 @@
 package com.acme.scaffold.system.online.api;
 
-import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.online.application.OnlineUserService;
 import com.acme.scaffold.system.online.dto.ForceLogoutRequest;
 import com.acme.scaffold.system.online.dto.LoginRestrictionView;
 import com.acme.scaffold.system.online.dto.OnlineUserQuery;
 import com.acme.scaffold.system.online.dto.OnlineUserView;
 import com.acme.scaffold.system.online.dto.RestrictLoginRequest;
-import com.acme.scaffold.system.online.application.OnlineUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

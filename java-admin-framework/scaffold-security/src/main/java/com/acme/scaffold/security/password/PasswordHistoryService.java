@@ -1,13 +1,13 @@
 package com.acme.scaffold.security.password;
 
 import com.acme.scaffold.security.jwt.JwtProperties;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 密码历史读写服务：落地设计文档 §5.3「保留最近 5 次密码哈希，禁止重复使用」。

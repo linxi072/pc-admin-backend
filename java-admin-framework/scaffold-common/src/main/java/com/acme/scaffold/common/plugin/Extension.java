@@ -1,12 +1,12 @@
 package com.acme.scaffold.common.plugin;
 
-import org.springframework.stereotype.Component;
-
 import java.lang.annotation.Documented;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.springframework.stereotype.Component;
 
 /**
  * 标记一个 Spring Bean 为「扩展点实现」（插件贡献）。

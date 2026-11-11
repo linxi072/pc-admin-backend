@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.announcement.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 公告已读回执：记录「某人在何时确认已读某条公告」。

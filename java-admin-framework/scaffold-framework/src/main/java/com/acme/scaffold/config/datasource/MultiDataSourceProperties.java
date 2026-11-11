@@ -1,9 +1,9 @@
 package com.acme.scaffold.config.datasource;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.LinkedHashMap;
+
 import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 多数据源配置（绑定前缀 app.datasources）。

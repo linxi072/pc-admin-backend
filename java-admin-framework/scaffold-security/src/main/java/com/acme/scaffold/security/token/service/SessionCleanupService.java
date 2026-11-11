@@ -1,18 +1,18 @@
 package com.acme.scaffold.security.token.service;
 
+import static com.acme.scaffold.mybatis.dsl.DSL.and;
+import static com.acme.scaffold.mybatis.dsl.DSL.or;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.Field;
-import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static com.acme.scaffold.mybatis.dsl.DSL.and;
-import static com.acme.scaffold.mybatis.dsl.DSL.or;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 异常退出会话回收服务：吊销空闲超时的刷新令牌（进程崩溃 / 连接中断后客户端不再刷新，

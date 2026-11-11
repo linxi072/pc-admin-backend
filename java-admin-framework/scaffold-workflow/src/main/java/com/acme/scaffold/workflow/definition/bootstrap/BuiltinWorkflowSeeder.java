@@ -1,22 +1,22 @@
 package com.acme.scaffold.workflow.definition.bootstrap;
 
+import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
 import com.acme.scaffold.workflow.definition.dto.design.CreateDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.SaveDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeDTO;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
 import com.acme.scaffold.workflow.support.WorkflowNodeType;
-import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
+import java.util.List;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
+
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.function.Function;
 
 /**
  * 内置工作流种子：将原先 classpath 下的静态 BPMN（leaveApproval.bpmn20.xml）及此前仅前端 stub 的

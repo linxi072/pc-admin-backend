@@ -1,8 +1,8 @@
 package com.acme.scaffold.kafka.consumer.domain.model;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.time.Duration;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 有序消费配置属性（{@code kafka.ordered-consumer}）。

@@ -1,18 +1,18 @@
 package com.acme.scaffold.security.log;
 
 import com.acme.scaffold.common.text.TextUtils;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.entity.SysLoginLogDO;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 登录日志记录器：将登录成功 / 失败事件落入 {@code sys_login_log}，

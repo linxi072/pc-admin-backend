@@ -2,16 +2,16 @@ package com.acme.scaffold.kafka.gateway.adapter;
 
 import com.acme.scaffold.kafka.gateway.domain.model.TopicSpec;
 import com.acme.scaffold.kafka.gateway.domain.model.Topology;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.NewTopic;
-import org.apache.kafka.clients.admin.TopicListing;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.TopicListing;
 
 /**
  * Topic 管理（对应设计稿 §4.2 / §3.6：幂等建 topic）。

@@ -1,11 +1,11 @@
 package com.acme.scaffold.common.plugin;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.Comparator;
+
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 /**
  * 扩展贡献聚合器：从 {@link ExtensionRegistry} 收集各扩展点贡献的数据（菜单/路由/权限码），

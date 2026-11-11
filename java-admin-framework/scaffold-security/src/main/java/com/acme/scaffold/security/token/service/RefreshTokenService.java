@@ -1,25 +1,25 @@
 package com.acme.scaffold.security.token.service;
 
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.security.jwt.JwtProperties;
-import com.acme.scaffold.security.entity.SysRefreshTokenDO;
-import com.acme.scaffold.security.error.SecurityErrorCode;
-import com.acme.scaffold.security.token.rules.SessionLimitRules;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;
-import org.springframework.stereotype.Service;
-
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.security.entity.SysRefreshTokenDO;
+import com.acme.scaffold.security.error.SecurityErrorCode;
+import com.acme.scaffold.security.jwt.JwtProperties;
+import com.acme.scaffold.security.token.rules.SessionLimitRules;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * 刷新令牌服务（单类实现）：使用不透明令牌 + 哈希存储 + 家族轮换（refresh token rotation），

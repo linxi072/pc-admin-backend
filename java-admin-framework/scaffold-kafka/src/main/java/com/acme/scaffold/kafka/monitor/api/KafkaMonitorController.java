@@ -2,9 +2,9 @@ package com.acme.scaffold.kafka.monitor.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.kafka.monitor.application.KafkaMonitorService;
 import com.acme.scaffold.kafka.monitor.dto.KafkaConsumerStatusView;
 import com.acme.scaffold.kafka.monitor.dto.KafkaPoisonMessageView;
-import com.acme.scaffold.kafka.monitor.application.KafkaMonitorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

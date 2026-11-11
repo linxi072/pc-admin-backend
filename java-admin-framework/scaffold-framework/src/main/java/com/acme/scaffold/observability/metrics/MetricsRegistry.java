@@ -5,11 +5,11 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
+
 import java.util.List;
 import java.util.function.ToDoubleFunction;
+import org.springframework.stereotype.Component;
 
 /**
  * 统一指标桥接门面（F-12.6）。

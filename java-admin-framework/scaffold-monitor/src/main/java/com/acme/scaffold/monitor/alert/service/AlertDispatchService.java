@@ -3,18 +3,18 @@ package com.acme.scaffold.monitor.alert.service;
 import com.acme.scaffold.monitor.alert.AlertInboxEntry;
 import com.acme.scaffold.monitor.alert.rules.AlertRuleRules;
 import com.acme.scaffold.monitor.entity.AlertRuleDO;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * 告警出站分发服务：将触发的规则告警可选地推送至配置的 Webhook 地址。

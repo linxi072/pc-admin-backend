@@ -3,11 +3,11 @@ package com.acme.scaffold.system.export.application;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.system.file.application.FileService;
 import com.acme.scaffold.system.file.application.FileView;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 /**
  * 文件管理列表导出（导出中心首个内置模板）。

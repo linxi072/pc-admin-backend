@@ -1,8 +1,8 @@
 package com.acme.scaffold.security.oauth2.domain;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * OAuth2 签发令牌注册记录（M43 令牌治理）。

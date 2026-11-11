@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.smslog.domain.rule;
 
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
-import com.acme.scaffold.system.notification.config.SmsProperties;
+import com.acme.scaffold.common.text.TextUtils;
 
+import com.acme.scaffold.system.notification.config.SmsProperties;
 import java.util.List;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import com.acme.scaffold.common.text.TextUtils;
+import java.util.stream.Collectors;
 
 /**
  * 短信发送记录纯函数规则：号码掩码、正文摘要、筛选值归一。

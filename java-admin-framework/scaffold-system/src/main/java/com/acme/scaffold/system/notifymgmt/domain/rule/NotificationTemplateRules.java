@@ -2,13 +2,13 @@ package com.acme.scaffold.system.notifymgmt.domain.rule;
 
 import com.acme.scaffold.common.notification.Channel;
 
+import com.acme.scaffold.common.notification.ChannelNormalizeRules;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.acme.scaffold.common.notification.ChannelNormalizeRules;
 
 /**
  * 通知模板纯函数规则：渠道归一、变量提取、渲染、业务校验。

@@ -1,32 +1,32 @@
 package com.acme.scaffold.im.message.application;
 
+import com.acme.scaffold.common.api.dto.PageQuery;
+import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.event.EventPublisher;
 import com.acme.scaffold.common.event.domain.ImMessageSentEvent;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.im.support.ImStatus;
 import com.acme.scaffold.im.conversation.domain.model.ImConversationDO;
 import com.acme.scaffold.im.conversation.domain.model.ImConversationMemberDO;
 import com.acme.scaffold.im.message.domain.model.ImMessageDO;
 import com.acme.scaffold.im.message.dto.MessageSendRequest;
 import com.acme.scaffold.im.message.dto.MessageView;
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.im.support.ImStatus;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import com.acme.scaffold.mybatis.dsl.Condition;
-import com.acme.scaffold.mybatis.dsl.DSLContext;
-import com.acme.scaffold.mybatis.dsl.DSL;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 消息服务：发送、分页查询、撤回、已读回执（标记已读 + 未读总数）。

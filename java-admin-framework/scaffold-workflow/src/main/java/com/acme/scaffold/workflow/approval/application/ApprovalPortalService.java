@@ -1,18 +1,18 @@
 package com.acme.scaffold.workflow.approval.application;
 
-import com.acme.scaffold.workflow.instance.dto.InstanceDetailView;
 import com.acme.scaffold.workflow.approval.dto.ApprovalPortalView;
 import com.acme.scaffold.workflow.approval.dto.ApprovalStats;
+import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
+import com.acme.scaffold.workflow.instance.application.WorkflowService;
+import com.acme.scaffold.workflow.instance.dto.InstanceDetailView;
 import com.acme.scaffold.workflow.instance.dto.InstanceView;
 import com.acme.scaffold.workflow.instance.dto.TaskView;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
-import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
-import com.acme.scaffold.workflow.instance.application.WorkflowService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.stream.Collectors;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 /**
  * 审批中心门户应用服务：薄编排层，仅聚合既有工作流能力，不重复实现引擎逻辑。

@@ -1,9 +1,9 @@
 package com.acme.scaffold.monitor.health;
 
-import org.springframework.stereotype.Service;
-
 import java.util.LinkedHashMap;
+
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 /**
  * 就绪探针（readiness）：检查提供服务所必需的依赖是否就绪。当前必需依赖为数据库；

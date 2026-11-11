@@ -1,8 +1,8 @@
 package com.acme.scaffold.workflow.definition.domain.model;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 /**
  * 工作流设计态实体，对应 {@code wf_workflow_design}。

@@ -3,13 +3,13 @@ package com.acme.scaffold.system.importer.application;
 import com.acme.scaffold.common.importer.ImportRow;
 import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.common.importer.ImportValidators;
-import com.acme.scaffold.system.post.dto.CreatePostRequest;
-import com.acme.scaffold.system.post.domain.rule.PostRules;
 import com.acme.scaffold.system.post.application.PostService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
+import com.acme.scaffold.system.post.domain.rule.PostRules;
+import com.acme.scaffold.system.post.dto.CreatePostRequest;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
 
 /**
  * 岗位导入模板（M26 组织数据导入两件套之一）。

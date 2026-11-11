@@ -1,10 +1,10 @@
 package com.acme.scaffold.im.conversation.dto;
 
-import lombok.Data;
-
 import java.io.Serializable;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.Data;
 
 /**
  * 会话视图。聚合成员列表、未读计数与最近一条消息预览，供会话列表/详情直接渲染。

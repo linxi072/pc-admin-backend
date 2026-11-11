@@ -2,11 +2,11 @@ package com.acme.scaffold.job.handler;
 
 import com.acme.scaffold.job.domain.JobExecutionContext;
 import com.acme.scaffold.job.domain.JobHandler;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.lang.management.ManagementFactory;
 import java.time.LocalDateTime;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 /**
  * 演示处理器：输出当前时间与 JVM 概要信息（堆内存 / 线程数），用于验证任务可持续运行。

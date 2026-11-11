@@ -1,15 +1,15 @@
 package com.acme.scaffold.system.user.api;
 
+import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
 import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.system.user.application.UserService;
 import com.acme.scaffold.system.user.dto.CreateUserRequest;
 import com.acme.scaffold.system.user.dto.ResetPasswordRequest;
 import com.acme.scaffold.system.user.dto.UpdateUserRequest;
 import com.acme.scaffold.system.user.dto.UserQuery;
 import com.acme.scaffold.system.user.dto.UserView;
-import com.acme.scaffold.system.user.application.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
