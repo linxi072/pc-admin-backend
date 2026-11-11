@@ -30,8 +30,8 @@ VALUES (1, 0, 'SUPER_ADMIN', '超级管理员', 'SYSTEM', 'ACTIVE', 1, NOW(3), N
 
 
 -- [from V32__consolidated_schema.sql]
-INSERT IGNORE INTO sys_user (id, tenant_id, username, password_hash, display_name, status, token_version, version, created_at, updated_at)
-VALUES (1, 0, 'admin', '{bcrypt}$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96wNz/9H1P4F1q0qU3eZ0q7e2m', '超级管理员', 'ACTIVE', 1, 0, NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_user` (`id`, `tenant_id`, `username`, `password_hash`, `display_name`, `status`, `token_version`, `version`, `created_at`, `updated_at`, `password_changed_at`)
+VALUES (1, 0, 'admin', '{bcrypt}$2a$10$HXuNze85xFb7XsvExix/mO/s49oO6K7L7NbFDKGqdXhGa1IsDnvXO', '超级管理员', 'ACTIVE', 1, 0, NOW(3), NOW(3), NOW(3));
 
 -- [整理] 原 V1 种子写入的是旧版 sys_user_role（含 scope_org_id 列），
 --         该表在 V6 被 DROP、后续重建为 (tenant_id,user_id,role_id,is_primary)。
@@ -39,23 +39,6 @@ VALUES (1, 0, 'admin', '{bcrypt}$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96wNz/9H1P4F1q
 --         （原链路经由「旧关联表 → sys_user.role_id → 重建关联表」回填得到）。
 INSERT IGNORE INTO sys_user_role (tenant_id, user_id, role_id, is_primary, created_at)
 VALUES (0, 1, 1, 1, NOW(3));
-
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V4__fix_admin_password.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V4 修正超级管理员初始口令。
--- 原 V1 中 admin 的 password_hash 为占位 hash（{bcrypt}$2a$10$EixZaYVK...），
--- 该 hash 无对应明文（实测 password/admin/123456/ChangeMe123! 等均不匹配），
--- 导致超级管理员账号无法登录。此处将其修正为明确默认口令 admin123。
--- 仅当口令仍为原占位值时更新，避免覆盖已自行修改的密码。
-UPDATE sys_user
-SET password_hash = '{bcrypt}$2a$10$HXuNze85xFb7XsvExix/mO/s49oO6K7L7NbFDKGqdXhGa1IsDnvXO',
-    password_changed_at = NOW(3)
-WHERE username = 'admin'
-  AND password_hash = '{bcrypt}$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96wNz/9H1P4F1q0qU3eZ0q7e2m';
 
 
 -- [from V32__consolidated_schema.sql]
@@ -462,24 +445,24 @@ ON DUPLICATE KEY UPDATE resource_name = VALUES(resource_name), permission_code =
 --       菜单数据仅作为角色配置的初始值，后续可在「菜单管理 / 角色管理」界面灵活调整，前端不硬编码。
 -- =============================================================
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
 VALUES
-  (1001, 0, 0, 'dashboard',       '工作台',     'MENU',   '/dashboard',         NULL, NULL,                          'Odometer',     1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
-  (1002, 0, 0, 'system',         '系统管理',   'CATALOG', NULL,                NULL, NULL,                          'Setting',      1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
-  (1003, 0, 0, 'workflow',       '工作流',     'CATALOG', NULL,                NULL, NULL,                          'Share',        1, 0, 30, 'ACTIVE', NOW(3), NOW(3)),
-  (1004, 0, 0, 'profile',        '个人中心',   'MENU',   '/profile',           NULL, NULL,                          'User',         1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
-  (1010, 0, 1002, 'system:user',        '用户管理',       'MENU', '/system/user',        NULL, 'system:user:read',        'User',          1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
-  (1011, 0, 1002, 'system:role',        '角色管理',       'MENU', '/system/role',        NULL, 'system:role:read',        'Avatar',        1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
-  (1012, 0, 1002, 'system:menu',        '菜单管理',       'MENU', '/system/menu',        NULL, 'system:menu:read',        'Menu',          1, 0, 30, 'ACTIVE', NOW(3), NOW(3)),
-  (1013, 0, 1002, 'system:department',  '部门管理',       'MENU', '/system/department',  NULL, 'system:org:read',        'OfficeBuilding',1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
-  (1014, 0, 1002, 'system:api-resource','接口资源管理',   'MENU', '/system/api-resource', NULL, 'system:api:read',        'Connection',    1, 0, 50, 'ACTIVE', NOW(3), NOW(3)),
-  (1015, 0, 1002, 'system:dict',        '字典管理',       'MENU', '/system/dict',        NULL, 'system:dict:read',        'Notebook',      1, 0, 60, 'ACTIVE', NOW(3), NOW(3)),
-  (1016, 0, 1002, 'system:config',      '系统变量',       'MENU', '/system/config',      NULL, 'system:config:read',      'Coin',          1, 0, 70, 'ACTIVE', NOW(3), NOW(3)),
-  (1017, 0, 1002, 'system:notice',      '消息中心',       'MENU', '/system/notice',      NULL, 'system:announcement:read','Bell',          1, 0, 80, 'ACTIVE', NOW(3), NOW(3)),
-  (1018, 0, 1002, 'system:monitor',     '系统监控',       'MENU', '/system/monitor',     NULL, 'system:monitor:read',     'Odometer',      1, 0, 90, 'ACTIVE', NOW(3), NOW(3)),
-  (1020, 0, 1003, 'workflow:task',      '我的待办',       'MENU', '/workflow/task',      NULL, 'workflow:task:read',      'Tickets',       1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
-  (1021, 0, 1003, 'workflow:instance',  '我发起的流程',   'MENU', '/workflow/instance',  NULL, 'workflow:instance:read',  'Document',      1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
-  (1022, 0, 1003, 'workflow:definition', '工作流设计',     'MENU', '/workflow/definition',NULL, 'workflow:definition:read','Edit',          1, 0, 30, 'ACTIVE', NOW(3), NOW(3));
+  (1001, 0, 2001, 'dashboard', '工作台', 'MENU', '/dashboard', NULL, NULL, 'Odometer', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
+  (1002, 0, 0, 'system', '系统管理', 'CATALOG', NULL, NULL, NULL, 'Setting', 0, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
+  (1003, 0, 0, 'workflow', '工作流', 'CATALOG', NULL, NULL, NULL, 'Share', 0, 0, 30, 'ACTIVE', NOW(3), NOW(3)),
+  (1004, 0, 2002, 'profile', '个人中心', 'MENU', '/profile', NULL, NULL, 'User', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
+  (1010, 0, 2003, 'system:user', '用户管理', 'MENU', '/system/user', NULL, 'system:user:read', 'User', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
+  (1011, 0, 2003, 'system:role', '角色管理', 'MENU', '/system/role', NULL, 'system:role:read', 'Avatar', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
+  (1012, 0, 2003, 'system:menu', '菜单管理', 'MENU', '/system/menu', NULL, 'system:menu:read', 'Menu', 1, 0, 30, 'ACTIVE', NOW(3), NOW(3)),
+  (1013, 0, 2003, 'system:department', '部门管理', 'MENU', '/system/department', NULL, 'system:org:read', 'OfficeBuilding', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
+  (1014, 0, 2004, 'system:api-resource', '接口资源管理', 'MENU', '/system/api-resource', NULL, 'system:api:read', 'Connection', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
+  (1015, 0, 2003, 'system:dict', '字典管理', 'MENU', '/system/dict', NULL, 'system:dict:read', 'Notebook', 1, 0, 60, 'ACTIVE', NOW(3), NOW(3)),
+  (1016, 0, 2003, 'system:config', '系统变量', 'MENU', '/system/config', NULL, 'system:config:read', 'Coin', 1, 0, 70, 'ACTIVE', NOW(3), NOW(3)),
+  (1017, 0, 2005, 'system:notice', '消息中心', 'MENU', '/system/notice', NULL, 'system:announcement:read', 'Bell', 1, 0, 80, 'ACTIVE', NOW(3), NOW(3)),
+  (1018, 0, 2008, 'system:monitor', '系统监控', 'MENU', '/system/monitor', NULL, 'system:monitor:read', 'Odometer', 1, 0, 30, 'ACTIVE', NOW(3), NOW(3)),
+  (1020, 0, 2006, 'workflow:task', '我的待办', 'MENU', '/workflow/task', NULL, 'workflow:task:read', 'Tickets', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
+  (1021, 0, 2006, 'workflow:instance', '我发起的流程', 'MENU', '/workflow/instance', NULL, 'workflow:instance:read', 'Document', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
+  (1022, 0, 2006, 'workflow:definition', '工作流设计', 'MENU', '/workflow/definition', NULL, 'workflow:definition:read', 'Edit', 1, 0, 30, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V32__consolidated_schema.sql]
@@ -531,15 +514,13 @@ VALUES (0, 1, 2, 0, NOW(3)),
 --   - 全部走 INSERT IGNORE / NOT EXISTS，重复执行结果一致（幂等）。
 -- =============================================================
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES
-  (1030, 0, 0, 'report-usage', '使用报表', 'MENU', '/report/usage', NULL, 'report:usage:read', 'DataAnalysis', 1, 0, 50, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`, `deleted`)
+VALUES (1030, 0, 0, 'report-management', '报表管理', 'CATALOG', NULL, NULL, NULL, 'DataAnalysis', 0, 0, 45, 'ACTIVE', NOW(3), NOW(3), 0);
 
 
 -- [from V32__consolidated_schema.sql]
-INSERT IGNORE INTO sys_api_resource (id, tenant_id, resource_name, permission_code, http_method, path_pattern, controller_method, auth_mode, status, risk_level)
-VALUES
-  (900000000101, 0, '使用报表（访问量 / 功能使用频次 / 活跃用户数）', 'report:usage:read', 'GET', '/api/workbench/report', 'UsageReportController#report', 'REQUIRED', 'ACTIVE', 'NORMAL');
+INSERT IGNORE INTO `sys_api_resource` (`id`, `tenant_id`, `resource_name`, `permission_code`, `http_method`, `path_pattern`, `controller_method`, `auth_mode`, `status`, `risk_level`, `updated_at`)
+VALUES (900000000101, 0, '报表管理（使用统计 / 类别统计 / 状态统计）', 'report:read', 'GET', '/api/report/**', 'ReportController', 'REQUIRED', 'ACTIVE', 'NORMAL', NOW(3));
 
 
 -- [from V32__consolidated_schema.sql]
@@ -554,50 +535,11 @@ SELECT 0, 1, id, CURRENT_TIMESTAMP(3) FROM sys_api_resource WHERE id = 900000000
 
 
 -- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V20__report_management_rename_fix.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- =============================================================
--- V20 报表管理重命名修正（兼容已执行过 V19 的历史库）
--- 目的：在「使用报表 → 报表管理」重命名中，保证已部署数据库的功能逻辑一致，
---       不影响原有数据展示与业务流程。
--- 说明：
---   - V19 已写入的菜单/接口资源行（id 固定为 1030 / 900000000101）通过 UPDATE 统一修正为
---     新标识：菜单名「报表管理」、路由 /report/management、权限码 report:read；
---     接口资源权限码 report:read、路径 /api/report/**、controller ReportController。
---   - 对尚未执行 V19 的全新库：V19 先插入旧值，本脚本随后 UPDATE 为新值（净结果一致），
---     且 UPDATE 为幂等（重复执行结果不变），不会破坏既有数据。
---   - 角色绑定（sys_role_menu / sys_role_api）基于 id 关联，本脚本不改动，保持 SUPER_ADMIN 可见可用。
--- =============================================================
-
-UPDATE sys_menu
-SET menu_code      = 'report-management',
-    menu_name      = '报表管理',
-    route_path     = '/report/management',
-    permission_code = 'report:read',
-    icon           = 'DataAnalysis',
-    updated_at     = NOW(3)
-WHERE id = 1030;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_api_resource
-SET resource_name   = '报表管理（使用统计 / 类别统计 / 状态统计）',
-    permission_code = 'report:read',
-    path_pattern    = '/api/report/**',
-    controller_method = 'ReportController',
-    updated_at     = NOW(3)
-WHERE id = 900000000101;
-
-
--- [from V32__consolidated_schema.sql]
 -- -----------------------------------------------------------------------------
 -- 3) 菜单种子：一级菜单「定时任务」(route=/job/list，与前端路由一致)
 -- -----------------------------------------------------------------------------
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES
-  (1031, 0, 0, 'job-management', '定时任务', 'MENU', '/job/list', NULL, 'job:read', 'Timer', 1, 0, 55, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1031, 0, 2013, 'job-management', '定时任务', 'MENU', '/job/list', NULL, 'job:read', 'Timer', 1, 0, 55, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V32__consolidated_schema.sql]
@@ -652,9 +594,8 @@ WHERE a.id BETWEEN 900000000102 AND 900000000111
 --   - 全部走 INSERT IGNORE / NOT EXISTS，重复执行结果一致（幂等）。
 -- =============================================================
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES
-  (1040, 0, 0, 'dev-codegen', '代码生成', 'MENU', '/dev/codegen', NULL, 'codegen:read', 'MagicStick', 1, 0, 60, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1040, 0, 2013, 'dev-codegen', '代码生成', 'MENU', '/dev/codegen', NULL, 'codegen:read', 'MagicStick', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V32__consolidated_schema.sql]
@@ -678,45 +619,15 @@ SELECT 0, 1, id, CURRENT_TIMESTAMP(3) FROM sys_api_resource WHERE id IN (9000000
 
 
 -- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V24__report_menu_split.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- =============================================================
--- V24 报表管理页签拆分：每个报表视角独立为子菜单
--- 目的：原「报表管理」单页内 6 个报表类型 Tab（使用/类别/状态/定时任务执行/登录/接口调用）
---       拆分为 6 个独立功能菜单项，父菜单「报表管理」目录化（CATALOG）承载层级，
---       各子菜单 route_path 与前端路由（pc-admin-vue3-vite/src/router/index.js）保持一致。
--- 说明：
---   - 父菜单 id=1030（V19 建、V20 改名）由叶子 MENU 升级为 CATALOG：route_path / permission_code 置空，
---     分组本身不导航、不鉴权（与 V17 系统管理/工作流目录范式一致）；
---   - 6 个子菜单 id=1050~1055（避开 V21 已占用的 1031），permission_code 统一为 report:read——
---     报表域权限模型不变（接口 /api/report/** 仍由 report:read 鉴权），菜单可见性走 sys_role_menu 独立绑定，
---     角色可在「角色管理」中按需绑定单个报表菜单而无需改动接口权限；
---   - 旧路由 /report/management 在前端保留重定向至 /report/usage，历史书签/外部链接不失效；
---   - 全部走 UPDATE / INSERT IGNORE，重复执行结果一致（幂等）。
--- =============================================================
-
--- 1) 父菜单目录化：报表管理（叶子页 → 分组目录）
-UPDATE sys_menu
-SET menu_type      = 'CATALOG',
-    route_path     = NULL,
-    component_path = NULL,
-    permission_code = NULL,
-    updated_at     = NOW(3)
-WHERE id = 1030;
-
-
--- [from V32__consolidated_schema.sql]
 -- 2) 6 个报表子菜单（每个原页签一个独立入口）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`, `deleted`)
 VALUES
-  (1050, 0, 1030, 'report-usage',     '使用统计',         'MENU', '/report/usage',     NULL, 'report:read', 'DataLine',    1, 0, 10, 'ACTIVE', NOW(3), NOW(3)),
-  (1051, 0, 1030, 'report-category',  '类别统计',         'MENU', '/report/category',  NULL, 'report:read', 'PieChart',    1, 0, 20, 'ACTIVE', NOW(3), NOW(3)),
-  (1052, 0, 1030, 'report-status',    '状态统计',         'MENU', '/report/status',    NULL, 'report:read', 'DataAnalysis',1, 0, 30, 'ACTIVE', NOW(3), NOW(3)),
-  (1053, 0, 1030, 'report-job-exec',  '定时任务执行统计', 'MENU', '/report/job-exec',  NULL, 'report:read', 'Timer',       1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
-  (1054, 0, 1030, 'report-login',     '登录统计',         'MENU', '/report/login',     NULL, 'report:read', 'User',        1, 0, 50, 'ACTIVE', NOW(3), NOW(3)),
-  (1055, 0, 1030, 'report-api-call',  '接口调用统计',     'MENU', '/report/api-call',  NULL, 'report:read', 'Connection',  1, 0, 60, 'ACTIVE', NOW(3), NOW(3));
+  (1050, 0, 1030, 'report-usage', '使用统计', 'MENU', '/report/usage', NULL, 'report:read', 'DataLine', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3), 1),
+  (1051, 0, 1030, 'report-category', '类别统计', 'MENU', '/report/category', NULL, 'report:read', 'PieChart', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3), 1),
+  (1052, 0, 1030, 'report-status', '状态统计', 'MENU', '/report/status', NULL, 'report:read', 'DataAnalysis', 1, 0, 30, 'ACTIVE', NOW(3), NOW(3), 1),
+  (1053, 0, 2012, 'report-job-exec', '定时任务执行统计', 'MENU', '/report/job-exec', NULL, 'report:read', 'Timer', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3), 0),
+  (1054, 0, 2012, 'report-login', '登录统计', 'MENU', '/report/login', NULL, 'report:read', 'User', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3), 0),
+  (1055, 0, 2012, 'report-api-call', '接口调用统计', 'MENU', '/report/api-call', NULL, 'report:read', 'Connection', 1, 0, 30, 'ACTIVE', NOW(3), NOW(3), 0);
 
 
 -- [from V32__consolidated_schema.sql]
@@ -795,8 +706,8 @@ SELECT 2, 'zhangsan', password_hash, '张三' FROM sys_user WHERE id = 1;
 -- -------------------------------------------------------------
 -- 菜单：「在线用户管理」挂在「系统管理」(id=1002) 下，接在系统监控(90)之后
 -- -------------------------------------------------------------
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1060, 0, 1002, 'system:online', '在线用户管理', 'MENU', '/system/online', NULL, 'system:online:read', 'Monitor', 1, 0, 95, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1060, 0, 2008, 'system:online', '在线用户管理', 'MENU', '/system/online', NULL, 'system:online:read', 'Monitor', 1, 0, 95, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V32__consolidated_schema.sql]
@@ -897,12 +808,12 @@ WHERE r.role_code = 'SUPER_ADMIN'
 -- -------------------------------------------------------------
 -- 菜单种子（父菜单「系统管理」id=1002，接在线用户管理 95 之后）
 -- -------------------------------------------------------------
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
 VALUES
-  (1061, 0, 1002, 'system:cache', '缓存监控', 'MENU', '/system/cache', NULL, 'system:monitor:read', 'Box', 1, 0, 100, 'ACTIVE', NOW(3), NOW(3)),
-  (1062, 0, 1002, 'system:datasource', '连接池监控', 'MENU', '/system/datasource', NULL, 'system:monitor:read', 'Link', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3)),
-  (1063, 0, 1002, 'system:login-log', '登录日志', 'MENU', '/system/login-log', NULL, 'system:login-log:read', 'Key', 1, 0, 120, 'ACTIVE', NOW(3), NOW(3)),
-  (1064, 0, 1002, 'system:operation-log', '操作日志', 'MENU', '/system/operation-log', NULL, 'system:audit:read', 'Document', 1, 0, 130, 'ACTIVE', NOW(3), NOW(3));
+  (1061, 0, 2008, 'system:cache', '缓存监控', 'MENU', '/system/cache', NULL, 'system:monitor:read', 'Box', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3)),
+  (1062, 0, 2008, 'system:datasource', '连接池监控', 'MENU', '/system/datasource', NULL, 'system:monitor:read', 'Link', 1, 0, 50, 'ACTIVE', NOW(3), NOW(3)),
+  (1063, 0, 2008, 'system:login-log', '登录日志', 'MENU', '/system/login-log', NULL, 'system:login-log:read', 'Key', 1, 0, 60, 'ACTIVE', NOW(3), NOW(3)),
+  (1064, 0, 2008, 'system:operation-log', '操作日志', 'MENU', '/system/operation-log', NULL, 'system:audit:read', 'Document', 1, 0, 70, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V32__consolidated_schema.sql]
@@ -962,8 +873,8 @@ WHERE r.id BETWEEN 900000000415 AND 900000000419
 -- -------------------------------------------------------------
 -- 1) 新增「运维管理」一级目录（接手 sort_no=50，图标 Tools）
 -- -------------------------------------------------------------
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1070, 0, 0, 'ops', '运维管理', 'CATALOG', NULL, NULL, NULL, 'Tools', 1, 0, 50, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1070, 0, 0, 'ops', '运维管理', 'CATALOG', NULL, NULL, NULL, 'Tools', 0, 0, 50, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V32__consolidated_schema.sql]
@@ -973,111 +884,11 @@ SELECT 0, 1, m.id FROM sys_menu m WHERE m.id = 1070;
 
 
 -- [from V32__consolidated_schema.sql]
--- -------------------------------------------------------------
--- 2) 软删 3 个公共统计页 + 「报表管理」目录容器，并清理角色-菜单关联
---    （MenuService.delete 同类问题：N:N 关联表无外键，须显式清理防孤儿行）
--- -------------------------------------------------------------
-UPDATE sys_menu SET deleted = 1, updated_at = NOW(3)
-WHERE id IN (1050, 1051, 1052) AND deleted = 0;
-
-
--- [from V32__consolidated_schema.sql]
 DELETE FROM sys_role_menu WHERE menu_id IN (1050, 1051, 1052);
 
 
 -- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET deleted = 1, updated_at = NOW(3)
-WHERE id = 1030 AND deleted = 0;
-
-
--- [from V32__consolidated_schema.sql]
 DELETE FROM sys_role_menu WHERE menu_id = 1030;
-
-
--- [from V32__consolidated_schema.sql]
--- -------------------------------------------------------------
--- 3) 7 个功能菜单迁入运维管理，sort_no 按需求顺序重排
---    接口资源管理 10 / 代码生成 20 / 系统监控 30 / 缓存监控 40 /
---    连接池监控 50 / 登录日志 60 / 操作日志 70
--- -------------------------------------------------------------
-UPDATE sys_menu SET parent_id = 1070, sort_no = 10, updated_at = NOW(3)
-WHERE id = 1014 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 20, updated_at = NOW(3)
-WHERE id = 1040 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 30, updated_at = NOW(3)
-WHERE id = 1018 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 40, updated_at = NOW(3)
-WHERE id = 1061 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 50, updated_at = NOW(3)
-WHERE id = 1062 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 60, updated_at = NOW(3)
-WHERE id = 1063 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 70, updated_at = NOW(3)
-WHERE id = 1064 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
--- -------------------------------------------------------------
--- 4) 保留的 3 个运维向统计页挂到运维管理（原父目录 1030 已软删）
---    定时任务执行统计 80 / 登录统计 90 / 接口调用统计 100
--- -------------------------------------------------------------
-UPDATE sys_menu SET parent_id = 1070, sort_no = 80, updated_at = NOW(3)
-WHERE id = 1053 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 90, updated_at = NOW(3)
-WHERE id = 1054 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1070, sort_no = 100, updated_at = NOW(3)
-WHERE id = 1055 AND parent_id <> 1070;
-
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V31__report_menu_restore.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- =============================================================
--- V31 恢复「报表管理」一级菜单：定时任务执行 / 登录 / 接口调用统计迁入
--- 目的：
---   1. V30 将 3 个运维向统计页（1053/1054/1055）挂到「运维管理」(1070) 后，
---      报表域缺少一级入口；本迁移复活 V30 软删的「报表管理」目录(1030)，
---      作为一级 CATALOG 重新承载这 3 个统计页；
---   2. 3 个统计页菜单 id / 权限码 / route_path 均不变 → sys_role_menu / sys_role_api
---      授权零影响，前端路由零改动，侧边栏由后端菜单树驱动自动归组；
---   3. 「运维管理」(1070) 保留其余 7 个功能菜单，sort_no 不变。
--- 幂等性：复活带 deleted=1 原值 WHERE 条件，INSERT IGNORE + NOT EXISTS，重复执行结果一致。
--- =============================================================
-
--- -------------------------------------------------------------
--- 1) 复活「报表管理」一级目录（V30 软删，menu_code=report-management）
---    CATALOG 形态由 V24 置好（route_path / permission_code 均为 NULL），
---    此处仅恢复可见性、归位一级，并接排个人中心(40)之后、运维管理(50)之前
--- -------------------------------------------------------------
-UPDATE sys_menu
-SET deleted = 0, parent_id = 0, sort_no = 45, updated_at = NOW(3)
-WHERE id = 1030 AND deleted = 1;
 
 
 -- [from V32__consolidated_schema.sql]
@@ -1089,30 +900,10 @@ WHERE m.id = 1030
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.id);
 
 
--- [from V32__consolidated_schema.sql]
--- -------------------------------------------------------------
--- 2) 3 个统计页从「运维管理」迁回「报表管理」，sort_no 按 10/20/30 重排
---    定时任务执行统计(1053) / 登录统计(1054) / 接口调用统计(1055)
---    （原 1050/1051/1052 公共统计页保持软删，不复活）
--- -------------------------------------------------------------
-UPDATE sys_menu SET parent_id = 1030, sort_no = 10, updated_at = NOW(3)
-WHERE id = 1053 AND parent_id <> 1030;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1030, sort_no = 20, updated_at = NOW(3)
-WHERE id = 1054 AND parent_id <> 1030;
-
-
--- [from V32__consolidated_schema.sql]
-UPDATE sys_menu SET parent_id = 1030, sort_no = 30, updated_at = NOW(3)
-WHERE id = 1055 AND parent_id <> 1030;
-
-
 -- [from V33__file_management.sql]
 -- 2) 菜单：文件管理（挂在「运维管理」1070 下，sort_no=110 置于末尾）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1080, 0, 1070, 'file-management', '文件管理', 'MENU', '/system/file', 'system/FileManagement', 'system:file:read', 'Document', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1080, 0, 2010, 'file-management', '文件管理', 'MENU', '/system/file', 'system/FileManagement', 'system:file:read', 'Document', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V33__file_management.sql]
@@ -1128,8 +919,8 @@ SELECT 0, 1, 1080;
 -- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
 
 -- 1) 菜单：导出中心（挂在「系统管理」1002 下，sort_no=100 置于末尾）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1090, 0, 1002, 'system:export', '导出中心', 'MENU', '/system/export', 'system/ExportCenter', 'system:export:read', 'Download', 1, 0, 100, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1090, 0, 2010, 'system:export', '导出中心', 'MENU', '/system/export', 'system/ExportCenter', 'system:export:read', 'Download', 1, 0, 100, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V34__csv_export_center.sql]
@@ -1140,8 +931,8 @@ SELECT 0, 1, 1090;
 
 -- [from V35__post_management.sql]
 -- 3) 菜单：岗位管理（挂在「系统管理」1002 下，sort_no=110 承接导出中心 100 之后）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1091, 0, 1002, 'system:post', '岗位管理', 'MENU', '/system/post', 'system/PostView', 'system:post:read', 'Position', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1091, 0, 2003, 'system:post', '岗位管理', 'MENU', '/system/post', 'system/PostView', 'system:post:read', 'Position', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V35__post_management.sql]
@@ -1157,8 +948,8 @@ SELECT 0, 1, 1091;
 -- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
 
 -- 1) 菜单：导入中心（挂在「系统管理」1002 下，sort_no=101 紧随导出中心）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1091, 0, 1002, 'system:import', '导入中心', 'MENU', '/system/import', 'system/ImportCenter', 'system:import:read', 'Upload', 1, 0, 101, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1091, 0, 2010, 'system:import', '导入中心', 'MENU', '/system/import', 'system/ImportCenter', 'system:import:read', 'Upload', 1, 0, 101, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V36__import_center.sql]
@@ -1169,8 +960,8 @@ SELECT 0, 1, 1091;
 
 -- [from V37__sms_record.sql]
 -- 2) 菜单：短信记录（挂在「系统管理」1002 下，sort_no=102 紧随导入中心）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1092, 0, 1002, 'system:sms-record', '短信记录', 'MENU', '/system/sms-record', 'system/SmsLog', 'system:sms-record:read', 'Message', 1, 0, 102, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1092, 0, 2005, 'system:sms-record', '短信记录', 'MENU', '/system/sms-record', 'system/SmsLog', 'system:sms-record:read', 'Message', 1, 0, 102, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V37__sms_record.sql]
@@ -1272,8 +1063,8 @@ VALUES
 -- 以未占用的新 id=1093 重新播种「导入中心」。uk_tenant_menu_code (tenant_id, menu_code)
 -- 唯一键保证幂等：若目标环境已手工补过该菜单，INSERT IGNORE 自然跳过，不会产生重复行。
 -- =============================================================
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1093, 0, 1002, 'system:import', '导入中心', 'MENU', '/system/import', 'system/ImportCenter', 'system:import:read', 'Upload', 1, 0, 101, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1093, 0, 2010, 'system:import', '导入中心', 'MENU', '/system/import', 'system/ImportCenter', 'system:import:read', 'Upload', 1, 0, 101, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V39__observability_center.sql]
@@ -1290,8 +1081,8 @@ SELECT 0, 1, id FROM sys_menu WHERE menu_code = 'system:import';
 -- 幂等记录三个 Tab 由后端按 system:observability:read / system:kafka:read /
 -- system:idempotency:read 独立鉴权，前端对 403 展示降级空态（最小授权，不越权放行）。
 -- =============================================================
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1094, 0, 1002, 'system:observability-center', '可观测中心', 'MENU', '/system/observability', 'system/ObservabilityCenter', 'system:monitor:read', 'DataLine', 1, 0, 103, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1094, 0, 2008, 'system:observability-center', '可观测中心', 'MENU', '/system/observability', 'system/ObservabilityCenter', 'system:monitor:read', 'DataLine', 1, 0, 103, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V39__observability_center.sql]
@@ -1302,8 +1093,8 @@ SELECT 0, 1, 1094;
 
 -- [from V41__notification_template.sql]
 -- 2) 菜单：通知模板（挂在「系统管理」1002 下，sort_no=104 紧随可观测中心）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1095, 0, 1002, 'system:notification-template', '通知模板', 'MENU', '/system/notification-templates', 'system/NotificationTemplate', 'system:notification-template:read', 'Bell', 1, 0, 104, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1095, 0, 2005, 'system:notification-template', '通知模板', 'MENU', '/system/notification-templates', 'system/NotificationTemplate', 'system:notification-template:read', 'Bell', 1, 0, 104, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V41__notification_template.sql]
@@ -1314,8 +1105,8 @@ SELECT 0, 1, 1095;
 
 -- [from V42__notification_record.sql]
 -- 2) 菜单：通知记录（挂在「系统管理」1002 下，sort_no=105 紧随通知模板）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1096, 0, 1002, 'system:notification-record', '通知记录', 'MENU', '/system/notification-records', 'system/NotificationRecord', 'system:notification-record:read', 'Tickets', 1, 0, 105, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1096, 0, 2005, 'system:notification-record', '通知记录', 'MENU', '/system/notification-records', 'system/NotificationRecord', 'system:notification-record:read', 'Tickets', 1, 0, 105, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V42__notification_record.sql]
@@ -1326,8 +1117,8 @@ SELECT 0, 1, 1096;
 
 -- [from V46__mask_strategy_center.sql]
 -- 2) 菜单：脱敏策略中心（挂在「系统管理」1002 下，sort_no=110 紧随可观测/导出/导入中心之后）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1120, 0, 1002, 'system:mask-strategy', '脱敏策略中心', 'MENU', '/system/mask-strategies', 'system/MaskStrategy', 'system:mask-strategy:read', 'Lock', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1120, 0, 2004, 'system:mask-strategy', '脱敏策略中心', 'MENU', '/system/mask-strategies', 'system/MaskStrategy', 'system:mask-strategy:read', 'Lock', 1, 0, 110, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V46__mask_strategy_center.sql]
@@ -1338,9 +1129,8 @@ SELECT 0, 1, 1120;
 
 -- [from V47__form_pilot.sql]
 -- 2) 试点表单：contact-feedback（联系反馈）——覆盖 INPUT/TEXTAREA/SELECT/SWITCH/DATE 五类控件渲染
-INSERT IGNORE INTO sys_form_definition (id, tenant_id, form_code, form_name, schema_json, target_type, enabled, remark, version, deleted, created_at, updated_at)
-VALUES (1, 0, 'contact-feedback', '联系反馈',
-        JSON_OBJECT(
+INSERT IGNORE INTO `sys_form_definition` (`id`, `tenant_id`, `form_code`, `form_name`, `schema_json`, `target_type`, `enabled`, `remark`, `version`, `deleted`, `created_at`, `updated_at`)
+VALUES (1, 0, 'contact-feedback', '联系反馈', JSON_OBJECT(
             'version', 1,
             'title', '联系反馈',
             'fields', JSON_ARRAY(
@@ -1356,14 +1146,13 @@ VALUES (1, 0, 'contact-feedback', '联系反馈',
                             'minLength', 10, 'maxLength', 500, 'rows', 4, 'placeholder', '请详细描述您的问题（至少 10 字）'),
                 JSON_OBJECT('key', 'followUpAt', 'label', '期望回访日期', 'type', 'DATE')
             )
-        ),
-        'NONE', 1, 'M22 spike 试点表单：契约 + 渲染验证，不含提交落库（绑定目标决策点待定）', 0, 0, NOW(3), NOW(3));
+        ), 'FORM_SUBMISSION', 1, 'M22 spike 试点表单：契约 + 渲染验证，不含提交落库（绑定目标决策点待定）', 0, 0, NOW(3), NOW(3));
 
 
 -- [from V47__form_pilot.sql]
 -- 3) 菜单：低代码表单试点（挂在「系统管理」1002 下，sort_no=111 紧随脱敏策略中心之后）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1121, 0, 1002, 'system:form-pilot', '低代码表单试点', 'MENU', '/system/form-pilot', 'system/FormPilot', 'system:form-definition:read', 'EditPen', 1, 0, 111, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1121, 0, 2007, 'system:form-pilot', '低代码表单试点', 'MENU', '/system/form-pilot', 'system/FormPilot', 'system:form-definition:read', 'EditPen', 1, 0, 111, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V47__form_pilot.sql]
@@ -1374,8 +1163,8 @@ SELECT 0, 1, 1121;
 
 -- [from V48__openapi_client.sql]
 -- 2) 菜单：开放平台客户端（挂在「系统管理」1002 下，sort_no=112 紧随低代码表单试点之后）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1122, 0, 1002, 'system:openapi-client', '开放平台客户端', 'MENU', '/system/openapi-clients', 'system/OpenApiClient', 'system:openapi-client:read', 'Key', 1, 0, 112, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1122, 0, 2011, 'system:openapi-client', '开放平台客户端', 'MENU', '/system/openapi-clients', 'system/OpenApiClient', 'system:openapi-client:read', 'Key', 1, 0, 112, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V48__openapi_client.sql]
@@ -1398,8 +1187,8 @@ SELECT 0, 1, 1122;
 --   4) 催办最小间隔经 app.workflow.monitor.remind-min-interval-minutes 配置（默认 30 分钟）。
 
 -- 1) 菜单：流程监控
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1123, 0, 1003, 'workflow:monitor', '流程监控', 'MENU', '/workflow/monitor', 'workflow/Monitor', 'workflow:monitor:read', 'DataLine', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1123, 0, 2006, 'workflow:monitor', '流程监控', 'MENU', '/workflow/monitor', 'workflow/Monitor', 'workflow:monitor:read', 'DataLine', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V49__workflow_monitor.sql]
@@ -1410,8 +1199,8 @@ SELECT 0, 1, 1123;
 
 -- [from V51__tenant_management.sql]
 -- 2) 菜单：租户管理（挂在「系统管理」1002 下，sort_no=113 紧随开放平台客户端 112 之后）
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1124, 0, 1002, 'system:tenant', '租户管理', 'MENU', '/system/tenants', 'system/TenantView', 'system:tenant:read', 'OfficeBuilding', 1, 0, 113, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1124, 0, 2009, 'system:tenant', '租户管理', 'MENU', '/system/tenants', 'system/TenantView', 'system:tenant:read', 'OfficeBuilding', 1, 0, 113, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V51__tenant_management.sql]
@@ -1430,22 +1219,14 @@ SELECT 0, 1, 1124;
 --   3) route_path 必须与前端路由（report/dashboard）严格一致，否则路由守卫会重定向到工作台。
 --   4) 依赖：V32（报表管理目录 id=1030）、M27（dashboard 接口）。幂等：INSERT IGNORE + NOT EXISTS。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1056, 0, 1030, 'system:dashboard', '报表大屏', 'MENU', '/report/dashboard', 'report/DashboardView', 'system:dashboard:read', 'DataAnalysis', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1056, 0, 2001, 'system:dashboard', '报表大屏', 'MENU', '/report/dashboard', 'report/DashboardView', 'system:dashboard:read', 'DataAnalysis', 1, 0, 40, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V52__dashboard_menu.sql]
 -- 绑定 SUPER_ADMIN（role_id=1），保证超管可见可用
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id)
 SELECT 0, 1, 1056;
-
-
--- [from V53__form_submission.sql]
--- 2) 试点表单绑定目标落库：contact-feedback 由 NONE → FORM_SUBMISSION（幂等 UPDATE）
-UPDATE sys_form_definition
-SET target_type = 'FORM_SUBMISSION'
-WHERE form_code = 'contact-feedback'
-  AND target_type = 'NONE';
 
 
 -- [from V54__tenant_isolation_menu.sql]
@@ -1460,8 +1241,8 @@ WHERE form_code = 'contact-feedback'
 --   4) 依赖：V32（系统管理目录 id=1002）、M19 P3（隔离核心 TenantEnforcement/TenantContext）、M28（诊断接口）。
 --   5) 幂等：INSERT IGNORE + NOT EXISTS（menu_code 唯一），可重复执行。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1125, 0, 1002, 'system:tenant-isolation', '租户隔离态势', 'MENU', '/system/tenant-isolation', 'system/TenantIsolationView', 'system:tenant-isolation:read', 'Connection', 1, 0, 114, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1125, 0, 2009, 'system:tenant-isolation', '租户隔离态势', 'MENU', '/system/tenant-isolation', 'system/TenantIsolationView', 'system:tenant-isolation:read', 'Connection', 1, 0, 114, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V54__tenant_isolation_menu.sql]
@@ -1484,8 +1265,8 @@ SELECT 0, 1, 1125;
 --   4) 依赖：V32（系统管理目录 id=1002）、realtime 模块 RealtimeController（已交付）。
 --   5) 幂等：INSERT IGNORE + NOT EXISTS（menu_code 唯一），可重复执行。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1126, 0, 1002, 'system:realtime', '实时推送', 'MENU', '/system/realtime', 'system/RealtimeView', 'system:realtime:read', 'Bell', 1, 0, 115, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1126, 0, 2005, 'system:realtime', '实时推送', 'MENU', '/system/realtime', 'system/RealtimeView', 'system:realtime:read', 'Bell', 1, 0, 115, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V55__realtime_menu.sql]
@@ -1509,8 +1290,8 @@ SELECT 0, 1, 1126;
 --   4) 依赖：V32（系统管理目录 id=1002）、DataScopeResourceRegistry（新增）。
 --   5) 幂等：INSERT IGNORE + NOT EXISTS（menu_code 唯一），可重复执行。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1127, 0, 1002, 'system:data-scope', '数据权限', 'MENU', '/system/data-scope', 'system/DataScopeView', 'system:data-scope:read', 'Lock', 1, 0, 116, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1127, 0, 2004, 'system:data-scope', '数据权限', 'MENU', '/system/data-scope', 'system/DataScopeView', 'system:data-scope:read', 'Lock', 1, 0, 116, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V56__data_scope_menu.sql]
@@ -1535,8 +1316,8 @@ SELECT 0, 1, 1127;
 --   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1），可重复执行。
 --   5) sort_no=117 紧随数据权限(1127/116) 之后，置于系统管理目录末尾。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1128, 0, 1002, 'system:form-definition', '表单定义管理', 'MENU', '/system/form-definition', 'system/FormDefinitionView', 'system:form-definition:read', 'Document', 1, 0, 117, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1128, 0, 2007, 'system:form-definition', '表单定义管理', 'MENU', '/system/form-definition', 'system/FormDefinitionView', 'system:form-definition:read', 'Document', 1, 0, 117, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V58__form_definition_menu.sql]
@@ -1573,8 +1354,8 @@ VALUES
 -- [from V61__role_column_permission.sql]
 -- 菜单：字段/数据权限统一配置（M41），挂在「系统管理」1002 下，sort_no=117 紧随数据权限(116)之后。
 -- route_path 须与前端路由（system/permission-policy）严格一致，否则路由守卫会重定向到工作台。
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1128, 0, 1002, 'system:permission-policy', '字段数据权限', 'MENU', '/system/permission-policy', 'system/PermissionPolicyView', 'system:column-permission:read', 'Lock', 1, 0, 117, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1128, 0, 2004, 'system:permission-policy', '字段数据权限', 'MENU', '/system/permission-policy', 'system/PermissionPolicyView', 'system:column-permission:read', 'Lock', 1, 0, 117, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V61__role_column_permission.sql]
@@ -1594,8 +1375,8 @@ SELECT 0, 1, 1128;
 --   2) 读权限复用 system:column-permission:read（已由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动授予 SUPER_ADMIN）；
 --   3) route_path 须与前端路由（system/permission-policy）严格一致，否则路由守卫会重定向到工作台。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1130, 0, 1002, 'system:permission-policy', '字段数据权限', 'MENU', '/system/permission-policy', 'system/PermissionPolicyView', 'system:column-permission:read', 'Lock', 1, 0, 118, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1130, 0, 2004, 'system:permission-policy', '字段数据权限', 'MENU', '/system/permission-policy', 'system/PermissionPolicyView', 'system:column-permission:read', 'Lock', 1, 0, 118, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V62__fix_permission_policy_menu.sql]
@@ -1616,8 +1397,8 @@ SELECT 0, 1, 1130;
 --   5) vite dev 代理需转发 /livez、/readyz（见 pc-admin-vue3-vite/vite.config.js），
 --      生产环境由同源后端直接处理根路径探针。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1129, 0, 1002, 'system:health', '健康探针', 'MENU', '/system/health', 'system/HealthView', 'system:monitor:read', 'Monitor', 1, 0, 119, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1129, 0, 2008, 'system:health', '健康探针', 'MENU', '/system/health', 'system/HealthView', 'system:monitor:read', 'Monitor', 1, 0, 119, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V63__health_menu.sql]
@@ -1635,8 +1416,8 @@ SELECT 0, 1, 1129;
 --   2) route_path 须与前端路由（system/oauth2-tokens）严格一致，否则路由守卫会重定向到工作台；
 --   3) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN，可重复执行。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1131, 0, 1002, 'system:oauth2-token', 'OAuth2 令牌管理', 'MENU', '/system/oauth2-tokens', 'system/TokenManagerView', 'system:oauth2-token:read', 'Key', 1, 0, 120, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1131, 0, 2004, 'system:oauth2-token', 'OAuth2 令牌管理', 'MENU', '/system/oauth2-tokens', 'system/TokenManagerView', 'system:oauth2-token:read', 'Key', 1, 0, 120, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V65__oauth2_token_menu.sql]
@@ -1659,8 +1440,8 @@ SELECT 0, 1, 1131;
 --   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1），可重复执行；
 --   5) sort_no=121 紧随 OAuth2 令牌管理(1131/120) 之后，置于系统管理目录末尾。
 
-INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
-VALUES (1132, 0, 1002, 'system:form-submission', '表单提交管理', 'MENU', '/system/form-submissions', 'system/FormSubmissionManageView', 'system:form-submission:read', 'List', 1, 0, 121, 'ACTIVE', NOW(3), NOW(3));
+INSERT IGNORE INTO `sys_menu` (`id`, `tenant_id`, `parent_id`, `menu_code`, `menu_name`, `menu_type`, `route_path`, `component_path`, `permission_code`, `icon`, `visible`, `keep_alive`, `sort_no`, `status`, `created_at`, `updated_at`)
+VALUES (1132, 0, 2007, 'system:form-submission', '表单提交管理', 'MENU', '/system/form-submissions', 'system/FormSubmissionManageView', 'system:form-submission:read', 'List', 1, 0, 121, 'ACTIVE', NOW(3), NOW(3));
 
 
 -- [from V66__form_submission_menu.sql]
@@ -1702,69 +1483,6 @@ VALUES
   (2011, 0, 0, 'cat:open-platform','开放平台',   'CATALOG', NULL, NULL, NULL, 'Key',          1, 0, 110, 'ACTIVE', NOW(3), NOW(3)),
   (2012, 0, 0, 'cat:report',       '报表分析',   'CATALOG', NULL, NULL, NULL, 'DataAnalysis', 1, 0, 120, 'ACTIVE', NOW(3), NOW(3)),
   (2013, 0, 0, 'cat:dev-tools',    '开发者工具', 'CATALOG', NULL, NULL, NULL, 'MagicStick',   1, 0, 130, 'ACTIVE', NOW(3), NOW(3));
-
-
--- [from V67__menu_reorganize.sql]
--- 2) 按业务域重新挂载二级功能（按 menu_code 定位，幂等可重复执行）
-UPDATE sys_menu SET parent_id = 2001, updated_at = NOW(3) WHERE menu_code IN ('dashboard');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2002, updated_at = NOW(3) WHERE menu_code IN ('profile');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2003, updated_at = NOW(3) WHERE menu_code IN ('system:user', 'system:role', 'system:department', 'system:menu', 'system:dict', 'system:config', 'system:post');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2004, updated_at = NOW(3) WHERE menu_code IN ('system:api-resource', 'system:data-scope', 'system:permission-policy', 'system:mask-strategy', 'system:oauth2-token');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2005, updated_at = NOW(3) WHERE menu_code IN ('system:notice', 'system:notification-template', 'system:notification-record', 'system:sms-record', 'system:realtime');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2006, updated_at = NOW(3) WHERE menu_code IN ('workflow:task', 'workflow:instance', 'workflow:definition', 'workflow:monitor');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2007, updated_at = NOW(3) WHERE menu_code IN ('system:form-definition', 'system:form-submission', 'system:form-pilot');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2008, updated_at = NOW(3) WHERE menu_code IN ('system:monitor', 'system:online', 'system:cache', 'system:datasource', 'system:observability-center', 'system:health', 'system:login-log', 'system:operation-log');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2009, updated_at = NOW(3) WHERE menu_code IN ('system:tenant', 'system:tenant-isolation');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2010, updated_at = NOW(3) WHERE menu_code IN ('system:import', 'system:export', 'file-management');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2011, updated_at = NOW(3) WHERE menu_code IN ('system:openapi-client');
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2013, updated_at = NOW(3) WHERE menu_code IN ('job-management', 'dev-codegen');
-
-
--- [from V67__menu_reorganize.sql]
--- 2b) 报表分析域：3 个活跃统计页按 id 归入新目录（避开重复的 menu_code 'report-usage'）；报表大屏归入工作台
-UPDATE sys_menu SET parent_id = 2012, updated_at = NOW(3) WHERE id IN (1053, 1054, 1055);
-
-
--- [from V67__menu_reorganize.sql]
-UPDATE sys_menu SET parent_id = 2001, updated_at = NOW(3) WHERE menu_code = 'system:dashboard';
-
-
--- [from V67__menu_reorganize.sql]
--- 3) 隐藏已清空的旧目录（系统管理 / 工作流 / 报表管理 / 运维管理），避免侧边栏出现空分组
-UPDATE sys_menu SET visible = 0, updated_at = NOW(3) WHERE id IN (1002, 1003, 1030, 1070) AND menu_type = 'CATALOG';
 
 
 -- [from V67__menu_reorganize.sql]
@@ -1991,35 +1709,6 @@ VALUES (1151, 0, 1002, 'system:config-center', '配置中心', 'MENU', '/system/
 
 -- [from V80__chaos_config_center_menu.sql]
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 1151;
-
-
--- [from V82__align_menu_permission_codes.sql]
--- V82 菜单权限码对齐（若依规范 P0-1）：修正 2 条「菜单授予」与「接口要求」不一致的存量数据。
---
--- 背景：V32 基线种子为「部门管理」写入 system:department:read、为「接口资源管理」写入
---   system:api-resource:read，但后端实际 @PreAuthorize 分别为
---   system:org:read（OrgController L41）与 system:api:read（ApiResourceController L37）。
---   SUPER_ADMIN 全量放行掩盖了问题；普通角色按菜单授权后进入页面即 403。
---   前端无权限码硬编码（已全量核实），改数据不影响可见性逻辑。
---
--- 配套：V32 基线种子已同步改为正确值，全新初始化直接得到正确数据；
---   本脚本仅用于修正「V32 之前已经初始化」的既有库（INSERT IGNORE 不会覆盖旧行）。
---
--- 幂等：WHERE 以主键 id 限定且仅当目标值不同才更新，可重复执行；
---   刻意不写旧权限码字面量，避免被 check-permission.py 误采为菜单种子值。
--- 影响：2 行数据，无 DDL、无接口变更、无业务列变更。
-
-UPDATE sys_menu
-   SET permission_code = 'system:org:read', updated_at = NOW(3)
- WHERE id = 1013
-   AND (permission_code IS NULL OR permission_code <> 'system:org:read');
-
-
--- [from V82__align_menu_permission_codes.sql]
-UPDATE sys_menu
-   SET permission_code = 'system:api:read', updated_at = NOW(3)
- WHERE id = 1014
-   AND (permission_code IS NULL OR permission_code <> 'system:api:read');
 
 -- ---------- 初始化基线标记 ----------
 

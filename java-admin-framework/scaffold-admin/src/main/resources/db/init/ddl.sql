@@ -8,2373 +8,842 @@
 --   mysql -h127.0.0.1 -P3306 -uroot -p --default-character-set=utf8mb4 \
 --     < dml.sql
 -- 【库名 / 字符集】scaffold / utf8mb4 + utf8mb4_0900_ai_ci（MySQL 8）。
---   库名须与 application-*.yml 的 DB_PRIMARY_URL 一致；若服务端不支持 0900
---   排序规则，改为 utf8mb4_general_ci 并同步检查结构语句中的显式 COLLATE。
--- 【幂等性】仅适用于空库一次执行；内含非幂等的 CREATE TABLE / ALTER /
---   CREATE INDEX，重复执行会报错。存量库升级请由 DBA 逐项评估差异。
--- 【来源】由原 db/init/{00_create_database,01_full_schema}.sql 与
---   db/reference/schema_ddl.sql 归并整理而成，覆盖原版本链 V32~V85
---   （53 个 SQL 迁移 + Java 迁移 V57 的等价内容）。语句保持原执行顺序，
---   含 information_schema 幂等守卫、V6 关联表收敛、后续重建、列下线与
---   V84/V85 表重命名；末尾建立 schema_baseline 基线表。
--- 【整理口径】只服务于「存量库数据回填」的 4 个守卫块（UPDATE×2 /
---   INSERT×2）在空库上恒为 no-op，已剔除；其净效果由 dml.sql 中的
---   等价种子语句承接。其余结构语句逐字保留，仅补建库与基线表。
--- 【历史】原 58 个分散 SQL 文件已删除，版本历史可从 git 记录取回。
+--   注意：本文件只含 CREATE TABLE 与 CREATE INDEX（纯结构定义）。
+--   执行前请先建库：CREATE DATABASE IF NOT EXISTS `scaffold`
+--     CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+--   （若服务端不支持 0900 排序规则，改为 utf8mb4_general_ci 并同步修改下方
+--    建表语句中的显式 COLLATE。）
+-- 【幂等性】仅适用于空库一次执行；CREATE TABLE / CREATE INDEX 重复执行会报错。
+--   存量库升级请由 DBA 逐项评估差异。
+-- 【来源与整理口径】由原 db/init/{00_create_database,01_full_schema}.sql 与
+--   db/reference/schema_ddl.sql 归并整理而成，覆盖原版本链 V32~V85（53 个 SQL
+--   迁移 + Java 迁移 V57 的等价内容）。本次整理将该版本链中的 ALTER TABLE
+--   （ADD/DROP 列、ADD/DROP 索引）已并回对应 CREATE TABLE，DROP/RENAME 等
+--   历史演进步骤被消解，最终每个表只保留一份 CREATE TABLE（含最终列与内联
+--   主键/唯一/索引），附加索引以独立 CREATE INDEX 给出。原 58 个分散 SQL
+--   文件已删除，版本历史可从 git 记录取回。
 -- ============================================================
 
--- ---------- 建库（原 00_create_database.sql） ----------
 
-CREATE DATABASE IF NOT EXISTS `scaffold`
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_0900_ai_ci;
-
-
-USE `scaffold`;
-
-
-SELECT DATABASE() AS `target_database`,
-       @@character_set_database AS `charset`,
-       @@collation_database AS `collation`;
-
--- ---------- 结构链（原 01_full_schema.sql / V32~V85） ----------
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
---  V32__consolidated_schema：全量结构合并迁移（consolidated schema）
--- =====================================================================================
---  背景：原 V1 ~ V31 共 31 个版本化迁移按「类型分类 + 原件删除」策略重整，
---       本文件为其逐版本原样合并（语句级保持原始执行顺序），供 Flyway 在
---       全新环境一次性建库；既有环境请勿重复执行（见 README §34 的标记步骤）。
---  内容：以下各「来源迁移」块均为原始文件完整拷贝（含原始注释），未改一字。
---  顺序：V1__baseline.sql -> V31__report_menu_restore.sql（版本升序）。
--- =====================================================================================
-
-
--- =====================================================================================
--- 来源迁移：V1__baseline.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V1 基线：RBAC 核心表
-CREATE TABLE IF NOT EXISTS sys_user (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    username VARCHAR(64) NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    display_name VARCHAR(100) NOT NULL,
-    mobile VARCHAR(32) NULL,
-    email VARCHAR(128) NULL,
-    primary_org_id BIGINT UNSIGNED NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    failed_login_count INT UNSIGNED NOT NULL DEFAULT 0,
-    locked_until DATETIME(3) NULL,
-    password_changed_at DATETIME(3) NULL,
-    password_expired TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    token_version INT UNSIGNED NOT NULL DEFAULT 1,
-    mfa_enabled TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    last_login_at DATETIME(3) NULL,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_username (tenant_id, username),
-    UNIQUE KEY uk_tenant_mobile (tenant_id, mobile),
-    KEY idx_org_status (tenant_id, primary_org_id, status),
-    KEY idx_updated_at (updated_at)
+CREATE TABLE `sys_user` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `username` VARCHAR(64) NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `display_name` VARCHAR(100) NOT NULL,
+    `mobile` VARCHAR(32) NULL,
+    `email` VARCHAR(128) NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `failed_login_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `locked_until` DATETIME(3) NULL,
+    `password_changed_at` DATETIME(3) NULL,
+    `password_expired` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `token_version` INT UNSIGNED NOT NULL DEFAULT 1,
+    `mfa_enabled` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `last_login_at` DATETIME(3) NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `avatar_url` VARCHAR(255) NULL COMMENT '头像地址(相对路径)',
+    `notify_site_message` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '站内信通知开关',
+    `notify_email` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '邮件通知开关',
+    `notify_mobile` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '短信通知开关',
+    `show_login_log` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '是否展示我的登录记录',
+    `mask_mobile` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '对外展示时脱敏手机号',
+    `discoverable` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '允许被其他用户搜索到'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_org (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    ancestors VARCHAR(1000) NOT NULL DEFAULT '0',
-    org_code VARCHAR(64) NOT NULL,
-    org_name VARCHAR(128) NOT NULL,
-    org_type VARCHAR(32) NOT NULL DEFAULT 'DEPARTMENT',
-    sort_no INT NOT NULL DEFAULT 0,
-    leader_user_id BIGINT UNSIGNED NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_org_code (tenant_id, org_code),
-    KEY idx_parent (tenant_id, parent_id, sort_no),
-    KEY idx_ancestors (tenant_id, ancestors(191))
+CREATE TABLE `sys_org` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `parent_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `ancestors` VARCHAR(1000) NOT NULL DEFAULT '0',
+    `org_code` VARCHAR(64) NOT NULL,
+    `org_name` VARCHAR(128) NOT NULL,
+    `org_type` VARCHAR(32) NOT NULL DEFAULT 'DEPARTMENT',
+    `sort_no` INT NOT NULL DEFAULT 0,
+    `leader_user_id` BIGINT UNSIGNED NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_user_org (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    org_id BIGINT UNSIGNED NOT NULL,
-    is_primary TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user_org (tenant_id, user_id, org_id),
-    KEY idx_org_user (tenant_id, org_id, user_id)
+CREATE TABLE `sys_user_org` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `org_id` BIGINT UNSIGNED NOT NULL,
+    `is_primary` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '是否主部门',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_role (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    role_code VARCHAR(64) NOT NULL,
-    role_name VARCHAR(100) NOT NULL,
-    role_type VARCHAR(20) NOT NULL DEFAULT 'BUSINESS',
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    sort_no INT NOT NULL DEFAULT 0,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_role_code (tenant_id, role_code),
-    KEY idx_status_sort (tenant_id, status, sort_no)
+CREATE TABLE `sys_role` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `role_code` VARCHAR(64) NOT NULL,
+    `role_name` VARCHAR(100) NOT NULL,
+    `role_type` VARCHAR(20) NOT NULL DEFAULT 'BUSINESS',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `sort_no` INT NOT NULL DEFAULT 0,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_user_role (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    role_id BIGINT UNSIGNED NOT NULL,
-    scope_org_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    valid_from DATETIME(3) NULL,
-    valid_until DATETIME(3) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user_role_scope (tenant_id, user_id, role_id, scope_org_id),
-    KEY idx_role_user (tenant_id, role_id, user_id)
+CREATE TABLE `sys_user_role` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `role_id` BIGINT UNSIGNED NOT NULL,
+    `is_primary` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '是否主角色',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_menu (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    menu_code VARCHAR(64) NOT NULL,
-    menu_name VARCHAR(100) NOT NULL,
-    menu_type VARCHAR(20) NOT NULL,
-    route_path VARCHAR(255) NULL,
-    component_path VARCHAR(255) NULL,
-    permission_code VARCHAR(128) NULL,
-    icon VARCHAR(64) NULL,
-    visible TINYINT UNSIGNED NOT NULL DEFAULT 1,
-    keep_alive TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    external_url VARCHAR(500) NULL,
-    sort_no INT NOT NULL DEFAULT 0,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_menu_code (tenant_id, menu_code),
-    KEY idx_parent_sort (tenant_id, parent_id, sort_no),
-    KEY idx_permission (tenant_id, permission_code)
+CREATE TABLE `sys_menu` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `parent_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `menu_code` VARCHAR(64) NOT NULL,
+    `menu_name` VARCHAR(100) NOT NULL,
+    `menu_type` VARCHAR(20) NOT NULL,
+    `route_path` VARCHAR(255) NULL,
+    `component_path` VARCHAR(255) NULL,
+    `permission_code` VARCHAR(128) NULL,
+    `icon` VARCHAR(64) NULL,
+    `visible` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    `keep_alive` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `external_url` VARCHAR(500) NULL,
+    `sort_no` INT NOT NULL DEFAULT 0,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `created_by` BIGINT UNSIGNED NULL COMMENT '创建人用户ID'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_api_resource (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    resource_name VARCHAR(128) NOT NULL,
-    permission_code VARCHAR(128) NOT NULL,
-    http_method VARCHAR(16) NOT NULL,
-    path_pattern VARCHAR(255) NOT NULL,
-    controller_method VARCHAR(255) NULL,
-    auth_mode VARCHAR(20) NOT NULL DEFAULT 'REQUIRED',
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    risk_level VARCHAR(16) NOT NULL DEFAULT 'NORMAL',
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_method_path (tenant_id, http_method, path_pattern),
-    KEY idx_permission (tenant_id, permission_code)
+CREATE TABLE `sys_api_resource` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `resource_name` VARCHAR(128) NOT NULL,
+    `permission_code` VARCHAR(128) NOT NULL,
+    `http_method` VARCHAR(16) NOT NULL,
+    `path_pattern` VARCHAR(255) NOT NULL,
+    `controller_method` VARCHAR(255) NULL,
+    `auth_mode` VARCHAR(20) NOT NULL DEFAULT 'REQUIRED',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `risk_level` VARCHAR(16) NOT NULL DEFAULT 'NORMAL',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_role_menu (
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    role_id BIGINT UNSIGNED NOT NULL,
-    menu_id BIGINT UNSIGNED NOT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (tenant_id, role_id, menu_id),
-    KEY idx_menu_role (tenant_id, menu_id, role_id)
+CREATE TABLE `sys_role_menu` (
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `role_id` BIGINT UNSIGNED NOT NULL,
+    `menu_id` BIGINT UNSIGNED NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_role_api (
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    role_id BIGINT UNSIGNED NOT NULL,
-    api_id BIGINT UNSIGNED NOT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (tenant_id, role_id, api_id),
-    KEY idx_api_role (tenant_id, api_id, role_id)
+CREATE TABLE `sys_role_api` (
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `role_id` BIGINT UNSIGNED NOT NULL,
+    `api_id` BIGINT UNSIGNED NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_role_data_scope (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    role_id BIGINT UNSIGNED NOT NULL,
-    resource_code VARCHAR(128) NOT NULL,
-    scope_type VARCHAR(20) NOT NULL,
-    combine_mode VARCHAR(16) NOT NULL DEFAULT 'UNION',
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_role_resource (tenant_id, role_id, resource_code)
+CREATE TABLE `sys_role_data_scope` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `role_id` BIGINT UNSIGNED NOT NULL,
+    `resource_code` VARCHAR(128) NOT NULL,
+    `scope_type` VARCHAR(20) NOT NULL,
+    `combine_mode` VARCHAR(16) NOT NULL DEFAULT 'UNION',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_role_data_scope_org (
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    rule_id BIGINT UNSIGNED NOT NULL,
-    org_id BIGINT UNSIGNED NOT NULL,
-    PRIMARY KEY (tenant_id, rule_id, org_id),
-    KEY idx_org_rule (tenant_id, org_id, rule_id)
+CREATE TABLE `sys_role_data_scope_org` (
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `rule_id` BIGINT UNSIGNED NOT NULL,
+    `org_id` BIGINT UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V2__security.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V2 安全与审计表
-CREATE TABLE IF NOT EXISTS sys_refresh_token (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    client_id VARCHAR(64) NOT NULL,
-    session_id VARCHAR(64) NOT NULL,
-    family_id VARCHAR(64) NOT NULL,
-    token_hash CHAR(64) NOT NULL,
-    device_id VARCHAR(128) NULL,
-    user_agent VARCHAR(500) NULL,
-    ip_address VARCHAR(64) NULL,
-    issued_at DATETIME(3) NOT NULL,
-    expires_at DATETIME(3) NOT NULL,
-    last_used_at DATETIME(3) NULL,
-    revoked_at DATETIME(3) NULL,
-    revoke_reason VARCHAR(64) NULL,
-    replaced_by_id BIGINT UNSIGNED NULL,
-    reuse_detected TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_token_hash (token_hash),
-    KEY idx_user_expiry (tenant_id, user_id, expires_at),
-    KEY idx_family (tenant_id, family_id)
+CREATE TABLE `sys_refresh_token` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `client_id` VARCHAR(64) NOT NULL,
+    `session_id` VARCHAR(64) NOT NULL,
+    `family_id` VARCHAR(64) NOT NULL,
+    `token_hash` CHAR(64) NOT NULL,
+    `device_id` VARCHAR(128) NULL,
+    `user_agent` VARCHAR(500) NULL,
+    `ip_address` VARCHAR(64) NULL,
+    `issued_at` DATETIME(3) NOT NULL,
+    `expires_at` DATETIME(3) NOT NULL,
+    `last_used_at` DATETIME(3) NULL,
+    `revoked_at` DATETIME(3) NULL,
+    `revoke_reason` VARCHAR(64) NULL,
+    `replaced_by_id` BIGINT UNSIGNED NULL,
+    `reuse_detected` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_password_history (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_user_time (tenant_id, user_id, created_at)
+CREATE TABLE `sys_password_history` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_login_log (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NULL,
-    username VARCHAR(64) NULL,
-    login_type VARCHAR(32) NOT NULL,
-    result VARCHAR(20) NOT NULL,
-    failure_code VARCHAR(64) NULL,
-    ip_address VARCHAR(64) NULL,
-    user_agent VARCHAR(500) NULL,
-    trace_id VARCHAR(64) NULL,
-    occurred_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_user_time (tenant_id, user_id, occurred_at),
-    KEY idx_ip_time (ip_address, occurred_at),
-    KEY idx_result_time (result, occurred_at)
+CREATE TABLE `sys_login_log` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NULL,
+    `username` VARCHAR(64) NULL,
+    `login_type` VARCHAR(32) NOT NULL,
+    `result` VARCHAR(20) NOT NULL,
+    `failure_code` VARCHAR(64) NULL,
+    `ip_address` VARCHAR(64) NULL,
+    `user_agent` VARCHAR(500) NULL,
+    `trace_id` VARCHAR(64) NULL,
+    `occurred_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_operation_log (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    module_code VARCHAR(64) NOT NULL,
-    operation_type VARCHAR(64) NOT NULL,
-    operation_name VARCHAR(128) NOT NULL,
-    operator_id BIGINT UNSIGNED NULL,
-    operator_name VARCHAR(100) NULL,
-    request_method VARCHAR(16) NULL,
-    request_path VARCHAR(500) NULL,
-    request_summary JSON NULL,
-    result_summary JSON NULL,
-    result_code VARCHAR(64) NULL,
-    duration_ms BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    ip_address VARCHAR(64) NULL,
-    trace_id VARCHAR(64) NULL,
-    success TINYINT UNSIGNED NOT NULL,
-    occurred_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_module_time (tenant_id, module_code, occurred_at),
-    KEY idx_operator_time (tenant_id, operator_id, occurred_at),
-    KEY idx_trace_id (trace_id)
+CREATE TABLE `sys_operation_log` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `module_code` VARCHAR(64) NOT NULL,
+    `operation_type` VARCHAR(64) NOT NULL,
+    `operation_name` VARCHAR(128) NOT NULL,
+    `operator_id` BIGINT UNSIGNED NULL,
+    `operator_name` VARCHAR(100) NULL,
+    `request_method` VARCHAR(16) NULL,
+    `request_path` VARCHAR(500) NULL,
+    `request_summary` JSON NULL,
+    `result_summary` JSON NULL,
+    `result_code` VARCHAR(64) NULL,
+    `duration_ms` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `ip_address` VARCHAR(64) NULL,
+    `trace_id` VARCHAR(64) NULL,
+    `success` TINYINT UNSIGNED NOT NULL,
+    `occurred_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V3__workflow.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V3 工作流扩展表（Flowable 自身 ACT_* 由引擎自动创建）
-CREATE TABLE IF NOT EXISTS wf_definition_ext (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    process_key VARCHAR(128) NOT NULL,
-    process_name VARCHAR(200) NOT NULL,
-    version INT UNSIGNED NOT NULL,
-    deployment_id VARCHAR(64) NOT NULL,
-    process_definition_id VARCHAR(128) NOT NULL,
-    form_schema JSON NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
-    published_by BIGINT UNSIGNED NULL,
-    published_at DATETIME(3) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_process_version (tenant_id, process_key, version),
-    UNIQUE KEY uk_engine_definition (process_definition_id)
+CREATE TABLE `wf_definition_ext` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `process_key` VARCHAR(128) NOT NULL,
+    `process_name` VARCHAR(200) NOT NULL,
+    `version` INT UNSIGNED NOT NULL,
+    `deployment_id` VARCHAR(64) NOT NULL,
+    `process_definition_id` VARCHAR(128) NOT NULL,
+    `form_schema` JSON NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    `published_by` BIGINT UNSIGNED NULL,
+    `published_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS wf_node_config (
-    id BIGINT UNSIGNED NOT NULL,
-    definition_ext_id BIGINT UNSIGNED NOT NULL,
-    activity_id VARCHAR(128) NOT NULL,
-    node_name VARCHAR(200) NOT NULL,
-    approval_mode VARCHAR(20) NOT NULL DEFAULT 'ANY',
-    approval_ratio DECIMAL(5,2) NULL,
-    assignee_type VARCHAR(32) NOT NULL,
-    assignee_expression VARCHAR(1000) NOT NULL,
-    reject_policy VARCHAR(32) NOT NULL DEFAULT 'PREVIOUS',
-    reject_target_activity_id VARCHAR(128) NULL,
-    allow_transfer TINYINT UNSIGNED NOT NULL DEFAULT 1,
-    allow_delegate TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    timeout_minutes INT UNSIGNED NULL,
-    config_json JSON NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_definition_activity (definition_ext_id, activity_id)
+CREATE TABLE `wf_node_config` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `definition_ext_id` BIGINT UNSIGNED NOT NULL,
+    `activity_id` VARCHAR(128) NOT NULL,
+    `node_name` VARCHAR(200) NOT NULL,
+    `approval_mode` VARCHAR(20) NOT NULL DEFAULT 'ANY',
+    `approval_ratio` DECIMAL(5,2) NULL,
+    `assignee_type` VARCHAR(32) NOT NULL,
+    `assignee_expression` VARCHAR(1000) NOT NULL,
+    `reject_policy` VARCHAR(32) NOT NULL DEFAULT 'PREVIOUS',
+    `reject_target_activity_id` VARCHAR(128) NULL,
+    `allow_transfer` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    `allow_delegate` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `timeout_minutes` INT UNSIGNED NULL,
+    `config_json` JSON NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS wf_instance_ext (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    process_instance_id VARCHAR(64) NOT NULL,
-    process_definition_id VARCHAR(128) NOT NULL,
-    business_type VARCHAR(64) NOT NULL,
-    business_id VARCHAR(128) NOT NULL,
-    title VARCHAR(300) NOT NULL,
-    starter_user_id BIGINT UNSIGNED NOT NULL,
-    starter_org_id BIGINT UNSIGNED NULL,
-    current_activity_id VARCHAR(128) NULL,
-    status VARCHAR(20) NOT NULL,
-    started_at DATETIME(3) NOT NULL,
-    finished_at DATETIME(3) NULL,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_process_instance (process_instance_id),
-    UNIQUE KEY uk_business_instance (tenant_id, business_type, business_id),
-    KEY idx_starter_status (tenant_id, starter_user_id, status),
-    KEY idx_status_started (tenant_id, status, started_at)
+CREATE TABLE `wf_instance_ext` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `process_instance_id` VARCHAR(64) NOT NULL,
+    `process_definition_id` VARCHAR(128) NOT NULL,
+    `business_type` VARCHAR(64) NOT NULL,
+    `business_id` VARCHAR(128) NOT NULL,
+    `title` VARCHAR(300) NOT NULL,
+    `starter_user_id` BIGINT UNSIGNED NOT NULL,
+    `starter_org_id` BIGINT UNSIGNED NULL,
+    `current_activity_id` VARCHAR(128) NULL,
+    `status` VARCHAR(20) NOT NULL,
+    `started_at` DATETIME(3) NOT NULL,
+    `finished_at` DATETIME(3) NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS wf_task_ext (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    task_id VARCHAR(64) NOT NULL,
-    process_instance_id VARCHAR(64) NOT NULL,
-    activity_id VARCHAR(128) NOT NULL,
-    assignee_user_id BIGINT UNSIGNED NULL,
-    original_assignee_user_id BIGINT UNSIGNED NULL,
-    status VARCHAR(20) NOT NULL,
-    approval_mode VARCHAR(20) NOT NULL,
-    due_at DATETIME(3) NULL,
-    claimed_at DATETIME(3) NULL,
-    completed_at DATETIME(3) NULL,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_task_id (task_id),
-    KEY idx_assignee_status (tenant_id, assignee_user_id, status),
-    KEY idx_instance_activity (process_instance_id, activity_id)
+CREATE TABLE `wf_task_ext` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `task_id` VARCHAR(64) NOT NULL,
+    `process_instance_id` VARCHAR(64) NOT NULL,
+    `activity_id` VARCHAR(128) NOT NULL,
+    `assignee_user_id` BIGINT UNSIGNED NULL,
+    `original_assignee_user_id` BIGINT UNSIGNED NULL,
+    `status` VARCHAR(20) NOT NULL,
+    `approval_mode` VARCHAR(20) NOT NULL,
+    `due_at` DATETIME(3) NULL,
+    `claimed_at` DATETIME(3) NULL,
+    `completed_at` DATETIME(3) NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `delegator_user_id` BIGINT UNSIGNED NULL COMMENT '委派发起人（原审批人），非委派任务为 NULL',
+    `delegation_state` VARCHAR(16) NULL COMMENT '委派状态：PENDING=已委派待办、RESOLVED=已办结交还、NULL=非委派',
+    `activity_name` VARCHAR(255) NULL COMMENT '活动（节点）名称快照：任务创建期从引擎捕获，已办列表无需回查引擎即可展示可读节点名'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS wf_approval_record (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    operation_id VARCHAR(64) NOT NULL,
-    process_instance_id VARCHAR(64) NOT NULL,
-    task_id VARCHAR(64) NULL,
-    activity_id VARCHAR(128) NULL,
-    action VARCHAR(32) NOT NULL,
-    operator_user_id BIGINT UNSIGNED NOT NULL,
-    from_user_id BIGINT UNSIGNED NULL,
-    to_user_id BIGINT UNSIGNED NULL,
-    opinion VARCHAR(2000) NULL,
-    attachment_refs JSON NULL,
-    snapshot JSON NULL,
-    trace_id VARCHAR(64) NULL,
-    occurred_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_operation_id (operation_id),
-    KEY idx_instance_time (tenant_id, process_instance_id, occurred_at),
-    KEY idx_task_time (task_id, occurred_at)
+CREATE TABLE `wf_approval_record` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `operation_id` VARCHAR(64) NOT NULL,
+    `process_instance_id` VARCHAR(64) NOT NULL,
+    `task_id` VARCHAR(64) NULL,
+    `activity_id` VARCHAR(128) NULL,
+    `action` VARCHAR(32) NOT NULL,
+    `operator_user_id` BIGINT UNSIGNED NOT NULL,
+    `from_user_id` BIGINT UNSIGNED NULL,
+    `to_user_id` BIGINT UNSIGNED NULL,
+    `opinion` VARCHAR(2000) NULL,
+    `attachment_refs` JSON NULL,
+    `snapshot` JSON NULL,
+    `trace_id` VARCHAR(64) NULL,
+    `occurred_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V5__system_modules.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V5 系统管理扩展模块：部门(机构)已由 V1 提供，此处新增「字典管理」与「系统变量」表及种子数据。
--- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的注册严格一致。
-
-CREATE TABLE IF NOT EXISTS sys_dict_type (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    dict_code VARCHAR(64) NOT NULL,
-    dict_name VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    sort_no INT NOT NULL DEFAULT 0,
-    remark VARCHAR(255) NULL,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_dict_code (tenant_id, dict_code),
-    KEY idx_status_sort (tenant_id, status, sort_no)
+CREATE TABLE `sys_dict_type` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `dict_code` VARCHAR(64) NOT NULL,
+    `dict_name` VARCHAR(100) NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `sort_no` INT NOT NULL DEFAULT 0,
+    `remark` VARCHAR(255) NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_dict_data (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    dict_type_code VARCHAR(64) NOT NULL,
-    dict_label VARCHAR(100) NOT NULL,
-    dict_value VARCHAR(100) NOT NULL,
-    dict_sort INT NOT NULL DEFAULT 0,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    remark VARCHAR(255) NULL,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_type_value (tenant_id, dict_type_code, dict_value),
-    KEY idx_type_sort (tenant_id, dict_type_code, dict_sort)
+CREATE TABLE `sys_dict_data` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `dict_type_code` VARCHAR(64) NOT NULL,
+    `dict_label` VARCHAR(100) NOT NULL,
+    `dict_value` VARCHAR(100) NOT NULL,
+    `dict_sort` INT NOT NULL DEFAULT 0,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `remark` VARCHAR(255) NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_config (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    config_key VARCHAR(64) NOT NULL,
-    config_name VARCHAR(100) NOT NULL,
-    config_value VARCHAR(500) NULL,
-    config_type VARCHAR(20) NOT NULL DEFAULT 'STRING',
-    remark VARCHAR(255) NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_config_key (tenant_id, config_key),
-    KEY idx_status (tenant_id, status)
+CREATE TABLE `sys_config` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `config_key` VARCHAR(64) NOT NULL,
+    `config_name` VARCHAR(100) NOT NULL,
+    `config_value` VARCHAR(500) NULL,
+    `config_type` VARCHAR(20) NOT NULL DEFAULT 'STRING',
+    `remark` VARCHAR(255) NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `default_value` VARCHAR(500) NULL COMMENT '参数默认值（工厂默认值，区别于当前生效值 config_value）',
+    `editable` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '是否可编辑：1=运行时可改，0=系统内置不可改'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V6__user_single_role_org.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V6 用户配置约束收敛：用户仅绑定「单个角色 + 单个部门」。
---
--- 背景：此前模型为多对多（sys_user_role 支持 user->N role、sys_user_org 支持 user->N org），
---       造成权限判定与数据范围计算需要做集合聚合，业务含义模糊、易出现并集越权。
--- 变更：把 role_id / org_id 直接落到 sys_user 实体列，关联表退化为过渡数据并清理。
---
--- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的注册严格一致。
---
--- 幂等性说明（重要）：
---   本脚本全部 DDL/DML 均以 information_schema 判定做守卫，重复执行结果一致且不报错。
---   原因：MySQL 无事务性 DDL，迁移中途失败时 Flyway 会回滚 schema history 行但保留已生效的结构，
---   重跑同一版本必然撞上 1060 Duplicate column。此前三类场景均需靠幂等自愈：
---     1) 全新空库（列与关联表都不存在）；
---     2) V1 已建关联表的常规库（正常路径）；
---     3) 结构已部分生效、关联表已被删除的「半迁移」库（role_id 已存在但历史行缺失）。
-
--- 1) sys_user 增加单值外键列（role_id 角色、org_id 部门）：列缺失时才补
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `role_id` BIGINT UNSIGNED NULL COMMENT ''单一角色ID(收敛后不再允许多角色)'' AFTER `primary_org_id`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'role_id'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `org_id` BIGINT UNSIGNED NULL COMMENT ''单一部门ID(收敛后不再允许多部门)'' AFTER `role_id`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'org_id'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- 索引同理，缺失才补（重复添加会报 1061 Duplicate key name）
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user` ADD KEY `idx_tenant_role` (`tenant_id`, `role_id`)',
-        'DO 0')
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_role'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user` ADD KEY `idx_tenant_org` (`tenant_id`, `org_id`)',
-        'DO 0')
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_org'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- 5) 清理多对多关联表（收敛后不再有查询/写入方引用）。
-DROP TABLE IF EXISTS sys_user_role;
-
-
--- [from V32__consolidated_schema.sql]
-DROP TABLE IF EXISTS sys_user_org;
-
-
--- [from V32__consolidated_schema.sql]
--- 6) 约束说明：为兼容存量数据，role_id/org_id 暂不建外键与 NOT NULL，
---    「角色必填」由应用层 CreateUserRequest 校验与 UserService 强制保证；
---    存量未绑定角色的用户登录后无任何权限（权限聚合返回空集），符合最小权限原则。
-
--- =====================================================================================
--- 来源迁移：V7__announcement.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V7 新增功能模块：系统公告。
--- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的 SYS_ANNOUNCEMENT 注册严格一致。
---
--- 状态机：DRAFT(草稿) --publish--> PUBLISHED(已发布) --offline--> OFFLINE(已下线)
--- PUBLISHED 到期(publish_at/expire_at 越界)由定时任务自动下线。
--- 置顶：is_top=1 恒排在其余之前，其次按 publish_at 倒序。
---
--- ============================================================
-CREATE TABLE IF NOT EXISTS sys_announcement (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    title VARCHAR(200) NOT NULL,
-    content MEDIUMTEXT NOT NULL,
-    -- DRAFT / PUBLISHED / OFFLINE
-    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
-    -- 是否置顶
-    is_top TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    -- 定时生效时间(为空表示发布即生效)；<= NOW 时对 PUBLISHED 可见
-    publish_at DATETIME(3) NULL,
-    -- 有效期截止(为空表示长期有效)；< NOW 时自动下线
-    expire_at DATETIME(3) NULL,
-    -- 实际发布时间 / 下线时间
-    published_at DATETIME(3) NULL,
-    offline_at DATETIME(3) NULL,
-    publisher_id BIGINT UNSIGNED NULL,
-    view_count INT UNSIGNED NOT NULL DEFAULT 0,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_tenant_status_pub (tenant_id, status, publish_at),
-    KEY idx_tenant_top (tenant_id, is_top, publish_at),
-    KEY idx_expire (tenant_id, status, expire_at)
+CREATE TABLE `sys_announcement` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `title` VARCHAR(200) NOT NULL,
+    `content` MEDIUMTEXT NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    `is_top` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `publish_at` DATETIME(3) NULL,
+    `expire_at` DATETIME(3) NULL,
+    `published_at` DATETIME(3) NULL,
+    `offline_at` DATETIME(3) NULL,
+    `publisher_id` BIGINT UNSIGNED NULL,
+    `view_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `audience_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '发布时活跃用户快照（已读率分母）',
+    `read_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '已读人数（markRead 成功时 +1）'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V8__message.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V8 新增功能模块：站内信（发件主表 + 收件明细）。
--- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的 SYS_MESSAGE / SYS_MESSAGE_RECEIPT 注册严格一致。
---
--- sys_message 为发件主表(一条消息一次发送动作)，sys_message_receipt 为收件明细。
--- 「批量发送」= 按角色/部门筛选接收人后在 receipt 表批量插入(同一 message_id 多行)。
--- 已读状态与回执时间记录在 receipt 行：is_read / read_at。
-CREATE TABLE IF NOT EXISTS sys_message (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    title VARCHAR(200) NOT NULL,
-    content MEDIUMTEXT NOT NULL,
-    -- NOTICE(通知) / ALERT(告警) / SYSTEM(系统)
-    msg_type VARCHAR(20) NOT NULL DEFAULT 'NOTICE',
-    sender_id BIGINT UNSIGNED NULL,
-    -- 接收人筛选快照：便于审计「当时按什么范围发的」
-    filter_role_ids VARCHAR(500) NULL,
-    filter_org_ids VARCHAR(500) NULL,
-    -- 单条发送时的显式接收人
-    receiver_ids VARCHAR(500) NULL,
-    total_count INT UNSIGNED NOT NULL DEFAULT 0,
-    read_count INT UNSIGNED NOT NULL DEFAULT 0,
-    sent_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_tenant_sent (tenant_id, sent_at)
+CREATE TABLE `sys_message` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `title` VARCHAR(200) NOT NULL,
+    `content` MEDIUMTEXT NOT NULL,
+    `msg_type` VARCHAR(20) NOT NULL DEFAULT 'NOTICE',
+    `sender_id` BIGINT UNSIGNED NULL,
+    `filter_role_ids` VARCHAR(500) NULL,
+    `filter_org_ids` VARCHAR(500) NULL,
+    `receiver_ids` VARCHAR(500) NULL,
+    `total_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `read_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `sent_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_message_receipt (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    message_id BIGINT UNSIGNED NOT NULL,
-    user_id BIGINT UNSIGNED NOT NULL,
-    -- 0=未读 1=已读
-    is_read TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    -- 已读回执时间
-    read_at DATETIME(3) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_msg_user (tenant_id, message_id, user_id),
-    KEY idx_user_read (tenant_id, user_id, is_read),
-    KEY idx_msg (tenant_id, message_id)
+CREATE TABLE `sys_message_receipt` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `message_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `is_read` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `read_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V9__monitor_sample.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V9 新增功能模块：系统监控采样。
--- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 中的 SYS_MONITOR_SAMPLE 注册严格一致。
---
--- 定时任务(JobRunr)周期采样 CPU/内存/磁盘/JVM 与在线用户数，写入本表，
--- 供「按时间范围查询」与趋势图使用，避免实时计算带来的采集开销。
-CREATE TABLE IF NOT EXISTS sys_monitor_sample (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    -- CPU 使用率(%)
-    cpu_usage DECIMAL(5,2) NULL,
-    -- JVM 堆内存使用率(%)
-    memory_usage DECIMAL(5,2) NULL,
-    -- 物理内存使用率(%)
-    system_memory_usage DECIMAL(5,2) NULL,
-    -- 磁盘使用率(%)
-    disk_usage DECIMAL(5,2) NULL,
-    used_heap_bytes BIGINT UNSIGNED NULL,
-    max_heap_bytes BIGINT UNSIGNED NULL,
-    used_memory_bytes BIGINT UNSIGNED NULL,
-    total_memory_bytes BIGINT UNSIGNED NULL,
-    -- 在线用户数(活跃刷新令牌/未过期会话)
-    online_users INT UNSIGNED NOT NULL DEFAULT 0,
-    active_sessions INT UNSIGNED NOT NULL DEFAULT 0,
-    thread_count INT UNSIGNED NOT NULL DEFAULT 0,
-    -- 采集时刻
-    sampled_at DATETIME(3) NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_tenant_time (tenant_id, sampled_at)
+CREATE TABLE `sys_monitor_sample` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `cpu_usage` DECIMAL(5,2) NULL,
+    `memory_usage` DECIMAL(5,2) NULL,
+    `system_memory_usage` DECIMAL(5,2) NULL,
+    `disk_usage` DECIMAL(5,2) NULL,
+    `used_heap_bytes` BIGINT UNSIGNED NULL,
+    `max_heap_bytes` BIGINT UNSIGNED NULL,
+    `used_memory_bytes` BIGINT UNSIGNED NULL,
+    `total_memory_bytes` BIGINT UNSIGNED NULL,
+    `online_users` INT UNSIGNED NOT NULL DEFAULT 0,
+    `active_sessions` INT UNSIGNED NOT NULL DEFAULT 0,
+    `thread_count` INT UNSIGNED NOT NULL DEFAULT 0,
+    `sampled_at` DATETIME(3) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V10__user_profile.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V10 个人中心与账号设置：为 sys_user 补充头像与偏好字段。
---
--- 说明：
---   手机号 / 邮箱绑定复用 V1 已有的 mobile、email 列，此处仅新增「偏好」类字段，
---   避免为同一语义重复建列。绑定状态由列是否为空推导，无需额外标记位。
---
--- 幂等性：所有 DDL 均以 information_schema 判定做守卫，重复执行不报错
--- （与 V6 保持同一风格，MySQL 无事务 DDL，迁移中途失败后可安全重跑）。
-
--- 1) 头像：存相对路径（如 /uploads/avatar/1_1710000000.png），不存二进制
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `avatar_url` VARCHAR(255) NULL COMMENT ''头像地址(相对路径)'' AFTER `email`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'avatar_url'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- 2) 通知偏好：三个开关独立列，便于「只开站内信、关邮件」这类组合
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `notify_site_message` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT ''站内信通知开关'' AFTER `avatar_url`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'notify_site_message'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `notify_email` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT ''邮件通知开关'' AFTER `notify_site_message`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'notify_email'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `notify_mobile` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT ''短信通知开关'' AFTER `notify_email`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'notify_mobile'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- 3) 隐私偏好：登录日志展示、脱敏手机号、允许被搜索
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `show_login_log` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT ''是否展示我的登录记录'' AFTER `notify_mobile`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'show_login_log'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `mask_mobile` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT ''对外展示时脱敏手机号'' AFTER `show_login_log`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'mask_mobile'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_user`
-             ADD COLUMN `discoverable` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT ''允许被其他用户搜索到'' AFTER `mask_mobile`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'discoverable'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- 4) 登录设备索引：支撑「我的登录设备」按用户聚合查询
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_refresh_token`
-             ADD KEY `idx_user_revoked` (`user_id`, `revoked_at`)',
-        'DO 0')
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_refresh_token' AND INDEX_NAME = 'idx_user_revoked'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V13__workflow_design.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V13 自定义工作流设计表：支持用户动态新增/删除/排序审批节点与执行步骤、
--- 配置条件分支，保存为草稿并发布为可生效的 Flowable 流程定义。
-CREATE TABLE IF NOT EXISTS wf_workflow_design (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    process_key VARCHAR(128) NOT NULL,
-    process_name VARCHAR(200) NOT NULL,
-    description VARCHAR(500) NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    nodes_json JSON NULL,
-    edges_json JSON NULL,
-    form_schema JSON NULL,
-    bpmn_xml LONGTEXT NULL,
-    deployment_id VARCHAR(64) NULL,
-    process_definition_id VARCHAR(128) NULL,
-    published_by BIGINT UNSIGNED NULL,
-    published_at DATETIME(3) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_key (tenant_id, process_key)
+CREATE TABLE `wf_workflow_design` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `process_key` VARCHAR(128) NOT NULL,
+    `process_name` VARCHAR(200) NOT NULL,
+    `description` VARCHAR(500) NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `nodes_json` JSON NULL,
+    `edges_json` JSON NULL,
+    `form_schema` JSON NULL,
+    `bpmn_xml` LONGTEXT NULL,
+    `deployment_id` VARCHAR(64) NULL,
+    `process_definition_id` VARCHAR(128) NULL,
+    `published_by` BIGINT UNSIGNED NULL,
+    `published_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V15__user_role_org_many_to_many.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V15 用户-角色 / 用户-部门 恢复多对多（回退 V6 单值收敛）
---
--- 背景：V6 把 sys_user_role / sys_user_org 收敛为 sys_user.role_id / org_id 单列，
---       现按业务需要恢复 N:N：一个用户可拥有多个角色、归属多个部门（含主角色/主部门标记）。
--- 幂等：所有 DDL/DML 均以 information_schema 守卫，重复执行结果一致。
--- 表名 / 列名与 com.acme.scaffold.jooq.dsl.JooqTables 注册一致。
-
--- 1) 新建用户-角色关联表
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'CREATE TABLE `sys_user_role` (
-            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
-            `user_id` BIGINT UNSIGNED NOT NULL,
-            `role_id` BIGINT UNSIGNED NOT NULL,
-            `is_primary` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT ''是否主角色'',
-            `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-            PRIMARY KEY (`id`),
-            UNIQUE KEY `uk_user_role` (`tenant_id`, `user_id`, `role_id`),
-            KEY `idx_role` (`tenant_id`, `role_id`),
-            KEY `idx_user` (`tenant_id`, `user_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci',
-        'DO 0')
-    FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user_role'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- 2) 新建用户-部门关联表
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'CREATE TABLE `sys_user_org` (
-            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
-            `user_id` BIGINT UNSIGNED NOT NULL,
-            `org_id` BIGINT UNSIGNED NOT NULL,
-            `is_primary` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT ''是否主部门'',
-            `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-            PRIMARY KEY (`id`),
-            UNIQUE KEY `uk_user_org` (`tenant_id`, `user_id`, `org_id`),
-            KEY `idx_org` (`tenant_id`, `org_id`),
-            KEY `idx_user` (`tenant_id`, `user_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci',
-        'DO 0')
-    FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user_org'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- 4) 收敛列下线：删除 sys_user 的 role_id / org_id / primary_org_id（含索引）。
---    删除前关联数据已写入 sys_user_role / sys_user_org，主角色/主部门改由关联表 is_primary 推导。
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP INDEX `idx_tenant_role`', 'DO 0')
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_role'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP INDEX `idx_tenant_org`', 'DO 0')
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND INDEX_NAME = 'idx_tenant_org'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP COLUMN `role_id`', 'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'role_id'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP COLUMN `org_id`', 'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'org_id'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) > 0, 'ALTER TABLE `sys_user` DROP COLUMN `primary_org_id`', 'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'primary_org_id'
-);
-
-
--- [from V32__consolidated_schema.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V32__consolidated_schema.sql]
-EXECUTE stmt;
-
-
--- [from V32__consolidated_schema.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V16__idempotency_record.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- 幂等性记录表（设计方案 §12：写接口支持 Idempotency-Key，审批类接口强制使用）
---
--- 设计要点：
--- 1) 唯一索引 uk_idem_key_scope(tenant_id, idempotency_key, api_scope) 是并发去重的最終兜底：
---    即使应用层判断与插入之间有时间窗，数据库也会拒绝第二条登记，Aspect 捕获后返回 409。
--- 2) 记录与业务数据分属不同事务（Aspect 以 REQUIRES_NEW 写入），
---    因此业务回滚不会把幂等记录一并抹掉，避免「失败后又允许重复提交」。
--- 3) response_snapshot 用于重复请求时重放首次响应，做到「多次调用 = 一次效果 + 一致返回值」。
--- 4) expires_at 由 JobRunr 周期任务清理，避免表无限膨胀。
-
-CREATE TABLE IF NOT EXISTS sys_idempotency_record (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    idempotency_key VARCHAR(128) NOT NULL,
-    api_scope VARCHAR(128) NOT NULL,
-    user_id BIGINT UNSIGNED NULL,
-    request_fingerprint VARCHAR(64) NULL,
-    status VARCHAR(16) NOT NULL DEFAULT 'PROCESSING',
-    response_snapshot JSON NULL,
-    error_code VARCHAR(64) NULL,
-    error_message VARCHAR(500) NULL,
-    expires_at DATETIME(3) NOT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_idem_key_scope (tenant_id, idempotency_key, api_scope),
-    KEY idx_idem_expires (expires_at)
+CREATE TABLE `sys_idempotency_record` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `idempotency_key` VARCHAR(128) NOT NULL,
+    `api_scope` VARCHAR(128) NOT NULL,
+    `user_id` BIGINT UNSIGNED NULL,
+    `request_fingerprint` VARCHAR(64) NULL,
+    `status` VARCHAR(16) NOT NULL DEFAULT 'PROCESSING',
+    `response_snapshot` JSON NULL,
+    `error_code` VARCHAR(64) NULL,
+    `error_message` VARCHAR(500) NULL,
+    `expires_at` DATETIME(3) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V21__job_management.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- =============================================================================
--- V21 在线定时任务管理（sys_job 配置 + sys_job_log 日志 + 菜单/接口资源种子）
--- =============================================================================
--- 设计（JobRunr 双层架构）：
---   JobRunr 原生 jobrunr_* 表由框架内部维护、不可 CRUD；因此任务定义元数据自管于 sys_job，
---   执行日志自管于 sys_job_log，调度能力交由 JobRunr。二者通过 scheduler_ref 关联：
---     - CRON / SIMPLE：scheduler_ref = recurring job id（约定 "sysjob-<id>"）；
---     - ONE_TIME     ：scheduler_ref = 一次性 Job 的 UUID 字符串。
---   调度状态：PAUSED（默认，未调度）/ RUNNING（已调度）/ COMPLETED（一次性任务执行完成）。
---
--- 幂等性：建表用 CREATE TABLE IF NOT EXISTS；种子用 INSERT IGNORE / NOT EXISTS，重复执行结果一致。
--- =============================================================================
-
--- -----------------------------------------------------------------------------
--- 1) 任务配置表
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS sys_job (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    job_name VARCHAR(128) NOT NULL,
-    job_group VARCHAR(64) NOT NULL DEFAULT 'DEFAULT',
-    task_key VARCHAR(128) NOT NULL,
-    trigger_type VARCHAR(16) NOT NULL,
-    cron_expression VARCHAR(128) NULL,
-    interval_value INT NULL,
-    interval_unit VARCHAR(16) NULL,
-    one_time_at DATETIME(3) NULL,
-    job_params VARCHAR(2048) NULL,
-    status VARCHAR(16) NOT NULL DEFAULT 'PAUSED',
-    scheduler_ref VARCHAR(64) NULL,
-    last_fire_time DATETIME(3) NULL,
-    next_fire_time DATETIME(3) NULL,
-    total_runs BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    success_runs BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    failure_runs BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    last_status VARCHAR(16) NULL,
-    last_error VARCHAR(1024) NULL,
-    last_duration_ms BIGINT UNSIGNED NULL,
-    remark VARCHAR(255) NULL,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NULL,
-    PRIMARY KEY (id),
-    KEY idx_sys_job_status (tenant_id, status, deleted),
-    KEY idx_sys_job_task_key (task_key)
+CREATE TABLE `sys_job` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `job_name` VARCHAR(128) NOT NULL,
+    `job_group` VARCHAR(64) NOT NULL DEFAULT 'DEFAULT',
+    `task_key` VARCHAR(128) NOT NULL,
+    `trigger_type` VARCHAR(16) NOT NULL,
+    `cron_expression` VARCHAR(128) NULL,
+    `interval_value` INT NULL,
+    `interval_unit` VARCHAR(16) NULL,
+    `one_time_at` DATETIME(3) NULL,
+    `job_params` VARCHAR(2048) NULL,
+    `status` VARCHAR(16) NOT NULL DEFAULT 'PAUSED',
+    `scheduler_ref` VARCHAR(64) NULL,
+    `last_fire_time` DATETIME(3) NULL,
+    `next_fire_time` DATETIME(3) NULL,
+    `total_runs` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `success_runs` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `failure_runs` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `last_status` VARCHAR(16) NULL,
+    `last_error` VARCHAR(1024) NULL,
+    `last_duration_ms` BIGINT UNSIGNED NULL,
+    `remark` VARCHAR(255) NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- -----------------------------------------------------------------------------
--- 2) 任务执行日志表
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS sys_job_log (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    job_id BIGINT UNSIGNED NOT NULL,
-    job_name VARCHAR(128) NULL,
-    task_key VARCHAR(128) NULL,
-    trigger_type VARCHAR(16) NULL,
-    fire_time DATETIME(3) NOT NULL,
-    finished_time DATETIME(3) NULL,
-    duration_ms BIGINT UNSIGNED NULL,
-    status VARCHAR(16) NOT NULL,
-    error_message VARCHAR(1024) NULL,
-    trace_id VARCHAR(64) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_sys_job_log_job (tenant_id, job_id, fire_time)
+CREATE TABLE `sys_job_log` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `job_id` BIGINT UNSIGNED NOT NULL,
+    `job_name` VARCHAR(128) NULL,
+    `task_key` VARCHAR(128) NULL,
+    `trigger_type` VARCHAR(16) NULL,
+    `fire_time` DATETIME(3) NOT NULL,
+    `finished_time` DATETIME(3) NULL,
+    `duration_ms` BIGINT UNSIGNED NULL,
+    `status` VARCHAR(16) NOT NULL,
+    `error_message` VARCHAR(1024) NULL,
+    `trace_id` VARCHAR(64) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V23__workflow_design_deleted.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- V23 工作流设计表补逻辑删除列：修复「删除即物理消失、前端陈旧行操作报不存在」的数据一致性缺陷。
--- 背景：wf_workflow_design 原无 deleted 列，JooqWriters.delete 的逻辑删除退化为物理删除，
--- 删除后行不可追溯，且同一 processKey 可被无痕重建（seeder 反复播种产生新 id）。
--- 本迁移补列后，服务层删除走 deleted=1 逻辑删除；既有行默认 0（可见），不影响存量数据。
-ALTER TABLE wf_workflow_design
-    ADD COLUMN deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER version,
-    ADD KEY idx_tenant_status_deleted (tenant_id, status, deleted);
-
-
--- [from V32__consolidated_schema.sql]
--- =====================================================================================
--- 来源迁移：V27__online_user_management.sql（原样保留，含原始注释）
--- =====================================================================================
-
--- =============================================================
--- V27 在线用户管理（系统管理模块）
--- 目的：
---   1. sys_online_session  在线会话跟踪表：登录即登记、心跳保活、登出/强制下线置离线，
---      支撑「在线用户列表 / 最近活跃时间 / 会话状态 / 强制下线后实时失效」；
---   2. sys_login_restriction 临时登录限制表：限制时长 + 原因 + 到期自动解除 / 手动解除，
---      登录链路强制校验，限制生效时同步踢下线；
---   3. 菜单「在线用户管理」与 5 个接口资源种子，绑定 SUPER_ADMIN（role_id=1）。
--- 说明：
---   - 在线会话以 (tenant_id, user_id, device_id) 为业务键：device_id 来自前端
---     X-Device-Id 头（见 pc-admin-vue3-vite/src/api/http.js），与刷新令牌的
---     device_id 同源，强制下线按该键吊销刷新令牌并置会话离线；
---   - 全部 INSERT IGNORE 幂等，重复执行结果一致。
--- =============================================================
-
-CREATE TABLE IF NOT EXISTS sys_online_session (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    device_id VARCHAR(128) NULL,
-    client_id VARCHAR(64) NOT NULL DEFAULT 'web',
-    username VARCHAR(64) NOT NULL,
-    display_name VARCHAR(100) NULL,
-    login_ip VARCHAR(64) NULL,
-    user_agent VARCHAR(500) NULL,
-    login_at DATETIME(3) NOT NULL,
-    last_active_at DATETIME(3) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ONLINE',
-    offline_reason VARCHAR(64) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    -- 同一用户同一设备仅一行在线会话：重复登录（同设备） upsert 而非插多行
-    UNIQUE KEY uk_user_device (tenant_id, user_id, device_id),
-    KEY idx_status_active (tenant_id, status, last_active_at),
-    KEY idx_username (tenant_id, username)
+CREATE TABLE `sys_online_session` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `device_id` VARCHAR(128) NULL,
+    `client_id` VARCHAR(64) NOT NULL DEFAULT 'web',
+    `username` VARCHAR(64) NOT NULL,
+    `display_name` VARCHAR(100) NULL,
+    `login_ip` VARCHAR(64) NULL,
+    `user_agent` VARCHAR(500) NULL,
+    `login_at` DATETIME(3) NOT NULL,
+    `last_active_at` DATETIME(3) NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ONLINE',
+    `offline_reason` VARCHAR(64) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V32__consolidated_schema.sql]
-CREATE TABLE IF NOT EXISTS sys_login_restriction (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    username VARCHAR(64) NOT NULL,
-    display_name VARCHAR(100) NULL,
-    reason VARCHAR(255) NOT NULL,
-    -- 限制时长（分钟）；0 表示长期限制，仅可手动解除
-    duration_minutes INT NOT NULL DEFAULT 0,
-    restricted_by BIGINT UNSIGNED NULL,
-    restricted_by_name VARCHAR(100) NULL,
-    restricted_at DATETIME(3) NOT NULL,
-    -- 到期时间；duration_minutes=0 时为 NULL（永久）
-    expire_at DATETIME(3) NULL,
-    released_at DATETIME(3) NULL,
-    released_by BIGINT UNSIGNED NULL,
-    -- 解除方式：MANUAL=人工解除 / AUTO_EXPIRED=到期自动解除
-    release_type VARCHAR(20) NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_user_status (tenant_id, user_id, status),
-    -- 到期自动解除扫描：按状态 + 到期时间定位待释放记录
-    KEY idx_status_expire (tenant_id, status, expire_at),
-    KEY idx_username (tenant_id, username)
+CREATE TABLE `sys_login_restriction` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `username` VARCHAR(64) NOT NULL,
+    `display_name` VARCHAR(100) NULL,
+    `reason` VARCHAR(255) NOT NULL,
+    `duration_minutes` INT NOT NULL DEFAULT 0,
+    `restricted_by` BIGINT UNSIGNED NULL,
+    `restricted_by_name` VARCHAR(100) NULL,
+    `restricted_at` DATETIME(3) NOT NULL,
+    `expire_at` DATETIME(3) NULL,
+    `released_at` DATETIME(3) NULL,
+    `released_by` BIGINT UNSIGNED NULL,
+    `release_type` VARCHAR(20) NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V33__file_management.sql]
--- V33 文件管理（运维管理 → 文件管理）
--- 依赖：V32（含「运维管理」一级目录 id=1070，menu_code='ops'）。
--- 接口资源（system:file:upload/read/download/delete）不在此手工登记，
--- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
-
--- 1) 文件表：记录原始名、服务端存储名、大小、类型、来源功能模块、上传人、下载次数。
---    deleted/version 支持逻辑删除（删除时仅清理物理文件，保留记录供审计）。
-CREATE TABLE IF NOT EXISTS sys_file (
-    id            BIGINT UNSIGNED NOT NULL,
-    tenant_id     BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    original_name VARCHAR(255)    NOT NULL,
-    stored_name   VARCHAR(255)    NOT NULL COMMENT '服务端生成的存储文件名（UUID.ext），不含目录',
-    storage_path  VARCHAR(500)    NOT NULL COMMENT '上传时的绝对存储路径（记录用，读取以 baseDir+stored_name 为准）',
-    file_size     BIGINT          NOT NULL,
-    content_type  VARCHAR(128)    NULL,
-    source_module VARCHAR(64)     NOT NULL COMMENT '来源功能模块，如 workflow/report/file-management',
-    biz_id        VARCHAR(64)     NULL COMMENT '业务关联 ID（可选，如流程实例/报表 ID）',
-    uploader_id   BIGINT UNSIGNED NULL,
-    uploader_name VARCHAR(100)    NULL COMMENT '上传人姓名（冗余存储，用户删除后仍可读）',
-    download_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    version       INT UNSIGNED    NOT NULL DEFAULT 0,
-    deleted       TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_tenant_source (tenant_id, source_module),
-    KEY idx_tenant_uploader (tenant_id, uploader_id),
-    KEY idx_tenant_created (tenant_id, created_at)
+CREATE TABLE `sys_file` (
+    `id`            BIGINT UNSIGNED NOT NULL,
+    `tenant_id`     BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `original_name` VARCHAR(255)    NOT NULL,
+    `stored_name`   VARCHAR(255)    NOT NULL COMMENT '服务端生成的存储文件名（UUID.ext），不含目录',
+    `storage_path`  VARCHAR(500)    NOT NULL COMMENT '上传时的绝对存储路径（记录用，读取以 baseDir+stored_name 为准）',
+    `file_size`     BIGINT          NOT NULL,
+    `content_type`  VARCHAR(128)    NULL,
+    `source_module` VARCHAR(64)     NOT NULL COMMENT '来源功能模块，如 workflow/report/file-management',
+    `biz_id`        VARCHAR(64)     NULL COMMENT '业务关联 ID（可选，如流程实例/报表 ID）',
+    `uploader_id`   BIGINT UNSIGNED NULL,
+    `uploader_name` VARCHAR(100)    NULL COMMENT '上传人姓名（冗余存储，用户删除后仍可读）',
+    `download_count` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `version`       INT UNSIGNED    NOT NULL DEFAULT 0,
+    `deleted`       TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_at`    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at`    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `content_hash` CHAR(64) NULL COMMENT '内容 SHA-256 十六进制（秒传去重锚点）'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V35__post_management.sql]
--- V35 岗位管理（系统管理 → 岗位管理）
--- 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
--- 接口资源（system:post:read 等）不在此手工登记，
--- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
-
--- 1) 岗位表：编码租户内唯一；软删除 + 乐观锁，范式对齐 sys_role/sys_dict_type
-CREATE TABLE IF NOT EXISTS sys_post (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    post_code VARCHAR(64) NOT NULL,
-    post_name VARCHAR(100) NOT NULL,
-    post_sort INT NOT NULL DEFAULT 0,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    remark VARCHAR(512) NULL,
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_post_code (tenant_id, post_code),
-    KEY idx_status_sort (tenant_id, status, post_sort)
+CREATE TABLE `sys_post` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `post_code` VARCHAR(64) NOT NULL,
+    `post_name` VARCHAR(100) NOT NULL,
+    `post_sort` INT NOT NULL DEFAULT 0,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `remark` VARCHAR(512) NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 0,
+    `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V35__post_management.sql]
--- 2) 用户-岗位关联（多对多）。无 deleted 列：分配为整体替换（物理删+插），范式对齐 sys_user_org
-CREATE TABLE IF NOT EXISTS sys_user_post (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    post_id BIGINT UNSIGNED NOT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user_post (tenant_id, user_id, post_id),
-    KEY idx_post_user (tenant_id, post_id, user_id)
+CREATE TABLE `sys_user_post` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `post_id` BIGINT UNSIGNED NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V37__sms_record.sql]
--- V37 短信发送记录（系统管理 → 短信记录），补全短信通知渠道（M6）的运维对账面。
--- 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
--- 接口资源（system:sms-record:read）不在此手工登记，
--- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
-
--- 1) 表：sys_sms_record（脱敏存储：手机号掩码、正文摘要，PII 不明文落库）
-CREATE TABLE IF NOT EXISTS sys_sms_record (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    batch_no VARCHAR(64) NOT NULL,
-    mobiles_masked VARCHAR(1024) NOT NULL,
-    mobile_count INT NOT NULL DEFAULT 0,
-    content_summary VARCHAR(256) NOT NULL,
-    provider VARCHAR(16) NOT NULL,
-    status VARCHAR(16) NOT NULL,
-    error_message VARCHAR(512) NULL,
-    operator_id BIGINT UNSIGNED NULL,
-    operator_name VARCHAR(64) NULL,
-    trace_id VARCHAR(64) NULL,
-    sent_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_tenant_time (tenant_id, sent_at),
-    KEY idx_status_time (status, sent_at)
+CREATE TABLE `sys_sms_record` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `batch_no` VARCHAR(64) NOT NULL,
+    `mobiles_masked` VARCHAR(1024) NOT NULL,
+    `mobile_count` INT NOT NULL DEFAULT 0,
+    `content_summary` VARCHAR(256) NOT NULL,
+    `provider` VARCHAR(16) NOT NULL,
+    `status` VARCHAR(16) NOT NULL,
+    `error_message` VARCHAR(512) NULL,
+    `operator_id` BIGINT UNSIGNED NULL,
+    `operator_name` VARCHAR(64) NULL,
+    `trace_id` VARCHAR(64) NULL,
+    `sent_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V38__system_parameters.sql]
--- =====================================================================================
--- V38 系统参数表扩展 + 硬编码配置值沉淀
--- -------------------------------------------------------------------------------------
--- 目标库：MySQL 8.x（InnoDB + utf8mb4 + utf8mb4_0900_ai_ci）
--- 目的：
---   1) 为已存在的系统参数表 sys_config 增加两个缺失字段：
---        default_value  —— 参数默认值（工厂默认值，区别于当前生效值 config_value）
---        editable       —— 是否可编辑（1=运行时可改 / 0=系统内置不可改）
---      使表结构完整覆盖「参数编码 / 参数名称 / 参数值 / 默认值 / 描述 / 是否可编辑」。
---   2) 将原散落在 Java @ConfigurationProperties / 规则类中的硬编码配置值
---      （业务阈值、接口地址、开关标志、固定常量）沉淀为可配置参数种子，
---      以便运维在 /api/system/configs 界面或数据库直接调参，无需改代码发版。
---
--- 幂等说明（重要）：
---   - 建表用 CREATE TABLE IF NOT EXISTS（已存在则跳过，便于独立部署场景直接执行）；
---   - 加列用 information_schema 守卫做幂等 ALTER（重复执行不报 1060）；
---   - 种子用 INSERT IGNORE（重复执行不报 1062，且不与 V32 既有 1/2/3 行冲突）。
---   可直接在目标库重复执行。
--- =====================================================================================
-
--- -------------------------------------------------------------------------------------
--- 1) 完整建表语句（参考 / 独立部署用）：与 V32 列定义严格一致，并补齐 default_value / editable
---    常规 Flyway 流程下该语句为 no-op（sys_config 已由 V32 创建）。
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS sys_config (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    config_key VARCHAR(64) NOT NULL,
-    config_name VARCHAR(100) NOT NULL,
-    config_value VARCHAR(500) NULL,
-    config_type VARCHAR(20) NOT NULL DEFAULT 'STRING',
-    remark VARCHAR(255) NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    version INT UNSIGNED NOT NULL DEFAULT 0,
-    deleted TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    default_value VARCHAR(500) NULL COMMENT '参数默认值（工厂默认值，区别于当前生效值 config_value）',
-    editable TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '是否可编辑：1=运行时可改，0=系统内置不可改',
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_config_key (tenant_id, config_key),
-    KEY idx_status (tenant_id, status)
+CREATE TABLE `sys_announcement_read` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `announcement_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `read_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V38__system_parameters.sql]
--- -------------------------------------------------------------------------------------
--- 2) 幂等扩展：为既有 sys_config 补列（仅当列不存在时才加）
--- -------------------------------------------------------------------------------------
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_config` ADD COLUMN `default_value` VARCHAR(500) NULL COMMENT ''参数默认值（工厂默认值，区别于当前生效值 config_value）''',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_config' AND COLUMN_NAME = 'default_value'
-);
-
-
--- [from V38__system_parameters.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V38__system_parameters.sql]
-EXECUTE stmt;
-
-
--- [from V38__system_parameters.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V38__system_parameters.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_config` ADD COLUMN `editable` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT ''是否可编辑：1=运行时可改，0=系统内置不可改''',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_config' AND COLUMN_NAME = 'editable'
-);
-
-
--- [from V38__system_parameters.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V38__system_parameters.sql]
-EXECUTE stmt;
-
-
--- [from V38__system_parameters.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V40__announcement_read_receipt.sql]
--- =====================================================================================
--- V40 公告已读回执中心（Announcement Read Receipt Center）
--- -------------------------------------------------------------------------------------
--- 目标库：MySQL 8.x（InnoDB + utf8mb4 + utf8mb4_0900_ai_ci）
---
--- 背景与模型取舍：
---   站内信（V8）采用「发送即 eager 全员投递」：一条 sys_message 配 N 条
---   sys_message_receipt，已读/未读天然可枚举。公告的受众却是「全体活跃用户」，
---   且阅读者通常远小于受众——若沿用 eager 模型，每发布一条公告就要为全量用户
---   预插回执，发布动作写放大（读多写少场景下绝大多数行永远不会被读到）。
---
---   故公告回执采用「懒插入（lazy-insert）」模型：
---     - 回执行只在用户确认已读（markRead）时才写入，行数 ≈ 实际阅读人数；
---     - 「谁还没读」不再由回执表反推，而是用反连接得出：
---       活跃用户集合 − 已读回执集合（见 AnnouncementReadService.unreadUsers）；
---     - 分母问题（已读率 = 已读人数 / 受众数）由 sys_announcement.audience_count
---       解决：发布时快照当时活跃用户数，作为统计分母；V40 之前的存量公告
---       该列为 0，前端统计按 readCount 兜底展示，不除零。
---
--- 幂等设计：
---     - uk_ann_user (tenant_id, announcement_id, user_id) 唯一键保证同一用户对
---       同一公告只有一条回执，markRead 并发/重放不会产生重复行；
---     - sys_announcement.read_count 由「插入成功」事件驱动 +1，与回执行一一对应；
---     - 建表用 CREATE TABLE IF NOT EXISTS；加列用 information_schema 守卫做幂等
---       ALTER（重复执行不报 1060）。可直接在目标库重复执行。
---
--- 接口资源（system:announcement:read-receipt / system:announcement:remind）
--- 不在此手工登记，由 ApiResourceAutoSyncRunner 启动时扫描 @PreAuthorize
--- 自动落库并授予 SUPER_ADMIN；前端入口内嵌于既有公告管理页（无新菜单）。
--- =====================================================================================
-
--- -------------------------------------------------------------------------------------
--- 1) 表：sys_announcement_read（公告已读回执，懒插入）
---    列名与 com.acme.scaffold.jooq.dsl.JooqTables.SYS_ANNOUNCEMENT_READ 注册严格一致。
--- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS sys_announcement_read (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    announcement_id BIGINT UNSIGNED NOT NULL,
-    user_id BIGINT UNSIGNED NOT NULL,
-    -- 已读回执时间（markRead 时刻）
-    read_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    -- 幂等锚点：同一用户对同一公告只留一条回执；markRead 并发场景下
-    -- 先查后插若被唯一键拒绝（DataIntegrityViolationException），按已读幂等处理
-    UNIQUE KEY uk_ann_user (tenant_id, announcement_id, user_id),
-    -- 「我的已读公告」按用户反查；公告维度统计按 (announcement_id) 走 uk 前缀
-    KEY idx_user (tenant_id, user_id),
-    KEY idx_ann (tenant_id, announcement_id)
+CREATE TABLE `sys_notification_template` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `template_code` VARCHAR(64) NOT NULL,
+    `template_name` VARCHAR(100) NOT NULL,
+    `channel` VARCHAR(16) NOT NULL,
+    `title` VARCHAR(200) NULL,
+    `content` TEXT NOT NULL,
+    `msg_type` VARCHAR(16) NOT NULL DEFAULT 'NOTICE',
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+    `remark` VARCHAR(255) NULL,
+    `version` INT NOT NULL DEFAULT 0,
+    `deleted` INT NOT NULL DEFAULT 0,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT UNSIGNED NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V40__announcement_read_receipt.sql]
--- -------------------------------------------------------------------------------------
--- 2) 幂等扩展：为既有 sys_announcement 补两列（仅当列不存在时才加）
---     audience_count：发布时活跃用户快照（统计分母）
---     read_count   ：已读人数（markRead 成功时 +1）
--- -------------------------------------------------------------------------------------
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_announcement` ADD COLUMN `audience_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT ''发布时活跃用户快照（已读率分母）''',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_announcement' AND COLUMN_NAME = 'audience_count'
-);
-
-
--- [from V40__announcement_read_receipt.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V40__announcement_read_receipt.sql]
-EXECUTE stmt;
-
-
--- [from V40__announcement_read_receipt.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V40__announcement_read_receipt.sql]
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_announcement` ADD COLUMN `read_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT ''已读人数（markRead 成功时 +1）''',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_announcement' AND COLUMN_NAME = 'read_count'
-);
-
-
--- [from V40__announcement_read_receipt.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V40__announcement_read_receipt.sql]
-EXECUTE stmt;
-
-
--- [from V40__announcement_read_receipt.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V41__notification_template.sql]
--- V41 通知模板中心（M10）：为 M6 多渠道通知提供可复用模板样板。
--- 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
--- 接口资源（system:notification-template:read / system:notification-template:manage）不在此手工登记，
--- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
-
--- 1) 表：sys_notification_template（逻辑删除 + 启用开关，编码租户内唯一）
-CREATE TABLE IF NOT EXISTS sys_notification_template (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    template_code VARCHAR(64) NOT NULL,
-    template_name VARCHAR(100) NOT NULL,
-    channel VARCHAR(16) NOT NULL,
-    title VARCHAR(200) NULL,
-    content TEXT NOT NULL,
-    msg_type VARCHAR(16) NOT NULL DEFAULT 'NOTICE',
-    enabled TINYINT(1) NOT NULL DEFAULT 1,
-    remark VARCHAR(255) NULL,
-    version INT NOT NULL DEFAULT 0,
-    deleted INT NOT NULL DEFAULT 0,
-    created_by BIGINT UNSIGNED NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT UNSIGNED NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_code (tenant_id, template_code),
-    KEY idx_tenant_channel (tenant_id, channel),
-    KEY idx_tenant_enabled (tenant_id, enabled)
+CREATE TABLE `sys_notification_record` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `channel` VARCHAR(16) NOT NULL,
+    `template_code` VARCHAR(64) NULL,
+    `msg_type` VARCHAR(32) NULL,
+    `title_summary` VARCHAR(256) NOT NULL,
+    `content_summary` VARCHAR(512) NOT NULL,
+    `receiver_summary` VARCHAR(512) NOT NULL,
+    `receiver_count` INT NOT NULL DEFAULT 0,
+    `delivered` INT NOT NULL DEFAULT 0,
+    `status` VARCHAR(16) NOT NULL,
+    `error_message` VARCHAR(512) NULL,
+    `operator_id` BIGINT UNSIGNED NULL,
+    `operator_name` VARCHAR(64) NULL,
+    `trace_id` VARCHAR(64) NULL,
+    `sent_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V42__notification_record.sql]
--- V42 通知发送记录（系统管理 → 通知记录），补全 M12：全五渠道统一发送审计面。
--- 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
--- 接口资源（system:notification-record:read）不在此手工登记，
--- 由 ApiResourceAutoSyncRunner 在启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
---
--- 口径说明（与 sys_sms_record 的分工）：
---   本表记「每次 NotificationService.dispatch 尝试」（含被拒与失败，覆盖 IN_APP/WEBHOOK/
---   WEBSOCKET/EMAIL/SMS 全渠道，是统一审计面，M11 模板发送回填 template_code）；
---   sys_sms_record 保持「仅校验后实际尝试的网关投递」（网关账单对账面）。
---   短信一次发送双写两表，属刻意设计而非重复。
-
--- 1) 表：sys_notification_record（摘要 + 掩码存储：标题/正文摘要化、接收方按渠道掩码，PII 不明文落库）
-CREATE TABLE IF NOT EXISTS sys_notification_record (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    channel VARCHAR(16) NOT NULL,
-    template_code VARCHAR(64) NULL,
-    msg_type VARCHAR(32) NULL,
-    title_summary VARCHAR(256) NOT NULL,
-    content_summary VARCHAR(512) NOT NULL,
-    receiver_summary VARCHAR(512) NOT NULL,
-    receiver_count INT NOT NULL DEFAULT 0,
-    delivered INT NOT NULL DEFAULT 0,
-    status VARCHAR(16) NOT NULL,
-    error_message VARCHAR(512) NULL,
-    operator_id BIGINT UNSIGNED NULL,
-    operator_name VARCHAR(64) NULL,
-    trace_id VARCHAR(64) NULL,
-    sent_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_tenant_time (tenant_id, sent_at),
-    KEY idx_channel_time (channel, sent_at),
-    KEY idx_status_time (status, sent_at)
+CREATE TABLE `sys_notification_preference` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `channel` VARCHAR(16) NOT NULL,
+    `msg_type` VARCHAR(32) NOT NULL DEFAULT 'NOTICE',
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V43__notification_preference.sql]
--- V43 通知偏好中心（M13）：sys_notification_preference，让 M6 多渠道通知首次具备
--- 「谁想收什么」的接收侧口径，并修复 sys_user 三个 notify_* 渠道总开关为「死开关」的缺陷
--- （此前唯一读取方是个人中心自身，发送链路从不读取，用户关闭站内信通知仍照收）。
---
--- 设计要点：
---   1) 懒行模型：无行 = 默认开通，由 sys_user 渠道级总开关（notify_site_message /
---      notify_email / notify_mobile）兜底；恢复默认即物理删行，故无 deleted 列。
---   2) 唯一键 uk_user_channel_type：同一用户同一 (渠道, 消息类型) 至多一行，
---      写入走「查现存 → 更新或插入」，唯一索引兜底并发（与幂等记录表同范式）。
---   3) 渠道白名单 IN_APP / EMAIL / SMS / WEBSOCKET：WEBHOOK 的地址属外部系统，
---      无个人偏好语义，拒绝建行（规则见 NotificationPreferenceRules）。
---   4) 自服务页面（个人中心 → 通知订阅）：无菜单、无权限码播种，
---      接口 /api/notification-preferences/mine 仅登录可访问，userId 一律服务端取自安全上下文。
-
-CREATE TABLE IF NOT EXISTS sys_notification_preference (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    channel VARCHAR(16) NOT NULL,
-    msg_type VARCHAR(32) NOT NULL DEFAULT 'NOTICE',
-    enabled TINYINT(1) NOT NULL DEFAULT 1,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user_channel_type (user_id, channel, msg_type),
-    KEY idx_tenant_user (tenant_id, user_id)
+CREATE TABLE `sys_notification_quiet_hours` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+    `start_time` TIME NOT NULL,
+    `end_time` TIME NOT NULL,
+    `alert_breakthrough` TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V44__notification_quiet_hours.sql]
--- V44 通知免打扰时段（M14）：sys_notification_quiet_hours，让 M6 多渠道通知首次具备
--- 「什么时候收」的时间维口径——M13 偏好中心闭合「谁想收什么」，本模块补齐接收侧最后一维。
---
--- 设计要点：
---   1) 懒行模型：无行 = 无免打扰（与 M13「无行默认开通」互为镜像）；关停免打扰保留配置行
---      （enabled=0），故无「恢复默认」删行语义，也无 deleted 列。
---   2) 按接收者维度、不按渠道：免打扰是时间维总闸（先于 M13 偏好过滤生效），
---      一名用户至多一行，唯一键 uk_user 兜底幂等，写入走「查现存 → 更新或插入」。
---   3) 时间口径：start_time / end_time 为 TIME 列，半开区间 [start, end)，按服务器本地时间
---      裁决；start > end 表达跨午夜窗口（默认 22:00–08:00）；start = end 为退化窗口，
---      由服务端校验拒绝（见 NotificationQuietHoursService.update）。
---   4) 告警穿透：alert_breakthrough 默认 1——ALERT 类型消息在免打扰窗口内照常投递，
---      故障告警不应被时间窗吞掉；其余消息类型（NOTICE/SYSTEM/CC）受抑制。
---   5) 广播（IN_APP 仅 roleIds/orgIds、WEBSOCKET 无定向接收者）与 WEBHOOK 不过滤：
---      受众规模不定且无个人作息语义，属文档化限制（见开发手册 M14 章节）。
---   6) 自服务页面（个人中心 → 免打扰）：无菜单、无权限码播种，
---      接口 /api/notification-quiet-hours/mine 仅登录可访问，userId 一律服务端取自安全上下文。
-
-CREATE TABLE IF NOT EXISTS sys_notification_quiet_hours (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    enabled TINYINT(1) NOT NULL DEFAULT 1,
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
-    alert_breakthrough TINYINT(1) NOT NULL DEFAULT 1,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user (user_id),
-    KEY idx_tenant_user (tenant_id, user_id)
+CREATE TABLE `sys_notification_digest` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `channel` VARCHAR(16) NOT NULL,
+    `msg_type` VARCHAR(32) NOT NULL,
+    `item_count` INT NOT NULL DEFAULT 0,
+    `items_json` TEXT NULL,
+    `first_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `last_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V45__notification_digest.sql]
--- V45 通知聚合摘要（M17）：sys_notification_digest，让 M6 多渠道通知具备「频次治理」能力——
--- 低价值高频通知（NOTICE 类）先聚合、按阈值或最大等待时长合并为一条摘要再投递，
--- 与 M13（谁想收什么）、M14（什么时候收）共同构成接收侧完整口径。
---
--- 设计要点：
---   1) 一次性投递语义：行无论摘要投递成功/跳过/失败均<b>物理删除</b>（无 status、
---      无 deleted 列）——聚合行是「待投递缓冲」而非档案，反复重投只会制造 FAILED
---      日志轰炸；审计由 M12 sys_notification_record 承担（摘要消息本身也走 dispatch 留痕）。
---   2) 唯一键 uk_user_channel_type：同一用户同一 (渠道, 消息类型) 至多一条聚合行，
---      新消息到达即合并（item_count 累加、items_json 保留最近 maxItems 条、
---      last_at 前推），写入走「查现存 → 更新或插入」（本仓动态 DSL 无 upsert API），
---      与 M13/M14 同范式。
---   3) 汇总触发双条件（先到先投）：item_count 达 app.notifications.digest.threshold
---      立即在挂点内刷新投递；或 last_at 距今超过 max-wait-minutes 由定时任务兜底
---      （idx_last_at 支撑扫描），防止低流量用户摘要永远囤在缓冲区。
---   4) 按接收者维度、不按广播：仅聚合有明确 userId 的定向消息（IN_APP/WEBSOCKET 的
---      receiverIds、EMAIL/SMS 反查 sys_user 全部命中的地址）；广播与 WEBHOOK 无个人
---      投递箱语义，不聚合（与 M13/M14 广播不过滤口径一致）。
---   5) items_json 为 JSON 字符串数组（每条 = 标题优先、正文回退的单行摘要，截断），
---      由服务端序列化写入；投递时按 userId 现查 email/mobile 生成摘要消息，
---      用户已删或无地址则直接删行（无处可投）。
---   6) 摘要消息 msgType 恒为 "DIGEST"：不在 app.notifications.digest.msg-types 配置内
---      （不会再被挂起，防递归），也不在 M13 偏好白名单内（无偏好行、默认开通，
---      仅受 sys_user 渠道总开关约束），天然复用 M13/M14/M16 全链路。
-
-CREATE TABLE IF NOT EXISTS sys_notification_digest (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT UNSIGNED NOT NULL,
-    channel VARCHAR(16) NOT NULL,
-    msg_type VARCHAR(32) NOT NULL,
-    item_count INT NOT NULL DEFAULT 0,
-    items_json TEXT NULL,
-    first_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    last_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user_channel_type (user_id, channel, msg_type),
-    KEY idx_tenant_user (tenant_id, user_id),
-    KEY idx_last_at (last_at)
+CREATE TABLE `sys_mask_strategy` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `strategy_code` VARCHAR(64) NOT NULL,
+    `strategy_name` VARCHAR(128) NOT NULL,
+    `field_key` VARCHAR(128) NOT NULL,
+    `sensitive_type` VARCHAR(32) NOT NULL,
+    `apply_scope` VARCHAR(16) NOT NULL DEFAULT 'ROLE_EXEMPT',
+    `exempt_roles` VARCHAR(512) NULL,
+    `priority` INT NOT NULL DEFAULT 0,
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+    `remark` VARCHAR(255) NULL,
+    `version` BIGINT NOT NULL DEFAULT 0,
+    `deleted` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_by` VARCHAR(64) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` VARCHAR(64) NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V46__mask_strategy_center.sql]
--- V46 脱敏策略中心（M21）：sys_mask_strategy，把「哪些逻辑字段用哪种脱敏类型、对哪些角色豁免」
--- 从散落各处的硬编码收口为可配置策略中心，统一经 MaskStrategyResolver 委托 SensitiveMasker 分派。
---
--- 设计要点：
---   1) 默认安全回落：未命中任何策略的字段，由调用方声明的 SensitiveType 驱动默认掩码
---      （与既有视图层脱敏口径一致），绝不因「未配置策略」而泄漏明文。
---   2) apply_scope：ALL=一律脱敏；ROLE_EXEMPT=命中 exempt_roles 的角色看明文、其余脱敏；
---      NONE=永不脱敏（显式放行，用于已脱敏存储字段）。sensitive_type 驱动 SensitiveMasker 算法。
---   3) 解析/命中/豁免判定集中在 system.maskstrategy.rules.MaskStrategyRules（纯函数），
---      实际脱敏委托 common.sensitive.SensitiveMasker，与 M1 审计落库、M20 审计增强共用同一脱敏内核。
---   4) 接口资源（system:mask-strategy:read / :manage）不在此手工登记，
---      由 ApiResourceAutoSyncRunner 启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
---   5) 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
-
--- 1) 表：sys_mask_strategy（逻辑删除 + 乐观锁；(tenant_id, strategy_code) 唯一约束兜底并发写入）
-CREATE TABLE IF NOT EXISTS sys_mask_strategy (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    strategy_code VARCHAR(64) NOT NULL,
-    strategy_name VARCHAR(128) NOT NULL,
-    field_key VARCHAR(128) NOT NULL,
-    sensitive_type VARCHAR(32) NOT NULL,
-    apply_scope VARCHAR(16) NOT NULL DEFAULT 'ROLE_EXEMPT',
-    exempt_roles VARCHAR(512) NULL,
-    priority INT NOT NULL DEFAULT 0,
-    enabled TINYINT(1) NOT NULL DEFAULT 1,
-    remark VARCHAR(255) NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    deleted TINYINT(1) NOT NULL DEFAULT 0,
-    created_by VARCHAR(64) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by VARCHAR(64) NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_code (tenant_id, strategy_code),
-    KEY idx_tenant_field (tenant_id, field_key),
-    KEY idx_tenant_enabled (tenant_id, enabled)
+CREATE TABLE `sys_form_definition` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `form_code` VARCHAR(64) NOT NULL,
+    `form_name` VARCHAR(128) NOT NULL,
+    `schema_json` JSON NOT NULL,
+    `target_type` VARCHAR(32) NOT NULL DEFAULT 'NONE',
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+    `remark` VARCHAR(255) NULL,
+    `version` BIGINT NOT NULL DEFAULT 0,
+    `deleted` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_by` VARCHAR(64) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` VARCHAR(64) NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V47__form_pilot.sql]
--- V47 低代码表单试点（M22 spike）：sys_form_definition，以 JSON Schema 描述表单（字段/校验/布局），
--- 前端按 schema 零依赖渲染，后端按 schema 结构校验后经 /schema/{code} 下发。
---
--- 设计要点（spike 范围，严格收口）：
---   1) 仅交付「契约 + 渲染原型 + 1 个试点表单」：本迁移只建表并播种试点表单 contact-feedback；
---      **不含**提交落库与绑定目标实现——决策点①（绑定既有表 vs 独立 form_submission 表）
---      与决策点②（是否引轻量 schema 库）留待正式立项评审，本期一律按「零依赖手写渲染」收敛。
---   2) target_type 为占位列：NONE（默认，spike 状态）/ BUSINESS_TABLE / FORM_SUBMISSION，
---      取值为后续决策预留，当前读写均不依赖其具体语义。
---   3) schema_json 结构校验集中在 system.form.rules.FormSchemaRules（纯函数）：
---      version + fields[]，字段 key（驼峰标识符）/label/type（白名单 INPUT/TEXTAREA/NUMBER/
---      SELECT/RADIO/SWITCH/DATE）/required/options（SELECT/RADIO 必填非空）/长度范围。
---   4) 接口资源（system:form-definition:read）不在此手工登记，
---      由 ApiResourceAutoSyncRunner 启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
---   5) 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
-
--- 1) 表：sys_form_definition（逻辑删除 + 乐观锁；(tenant_id, form_code) 唯一约束兜底并发写入）
-CREATE TABLE IF NOT EXISTS sys_form_definition (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    form_code VARCHAR(64) NOT NULL,
-    form_name VARCHAR(128) NOT NULL,
-    schema_json JSON NOT NULL,
-    target_type VARCHAR(32) NOT NULL DEFAULT 'NONE',
-    enabled TINYINT(1) NOT NULL DEFAULT 1,
-    remark VARCHAR(255) NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    deleted TINYINT(1) NOT NULL DEFAULT 0,
-    created_by VARCHAR(64) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by VARCHAR(64) NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_code (tenant_id, form_code),
-    KEY idx_tenant_enabled (tenant_id, enabled)
+CREATE TABLE `sys_openapi_client` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `client_id` VARCHAR(64) NOT NULL,
+    `client_name` VARCHAR(128) NOT NULL,
+    `client_secret_hash` VARCHAR(128) NOT NULL,
+    `scopes` VARCHAR(512) NOT NULL DEFAULT 'read',
+    `status` VARCHAR(16) NOT NULL DEFAULT 'ENABLED',
+    `secret_rotated_at` DATETIME(3) NULL,
+    `expired_at` DATETIME(3) NULL,
+    `remark` VARCHAR(255) NULL,
+    `version` BIGINT NOT NULL DEFAULT 0,
+    `deleted` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_by` VARCHAR(64) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` VARCHAR(64) NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `redirect_uris` VARCHAR(1024) NULL COMMENT '授权码回调地址白名单（逗号分隔，空白=不约束）',
+    `pkce_required` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否强制 PKCE（授权码流程）'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V48__openapi_client.sql]
--- V48 API 开放平台客户端注册与密钥治理（M24）：sys_openapi_client，把「外部系统如何接入本平台」
--- 从散落的口头约定收口为可治理的客户端注册表（client_id 唯一 + 密钥哈希存储 + 轮换/停用/过期）。
---
--- 设计要点：
---   1) 立项前离线核验结论（2026-10-25）：离线仓库仅有 spring-security-oauth2-core/jose/
---      resource-server 6.3.3，**不含** spring-security-oauth2-client（RegisteredClient 所在）与
---      spring-security-oauth2-authorization-server（授权服务器所在）——完整 OAuth2 授权服务器
---      （authorization code / token 端点）离线不可建。本期收口为**自包含的客户端注册 + 密钥治理**
---      （自有领域模型 + DelegatingPasswordEncoder 哈希），不引任何新依赖；协议级开放（/oauth2/token
---      等）待联网环境补齐依赖后另行立项。
---   2) 密钥安全：client_secret 仅以 DelegatingPasswordEncoder 哈希落库（与用户口令同机制），
---      明文仅在创建/轮换成功时返回一次（ClientSecretView），任何查询端点不回放明文。
---   3) 密钥治理：rotateSecret 重新生成（SecureRandom 32 字节 → Base64 URL 无填充 43 字符）并
---      刷新 secret_rotated_at；toggle 停用/启用；expired_at 可选过期时间。
---   4) 结构校验集中在 system.openapi.rules.OpenApiClientRules（纯函数）：client_id 格式、
---      scope 解析与格式、状态白名单、过期时间须晚于当前。
---   5) 接口资源（system:openapi-client:read / :manage）不在此手工登记，
---      由 ApiResourceAutoSyncRunner 启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
---   6) 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
-
--- 1) 表：sys_openapi_client（逻辑删除 + 乐观锁；(tenant_id, client_id) 唯一约束兜底并发注册）
-CREATE TABLE IF NOT EXISTS sys_openapi_client (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    client_id VARCHAR(64) NOT NULL,
-    client_name VARCHAR(128) NOT NULL,
-    client_secret_hash VARCHAR(128) NOT NULL,
-    scopes VARCHAR(512) NOT NULL DEFAULT 'read',
-    status VARCHAR(16) NOT NULL DEFAULT 'ENABLED',
-    secret_rotated_at DATETIME(3) NULL,
-    expired_at DATETIME(3) NULL,
-    remark VARCHAR(255) NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    deleted TINYINT(1) NOT NULL DEFAULT 0,
-    created_by VARCHAR(64) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by VARCHAR(64) NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_client (tenant_id, client_id),
-    KEY idx_tenant_status (tenant_id, status)
+CREATE TABLE `sys_tenant` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `tenant_code` VARCHAR(64) NOT NULL,
+    `tenant_name` VARCHAR(128) NOT NULL,
+    `contact_name` VARCHAR(64) NULL,
+    `contact_phone` VARCHAR(32) NULL,
+    `contact_email` VARCHAR(128) NULL,
+    `status` VARCHAR(16) NOT NULL DEFAULT 'ENABLED',
+    `expire_at` DATETIME(3) NULL,
+    `remark` VARCHAR(255) NULL,
+    `version` BIGINT NOT NULL DEFAULT 0,
+    `deleted` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_by` VARCHAR(64) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` VARCHAR(64) NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V50__file_dedup.sql]
--- =====================================================================================
--- V50 文件管理增强（File Management Enhancement）
--- -------------------------------------------------------------------------------------
--- 目标库：MySQL 8.x（InnoDB + utf8mb4 + utf8mb4_0900_ai_ci）
---
--- 背景与模型取舍：
---   sys_file 每上传一个文件就落一条记录 + 一份物理文件，常见管理场景存在三类浪费：
---     a) 重复上传：同一份内容（如公共头像、模板文档）被不同业务/用户反复上传，
---        磁盘与记录双倍膨胀；
---     b) 误删物理文件：两条记录 stored_name 相同时（历史批量导入或复制），删一条
---        会把另一条指向的物理文件一并删掉，下载即 404；
---     c) 缺少统计：管理者看不到「哪个来源模块传了多少文件、占用多少空间」。
---
---   故本迁移为 sys_file 增加 content_hash 列，支撑三项增强：
---     1) 秒传（dedup）：上传时计算内容 SHA-256，命中未删记录则复用其
---        stored_name/storage_path，不落盘、不产生新物理文件；
---     2) 引用计数删除保护：删除前按 stored_name 统计未删记录数，>1 时仅逻辑删
---        记录、保留物理文件；
---     3) 统计：按 source_module 分组聚合（无需新列，本迁移只加索引支撑）。
---
--- 幂等设计：
---   - 加列与加索引均用 information_schema 守卫做幂等 ALTER（重复执行不报
---     1060/1061  duplicate 错误），可直接在目标库重复执行；
---   - 存量行 content_hash 为 NULL，不参与秒传去重（NULL 不匹配等值查询），
---     语义安全；后续重新上传同内容时自然回填哈希并纳入去重；
---   - CHAR(64) 固定长度存 SHA-256 十六进制，定长列比较快且与 normalizeHash
---     校验严格对齐。
--- =====================================================================================
-
--- -------------------------------------------------------------------------------------
--- 1) 幂等扩展：sys_file 增加 content_hash 列（内容 SHA-256 十六进制，秒传去重锚点）
---    位置置于 content_type 之后，与 JooqTables.SYS_FILE 列顺序无关（DSL 按名映射）。
--- -------------------------------------------------------------------------------------
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_file` ADD COLUMN `content_hash` CHAR(64) NULL COMMENT ''内容 SHA-256 十六进制（秒传去重锚点）'' AFTER `content_type`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_file' AND COLUMN_NAME = 'content_hash'
-);
-
-
--- [from V50__file_dedup.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V50__file_dedup.sql]
-EXECUTE stmt;
-
-
--- [from V50__file_dedup.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V50__file_dedup.sql]
--- -------------------------------------------------------------------------------------
--- 2) 幂等扩展：content_hash 加普通索引（秒传命中等值查询；NULL 值不进索引，零膨胀）
--- -------------------------------------------------------------------------------------
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_file` ADD KEY `idx_content_hash` (`content_hash`)',
-        'DO 0')
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_file' AND INDEX_NAME = 'idx_content_hash'
-);
-
-
--- [from V50__file_dedup.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V50__file_dedup.sql]
-EXECUTE stmt;
-
-
--- [from V50__file_dedup.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V51__tenant_management.sql]
--- V51 租户管理域（M19 P2）：sys_tenant，把「平台下有哪些租户、各自联系人/状态/有效期」从口头约定
--- 收口为可治理的租户注册表（tenant_code 唯一 + 状态机 ENABLED/DISABLED + 可选过期）。
---
--- 设计要点：
---   1) 多租户隔离整体策略（M19）：共享表 + tenant_id 列 + jOOQ 拦截强制隔离（P3 落地）。
---      sys_tenant 本身是「租户维度表」，由平台管理员统一维护，所有行 tenant_id 恒为 0（平台租户），
---      查询不按当前租户过滤——它是隔离的「被治理对象」而非「被隔离数据」。
---   2) 结构校验集中在 common.tenant.TenantRules（纯函数）：tenant_code 格式、tenant_name 长度、
---      状态白名单、联系人电话/邮箱格式、过期时间须晚于当前。
---   3) 接口资源（system:tenant:read / :manage）不在此手工登记，
---      由 ApiResourceAutoSyncRunner 启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
---   4) 依赖：V32（含「系统管理」一级目录 id=1002，menu_code='system'）。
---   5) 幂等：CREATE TABLE IF NOT EXISTS + INSERT IGNORE，可重复执行。
-
--- 1) 表：sys_tenant（逻辑删除 + 乐观锁；(tenant_code) 唯一约束兜底并发注册）
-CREATE TABLE IF NOT EXISTS sys_tenant (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    tenant_code VARCHAR(64) NOT NULL,
-    tenant_name VARCHAR(128) NOT NULL,
-    contact_name VARCHAR(64) NULL,
-    contact_phone VARCHAR(32) NULL,
-    contact_email VARCHAR(128) NULL,
-    status VARCHAR(16) NOT NULL DEFAULT 'ENABLED',
-    expire_at DATETIME(3) NULL,
-    remark VARCHAR(255) NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    deleted TINYINT(1) NOT NULL DEFAULT 0,
-    created_by VARCHAR(64) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by VARCHAR(64) NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_code (tenant_code),
-    KEY idx_status (status)
+CREATE TABLE `sys_form_submission` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `form_definition_id` BIGINT UNSIGNED NOT NULL,
+    `form_code` VARCHAR(64) NOT NULL,
+    `submitted_by` VARCHAR(64) NULL,
+    `data_json` JSON NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `version` BIGINT NOT NULL DEFAULT 0,
+    `deleted` TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V53__form_submission.sql]
--- V53 表单提交落库（M22 正式立项）：sys_form_submission，承接 V47 低代码表单试点的
--- 「提交落库与绑定目标」决策点（target_type=FORM_SUBMISSION），将动态表单提交值
--- 以 JSON 持久化到独立提交表，不侵入业务表、不做运行时 DDL。
---
--- 设计要点：
---   1) 通用提交表：以 (form_definition_id, form_code) 关联表单定义，data_json 存提交值；
---      后端提交前经 FormSubmissionRules 按 schema 字段校验（必填/类型/长度/选项白名单/未知字段拒绝）。
---   2) 沿用全库约定：tenant_id 默认 0（与 FORM_DEFINITION 同口径），逻辑删除 deleted + 乐观锁 version，
---      created_at/updated_at 由 JooqWriters.insert 自动填充。
---   3) data_json 不在此做结构约束（schema 校验在应用层完成），便于后续字段演进。
---   4) 将 V47 试点表单 contact-feedback 的 target_type 由 NONE 置为 FORM_SUBMISSION，
---      使其正式具备提交能力（idempotent UPDATE，重复执行幂等）。
---   5) 接口资源 system:form-submission:create / system:form-submission:read 不在此手工登记，
---      由 ApiResourceAutoSyncRunner 启动时扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN。
---   6) 依赖：V47（sys_form_definition、菜单 id=1121 低代码表单试点）。
-
--- 1) 表：sys_form_submission（逻辑删除 + 乐观锁；按 (tenant_id, form_code, created_at) 建查询索引）
-CREATE TABLE IF NOT EXISTS sys_form_submission (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    form_definition_id BIGINT UNSIGNED NOT NULL,
-    form_code VARCHAR(64) NOT NULL,
-    submitted_by VARCHAR(64) NULL,
-    data_json JSON NOT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    version BIGINT NOT NULL DEFAULT 0,
-    deleted TINYINT(1) NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    KEY idx_tenant_form_created (tenant_id, form_code, created_at)
+CREATE TABLE `sys_role_column_permission` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `role_id` BIGINT UNSIGNED NOT NULL,
+    `resource_code` VARCHAR(128) NOT NULL,
+    `field` VARCHAR(128) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V59__job_dependency.sql]
--- V59 任务依赖编排 DAG（M33）：为 sys_job 增加 depends_on 列，声明本任务依赖的前置任务。
---
--- 设计要点：
---   1) 依赖以 JSON 数组存储（如 [101, 102]），零新增表、零新索引负担；依赖的解析与环检测
---      全部在 JobDagRules 纯函数层完成（无 Spring / DB 依赖，可离线单测）。
---   2) WAITING 状态：存在未满足依赖的任务启动时进入 WAITING（不向调度器注册自身触发），
---      待其全部依赖成功执行后由完成事件驱动一次「即时触发」（复用 JobSchedulerPort.scheduleOneTime）。
---   3) 依赖检索走全量解析（任务量级小，无需为 depends_on 建索引），由 JooqJobDagAdapter 完成。
---   4) 幂等：列已存在则跳过（MySQL 8 的 ALTER TABLE ADD COLUMN 不支持 IF NOT EXISTS，故用
---      information_schema 探测后动态执行）。
-
-SET @db = DATABASE();
-
-
--- [from V59__job_dependency.sql]
-SET @col = (SELECT COUNT(*) FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'sys_job' AND COLUMN_NAME = 'depends_on');
-
-
--- [from V59__job_dependency.sql]
-SET @sql = IF(@col = 0,
-    'ALTER TABLE sys_job ADD COLUMN depends_on VARCHAR(1024) DEFAULT NULL COMMENT ''依赖任务ID列表(JSON数组)''',
-    'SELECT 1');
-
-
--- [from V59__job_dependency.sql]
-PREPARE stmt FROM @sql;
-
-
--- [from V59__job_dependency.sql]
-EXECUTE stmt;
-
-
--- [from V59__job_dependency.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V61__role_column_permission.sql]
--- V61 字段级数据权限分配（M41）：sys_role_column_permission，把角色对受控字段的明文可见权
--- 以「角色 × 资源 × 字段」三元组持久化，供统一配置页（PermissionPolicyView 字段权限 Tab）读写。
---
--- 设计要点：
---   1) 与 M31 行级数据权限（sys_role_data_scope）对称：此处为列级（字段级）的「角色 × 资源 × 字段」分配。
---   2) 完整权限码 = resourceCode + ':column:' + field（如 system:user:column:mobile），
---      由 ColumnPermissionRules.columnPermissionCode 派生，与运行时 ColumnPermissionApplier 口径同源。
---   3) 鉴权：读取复用 system:role:read；保存复用 system:role:update（在角色管理上下文中操作）。
---   4) role_id 无物理外键（与 sys_role_data_scope 一致，避免级联误删），由应用层保证存在性。
---   5) 运行时脱敏是否生效由 column-permission.enforce 开关控制（默认关闭，零线上回归，同 M19）。
---   6) 依赖：V32（系统管理目录 id=1002）；ColumnPermissionController 只读资源端点（system:column-permission:read）。
-
-CREATE TABLE IF NOT EXISTS sys_role_column_permission (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    role_id BIGINT UNSIGNED NOT NULL,
-    resource_code VARCHAR(128) NOT NULL,
-    field VARCHAR(128) NOT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_role_resource_field (tenant_id, role_id, resource_code, field),
-    KEY idx_role (tenant_id, role_id),
-    KEY idx_resource (tenant_id, resource_code)
+CREATE TABLE `sys_oauth2_token` (
+    `id` BIGINT NOT NULL,
+    `tenant_id` BIGINT NOT NULL DEFAULT 0,
+    `jti` VARCHAR(64) NOT NULL,
+    `client_id` VARCHAR(128) NOT NULL,
+    `user_id` BIGINT NULL,
+    `username` VARCHAR(128) NULL,
+    `scope` VARCHAR(512) NULL,
+    `token_type` VARCHAR(20) NOT NULL,
+    `issued_at` DATETIME(3) NOT NULL,
+    `expires_at` DATETIME(3) NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `version` BIGINT NOT NULL DEFAULT 0,
+    `deleted` TINYINT NOT NULL DEFAULT 0,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V64__oauth2_token_registry.sql]
--- M43 OAuth2 令牌治理：签发令牌注册表（记录 jti + 元数据，支持查看/吊销，吊销后强制失效）。
--- 与 M38–M40 自包含 RS256 令牌签发互补：此前令牌为无状态 JWT，无法在签发后撤销；
--- 本表把每次签发的 jti 落库，吊销（status=REVOKED）经 OAuth2TokenRevocationFilter 在请求期实时拒绝。
--- 设计要点：
---   1) jti 唯一（uk_jti），与 OAuth2TokenProvider 签发时写入 JWT 的 id 声明严格一致；
---   2) status 仅 ACTIVE / REVOKED；列表查询以 status=ACTIVE 且 expires_at>now 定义「活动」；
---   3) 软删除（deleted）+ 乐观锁（version）与既有表一致；tenant_id 恒为 0（平台维表，由平台统一维护）。
-
-CREATE TABLE IF NOT EXISTS sys_oauth2_token (
-    id BIGINT NOT NULL,
-    tenant_id BIGINT NOT NULL DEFAULT 0,
-    jti VARCHAR(64) NOT NULL,
-    client_id VARCHAR(128) NOT NULL,
-    user_id BIGINT NULL,
-    username VARCHAR(128) NULL,
-    scope VARCHAR(512) NULL,
-    token_type VARCHAR(20) NOT NULL,
-    issued_at DATETIME(3) NOT NULL,
-    expires_at DATETIME(3) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-    version BIGINT NOT NULL DEFAULT 0,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_jti (tenant_id, jti),
-    KEY idx_client (tenant_id, client_id),
-    KEY idx_user (tenant_id, user_id),
-    KEY idx_status_exp (tenant_id, status, expires_at)
+CREATE TABLE `sys_oauth2_consent` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `user_id` BIGINT NOT NULL,
+    `client_id` VARCHAR(64) NOT NULL,
+    `scopes` VARCHAR(512) NOT NULL,
+    `status` VARCHAR(16) NOT NULL DEFAULT 'APPROVED',
+    `expires_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- [from V68__oauth2_pkce_consent.sql]
--- V68 OAuth2 授权码流程强化（V1.0.5 #900）：redirect_uri 白名单 + PKCE 强制开关 + 用户同意(consent)持久化。
---
--- 设计要点：
---   1) sys_openapi_client 增两列：
---        - redirect_uris   ：授权码回调地址白名单（逗号分隔，空白=不约束，兼容存量客户端）。
---        - pkce_required   ：是否强制 PKCE（授权码流程），默认 0（不强制），新注册_public 客户端建议置 1。
---      与 V48 同表，沿用其 BIGINT UNSIGNED / utf8mb4 约定（H2 测试与 MySQL 生产一致）。
---   2) 新增 sys_oauth2_consent：资源拥有者对客户端的授权同意记录。
---        - 一行 = 一次「用户 X 对客户端 C 在 scopes 集合上 APPROVED/DENIED」；
---        - 「记住授权」写 APPROVED 行；授权端点查 (user_id, client_id, scopes⊆已授权) 的未过期 APPROVED 行，
---          命中则直接签发授权码，否则要求用户再次确认（返回 consent_required）。
---        - 无 deleted/version：同意记录采用「追加新行」语义，历史可追溯，无需逻辑删除与乐观锁。
---   3) 依赖：V48（sys_openapi_client 已存在）。本迁移幂等（ALTER 幂等依赖 Flyway 版本控制，重复执行会报已存在列，
---      故仅向前追加重跑；如需本地重置，按 Flyway 标准流程 baseline/repair）。
-
--- 1) sys_openapi_client 增强列
-ALTER TABLE sys_openapi_client
-    ADD COLUMN redirect_uris VARCHAR(1024) NULL COMMENT '授权码回调地址白名单（逗号分隔，空白=不约束）';
-
-
--- [from V68__oauth2_pkce_consent.sql]
-ALTER TABLE sys_openapi_client
-    ADD COLUMN pkce_required TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否强制 PKCE（授权码流程）';
-
-
--- [from V68__oauth2_pkce_consent.sql]
--- 2) 用户同意记录表
-CREATE TABLE IF NOT EXISTS sys_oauth2_consent (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    user_id BIGINT NOT NULL,
-    client_id VARCHAR(64) NOT NULL,
-    scopes VARCHAR(512) NOT NULL,
-    status VARCHAR(16) NOT NULL DEFAULT 'APPROVED',
-    expires_at DATETIME(3) NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_user_client (user_id, client_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- [from V69__workflow_delegate.sql]
--- V69 工作流委派（V1.0.5 #901）：wf_task_ext 增加委派发起人与委派状态列，支撑「临时委托办理、办结交还原审批人」。
---
--- 设计要点：
---   1) wf_task_ext 增两列（与既有 wf_* 表 BIGINT UNSIGNED / VARCHAR 约定一致）：
---        - delegator_user_id ：委派发起人（原审批人）。任务被委派给 assignee_user_id 期间记录真正的负责人，
---          被委托人办结交还后 assignee_user_id 还原为该值。
---        - delegation_state  ：委派状态。PENDING=已委派待办、RESOLVED=被委托人已办结交还、NULL=非委派任务。
---   2) 委派/办结交还的写操作复用既有引擎端口 delegate/resolve 与 wf_approval_record（action=DELEGATE/DELEGATE_RESOLVE），
---      零新表、零新接口权限手工登记（由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN）。
---   3) 本迁移向前追加，幂等依赖 Flyway 版本控制；重复执行会因列已存在报错，需按 Flyway 标准流程 baseline/repair。
-
-ALTER TABLE wf_task_ext
-    ADD COLUMN delegator_user_id BIGINT UNSIGNED NULL COMMENT '委派发起人（原审批人），非委派任务为 NULL';
-
-
--- [from V69__workflow_delegate.sql]
-ALTER TABLE wf_task_ext
-    ADD COLUMN delegation_state VARCHAR(16) NULL COMMENT '委派状态：PENDING=已委派待办、RESOLVED=已办结交还、NULL=非委派';
-
-
--- [from V70__alert_rule.sql]
--- V70 告警规则闭环（V1.0.5 #922）：新增 alert_rule 表，支撑可配置阈值规则的持久化与周期评估。
---
--- 设计要点：
---   1) alert_rule 独立新表，与既有 wf_*/sys_* 表 BIGINT UNSIGNED / utf8mb4 约定一致。
---   2) 指标键(metric_key)/比较符(comparator)/严重度(severity)/渠道类型(channel_type) 均以
---      字符串存储枚举名（由 AlertRuleRules 解析校验），不动表结构即可横向扩展枚举。
---   3) 逻辑删除(deleted) + 乐观锁(version) + 审计时间(created_at/updated_at) 与仓库其他表一致；
---      created_by/updated_by 允许 NULL（规则可由调度线程创建/更新，无操作人上下文）。
---   4) 零新接口权限手工登记：管理端点 @PreAuthorize 由 ApiResourceAutoSyncRunner 扫描自动落库并授予 SUPER_ADMIN。
---   5) 本迁移向前追加，幂等依赖 Flyway 版本控制；重复执行会因表已存在报错，需按 Flyway 标准流程 baseline/repair。
-
-CREATE TABLE IF NOT EXISTS alert_rule (
-    id BIGINT UNSIGNED NOT NULL,
-    tenant_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-    rule_name VARCHAR(128) NOT NULL,
-    metric_key VARCHAR(32) NOT NULL,
-    comparator VARCHAR(8) NOT NULL,
-    threshold DECIMAL(12, 4) NOT NULL,
-    severity VARCHAR(16) NOT NULL DEFAULT 'WARNING',
-    for_duration_sec INT NOT NULL DEFAULT 0,
-    consecutive_count INT NOT NULL DEFAULT 1,
-    channel_type VARCHAR(16) NOT NULL DEFAULT 'INBOX',
-    channel_config VARCHAR(1024) NULL,
-    enabled TINYINT(1) NOT NULL DEFAULT 0,
-    remark VARCHAR(255) NULL,
-    version INT NOT NULL DEFAULT 0,
-    deleted TINYINT(1) NOT NULL DEFAULT 0,
-    created_by BIGINT NULL,
-    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    updated_by BIGINT NULL,
-    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (id),
-    KEY idx_metric_enabled (metric_key, enabled)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- [from V74__cms.sql]
--- V74 内容管理 CMS（ROADMAP R5）：栏目树 + 文章 CRUD + 富文本 + 发布态。
--- 设计要点：
---   1) 标识符全部显式加引号保留 snake_case 小写（H2 元数据库名小写、生产 MySQL 大小写敏感，未引号会坏）；
---   2) 索引用独立 CREATE INDEX 语句（内联 KEY `x`(...) 会被 H2 误解析为 domain）；
---   3) tenant_id 承载租户隔离，enforce 关闭时恒为 0；
---   4) status 用 VARCHAR(20) 承载 DRAFT/PUBLISHED/OFFLINE，由应用层校验；
---   5) 菜单种子：挂载顶层「内容管理」目录（id=9301），下挂栏目管理/文章管理（9302/9303），
---      permission_code 作为菜单可见性判定码；更细的 cms:*:publish 等由 ApiResourceAutoSyncRunner
---      扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，无需手工登记；
---   6) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
 
 CREATE TABLE `cms_category` (
     `id`           BIGINT        NOT NULL,
@@ -2390,24 +859,9 @@ CREATE TABLE `cms_category` (
     `created_by`   VARCHAR(64)   NULL,
     `created_at`   TIMESTAMP     NULL,
     `updated_by`   VARCHAR(64)   NULL,
-    `updated_at`   TIMESTAMP     NULL,
-    PRIMARY KEY (`id`)
-);
+    `updated_at`   TIMESTAMP     NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V74__cms.sql]
-CREATE INDEX `idx_cms_category_tenant_parent` ON `cms_category` (`tenant_id`, `parent_id`);
-
-
--- [from V74__cms.sql]
-CREATE INDEX `idx_cms_category_code`          ON `cms_category` (`tenant_id`, `category_code`);
-
-
--- [from V74__cms.sql]
-CREATE INDEX `idx_cms_category_status`        ON `cms_category` (`tenant_id`, `status`);
-
-
--- [from V74__cms.sql]
 CREATE TABLE `cms_article` (
     `id`           BIGINT        NOT NULL,
     `tenant_id`    BIGINT        NOT NULL DEFAULT 0,
@@ -2426,35 +880,8 @@ CREATE TABLE `cms_article` (
     `created_by`   VARCHAR(64)   NULL,
     `created_at`   TIMESTAMP     NULL,
     `updated_by`   VARCHAR(64)   NULL,
-    `updated_at`   TIMESTAMP     NULL,
-    PRIMARY KEY (`id`)
-);
-
-
--- [from V74__cms.sql]
-CREATE INDEX `idx_cms_article_tenant_category` ON `cms_article` (`tenant_id`, `category_id`);
-
-
--- [from V74__cms.sql]
-CREATE INDEX `idx_cms_article_status`          ON `cms_article` (`tenant_id`, `status`);
-
-
--- [from V74__cms.sql]
-CREATE INDEX `idx_cms_article_title`           ON `cms_article` (`tenant_id`, `title`);
-
-
--- [from V75__im.sql]
--- V75 站内消息 IM（ROADMAP R6）：会话 / 会话成员 / 消息 + 已读回执 + 实时推送解耦。
--- 设计要点：
---   1) 标识符全部显式加引号保留 snake_case 小写（H2 元数据库名小写、生产 MySQL 大小写敏感，未引号会坏）；
---   2) 索引用独立 CREATE INDEX 语句（内联 KEY `x`(...) 会被 H2 误解析为 domain）；
---   3) tenant_id 承载租户隔离，enforce 关闭时恒为 0；
---   4) 会话类型 conversation_type（P2P/GROUP）、消息类型 msg_type（TEXT/IMAGE/...）、状态由应用层校验；
---   5) 已读回执由 im_conversation_member.last_read_message_id 驱动（雪崩 id 单调递增，可比较）；
---   6) 菜单种子：挂载顶层「站内消息」目录（id=9401），下挂会话管理/消息中心（9402/9403），
---      permission_code 作为菜单可见性判定码；更细的 im:*:send 等由 ApiResourceAutoSyncRunner
---      扫描 @PreAuthorize 自动落库并授予 SUPER_ADMIN，无需手工登记；
---   7) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
+    `updated_at`   TIMESTAMP     NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `im_conversation` (
     `id`                 BIGINT        NOT NULL,
@@ -2468,20 +895,9 @@ CREATE TABLE `im_conversation` (
     `created_by`         VARCHAR(64)   NULL,
     `created_at`         TIMESTAMP     NULL,
     `updated_by`         VARCHAR(64)   NULL,
-    `updated_at`         TIMESTAMP     NULL,
-    PRIMARY KEY (`id`)
-);
+    `updated_at`         TIMESTAMP     NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V75__im.sql]
-CREATE INDEX `idx_im_conversation_tenant_type` ON `im_conversation` (`tenant_id`, `conversation_type`);
-
-
--- [from V75__im.sql]
-CREATE INDEX `idx_im_conversation_status`      ON `im_conversation` (`tenant_id`, `status`);
-
-
--- [from V75__im.sql]
 CREATE TABLE `im_conversation_member` (
     `id`                   BIGINT        NOT NULL,
     `tenant_id`            BIGINT        NOT NULL DEFAULT 0,
@@ -2493,21 +909,9 @@ CREATE TABLE `im_conversation_member` (
     `version`              INT           NOT NULL DEFAULT 0,
     `deleted`              INT           NOT NULL DEFAULT 0,
     `created_at`           TIMESTAMP     NULL,
-    `updated_at`           TIMESTAMP     NULL,
-    PRIMARY KEY (`id`),
-    CONSTRAINT `uk_im_member_conv_user` UNIQUE (`tenant_id`, `conversation_id`, `user_id`)
-);
+    `updated_at`           TIMESTAMP     NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V75__im.sql]
-CREATE INDEX `idx_im_member_tenant_conv` ON `im_conversation_member` (`tenant_id`, `conversation_id`);
-
-
--- [from V75__im.sql]
-CREATE INDEX `idx_im_member_tenant_user` ON `im_conversation_member` (`tenant_id`, `user_id`);
-
-
--- [from V75__im.sql]
 CREATE TABLE `im_message` (
     `id`              BIGINT        NOT NULL,
     `tenant_id`       BIGINT        NOT NULL DEFAULT 0,
@@ -2522,49 +926,38 @@ CREATE TABLE `im_message` (
     `created_by`      VARCHAR(64)   NULL,
     `created_at`      TIMESTAMP     NULL,
     `updated_by`      VARCHAR(64)   NULL,
-    `updated_at`      TIMESTAMP     NULL,
-    PRIMARY KEY (`id`)
-);
+    `updated_at`      TIMESTAMP     NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE `schema_baseline` (
+    `baseline_version` VARCHAR(32) NOT NULL,
+    `source_count` INT NOT NULL DEFAULT 0,
+    `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- [from V75__im.sql]
-CREATE INDEX `idx_im_message_tenant_conv` ON `im_message` (`tenant_id`, `conversation_id`);
+CREATE TABLE `sys_alert_rule` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `rule_name` VARCHAR(128) NOT NULL,
+    `metric_key` VARCHAR(32) NOT NULL,
+    `comparator` VARCHAR(8) NOT NULL,
+    `threshold` DECIMAL(12, 4) NOT NULL,
+    `severity` VARCHAR(16) NOT NULL DEFAULT 'WARNING',
+    `for_duration_sec` INT NOT NULL DEFAULT 0,
+    `consecutive_count` INT NOT NULL DEFAULT 1,
+    `channel_type` VARCHAR(16) NOT NULL DEFAULT 'INBOX',
+    `channel_config` VARCHAR(1024) NULL,
+    `enabled` TINYINT(1) NOT NULL DEFAULT 0,
+    `remark` VARCHAR(255) NULL,
+    `version` INT NOT NULL DEFAULT 0,
+    `deleted` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_by` BIGINT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` BIGINT NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- [from V75__im.sql]
-CREATE INDEX `idx_im_message_created`     ON `im_message` (`tenant_id`, `conversation_id`, `created_at`);
-
-
--- [from V76__approval_portal.sql]
--- V76 审批中心门户（ROADMAP R7）：wf_task_ext 补 activity_name 快照列 + 审批中心菜单种子。
--- 设计要点：
---   1) activity_name 为任务创建期从工作流引擎捕获的活动（节点）名称快照，
---      待办/已办列表直接读取，无需回查引擎即可展示可读节点名；
---   2) ALTER 风格沿用 V69（workflow_delegate），标识符保留 snake_case 小写（H2 元数据库名小写、
---      生产 MySQL 大小写敏感，本仓既有迁移均以小写书写，保持一致）；
---   3) 审批中心为前端聚合页（待办/已办/我发起/可发起 + 统计），统一菜单码
---      approval:portal:view，由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize 自动登记并授予 SUPER_ADMIN；
---   4) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
-
-ALTER TABLE wf_task_ext
-    ADD COLUMN activity_name VARCHAR(255) NULL COMMENT '活动（节点）名称快照：任务创建期从引擎捕获，已办列表无需回查引擎即可展示可读节点名';
-
-
--- [from V78__dashboard_template.sql]
--- V78 数据看板模板库（ROADMAP R8）：看板模板 CRUD + 布局配置（layout_json）+ 发布态流转。
--- 设计要点：
---   1) 标识符全部显式加引号保留 snake_case 小写（H2 元数据库名小写、生产 MySQL 大小写敏感，未引号会坏）；
---   2) 索引用独立 CREATE INDEX 语句（内联 KEY `x`(...) 会被 H2 误解析为 domain）；
---   3) tenant_id 承载租户隔离，enforce 关闭时恒为 0；
---   4) status 用 VARCHAR(20) 承载 DRAFT/PUBLISHED/OFFLINE，由应用层校验；
---   5) layout_json 用 TEXT 承载看板布局（栅格 / 卡片 / 图表配置），由前端以 JSON 字符串提交，
---      后端经 Jackson 校验合法性，SnakeRecordMapper 将 TEXT 直接映射为 String；
---   6) 菜单种子：挂载顶层「数据看板」目录（id=9701），下挂「看板模板管理」（9702），
---      permission_code 作为菜单可见性判定码，由 ApiResourceAutoSyncRunner 扫描 @PreAuthorize
---      自动落库并授予 SUPER_ADMIN，无需手工登记；
---   7) 幂等：INSERT IGNORE + SELECT 绑定 SUPER_ADMIN（role_id=1，tenant_id=0），可重复执行。
-
-CREATE TABLE `dashboard_template` (
+CREATE TABLE `sys_dashboard_template` (
     `id`             BIGINT        NOT NULL,
     `tenant_id`      BIGINT        NOT NULL DEFAULT 0,
     `template_code`  VARCHAR(64)   NOT NULL,
@@ -2578,198 +971,28 @@ CREATE TABLE `dashboard_template` (
     `created_by`     VARCHAR(64)   NULL,
     `created_at`     TIMESTAMP     NULL,
     `updated_by`     VARCHAR(64)   NULL,
-    `updated_at`     TIMESTAMP     NULL,
-    PRIMARY KEY (`id`)
-);
-
-
--- [from V78__dashboard_template.sql]
-CREATE INDEX `idx_dashboard_template_tenant_code` ON `dashboard_template` (`tenant_id`, `template_code`);
-
-
--- [from V78__dashboard_template.sql]
-CREATE INDEX `idx_dashboard_template_status`       ON `dashboard_template` (`tenant_id`, `status`);
-
-
--- [from V78__dashboard_template.sql]
-CREATE INDEX `idx_dashboard_template_name`         ON `dashboard_template` (`tenant_id`, `template_name`);
-
-
--- [from V81__operation_log_query_index.sql]
--- V81 审计日志查询索引补齐（E2E F1/F2 性能修复的数据层部分）。
--- 设计要点：
---   1) 现状：sys_operation_log 仅有 idx_module_time(tenant_id, module_code, occurred_at)、
---      idx_operator_time(tenant_id, operator_id, occurred_at)、idx_trace_id(trace_id)
---      三个二级索引，均以 tenant_id 打头。而「操作日志」页与工作台「最近动态」的查询条件
---      不带 tenant_id 前缀（单租户部署下 tenant_id 恒为 0，条件里没有该列），
---      导致 idx_operator_time 只能退化为全索引扫描（实测 127 万条 index 条目）
---      再叠加 ORDER BY occurred_at, id 的文件排序，单次请求 11.9~16.4s；
---   2) 本次补两个「无 tenant_id 前缀」的覆盖索引：
---        - idx_operator_occurred (operator_id, occurred_at, id)
---             服务 WHERE operator_id = ? ORDER BY occurred_at DESC, id DESC LIMIT n
---             （工作台「最近动态」/ 按操作人筛审计）；
---        - idx_occurred_id (occurred_at, id)
---             服务无筛选时的 ORDER BY occurred_at DESC, id DESC LIMIT n（列表首页）
---             与 occurred_at 区间筛选（rows 直接由索引给出，免回表排序）；
---   3) 排序键包含 id 作为 tie-breaker，索引列顺序与之严格一致，保证倒序扫描即可满足
---      ORDER BY，不再触发 filesort；
---   4) 索引名全局唯一（已全量检索 db/ 目录确认无重名）；标识符统一用反引号包裹并保留
---      snake_case 小写（与 V74 等既有迁移一致）。注意：MySQL 未开启 ANSI_QUOTES 时双引号是
---      字符串字面量而非标识符，CREATE INDEX "x" ... 会直接语法报错（本文件首版即踩此坑）；
---   5) CREATE INDEX 不支持 IF NOT EXISTS，Flyway 保证本文件只执行一次。
-
-CREATE INDEX `idx_operator_occurred` ON `sys_operation_log` (`operator_id`, `occurred_at`, `id`);
-
-
--- [from V81__operation_log_query_index.sql]
-CREATE INDEX `idx_occurred_id` ON `sys_operation_log` (`occurred_at`, `id`);
-
-
--- [from V83__sys_menu_created_by.sql]
--- V83 sys_menu 审计创建人补齐（若依规范对齐 P0-2）
---
--- 背景：V32 基线中 sys_user / sys_org / sys_role 等主数据表均带 created_by / updated_by
---   审计列，唯独 sys_menu 缺失 created_by，导致「谁新建了这条菜单」无法追溯。
---   本版本仅补 created_by（不补 updated_by），保持与报告 §3 P0-2 的改动范围一致。
---
--- 版本链约束：db/migration/README.md 明令「版本文件字节不可变、结构性变更一律前向追加」，
---   故 V32 基表定义保持原样，新库由 V32 建表 → 本文件补列，结果与直接改基表等价。
---
--- 幂等：沿用 V32 L518–L535 的「列缺失才补」模式（information_schema 守卫 + 动态 DDL）。
---   MySQL 无事务性 DDL，迁移中途失败会留下已生效的结构；重复执行命中 'DO 0' 直接无操作，
---   不会撞 1060 Duplicate column。
--- 兼容：列可空，存量行一律为 NULL，不回填、不造数据；不影响任何既有查询与写入路径。
--- 影响：1 张表 1 列；无接口变更、无前端变更。
-
-SET @ddl = (
-    SELECT IF(COUNT(*) = 0,
-        'ALTER TABLE `sys_menu`
-             ADD COLUMN `created_by` BIGINT UNSIGNED NULL COMMENT ''创建人用户ID'' AFTER `status`',
-        'DO 0')
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_menu' AND COLUMN_NAME = 'created_by'
-);
-
-
--- [from V83__sys_menu_created_by.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V83__sys_menu_created_by.sql]
-EXECUTE stmt;
-
-
--- [from V83__sys_menu_created_by.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V84__rename_alert_rule.sql]
--- V84 告警规则表补模块前缀（若依规范对齐 P2-2）：alert_rule -> sys_alert_rule
---
--- 背景：V70 建立的 alert_rule 是全仓唯一缺少 sys_/wf_/cms_/im_ 等业务前缀的主数据表，
---   与「表由模块独占写入、按域加前缀」的既有约定不一致。本版本只改表名，不改任何列、
---   索引、数据、接口与前端行为。
---
--- 版本链约束：db/migration/README.md 明令「版本文件字节不可变、结构性变更一律前向追加」，
---   故 V70 的 CREATE TABLE alert_rule 保持原样；新库由 V70 建表 → 本文件重命名，
---   最终落态与「V70 直接建 sys_alert_rule」等价，且存量库可平滑升级。
---
--- 幂等：information_schema 双守卫 —— 仅当 alert_rule 存在且 sys_alert_rule 不存在时才 RENAME；
---   重复执行 / 已是新表名的库命中 'DO 0' 无操作，不会撞 1050/1060 类错误。
---   MySQL 的 RENAME TABLE 是原子 DDL，索引（idx_metric_enabled）、数据、自增状态均随表保留。
---
--- 【部署顺序·必读】这是结构级不兼容变更，Java 侧 SqlTables.ALERT_RULE 已同步指向 sys_alert_rule：
---   1) 先备份：mysqldump --single-transaction <db> alert_rule > alert_rule_backup.sql
---   2) 停写窗口内执行本迁移（RENAME 需短暂 MDL 锁，期间告警规则读写会阻塞）
---   3) 确认 SELECT COUNT(*) FROM sys_alert_rule 可用后，再发布含新常量的应用版本
---   反向发布（先上应用、后跑迁移）会因表不存在导致告警规则模块整体不可用。
---
--- 【回滚】如需回到旧表名，先下线新版应用，再执行（同样需要停写窗口）：
---   RENAME TABLE `sys_alert_rule` TO `alert_rule`;
---   并同步把 SqlTables.ALERT_RULE 的表名字符串改回 alert_rule 后重新发布。
-
-SET @ddl = (
-    SELECT IF(
-        (SELECT COUNT(*) FROM information_schema.TABLES
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'alert_rule') = 1
-        AND (SELECT COUNT(*) FROM information_schema.TABLES
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_alert_rule') = 0,
-        'RENAME TABLE `alert_rule` TO `sys_alert_rule`',
-        'DO 0')
-);
-
-
--- [from V84__rename_alert_rule.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V84__rename_alert_rule.sql]
-EXECUTE stmt;
-
-
--- [from V84__rename_alert_rule.sql]
-DEALLOCATE PREPARE stmt;
-
-
--- [from V85__rename_dashboard_template.sql]
--- V85 数据看板模板表补模块前缀（若依规范对齐·取证局限收口）：dashboard_template -> sys_dashboard_template
---
--- 背景：V78 建立的 dashboard_template 是全仓第二张、也是最后一张缺少 sys_/wf_/cms_/im_
---   等域前缀的主数据表。原始《若依规范对齐差异清单》§2.2.4 只统计到 V71（51 张表），
---   因此只发现 alert_rule（已由 V84 归一）；本次对 V32~V84 全部 CREATE TABLE 做全量
---   抽取（实到 58 张表）后确认 dashboard_template 为唯一剩余裸名表。本版本只改表名，
---   不改任何列、索引、数据、接口与前端行为。
---
--- 版本链约束：db/migration/README.md 明令「版本文件字节不可变、结构性变更一律前向追加」，
---   故 V78 的 CREATE TABLE dashboard_template 保持原样；新库由 V78 建表 → 本文件重命名，
---   最终落态与「V78 直接建 sys_dashboard_template」等价，且存量库可平滑升级。
---
--- 幂等：information_schema 双守卫 —— 仅当 dashboard_template 存在且 sys_dashboard_template
---   不存在时才 RENAME；重复执行 / 已是新表名的库命中 'DO 0' 无操作，不会撞 1050/1060 类错误。
---   MySQL 的 RENAME TABLE 是原子 DDL，V78 建立的 3 个索引、数据、自增状态均随表保留。
---
--- 【部署顺序·必读】这是结构级不兼容变更，Java 侧 SqlTables.DASHBOARD_TEMPLATE 已同步指向
---   sys_dashboard_template：
---   1) 先备份：mysqldump --single-transaction <db> dashboard_template > dashboard_template_backup.sql
---   2) 停写窗口内执行本迁移（RENAME 需短暂 MDL 锁，期间看板模板读写会阻塞）
---   3) 确认 SELECT COUNT(*) FROM sys_dashboard_template 可用后，再发布含新常量的应用版本
---   反向发布（先上应用、后跑迁移）会因表不存在导致看板模板模块整体不可用。
---   V84（alert_rule 重命名）同为结构级变更，两者可合并进同一个停写窗口执行。
---
--- 【回滚】如需回到旧表名，先下线新版应用，再执行（同样需要停写窗口）：
---   RENAME TABLE `sys_dashboard_template` TO `dashboard_template`;
---   并同步把 SqlTables.DASHBOARD_TEMPLATE 的表名字符串改回 dashboard_template 后重新发布。
-
-SET @ddl = (
-    SELECT IF(
-        (SELECT COUNT(*) FROM information_schema.TABLES
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dashboard_template') = 1
-        AND (SELECT COUNT(*) FROM information_schema.TABLES
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_dashboard_template') = 0,
-        'RENAME TABLE `dashboard_template` TO `sys_dashboard_template`',
-        'DO 0')
-);
-
-
--- [from V85__rename_dashboard_template.sql]
-PREPARE stmt FROM @ddl;
-
-
--- [from V85__rename_dashboard_template.sql]
-EXECUTE stmt;
-
-
--- [from V85__rename_dashboard_template.sql]
-DEALLOCATE PREPARE stmt;
-
--- ---------- 初始化基线表 ----------
-
--- ============================================================
--- 初始化基线标记（供部署校验读取）
--- ============================================================
-CREATE TABLE IF NOT EXISTS `schema_baseline` (
-  `baseline_version` VARCHAR(32) NOT NULL,
-  `source_count` INT NOT NULL DEFAULT 0,
-  `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`baseline_version`)
+    `updated_at`     TIMESTAMP     NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ---------- 索引（独立 CREATE INDEX） ----------
+
+CREATE INDEX `idx_user_revoked` ON `sys_refresh_token` (`user_id`, `revoked_at`);
+CREATE INDEX `idx_tenant_status_deleted` ON `wf_workflow_design` (tenant_id, status, deleted);
+CREATE INDEX `idx_content_hash` ON `sys_file` (`content_hash`);
+CREATE INDEX `idx_cms_category_tenant_parent` ON `cms_category` (`tenant_id`, `parent_id`);
+CREATE INDEX `idx_cms_category_code` ON `cms_category` (`tenant_id`, `category_code`);
+CREATE INDEX `idx_cms_category_status` ON `cms_category` (`tenant_id`, `status`);
+CREATE INDEX `idx_cms_article_tenant_category` ON `cms_article` (`tenant_id`, `category_id`);
+CREATE INDEX `idx_cms_article_status` ON `cms_article` (`tenant_id`, `status`);
+CREATE INDEX `idx_cms_article_title` ON `cms_article` (`tenant_id`, `title`);
+CREATE INDEX `idx_im_conversation_tenant_type` ON `im_conversation` (`tenant_id`, `conversation_type`);
+CREATE INDEX `idx_im_conversation_status` ON `im_conversation` (`tenant_id`, `status`);
+CREATE INDEX `idx_im_member_tenant_conv` ON `im_conversation_member` (`tenant_id`, `conversation_id`);
+CREATE INDEX `idx_im_member_tenant_user` ON `im_conversation_member` (`tenant_id`, `user_id`);
+CREATE INDEX `idx_im_message_tenant_conv` ON `im_message` (`tenant_id`, `conversation_id`);
+CREATE INDEX `idx_im_message_created` ON `im_message` (`tenant_id`, `conversation_id`, `created_at`);
+CREATE INDEX `idx_dashboard_template_tenant_code` ON `sys_dashboard_template` (`tenant_id`, `template_code`);
+CREATE INDEX `idx_dashboard_template_status` ON `sys_dashboard_template` (`tenant_id`, `status`);
+CREATE INDEX `idx_dashboard_template_name` ON `sys_dashboard_template` (`tenant_id`, `template_name`);
+CREATE INDEX `idx_operator_occurred` ON `sys_operation_log` (`operator_id`, `occurred_at`, `id`);
+CREATE INDEX `idx_occurred_id` ON `sys_operation_log` (`occurred_at`, `id`);
