@@ -3,17 +3,21 @@
 """check-directory.py 的行为回归测试（零依赖，仅标准库）。
 
 通过 subprocess 调用真实脚本 + 进程内直接调用 ``main()`` / 各 ``check_*`` 函数，
-对临时构造的「最小合规工程」夹具做端到端断言，覆盖 D1–D11 全部硬性规则：
+对临时构造的「最小合规工程」夹具做端到端断言，覆盖 D1–D13 全部硬性规则
+（D12 属 check-cluster-layout.py，不在本脚本范围）：
 
   D1 顶层包根 / 模块登记      D2 启动类位置例外
   D3 运行期配置归属            D4 前端全局样式
   D5 跨模块常量单一来源        D6 规范文档与索引
   D7 子模块 POM 版本收敛       D8 main 源码根白名单
   D9 测试包根白名单            D10 文档索引与死链
-  D11 测试期运行配置归属       以及 CLI 路径不存在 / 多违规累积
+  D11 测试期运行配置归属       D13 数据访问层单一写法
+                              以及 CLI 路径不存在 / 多违规累积
 
 夹具采用「纯增量」设计：只创建目录与文件、不删除。本仓沙箱禁止 unlink，
 依赖删除回滚的夹具会连锁失败；每个用例使用独立临时目录互不影响。
+最小合规工程默认包含 D13 要求的 ``SqlTables.java``，可用
+``make_repo(with_sql_tables=False)`` 构造违规场景。
 """
 import importlib.util
 import io
@@ -44,8 +48,8 @@ def write(path, text=""):
 
 
 def make_repo(with_constants=True, docs=ALL_DOCS, index_text=None,
-              styles=STYLE_FILES, with_index=True):
-    """构造最小合规工程：两个已登记模块 + 三份规范文档 + 完整前端样式。"""
+              styles=STYLE_FILES, with_index=True, with_sql_tables=True):
+    """构造最小合规工程：两个已登记模块 + 三份规范文档 + 完整前端样式 + DSL 入口。"""
     base = tempfile.mkdtemp(prefix="dirchk_")
     backend = os.path.join(base, "backend")
     frontend = os.path.join(base, "frontend")
@@ -60,6 +64,10 @@ def make_repo(with_constants=True, docs=ALL_DOCS, index_text=None,
     if with_constants:
         write(os.path.join(backend, "scaffold-common", PKG, "common", "constant",
                            "CommonConstants.java"), "package x;\nclass CommonConstants {}\n")
+    if with_sql_tables:
+        # D13：数据访问层单一入口（表/列常量），默认存在以保持基线合规。
+        write(os.path.join(backend, "scaffold-common", PKG, "mybatis", "dsl",
+                           "SqlTables.java"), "package x;\nclass SqlTables {}\n")
     for d in docs:
         write(os.path.join(backend, "docs", d), "# doc\n")
     if index_text is None:
@@ -311,6 +319,45 @@ class CheckDirectoryTest(unittest.TestCase):
         rc, out = run(backend, frontend)
         self.assertEqual(rc, 1, out)
         self.assertIn("D11 非启动模块持有测试期运行配置", out)
+
+    # ---- D13 ----
+    def test_d13_mapper_xml_in_resources(self):
+        """resources 下出现 *Mapper.xml -> D13（不必放在 mapper/ 目录里）。"""
+        backend, frontend = make_repo()
+        write(os.path.join(backend, "scaffold-common", "src", "main", "resources",
+                           "UserMapper.xml"), "<mapper/>\n")
+        rc, out = run(backend, frontend)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("D13 禁止新增 Mapper XML", out)
+        self.assertIn("UserMapper.xml", out)
+
+    def test_d13_mapper_directory_in_resources(self):
+        """resources 下新增空 mapper/ 目录也阻断（目录形态本身即第二套写法）。"""
+        backend, frontend = make_repo()
+        os.makedirs(os.path.join(backend, "scaffold-common", "src", "main",
+                                "resources", "mapper", "system"), exist_ok=True)
+        rc, out = run(backend, frontend)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("D13 禁止新增 Mapper XML", out)
+        self.assertIn("目录 scaffold-common/src/main/resources/mapper", out)
+
+    def test_d13_missing_sql_tables(self):
+        """SqlTables.java 被删/改名 -> D13（DSL 单一入口不得缺失）。"""
+        backend, frontend = make_repo(with_sql_tables=False)
+        rc, out = run(backend, frontend)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("D13 缺少 scaffold-common/src/main/java/com/acme/scaffold/mybatis/dsl/SqlTables.java", out)
+
+    def test_d13_legal_mapper_java_names_are_allowed(self):
+        """合法 *Mapper.java（DSL 内部类 / 类型映射）不得被文件名匹配误伤。"""
+        backend, frontend = make_repo()
+        for name in ("RecordMapper", "DynamicMapper", "SnakeRecordMapper", "JavaTypeMapper"):
+            write(os.path.join(backend, "scaffold-common", PKG, "common", "mapper",
+                               name + ".java"), f"package x;\nclass {name} {{}}\n")
+        rc, out = run(backend, frontend)
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("D13 禁止新增", out)
+        self.assertNotIn("D13 缺少", out)
 
     # ---- CLI / 混合模式 ----
     def test_cli_missing_path_returns_2(self):

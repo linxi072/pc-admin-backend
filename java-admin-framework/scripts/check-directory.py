@@ -17,6 +17,11 @@
       ``BaseIntegrationTest.java`` 根级文件按历史例外登记。
   D10. ``docs/`` 下所有文档须被 ``docs/README.md`` 索引，且索引里的相对链接目标存在。
   D11. ``src/test/resources`` 仅 admin 可持 ``application*.yml`` / ``logback*.xml``。
+  D13. 数据访问层单一写法：任一模块 ``src/main/resources/`` 下不得出现 ``mapper/`` 目录或
+      ``*Mapper.xml``；``scaffold-common/.../mybatis/dsl/SqlTables.java`` 必须存在。
+      只查路径、零内容扫描，且**刻意不按 ``*Mapper.java`` 文件名匹配**（4 个合法类均非
+      MyBatis Mapper，按名匹配会误伤）。编号跳过 D12：D12 属于
+      ``check-cluster-layout.py``（§4 子域簇表一致性），不归本脚本。
 
 本脚本只读：不修改任何文件，不参与编译与运行时，不替代 ``check-conventions.py``
 （后者负责包级环 / 重复 FQN / 依赖方向 / 数据类 / 模块 DAG）。
@@ -88,6 +93,15 @@ TEST_ROOT_EXCEPTIONS = {
     },
 }
 TEST_ROOT_JAVA_ALLOWED = {ADMIN_MODULE: {"BaseIntegrationTest.java"}}
+
+# D13：数据访问层单一写法。表/列常量唯一入口；新增 SQL 一律走自研 DSL，
+# 禁止回退到 MyBatis Mapper XML（评审 checklist 见 docs/NAMING.md §6.5）。
+DSL_TABLES_REL_PATH = os.path.join(
+    COMMON_MODULE, "src", "main", "java", *ROOT_PKG_PARTS,
+    "mybatis", "dsl", "SqlTables.java",
+)
+MAPPER_DIR_NAME = "mapper"
+MAPPER_XML_SUFFIX = "mapper.xml"
 
 
 def default_paths():
@@ -301,6 +315,43 @@ def check_test_resources(backend, modules, errors):
             errors.append(f"D11 非启动模块持有测试期运行配置: {m} -> {', '.join(hits)}")
 
 
+def check_data_access_layer(backend, modules, errors):
+    """D13：数据访问层单一写法 —— 只查路径，不读任何文件内容 / Java 源码。
+
+    本仓持久层为自研 MyBatis 风格 DSL（``com.acme.scaffold.mybatis.dsl``），
+    表/列常量单一入口是 ``SqlTables.java``。新增 ``mapper/`` 资源目录或
+    ``*Mapper.xml`` 意味着引入第二套 SQL 组织方式，直接阻断。
+
+    刻意不按 ``*Mapper.java`` 文件名匹配：DSL 的 ``RecordMapper`` /
+    ``DynamicMapper`` / ``SnakeRecordMapper`` 是行映射内部类，``JavaTypeMapper``
+    是代码生成类型映射，四者均非 MyBatis Mapper，按名匹配会误伤并阻断编译。
+    """
+    for m in modules:
+        res = os.path.join(backend, m, "src", "main", "resources")
+        if not os.path.isdir(res):
+            continue
+        hits = []
+        for cur, dirs, files in os.walk(res):
+            for d in dirs:
+                if d.lower() == MAPPER_DIR_NAME:
+                    rel = os.path.relpath(os.path.join(cur, d), backend).replace(os.sep, "/")
+                    hits.append(f"目录 {rel}")
+            for f in files:
+                if f.lower().endswith(MAPPER_XML_SUFFIX):
+                    rel = os.path.relpath(os.path.join(cur, f), backend).replace(os.sep, "/")
+                    hits.append(f"文件 {rel}")
+        if hits:
+            errors.append(
+                "D13 禁止新增 Mapper XML / mapper 目录（新增 SQL 唯一写法为自研 DSL，"
+                f"见 docs/NAMING.md §6.5）: {m} -> " + ", ".join(sorted(hits))
+            )
+    if not os.path.isfile(os.path.join(backend, DSL_TABLES_REL_PATH)):
+        errors.append(
+            "D13 缺少 " + DSL_TABLES_REL_PATH.replace(os.sep, "/")
+            + "（表/列常量唯一入口，数据访问层单一写法）"
+        )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="目录约定校验（docs/DIRECTORY.md 的可执行守护）")
     parser.add_argument("--backend", default=None, help="java-admin-framework 根目录")
@@ -329,14 +380,17 @@ def main(argv=None):
     check_test_package_roots(backend, modules, errors)
     check_docs_index(backend, errors)
     check_test_resources(backend, modules, errors)
+    check_data_access_layer(backend, modules, errors)
 
     root_count = len({r for rs in EXPECTED_ROOTS.values() for r in rs})
     print("=" * 64)
-    print("目录约定校验（D1–D11）")
+    print("目录约定校验（D1–D13）")
     print("=" * 64)
     print(f"后端模块: {len(modules)} 个；登记白名单模块: {len(EXPECTED_ROOTS)} 个；顶层包根: {root_count} 种")
     print(f"前端样式: src/styles/{{{', '.join(STYLE_FILES)}}}")
     print(f"规范文档: {', '.join(REQUIRED_DOCS)}")
+    print(f"数据访问层: 自研 DSL（{DSL_TABLES_REL_PATH.replace(os.sep, '/')} 常在；"
+          "mapper/ 与 *Mapper.xml 零容忍）")
     if errors:
         print(f"\n未通过，共 {len(errors)} 项硬性违规：")
         for e in errors:
