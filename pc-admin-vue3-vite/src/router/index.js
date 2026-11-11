@@ -6,7 +6,7 @@ const routes = [
   {
     path: '/login',
     name: 'login',
-    component: () => import('@/views/LoginView.vue'),
+    component: () => import('@/views/auth/LoginView.vue'),
     meta: { public: true, title: 'route.loginTitle' }
   },
   {
@@ -25,7 +25,7 @@ const routes = [
       {
         path: 'dashboard',
         name: 'dashboard',
-        component: () => import('@/views/WorkbenchView.vue'),
+        component: () => import('@/views/dashboard/WorkbenchView.vue'),
         meta: { title: 'route.dashboard' }
       },
       {
@@ -259,14 +259,14 @@ const routes = [
         // 定时任务：在线任务管理（列表/启动/暂停/编辑/日志），菜单与权限由后端驱动
         path: 'job/list',
         name: 'jobList',
-        component: () => import('@/views/JobListView.vue'),
+        component: () => import('@/views/job/JobListView.vue'),
         meta: { title: 'route.jobList', permission: 'job:read' }
       },
       {
         // 代码生成：按表结构生成 CRUD 骨架（后端六层 + 前端两文件），菜单与权限由后端驱动
         path: 'dev/codegen',
         name: 'codegen',
-        component: () => import('@/views/CodegenView.vue'),
+        component: () => import('@/views/codegen/CodegenView.vue'),
         meta: { title: 'route.codegen', permission: 'codegen:read' }
       },
       {
