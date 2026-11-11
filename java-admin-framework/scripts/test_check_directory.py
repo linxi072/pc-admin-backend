@@ -3,7 +3,7 @@
 """check-directory.py 的行为回归测试（零依赖，仅标准库）。
 
 通过 subprocess 调用真实脚本 + 进程内直接调用 ``main()`` / 各 ``check_*`` 函数，
-对临时构造的「最小合规工程」夹具做端到端断言，覆盖 D1–D13 全部硬性规则
+对临时构造的「最小合规工程」夹具做端到端断言，覆盖 D1–D14 全部硬性规则
 （D12 属 check-cluster-layout.py，不在本脚本范围）：
 
   D1 顶层包根 / 模块登记      D2 启动类位置例外
@@ -12,12 +12,13 @@
   D7 子模块 POM 版本收敛       D8 main 源码根白名单
   D9 测试包根白名单            D10 文档索引与死链
   D11 测试期运行配置归属       D13 数据访问层单一写法
-                              以及 CLI 路径不存在 / 多违规累积
+  D14 前端 views 根级落位     以及 CLI 路径不存在 / 多违规累积
 
 夹具采用「纯增量」设计：只创建目录与文件、不删除。本仓沙箱禁止 unlink，
 依赖删除回滚的夹具会连锁失败；每个用例使用独立临时目录互不影响。
-最小合规工程默认包含 D13 要求的 ``SqlTables.java``，可用
-``make_repo(with_sql_tables=False)`` 构造违规场景。
+最小合规工程默认包含 D13 要求的 ``SqlTables.java`` 与 D14 要求的
+``src/views/`` 目录，可用 ``make_repo(with_sql_tables=False)`` /
+``make_repo(with_views_root=False)`` 分别构造违规场景。
 """
 import importlib.util
 import io
@@ -48,8 +49,9 @@ def write(path, text=""):
 
 
 def make_repo(with_constants=True, docs=ALL_DOCS, index_text=None,
-              styles=STYLE_FILES, with_index=True, with_sql_tables=True):
-    """构造最小合规工程：两个已登记模块 + 三份规范文档 + 完整前端样式 + DSL 入口。"""
+              styles=STYLE_FILES, with_index=True, with_sql_tables=True,
+              with_views_root=True):
+    """构造最小合规工程：两个已登记模块 + 三份规范文档 + 完整前端样式 + DSL 入口 + 视图目录。"""
     base = tempfile.mkdtemp(prefix="dirchk_")
     backend = os.path.join(base, "backend")
     frontend = os.path.join(base, "frontend")
@@ -76,6 +78,9 @@ def make_repo(with_constants=True, docs=ALL_DOCS, index_text=None,
         write(os.path.join(backend, "docs", "README.md"), index_text)
     for f in styles:
         write(os.path.join(frontend, "src", "styles", f), "/* css */\n")
+    if with_views_root:
+        # D14：视图根存在且根级无 *.vue，即为合规基线。
+        os.makedirs(os.path.join(frontend, "src", "views"), exist_ok=True)
     return backend, frontend
 
 
@@ -358,6 +363,58 @@ class CheckDirectoryTest(unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertNotIn("D13 禁止新增", out)
         self.assertNotIn("D13 缺少", out)
+
+    # ---- D14 ----
+    def test_d14_root_vue_is_blocked(self):
+        """views/ 根新增 *.vue -> D14，并给出落位与 router 同步指引。"""
+        backend, frontend = make_repo()
+        write(os.path.join(frontend, "src", "views", "StrayView.vue"), "<template/>\n")
+        rc, out = run(backend, frontend)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("D14 前端 views/ 根级散落 .vue 页面", out)
+        self.assertIn("StrayView.vue", out)
+        self.assertIn("src/router/index.js", out)
+
+    def test_d14_feature_subdir_vue_is_allowed(self):
+        """页面放 views/<特性>/ 即合规；特性目录名无需登记白名单。"""
+        backend, frontend = make_repo()
+        write(os.path.join(frontend, "src", "views", "auth", "LoginView.vue"),
+              "<template/>\n")
+        write(os.path.join(frontend, "src", "views", "README.md"), "# views\n")
+        rc, out = run(backend, frontend)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("目录约定校验通过", out)
+        self.assertNotIn("D14 前端", out)
+        self.assertNotIn("D14 缺少", out)
+
+    def test_d14_only_vue_files_are_reported(self):
+        """根级 .js / .md 等非页面文件不误伤，多个 .vue 合并为一条违规。"""
+        backend, frontend = make_repo()
+        views = os.path.join(frontend, "src", "views")
+        write(os.path.join(views, "BView.vue"), "<template/>\n")
+        write(os.path.join(views, "AView.vue"), "<template/>\n")
+        write(os.path.join(views, "helper.js"), "// js\n")
+        write(os.path.join(views, "notes.md"), "# notes\n")
+        rc, out = run(backend, frontend)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("共 1 项硬性违规", out)
+        self.assertIn("AView.vue, BView.vue", out)
+        self.assertNotIn("helper.js", out)
+        self.assertNotIn("notes.md", out)
+
+    def test_d14_in_process_and_missing_views_dir(self):
+        """进程内直调可精确收集 D14；缺失 src/views/ 目录亦阻断。"""
+        backend, frontend = make_repo()
+        write(os.path.join(frontend, "src", "views", "StrayView.vue"), "<template/>\n")
+        errors = []
+        mod.check_views_root(frontend, errors)
+        self.assertEqual(len(errors), 1, errors)
+        self.assertTrue(errors[0].startswith("D14"), errors)
+
+        backend2, frontend2 = make_repo(with_views_root=False)
+        rc, out = run(backend2, frontend2)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("D14 缺少前端视图目录: src/views", out)
 
     # ---- CLI / 混合模式 ----
     def test_cli_missing_path_returns_2(self):

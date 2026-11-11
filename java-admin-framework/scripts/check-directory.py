@@ -22,6 +22,9 @@
       只查路径、零内容扫描，且**刻意不按 ``*Mapper.java`` 文件名匹配**（4 个合法类均非
       MyBatis Mapper，按名匹配会误伤）。编号跳过 D12：D12 属于
       ``check-cluster-layout.py``（§4 子域簇表一致性），不归本脚本。
+  D14. 前端 ``src/views/`` 根不得直接散落 ``*.vue`` 页面；页面一律放
+      ``views/<特性>/``。只查根级文件名，不递归、不读文件内容、不限制特性目录名，
+      因此新增特性目录无需改白名单。零内容扫描，与 D4 / D13 同一设计取向。
 
 本脚本只读：不修改任何文件，不参与编译与运行时，不替代 ``check-conventions.py``
 （后者负责包级环 / 重复 FQN / 依赖方向 / 数据类 / 模块 DAG）。
@@ -102,6 +105,10 @@ DSL_TABLES_REL_PATH = os.path.join(
 )
 MAPPER_DIR_NAME = "mapper"
 MAPPER_XML_SUFFIX = "mapper.xml"
+
+# D14：前端页面一律归 views/<特性>/，根级只允许特性目录。
+VIEWS_REL_PATH = os.path.join("src", "views")
+VIEW_FILE_SUFFIX = ".vue"
 
 
 def default_paths():
@@ -352,6 +359,32 @@ def check_data_access_layer(backend, modules, errors):
         )
 
 
+def check_views_root(frontend, errors):
+    """D14：``src/views/`` 根不得散落 ``*.vue``，页面一律放 ``views/<特性>/``。
+
+    只列根级目录项、只按扩展名判定，不递归、不读文件内容、不登记特性目录白名单
+    （新增 ``auth/`` / ``job/`` 这类特性目录无需同步改脚本）。与 D4、D13 一样，
+    本规则是**纯路径形态**守护，不引入任何语法解析或前端构建依赖。
+    """
+    views = os.path.join(frontend, VIEWS_REL_PATH)
+    rel = VIEWS_REL_PATH.replace(os.sep, "/")
+    if not os.path.isdir(views):
+        errors.append(
+            f"D14 缺少前端视图目录: {rel}（页面应放 {rel}/<特性>/，见 docs/DIRECTORY.md §5）"
+        )
+        return
+    stray = sorted(
+        n for n in os.listdir(views)
+        if n.endswith(VIEW_FILE_SUFFIX) and os.path.isfile(os.path.join(views, n))
+    )
+    if stray:
+        errors.append(
+            "D14 前端 views/ 根级散落 .vue 页面: " + ", ".join(stray)
+            + f"（应放 {rel}/<特性>/ 并同步 src/router/index.js 的动态 import；"
+            + "见 docs/DIRECTORY.md §5）"
+        )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="目录约定校验（docs/DIRECTORY.md 的可执行守护）")
     parser.add_argument("--backend", default=None, help="java-admin-framework 根目录")
@@ -381,16 +414,18 @@ def main(argv=None):
     check_docs_index(backend, errors)
     check_test_resources(backend, modules, errors)
     check_data_access_layer(backend, modules, errors)
+    check_views_root(frontend, errors)
 
     root_count = len({r for rs in EXPECTED_ROOTS.values() for r in rs})
     print("=" * 64)
-    print("目录约定校验（D1–D13）")
+    print("目录约定校验（D1–D14）")
     print("=" * 64)
     print(f"后端模块: {len(modules)} 个；登记白名单模块: {len(EXPECTED_ROOTS)} 个；顶层包根: {root_count} 种")
     print(f"前端样式: src/styles/{{{', '.join(STYLE_FILES)}}}")
     print(f"规范文档: {', '.join(REQUIRED_DOCS)}")
     print(f"数据访问层: 自研 DSL（{DSL_TABLES_REL_PATH.replace(os.sep, '/')} 常在；"
           "mapper/ 与 *Mapper.xml 零容忍）")
+    print(f"前端视图落位: {VIEWS_REL_PATH.replace(os.sep, '/')}/<特性>/（根级 *.vue 零容忍）")
     if errors:
         print(f"\n未通过，共 {len(errors)} 项硬性违规：")
         for e in errors:
