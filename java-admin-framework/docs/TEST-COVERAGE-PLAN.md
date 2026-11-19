@@ -22,6 +22,8 @@
 | scaffold-codegen | `ai/port/CloudLlmProviderTest` | 云大模型响应解析/JSON 提取/类型归一/501 语义 | 8 |
 | scaffold-codegen | `ai/service/AiScaffoldServiceFallbackTest` | 编排降级语义（回退/501 不静默/无云 Bean） | 5 |
 | pc-admin-vue3-vite | `src/api/__tests__/realtimePolicy.test.js` | 实时通道策略（连接/退避/恢复） | 9 |
+| pc-admin-vue3-vite | `src/utils/__tests__/tree.test.js` | flattenTree/collectSubtreeIds（缩进/成环守卫/自定义键） | 9 |
+| pc-admin-vue3-vite | `src/utils/__tests__/formSchema.test.js` | 表单 Schema（默认值/条件可见性/校验规则/离线校验） | 13 |
 
 ## 3. 第二批（1.2.0，按优先级）
 

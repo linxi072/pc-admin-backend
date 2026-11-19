@@ -94,7 +94,6 @@ export function visibleFields(schema, model) {
  * 由字段清单生成 element-plus 校验规则（供 el-form :rules 使用）。
  * 支持：必填、长度（INPUT/TEXTAREA）、数字范围（NUMBER）、正则（INPUT/TEXTAREA）。
  * @param {Array} fields
- * @param {(k: string, vars?: Object) => string} t i18n 函数
  * @returns {Object} { [key]: Array<Rule> }
  */
 export function buildRules(fields) {
@@ -165,10 +164,9 @@ function makeNumberRangeValidator(f, nmin, nmax) {
  * 不可见字段不参与校验。
  * @param {Object} model
  * @param {{fields?: Array}} schema
- * @param {(k: string, vars?: Object) => string} t
  * @returns {{valid: boolean, errors: Object}}
  */
-export function validateForm(model, schema, t) {
+export function validateForm(model, schema) {
   const errors = {}
   const fields = schema && Array.isArray(schema.fields) ? schema.fields : []
   for (const f of fields) {
