@@ -14,7 +14,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 mvn -o -f pom.xml clean compile
 
 # 运行（唯一可部署模块）
-java -jar scaffold-admin/target/scaffold-admin-1.0.0.jar
+java -jar scaffold-admin/target/scaffold-admin-1.1.0.jar
 
 # 统一门禁入口（7 步，硬性项全绿返回 EXIT=0）
 python3 scripts/check-all.py

@@ -48,7 +48,7 @@ java-admin-framework（14 个 Maven 模块）
 # 2) 超级管理员账号由 V32__consolidated_schema.sql 内置（admin / SUPER_ADMIN）
 # 3) 编译运行（离线仓库）
 mvn -o clean package -DskipTests
-java -jar scaffold-admin/target/scaffold-admin-1.0.0.jar
+java -jar scaffold-admin/target/scaffold-admin-1.1.0.jar
 # 4) 访问
 #    API:            http://localhost:8080/api/...
 #    Actuator:       http://localhost:9090/actuator/health

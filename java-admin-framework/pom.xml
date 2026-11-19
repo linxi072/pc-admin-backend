@@ -25,7 +25,7 @@
 
     <groupId>com.acme.scaffold</groupId>
     <artifactId>java-admin-framework</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
     <name>java-admin-framework</name>
     <description>可落地、可扩展的 Java 后端基础管理框架脚手架（RBAC + 可观测性 + 工作流审批），持久层 MyBatis，调度 Quartz。V1.0.3 起按功能维度拆分为多 Maven 模块。</description>
