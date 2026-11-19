@@ -135,6 +135,7 @@ import {
   getArticle,
   publishArticle,
   offlineArticle,
+  viewArticle,
   listCategories
 } from '@/api/cms'
 import { statusTag } from '@/utils/status'
@@ -261,8 +262,8 @@ async function openEdit(row) {
 async function openDetail(row) {
   detailData.value = await getArticle(row.id)
   detailVisible.value = true
-  // 浏览计数：后端暂无 POST /api/cms/article/{id}/view 端点，
-  // 先做本地乐观计数展示；待后端补端点后在此接入真实计数接口
+  // 打开详情即计一次浏览：后端 POST /api/cms/article/{id}/view（乐观自增，失败仅服务端告警）
+  viewArticle(row.id).catch(() => {})
   row.viewCount = (row.viewCount ?? 0) + 1
 }
 
