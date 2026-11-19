@@ -195,7 +195,8 @@ async function onCmd(cmd) {
     ElMessage.success('已退出登录')
     router.replace('/login')
   } else {
-    ElMessage.info('演示环境暂未实现该页面')
+    // 防御分支：下拉菜单仅含 profile/settings/logout，未知命令不应发生
+    ElMessage.warning('未知操作：' + cmd)
   }
 }
 

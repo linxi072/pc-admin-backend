@@ -4,10 +4,10 @@
 
 ## 文档
 
-前端接口规范、工程说明与页面开发指引已整合进后端《开发手册》：
+前端接口规范、工程说明与页面开发指引已整合进后端核心文档（V1.0.6 起 docs/manual/ 已收敛删除）：
 
-- 开发手册（前端章节）：[`../java-admin-framework/docs/manual/development.md`](../java-admin-framework/docs/manual/development.md)
-- 文档总目录：[`../java-admin-framework/docs/index.md`](../java-admin-framework/docs/index.md)
+- 构建运行与门禁：[`../java-admin-framework/docs/USAGE.md`](../java-admin-framework/docs/USAGE.md)
+- 文档总目录：[`../java-admin-framework/docs/README.md`](../java-admin-framework/docs/README.md)
 
 ## 技术栈
 

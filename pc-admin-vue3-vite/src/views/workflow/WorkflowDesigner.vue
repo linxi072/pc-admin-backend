@@ -312,7 +312,7 @@ function resolveAssignees(expr, kind) {
   const tokens = String(expr).split(',').map((s) => s.trim()).filter(Boolean)
   if (tokens.length === 0) return ''
   if (kind === 'USER' || kind === 'CC') {
-    return tokens.map((id) => userMap.value[String(id)] || ``用户#${id}``).join('、')
+    return tokens.map((id) => userMap.value[String(id)] || `用户#${id}`).join('、')
   }
   if (kind === 'ROLE') {
     return tokens.map((code) => roleMap.value[code] || code).join('、')

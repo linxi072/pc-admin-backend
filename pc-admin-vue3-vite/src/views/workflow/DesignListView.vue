@@ -166,7 +166,7 @@ async function doUnpublish(row) {
 
 async function doDelete(row) {
   try {
-    await ElMessageBox.confirm(``确认删除「${row.processName}」？``, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确认删除「${row.processName}」？`, '提示', { type: 'warning' })
   } catch {
     return
   }

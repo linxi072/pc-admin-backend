@@ -258,7 +258,7 @@
             v-model="form.jobParams"
             type="textarea"
             :rows="3"
-            :placeholder="'可选，JSON 字符串，例如 {"biz":"sync"}'"
+            placeholder='可选，JSON 字符串，例如 {"biz":"sync"}'
           />
           <div class="hint">{{ '须为合法 JSON；将原样透传给处理器。' }}</div>
         </el-form-item>

@@ -464,7 +464,7 @@ async function onSubmit(dryRun) {
 function handleResult(res, dryRun) {
   result.value = res
   if (res.failureCount > 0) {
-    ElMessage.warning(`${dryRun ? '预检' : '导入'}`完成：成功 ${res.successCount} 行，失败 ${res.failureCount} 行``)
+    ElMessage.warning(`${dryRun ? '预检' : '导入'}完成：成功 ${res.successCount} 行，失败 ${res.failureCount} 行`)
   } else {
     ElMessage.success(dryRun ? `预检通过：${res.successCount} 行均可导入` : `导入成功：${res.successCount} 行`)
   }
