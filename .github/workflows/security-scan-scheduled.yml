@@ -1,0 +1,33 @@
+# 每周 SCA 安全扫描（OWASP dependency-check）：仅出报告与工件，不阻断日常合并；
+# 新增高危 CVE（CVSS≥9 且无 suppression 登记）时由人工评审决定是否热修。
+name: security-scan-scheduled
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # 每周一 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sca:
+    name: OWASP dependency-check (SCA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: dependency-check（sca profile）
+        run: mvn -B -ntp -Psca dependency-check:aggregate
+        working-directory: java-admin-framework
+
+      - name: 上传 SCA 报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: java-admin-framework/target/dependency-check-report.html
+          if-no-files-found: ignore
+          retention-days: 30

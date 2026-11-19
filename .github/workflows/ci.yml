@@ -1,0 +1,147 @@
+# CI 主工作流：门禁 → 后端构建+测试 → 前端构建+测试 → 覆盖率门禁。
+# 全部 job 必经且失败阻断（needs 串联 + 默认 fail-fast）；任何一步红即整体红。
+name: ci
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "17"
+  NODE_VERSION: "20"
+
+jobs:
+  # ─── 1. 静态门禁（Python 7 步编排 + 前端 SFC/i18n 泄漏扫描）──────────────
+  gates:
+    name: gates (conventions / naming / directory / permission / version)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 后端统一门禁（失败即阻断）
+        run: python3 java-admin-framework/scripts/check-all.py
+
+      - name: 前端 i18n 泄漏扫描
+        run: node java-admin-framework/scripts/i18n-leak-scan.mjs pc-admin-vue3-vite/src
+
+      - name: 前端 SFC 单文件规范扫描（views 全量）
+        run: |
+          FILES=$(find pc-admin-vue3-vite/src -name "*.vue" | tr '\n' ' ')
+          node java-admin-framework/scripts/check-sfc.mjs $FILES
+
+  # ─── 2. 后端构建 + 测试（含 JaCoCo 覆盖率产出）──────────────────────────
+  backend:
+    name: backend build & test
+    runs-on: ubuntu-latest
+    needs: gates
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Maven 构建与测试
+        run: mvn -B -ntp verify
+        working-directory: java-admin-framework
+
+      - name: 上传测试报告（失败时取证）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: java-admin-framework/**/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: 上传 JaCoCo 报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: java-admin-framework/**/site/jacoco/jacoco.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ─── 3. 前端构建 + 单测（vitest）────────────────────────────────────────
+  frontend:
+    name: frontend build & test
+    runs-on: ubuntu-latest
+    needs: gates
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: pc-admin-vue3-vite/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+        working-directory: pc-admin-vue3-vite
+
+      - name: ESLint
+        run: npm run lint
+        working-directory: pc-admin-vue3-vite
+
+      - name: 单元测试（vitest）
+        run: npm test
+        working-directory: pc-admin-vue3-vite
+
+      - name: 生产构建
+        run: npm run build
+        working-directory: pc-admin-vue3-vite
+
+  # ─── 4. 覆盖率门禁（解析 JaCoCo XML，低于阈值即红）──────────────────────
+  coverage-gate:
+    name: coverage gate (INSTRUCTION≥0.10 / BRANCH≥0.05 起步线)
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: jacoco-report
+          path: jacoco/
+
+      - name: 覆盖率阈值校验（起步线 0.10/0.05，按 TEST-COVERAGE-PLAN 分批收紧至 0.70/0.60）
+        run: |
+          python3 - <<'PY'
+          import glob, sys
+          import xml.etree.ElementTree as ET
+          MIN_INSTRUCTION, MIN_BRANCH = 0.10, 0.05
+          files = glob.glob("jacoco/**/jacoco.xml", recursive=True)
+          if not files:
+              print("FAIL: 未找到 JaCoCo 报告"); sys.exit(1)
+          worst_i = worst_b = 1.0
+          for f in files:
+              root = ET.parse(f).getroot()
+              for c in root.findall("counter"):
+                  t = c.get("type")
+                  m, cv = int(c.get("missed")), int(c.get("covered"))
+                  total, ratio = m + cv, cv / (m + cv) if m + cv else 1.0
+                  if t == "INSTRUCTION" and total: worst_i = min(worst_i, ratio)
+                  if t == "BRANCH" and total: worst_b = min(worst_b, ratio)
+          print(f"INSTRUCTION={worst_i:.4f} BRANCH={worst_b:.4f}")
+          ok = worst_i >= MIN_INSTRUCTION and worst_b >= MIN_BRANCH
+          print("PASS" if ok else "FAIL: 覆盖率低于起步线")
+          sys.exit(0 if ok else 1)
+          PY
