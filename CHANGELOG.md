@@ -47,6 +47,12 @@
   修复后 `npm run build` 与 vitest（9/9）全部通过。
 - Topbar 用户菜单 else 分支为死代码（菜单仅含 profile/settings/logout），
   "演示环境暂未实现该页面"文案改为未知命令防御提示。
+- ESLint 全量治理：清零 6 处 error，含 3 处运行时 bug——`openApiClient.js` `requestRaw`
+  未导入（OAuth2 客户端令牌签发调用即崩）、`ArticleView.vue` `viewArticle` 幽灵调用
+  （前后端均无浏览计数端点，改为本地乐观计数）、`DynamicForm.vue` i18n 残留 `t`；
+  `formSchema.js` 校验器移除未使用的 `t` 形参；`realtime.js`/`tree.js` 风格修正。
+- 前端单测扩容：新增 `tree.test.js`（9 例，成环守卫/自定义键）与 `formSchema.test.js`
+  （13 例，默认值/条件可见性/校验规则/离线校验），前端用例 9 → 31。
 
 ### Known Issues
 
