@@ -28,3 +28,17 @@ node_modules/
 
 # 后端本地上传文件（AVATAR_DIR / FILE_STORAGE_DIR 默认相对路径）
 uploads/
+
+# ---------------------------------------------------------------
+# 部署 / 运维制品不入库（V1.1.0 整改：部署制品移出交付范围，由部署仓库/运维平台托管）
+# 历史说明：V1.0.9 已移除 deploy/（Dockerfile、docker-compose、systemd、启停脚本）；
+#           V1.1.0 移除 monitoring/（Prometheus 抓取与告警规则、Grafana 看板与数据源配置）。
+#           此处规则防止后续误提交同类制品。
+# ---------------------------------------------------------------
+deploy/
+monitoring/
+Dockerfile*
+docker-compose*.yml
+*.service
+docker-compose.override.yml
+otel-collector-config.yaml
