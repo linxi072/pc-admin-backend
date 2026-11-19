@@ -125,6 +125,7 @@
 <script setup>
 
 import { ref, reactive, computed, onMounted } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Refresh, View } from '@element-plus/icons-vue'
 import {
@@ -192,8 +193,7 @@ function categoryName(categoryId) {
 }
 
 function formatTime(value) {
-  if (!value) return '-'
-  return String(value).replace('T', ' ').slice(0, 19)
+  return formatDateTime(value, { fallback: '-' })
 }
 
 async function load() {

@@ -152,6 +152,7 @@
 <script setup>
 
 import { ref, reactive, onMounted } from 'vue'
+import { statusTag as statusTagOf } from '@/utils/statusTag'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Delete, Download } from '@element-plus/icons-vue'
 import { pageIdempotencyRecords, getIdempotencySummary, purgeIdempotencyRecords } from '@/api/idempotencyRecord'
@@ -242,12 +243,15 @@ function onSortChange({ prop, order }) {
   load()
 }
 
-/** 状态标签：PROCESSING→warning / SUCCESS→success / FAILED→danger。 */
+/** 状态标签：PROCESSING→warning / SUCCESS→success / FAILED→danger（查表走统一工具）。 */
+const STATUS_TAGS = {
+  SUCCESS: { type: 'success', label: '成功' },
+  FAILED: { type: 'danger', label: '失败' },
+  PROCESSING: { type: 'warning', label: '处理中' }
+}
+
 function statusTag(status) {
-  if (status === 'SUCCESS') return { type: 'success', label: '成功' }
-  if (status === 'FAILED') return { type: 'danger', label: '失败' }
-  if (status === 'PROCESSING') return { type: 'warning', label: '处理中' }
-  return { type: 'info', label: status || '--' }
+  return statusTagOf(STATUS_TAGS, status)
 }
 
 /** 手动清理过期记录：二次确认 + 加载态 + 成功提示，失败由拦截器统一提示。 */

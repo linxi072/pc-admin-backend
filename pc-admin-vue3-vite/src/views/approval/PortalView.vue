@@ -255,6 +255,7 @@
 <script setup>
 
 import { ref, reactive, onMounted } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { View, ArrowDown } from '@element-plus/icons-vue'
@@ -307,8 +308,7 @@ function genOpId() {
 }
 
 function formatTime(value) {
-  if (!value) return '-'
-  return String(value).replace('T', ' ').slice(0, 19)
+  return formatDateTime(value, { fallback: '-' })
 }
 
 function instanceStatusType(status) {

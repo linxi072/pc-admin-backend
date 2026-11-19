@@ -186,6 +186,7 @@
 <script setup>
 
 import { ref, reactive, computed, onMounted } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Refresh, View, Rank } from '@element-plus/icons-vue'
 import {
@@ -244,8 +245,7 @@ const isEdit = computed(() => form.id != null)
 const dialogTitle = computed(() => (isEdit.value ? '编辑看板模板' : '新建看板模板'))
 
 function formatTime(value) {
-  if (!value) return '-'
-  return String(value).replace('T', ' ').slice(0, 19)
+  return formatDateTime(value, { fallback: '-' })
 }
 
 // ---------- layoutJson ⇄ 卡片数组 ----------

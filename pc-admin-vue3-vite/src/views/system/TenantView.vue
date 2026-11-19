@@ -313,7 +313,7 @@ import {
   provisionTenant
 } from '@/api/tenant'
 import { getTenantOverview } from '@/api/tenantOverview'
-import TenantGovernanceDialog from './TenantGovernanceDialog.vue'
+import TenantGovernanceDialog from './components/TenantGovernanceDialog.vue'
 import { statusTag } from '@/utils/status'
 import { validateOrWarn } from '@/utils/validate'
 

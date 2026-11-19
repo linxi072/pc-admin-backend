@@ -86,6 +86,7 @@
 <script setup>
 
 import { computed, onMounted, ref } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Monitor, Refresh, SwitchButton } from '@element-plus/icons-vue'
 import { listDevices, logoutOtherDevices, revokeDevice } from '@/api/profile'
@@ -104,9 +105,8 @@ const loggingOut = ref(false)
 
 const otherCount = computed(() => devices.value.filter((d) => !d.current).length)
 
-function formatTime(t) {
-  if (!t) return '-'
-  return String(t).replace('T', ' ').slice(0, 19)
+function formatTime(value) {
+  return formatDateTime(value, { fallback: '-' })
 }
 
 async function load() {

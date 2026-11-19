@@ -107,6 +107,7 @@
 <script setup>
 
 import { ref, computed, nextTick, onMounted } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
@@ -149,8 +150,7 @@ function isRecalled(msg) {
   return msg.status === 'RECALLED' || msg.content == null
 }
 function formatTime(value) {
-  if (!value) return '-'
-  return String(value).replace('T', ' ').slice(0, 19)
+  return formatDateTime(value, { fallback: '-' })
 }
 function shortTime(value) {
   if (!value) return ''

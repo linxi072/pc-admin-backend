@@ -57,6 +57,19 @@
   修复视图漏 import 导致的打开详情崩溃，前端用例同步通过。
 - 测试覆盖第二批启动：`JavaTypeMapperTest`（11 例，全类型映射矩阵）、
   `TreeBuilderTest`（6 例，层级/保序/森林升根/成环守卫）。
+- 模块职责与命名治理（行为不变重构）：
+  - 重复实现收敛：`ImportController` 删除与 `CsvExporter` 重复的 CSV 公式注入防护
+    （统一由写出侧中和，附带对齐口径——失败报告中 `-5` 等合法数值不再被强制文本化）；
+    列权限通用掩码下沉 `SensitiveMasker.genericMask`（security 委托 common，消除双实现）；
+    CMS 栏目树改用 `TreeBuilder`（消除第三套手写树构建，孤儿升根/成环守卫语义逐一对齐，
+    新增 7 例纯函数单测）。
+  - 命名/目录统一：workflow `WorkflowNodeDTO`/`WorkflowEdgeDTO` → `*View`、job
+    `JobVO`/`JobLogVO`/`JobHandlerOptionVO` → `*View`（响应视图统一 `View` 后缀）；
+    job/monitor 控制器目录统一 `api/`（消除 `controller/` 与 `api/` 双约定及 monitor
+    alert 双层分裂）；`docs/NAMING.md` 增补语义层约定（§7）。
+  - 前端重复逻辑收敛：新增 `utils/datetime.js`（9 个视图同构时间格式化归一，
+    占位符逐字保留）、`utils/statusTag.js`（状态→标签查表统一）；`TenantGovernanceDialog`
+    归位 `views/system/components/`；4 处 `fetchXxx` 统一 `loadXxx`；前端用例 31 → 40。
 
 ### Known Issues
 

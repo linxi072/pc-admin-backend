@@ -192,6 +192,7 @@ import { Search, RefreshLeft, VideoPause, VideoPlay, Switch, Promotion, Download
 import { runningInstances, suspendInstance, resumeInstance, reassignInstance, migrateInstance, listDefinitions } from '@/api/workflow'
 import { pageUsers } from '@/api/user'
 import { toCsv, downloadCsv } from '@/utils/csv'
+import { statusTag as statusTagOf } from '@/utils/statusTag'
 
 const loading = ref(false)
 const rows = ref([])
@@ -248,13 +249,14 @@ function resetQuery() {
   load()
 }
 
+const STATUS_TAGS = {
+  RUNNING: { type: 'primary', label: '运行中' },
+  APPROVED: { type: 'success', label: '已通过' },
+  REJECTED: { type: 'danger', label: '已驳回' }
+}
+
 function statusTag(s) {
-  const map = {
-    RUNNING: { type: 'primary', label: '运行中' },
-    APPROVED: { type: 'success', label: '已通过' },
-    REJECTED: { type: 'danger', label: '已驳回' }
-  }
-  return map[s] || { type: 'info', label: s || '--' }
+  return statusTagOf(STATUS_TAGS, s)
 }
 
 function formatMinutes(m) {

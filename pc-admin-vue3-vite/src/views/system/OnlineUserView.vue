@@ -268,6 +268,7 @@
 <script setup>
 
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, SwitchButton, Lock, Download } from '@element-plus/icons-vue'
 import {
@@ -324,9 +325,8 @@ const restrictRules = {
 // ------------------------------------------------------------------
 
 /** ISO LocalDateTime → 'YYYY-MM-DD HH:mm:ss'；空值回落 '-'。 */
-function formatTime(t) {
-  if (!t) return '-'
-  return String(t).replace('T', ' ').slice(0, 19)
+function formatTime(value) {
+  return formatDateTime(value, { fallback: '-' })
 }
 
 /** 时长（分钟）→ 展示文案；0 为长期。 */

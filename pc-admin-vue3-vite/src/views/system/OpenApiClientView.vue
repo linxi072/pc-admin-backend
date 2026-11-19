@@ -218,6 +218,7 @@
 <script setup>
 
 import { ref, reactive, onMounted } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Edit, Search, RefreshLeft, Refresh, CopyDocument, Key } from '@element-plus/icons-vue'
 import {
@@ -295,8 +296,8 @@ function onSortChange({ prop, order }) {
 const splitScopes = (s) => (s || '').split(',').map((t) => t.trim()).filter(Boolean)
 
 /** 本地时间展示（与后端 LocalDateTime 序列化对齐，无时区转换）。 */
-function formatTime(t) {
-  return t ? String(t).replace('T', ' ').slice(0, 19) : '--'
+function formatTime(value) {
+  return formatDateTime(value, { fallback: '--' })
 }
 
 function isExpired(t) {

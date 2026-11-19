@@ -117,6 +117,7 @@
 <script setup>
 
 import { ref, reactive, onMounted } from 'vue'
+import { formatDateTime } from '@/utils/datetime'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Refresh, CircleClose, Download } from '@element-plus/icons-vue'
 import { pageActiveTokens, revokeToken } from '@/api/oauth2Token'
@@ -173,8 +174,8 @@ function resetQuery() {
 
 const splitScopes = (s) => (s || '').split(',').map((t) => t.trim()).filter(Boolean)
 
-function formatTime(t) {
-  return t ? String(t).replace('T', ' ').slice(0, 19) : '--'
+function formatTime(value) {
+  return formatDateTime(value, { fallback: '--' })
 }
 
 function isExpired(t) {

@@ -180,7 +180,7 @@ function ensureLeaderOption(user) {
 }
 
 // 复用用户分页接口的 username 模糊匹配（后端 LIKE %kw% 同时命中 username 与 displayName）
-async function fetchLeaderCandidates(kw) {
+async function loadLeaderCandidates(kw) {
   const seq = ++leaderSearchSeq
   leaderLoading.value = true
   try {
@@ -200,7 +200,7 @@ async function fetchLeaderCandidates(kw) {
 
 // el-select remote 模式：输入即触发；空关键词加载默认列表（最近用户）
 function onLeaderSearch(kw) {
-  fetchLeaderCandidates((kw || '').trim())
+  loadLeaderCandidates((kw || '').trim())
 }
 
 // 负责人 id 归一化：VO 已字符串化，null / '0' / 0（历史占位）均视为未设置
@@ -213,7 +213,7 @@ function leaderIdOf(row) {
 // 点开下拉时若无候选先加载默认列表，避免空面板
 function onLeaderDropdown(open) {
   if (open && leaderOptions.value.length === 0 && !leaderLoading.value) {
-    fetchLeaderCandidates('')
+    loadLeaderCandidates('')
   }
 }
 

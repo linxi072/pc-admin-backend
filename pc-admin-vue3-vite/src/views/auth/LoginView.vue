@@ -28,7 +28,7 @@
               :prefix-icon="Key"
               @keyup.enter="onSubmit"
             />
-            <div class="captcha-box" @click="fetchCaptcha" :title="'点击刷新验证码'">
+            <div class="captcha-box" @click="loadCaptcha" :title="'点击刷新验证码'">
               <span class="captcha-question">{{ captcha.question || '—' }}</span>
               <el-icon class="captcha-refresh"><Refresh /></el-icon>
             </div>
@@ -193,10 +193,10 @@ async function submitChange() {
     // 旧口令已失效：同步刷新登录页状态，引导用新密码重新登录
     form.password = ''
     form.captchaAnswer = ''
-    await fetchCaptcha()
+    await loadCaptcha()
   } catch (e) {
     // 失败时刷新验证码，避免下次登录因验证码过期二次失败
-    await fetchCaptcha()
+    await loadCaptcha()
   } finally {
     changeDlg.loading = false
   }
@@ -252,16 +252,16 @@ async function submitForgot() {
     forgotDlg.visible = false
     form.password = ''
     form.captchaAnswer = ''
-    await fetchCaptcha()
+    await loadCaptcha()
   } catch (e) {
     // 防枚举：服务端对「用户不存在」与「验证信息不匹配」返回同一错误，此处不细分
-    await fetchCaptcha()
+    await loadCaptcha()
   } finally {
     forgotDlg.loading = false
   }
 }
 
-async function fetchCaptcha() {
+async function loadCaptcha() {
   try {
     const c = await getCaptcha()
     captcha.token = c.token
@@ -278,7 +278,7 @@ async function onSubmit() {
   if (!(await validateOrWarn(formRef.value))) return
   if (!captcha.token) {
     ElMessage.warning('验证码加载失败，请稍后重试')
-    await fetchCaptcha()
+    await loadCaptcha()
     return
   }
   loading.value = true
@@ -289,7 +289,7 @@ async function onSubmit() {
     router.replace(route.query.redirect || '/dashboard')
   } catch (e) {
     // 登录失败（含验证码错误/过期）后刷新验证码，原 token 已单次失效需重置
-    await fetchCaptcha()
+    await loadCaptcha()
     // AUTH_014「请修改初始/重置密码后再登录」：被拦用户无自助入口会卡死，
     // 自动弹出修改密码弹窗并预填用户名，闭合「重置→被拦→改密→登录」环路。
     // 双兼容错误形状：http.js 对业务错误（HTTP 200 + code≠0）reject 的是带 code 属性的
@@ -303,7 +303,7 @@ async function onSubmit() {
   }
 }
 
-onMounted(fetchCaptcha)
+onMounted(loadCaptcha)
 </script>
 
 <style scoped>

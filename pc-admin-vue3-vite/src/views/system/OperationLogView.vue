@@ -389,7 +389,7 @@ function applySummary(summaryResult) {
   }
 }
 
-async function fetchOffsetPage() {
+async function loadOffsetPage() {
   const [pageResult, summaryResult] = await Promise.allSettled([
     pageAuditLogs(buildParams()),
     auditLogSummary(buildParams())
@@ -401,7 +401,7 @@ async function fetchOffsetPage() {
     // 兜底：后端「偏移过大，请改用游标分页」的错误提示原本指向前端根本没有的 UI，
     // 这里自动切到 /keyset 端点完成闭环，不再把错误甩给用户。
     enterKeysetMode()
-    await fetchKeysetPage()
+    await loadKeysetPage()
     return
   } else {
     rows.value = []
@@ -411,7 +411,7 @@ async function fetchOffsetPage() {
   applySummary(summaryResult)
 }
 
-async function fetchKeysetPage() {
+async function loadKeysetPage() {
   const [pageResult, summaryResult] = await Promise.allSettled([
     pageAuditLogsKeyset(buildKeysetParams()),
     auditLogSummary(buildParams())
@@ -432,13 +432,13 @@ async function load() {
   loadError.value = ''
   try {
     if (keysetMode.value) {
-      await fetchKeysetPage()
+      await loadKeysetPage()
     } else if (shouldUseKeyset(query.page, query.size)) {
       // 主动：OFFSET 越过软阈值（与后端 5000 行护栏对齐）即改走游标端点，避免深翻页退化。
       enterKeysetMode()
-      await fetchKeysetPage()
+      await loadKeysetPage()
     } else {
-      await fetchOffsetPage()
+      await loadOffsetPage()
     }
   } finally {
     loading.value = false
