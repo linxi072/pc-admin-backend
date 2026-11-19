@@ -64,7 +64,7 @@
 #### R3 · AI 辅助开发集成 — P2
 - **动机**：`scaffold-codegen`（M50）为模板驱动，缺语义理解。
 - **方案要点**：在 `scaffold-codegen` 增"自然语言→CRUD/查询"入口，对接大模型（经 cloud-service 或本地推理），产出实体/DDL/Service/前端视图草稿，保留人工 review。
-- **候选模块**：`scaffold-ai`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.ai` 下 `port`（`LlmProvider` 端口 + `HeuristicLlmProvider` 离线默认 / `CloudLlmProvider` `@ConditionalOnProperty` 可选）/ `service`（`AiScaffoldService` 编排 + `DdlRenderer` 引号小写迁移 SQL）/ `controller`（`AiScaffoldController` 走 `ai:scaffold:generate` 权限码）/ `dto`（TableSpec/ColumnSpec/ScaffoldResult/ScaffoldRequest）/ `config`（AiProperties 成本门禁）；复用 `scaffold-codegen` 的 `JavaTypeMapper` 与 `CodeTemplates.renderAll` 渲染实体/服务/Vue 草稿，零新依赖；启发式解析确定性可过双门禁，云大模型仅条件化可选（默认不激活，避免网络依赖破坏 `mvn -o`）。
+- **候选模块**：`scaffold-ai`（✅ **已落地 V1.0.7**）：`com.acme.scaffold.ai` 下 `port`（`LlmProvider` 端口 + `HeuristicLlmProvider` 离线默认 / `CloudLlmProvider` `@ConditionalOnProperty` 可选）/ `service`（`AiScaffoldService` 编排 + `DdlRenderer` 引号小写迁移 SQL）/ `controller`（`AiScaffoldController` 走 `ai:scaffold:generate` 权限码）/ `dto`（TableSpec/ColumnSpec/ScaffoldResult/ScaffoldRequest）/ `config`（AiProperties 成本门禁）；复用 `scaffold-codegen` 的 `JavaTypeMapper` 与 `CodeTemplates.renderAll` 渲染实体/服务/Vue 草稿，零新依赖；启发式解析确定性可过双门禁，云大模型仅条件化可选（默认不激活，避免网络依赖破坏 `mvn -o`；1.1.0 已实现 OpenAI 兼容真实调用与失败降级回退，见 `CloudLlmProvider`）。
 - **依赖**：R1 成熟后更易嵌入；注意合规与成本门禁。
 - **验收**：输入"订单表含金额/状态"产出可编译骨架 + 迁移 SQL + 前端路由；门禁绿。
 - **前端视图**：✅ **已落地 V1.0.7**（ai/ScaffoldView 提示词→表结构/建表 DDL/代码草稿预览[needsReview/provider/estimatedTokens 徽标] + api 契约测试 1 例，i18n 双 locale 补齐；菜单种子 V77 已就绪）。

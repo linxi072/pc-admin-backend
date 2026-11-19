@@ -408,3 +408,21 @@ logging:
   level:
     root: INFO
     com.acme.scaffold: INFO
+
+# AI 辅助开发（AI 脚手架 / 代码生成）：成本门禁与云大模型接入
+ai:
+  # 提示词最大估算 token 数（超出拒生成）
+  max-prompt-tokens: 2000
+  author: ai-scaffold
+  web-path: pc-admin-vue3-vite/src
+  llm:
+    # 启用云大模型（false 仅用离线启发式；true 时需配置 endpoint）
+    enabled: ${AI_LLM_ENABLED:false}
+    # OpenAI 兼容 chat/completions 端点
+    endpoint: ${AI_LLM_ENDPOINT:}
+    # Bearer 鉴权（留空不携带 Authorization 头；生产经环境变量/密钥管理注入，不入库）
+    api-key: ${AI_LLM_API_KEY:}
+    model: ${AI_LLM_MODEL:gpt-4o-mini}
+    timeout-ms: 15000
+    # 云调用运行期失败（网络/协议/解析）时降级回退启发式提供者
+    fallback-on-failure: true

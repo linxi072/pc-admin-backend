@@ -1,12 +1,12 @@
 package com.acme.scaffold.ai.service;
 
 import com.acme.scaffold.ai.AiScaffoldException;
+import com.acme.scaffold.ai.LlmNotImplementedException;
 import com.acme.scaffold.ai.config.AiProperties;
 import com.acme.scaffold.ai.dto.ScaffoldResult;
 import com.acme.scaffold.ai.dto.TableSpec;
 import com.acme.scaffold.ai.port.CloudLlmProvider;
 import com.acme.scaffold.ai.port.HeuristicLlmProvider;
-import com.acme.scaffold.ai.port.LlmProvider;
 import com.acme.scaffold.codegen.config.CodeGenProperties;
 import com.acme.scaffold.codegen.dto.ColumnMetaVO;
 import com.acme.scaffold.codegen.dto.GenOption;
@@ -15,6 +15,8 @@ import com.acme.scaffold.codegen.dto.TableMetaVO;
 import com.acme.scaffold.codegen.service.CodeTemplates;
 import com.acme.scaffold.codegen.service.JavaTypeMapper;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 
 import org.springframework.stereotype.Service;
@@ -25,7 +27,8 @@ import org.springframework.stereotype.Service;
  * <p>编排步骤：
  * <ol>
  *   <li>参数校验与成本门禁（空提示词 / 超长提示词直接拒生成）；</li>
- *   <li>选择大模型提供者（云可用则优选，否则离线启发式）；</li>
+ *   <li>选择大模型提供者（云可用则优选；运行期失败且 {@code ai.llm.fallback-on-failure=true}
+ *       时降级回退启发式；能力未就绪 501 仍原样上抛）；</li>
  *   <li>表规格 → 迁移 SQL（{@link DdlRenderer}）；</li>
  *   <li>表规格 → 代码草稿（复用 codegen 的 {@link CodeTemplates#renderAll} 渲染实体/服务/Vue）。</li>
  * </ol>
@@ -33,6 +36,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AiScaffoldService {
+
+    private static final Logger log = LoggerFactory.getLogger(AiScaffoldService.class);
 
     private final HeuristicLlmProvider heuristic;
     private final ObjectProvider<CloudLlmProvider> cloudProvider;
@@ -64,16 +69,38 @@ public class AiScaffoldService {
                     "提示词估算 token 数 " + estimatedTokens + " 超过成本门禁 " + props.getMaxPromptTokens());
         }
 
-        LlmProvider provider = cloudProvider.getIfAvailable();
-        if (provider == null) {
-            provider = heuristic;
-        }
-
-        TableSpec spec = provider.parse(prompt);
+        Parsed parsed = resolveSpec(prompt);
+        TableSpec spec = parsed.spec();
         String ddl = DdlRenderer.render(spec);
         List<GeneratedFileVO> files = renderCode(spec, moduleName);
 
-        return new ScaffoldResult(spec, ddl, files, true, estimatedTokens, provider.name());
+        return new ScaffoldResult(spec, ddl, files, true, estimatedTokens, parsed.providerName());
+    }
+
+    /** 解析结果：表规格 + 实际使用的提供者名（审计字段如实标记）。 */
+    private record Parsed(TableSpec spec, String providerName) {
+    }
+
+    /**
+     * 解析表规格：云提供者可用则优选；运行期失败（网络/协议/解析）且允许降级时回退启发式；
+     * 能力未就绪（{@link LlmNotImplementedException}，501）原样上抛，不做静默降级。
+     */
+    private Parsed resolveSpec(String prompt) {
+        CloudLlmProvider cloud = cloudProvider.getIfAvailable();
+        if (cloud == null) {
+            return new Parsed(heuristic.parse(prompt), heuristic.name());
+        }
+        try {
+            return new Parsed(cloud.parse(prompt), cloud.name());
+        } catch (LlmNotImplementedException e) {
+            throw e;
+        } catch (AiScaffoldException e) {
+            if (!props.getLlm().isFallbackOnFailure()) {
+                throw e;
+            }
+            log.warn("云大模型调用失败，降级回退启发式提供者：{}", e.getMessage());
+            return new Parsed(heuristic.parse(prompt), heuristic.name());
+        }
     }
 
     private List<GeneratedFileVO> renderCode(TableSpec spec, String moduleName) {
