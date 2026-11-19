@@ -42,7 +42,7 @@ function readVarint(view, pos) {
   let result = 0
   let shift = 0
   let bytes = 0
-  while (true) {
+  for (;;) {
     if (pos >= view.byteLength || bytes >= 10) throw new Error('varint 越界')
     const b = view.getUint8(pos++)
     bytes++
@@ -156,7 +156,9 @@ function decodeFrame(arrayBuffer) {
     let seq = 0
     pos = 4
     if ((flags & 0x01) !== 0) {
-      ;[seq, pos] = readZigZag(view, pos)
+      const decoded = readZigZag(view, pos)
+      seq = decoded[0]
+      pos = decoded[1]
     }
     if (pos !== view.byteLength) return null // 控制帧无尾字节
     return { kind: 'control', type, seq, msgId: '', key: '', ts: 0, payload: new Uint8Array(0) }

@@ -261,8 +261,8 @@ async function openEdit(row) {
 async function openDetail(row) {
   detailData.value = await getArticle(row.id)
   detailVisible.value = true
-  // 打开详情即计一次浏览
-  viewArticle(row.id).catch(() => {})
+  // 浏览计数：后端暂无 POST /api/cms/article/{id}/view 端点，
+  // 先做本地乐观计数展示；待后端补端点后在此接入真实计数接口
   row.viewCount = (row.viewCount ?? 0) + 1
 }
 

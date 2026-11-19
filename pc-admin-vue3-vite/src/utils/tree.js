@@ -14,7 +14,7 @@
  * @param {string} [opts.nameKey='label'] 读取展示名的字段
  * @param {string} [opts.labelKey='label'] 写入选项展示名的字段
  * @param {string} [opts.childrenKey='children'] 子节点字段
- * @param {string} [opts.indentChar='　'] 每层缩进字符（全角空格，避免被 HTML 折叠）
+ * @param {string} [opts.indentChar='\u3000'] 每层缩进字符（全角空格，避免被 HTML 折叠）
  * @returns {Array<{ id: any, [labelKey]: string }>}
  */
 export function flattenTree(nodes, opts = {}) {

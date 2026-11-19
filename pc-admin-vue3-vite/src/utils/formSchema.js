@@ -97,7 +97,7 @@ export function visibleFields(schema, model) {
  * @param {(k: string, vars?: Object) => string} t i18n 函数
  * @returns {Object} { [key]: Array<Rule> }
  */
-export function buildRules(fields, t) {
+export function buildRules(fields) {
   const out = {}
   for (const f of fields) {
     const list = []
@@ -110,12 +110,12 @@ export function buildRules(fields, t) {
     const min = Number.isInteger(f.minLength) ? f.minLength : undefined
     const max = Number.isInteger(f.maxLength) ? f.maxLength : undefined
     if ((min !== undefined || max !== undefined) && (f.type === 'INPUT' || f.type === 'TEXTAREA')) {
-      list.push({ validator: makeLengthValidator(f, min, max, t), trigger: 'blur' })
+      list.push({ validator: makeLengthValidator(f, min, max), trigger: 'blur' })
     }
     const nmin = typeof f.min === 'number' ? f.min : (f.min !== undefined ? Number(f.min) : undefined)
     const nmax = typeof f.max === 'number' ? f.max : (f.max !== undefined ? Number(f.max) : undefined)
     if ((nmin !== undefined || nmax !== undefined) && f.type === 'NUMBER') {
-      list.push({ validator: makeNumberRangeValidator(f, nmin, nmax, t), trigger: 'blur' })
+      list.push({ validator: makeNumberRangeValidator(f, nmin, nmax), trigger: 'blur' })
     }
     if (f.pattern && (f.type === 'INPUT' || f.type === 'TEXTAREA')) {
       let re = null
@@ -140,7 +140,7 @@ export function buildRules(fields, t) {
   return out
 }
 
-function makeLengthValidator(f, min, max, t) {
+function makeLengthValidator(f, min, max) {
   return (rule, value, cb) => {
     const len = value == null ? 0 : String(value).length
     if (min !== undefined && len < min) return cb(new Error(`${f.label}至少 ${min} 个字符`))
@@ -149,7 +149,7 @@ function makeLengthValidator(f, min, max, t) {
   }
 }
 
-function makeNumberRangeValidator(f, nmin, nmax, t) {
+function makeNumberRangeValidator(f, nmin, nmax) {
   return (rule, value, cb) => {
     if (value == null || value === '') return cb()
     const n = Number(value)

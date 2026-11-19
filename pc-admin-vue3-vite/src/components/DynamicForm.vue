@@ -135,7 +135,7 @@ watch(() => props.schema, (s) => {
 }, { immediate: true })
 
 /** Schema → element-plus 校验规则（required/长度/数字范围/正则；trigger 与控件交互对齐）。 */
-const rules = computed(() => buildRules(fields.value, t))
+const rules = computed(() => buildRules(fields.value))
 
 /** 执行校验：resolve(true) 表示通过；调用方负责 catch 兜底提示。 */
 async function validate() {
