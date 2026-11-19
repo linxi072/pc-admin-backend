@@ -152,7 +152,7 @@ public class ImportController {
         return jsonResult(importCenterService.importData(code, file.getOriginalFilename(), content, dryRun));
     }
 
-    /** 生成「导入失败报告」CSV（数据段 + 行号 + 原因 + 模板各列原始值；防公式注入）。 */
+    /** 生成「导入失败报告」CSV（数据段 + 行号 + 原因 + 模板各列原始值；公式注入防护统一由 CsvExporter 写出时执行）。 */
     private static ResponseEntity<byte[]> errorReportResponse(ImportTask task, ImportOutcome outcome) {
         boolean multi = task instanceof MultiSegmentImportTask;
         List<String> headers = new ArrayList<>();
@@ -189,29 +189,14 @@ public class ImportController {
         boolean multi = task instanceof MultiSegmentImportTask;
         List<String> cells = new ArrayList<>();
         if (multi) {
-            cells.add(sanitizeFormula(failed.segment()));
+            cells.add(failed.segment());
         }
         cells.add(String.valueOf(failed.rowNo()));
-        cells.add(sanitizeFormula(failed.message()));
+        cells.add(failed.message());
         for (String header : valueColumns) {
-            cells.add(sanitizeFormula(failed.values().getOrDefault(header, "")));
+            cells.add(failed.values().getOrDefault(header, ""));
         }
         return cells;
-    }
-
-    /**
-     * 防 CSV 公式注入（OWASP 建议）：以 {@code = + - @}、Tab 或 CR 开头的单元格
-     * 前缀单引号使其按文本展示。报告仅供人工核对修复，前缀不影响数据语义。
-     */
-    private static String sanitizeFormula(String cell) {
-        if (cell == null || cell.isEmpty()) {
-            return cell;
-        }
-        char first = cell.charAt(0);
-        if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
-            return "'" + cell;
-        }
-        return cell;
     }
 
     private static ResponseEntity<Object> jsonResult(ImportResult result) {

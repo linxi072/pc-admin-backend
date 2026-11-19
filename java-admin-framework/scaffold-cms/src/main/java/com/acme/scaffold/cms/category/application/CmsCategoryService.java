@@ -16,12 +16,12 @@ import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.common.tree.TreeBuilder;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-
-import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -142,39 +142,38 @@ public class CmsCategoryService {
     }
 
     /**
-     * 纯函数：由扁平栏目视图构建树。与持久层解耦，便于独立测试。
+     * 纯函数：由扁平栏目视图构建树（复用 {@link TreeBuilder}，与菜单/机构树同源实现）。与持久层解耦，便于独立测试。
+     *
+     * <p>语义说明（与迁移前实现逐一对齐）：</p>
+     * <ul>
+     *   <li>根节点：{@code parent_id} 为 null / 0，或父节点在数据中不存在（脏数据孤儿升为根，不丢弃）；</li>
+     *   <li>排序：输入列表先按 sort_no、category_name 升序排列，TreeBuilder 分组保序即得全树有序；</li>
+     *   <li>容错：数据成环时路径守卫截断，不无限递归。</li>
+     * </ul>
      *
      * @param flat 扁平栏目列表（任意顺序）
      * @return 根节点集合（按 sort_no、category_name 升序）
      */
     public static List<CategoryNode> buildTree(List<CategoryView> flat) {
-        Map<Long, CategoryNode> nodes = new LinkedHashMap<>();
-        for (CategoryView v : flat) {
-            nodes.put(v.getId(), new CategoryNode(v.getId(), v.getCategoryCode(),
-                    v.getCategoryName(), v.getSortNo(), v.getStatus()));
-        }
-        List<CategoryNode> roots = new ArrayList<>();
-        for (CategoryView v : flat) {
-            CategoryNode node = nodes.get(v.getId());
-            Long pid = v.getParentId();
-            if (pid == null || pid == 0L || !nodes.containsKey(pid)) {
-                roots.add(node);
-            } else {
-                nodes.get(pid).getChildren().add(node);
-            }
-        }
-        Comparator<CategoryNode> bySort = Comparator.comparing(
-                (CategoryNode n) -> n.getSortNo() == null ? 0 : n.getSortNo(), Integer::compareTo)
-                .thenComparing((CategoryNode n) -> n.getCategoryName() == null ? "" : n.getCategoryName());
-        sortRecursive(roots, bySort);
-        return roots;
-    }
-
-    private static void sortRecursive(List<CategoryNode> nodes, Comparator<CategoryNode> cmp) {
-        nodes.sort(cmp);
-        for (CategoryNode n : nodes) {
-            sortRecursive(n.getChildren(), cmp);
-        }
+        List<CategoryView> ordered = new ArrayList<>(flat);
+        ordered.sort(Comparator
+                .comparing((CategoryView v) -> v.getSortNo() == null ? 0 : v.getSortNo())
+                .thenComparing(v -> v.getCategoryName() == null ? "" : v.getCategoryName()));
+        Set<Long> ids = ordered.stream().map(CategoryView::getId).collect(Collectors.toSet());
+        return TreeBuilder.build(ordered,
+                CategoryView::getId,
+                v -> v.getParentId() == null ? 0L : v.getParentId(),
+                v -> {
+                    Long pid = v.getParentId();
+                    return pid == null || pid == 0L || !ids.contains(pid);
+                },
+                (v, children) -> {
+                    CategoryNode node = new CategoryNode(v.getId(), v.getCategoryCode(),
+                            v.getCategoryName(), v.getSortNo(), v.getStatus());
+                    // TreeBuilder 传回不可变空列表，包一层可变列表保持 CategoryNode 既有契约
+                    node.setChildren(new ArrayList<>(children));
+                    return node;
+                });
     }
 
     // ---------------- 内部辅助 ----------------

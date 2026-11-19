@@ -180,19 +180,7 @@ public class ColumnPermissionApplier {
         if (type != null && type != SensitiveType.NONE) {
             return SensitiveMasker.mask(s, type);
         }
-        return genericMask(s);
-    }
-
-    /** 通用掩码：保留首 3 末 4，中间以 {@code *} 替换；短于 8 时保留首字符余下掩去。 */
-    static String genericMask(String value) {
-        if (value.length() <= 1) {
-            return value;
-        }
-        if (value.length() <= 7) {
-            return value.charAt(0) + "*".repeat(value.length() - 1);
-        }
-        int head = 3;
-        int tail = 4;
-        return value.substring(0, head) + "*".repeat(value.length() - head - tail) + value.substring(value.length() - tail);
+        // 未指定敏感类型：统一走框架级通用掩码兜底（策略与 common/sensitive 保持同源）
+        return SensitiveMasker.genericMask(s);
     }
 }

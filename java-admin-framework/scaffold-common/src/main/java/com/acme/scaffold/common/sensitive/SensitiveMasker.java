@@ -211,6 +211,28 @@ public final class SensitiveMasker {
     // 内部实现
     // ------------------------------------------------------------------
 
+    /**
+     * 通用掩码（无对应敏感类型时的兜底策略）：保留首 3 末 4，中间以 {@code *} 替换；
+     * 长度 ≤7 时保留首字符、其余掩去；长度 ≤1 原样返回。
+     *
+     * <p>此前该策略仅存在于列权限模块（{@code ColumnPermissionApplier}）私有实现中，
+     * 下沉至此统一口径，避免下一个需要「未知类型兜底掩码」的场景再复制一份。</p>
+     *
+     * @param value 原始值（null 原样返回）
+     * @return 掩码后的值
+     */
+    public static String genericMask(String value) {
+        if (value == null || value.length() <= 1) {
+            return value;
+        }
+        if (value.length() <= 7) {
+            return value.charAt(0) + "*".repeat(value.length() - 1);
+        }
+        int head = 3;
+        int tail = 4;
+        return value.substring(0, head) + "*".repeat(value.length() - head - tail) + value.substring(value.length() - tail);
+    }
+
     /** 按键名定位凭证字段并替换其值：支持字符串值与字面量值两种形态。 */
     private static String maskCredentialValues(String text) {
         Matcher keyMatcher = CREDENTIAL_KEYS.matcher(text);
