@@ -43,7 +43,7 @@ import java.util.List;
  * @param createdAt       创建时间
  * @param updatedAt       更新时间
  */
-public record JobVO(
+public record JobView(
         @JsonSerialize(using = ToStringSerializer.class) Long id,
         String jobName,
         String jobGroup,

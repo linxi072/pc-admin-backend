@@ -13,8 +13,8 @@ import com.acme.scaffold.workflow.definition.domain.model.WfWorkflowDesignDO;
 import com.acme.scaffold.workflow.definition.dto.design.CreateDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.SaveDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeDTO;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeView;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeView;
 import com.acme.scaffold.workflow.engine.domain.repository.WorkflowEnginePort;
 import com.acme.scaffold.workflow.support.WorkflowNodeType;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -126,10 +126,10 @@ public class WorkflowDesignService {
         if (e == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "工作流设计不存在: " + id);
         }
-        List<WorkflowNodeDTO> nodes = parseNodes(e.getNodesJson());
-        List<WorkflowEdgeDTO> edges = parseEdges(e.getEdgesJson());
+        List<WorkflowNodeView> nodes = parseNodes(e.getNodesJson());
+        List<WorkflowEdgeView> edges = parseEdges(e.getEdgesJson());
         // 发布前校验审批节点受让人配置可解析（角色/部门存在性），避免发布后发起时静默失效
-        for (WorkflowNodeDTO node : nodes) {
+        for (WorkflowNodeView node : nodes) {
             if (node.type() == WorkflowNodeType.APPROVAL) {
                 assigneeResolver.validateConfig(node);
             }
@@ -180,7 +180,7 @@ public class WorkflowDesignService {
         if (formFields != null) {
             vars.putAll(formFields);
         }
-        for (WorkflowNodeDTO node : design.nodes()) {
+        for (WorkflowNodeView node : design.nodes()) {
             WorkflowNodeType type = node.type();
             if (type != WorkflowNodeType.APPROVAL
                     && type != WorkflowNodeType.CC
@@ -212,7 +212,7 @@ public class WorkflowDesignService {
 
     // ---------- 私有辅助 ----------
 
-    private int computeThreshold(WorkflowNodeDTO node, int size) {
+    private int computeThreshold(WorkflowNodeView node, int size) {
         if (size <= 0) {
             return 0;
         }
@@ -250,30 +250,30 @@ public class WorkflowDesignService {
         return toView(e, parseNodes(e.getNodesJson()), parseEdges(e.getEdgesJson()));
     }
 
-    private WorkflowDesignView toView(WfWorkflowDesignDO e, List<WorkflowNodeDTO> nodes, List<WorkflowEdgeDTO> edges) {
+    private WorkflowDesignView toView(WfWorkflowDesignDO e, List<WorkflowNodeView> nodes, List<WorkflowEdgeView> edges) {
         return new WorkflowDesignView(e.getId(), e.getProcessKey(), e.getProcessName(), e.getDescription(),
                 e.getStatus(), e.getVersion(), e.getFormSchema(), nodes, edges, e.getBpmnXml(),
                 e.getDeploymentId(), e.getProcessDefinitionId(), e.getPublishedAt(), e.getCreatedAt(), e.getUpdatedAt());
     }
 
-    private List<WorkflowNodeDTO> parseNodes(String json) {
+    private List<WorkflowNodeView> parseNodes(String json) {
         if (json == null || json.isBlank()) {
             return List.of();
         }
         try {
-            return MAPPER.readValue(json, new TypeReference<List<WorkflowNodeDTO>>() {
+            return MAPPER.readValue(json, new TypeReference<List<WorkflowNodeView>>() {
             });
         } catch (Exception ex) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "节点 JSON 解析失败: " + ex.getMessage());
         }
     }
 
-    private List<WorkflowEdgeDTO> parseEdges(String json) {
+    private List<WorkflowEdgeView> parseEdges(String json) {
         if (json == null || json.isBlank()) {
             return List.of();
         }
         try {
-            return MAPPER.readValue(json, new TypeReference<List<WorkflowEdgeDTO>>() {
+            return MAPPER.readValue(json, new TypeReference<List<WorkflowEdgeView>>() {
             });
         } catch (Exception ex) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "连线 JSON 解析失败: " + ex.getMessage());

@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  *
  * <p>执行步骤({@code SERVICE})相关字段：stepType、stepConfig。</p>
  */
-public record WorkflowNodeDTO(
+public record WorkflowNodeView(
         String id,
         WorkflowNodeType type,
         String name,

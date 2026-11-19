@@ -1,4 +1,4 @@
-package com.acme.scaffold.monitor.controller;
+package com.acme.scaffold.monitor.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;

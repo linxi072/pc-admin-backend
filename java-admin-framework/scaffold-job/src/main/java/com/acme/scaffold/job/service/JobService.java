@@ -12,11 +12,11 @@ import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.domain.JobTriggerType;
 import com.acme.scaffold.job.domain.JobValidator;
 import com.acme.scaffold.job.dto.JobCreateDTO;
-import com.acme.scaffold.job.dto.JobHandlerOptionVO;
-import com.acme.scaffold.job.dto.JobLogVO;
+import com.acme.scaffold.job.dto.JobHandlerOptionView;
+import com.acme.scaffold.job.dto.JobLogView;
 import com.acme.scaffold.job.dto.JobQuery;
 import com.acme.scaffold.job.dto.JobUpdateDTO;
-import com.acme.scaffold.job.dto.JobVO;
+import com.acme.scaffold.job.dto.JobView;
 import com.acme.scaffold.job.entity.SysJobDO;
 import com.acme.scaffold.job.entity.SysJobLogDO;
 import com.acme.scaffold.job.port.JobSchedulerPort;
@@ -77,24 +77,24 @@ public class JobService {
     // ------------------------------------------------------------------
 
     /** 分页查询任务列表，{@code nextFireTime} 为实时计算值；依赖/下游关系批量加载避免 N+1。 */
-    public PageResult<JobVO> page(JobQuery query) {
+    public PageResult<JobView> page(JobQuery query) {
         Condition cond = buildCondition(query);
         PageQuery pq = PageQuery.of(query.page(), query.size());
         PageResult<SysJobDO> raw = SqlWriters.page(dsl, SYS_JOB, SysJobDO.class, cond, pq,
                 SYS_JOB.field("id", Long.class).desc());
         Set<Long> ids = raw.records().stream().map(SysJobDO::getId).collect(Collectors.toSet());
         Map<Long, List<Long>> dependentsMap = dagService.dependentsMap(ids);
-        List<JobVO> records = raw.records().stream().map(j -> toVO(j, dependentsMap)).toList();
+        List<JobView> records = raw.records().stream().map(j -> toVO(j, dependentsMap)).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), records);
     }
 
     /** 任务详情。 */
-    public JobVO detail(Long id) {
+    public JobView detail(Long id) {
         return toVO(require(id), null);
     }
 
     /** 任务执行日志（按触发时间倒序）。 */
-    public PageResult<JobLogVO> logs(Long jobId, int page, int size) {
+    public PageResult<JobLogView> logs(Long jobId, int page, int size) {
         require(jobId);
         Condition cond = DSL.and(
                 SYS_JOB_LOG.field("tenant_id", Long.class).eq(0L),
@@ -103,17 +103,17 @@ public class JobService {
                 PageQuery.of(page, size),
                 SYS_JOB_LOG.field("fire_time", LocalDateTime.class).desc(),
                 SYS_JOB_LOG.field("id", Long.class).desc());
-        List<JobLogVO> records = raw.records().stream()
-                .map(r -> new JobLogVO(r.getId(), r.getJobId(), r.getFireTime(), r.getFinishedTime(),
+        List<JobLogView> records = raw.records().stream()
+                .map(r -> new JobLogView(r.getId(), r.getJobId(), r.getFireTime(), r.getFinishedTime(),
                         r.getDurationMs(), r.getStatus(), r.getErrorMessage(), r.getTraceId()))
                 .toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), records);
     }
 
     /** 可选处理器列表（前端下拉）。 */
-    public List<JobHandlerOptionVO> handlerOptions() {
+    public List<JobHandlerOptionView> handlerOptions() {
         return handlerRegistry.all().values().stream()
-                .map(h -> new JobHandlerOptionVO(h.key(), h.name()))
+                .map(h -> new JobHandlerOptionView(h.key(), h.name()))
                 .toList();
     }
 
@@ -351,7 +351,7 @@ public class JobService {
         };
     }
 
-    private JobVO toVO(SysJobDO job, Map<Long, List<Long>> dependentsMap) {
+    private JobView toVO(SysJobDO job, Map<Long, List<Long>> dependentsMap) {
         JobTriggerType type = triggerTypeOrNull(job.getTriggerType());
         JobStatus status = JobStatus.parse(job.getStatus());
         JobIntervalUnit unit = intervalUnitOrNull(job.getIntervalUnit());
@@ -364,7 +364,7 @@ public class JobService {
                 : dagService.dependentsOf(job.getId());
         // 等待依赖：当前处于 WAITING 即表示正在等待前置依赖满足
         boolean waitForDeps = JobStatus.WAITING.name().equals(job.getStatus());
-        return new JobVO(
+        return new JobView(
                 job.getId(), job.getJobName(), job.getJobGroup(), job.getTaskKey(), handlerName,
                 job.getTriggerType(), type == null ? null : type.getLabel(),
                 job.getCronExpression(), job.getIntervalValue(), job.getIntervalUnit(),

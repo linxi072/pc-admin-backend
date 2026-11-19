@@ -4,7 +4,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeView;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,7 +31,7 @@ public class AssigneeResolver {
 
     private final DSLContext dsl;
 
-    public List<Long> resolve(WorkflowNodeDTO node, Long starterUserId, Long starterOrgId) {
+    public List<Long> resolve(WorkflowNodeView node, Long starterUserId, Long starterOrgId) {
         String type = node.assigneeType() == null ? "USER" : node.assigneeType().toUpperCase();
         return switch (type) {
             case "ROLE" -> resolveByRole(orDefault(node.assigneeExpression(), ""));
@@ -47,7 +47,7 @@ public class AssigneeResolver {
      * 仅对 ROLE（角色码必须存在）、ORG（部门必须存在）做存在性校验；
      * USER / INITIATOR / INITIATOR_MANAGER 依赖运行时发起人，其最终非空由 {@code buildStartVariables} 在发起时拦截。
      */
-    public void validateConfig(WorkflowNodeDTO node) {
+    public void validateConfig(WorkflowNodeView node) {
         String type = node.assigneeType() == null ? "USER" : node.assigneeType().toUpperCase();
         switch (type) {
             case "ROLE" -> {
@@ -106,7 +106,7 @@ public class AssigneeResolver {
         }
     }
 
-    private static String nodeDesc(WorkflowNodeDTO node) {
+    private static String nodeDesc(WorkflowNodeView node) {
         return node.name() != null ? node.name() : (node.id() == null ? "(未命名)" : node.id());
     }
 

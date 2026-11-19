@@ -232,3 +232,31 @@ python3 scripts/check-all.py --only naming   # 仅命名校验
 必须存在（DSL 单一入口不被删除或改名）。行为回归 `scripts/test_check_directory.py` 覆盖
 「目录 / XML / 常量缺失」三类违规与「合法 `*Mapper.java` 不误伤」一类豁免。
 
+---
+
+## 7. 语义层后缀与目录口径（2026-11-19 增补）
+
+> 前述各节约束「大小写风格」与「用词口径」；本节约束**类型后缀与放置目录的语义**，
+> 由人工评审守护（类名后缀不进 JSON 契约，静态检查易误伤，暂不加机器规则）。
+
+### 7.1 响应视图统一 `*View`
+
+对外返回的响应视图类统一以 `View` 结尾；请求体统一 `*Request` / `*DTO`。
+类名不进 JSON 契约，改名不影响前端。
+
+- 存量 `*VO`（system 7、workbench 14、codegen 3）为迁移批次，新代码一律 `*View`；
+- workflow 已于 1.1.0 完成 `WorkflowNodeDTO` / `WorkflowEdgeDTO` → `WorkflowNodeView` /
+  `WorkflowEdgeView`；job 已完成 `JobVO` / `JobLogVO` / `JobHandlerOptionVO` → `*View`。
+
+### 7.2 控制器目录统一 `api/`
+
+`@RestController` 一律位于子域簇 `api/` 包（与 §5 分层方案一致）。1.1.0 已迁移
+scaffold-job（`controller/`→`api/`）与 scaffold-monitor（`controller/`、`alert/controller/`
+→ `api/`、`alert/api/`，消除双层分裂）；codegen、security 存量下轮补齐。
+
+### 7.3 前端动词约定
+
+数据获取函数统一 `load / loadXxx`；`src/api/*` 统一
+`pageXxx / getXxx / createXxx / updateXxx / deleteXxx / listXxx`；
+展示转换 `formatXxx`；状态→标签映射 `xxxTag / xxxLabel`。
+

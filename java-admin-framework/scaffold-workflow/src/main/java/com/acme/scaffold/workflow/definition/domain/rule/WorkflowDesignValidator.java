@@ -2,8 +2,8 @@ package com.acme.scaffold.workflow.definition.domain.rule;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeDTO;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeView;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeView;
 import com.acme.scaffold.workflow.support.WorkflowNodeType;
 
 import java.util.HashSet;
@@ -22,7 +22,7 @@ public final class WorkflowDesignValidator {
     }
 
     public static void validate(String processKey, String processName,
-                                List<WorkflowNodeDTO> nodes, List<WorkflowEdgeDTO> edges) {
+                                List<WorkflowNodeView> nodes, List<WorkflowEdgeView> edges) {
         if (processKey == null || processKey.isBlank()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "流程 key 不能为空");
         }
@@ -39,7 +39,7 @@ public final class WorkflowDesignValidator {
 
         // 节点 id 唯一且合法（必须先于 toMap：null id 会先抛 NPE 而非友好 400）
         Set<String> seen = new HashSet<>();
-        for (WorkflowNodeDTO n : nodes) {
+        for (WorkflowNodeView n : nodes) {
             if (n.id() == null || !n.id().matches("[A-Za-z][A-Za-z0-9_]*")) {
                 throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                         "节点 id 需以字母开头且仅含字母/数字/下划线: " + n.id());
@@ -49,8 +49,8 @@ public final class WorkflowDesignValidator {
             }
         }
 
-        Map<String, WorkflowNodeDTO> byId = nodes.stream()
-                .collect(Collectors.toMap(WorkflowNodeDTO::id, Function.identity(), (a, b) -> a));
+        Map<String, WorkflowNodeView> byId = nodes.stream()
+                .collect(Collectors.toMap(WorkflowNodeView::id, Function.identity(), (a, b) -> a));
 
         long startCount = nodes.stream().filter(n -> n.type() == WorkflowNodeType.START).count();
         long endCount = nodes.stream().filter(n -> n.type() == WorkflowNodeType.END).count();
@@ -62,7 +62,7 @@ public final class WorkflowDesignValidator {
         }
 
         // 节点级配置校验
-        for (WorkflowNodeDTO n : nodes) {
+        for (WorkflowNodeView n : nodes) {
             if (n.type() == WorkflowNodeType.APPROVAL) {
                 validateApproval(n);
             }
@@ -70,7 +70,7 @@ public final class WorkflowDesignValidator {
 
         // 连线合法性
         Set<String> nodeIds = byId.keySet();
-        for (WorkflowEdgeDTO e : edges) {
+        for (WorkflowEdgeView e : edges) {
             if (!nodeIds.contains(e.sourceNodeId()) || !nodeIds.contains(e.targetNodeId())) {
                 throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                         "连线引用了不存在的节点: " + e.sourceNodeId() + " -> " + e.targetNodeId());
@@ -83,13 +83,13 @@ public final class WorkflowDesignValidator {
 
         // 每个 GATEWAY 的多出边：除至多一条默认边外，其余必须有条件表达式
         Map<String, Long> outDegree = edges.stream()
-                .collect(Collectors.groupingBy(WorkflowEdgeDTO::sourceNodeId, Collectors.counting()));
+                .collect(Collectors.groupingBy(WorkflowEdgeView::sourceNodeId, Collectors.counting()));
         // 非条件分支节点（非 GATEWAY 非 END）默认只能有一条出边：多出口在运行时无选择依据，
         // 生成无条件分叉，审批完成即同时激活多个下游，实例行为不可预期。
         // 例外：带驳回策略（rejectPolicy != NONE）的审批节点——构建器会自动插入驳回网关
         // （<id>_rejectgw）并把出边改接到该网关，多出口由其条件驱动。
-        for (WorkflowEdgeDTO e : edges) {
-            WorkflowNodeDTO src = byId.get(e.sourceNodeId());
+        for (WorkflowEdgeView e : edges) {
+            WorkflowNodeView src = byId.get(e.sourceNodeId());
             if (src.type() == WorkflowNodeType.GATEWAY || src.type() == WorkflowNodeType.END) {
                 continue;
             }
@@ -102,8 +102,8 @@ public final class WorkflowDesignValidator {
                         "非条件分支节点只能有一条出边（多出口无法确定流转路径）: " + e.sourceNodeId());
             }
         }
-        for (WorkflowEdgeDTO e : edges) {
-            WorkflowNodeDTO src = byId.get(e.sourceNodeId());
+        for (WorkflowEdgeView e : edges) {
+            WorkflowNodeView src = byId.get(e.sourceNodeId());
             if (src.type() == WorkflowNodeType.GATEWAY && outDegree.getOrDefault(e.sourceNodeId(), 0L) > 1) {
                 boolean hasDefault = edges.stream().anyMatch(x ->
                         x.sourceNodeId().equals(e.sourceNodeId()) && Boolean.TRUE.equals(x.isDefault()));
@@ -123,13 +123,13 @@ public final class WorkflowDesignValidator {
 
         // 起始节点出度必须为 1
         String startId = nodes.stream().filter(n -> n.type() == WorkflowNodeType.START)
-                .map(WorkflowNodeDTO::id).findFirst().orElse(null);
+                .map(WorkflowNodeView::id).findFirst().orElse(null);
         if (outDegree.getOrDefault(startId, 0L) != 1) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "发起节点必须有且仅有一条出边");
         }
 
         // 非结束节点必须有出边（避免死路）
-        for (WorkflowNodeDTO n : nodes) {
+        for (WorkflowNodeView n : nodes) {
             if (n.type() == WorkflowNodeType.END) {
                 continue;
             }
@@ -143,7 +143,7 @@ public final class WorkflowDesignValidator {
         validateReachEnd(startId, edges, byId);
     }
 
-    private static void validateApproval(WorkflowNodeDTO n) {
+    private static void validateApproval(WorkflowNodeView n) {
         String mode = n.approvalMode() == null ? "ANY" : n.approvalMode().toUpperCase();
         if (!Set.of("ALL", "ANY", "RATIO").contains(mode)) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
@@ -172,8 +172,8 @@ public final class WorkflowDesignValidator {
         }
     }
 
-    private static void validateReachEnd(String startId, List<WorkflowEdgeDTO> edges,
-                                         Map<String, WorkflowNodeDTO> byId) {
+    private static void validateReachEnd(String startId, List<WorkflowEdgeView> edges,
+                                         Map<String, WorkflowNodeView> byId) {
         Set<String> visited = new HashSet<>();
         Set<String> frontier = new HashSet<>();
         frontier.add(startId);
@@ -185,11 +185,11 @@ public final class WorkflowDesignValidator {
                     continue;
                 }
                 visited.add(cur);
-                WorkflowNodeDTO node = byId.get(cur);
+                WorkflowNodeView node = byId.get(cur);
                 if (node != null && node.type() == WorkflowNodeType.END) {
                     reachedEnd = true;
                 }
-                for (WorkflowEdgeDTO e : edges) {
+                for (WorkflowEdgeView e : edges) {
                     if (e.sourceNodeId().equals(cur)) {
                         next.add(e.targetNodeId());
                     }

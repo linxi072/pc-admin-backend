@@ -9,7 +9,7 @@ package com.acme.scaffold.workflow.definition.dto.design;
  *   <li>isDefault：排他网关的默认分支（无符合条件时走此边），一个 GATEWAY 至多一条。</li>
  * </ul>
  */
-public record WorkflowEdgeDTO(
+public record WorkflowEdgeView(
         String id,
         String sourceNodeId,
         String targetNodeId,

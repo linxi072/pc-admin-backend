@@ -4,8 +4,8 @@ import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
 import com.acme.scaffold.workflow.definition.dto.design.CreateDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.SaveDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeDTO;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeView;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeView;
 import com.acme.scaffold.workflow.support.WorkflowNodeType;
 import java.util.List;
 import java.util.function.Function;
@@ -103,20 +103,20 @@ public class BuiltinWorkflowSeeder implements ApplicationRunner {
      * 节点 id 使用稳定可读命名，便于在设计器中引用与条件分支配置。</p>
      */
     public static SaveDesignRequest buildLeaveApprovalDesign(String processName) {
-        List<WorkflowNodeDTO> nodes = List.of(
-                new WorkflowNodeDTO("start", WorkflowNodeType.START, "发起",
+        List<WorkflowNodeView> nodes = List.of(
+                new WorkflowNodeView("start", WorkflowNodeType.START, "发起",
                         null, null, null, null, null, null, null, null, null, null, null),
-                new WorkflowNodeDTO("countersign", WorkflowNodeType.APPROVAL, "会签/或签", "ALL", null,
+                new WorkflowNodeView("countersign", WorkflowNodeType.APPROVAL, "会签/或签", "ALL", null,
                         "INITIATOR_MANAGER", null, null, null, null, "END", null, null, null),
-                new WorkflowNodeDTO("manager", WorkflowNodeType.APPROVAL, "主管审批", "ALL", null,
+                new WorkflowNodeView("manager", WorkflowNodeType.APPROVAL, "主管审批", "ALL", null,
                         "ROLE", "FINANCE", null, null, null, "END", null, null, null),
-                new WorkflowNodeDTO("approvedEnd", WorkflowNodeType.END, "审批通过",
+                new WorkflowNodeView("approvedEnd", WorkflowNodeType.END, "审批通过",
                         null, null, null, null, null, null, null, null, null, null, null)
         );
-        List<WorkflowEdgeDTO> edges = List.of(
-                new WorkflowEdgeDTO("e1", "start", "countersign", null, false),
-                new WorkflowEdgeDTO("e2", "countersign", "manager", null, false),
-                new WorkflowEdgeDTO("e3", "manager", "approvedEnd", null, false)
+        List<WorkflowEdgeView> edges = List.of(
+                new WorkflowEdgeView("e1", "start", "countersign", null, false),
+                new WorkflowEdgeView("e2", "countersign", "manager", null, false),
+                new WorkflowEdgeView("e3", "manager", "approvedEnd", null, false)
         );
         String formSchema = "[{\"field\":\"leaveType\",\"label\":\"请假类型\",\"type\":\"select\",\"required\":true,"
                 + "\"options\":[\"年假\",\"事假\",\"病假\"]},"
@@ -136,20 +136,20 @@ public class BuiltinWorkflowSeeder implements ApplicationRunner {
      * 但仍可在设计器中按需调整为具体人员/部门。节点 id 稳定可读，便于条件分支引用。</p>
      */
     public static SaveDesignRequest buildExpenseDesign(String processName) {
-        List<WorkflowNodeDTO> nodes = List.of(
-                new WorkflowNodeDTO("start", WorkflowNodeType.START, "发起",
+        List<WorkflowNodeView> nodes = List.of(
+                new WorkflowNodeView("start", WorkflowNodeType.START, "发起",
                         null, null, null, null, null, null, null, null, null, null, null),
-                new WorkflowNodeDTO("deptManager", WorkflowNodeType.APPROVAL, "部门主管审批", "ALL", null,
+                new WorkflowNodeView("deptManager", WorkflowNodeType.APPROVAL, "部门主管审批", "ALL", null,
                         "INITIATOR_MANAGER", null, null, null, null, "END", null, null, null),
-                new WorkflowNodeDTO("finance", WorkflowNodeType.APPROVAL, "财务审批", "ALL", null,
+                new WorkflowNodeView("finance", WorkflowNodeType.APPROVAL, "财务审批", "ALL", null,
                         "ROLE", "FINANCE", null, null, null, "END", null, null, null),
-                new WorkflowNodeDTO("approvedEnd", WorkflowNodeType.END, "审批通过",
+                new WorkflowNodeView("approvedEnd", WorkflowNodeType.END, "审批通过",
                         null, null, null, null, null, null, null, null, null, null, null)
         );
-        List<WorkflowEdgeDTO> edges = List.of(
-                new WorkflowEdgeDTO("e1", "start", "deptManager", null, false),
-                new WorkflowEdgeDTO("e2", "deptManager", "finance", null, false),
-                new WorkflowEdgeDTO("e3", "finance", "approvedEnd", null, false)
+        List<WorkflowEdgeView> edges = List.of(
+                new WorkflowEdgeView("e1", "start", "deptManager", null, false),
+                new WorkflowEdgeView("e2", "deptManager", "finance", null, false),
+                new WorkflowEdgeView("e3", "finance", "approvedEnd", null, false)
         );
         String formSchema = "[{\"field\":\"amount\",\"label\":\"报销金额(元)\",\"type\":\"number\",\"required\":true,\"placeholder\":\"请输入金额\"},"
                 + "{\"field\":\"category\",\"label\":\"费用类别\",\"type\":\"select\",\"required\":true,\"options\":[\"差旅\",\"办公\",\"招待\"]},"

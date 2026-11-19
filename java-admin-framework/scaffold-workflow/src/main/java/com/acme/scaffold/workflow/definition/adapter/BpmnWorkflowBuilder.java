@@ -1,8 +1,8 @@
 package com.acme.scaffold.workflow.definition.adapter;
 
 import com.acme.scaffold.workflow.definition.domain.rule.WorkflowDesignValidator;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeDTO;
-import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeDTO;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowEdgeView;
+import com.acme.scaffold.workflow.definition.dto.design.WorkflowNodeView;
 import com.acme.scaffold.workflow.support.WorkflowNodeType;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -46,7 +46,7 @@ public class BpmnWorkflowBuilder {
     }
 
     public static String build(String processKey, String processName,
-                               List<WorkflowNodeDTO> nodes, List<WorkflowEdgeDTO> edges) {
+                               List<WorkflowNodeView> nodes, List<WorkflowEdgeView> edges) {
         WorkflowDesignValidator.validate(processKey, processName, nodes, edges);
 
         BpmnModel model = new BpmnModel();
@@ -58,12 +58,12 @@ public class BpmnWorkflowBuilder {
         model.addProcess(process);
 
         String startNodeId = nodes.stream().filter(n -> n.type() == WorkflowNodeType.START)
-                .map(WorkflowNodeDTO::id).findFirst().orElse(null);
+                .map(WorkflowNodeView::id).findFirst().orElse(null);
 
         Map<String, String> rejectGwOf = new HashMap<>();
         Map<String, String> approvalNextFlowOf = new HashMap<>();
 
-        for (WorkflowNodeDTO node : nodes) {
+        for (WorkflowNodeView node : nodes) {
             switch (node.type()) {
                 case START -> {
                     StartEvent se = new StartEvent();
@@ -130,7 +130,7 @@ public class BpmnWorkflowBuilder {
         process.addFlowElement(rejectedEnd);
 
         // 连线
-        for (WorkflowEdgeDTO edge : edges) {
+        for (WorkflowEdgeView edge : edges) {
             String src = edge.sourceNodeId();
             if (src.equals(startNodeId)) {
                 src = "start";
@@ -161,7 +161,7 @@ public class BpmnWorkflowBuilder {
         }
 
         // 驳回网关的两条出边：正常流转(默认) + 驳回流转(条件)
-        for (WorkflowNodeDTO node : nodes) {
+        for (WorkflowNodeView node : nodes) {
             String rgId = rejectGwOf.get(node.id());
             if (rgId == null) {
                 continue;
@@ -204,15 +204,15 @@ public class BpmnWorkflowBuilder {
         return new String(xml, StandardCharsets.UTF_8);
     }
 
-    private static String rejectGwNormalTarget(List<WorkflowEdgeDTO> edges, String nodeId, String startNodeId) {
+    private static String rejectGwNormalTarget(List<WorkflowEdgeView> edges, String nodeId, String startNodeId) {
         return edges.stream()
                 .filter(e -> e.sourceNodeId().equals(nodeId))
-                .map(WorkflowEdgeDTO::targetNodeId)
+                .map(WorkflowEdgeView::targetNodeId)
                 .findFirst()
                 .orElse("rejectedEnd");
     }
 
-    private static String resolveRejectTarget(WorkflowNodeDTO node, List<WorkflowNodeDTO> nodes, String startNodeId) {
+    private static String resolveRejectTarget(WorkflowNodeView node, List<WorkflowNodeView> nodes, String startNodeId) {
         String policy = orDefault(node.rejectPolicy(), "NONE").toUpperCase();
         return switch (policy) {
             case "END" -> "rejectedEnd";
@@ -225,9 +225,9 @@ public class BpmnWorkflowBuilder {
         };
     }
 
-    private static Optional<String> previousApprovalId(WorkflowNodeDTO current, List<WorkflowNodeDTO> nodes) {
+    private static Optional<String> previousApprovalId(WorkflowNodeView current, List<WorkflowNodeView> nodes) {
         String found = null;
-        for (WorkflowNodeDTO n : nodes) {
+        for (WorkflowNodeView n : nodes) {
             if (n == current) {
                 break;
             }

@@ -6,5 +6,5 @@ package com.acme.scaffold.job.dto;
  * @param key  处理器标识（taskKey）
  * @param name 展示名称
  */
-public record JobHandlerOptionVO(String key, String name) {
+public record JobHandlerOptionView(String key, String name) {
 }

@@ -1,15 +1,15 @@
-package com.acme.scaffold.job.controller;
+package com.acme.scaffold.job.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.job.domain.JobNextFire;
 import com.acme.scaffold.job.dto.JobCreateDTO;
-import com.acme.scaffold.job.dto.JobHandlerOptionVO;
-import com.acme.scaffold.job.dto.JobLogVO;
+import com.acme.scaffold.job.dto.JobHandlerOptionView;
+import com.acme.scaffold.job.dto.JobLogView;
 import com.acme.scaffold.job.dto.JobQuery;
 import com.acme.scaffold.job.dto.JobUpdateDTO;
-import com.acme.scaffold.job.dto.JobVO;
+import com.acme.scaffold.job.dto.JobView;
 import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.job.service.JobService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,14 +59,14 @@ public class JobController {
     @Operation(summary = "可选任务处理器列表")
     @GetMapping("/handlers")
     @PreAuthorize("hasAuthority('job:read')")
-    public Result<List<JobHandlerOptionVO>> handlers() {
+    public Result<List<JobHandlerOptionView>> handlers() {
         return Result.success(jobService.handlerOptions());
     }
 
     @Operation(summary = "分页查询定时任务（支持名称/分组/状态/触发类型/处理器筛选）")
     @GetMapping
     @PreAuthorize("hasAuthority('job:read')")
-    public Result<PageResult<JobVO>> page(
+    public Result<PageResult<JobView>> page(
             @RequestParam(required = false) String jobName,
             @RequestParam(required = false) String jobGroup,
             @RequestParam(required = false) String status,
@@ -81,14 +81,14 @@ public class JobController {
     @Operation(summary = "任务详情")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('job:read')")
-    public Result<JobVO> detail(@PathVariable Long id) {
+    public Result<JobView> detail(@PathVariable Long id) {
         return Result.success(jobService.detail(id));
     }
 
     @Operation(summary = "任务执行日志（按触发时间倒序）")
     @GetMapping("/{id}/logs")
     @PreAuthorize("hasAuthority('job:read')")
-    public Result<PageResult<JobLogVO>> logs(@PathVariable Long id,
+    public Result<PageResult<JobLogView>> logs(@PathVariable Long id,
                                              @RequestParam(defaultValue = "1") int page,
                                              @RequestParam(defaultValue = "20") int size) {
         return Result.success(jobService.logs(id, page, size));

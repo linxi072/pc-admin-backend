@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
  * @param errorMessage 失败信息
  * @param traceId      链路追踪 ID
  */
-public record JobLogVO(
+public record JobLogView(
         @JsonSerialize(using = ToStringSerializer.class) Long id,
         @JsonSerialize(using = ToStringSerializer.class) Long jobId,
         LocalDateTime fireTime,

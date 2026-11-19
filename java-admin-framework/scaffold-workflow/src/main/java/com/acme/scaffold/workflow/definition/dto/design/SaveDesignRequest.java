@@ -12,6 +12,6 @@ public record SaveDesignRequest(
         @NotBlank String processName,
         String description,
         String formSchema,
-        @NotNull List<WorkflowNodeDTO> nodes,
-        @NotNull List<WorkflowEdgeDTO> edges) {
+        @NotNull List<WorkflowNodeView> nodes,
+        @NotNull List<WorkflowEdgeView> edges) {
 }
