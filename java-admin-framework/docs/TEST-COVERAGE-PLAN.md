@@ -31,7 +31,10 @@
    OAuth2 回调、在线会话管理——安全核心，优先级最高。
 2. **scaffold-common**：幂等（IdempotentStore）、审计（AuditRecorder）、导入导出（Importer/Exporter）、
    树构建（TreeBuilder）、租户上下文（TenantContext）。
+   - 进展（1.1.0）：`TreeBuilderTest` 已落地（6 例：层级/保序/森林升根/成环守卫/空输入/孤儿忽略）。
 3. **scaffold-system**：用户/角色/菜单/接口资源服务主链路（内存 H2 或 Mock Mapper）。
+   - 进展（1.1.0）：`JavaTypeMapperTest` 已落地（11 例：全类型矩阵/tinyint(1)/大小写归一/
+     needsImport/toJavaField/toClassName 前缀剥离）。
 
 ## 4. 执行方式
 
