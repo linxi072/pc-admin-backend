@@ -29,7 +29,7 @@ python3 scripts/check-all.py            # 预期 check-all EXIT=0，7/7 通过
 # 前端：规范 + 单测 + 构建
 cd ../pc-admin-vue3-vite
 npm run lint                            # 预期 0 errors
-npm test                                # 预期 Test Files 6 passed / Tests 53 passed
+npm test                                # 预期 Test Files 7 passed / Tests 60 passed
 npm run build                           # 预期 ✓ built in ...s
 ```
 
@@ -87,12 +87,30 @@ python3 scripts/check-permission.py   # 预期 EXIT=0（菜单权限码 ⊆ 接�
 ### 3.5 前端核心（401 / 路由鉴权 / 实时通道）
 
 **优化目标**：路由鉴权决策抽取为纯函数，补 13 例单测防 fail-open 回归。
-**验收标准**：`authGuard.test.js` 13 例全过，前端测试总数 53。
+**验收标准**：`authGuard.test.js` 13 例全过。
 
 ```bash
 cd pc-admin-vue3-vite
-npm test    # 预期 Test Files 6 passed / Tests 53 passed
+npm test    # 预期 Test Files 7 passed / Tests 60 passed
 npm run build
+```
+
+### 3.6 第三轮优化：游标 / 幂等规则 / Result 拆包（纯函数测试补强）
+
+**优化目标**：为三个高频核心纯函数补齐契约测试，锁定行为防回归。
+**验收标准**：后端 common 模块 45 例全过（新增 CursorCodecTest 7 例 + IdempotencyRulesTest 7 例）；前端 60 例全过（新增 result.test.js 7 例）。
+
+| 模块 | 测试锁定点 | 行为兼容性 |
+|---|---|---|
+| `CursorCodec` | 空列表编码、多值往返、null 空段、非法 base64 降级首页、URL 安全字符集 | 未改 `encode/decode` 实现，纯测试 |
+| `IdempotencyRules` | 键长度边界、URL 安全字符、作用域优先级、SHA-256 指纹敏感性、状态机 PROCEED/REPLAY/CONFLICT/MISMATCH | 未改规则实现，纯测试；注释说明「指纹算法变更会破坏历史记录，需单独评估」 |
+| 前端 `result.js` | 成功码 `"0"` 与 `0` 双兼容、`ResultError` 携带 code/data、失败默认文案 | 未改拆包实现，纯测试 |
+
+```bash
+cd java-admin-framework
+mvn -q -pl scaffold-common -am test    # 预期 CursorCodecTest / IdempotencyRulesTest 全过
+cd ../pc-admin-vue3-vite
+npm test                                 # 预期 Test Files 7 passed / Tests 60 passed
 ```
 
 ---
@@ -102,6 +120,7 @@ npm run build
 - **对外接口**：所有优化均未新增/删除/重命名 HTTP 端点与请求/响应字段；`authorizeNavigation` 为内部抽取，不改变守卫行为。
 - **配置**：新增 `auth.captcha.max-pending` 有默认值，不配置时行为与优化前一致。
 - **方法签名**：`CaptchaService.generate/verify/pendingCount` 签名不变；仅将 `generate` 标记为 `synchronized`（线程安全增强，调用方无感）。
+- **第三轮优化**：`CursorCodec` / `IdempotencyRules` / 前端 `result.js` 三轮均为**纯测试新增**，未改动任何生产代码，行为与接口 100% 不变。
 
 ---
 
