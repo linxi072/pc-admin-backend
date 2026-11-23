@@ -121,6 +121,32 @@ npm test                                 # 预期 Test Files 7 passed / Tests 60
 
 ---
 
+## 3.6a 覆盖率第二批（TEST-COVERAGE-PLAN 1.2.0）
+
+**优化目标**：补齐安全核心与公共件的纯规则单测，推进后端测试覆盖。
+**验收标准**：新增 37 例（7 测试类）全过；后端累计 114 例全绿；CI 阈值维持起步线不变。
+**决策记录**：Q1 选覆盖率第二批；Q2 网关层后续走零依赖自研路线（本批不涉及）；Q3 不改 CI 阈值；Q4 集成测试用纯单测 + 内存 fake（零新依赖）；Q5 不涉及前端。
+
+| 测试类 | 模块 | 锁定的契约（输入输出/边界/异常） |
+|---|---|---|
+| `TokenVersionRulesTest` | security | claim 缺失默认版本 1；版本 `>=` 判定（人为下调不锁死）；库中版本 null（用户删除）一律失效；TTL 边界含等号 |
+| `SessionLimitRulesTest` | security | maxSessions<=0 不限制；达上限按 REJECT/EVICT_OLDEST 策略；淘汰按登录时间升序、同时间按最近使用兜底；不修改入参 |
+| `DataScopeResultTest` | security | fail-closed 的 SELF 兜底；ofOrgs 返回不可变副本；空集合降级 ALL；SELF 机构集合为空 |
+| `RateLimiterTest` | security | 固定窗口计数与重置；不同 key 独立；并发放行不超阈值（50 线程/max=20）；Deny 恒拒绝（fail-closed） |
+| `IdempotencyRecordRulesTest` | common | 容错查询：非法状态/用户 ID 忽略（返回 null）；scope/keyword 截断；时间窗默认值与倒置钳制；null 不过期 |
+| `TenantContextTest` | common | 未设置时 requireTenantId 抛异常（严格模式）；嵌套作用域恢复（含异常路径）；旁路需先设上下文；线程隔离 |
+
+```bash
+cd java-admin-framework
+mvn -q test    # 预期 114 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0
+```
+
+> 注：JaCoCo 插件在离线仓库不可用，`mvn jacoco:report` 会报 `No plugin found for prefix 'jacoco'`；
+> 覆盖率数值以 CI（联网环境）的 coverage-gate 为准，本批不改其阈值。
+
+---
+
 ## 3.7 组件库 @acme/admin-ui（V1.2 方向 A）
 
 **需求来源**：`PLATFORM-EVOLUTION-PLAN.md` 方向 A（P1），A1 独立包 / A2 组件清单 / A3 样式令牌 / A4 CI。

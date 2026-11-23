@@ -17,6 +17,11 @@
 - 主应用接入：`file:../pc-admin-ui` 依赖 + Vite alias（默认源码直引，`ACME_UI_PACKAGE=1` 切包引用）；`src/components/index.js` 薄 re-export 兼容层；`JobListView` 完成库包直引切换（验收④）。
 - CI 增量：`.github/workflows/ci.yml` 新增 gates 库包扫描步骤与 `ui-lib` job（保留既有 4 job 与覆盖率门禁）。
 - 验证手册新增组件库专章（9 组件输入输出/边界/异常契约、两种接入模式、验证命令）。
+- **测试覆盖第二批（TEST-COVERAGE-PLAN 1.2.0）**：新增 7 个测试类 / 37 例纯单元测试——
+  `TokenVersionRulesTest`（令牌版本失效语义）、`SessionLimitRulesTest`（多端登录限制）、
+  `DataScopeResultTest`（fail-closed 数据权限）、`RateLimiterTest`（固定窗口与 fail-closed 限流）、
+  `IdempotencyRecordRulesTest`（幂等查询容错）、`TenantContextTest`（租户上下文严格模式/线程隔离）。
+  后端累计 114 例全绿；CI 阈值维持起步线 0.10/0.05；网关层后续采用零依赖自研路线（本批不涉及）。
 
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 

@@ -29,12 +29,21 @@
 
 1. **scaffold-security**：TokenService（签发/刷新/吊销轮换）、数据权限 SQL 织入、限流器、
    OAuth2 回调、在线会话管理——安全核心，优先级最高。
+   - 进展（1.2.0 第一批）：`TokenVersionRulesTest`（5 例：claim 归一/版本失效 >= 语义/历史 token 兼容）、
+     `SessionLimitRulesTest`（7 例：上限判定/淘汰顺序/tie-break/不变量）、
+     `DataScopeResultTest`（5 例：fail-closed 兜底/不可变集合）、
+     `RateLimiterTest`（5 例：固定窗口/窗口重置/并发上限/fail-closed）。
 2. **scaffold-common**：幂等（IdempotentStore）、审计（AuditRecorder）、导入导出（Importer/Exporter）、
    树构建（TreeBuilder）、租户上下文（TenantContext）。
    - 进展（1.1.0）：`TreeBuilderTest` 已落地（6 例：层级/保序/森林升根/成环守卫/空输入/孤儿忽略）。
+   - 进展（1.2.0 第一批）：`IdempotencyRecordRulesTest`（6 例：容错查询归一/时间窗收敛/过期判定）、
+     `TenantContextTest`（9 例：严格模式/嵌套恢复/旁路语义/线程隔离）。
 3. **scaffold-system**：用户/角色/菜单/接口资源服务主链路（内存 H2 或 Mock Mapper）。
    - 进展（1.1.0）：`JavaTypeMapperTest` 已落地（11 例：全类型矩阵/tinyint(1)/大小写归一/
      needsImport/toJavaField/toClassName 前缀剥离）。
+
+> 本批新增 37 例纯单元测试（7 个测试类），后端累计 114 例全绿。集成测试采用「纯单测 + 内存 fake」
+> 形态（Q4 决策，零新增依赖）；JaCoCo 插件离线不可用，CI 阈值维持起步线 0.10/0.05（Q3 决策）。
 
 ## 4. 执行方式
 
