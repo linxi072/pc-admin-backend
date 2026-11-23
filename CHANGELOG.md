@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+## [1.2.0] - 2026-11-23（规划中，版本待发布；本条目跟踪组件库抽取进度）
+
+主题：平台化演进方向 A —— 前端独立组件库包（P1，分两批交付）。
+
+### Added（新增）
+- `pc-admin-ui/` 独立组件库包（`@acme/admin-ui@1.1.0`，纯 JS + Vite lib mode）：
+  - **第一批**：迁移零业务依赖组件 `BaseChart` / `StatCard` / `CopyText` 及随包纯函数 `stat` / `theme`，新增 design tokens（`--acme-ui-*`）。
+  - **第二批**：按 `PLATFORM-EVOLUTION-PLAN.md` A2 补齐 6 个通用组件 `ProTable` / `QueryForm` / `StatusTag` / `DescriptionList` / `ConfirmDialog` / `DictSelect`。
+  - 产出 ESM + CJS 双格式 + 独立 CSS；peerDependencies 外部化 vue / element-plus / echarts，规避双实例。
+  - 配套 21 例单测（9 组件 SSR smoke + 纯函数契约）与 SFC/i18n 门禁。
+- 主应用接入：`file:../pc-admin-ui` 依赖 + Vite alias（默认源码直引，`ACME_UI_PACKAGE=1` 切包引用）；`src/components/index.js` 薄 re-export 兼容层；`JobListView` 完成库包直引切换（验收④）。
+- CI 增量：`.github/workflows/ci.yml` 新增 gates 库包扫描步骤与 `ui-lib` job（保留既有 4 job 与覆盖率门禁）。
+- 验证手册新增组件库专章（9 组件输入输出/边界/异常契约、两种接入模式、验证命令）。
+
+> 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
+
 ## [1.1.0] - 2026-11-18
 
 主题：**工程可信度恢复**（部署制品出库、质量门禁与 CI 重建、测试覆盖重建立项、版本治理统一）。
