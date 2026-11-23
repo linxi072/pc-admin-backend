@@ -44,6 +44,12 @@ public class RedisRateLimiter implements RateLimiter {
     private final RateLimiter fallback;
     private final RateLimitProperties properties;
 
+    /**
+     * 最近一次 tryAcquire 使用的窗口秒数，供 currentCount 复用，避免观测口径与实际限流漂移。
+     * 仅用于观测，不参与限流判定，volatile 保证跨线程可见即可（允许瞬时旧值）。
+     */
+    private volatile int lastWindowSeconds = RateLimitWindowRules.DEFAULT_WINDOW_SECONDS;
+
     public RedisRateLimiter(StringRedisTemplate redisTemplate, RateLimiter fallback, RateLimitProperties properties) {
         this.redisTemplate = redisTemplate;
         this.fallback = fallback;
@@ -57,8 +63,9 @@ public class RedisRateLimiter implements RateLimiter {
 
     @Override
     public boolean tryAcquire(String key, int max, int windowSeconds, long nowMillis) {
-        long windowMillis = (long) windowSeconds * 1000L;
-        long windowStart = nowMillis - (nowMillis % windowMillis);
+        this.lastWindowSeconds = windowSeconds;
+        long windowMillis = RateLimitWindowRules.windowMillis(windowSeconds);
+        long windowStart = RateLimitWindowRules.windowStart(nowMillis, windowSeconds);
         String redisKey = properties.getKeyPrefix() + ":" + key + ":" + windowStart;
         try {
             // 注意：redisTemplate 是 StringRedisTemplate，其 args 序列化器为 StringRedisSerializer，
@@ -94,8 +101,7 @@ public class RedisRateLimiter implements RateLimiter {
     @Override
     public int currentCount(String key) {
         long nowMillis = System.currentTimeMillis();
-        long windowMillis = 60_000L;
-        long windowStart = nowMillis - (nowMillis % windowMillis);
+        long windowStart = RateLimitWindowRules.windowStart(nowMillis, lastWindowSeconds);
         String redisKey = properties.getKeyPrefix() + ":" + key + ":" + windowStart;
         try {
             String raw = redisTemplate.opsForValue().get(redisKey);

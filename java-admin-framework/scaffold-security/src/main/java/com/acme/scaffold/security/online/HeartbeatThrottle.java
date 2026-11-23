@@ -14,7 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link #MAX_ENTRIES}，超出时清理「超过 2 个周期未出现」的陈旧条目，
  * 保证长期运行下 Map 不会无限增长。清理失败不丢正确性（仅多写一次库）。
  *
- * <p>线程安全：{@link ConcurrentHashMap} + 原子 put，多请求线程并发调用安全。
+ * <p>线程安全：{@link ConcurrentHashMap#compute} 对同一 key 原子执行「读-判-写」，
+ * 并发同 key 只有一个调用能判定到期并写入新时间戳，杜绝重复放行（写放大）。
  */
 public final class HeartbeatThrottle {
 
@@ -33,15 +34,21 @@ public final class HeartbeatThrottle {
      * 否则记录本次时间并返回 true。
      */
     public boolean tryAcquire(String key, long nowMillis) {
-        Long prev = lastBeat.get(key);
-        if (prev != null && nowMillis - prev < intervalMillis) {
-            return false;
-        }
-        lastBeat.put(key, nowMillis);
-        if (lastBeat.size() > MAX_ENTRIES) {
+        // compute 对同一 key 串行执行，原子完成「检查上次时间 + 决定是否放行 + 更新时间戳」。
+        // 修复原 get→put 的 check-then-act 竞态：并发同 key 曾双双通过检查、各自 put，
+        // 导致本应节流的一次心跳被重复放行（多次写库），与类注释宣称的并发安全不符。
+        boolean[] acquired = {false};
+        lastBeat.compute(key, (k, prev) -> {
+            if (prev != null && nowMillis - prev < intervalMillis) {
+                return prev; // 未达间隔：保留原时间戳，本次跳过写库
+            }
+            acquired[0] = true;
+            return nowMillis;
+        });
+        if (acquired[0] && lastBeat.size() > MAX_ENTRIES) {
             purge(nowMillis);
         }
-        return true;
+        return acquired[0];
     }
 
     /** 清理超过 2 个周期未出现的陈旧条目，返回清理条数。 */

@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.antireplay;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
@@ -56,7 +57,26 @@ public class ReplayNonceService {
             return false;
         }
         if (seen.size() >= maxSize) {
+            // 先淘汰已过期条目；若全部仍在 TTL 内（高频请求场景）仍会突破上限，
+            // 则按过期时间升序额外淘汰最早过期的条目，保证内存严格有界。
             seen.entrySet().removeIf(e -> e.getValue() < now);
+            while (seen.size() >= maxSize) {
+                String oldest = null;
+                long earliest = Long.MAX_VALUE;
+                for (Map.Entry<String, Long> e : seen.entrySet()) {
+                    if (e.getKey().equals(nonce)) {
+                        continue; // 不淘汰刚写入的条目，否则本次占用立即失效
+                    }
+                    if (e.getValue() < earliest) {
+                        earliest = e.getValue();
+                        oldest = e.getKey();
+                    }
+                }
+                if (oldest == null) {
+                    break; // 仅剩当前条目，无可淘汰项
+                }
+                seen.remove(oldest);
+            }
         }
         return false;
     }

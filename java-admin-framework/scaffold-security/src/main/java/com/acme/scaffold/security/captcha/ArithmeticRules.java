@@ -18,6 +18,18 @@ import java.util.Random;
  */
 public final class ArithmeticRules {
 
+    /**
+     * 加减操作数安全上界：保证 {@code a + b ≤ Integer.MAX_VALUE}（a、b 均 ∈ [1, addMax]）。
+     * 同时保证 {@link Random#nextInt(int)} 参数为正。
+     */
+    private static final int SAFE_ADD_MAX = Integer.MAX_VALUE / 2;
+
+    /**
+     * 乘除操作数安全上界：46340² = 2147395600 ≤ Integer.MAX_VALUE，
+     * 保证乘法 {@code a*b} 与除法被除数 {@code b*quotient} 均不溢出为负数。
+     */
+    private static final int SAFE_MUL_MAX = 46_340;
+
     private ArithmeticRules() {
     }
 
@@ -66,6 +78,10 @@ public final class ArithmeticRules {
      * @param allowed 允许的运算符集合；null 或空表示四则全集
      */
     public static Problem draw(Random random, int addMax, int mulMax, List<Operator> allowed) {
+        // 安全钳制：非法上界（≤0）归一为 1，避免 nextInt(非正数) 抛 IllegalArgumentException；
+        // 超大上界夹紧到溢出安全值，避免乘积/被除数 int 溢出产生负数答案。
+        addMax = clamp(addMax, 1, SAFE_ADD_MAX);
+        mulMax = clamp(mulMax, 1, SAFE_MUL_MAX);
         List<Operator> ops = (allowed == null || allowed.isEmpty())
                 ? List.of(Operator.values())
                 : List.copyOf(allowed);
@@ -109,5 +125,10 @@ public final class ArithmeticRules {
     /** [1, max] 均匀整数。 */
     private static int rand(Random random, int max) {
         return random.nextInt(max) + 1;
+    }
+
+    /** 把 value 夹紧到 [lo, hi]。 */
+    private static int clamp(int value, int lo, int hi) {
+        return Math.max(lo, Math.min(value, hi));
     }
 }

@@ -36,8 +36,8 @@ public class InMemoryRateLimiter implements RateLimiter {
      */
     @Override
     public boolean tryAcquire(String key, int max, int windowSeconds, long nowMillis) {
-        long windowMillis = (long) windowSeconds * 1000L;
-        long windowStart = nowMillis - (nowMillis % windowMillis);
+        // 统一走规则类：非正窗口归一为 1s，避免 windowSeconds<=0 时 %0 抛 ArithmeticException。
+        long windowStart = RateLimitWindowRules.windowStart(nowMillis, windowSeconds);
         Bucket bucket = buckets.computeIfAbsent(key, k -> new Bucket(windowStart, 0));
         if (bucket.windowStart != windowStart) {
             // 进入新窗口：重置计数（即便并发也仅首个进入新窗口的线程重置，其余走旧桶的 CAS 重试）

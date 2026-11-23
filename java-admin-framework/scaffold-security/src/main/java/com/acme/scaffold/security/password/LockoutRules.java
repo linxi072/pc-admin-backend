@@ -35,10 +35,13 @@ public final class LockoutRules {
         }
         // 第 1 次达到阈值锁 base；此后每再多 maxFailures 次升一级（时长翻倍）
         int tier = (consecutiveFailures - maxFailures) / maxFailures + 1;
-        long seconds = baseDuration.toSeconds();
-        for (int i = 1; i < tier; i++) {
-            seconds = Math.min(seconds * 2, maxDuration.toSeconds());
+        long maxSeconds = maxDuration.toSeconds();
+        long seconds = Math.min(baseDuration.toSeconds(), maxSeconds);
+        // 先钳制上界再翻倍：maxSeconds 极大时 seconds*2 可能 long 溢出为负，
+        // 且一旦触顶无需继续循环（否则极大失败次数下空转数百次）。
+        for (int i = 1; i < tier && seconds < maxSeconds; i++) {
+            seconds = seconds > maxSeconds / 2 ? maxSeconds : seconds * 2;
         }
-        return Duration.ofSeconds(Math.min(seconds, maxDuration.toSeconds()));
+        return Duration.ofSeconds(seconds);
     }
 }

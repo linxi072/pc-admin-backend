@@ -34,10 +34,18 @@ public final class ReplayProtectionRules {
         if (clientTimestamp <= 0) {
             return TimestampVerdict.INVALID;
         }
-        long diff = Math.abs(clientTimestamp - serverNow);
-        if (diff > maxSkewMillis) {
-            return clientTimestamp < serverNow ? TimestampVerdict.TOO_OLD : TimestampVerdict.TOO_FUTURE;
+        // 先按大小关系分支，再用「较大值 - 较小值」保证相减不溢出
+        // （原 Math.abs(clientTimestamp - serverNow) 在极端值下会溢出为负、
+        //  使 diff > maxSkewMillis 判断失效，放行本应拒绝的时钟偏差）。
+        if (clientTimestamp > serverNow) {
+            // client 为正、server 可能为负：用加法边界判断是否溢出，避免 subtract 回绕
+            long diff = serverNow < 0 && clientTimestamp > Long.MAX_VALUE + serverNow
+                    ? Long.MAX_VALUE
+                    : clientTimestamp - serverNow;
+            return diff > maxSkewMillis ? TimestampVerdict.TOO_FUTURE : TimestampVerdict.OK;
         }
-        return TimestampVerdict.OK;
+        // client 为正且 <= serverNow，serverNow - clientTimestamp 恒不溢出
+        long diff = serverNow - clientTimestamp;
+        return diff > maxSkewMillis ? TimestampVerdict.TOO_OLD : TimestampVerdict.OK;
     }
 }
