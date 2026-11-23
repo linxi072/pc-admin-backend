@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { isAuthenticated, authState, loadMenus } from '@/store/auth'
+import { authorizeNavigation } from './authGuard'
 
 const routes = [
   {
@@ -503,64 +504,24 @@ const router = createRouter({
   routes
 })
 
-// 收集菜单树中所有可见叶子路由路径（用于在路由守卫中判断「是否在当前用户角色菜单范围内」）
-function collectAuthorizedPaths(menus) {
-  const set = new Set()
-  const walk = (nodes) => {
-    for (const n of nodes || []) {
-      if (n.routePath) set.add(n.routePath)
-      walk(n.children)
-    }
-  }
-  walk(menus)
-  return set
-}
-
-// 带路径参数的详情页白名单：键为路由 name，值为其「父级列表页」的菜单路径。
-// 仅当父级列表页在用户授权菜单中时，详情页才放行——杜绝所有含 ':' 路由无条件通行。
-const DETAIL_PARENT_MENU = {
-  designer: '/workflow/definition'
-}
-
 router.beforeEach(async (to) => {
-  // 登录页对已登录用户不可达（直接重定向工作台）：public 分支需先处理该特例，
-  // 否则下方 login 判断因 public 提前放行而成为死代码
-  if (to.meta.public) {
-    if (to.name === 'login' && isAuthenticated()) {
-      return { name: 'dashboard' }
-    }
-    return true
-  }
-  if (!isAuthenticated()) {
-    return { name: 'login', query: { redirect: to.fullPath } }
-  }
-  // OAuth2 同意页（#900）：已认证用户直达，不依赖后台菜单树（非后台功能页）
-  if (to.path === '/oauth2/consent') return true
-
-  // 工作台是登录落地页，所有已认证用户可达；放在菜单加载前，避免首屏被误拦。
-  if (to.path === '/' || to.path === '/dashboard') return true
-
   // 菜单首屏/刷新瞬间可能尚未加载（AppLayout 的 onMounted 才触发），此处主动等待一次。
-  if (authState.menusLoaded === 'unloaded') {
+  if (isAuthenticated() && !to.meta?.public && to.path !== '/' && to.path !== '/dashboard'
+      && to.path !== '/oauth2/consent' && authState.menusLoaded === 'unloaded') {
     await loadMenus()
   }
-  // fail-closed：菜单加载失败时不得放行任意受保护页面（数据接口仍由后端兜底鉴权）。
-  if (authState.menusLoaded === 'failed') {
+  // 决策逻辑抽取为纯函数 authorizeNavigation（见 authGuard.js），行为不变、可离线单测。
+  const decision = authorizeNavigation({
+    authenticated: isAuthenticated(),
+    menusLoaded: authState.menusLoaded,
+    menus: authState.menus,
+    to
+  })
+  // 菜单不可用导致 fail-closed 时给出可见提示（原实现在内联分支提示，现由守卫统一处理）
+  if (decision && decision.reason === 'menus-unavailable') {
     ElMessage.warning('菜单加载失败，暂时无法访问该页面，请刷新重试')
-    return { name: 'dashboard' }
   }
-
-  const authorized = collectAuthorizedPaths(authState.menus)
-  // 详情页（含路径参数）：仅白名单内且其父级列表页已授权者放行。
-  const parentMenu = DETAIL_PARENT_MENU[to.name]
-  if (parentMenu) {
-    return authorized.has(parentMenu) ? true : { name: 'dashboard' }
-  }
-  const isDetail = to.matched.some((r) => r.path.includes(':'))
-  if (isDetail || !authorized.has(to.path)) {
-    return { name: 'dashboard' }
-  }
-  return true
+  return decision
 })
 
 /**
