@@ -52,6 +52,32 @@
 > 形态（Q4 决策，零新增依赖）；JaCoCo 插件离线不可用，CI 阈值维持起步线 0.10/0.05（Q3 决策）。
 > T1 剩余：`SessionCleanupRulesTest`（5 例：会话空闲回收，last_used 优先/issued 兜底/禁用与边界）。
 
+## 3.5 目标线推进（E6，1.3.0 预研）
+
+JaCoCo 插件在离线仓库中不可用（`-Pcoverage` 因 `jacoco-maven-plugin:0.8.12` 未缓存而失败），
+因此 1.3.0 的 INSTRUCTION≥0.70 / BRANCH≥0.60 目标线**暂无法用真实覆盖率度量**。
+在 Q4「纯单测 + 内存 fake」口径下，以「关键业务链路纯逻辑测试覆盖」作为可落地的替代指标。
+
+本批新增 5 测试类 / 29 例（后端累计 253 例全绿）：
+
+| 测试类 | 覆盖链路 | 用例数 |
+|---|---|---|
+| `OAuth2TokenRulesTest` | OAuth2 令牌端点：PKCE S256 已知向量、方法白名单/长度/字符集、三种 grant 形态、响应体拼装 | 6 |
+| `NotificationPreferenceRulesTest` | 通知偏好：渠道/类型归一、sys_user 总开关映射、两级生效判定、接收者/地址过滤、16 格矩阵 | 6 |
+| `FormSchemaRulesTest` | 表单 Schema：类型/目标归一、版本/字段/options/长度属性校验、字段数上限 | 10 |
+| `TenantIsolationAuditRulesTest` | 租户隔离存量自检：空列表/全通过/违规聚合/检查失败置顶 | 4 |
+| `AuditRetentionRulesTest` | 审计留存：清理禁用、cutoff 时间窗、过期与 null 安全 | 3 |
+
+**测试驱动的缺陷修复**（测试先失败、定位为生产代码错误后修复）：
+
+- `TenantIsolationAuditRules.audit` / `topOffenders`：比较器用 `Long.MAX_VALUE` 标记「检查失败」(−1)，
+  在升序排序中反被排到末尾，与「检查失败置顶」注释及运维优先处置诉求相反；改为 `Long.MIN_VALUE`。
+- `FormSchemaRules.validateSchema`：可选字段 `title` 缺省时 `obj.path("title")` 返回 `MissingNode`，
+  被误判为「title 必须为字符串」，导致合法 Schema（无 title）被拒绝；补 `!isMissingNode()` 守卫。
+
+> 仍需人工确认：覆盖率数字本身（待 JaCoCo 插件进入离线仓库或 CI 联网后按 §1 收紧阈值）；
+> 本批不擅自修改 CI 阈值，避免无度量依据的门禁收紧。
+
 ## 4. 执行方式
 
 - 后端：`mvn -B verify`（根 POM 已绑定 surefire + jacoco）；报告位于 `target/site/jacoco/`。

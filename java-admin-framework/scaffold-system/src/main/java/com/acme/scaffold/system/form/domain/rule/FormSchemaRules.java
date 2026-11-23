@@ -126,7 +126,7 @@ public final class FormSchemaRules {
             errors.add("version 必填且当前仅支持 " + SUPPORTED_VERSION);
         }
         JsonNode title = obj.path("title");
-        if (title != null && !title.isNull() && !title.isTextual()) {
+        if (title != null && !title.isMissingNode() && !title.isNull() && !title.isTextual()) {
             errors.add("title 必须为字符串");
         }
 

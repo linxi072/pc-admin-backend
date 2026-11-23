@@ -26,9 +26,10 @@ public final class TenantIsolationAuditRules {
     public static TenantIsolationAuditReport audit(List<TenantIsolationTableViolation> violations,
                                                   int totalBusinessTables) {
         List<TenantIsolationTableViolation> byTable = new ArrayList<>(violations);
-        // 检查失败的表（-1）置顶，其余按未归属行数降序，便于运维优先处理
+        // 检查失败的表（-1）置顶，其余按未归属行数降序，便于运维优先处理。
+        // 升序排序：检查失败用 Long.MIN_VALUE 置顶，合法违规行数取负值使其按绝对值降序。
         byTable.sort(Comparator.comparingLong(
-                (TenantIsolationTableViolation v) -> v.violatedRows() < 0 ? Long.MAX_VALUE : -v.violatedRows()));
+                (TenantIsolationTableViolation v) -> v.violatedRows() < 0 ? Long.MIN_VALUE : -v.violatedRows()));
 
         long totalViolatedRows = 0;
         int violatedTables = 0;
@@ -86,7 +87,7 @@ public final class TenantIsolationAuditRules {
             }
         }
         offenders.sort(Comparator.comparingLong(
-                (TenantIsolationTableViolation v) -> v.violatedRows() < 0 ? Long.MAX_VALUE : -v.violatedRows()));
+                (TenantIsolationTableViolation v) -> v.violatedRows() < 0 ? Long.MIN_VALUE : -v.violatedRows()));
         return offenders.subList(0, Math.min(k, offenders.size()));
     }
 }

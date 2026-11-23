@@ -176,6 +176,20 @@
   前端 `export.test.js`（API 契约）。后端累计 224 例、前端 67 例全绿；前端构建成功；
   质量门禁 7/7 通过（frontend_only 0）。
 
+### 延伸需求 E6（P1）：测试覆盖目标线推进与缺陷修复
+
+- **约束说明**：JaCoCo 插件在离线仓库未缓存（`-Pcoverage` 报 `jacoco-maven-plugin:0.8.12` 不可解析），
+  1.3.0 的覆盖率目标线（INSTRUCTION≥0.70 / BRANCH≥0.60）暂无法真实度量；按 TEST-COVERAGE-PLAN 的
+  Q4 决策以「关键业务链路纯逻辑覆盖」为替代指标，不擅自收紧 CI 阈值。
+- 新增 5 测试类 / 29 例：`OAuth2TokenRulesTest`（PKCE S256 RFC 向量/白名单/三 grant/响应体）、
+  `NotificationPreferenceRulesTest`（两级生效/接收者地址过滤/16 格矩阵）、`FormSchemaRulesTest`
+  （Schema 结构校验/字段数上限）、`TenantIsolationAuditRulesTest`（违规聚合/失败置顶）、
+  `AuditRetentionRulesTest`（留存窗口/null 安全）；后端累计 253 例全绿。
+- **测试驱动的缺陷修复**：`TenantIsolationAuditRules` 检查失败表原被排到末尾（比较器 `Long.MAX_VALUE`
+  与升序方向相反），改为 `Long.MIN_VALUE` 实现「置顶」；`FormSchemaRules` 可选 `title` 缺省时
+  `MissingNode` 被误判为「必须为字符串」导致合法 Schema 被拒，补 `!isMissingNode()` 守卫。
+- `docs/TEST-COVERAGE-PLAN.md` 新增 §3.5 记录本批进展与替代口径。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18
