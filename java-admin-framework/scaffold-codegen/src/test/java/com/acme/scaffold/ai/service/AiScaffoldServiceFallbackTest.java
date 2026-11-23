@@ -43,7 +43,17 @@ class AiScaffoldServiceFallbackTest {
             }
 
             @Override
+            public CloudLlmProvider getObject(Object... args) {
+                return provider;
+            }
+
+            @Override
             public CloudLlmProvider getIfAvailable() {
+                return provider;
+            }
+
+            @Override
+            public CloudLlmProvider getIfUnique() {
                 return provider;
             }
         };
@@ -62,7 +72,17 @@ class AiScaffoldServiceFallbackTest {
             }
 
             @Override
+            public CloudLlmProvider getObject(Object... args) {
+                throw new IllegalStateException("no bean");
+            }
+
+            @Override
             public CloudLlmProvider getIfAvailable() {
+                return null;
+            }
+
+            @Override
+            public CloudLlmProvider getIfUnique() {
                 return null;
             }
         };

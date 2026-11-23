@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  */
 class CmsCategoryBuildTreeTest {
 
-    private static CategoryView view(long id, Long parentId, String name, int sortNo) {
+    private static CategoryView view(long id, Long parentId, String name, Integer sortNo) {
         CategoryView v = new CategoryView();
         v.setId(id);
         v.setParentId(parentId);
@@ -40,7 +40,9 @@ class CmsCategoryBuildTreeTest {
         assertEquals("根", root.getCategoryName());
         assertEquals(2, root.getChildren().size());
         assertEquals("子B", root.getChildren().get(0).getCategoryName());
-        assertEquals(1, root.getChildren().get(1).getChildren().size());
+        // "孙"(parent=2) 挂在"子B"下，而非"子A"；按 sortNo 排序后子B 在 children[0]
+        assertEquals(1, root.getChildren().get(0).getChildren().size());
+        assertEquals("孙", root.getChildren().get(0).getChildren().get(0).getCategoryName());
     }
 
     /** 排序键 null 视为 0，同级按 sortNo 再按名称升序。 */
