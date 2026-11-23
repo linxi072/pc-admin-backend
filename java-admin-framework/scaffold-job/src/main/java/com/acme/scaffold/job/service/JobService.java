@@ -96,9 +96,9 @@ public class JobService {
     /** 任务执行日志（按触发时间倒序）。 */
     public PageResult<JobLogView> logs(Long jobId, int page, int size) {
         require(jobId);
-        Condition cond = DSL.and(
-                SYS_JOB_LOG.field("tenant_id", Long.class).eq(0L),
-                SYS_JOB_LOG.field("job_id", Long.class).eq(jobId));
+        // 租户隔离由 SqlWriters.page/count 的 scopedSelect 自动施加（withTenant）；
+        // 此处不能硬编码 tenant_id=0，否则多租户下与自动条件叠加导致日志恒为空。
+        Condition cond = SYS_JOB_LOG.field("job_id", Long.class).eq(jobId);
         PageResult<SysJobLogDO> raw = SqlWriters.page(dsl, SYS_JOB_LOG, SysJobLogDO.class, cond,
                 PageQuery.of(page, size),
                 SYS_JOB_LOG.field("fire_time", LocalDateTime.class).desc(),

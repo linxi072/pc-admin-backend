@@ -267,10 +267,19 @@ public class WorkflowService {
 
         WfTaskExtDO ext = SqlWriters.fetchOne(dsl, WF_TASK_EXT, WfTaskExtDO.class,
                 WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()));
-        Long delegator = ext == null ? null : ext.getDelegatorUserId();
+        // 原审批人取自扩展表记录的 delegator；扩展行缺失（历史数据/引擎直接建的任务）时，
+        // 从引擎 resolve 后的任务读取——Flowable resolveTask 已把 assignee 还原为原审批人。
+        // 绝不能回退到 task.assigneeUserId()（那是被委托人自己，会让任务永远停在自己手上）。
+        WorkflowEnginePort.TaskInfo resolved = engine.getTask(task.taskId());
+        Long delegator = ext != null ? ext.getDelegatorUserId() : null;
+        if (delegator == null && resolved != null) {
+            delegator = resolved.assigneeUserId();
+        }
+        if (delegator == null) {
+            throw new BusinessException(CommonErrorCode.CONFLICT, "无法确定委派原审批人，任务状态不一致");
+        }
         dsl.update(WF_TASK_EXT.table())
-                .set(WF_TASK_EXT.field("assignee_user_id", Long.class),
-                        delegator == null ? task.assigneeUserId() : delegator)
+                .set(WF_TASK_EXT.field("assignee_user_id", Long.class), delegator)
                 .set(WF_TASK_EXT.field("delegation_state", String.class), "RESOLVED")
                 .where(WF_TASK_EXT.field("task_id", String.class).eq(task.taskId()))
                 .execute();

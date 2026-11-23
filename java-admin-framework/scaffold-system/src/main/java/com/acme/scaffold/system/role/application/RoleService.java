@@ -3,6 +3,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.validation.RecordStatus;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
@@ -38,6 +39,7 @@ public class RoleService {
             SqlTables.SYS_ROLE;
 
     private final DSLContext dsl;
+    private final TokenVersionService tokenVersionService;
 
     /**
      * 创建角色。菜单授权影响用户菜单树（{@link MenuService#USER_MENUS_CACHE}），
@@ -90,6 +92,11 @@ public class RoleService {
         if (request.apiIds() != null) {
             assignApis(id, request.apiIds());
         }
+        // 菜单/接口权限变化必须使持有者旧令牌失效，否则 @PreAuthorize 仍读取 JWT 中的旧 authorities，
+        // 权限回收最长延迟一个 accessTokenTtl（默认 30 分钟）。与 RoleDataScopeService 口径一致。
+        if (request.menuIds() != null || request.apiIds() != null) {
+            tokenVersionService.bumpRoleHolders(List.of(id));
+        }
     }
 
     public RoleView getView(Long id) {
@@ -127,6 +134,9 @@ public class RoleService {
     @CacheEvict(cacheNames = MenuService.USER_MENUS_CACHE, allEntries = true)
     @Transactional
     public void delete(Long id) {
+        // 角色即将删除，授权必然失效：先按角色反查持有者并递增 token 版本。
+        // 必须在删除 user_role 关联之前调用，否则反查不到用户，旧令牌在 TTL 内仍带已删角色权限。
+        tokenVersionService.bumpRoleHolders(List.of(id));
         // 用户-角色关联先清：该表无外键约束，漏删会残留孤儿行（角色已不存在但用户仍"挂"着它，
         // 权限计算靠 notDeleted 兜底过滤虽不泄露，但数据卫生失控且角色重建后历史绑定不会恢复）
         SqlWriters.deleteByColumn(dsl, USER_ROLE, "role_id", id);
