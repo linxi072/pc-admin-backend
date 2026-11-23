@@ -22,26 +22,34 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gate_lib import BACKEND_ROOT, FRONTEND_ROOT, info, walk_files, read_text  # noqa: E402
 
 CLASS_BASE_RE = re.compile(r"@RequestMapping\(\s*(?:value\s*=\s*)?[\"']([^\"']+)[\"']")
-METHOD_MAP_RE = re.compile(r"@(?:Get|Post|Put|Delete|Patch)Mapping(?:\(\s*(?:value\s*=\s*)?[\"']([^\"']*)[\"'])?")
+# 捕获 HTTP 方法，避免 GET/POST 共享同一类级路径时被误判为重复注册
+METHOD_MAP_RE = re.compile(r"@(Get|Post|Put|Delete|Patch)Mapping(?:\(\s*(?:value\s*=\s*)?[\"']([^\"']*)[\"'])?")
 FRONT_URL_RE = re.compile(r"[\"'](/api/[A-Za-z0-9_\-/${}:.]*)[\"']")
 
 norm = lambda p: re.sub(r"\{[^}]+\}", "{}", p.rstrip("/"))  # noqa: E731
 
 
 def backend_routes() -> dict:
-    """返回 {normalized_path: [Controller#ctx]}。"""
+    """返回 {(HTTP_METHOD, normalized_path): [Controller]}。"""
     routes = {}
     for path in walk_files(BACKEND_ROOT, (".java",)):
-        if "/controller/" not in path.replace("\\", "/"):
+        # 代码生成器模板中的 @RequestMapping("%4$s") 是字符串模板，不是真实路由
+        if path.replace("\\", "/").endswith("/CodeTemplates.java"):
             continue
         text = read_text(path)
+        # Controller 可能位于 api/ 或 controller/ 目录（项目已迁到 api/ 为主）；
+        # 以 Spring 注解为准扫描，避免按目录名过滤漏掉 api/ 目录下的控制器。
+        if "@RestController" not in text and "@Controller" not in text:
+            continue
         base_m = CLASS_BASE_RE.search(text)
         base = base_m.group(1) if base_m else ""
         cls = os.path.splitext(os.path.basename(path))[0]
         for m in METHOD_MAP_RE.finditer(text):
-            sub = m.group(1) or ""
+            method = m.group(1).upper()
+            sub = m.group(2) or ""
             full = (base + sub) if sub.startswith("/") else (base + ("/" + sub if sub else ""))
-            routes.setdefault(norm(full), []).append(cls)
+            key = (method, norm(full))
+            routes.setdefault(key, []).append(cls)
     return routes
 
 
@@ -61,12 +69,13 @@ def main() -> int:
     be = backend_routes()
     fe = frontend_urls()
 
+    be_paths = {path for _, path in be}
     dupes = {k: v for k, v in be.items() if len(v) > 1}
-    fe_only = sorted(u for u in fe if u not in be)
-    be_only = sorted(u for u in be if u not in fe)
+    fe_only = sorted(u for u in fe if u not in be_paths)
+    be_only = sorted(path for path in be_paths if path not in fe)
 
-    for u, classes in sorted(dupes.items()):
-        print(f"[WARN] duplicate_backend: {u} 注册于 {classes}")
+    for (method, u), classes in sorted(dupes.items()):
+        print(f"[WARN] duplicate_backend: {method} {u} 注册于 {classes}")
     for u in fe_only:
         print(f"[WARN] frontend_only: {u}（{fe[u]}）→ 后端未见同形路由")
     for u in be_only:
