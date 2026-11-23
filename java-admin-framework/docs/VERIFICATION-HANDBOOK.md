@@ -155,6 +155,9 @@ pc-admin-ui/                 独立包（纯 JS，Vite lib mode）
 
 主应用通过 `file:../pc-admin-ui` 依赖 + Vite alias 接入：
 - **默认（源码直引）**：`@acme/admin-ui` → `pc-admin-ui/src/index.js`，dev/test 免预构建。
+  - 关键约束：库包源码位于主应用根目录之外，其 peer 裸导入（vue/element-plus/@element-plus/icons-vue/echarts）需在
+    主应用 `vite.config.js` 的 `resolve.dedupe` 中登记，强制从主应用 node_modules 解析，否则构建报
+    `Rollup failed to resolve import`（且不依赖 pc-admin-ui/node_modules 软链）；dedupe 同时保证单实例。
 - **包引用**：`ACME_UI_PACKAGE=1 npm run build` → 指向 `dist/admin-ui.js`，需先 `npm run build:ui`。
 - `src/components/index.js` 保留薄 re-export（3 个迁移组件），既有 `import { Xxx } from '@/components'` 调用方零改动。
 

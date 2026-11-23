@@ -16,7 +16,10 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@acme/admin-ui': fileURLToPath(uiEntry)
-    }
+    },
+    // 源码直引模式下，库包源码位于 pc-admin-ui/src，其 peer 裸导入需强制从主应用
+    // node_modules 解析（否则向上找不到依赖）；dedupe 同时保证 vue/element-plus 单实例。
+    dedupe: ['vue', 'element-plus', '@element-plus/icons-vue', 'echarts']
   },
   server: {
     port: 5173,
