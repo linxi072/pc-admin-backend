@@ -1710,6 +1710,14 @@ VALUES (1151, 0, 1002, 'system:config-center', '配置中心', 'MENU', '/system/
 -- [from V80__chaos_config_center_menu.sql]
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 1151;
 
+-- 统一运维控制台（E2）：聚合各 feature-gate 运行态，后端 OpsConsoleController 始终注册，
+-- 权限码 system:ops:read 由 ApiResourceAutoSyncRunner 自动登记并授予 SUPER_ADMIN。
+-- 挂「系统管理」(parent_id=1002) 下，幂等 INSERT IGNORE。
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at)
+VALUES (1152, 0, 1002, 'system:ops', '统一运维控制台', 'MENU', '/system/ops', 'system/OpsConsoleView', 'system:ops:read', 'Monitor', 1, 0, 126, 'ACTIVE', NOW(3), NOW(3));
+
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 1152;
+
 -- ---------- 初始化基线标记 ----------
 
 -- 清掉旧基线，确保表中只保留当前已初始化的版本

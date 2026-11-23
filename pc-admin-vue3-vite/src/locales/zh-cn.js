@@ -382,6 +382,7 @@ export const zhCN = {
   "route.aiScaffold": "AI 脚手架",
   "route.chaos": "混沌工程",
   "route.configCenter": "配置中心",
+  "route.opsConsole": "统一运维控制台",
   "system.common.sort": "排序",
   "system.common.query": "查询",
   "system.common.keyword": "关键字",

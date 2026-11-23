@@ -493,6 +493,15 @@ const routes = [
         name: 'configCenter',
         component: () => import('@/views/system/ConfigCenterView.vue'),
         meta: { title: 'route.configCenter', permission: 'system:config-center:read' }
+      },
+      {
+        // 统一运维控制台（E2）：聚合各 feature-gate 运行态，后端 OpsConsoleController
+        // （/api/system/ops/gates，始终注册），权限由后端驱动
+        // （menu_code=system:ops, permission=system:ops:read；菜单种子见 dml.sql id=1152）
+        path: 'system/ops',
+        name: 'opsConsole',
+        component: () => import('@/views/system/OpsConsoleView.vue'),
+        meta: { title: 'route.opsConsole', permission: 'system:ops:read' }
       }
     ]
   },

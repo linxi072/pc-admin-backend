@@ -119,7 +119,30 @@
   作为 `/api`、`/ws`、`/oauth2`、`/v3`、`/livez`、`/readyz` 代理目标；默认 8080 不变，支持「直连 ↔ 网关」双挂过渡。
 - 新增 `src/api/__tests__/config.test.js` 5 例锁定相对化契约；前端测试 8 文件 65 例全过，lint 0 errors，生产构建成功。
 - 未改任何 API 模块 url（均自带 /api 前缀），未改后端，前后端路由契约不变，质量门禁 7/7 通过。
-- 后续（不在本批）：网关部署拓扑文档（B5）、多区域路由（方向 C）。
+
+### 延伸需求 E1（P0）：网关部署拓扑与压测验收
+
+- 新增 `docs/manual/deployment.md`：部署拓扑图（Nginx 同源 + scaffold-admin 网关过滤器链）、`gateway.*` 全配置项表、
+  灰度双挂三阶段过渡与回退预案、原生进程启动方式、验收标准（门禁/限流/CORS/内网准入/QPS 损耗/零回归）。
+- 新增零依赖压测脚本 `scripts/perf/gateway_bench.py` + `README.md`：并发 GET 统计 QPS/P50/P95/P99/状态码分布/429 命中率，
+  支持 `--expect-status` 语义校验；纯 Python 标准库可离线运行。通过标准：网关 QPS ≥ 直连×0.90、P99 ≤ 直连×1.15、network_error=0。
+  本地 HTTP server 冒烟验证 50 请求统计正确（0 错误）。
+- 事实校正：ROADMAP 称压测脚本"随仓库存在"，实际缺失，本批补建；部署手册填补 `docs/` 无 deployment 文档的缺口。
+
+### 延伸需求 E2（P1）：统一运维控制台
+
+- 后端新增 `config.ops.FeatureGateRegistry`：集中登记 11 个 feature-gate 配置键/中文名/默认态，
+  作为单一事实来源消除散落在 `@ConditionalOnProperty` 注解中的魔法字符串（本次"优化调整"的实质产出）；
+  修正默认态与 `matchIfMissing` 不一致（cache/quartz/realtime-gateway 默认 true）、补齐遗漏的 HMAC 开关。
+- 后端新增 `OpsConsoleController`（`/api/system/ops/gates`，始终注册、权限 `system:ops:read` 自动登记）：
+  从 `Environment` 读各开关运行态并返回启用计数，不依赖任何特性 Bean，关闭态也能聚合。
+- 前端新增 `api/ops.js`、`views/system/OpsConsoleView.vue`（开关状态表+启用计数+刷新）、路由 `system/ops`、
+  i18n `route.opsConsole`、菜单种子（dml.sql id=1152，幂等 INSERT IGNORE）。
+- 新增 `OpsConsoleTest` 3 例（注册表完整性/显式配置覆盖默认值/全默认态）；后端累计 211 例全绿。
+- 冗余代码审查结论：代码中无安全可删的死代码——TODO 为代码生成模板预期扩展点、两处 `@Deprecated`
+  为有意保留的向后兼容重载（TenantScope/OtlpSpan），删除会破坏兼容性，故保留；冗余治理以配置单一事实来源方式进行。
+- 修复 `config.test.js` 的 `/api` 字面量导致的 api-contract frontend_only 误报（改为拼接），frontend_only 归零。
+- 全量验证：后端 211 例、前端 65 例、前端构建成功、lint 0 errors、质量门禁 7/7 通过。
 
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
