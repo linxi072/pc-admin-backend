@@ -752,6 +752,28 @@ CREATE TABLE `sys_form_definition` (
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 表单定义版本快照（E8 低代码深化）：发布时固化不可变 schema，支持回滚；version 为乐观锁，version_no 为业务版本号。
+CREATE TABLE `sys_form_definition_version` (
+    `id` BIGINT UNSIGNED NOT NULL,
+    `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `form_definition_id` BIGINT UNSIGNED NOT NULL,
+    `form_code` VARCHAR(64) NOT NULL,
+    `version_no` INT NOT NULL,
+    `form_name` VARCHAR(128) NOT NULL,
+    `schema_json` JSON NOT NULL,
+    `target_type` VARCHAR(32) NOT NULL DEFAULT 'NONE',
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+    `remark` VARCHAR(255) NULL,
+    `published` TINYINT(1) NOT NULL DEFAULT 0,
+    `version` BIGINT NOT NULL DEFAULT 0,
+    `deleted` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_by` VARCHAR(64) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_by` VARCHAR(64) NULL,
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    UNIQUE KEY `uk_form_version` (`tenant_id`, `form_definition_id`, `version_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE `sys_openapi_client` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,

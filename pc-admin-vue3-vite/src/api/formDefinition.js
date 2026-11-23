@@ -44,3 +44,22 @@ export const updateFormDefinition = (id, payload) =>
 /** 删除表单定义（逻辑删除）。 */
 export const deleteFormDefinition = (id) =>
   request({ method: 'DELETE', url: `/api/system/form-definitions/${id}` })
+
+// ---- 表单定义版本管理（E8 低代码深化）----
+// 权限：列表/差异 system:form-definition:read；发布/回滚 system:form-definition:update。
+
+/** 版本列表（按版本号升序）。 */
+export const listFormVersions = (id) =>
+  request({ method: 'GET', url: `/api/system/form-definitions/${id}/versions` })
+
+/** 发布当前定义为新版本快照。 */
+export const publishFormVersion = (id) =>
+  request({ method: 'POST', url: `/api/system/form-definitions/${id}/versions/publish` })
+
+/** 回滚到指定版本（生成新版本快照，不删除历史）。 */
+export const rollbackFormVersion = (id, versionNo) =>
+  request({ method: 'POST', url: `/api/system/form-definitions/${id}/versions/${versionNo}/rollback` })
+
+/** 两版本字段变更摘要（+新增 / -删除）。 */
+export const diffFormVersions = (id, from, to) =>
+  request({ method: 'GET', url: `/api/system/form-definitions/${id}/versions/diff`, params: { from, to } })

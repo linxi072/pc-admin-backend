@@ -330,6 +330,12 @@ public final class SqlTables {
             "id", "tenant_id", "form_definition_id", "form_code", "submitted_by",
             "data_json", "created_at", "updated_at", "version", "deleted");
 
+    /** 表单定义版本快照（E8 低代码深化）：每次发布固化一份不可变 schema，支持回滚。 */
+    public static final TableRef FORM_DEFINITION_VERSION = new TableRef("sys_form_definition_version",
+            "id", "tenant_id", "form_definition_id", "form_code", "version",
+            "form_name", "schema_json", "target_type", "enabled", "remark",
+            "published", "created_by", "created_at", "updated_by", "updated_at", "version_no", "deleted");
+
     // ---------------- 工作流扩展 ----------------
 
     public static final TableRef WF_DEFINITION_EXT = new TableRef("wf_definition_ext",

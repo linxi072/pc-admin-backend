@@ -39,9 +39,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="remark" :label="'备注'" min-width="160" show-overflow-tooltip />
-        <el-table-column :label="'操作'" width="160" fixed="right">
+        <el-table-column :label="'操作'" width="220" fixed="right">
           <template #default="{ row }">
             <el-button text type="primary" :icon="Edit" @click="openEdit(row)">{{ '编辑' }}</el-button>
+            <el-button text type="warning" @click="openVersions(row)">{{ '版本' }}</el-button>
             <el-button text type="danger" :icon="Delete" @click="onRemove(row)">{{ '删除' }}</el-button>
           </template>
         </el-table-column>
@@ -144,6 +145,43 @@
         <el-button type="primary" :loading="saving" @click="onSave">{{ '保存' }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- E8 版本管理：发布快照 / 回滚历史 / 字段差异 -->
+    <el-dialog v-model="versionVisible" :title="'版本管理 - ' + (versionForm?.formName || '')" width="760px">
+      <div class="version-toolbar">
+        <el-button type="primary" :icon="Upload" :loading="publishing" @click="onPublishVersion">{{ '发布当前版本' }}</el-button>
+        <span class="hint-inline">发布后固化当前 Schema 快照，可随时回滚</span>
+      </div>
+      <el-table :data="versions" v-loading="versionLoading" size="small" max-height="360">
+        <el-table-column prop="versionNo" :label="'版本号'" width="90" />
+        <el-table-column prop="formName" :label="'名称'" min-width="140" />
+        <el-table-column :label="'发布时间'" width="170">
+          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+        </el-table-column>
+        <el-table-column :label="'操作'" width="140" fixed="right">
+          <template #default="{ row }">
+            <el-button text type="warning" @click="onRollbackVersion(row)">{{ '回滚到此版' }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="diff-panel" v-if="versions.length >= 2">
+        <div class="diff-select">
+          <span>{{ '对比：' }}</span>
+          <el-select v-model="diffFrom" size="small" style="width: 110px">
+            <el-option v-for="v in versions" :key="v.versionNo" :label="'v' + v.versionNo" :value="v.versionNo" />
+          </el-select>
+          <span>{{ '→' }}</span>
+          <el-select v-model="diffTo" size="small" style="width: 110px">
+            <el-option v-for="v in versions" :key="v.versionNo" :label="'v' + v.versionNo" :value="v.versionNo" />
+          </el-select>
+          <el-button size="small" @click="onDiffVersion">{{ '查看差异' }}</el-button>
+        </div>
+        <ul v-if="diffResult.length" class="diff-list">
+          <li v-for="(d, i) in diffResult" :key="i">{{ d }}</li>
+        </ul>
+        <div v-else-if="diffLoaded" class="hint-inline">{{ '字段无变更' }}</div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -151,13 +189,17 @@
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, RefreshLeft, Edit, Delete, MagicStick, WarningFilled, CircleCheckFilled } from '@element-plus/icons-vue'
+import { Plus, RefreshLeft, Edit, Delete, Upload, MagicStick, WarningFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import {
   listFormDefinitions,
   getFormDefinition,
   createFormDefinition,
   updateFormDefinition,
-  deleteFormDefinition
+  deleteFormDefinition,
+  listFormVersions,
+  publishFormVersion,
+  rollbackFormVersion,
+  diffFormVersions
 } from '@/api/formDefinition'
 import DynamicForm from '@/components/DynamicForm.vue'
 import FormDesigner from '@/components/FormDesigner.vue'
@@ -171,6 +213,17 @@ const saving = ref(false)
 const editingId = ref(null)
 const previewFormRef = ref()
 const designMode = ref('design')
+
+// E8 版本管理状态
+const versionVisible = ref(false)
+const versionForm = ref(null)
+const versions = ref([])
+const versionLoading = ref(false)
+const publishing = ref(false)
+const diffFrom = ref(null)
+const diffTo = ref(null)
+const diffResult = ref([])
+const diffLoaded = ref(false)
 
 const schemaPlaceholder = computed(() =>
   JSON.stringify({
@@ -347,6 +400,62 @@ function onDialogClosed() {
   editingId.value = null
 }
 
+// E8 版本管理
+function formatTime(iso) {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleString('zh-CN', { hour12: false })
+}
+
+async function loadVersions() {
+  if (!versionForm.value) return
+  versionLoading.value = true
+  try {
+    versions.value = await listFormVersions(versionForm.value.id)
+    if (versions.value.length >= 2) {
+      diffFrom.value = versions.value[0].versionNo
+      diffTo.value = versions.value[versions.value.length - 1].versionNo
+    }
+  } finally {
+    versionLoading.value = false
+  }
+}
+
+function openVersions(row) {
+  versionForm.value = row
+  diffResult.value = []
+  diffLoaded.value = false
+  versionVisible.value = true
+  loadVersions()
+}
+
+async function onPublishVersion() {
+  publishing.value = true
+  try {
+    await publishFormVersion(versionForm.value.id)
+    ElMessage.success('版本已发布')
+    await loadVersions()
+  } finally {
+    publishing.value = false
+  }
+}
+
+async function onRollbackVersion(row) {
+  try {
+    await ElMessageBox.confirm(`回滚到 v${row.versionNo}？当前 Schema 将被该版本覆盖（历史版本保留）`, '确认', { type: 'warning' })
+  } catch { return }
+  await rollbackFormVersion(versionForm.value.id, row.versionNo)
+  ElMessage.success('已回滚，并生成新版本快照')
+  await loadVersions()
+}
+
+async function onDiffVersion() {
+  if (diffFrom.value == null || diffTo.value == null) return
+  diffResult.value = await diffFormVersions(versionForm.value.id, diffFrom.value, diffTo.value)
+  diffLoaded.value = true
+}
+
 onMounted(loadDefinitions)
 </script>
 
@@ -406,5 +515,35 @@ onMounted(loadDefinitions)
   padding: 1px 4px;
   border-radius: 4px;
   color: #606266;
+}
+.version-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.hint-inline {
+  font-size: 12px;
+  color: #a8abb2;
+}
+.diff-panel {
+  margin-top: 16px;
+  border-top: 1px solid #ebeef5;
+  padding-top: 12px;
+}
+.diff-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.diff-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.diff-list li:first-child {
+  color: #67c23a;
 }
 </style>

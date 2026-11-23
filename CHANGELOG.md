@@ -207,6 +207,22 @@
 - 演进接口：`ReplicationBus.ReplicationTarget` 函数式端口供外部 jar（Kafka 适配器）落地具体投递，
   框架本体保持零依赖。
 
+### 延伸需求 E8（P2）：低代码表单版本管理与发布流程（本批校正原题）
+
+- **缺口校正**：原题「新建 scaffold-lowcode 模块落库闭环」经审查确认已无缺口——表单定义/提交
+  落库（`sys_form_definition` / `sys_form_submission` DDL + CRUD + 渲染/提交全链路）与前端
+  `FormDefinitionView` / `FormSubmissionManageView` 早在 M22/V47 已完整实现；且新增模块会触发
+  门禁 D1（14 模块白名单）。故不重复造轮子，改做低代码方向真实缺口：**版本管理与发布流程**。
+- 新增 `sys_form_definition_version` 表（DDL + SqlTables 注册）：发布时固化不可变 Schema 快照，
+  `version` 乐观锁由框架自动填充、`version_no` 为业务版本号，租户内唯一。
+- 新增 `FormVersionRules` 纯函数（版本号分配/回滚判定/Schema diff 与等价判定）与
+  `FormVersionService`（发布、回滚写回主表并再发布、版本列表、字段差异）；
+  `FormVersionController` 提供 4 端点，权限沿用 `system:form-definition:read/update`（自动登记）。
+- 前端 `api/formDefinition.js` 增加版本接口；`FormDefinitionView` 增加「版本」按钮与版本管理对话框
+  （发布/回滚/双版本字段差异），写操作后委托主服务失效缓存，下发面不命中旧 Schema。
+- 新增 `FormVersionRulesTest` 4 例；后端累计 266 例、前端 67 例全绿；前端构建成功、lint 0 errors、
+  质量门禁 7/7 通过（backend 路由 378、frontend_only 0）。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18
