@@ -1,0 +1,41 @@
+{
+  "name": "@acme/admin-ui",
+  "version": "1.1.0",
+  "type": "module",
+  "description": "ACME 运营管理后台通用组件库（从 pc-admin-vue3-vite 抽取的零业务依赖组件），与 java-admin-framework V1.1.0 同版",
+  "main": "./dist/admin-ui.cjs",
+  "module": "./dist/admin-ui.js",
+  "exports": {
+    ".": {
+      "import": "./dist/admin-ui.js",
+      "require": "./dist/admin-ui.cjs"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.38",
+    "element-plus": "^2.8.4",
+    "@element-plus/icons-vue": "^2.3.1",
+    "echarts": "^5.5.1"
+  },
+  "devDependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "@vue/server-renderer": "^3.4.38",
+    "echarts": "^5.5.1",
+    "element-plus": "^2.8.4",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.9",
+    "vue": "^3.4.38"
+  }
+}

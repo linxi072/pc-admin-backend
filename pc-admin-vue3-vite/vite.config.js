@@ -3,11 +3,19 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 // Vite 标准配置：Vue 插件 + @ 别名 + 开发服务器代理（USE_MOCK=false 时转发 /api 到后端）
+// 默认走「源码直引」（pc-admin-ui/src，dev/test 免预构建）；
+// ACME_UI_PACKAGE=1 时切到「包引用」（file: 依赖 → dist，需先 npm run build:ui）。
+const useUiPackage = process.env.ACME_UI_PACKAGE === '1'
+const uiEntry = useUiPackage
+  ? new URL('../pc-admin-ui/dist/admin-ui.js', import.meta.url)
+  : new URL('../pc-admin-ui/src/index.js', import.meta.url)
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@acme/admin-ui': fileURLToPath(uiEntry)
     }
   },
   server: {

@@ -318,7 +318,8 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import BaseChart from '@/components/BaseChart.vue'
+// 组件库链路验证（A 验收④）：BaseChart 已迁入 @acme/admin-ui，从库包直引；交互行为不变。
+import { BaseChart } from '@acme/admin-ui'
 import {
   jobMeta, jobHandlers, jobPage,
   jobCreate, jobUpdate, jobStart, jobPause, jobDelete, jobLogs,
