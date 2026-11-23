@@ -29,6 +29,98 @@
   - 缺陷修复：`PostRules` 编码正则原拒绝中文（与「总经理-001 合法」的注释及调用预期矛盾），
     扩充 CJK 统一表意文字白名单，注释同步更新。
 
+### 代码审查专项 I：缺陷修复与正确性优化
+
+对 security / common / system / framework 核心模块做系统代码审查，修复以下经代码证据确认的缺陷（零新增依赖、向后兼容）：
+
+- **并发正确性**：`HeartbeatThrottle.tryAcquire` 原 `get→put` 非原子，并发同 key 可全部通过检查、重复写库，
+  与类注释「原子并发安全」矛盾；改用 `ConcurrentHashMap.compute` 原子化读-判-写，并发同 key 仅放行一次。
+- **整数溢出**：`ArithmeticRules.draw` 在极端 `mulMax`（乘法 `a*b`、除法 `b*q`）会 int 溢出产生负数答案，
+  且上界 ≤0 时 `nextInt(非正数)` 抛异常；入口新增上界安全钳制（加减去 Integer.MAX_VALUE/2、乘除到 46340）。
+- **内存有界性**：`ReplayNonceService.isReplay` 原仅在条目过期时淘汰，高频请求下全部未过期会突破 `maxSize`；
+  修复为清理过期后仍超限则淘汰最早过期项，缓存严格有界。
+- **窗口口径漂移**：`RedisRateLimiter.currentCount` 原写死 60s 窗口，与非 60s 限流窗口的观测口径不一致；
+  抽取 `RateLimitWindowRules` 纯规则统一窗口计算，Redis 记录最近窗口秒数供观测复用；
+  同时修复 `windowSeconds<=0` 时 `%0` 的 ArithmeticException。
+- **数据一致性**：`FileService.deleteOne` 原「先物理删除、后 DB 逻辑删除」，DB 异常回滚后会留下
+  「记录仍在、物理文件已丢失」；调换为先逻辑删除成功后删物理，最坏仅残留可清理的孤儿文件。
+- **副作用隐患**：`JsonTruncator.trimNode` 中名为 `copy` 的变量实为入参原引用，
+  `dropEmptyFields` 会就地改写入参；改用 `deepCopy()` 消除隐患。
+- 新增 4 测试类 / 17 例回归单测：`HeartbeatThrottleTest`、`ArithmeticRulesTest`、
+  `ReplayNonceServiceTest`、`RateLimitWindowRulesTest`。后端累计 167 例全绿，质量门禁 7/7 通过。
+  - 暂缓项（需业务确认，本批不改）：`SensitiveMasker` 身份证正则宽松（`X` 允许出现在后 4 位任意位置）
+    属 fail-safe 的有意设计；`CaptchaService.generate` 的 `synchronized` 为公开端点的有意为之的串行化，
+    列为性能关注点；`FileService.batchDelete` 循环内逐项 DB 调用属「部分成功」语义，改批量会改变契约。
+
+### 代码审查专项 II：framework/common/security 边界与并发修复
+
+延续专项审查，覆盖上一批未触及的 framework（测试盲区）、common 导入导出、security 规则类，修复 3 项经代码证据确认的缺陷：
+
+- **熔断器并发契约**：`CircuitBreaker.allowRequest` 在 HALF_OPEN 下无条件放行，冷却结束后并发请求可全部进入试探，
+  违背「仅放行一次试探」文档承诺且试探结果相互覆盖致状态抖动；新增 `halfOpenProbeInFlight` 标志，
+  HALF_OPEN 期间仅一个探针放行，成功 CLOSED / 失败 OPEN 时清除。
+- **锁定时长溢出**：`LockoutRules.computeDuration` 在极大 `maxDuration` 时 `seconds*2` 可 long 溢出为负，
+  且极大失败次数下循环空转；改为先钳制上界再按 `maxSeconds/2` 安全翻倍并触顶即停。
+- **时钟偏差溢出**：`ReplayProtectionRules.verifyTimestamp` 的 `Math.abs(client - server)` 在极端值下溢出为负，
+  使偏差判断失效而错误放行；改为按大小分支后用「较大减较小」无溢出比较。
+- 新增 3 测试类 / 9 例回归单测：`CircuitBreakerHalfOpenTest`、`LockoutRulesTest`、`ReplayProtectionRulesTest`。
+  后端累计 176 例全绿，质量门禁 7/7 通过。
+  - 审查无问题（本批不改）：`StatisticsCache` 降级与计数、`NPlusOneProbe` 归一化、`IdempotencyService` 独立事务、
+    `ImportCenterService` 逐行语义、`PagingRules` 溢出护栏、`NotificationQuietHoursRules` 跨午夜窗口
+    —— 均经核查有明确设计意图与边界处理。
+
+### 代码审查专项 III：notification/form/可观测规则修复
+
+延续专项审查，覆盖 notification / form / kafka / monitor / workflow / workbench 规则类与 framework 可观测盲区，修复 2 项缺陷并补强 1 处测试盲区：
+
+- **退避时长溢出**：`DeliveryRetryRules.backoffMs` 的 `baseMs*attempt` 在极端配置下 long 溢出为负，
+  被 `awaitBackoff` 视作 `<=0` 跳过等待、瞬时重试放大下游压力；改为除法预判溢出并钳到 Long.MAX_VALUE。
+- **选项白名单误放行**：`FormSubmissionRules.validateOption` 用 `String.valueOf(asText(null))` 建白名单，
+  选项缺 value 时产生字符串 "null" 字面量，导致提交字符串 "null" 被误判为合法选项；改为仅对真实 value 建白名单。
+- **framework 测试盲区补强**：为 `TraceContext`（W3C traceparent 纯函数）新增 4 例契约单测，
+  覆盖合法解析/非法降级/采样位/父子关系；该模块此前无任何单测。
+- 新增 3 测试类 / 14 例：`DeliveryRetryRulesTest`、`FormSubmissionRulesTest`、`TraceContextTest`。
+  后端累计 190 例全绿，质量门禁 7/7 通过。
+  - 审查无问题（本批不改）：`OrderingRules`（murmur2/保序）、`ClaimRules`、`WebhookSignatureRules`（HMAC 恒定时间验签）、
+    `AlertInboxRules`、`MaskStrategyRules`、`SmsRules`/`EmailRules`（注入防护）、
+    `ReportDrillRules`、`ChaosRegistry`、`DataSourceContextHolder`、`TraceContext` 解析逻辑
+    —— 均经核查边界处理与注释一致。
+
+### 方向 B 零依赖轻量网关前置层（PLATFORM-EVOLUTION-PLAN，feature-gate 默认关闭）
+
+在 `scaffold-framework` 新增 `config.gateway` 可插拔网关前置层，路线为「零依赖自研」（不引入 Spring Cloud Gateway，
+与 CircuitBreaker/OtlpExporter 同风格），默认关闭、零回归；未新建 Maven 模块以规避 `@SpringBootApplication`
+装配唯一性（H6）与 14 模块门禁白名单约束。
+
+- **B-R1 路由分类** `GatewayRouteRules`：URI 规范化（去查询串/压缩斜杠/忽略大小写）+ API/WS/ACTUATOR/OTHER 四类判定 +
+  actuator 内网准入（fail-closed，白名单空则拒绝）+ 限流适用性判定（仅 API/WS 计入）。
+- **B-R2 限流规则** `GatewayRateLimiter`/`GatewayWindowRules`：进程内固定窗口计数，口径对齐 InMemoryRateLimiter，
+  有界桶清理、并发 CAS 准确、非正窗口归一为 1s、非法输入 fail-closed。
+- **B-R3 CORS 规则** `GatewayCorsRules`：预检识别、来源白名单（大小写不敏感、通配、fail-closed）、Allow-Origin 回显。
+- **B-G1 网关过滤器** `GatewayFilter`：`@Order(HIGHEST+10)`，统一做内网准入→CORS 预检终结→全局限流短路，
+  统一 JSON 错误响应（code/message/data/traceId），限流器异常按 `failClosed` 处置；复用全局 `ClientIpResolver` 保证限流键与审计口径一致。
+- **B-P1 装配** `GatewayAutoConfiguration` + `GatewayProperties`：`@ConditionalOnProperty(gateway.enabled=true)` 门控，
+  默认全关，opt-in 启用；配置含限流阈值/窗口/fail-closed/CORS 白名单/内网网段。
+- 新增 4 测试类 / 18 例：路由 5、CORS 4、限流 5（含并发）、过滤器集成 4（准入/预检/限流短路）。
+  后端累计 208 例全绿，质量门禁 7/7 通过。
+- 后续（不在本批）：前端 base URL 相对化、网关部署拓扑文档、多区域路由（方向 C，依赖网关成熟）。
+
+### 方向 B4 前端 base URL 相对化（消除直连 host 配置）
+
+在 `pc-admin-vue3-vite` 落地 B4，把 API 基础路径显式收敛到环境配置并加防御护栏，默认行为零变化（仍为同源相对空串）：
+
+- **环境配置**：新增 `.env.development` / `.env.production`，显式声明 `VITE_API_BASE=`（同源相对）；
+  开发额外提供 `VITE_BACKEND_TARGET`（默认 `http://127.0.0.1:8080`，可切网关地址）。
+- **防御护栏** `resolveApiBase(raw)`（`src/api/config.js`）：纯函数，拒绝绝对/协议相对 URL（禁直连 host）、
+  拒绝 `/api` 及变体（避免 `/api/api` 双前缀 401）、保留安全相对子路径；`API_BASE` 由其归一化 env 值得到。
+  - 歧义说明：规划 B4 字面写「改为相对路径 /api」，但各 API 模块 url 已自带 /api，实测设 API_BASE='/api' 会全接口 401；
+    故按「同源相对（空串）+ 显式 env + 护栏」落地，语义与「消除直连 host」一致且不破坏功能。
+- **代理可配置**：`vite.config.js` 改为回调式 `defineConfig(({mode})=>({...}))`，用 `loadEnv` 读取 `VITE_BACKEND_TARGET`
+  作为 `/api`、`/ws`、`/oauth2`、`/v3`、`/livez`、`/readyz` 代理目标；默认 8080 不变，支持「直连 ↔ 网关」双挂过渡。
+- 新增 `src/api/__tests__/config.test.js` 5 例锁定相对化契约；前端测试 8 文件 65 例全过，lint 0 errors，生产构建成功。
+- 未改任何 API 模块 url（均自带 /api 前缀），未改后端，前后端路由契约不变，质量门禁 7/7 通过。
+- 后续（不在本批）：网关部署拓扑文档（B5）、多区域路由（方向 C）。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18

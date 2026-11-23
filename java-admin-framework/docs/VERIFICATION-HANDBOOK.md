@@ -160,6 +160,161 @@ python3 scripts/check-all.py   # 预期 EXIT=0
 > 注：JaCoCo 插件在离线仓库不可用，`mvn jacoco:report` 会报 `No plugin found for prefix 'jacoco'`；
 > 覆盖率数值以 CI（联网环境）的 coverage-gate 为准，本批不改其阈值。
 
+### 3.6c 代码审查专项：缺陷修复与正确性优化
+
+**验收标准**：新增 17 例（4 测试类）全过；后端累计 167 例全绿；质量门禁 7/7 通过。每项修复均由代码证据确认，并配回归单测锁定契约。
+
+| 缺陷 / 优化 | 生产类（模块） | 根因 | 修复后契约（改动前 → 改动后） | 回归测试 |
+|---|---|---|---|---|
+| 并发重复放行（写放大） | `HeartbeatThrottle`（security） | `get→put` check-then-act 非原子，并发同 key 全部通过检查 | 并发同 key 可多次返回 true → 仅一次 true（compute 原子读-判-写） | `HeartbeatThrottleTest` |
+| 整数溢出 / 非法参数 | `ArithmeticRules`（security） | 极端 mulMax 时 `a*b`、`b*q` int 溢出为负；上界≤0 抛 IllegalArgumentException | 负数答案/抛异常 → 上界钳制后答案恒正、算式自洽、非法归一为 1 | `ArithmeticRulesTest` |
+| 缓存上限突破 | `ReplayNonceService`（security） | 仅过期时淘汰，全未过期时无界增长 | size 可超 maxSize → 严格 ≤ maxSize（淘汰最早过期项） | `ReplayNonceServiceTest` |
+| 窗口口径漂移 / 除零 | `RedisRateLimiter` / `RateLimitWindowRules`（security） | currentCount 写死 60s；windowSeconds≤0 时 `%0` | 观测与实际窗口不一致/抛异常 → 统一规则、记录最近窗口、归一为 1s | `RateLimitWindowRulesTest` |
+| 删除数据不一致 | `FileService`（system） | 先物理删后 DB 删，DB 回滚后「记录存在但文件丢失」 | 可能的文件丢失 → 最坏仅残留可清理孤儿文件（先逻辑删后物理删） | （集成语义，代码审查 + 既有测试守护） |
+| 入参被改写隐患 | `JsonTruncator`（common） | `copy` 实为入参原引用，dropEmptyFields 就地改写 | 入参节点被修改 → deepCopy 后入参不变 | （既有审计测试守护） |
+
+**改动前后对比要点**：
+
+- 全部改动零新增依赖，方法签名与对外行为保持兼容（仅修复异常/错误路径与并发正确性）。
+- 未改项（需业务确认）：`SensitiveMasker` 身份证正则宽松属 fail-safe 有意设计；`CaptchaService.generate` 的 synchronized 为公开端点有意为之的串行化；`FileService.batchDelete` 逐项 DB 调用属「部分成功」语义，改批量会改变契约。
+
+```bash
+cd java-admin-framework
+mvn -q test    # 预期 167 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，7/7 通过
+```
+
+### 3.6d 代码审查专项 II：framework/common/security 边界与并发修复
+
+**验收标准**：新增 9 例（3 测试类）全过；后端累计 176 例全绿；质量门禁 7/7 通过。
+
+| 缺陷 | 生产类（模块） | 根因 | 修复后契约（改动前 → 改动后） | 回归测试 |
+|---|---|---|---|---|
+| HALF_OPEN 并发多放行 | `CircuitBreaker`（common） | `allowRequest` 在 HALF_OPEN 无条件 true，并发探针全部进入、结果互相覆盖 | 冷却后 n 个请求全部试探 → 仅一个探针放行，其余快速失败 | `CircuitBreakerHalfOpenTest` |
+| 锁定时长溢出/空转 | `LockoutRules`（security） | 极大 maxDuration 时 `seconds*2` long 溢出为负，极大失败次数循环空转 | 可能为负时长 → 先钳制上界再安全翻倍、触顶即停、恒非负 | `LockoutRulesTest` |
+| 时钟偏差溢出 | `ReplayProtectionRules`（security） | `Math.abs(client-server)` 极端值溢出为负，偏差判断失效 | 极端偏差被错误放行 → 按大小分支用无溢出差值判定 | `ReplayProtectionRulesTest` |
+
+**改动前后对比要点**：
+
+- 三处均为异常路径/并发正确性修复，正常路径行为不变，方法签名与对外契约兼容。
+- `CircuitBreaker` 新增 `halfOpenProbeInFlight` 标志，仅在 HALF_OPEN 期间生效，成功/失败/复位三条出口均清除，不影响 CLOSED 无限放行与 OPEN 快速失败语义。
+- 经审查确认无问题、本批不改：`StatisticsCache`（降级与计数）、`NPlusOneProbe`（归一化）、`IdempotencyService`（独立事务）、`ImportCenterService`（逐行语义）、`PagingRules`（溢出护栏）、`NotificationQuietHoursRules`（跨午夜窗口）。
+
+```bash
+cd java-admin-framework
+mvn -q test    # 预期 176 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，7/7 通过
+```
+
+### 3.6e 代码审查专项 III：notification/form/可观测修复与盲区补强
+
+**验收标准**：新增 14 例（3 测试类）全过；后端累计 190 例全绿；质量门禁 7/7 通过。
+
+| 缺陷/盲区 | 生产类（模块） | 根因 | 修复后契约（改动前 → 改动后） | 回归测试 |
+|---|---|---|---|---|
+| 退避时长溢出 | `DeliveryRetryRules`（system） | `baseMs*attempt` 极端配置下 long 溢出为负，被 awaitBackoff 视作 <=0 跳过等待 | 溢出负值致瞬时重试 → 钳到 Long.MAX_VALUE，退避恒非负 | `DeliveryRetryRulesTest` |
+| 选项白名单误放行 | `FormSubmissionRules`（system） | `String.valueOf(asText(null))` 把缺失 value 变成字符串 "null" 混入白名单 | 提交字符串 "null" 被误判合法 → 仅为真实 value 建白名单 | `FormSubmissionRulesTest` |
+| 测试盲区补强 | `TraceContext`（framework） | framework 模块此前无任何单测，W3C traceparent 解析契约无回归守护 | 无覆盖 → 4 例覆盖合法解析/非法降级/采样位/父子关系 | `TraceContextTest` |
+
+**改动前后对比要点**：
+
+- 两处均为异常/边界路径修复，正常路径行为不变，方法签名与对外契约兼容。
+- `TraceContext` 仅新增测试，未改生产代码；确认其解析、全零拒绝、采样位与父子 span 语义符合 W3C 规范。
+- 经审查确认无问题、本批不改：`OrderingRules`、`ClaimRules`、`WebhookSignatureRules`、`AlertInboxRules`、
+  `MaskStrategyRules`、`SmsRules`/`EmailRules`、`ReportDrillRules`、`ChaosRegistry`、`DataSourceContextHolder`。
+
+```bash
+cd java-admin-framework
+mvn -q test    # 预期 190 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，7/7 通过
+```
+
+### 3.6f 方向 B 零依赖轻量网关前置层（feature-gate 默认关闭）
+
+**功能范围与优先级**（承接 PLATFORM-EVOLUTION-PLAN 方向 B）：
+
+| 优先级 | 功能 | 输入 → 输出 | 边界 / 异常处理 | 集成约定 |
+|---|---|---|---|---|
+| P0 | B-R1 路由分类 | URI → API/WS/ACTUATOR/OTHER + 是否限流 + actuator 准入 | null/空/查询串/大小写/重复斜杠；白名单空 fail-closed | 纯函数，过滤器复用 |
+| P0 | B-R2 限流 | key+max+window → 放行/拒绝 | max≤0 拒绝；窗口≤0 归一 1s；key 空拒绝；并发 CAS | 口径对齐 InMemoryRateLimiter |
+| P0 | B-G1 前置过滤器 | 请求 → 透传/403/429 短路 | 默认关闭；限流异常按 failClosed；错误响应统一 JSON | `@Order(HIGHEST+10)`，鉴权前 |
+| P1 | B-R3 CORS | origin/method → 预检终结/Allow-Origin | 大小写不敏感/通配/白名单空拒绝 | 纯函数 |
+| P1 | B-P1 装配 | `gateway.*` → Bean | 默认关闭，opt-in | `@ConditionalOnProperty` |
+
+**验收标准**：新增 4 测试类 / 18 例全过；后端累计 208 例全绿；质量门禁 7/7 通过。
+
+| 测试类 | 覆盖契约 |
+|---|---|
+| `GatewayRouteRulesTest` | 四类路由、URI 规范化、限流适用性、actuator 内网准入 fail-closed |
+| `GatewayCorsRulesTest` | 预检识别、来源白名单（大小写/通配）、Allow-Origin 回显、非法拒绝 |
+| `GatewayRateLimiterTest` | 固定窗口计数/重置、key 隔离、非法输入、非正窗口归一、并发不超上限 |
+| `GatewayFilterTest` | actuator 公网拒绝/内网放行、CORS 预检终结、限流 429 短路（无真实容器） |
+
+**关键逻辑与前后对比**：
+
+- **默认零回归**：`gateway.enabled=false`（默认）→ 不注册 `GatewayFilter` Bean，链路与旧版完全一致；此前无网关能力 → 置 true 后启用准入/限流/CORS。
+- **限流键口径一致**：注入全局 `ClientIpResolver`，网关限流键 = 后端审计 IP，避免「按 A 限流、按 B 审计」错位。
+- **内网准入 fail-closed**：actuator 白名单为空或 IP 为空 → 拒绝；非 actuator 不受限。
+- **预检终结**：合法来源的 OPTIONS 由网关直接回 204 并写 CORS 头，不转发业务；非法来源 403。
+- **错误响应同形**：`{"code","message","data":null,"traceId"}`，与 `Result` 契约一致；traceId 做转义防注入。
+- **无新增 Maven 模块**：落在 `scaffold-framework/config/gateway`，规避 H6 装配唯一性与 14 模块门禁白名单约束；零外部依赖。
+
+**opt-in 配置示例**（写入 `application-prod.yml`，仅在需要网关前置层时开启）：
+
+```yaml
+gateway:
+  enabled: true
+  rate-limit-max: 120          # 单 IP 每窗口最大请求数；<=0 关闭限流
+  rate-limit-window-seconds: 60
+  fail-closed: true            # 限流器异常时拒绝
+  allowed-origins:             # 为空则不处理 CORS
+    - https://admin.example.com
+  internal-cidrs:              # actuator 内网网段前缀
+    - 127.
+    - 10.
+    - 192.168.
+```
+
+**后续（不在本批）**：前端 base URL 相对化、网关部署拓扑文档、多区域路由（方向 C，依赖网关成熟）。
+
+```bash
+cd java-admin-framework
+mvn -q test    # 预期 208 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，7/7 通过
+```
+
+### 3.6g 方向 B4 前端 base URL 相对化
+
+**目标**：消除直连后端 host 配置，API 基础路径统一为同源相对；默认行为零变化（空串），与轻量网关「双挂过渡」兼容。项目位置 `pc-admin-vue3-vite`。
+
+**歧义澄清**：规划 B4 字面写「base URL 改为相对路径 `/api`」，但各 API 模块 url 已自带 `/api` 前缀，实测 `API_BASE='/api'` 会拼出 `/api/api/...` 导致全接口 401；故按「同源相对（空串）+ 显式 env 配置 + 防御护栏」落地，语义与「消除直连 host」一致且不破坏功能。
+
+| 改动 | 文件 | 改动前 → 改动后 | 验证 |
+|---|---|---|---|
+| 环境配置 | `.env.development` / `.env.production`（新增） | 无 env 文件、base 靠注释约定 → 显式 `VITE_API_BASE=`（空=同源相对），dev 另有 `VITE_BACKEND_TARGET` | 构建读取正常 |
+| 相对化护栏 | `src/api/config.js` | 硬编码 `API_BASE=''` → `resolveApiBase(raw)` 纯函数 + env 驱动 `API_BASE` | `config.test.js` 5 例 |
+| 代理可配置 | `vite.config.js` | `defineConfig({...})` 代理目标硬编码 8080 → 回调式 `loadEnv` 读取 `VITE_BACKEND_TARGET`，默认仍 8080 | 生产构建成功 |
+| 测试 | `src/api/__tests__/config.test.js`（新增） | 无 → 5 例锁定相对化契约 | 前端 8 文件 65 例全过 |
+
+**护栏契约**（`resolveApiBase`）：
+
+- null/undefined/空白/非字符串 → `''`；绝对 URL（`http(s)://`）与协议相对（`//`）→ `''`（禁直连 host）；
+- `/api` 及 `/api/`、`/API` → `''`（避免 `/api/api` 双前缀 401）；
+- 安全相对子路径（如 `/console`、`/gateway/`）→ 去尾斜杠后保留（支持网关子路径部署）。
+
+**集成约定**：未改任何 API 模块 url（均自带 `/api`）、未改后端、前后端路由契约不变；dev 代理 `VITE_BACKEND_TARGET` 默认 8080，切网关只改 env，前端请求路径不变，实现「直连 ↔ 网关」双挂过渡。
+
+```bash
+cd pc-admin-vue3-vite
+npm run lint    # 预期 0 errors（历史 warnings 为非本批）
+npm test        # 预期 8 文件 / 65 例全过
+npm run build   # 预期 built in ~13s，产物完整
+cd ../java-admin-framework
+python3 scripts/check-all.py   # 预期 EXIT=0，7/7 通过（前端路由未改，api-contract 不受影响）
+```
+
+**后续（不在本批）**：网关部署拓扑文档（B5）、多区域路由（方向 C）。
+
 ---
 
 ## 3.7 组件库 @acme/admin-ui（V1.2 方向 A）
