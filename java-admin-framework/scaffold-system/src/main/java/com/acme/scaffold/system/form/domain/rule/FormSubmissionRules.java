@@ -145,9 +145,16 @@ public final class FormSubmissionRules {
         }
         Set<String> allowed = new HashSet<>();
         for (JsonNode o : options) {
-            allowed.add(String.valueOf(o.path("value").asText(null)));
+            JsonNode valueNode = o.path("value");
+            // 仅对真实存在的选项值建白名单：缺 value 的选项不得产生 "null" 字面量
+            // （原实现 String.valueOf(asText(null)) 会把缺失值变成字符串 "null"，
+            //  导致提交字符串 "null" 时误判为合法选项）。
+            if (!valueNode.isMissingNode() && !valueNode.isNull()) {
+                allowed.add(valueNode.asText());
+            }
         }
-        if (!allowed.contains(String.valueOf(value))) {
+        String submitted = value instanceof String s ? s : String.valueOf(value);
+        if (!allowed.contains(submitted)) {
             errors.add(label + "取值非法");
         }
         return errors;

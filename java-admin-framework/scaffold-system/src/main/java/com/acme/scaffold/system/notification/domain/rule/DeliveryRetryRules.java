@@ -35,7 +35,11 @@ public final class DeliveryRetryRules {
      * {@code (maxAttempts-1) × baseMs}，调用方超时预算可精确覆盖。</p>
      */
     public static long backoffMs(int attempt, long baseMs) {
-        return Math.max(0, baseMs) * Math.max(1, attempt);
+        long base = Math.max(0, baseMs);
+        int times = Math.max(1, attempt);
+        // 溢出防护：base*times 超过 Long.MAX_VALUE 时钳到上限，
+        // 避免溢出为负被 awaitBackoff 视作 <=0 而跳过退避（瞬时重试放大下游压力）。
+        return base > Long.MAX_VALUE / times ? Long.MAX_VALUE : base * times;
     }
 
     /** 重试次数硬上界：防止 maxAttempts 误配极大值导致持续重试、拖垮线程（P0-3）。 */

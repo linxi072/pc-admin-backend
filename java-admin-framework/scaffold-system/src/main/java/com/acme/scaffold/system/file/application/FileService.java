@@ -246,12 +246,17 @@ public class FileService {
         long refCount = SqlWriters.count(dsl, FILE, DSL.and(
                 SqlWriters.notDeleted(FILE),
                 SqlTables.SYS_FILE.field("stored_name", String.class).eq(record.getStoredName())));
-        if (FileDedupRules.shouldDeletePhysical(refCount)) {
+        boolean deletePhysical = FileDedupRules.shouldDeletePhysical(refCount);
+        // 一致性修复：先做 DB 逻辑删除、成功后再删物理文件。
+        // 原顺序「先物理删除、后 DB 删除」在 DB 抛异常（单删路径事务回滚）时会留下
+        // 「记录仍在、物理文件已丢失」的不一致；调换后最坏仅是物理删除失败残留孤儿文件
+        // （fileStorageService.delete 吞 IOException 仅告警），可由运维清理，不损坏数据可见性。
+        SqlWriters.delete(dsl, FILE, id, true);
+        if (deletePhysical) {
             fileStorageService.delete(record.getStoredName());
         } else {
             log.info("物理文件被 {} 条记录共享，保留磁盘文件 storedName={}", refCount, record.getStoredName());
         }
-        SqlWriters.delete(dsl, FILE, id, true);
     }
 
     /**
