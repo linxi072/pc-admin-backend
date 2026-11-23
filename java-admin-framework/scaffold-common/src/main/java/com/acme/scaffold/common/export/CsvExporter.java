@@ -94,7 +94,7 @@ public final class CsvExporter {
      *
      * <p>例外：{@code -5}、{@code +3.14} 这类合法数值不中和，避免数值列被整体转成文本。</p>
      */
-    private static String neutralizeFormula(String value) {
+    static String neutralizeFormula(String value) {
         if (value.isEmpty()) {
             return value;
         }

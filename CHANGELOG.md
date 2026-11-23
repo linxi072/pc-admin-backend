@@ -157,6 +157,25 @@
 - 新增 `FileStorageRouterTest` 3 例（无远端回退/本地后端保持/远端切换与逻辑 URI）；后端累计 214 例全绿，门禁 7/7。
 - 部署手册新增 §2.5 文件存储后端配置说明。
 
+### 延伸需求 E5（P1）：导出能力深化（PDF + 异步大文件）
+
+- **现状盘点**：CSV/XLSX 双格式与统一导出中心已实现（纯 Java、零 POI），但 PDF 完全缺失且无任何 PDF 库、
+  `downloadAsync` 线程池就绪却无端点接入、导出测试完全空白——本批补齐这三处真实缺口。
+- **零依赖 PDF 导出**：新增 `PdfExporter`（PDF 1.4 对象表 + xref + Adobe-GB1 标准 CJK 字体
+  `STSong-Light`/`UniGB-UCS2-H`，中英混排、A4 分页、表头重复、列宽自适应、公式注入防护），
+  不引入 iText/PDFBox；`ExportFormat` 增加 `PDF`，`ExportTask` 增加 `pdf()`/`supportsPdf()`，
+  `ExportCenterService` 三格式分流并对单表结构复用行数上限校验。
+- **异步大文件导出**：新增 `ExportJob`（状态快照）、`ExportJobStore`（ConcurrentHashMap + TTL 惰性清理，
+  不新增线程）、`ExportJobService`（提交即返回、后台执行、产物经 E4 的 `FileStorageRouter` 落盘）
+  与 `ByteArrayMultipartFile`（生产代码不依赖 spring-test）；`ExportController` 新增
+  `POST /jobs`、`GET /jobs/{jobId}`、`GET /jobs/{jobId}/download` 三端点，权限沿用 `system:export:read`。
+- **前端适配**：`api/export.js` 增加异步任务三接口；模板中心按后端 `formats` 显隐 PDF 按钮，
+  异步轮询 1s 自动下载产物（5 分钟超时与失败提示）；同步 CSV/XLSX 路径零回归。
+- **测试补齐**：新增 `PdfExporterTest`（结构/xref/分页/中文编码/转义）、`ExportCenterServiceTest`
+  （三格式清单/PDF 字节/多段降级）、`ExportJobServiceTest`（提交落盘/失败降级/未知任务）、
+  前端 `export.test.js`（API 契约）。后端累计 224 例、前端 67 例全绿；前端构建成功；
+  质量门禁 7/7 通过（frontend_only 0）。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18

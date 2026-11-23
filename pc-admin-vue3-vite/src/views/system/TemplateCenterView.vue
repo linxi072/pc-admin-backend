@@ -89,6 +89,13 @@
                   :loading="exporting === row.code + ':XLSX'"
                   @click="onExport(row, 'XLSX')"
                 >{{ '导出 XLSX' }}</el-button>
+                <el-button
+                  v-if="supportsPdf(row)"
+                  type="warning"
+                  :icon="Download"
+                  :loading="exporting === row.code + ':PDF'"
+                  @click="onExport(row, 'PDF', true)"
+                >{{ '导出 PDF（异步）' }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -238,7 +245,13 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Download, Upload, UploadFilled, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { listExportTemplates, downloadExport } from '@/api/export'
+import {
+  listExportTemplates,
+  downloadExport,
+  submitExportJob,
+  getExportJob,
+  downloadExportJob
+} from '@/api/export'
 import {
   listImportTemplates,
   downloadImportTemplate,
@@ -335,17 +348,58 @@ function supportsXlsx(row) {
   return Array.isArray(row.formats) ? row.formats.includes('XLSX') : false
 }
 
+/** 模板是否支持 PDF（E5：单表结构默认支持，多段结构需后端覆写 pdf）。 */
+function supportsPdf(row) {
+  return Array.isArray(row.formats) ? row.formats.includes('PDF') : false
+}
+
+const extensionOf = (format) => (format === 'XLSX' ? 'xlsx' : format === 'PDF' ? 'pdf' : 'csv')
+
+/** 异步导出轮询：提交任务后每 1s 查状态，终态自动下载产物（最多 5 分钟）。 */
+async function onAsyncExport(row, format) {
+  const jobId = await submitExportJob(buildParams(row, format))
+  const notification = ElMessage({
+    type: 'info',
+    message: '导出任务已提交，正在后台生成…',
+    duration: 0
+  })
+  const deadline = Date.now() + 5 * 60 * 1000
+  try {
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const job = await getExportJob(jobId)
+      if (job.status === 'SUCCEEDED') {
+        const resp = await downloadExportJob(jobId)
+        const ok = await saveBlobFromResponse(
+          resp,
+          row.fileName || 'export',
+          extensionOf(format),
+          '导出失败'
+        )
+        if (ok) ElMessage.success('导出成功')
+        return
+      }
+      if (job.status === 'FAILED') {
+        ElMessage.error('导出失败：' + (job.error || '未知错误'))
+        return
+      }
+    }
+    ElMessage.warning('导出任务超时，请在稍后按任务 ID 查询结果')
+  } finally {
+    notification.close()
+  }
+}
+
 /** 导出：Blob 处理统一走 utils/download（业务错误 JSON 已在其中提示）。 */
-async function onExport(row, format = 'CSV') {
+async function onExport(row, format = 'CSV', asyncMode = false) {
   exporting.value = `${row.code}:${format}`
   try {
+    if (asyncMode) {
+      await onAsyncExport(row, format)
+      return
+    }
     const resp = await downloadExport(buildParams(row, format))
-    const ok = await saveBlobFromResponse(
-      resp,
-      row.fileName || 'export',
-      format === 'XLSX' ? 'xlsx' : 'csv',
-      '导出失败'
-    )
+    const ok = await saveBlobFromResponse(resp, row.fileName || 'export', extensionOf(format), '导出失败')
     if (ok) ElMessage.success('导出成功')
   } catch (e) {
     // 响应拦截器已弹错误提示

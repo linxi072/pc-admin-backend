@@ -3,8 +3,10 @@ package com.acme.scaffold.system.export.api;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.export.ExportFormat;
-import com.acme.scaffold.system.export.application.ExportCenterService.ExportedFile;
 import com.acme.scaffold.system.export.application.ExportCenterService;
+import com.acme.scaffold.system.export.application.ExportJob;
+import com.acme.scaffold.system.export.application.ExportJobService;
+import com.acme.scaffold.system.export.application.ExportCenterService.ExportedFile;
 import com.acme.scaffold.system.export.dto.ExportTemplateView;
 import com.acme.scaffold.system.support.FileResponseSupport;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,6 +46,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ExportController {
 
     private final ExportCenterService exportCenterService;
+    private final ExportJobService exportJobService;
 
     @Operation(summary = "导出模板列表（导出中心可触发的全部模板及其支持格式）")
     @GetMapping("/templates")
@@ -56,6 +61,28 @@ public class ExportController {
     @AuditOperation(module = "export", type = "READ", name = "导出数据")
     public ResponseEntity<byte[]> download(@RequestParam Map<String, String> allParams) {
         ExportedFile file = exportCenterService.download(allParams);
+        return fileResponse(file.body(), file.fileName(), file.format());
+    }
+
+    @Operation(summary = "提交异步导出任务（大文件推荐，返回任务 ID 供轮询）")
+    @PostMapping("/jobs")
+    @PreAuthorize("hasAuthority('system:export:read')")
+    public Result<String> submitJob(@RequestParam Map<String, String> allParams) {
+        return Result.success(exportJobService.submit(allParams));
+    }
+
+    @Operation(summary = "查询异步导出任务状态")
+    @GetMapping("/jobs/{jobId}")
+    @PreAuthorize("hasAuthority('system:export:read')")
+    public Result<ExportJob> jobStatus(@PathVariable String jobId) {
+        return Result.success(exportJobService.status(jobId));
+    }
+
+    @Operation(summary = "下载异步导出产物（任务 SUCCEEDED 后可调用）")
+    @GetMapping("/jobs/{jobId}/download")
+    @PreAuthorize("hasAuthority('system:export:read')")
+    public ResponseEntity<byte[]> downloadJob(@PathVariable String jobId) {
+        ExportedFile file = exportJobService.result(jobId);
         return fileResponse(file.body(), file.fileName(), file.format());
     }
 

@@ -10,3 +10,13 @@ export const listExportTemplates = () =>
 // 调用方须按 FileManagementView 范式防御式处理（区分 Blob 与错误 JSON）。
 export const downloadExport = (params) =>
   requestRaw({ method: 'GET', url: '/api/system/export/download', params, responseType: 'blob' })
+
+// E5 异步导出：提交任务 -> 轮询状态 -> 下载产物（大文件避免长连接占用）
+export const submitExportJob = (params) =>
+  request({ method: 'POST', url: '/api/system/export/jobs', params })
+
+export const getExportJob = (jobId) =>
+  request({ method: 'GET', url: `/api/system/export/jobs/${jobId}` })
+
+export const downloadExportJob = (jobId) =>
+  requestRaw({ method: 'GET', url: `/api/system/export/jobs/${jobId}/download`, responseType: 'blob' })

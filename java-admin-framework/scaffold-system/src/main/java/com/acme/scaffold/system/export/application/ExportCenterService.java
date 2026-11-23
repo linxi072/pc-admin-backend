@@ -5,6 +5,7 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.CsvExporter;
 import com.acme.scaffold.common.export.ExportFormat;
 import com.acme.scaffold.common.export.ExportTask;
+import com.acme.scaffold.common.export.PdfExporter;
 import com.acme.scaffold.common.export.XlsxDataExporter;
 import com.acme.scaffold.common.export.XlsxSheet;
 import com.acme.scaffold.system.export.config.ExportProperties;
@@ -95,7 +96,11 @@ public class ExportCenterService {
             }
         });
 
-        byte[] body = (format == ExportFormat.CSV) ? toCsv(task, params) : toXlsx(task, params);
+        byte[] body = switch (format) {
+            case CSV -> toCsv(task, params);
+            case XLSX -> toXlsx(task, params);
+            case PDF -> toPdf(task, params);
+        };
         return new ExportedFile(body, task.fileName(), format);
     }
 
@@ -145,6 +150,21 @@ public class ExportCenterService {
     }
 
     /**
+     * 生成 PDF 字节（E5）。单表结构取一次数据行并校验行数上限后经 {@link PdfExporter} 写出；
+     * 多段结构（headers 为空）委托模板自产 {@link ExportTask#pdf(Map)}，未覆写则拒绝。
+     */
+    private byte[] toPdf(ExportTask task, Map<String, String> params) {
+        if (!task.headers().isEmpty()) {
+            return PdfExporter.export(task.headers(), loadSingleTableRows(task, params), task.displayName());
+        }
+        if (!task.supportsPdf()) {
+            throw BusinessException.badRequest(
+                    "模板「" + task.code() + "」未提供 PDF 导出能力，请改用 CSV/XLSX 导出");
+        }
+        return task.pdf(params);
+    }
+
+    /**
      * 单表结构（{@code headers()} 非空）取一次数据行并完成行数上限校验（F3 缓解措施，
      * 避免单次导出堆内物化过量）。校验不通过的拒绝由 {@link #assertWithinMaxRows(int)} 统一抛出。
      * 多段结构（报表）由模板自产字节，不受本方法约束。
@@ -167,9 +187,17 @@ public class ExportCenterService {
         }
     }
 
-    /** 支持 XLSX 与否由模板声明（单表结构默认支持；多段结构提供 xlsxSheets 后支持）。 */
+    /** 支持格式由模板声明：CSV 恒定支持；XLSX/PDF 由模板各自声明（单表结构默认均支持）。 */
     private static List<String> supportedFormats(ExportTask task) {
-        return task.supportsXlsx() ? List.of("CSV", "XLSX") : List.of("CSV");
+        List<String> formats = new java.util.ArrayList<>();
+        formats.add("CSV");
+        if (task.supportsXlsx()) {
+            formats.add("XLSX");
+        }
+        if (task.supportsPdf()) {
+            formats.add("PDF");
+        }
+        return List.copyOf(formats);
     }
 
     private static String blankToNull(String s) {

@@ -38,3 +38,24 @@ python3 gateway_bench.py --url http://127.0.0.1:8080/actuator/health \
 
 > 说明：脚本统计的是端到端 HTTP 行为。QPS 损耗对比须在相同机器、相同后端实例、
 > 相同 warmup 条件下进行（建议各先跑 200 请求预热），排除网络与冷启动噪声。
+
+## export_bench.py（E5 导出产物结构校验）
+
+纯标准库 PDF 结构校验（非渲染），验证 `PdfExporter` 产物合法性：头/尾、Catalog、CID 字体声明、
+xref 偏移精准、对象数 = 6 + 2×页数（Catalog/Pages/4 字体 + 每页 Page/Contents 各一）。
+
+```bash
+# 先用单测或临时程序导出 PDF 到 /tmp/e5-demo.pdf，再校验
+python3 export_bench.py --pdf /tmp/e5-demo.pdf --expect-pages 1 --out /tmp/e5-pdf.json
+```
+
+| 维度 | 范围 | 通过标准 |
+|---|---|---|
+| PDF 结构 | 头 `%PDF-1.4` / 尾 `%%EOF` / Catalog / CID 字体 | 全部存在 |
+| xref 完整性 | `startxref` 偏移指向真实 `xref` | 偏移有效且目标为 `xref` |
+| 对象一致性 | Page 数 N 时对象数应为 6+2N | 计数相等 |
+| 中文支持 | STSong-Light + UniGB-UCS2-H 声明 | 两项均在产物中 |
+| 分页 | `--expect-pages` 指定时期望页数 | 实际页数一致 |
+
+> 性能口径：PdfExporter 为纯内存拼装（O(行数×列数)），单页 A4 约 42 行；大文件走异步导出
+> （`ExportJobService`）避免占用 HTTP 请求线程，产物经 `FileStoragePort` 落盘，重复下载不重新生成。

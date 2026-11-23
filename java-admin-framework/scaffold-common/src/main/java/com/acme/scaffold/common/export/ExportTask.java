@@ -78,4 +78,22 @@ public interface ExportTask {
     default boolean supportsXlsx() {
         return !headers().isEmpty();
     }
+
+    /**
+     * PDF 表格导出（E5）：默认「headers + rows 单表」走 {@link PdfExporter}。
+     *
+     * <p>多段结构模板（{@link #headers()} 为空）可覆写本方法自产字节并同步覆写
+     * {@link #supportsPdf()} 为 {@code true}；否则默认不支持 PDF（避免在 PDF 中丢掉分段结构）。</p>
+     *
+     * @param params 前端透传的筛选参数（与 {@link #rows(Map)} 同源）
+     * @return PDF 字节内容
+     */
+    default byte[] pdf(Map<String, String> params) {
+        return PdfExporter.export(headers(), rows(params));
+    }
+
+    /** 是否支持 PDF 格式，默认仅单表结构支持（决定前端按钮显隐）。 */
+    default boolean supportsPdf() {
+        return !headers().isEmpty();
+    }
 }
