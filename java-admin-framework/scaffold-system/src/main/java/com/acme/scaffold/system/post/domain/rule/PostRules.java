@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
  * 岗位管理纯函数规则：编码形态校验、字段规范化、用户岗位集合归一。
  *
  * <p>无副作用、不依赖 Spring 上下文，可直接离线单测；供
- * {@code PostService} 在写入前调用。编码约束从宽（字母/数字/下划线/连字符）——
+ * {@code PostService} 在写入前调用。编码约束从宽（中文/字母/数字/下划线/连字符）——
  * 既避免把「总经理-001」这类常见编码误判为非法，又挡住空白与控制字符注入。
  */
 public final class PostRules {
@@ -18,8 +18,9 @@ public final class PostRules {
     /** 单个用户最多可兼任的岗位数（与 AssignUserPostsRequest 的 @Size 上限保持一致）。 */
     public static final int MAX_USER_POSTS = 10;
 
-    /** 编码允许字符：字母、数字、下划线、连字符（trim 后整体匹配）。 */
-    private static final Pattern CODE = Pattern.compile("^[A-Za-z0-9_-]+$");
+    /** 编码允许字符：中文、字母、数字、下划线、连字符（trim 后整体匹配）。
+     *  中文纳入白名单以覆盖「总经理-001」这类常见中文岗位编码（与类注释及调用方预期一致）。 */
+    private static final Pattern CODE = Pattern.compile("^[\\u4e00-\\u9fffA-Za-z0-9_-]+$");
 
     private PostRules() {
     }
@@ -33,7 +34,7 @@ public final class PostRules {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    /** 编码形态校验（trim 后）：非空且仅含字母/数字/下划线/连字符。 */
+    /** 编码形态校验（trim 后）：非空且仅含中文/字母/数字/下划线/连字符。 */
     public static boolean isValidCode(String code) {
         String normalized = normalizeCode(code);
         return normalized != null && CODE.matcher(normalized).matches();
