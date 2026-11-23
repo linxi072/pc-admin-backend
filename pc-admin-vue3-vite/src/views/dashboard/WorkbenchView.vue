@@ -117,7 +117,7 @@ import { useRouter } from 'vue-router'
 import { CircleCheck, CircleClose, DataAnalysis, Timer } from '@element-plus/icons-vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
 import { workbenchStats, recentActivities } from '@/api/workbench'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 const router = useRouter()
 const loading = ref(false)

@@ -111,7 +111,7 @@ import { ref, computed, onMounted } from 'vue'
 import BaseChart from '@/components/BaseChart.vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
 import { dashboardOverview, dashboardTrend } from '@/api/dashboard'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 // 图表走 Canvas 渲染，无法解析 CSS 变量：运行时读取 :root 的品牌色（失败回落到原值）
 const BRAND = (getComputedStyle(document.documentElement).getPropertyValue('--brand') || '').trim() || '#409eff'

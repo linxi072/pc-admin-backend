@@ -47,7 +47,7 @@
 import { ref, computed } from 'vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { Close, Picture, Search } from '@element-plus/icons-vue'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 /**
  * 图标选择器（菜单管理「图标」字段）。

@@ -71,7 +71,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { decodeJwtPayload, splitScopes, submitConsent, buildCodeRedirectUrl } from '@/api/oauth2'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 const route = useRoute()
 const router = useRouter()

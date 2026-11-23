@@ -89,7 +89,7 @@
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { getLiveness, getReadiness } from '@/api/health'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 // 两个探针各自独立加载（一个失败不阻塞另一个）；loading 与结果分别持有。
 const live = ref(null)

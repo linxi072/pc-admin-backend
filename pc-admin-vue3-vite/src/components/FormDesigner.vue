@@ -143,7 +143,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import DynamicForm from '@/components/DynamicForm.vue'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 const props = defineProps({
   /** Schema JSON 字符串（与表单定义管理后端契约一致：{version,title,fields[]}）。 */

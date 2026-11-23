@@ -132,7 +132,7 @@ import { User, Lock, Key, Refresh, Iphone, Message } from '@element-plus/icons-v
 import { ElMessage } from 'element-plus'
 import { login, getCaptcha, changePassword, forgotPassword } from '@/api/auth'
 import { setAuth } from '@/store/auth'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 import { validateOrWarn } from '@/utils/validate'
 
 const route = useRoute()

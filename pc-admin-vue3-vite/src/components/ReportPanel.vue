@@ -126,7 +126,7 @@ import BaseChart from '@/components/BaseChart.vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
 import { parseFileName } from '@/utils/download'
 import { reportData, reportExport } from '@/api/report'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 /**
  * 统计视角报表面板：承载单个统计报表的完整交互（筛选 / 汇总 / 趋势 / 分布 / 明细 / 导出）。

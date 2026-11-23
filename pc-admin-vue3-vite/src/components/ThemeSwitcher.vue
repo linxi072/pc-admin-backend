@@ -23,7 +23,7 @@
 import { computed } from 'vue'
 import { Brush } from '@element-plus/icons-vue'
 import { THEMES, currentTheme, setTheme } from '@/utils/theme'
-import { tx } from '@/locales/zh-cn'
+import { tx } from '@/locales/zhCN'
 
 const current = computed(() => currentTheme.value)
 const currentLabel = computed(() => tx('theme.' + current.value))
