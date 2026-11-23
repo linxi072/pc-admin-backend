@@ -41,9 +41,16 @@
 3. **scaffold-system**：用户/角色/菜单/接口资源服务主链路（内存 H2 或 Mock Mapper）。
    - 进展（1.1.0）：`JavaTypeMapperTest` 已落地（11 例：全类型矩阵/tinyint(1)/大小写归一/
      needsImport/toJavaField/toClassName 前缀剥离）。
+   - 进展（1.2.0 收尾批）：`MenuTypeRulesTest`（4 例：全名/单字母双字面量兼容）、
+     `PostRulesTest`（6 例：编码校验/岗位集合去重与上限）、
+     `FileValidatorTest`（4 例：扩展名白名单/图片与PDF魔数）、
+     `FileDedupRulesTest`（5 例：SHA-256/哈希格式/删除引用计数）。
+     - 修复：`PostRules` 编码正则原拒绝中文，与注释「总经理-001 合法」及调用方预期不符，
+       已扩充白名单支持 CJK 统一表意文字（行为修正，测试锁定）。
 
-> 本批新增 37 例纯单元测试（7 个测试类），后端累计 114 例全绿。集成测试采用「纯单测 + 内存 fake」
+> 第二批累计新增 61 例纯单元测试（12 个测试类），后端累计 138 例全绿。集成测试采用「纯单测 + 内存 fake」
 > 形态（Q4 决策，零新增依赖）；JaCoCo 插件离线不可用，CI 阈值维持起步线 0.10/0.05（Q3 决策）。
+> T1 剩余：`SessionCleanupRulesTest`（5 例：会话空闲回收，last_used 优先/issued 兜底/禁用与边界）。
 
 ## 4. 执行方式
 

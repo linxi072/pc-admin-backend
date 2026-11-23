@@ -22,6 +22,12 @@
   `DataScopeResultTest`（fail-closed 数据权限）、`RateLimiterTest`（固定窗口与 fail-closed 限流）、
   `IdempotencyRecordRulesTest`（幂等查询容错）、`TenantContextTest`（租户上下文严格模式/线程隔离）。
   后端累计 114 例全绿；CI 阈值维持起步线 0.10/0.05；网关层后续采用零依赖自研路线（本批不涉及）。
+- **测试覆盖第二批收尾（T3 system 主链路 + T1 剩余）**：新增 5 测试类 / 24 例——
+  `MenuTypeRulesTest`（双字面量菜单类型）、`PostRulesTest`（岗位编码/集合归一）、
+  `FileValidatorTest`（扩展名+魔数）、`FileDedupRulesTest`（SHA-256 秒传去重）、
+  `SessionCleanupRulesTest`（空闲会话回收）。后端累计 138 例全绿。
+  - 缺陷修复：`PostRules` 编码正则原拒绝中文（与「总经理-001 合法」的注释及调用预期矛盾），
+    扩充 CJK 统一表意文字白名单，注释同步更新。
 
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 

@@ -136,9 +136,24 @@ npm test                                 # 预期 Test Files 7 passed / Tests 60
 | `IdempotencyRecordRulesTest` | common | 容错查询：非法状态/用户 ID 忽略（返回 null）；scope/keyword 截断；时间窗默认值与倒置钳制；null 不过期 |
 | `TenantContextTest` | common | 未设置时 requireTenantId 抛异常（严格模式）；嵌套作用域恢复（含异常路径）；旁路需先设上下文；线程隔离 |
 
+### 3.6b 覆盖率第二批收尾（T3 system + T1 剩余）
+
+**验收标准**：新增 24 例（5 测试类）全过；后端累计 138 例全绿；修复 PostRules 中文编码缺陷 1 处。
+
+| 测试类 | 模块 | 锁定的契约（输入输出/边界/异常） |
+|---|---|---|
+| `MenuTypeRulesTest` | system | 后端全名 CATALOG/MENU/BUTTON 与前端单字母 C/M/B 双字面量兼容；大小写敏感；null/空白拒绝 |
+| `PostRulesTest` | system | 编码 trim 归一、中文/字母/数字/_/- 合法、空白与特殊字符拒绝；岗位集合去重保序、上限 10（去重后计数） |
+| `FileValidatorTest` | system | 扩展名小写归一与白名单；png/jpg/gif/webp/pdf 魔数校验；不足 4 字节判损坏；未知类型按扩展名放行 |
+| `FileDedupRulesTest` | system | SHA-256 摘要（含空内容常量）；64 位十六进制校验；批量 ID 去重保序；refCount≤1 才删物理文件 |
+| `SessionCleanupRulesTest` | security | last_used 优先/issued 兜底；无基准保守不回收；禁用阈值不回收；恰好等于超时不回收 |
+
+**缺陷修复**：`PostRules` 正则原仅允许 `[A-Za-z0-9_-]`，与类注释「总经理-001 这类中文编码合法」矛盾——
+中文岗位编码被误拒。扩充为 `[\u4e00-\u9fffA-Za-z0-9_-]`，同步更新类/字段注释；测试锁定。
+
 ```bash
 cd java-admin-framework
-mvn -q test    # 预期 114 例全过，BUILD SUCCESS
+mvn -q test    # 预期 138 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0
 ```
 
