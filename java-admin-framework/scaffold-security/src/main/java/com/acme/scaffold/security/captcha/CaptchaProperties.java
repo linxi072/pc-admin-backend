@@ -34,6 +34,9 @@ public class CaptchaProperties {
     /** 允许的运算类型；空表示四则全集。配置示例：operators: ADD,SUB,MUL,DIV。 */
     private List<ArithmeticRules.Operator> operators = new ArrayList<>(List.of(ArithmeticRules.Operator.values()));
 
+    /** 未消费验证码内存上限：公开端点高频调用时防止无界增长；触顶淘汰最早过期项。 */
+    private int maxPending = 1024;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -72,5 +75,13 @@ public class CaptchaProperties {
 
     public void setOperators(List<ArithmeticRules.Operator> operators) {
         this.operators = operators;
+    }
+
+    public int getMaxPending() {
+        return maxPending;
+    }
+
+    public void setMaxPending(int maxPending) {
+        this.maxPending = maxPending;
     }
 }
