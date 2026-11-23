@@ -46,12 +46,18 @@ function injectAuthHeaders(cfg) {
 function handleHttpError(err) {
   const status = err.response?.status
   if (status === 401) {
-    clearAuth()
-    closeRealtime()
-    import('../router').then((m) => m.default.replace({
-      path: '/login',
-      query: { redirect: m.default.currentRoute.value.fullPath }
-    }))
+    // 仅受保护请求（携带 Authorization）的 401 才表示登录态失效。
+    // 匿名端点（如 /oauth2/token 密钥错误返回 401 invalid_client）不能清理管理员登录态，
+    // 否则在「开放平台客户端」页做密钥自测输错 secret 会被直接踢下线。
+    const protectedRequest = Boolean(err.config?.headers?.Authorization)
+    if (protectedRequest) {
+      clearAuth()
+      closeRealtime()
+      import('../router').then((m) => m.default.replace({
+        path: '/login',
+        query: { redirect: m.default.currentRoute.value.fullPath }
+      }))
+    }
     return Promise.reject(err)
   }
   const msg = err.response?.data?.message || err.message || '网络错误'
@@ -98,10 +104,15 @@ rawAxios.interceptors.request.use(injectAuthHeaders)
 
 rawAxios.interceptors.response.use(
   (resp) => resp,
-  handleHttpError
+  (err) => {
+    // 匿名端点（如 /oauth2/token 密钥自测）的 401 是业务校验失败（invalid_client），
+    // 不代表管理员登录态失效，调用方可通过 skipAuthErrorHandling 显式关闭清理逻辑。
+    if (err.config?.skipAuthErrorHandling) return Promise.reject(err)
+    return handleHttpError(err)
+  }
 )
 
 export function requestRaw(config) {
-  const { method = 'GET', url, params, data, headers, responseType } = config
-  return rawAxios.request({ method, url, params, data, headers, responseType })
+  const { method = 'GET', url, params, data, headers, responseType, skipAuthErrorHandling } = config
+  return rawAxios.request({ method, url, params, data, headers, responseType, skipAuthErrorHandling })
 }

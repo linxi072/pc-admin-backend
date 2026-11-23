@@ -321,8 +321,10 @@ function connectReal() {
     reconnectTimer = null
   }
   const url = `${wsBase()}?token=${encodeURIComponent(authState.token)}`
+  let socket
   try {
-    ws = new WebSocket(url)
+    socket = new WebSocket(url)
+    ws = socket
   } catch (e) {
     // 构造失败（非法 URL / 环境无 WebSocket）：同样必须安排重试，不得静默放弃。
     ws = null
@@ -331,18 +333,21 @@ function connectReal() {
     return
   }
   setState(nextState('start'))
-  ws.binaryType = 'arraybuffer'
-  ws.onopen = () => {
+  socket.binaryType = 'arraybuffer'
+  socket.onopen = () => {
+    // 旧连接的回调若在新连接建立后才到达，直接忽略，避免污染新连接状态
+    if (ws !== socket) return
     retryAttempt = RESET_ATTEMPT // 连接成功，退避计数复位
     setState(nextState('open'))
     if (heartbeatTimer) clearInterval(heartbeatTimer)
     heartbeatTimer = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(encodePing())
+      if (ws === socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(encodePing())
       }
     }, 30000)
   }
-  ws.onmessage = (ev) => {
+  socket.onmessage = (ev) => {
+    if (ws !== socket) return
     const raw = ev.data
     if (typeof raw === 'string') {
       // 兼容旧服务端文本语义：'pong' 为心跳回应，其余按 JSON 业务消息处理
@@ -361,7 +366,8 @@ function connectReal() {
     }
     // Blob（binaryType 未生效的极端情况）忽略
   }
-  ws.onclose = () => {
+  socket.onclose = () => {
+    if (ws !== socket) return // 旧 socket 的关闭事件不得清空新连接或触发额外重连
     ws = null
     if (heartbeatTimer) {
       clearInterval(heartbeatTimer)
@@ -369,9 +375,10 @@ function connectReal() {
     }
     scheduleReconnect() // 断线按退避重连（内部判断 started）
   }
-  ws.onerror = () => {
+  socket.onerror = () => {
+    if (ws !== socket) return
     try {
-      if (ws) ws.close() // 交给 onclose 统一走重连
+      socket.close() // 交给 onclose 统一走重连
     } catch (e) {
       // ignore
     }
@@ -413,6 +420,9 @@ export function closeRealtime() {
   retryAttempt = RESET_ATTEMPT
   setState(nextState('stop'))
   listeners.clear()
+  // 状态订阅者同样要在关闭时清理：否则持有组件引用的回调会泄漏，
+  // 且重新登录后旧订阅者会收到已失效连接的状态回调。
+  stateListeners.clear()
 }
 
 // ---- 实时推送管理（M29）：运维侧只读查询 + 手动推送 REST 入口 ----

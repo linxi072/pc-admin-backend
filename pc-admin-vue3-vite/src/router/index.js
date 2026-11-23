@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { isAuthenticated, authState } from '@/store/auth'
+import { isAuthenticated, authState, loadMenus } from '@/store/auth'
 
 const routes = [
   {
@@ -516,7 +516,13 @@ function collectAuthorizedPaths(menus) {
   return set
 }
 
-router.beforeEach((to) => {
+// 带路径参数的详情页白名单：键为路由 name，值为其「父级列表页」的菜单路径。
+// 仅当父级列表页在用户授权菜单中时，详情页才放行——杜绝所有含 ':' 路由无条件通行。
+const DETAIL_PARENT_MENU = {
+  designer: '/workflow/definition'
+}
+
+router.beforeEach(async (to) => {
   // 登录页对已登录用户不可达（直接重定向工作台）：public 分支需先处理该特例，
   // 否则下方 login 判断因 public 提前放行而成为死代码
   if (to.meta.public) {
@@ -530,16 +536,29 @@ router.beforeEach((to) => {
   }
   // OAuth2 同意页（#900）：已认证用户直达，不依赖后台菜单树（非后台功能页）
   if (to.path === '/oauth2/consent') return true
-  // 动态菜单范围鉴权：菜单尚未加载（首屏/刷新瞬间）时放行，避免误拦截；
-  // 菜单加载完成后，凡不在用户菜单树中的受保护路由，视为未授权，重定向到工作台。
-  // 带路径参数的详情页（如 /workflow/designer/:id）通常由已授权列表页进入，予以放行。
-  const menus = authState.menus
-  if (menus && menus.length) {
-    const authorized = collectAuthorizedPaths(menus)
-    const isDetail = to.matched.some((r) => r.path.includes(':'))
-    if (to.path !== '/' && to.path !== '/dashboard' && !authorized.has(to.path) && !isDetail) {
-      return { name: 'dashboard' }
-    }
+
+  // 工作台是登录落地页，所有已认证用户可达；放在菜单加载前，避免首屏被误拦。
+  if (to.path === '/' || to.path === '/dashboard') return true
+
+  // 菜单首屏/刷新瞬间可能尚未加载（AppLayout 的 onMounted 才触发），此处主动等待一次。
+  if (authState.menusLoaded === 'unloaded') {
+    await loadMenus()
+  }
+  // fail-closed：菜单加载失败时不得放行任意受保护页面（数据接口仍由后端兜底鉴权）。
+  if (authState.menusLoaded === 'failed') {
+    ElMessage.warning('菜单加载失败，暂时无法访问该页面，请刷新重试')
+    return { name: 'dashboard' }
+  }
+
+  const authorized = collectAuthorizedPaths(authState.menus)
+  // 详情页（含路径参数）：仅白名单内且其父级列表页已授权者放行。
+  const parentMenu = DETAIL_PARENT_MENU[to.name]
+  if (parentMenu) {
+    return authorized.has(parentMenu) ? true : { name: 'dashboard' }
+  }
+  const isDetail = to.matched.some((r) => r.path.includes(':'))
+  if (isDetail || !authorized.has(to.path)) {
+    return { name: 'dashboard' }
   }
   return true
 })

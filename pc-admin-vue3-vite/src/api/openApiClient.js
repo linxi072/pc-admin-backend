@@ -67,6 +67,8 @@ export const issueClientToken = (clientId, clientSecret) => {
     method: 'POST',
     url: '/oauth2/token',
     data: body,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    // 密钥错误返回 401 invalid_client，是业务校验失败而非管理员登录态失效，禁止触发登出跳转
+    skipAuthErrorHandling: true
   })
 }
