@@ -190,6 +190,23 @@
   `MissingNode` 被误判为「必须为字符串」导致合法 Schema 被拒，补 `!isMissingNode()` 守卫。
 - `docs/TEST-COVERAGE-PLAN.md` 新增 §3.5 记录本批进展与替代口径。
 
+### 延伸需求 E7（P2）：跨区域复制总线与一致性协议
+
+- **复用既有设施**：`scaffold-common/event` 领域事件桥（DomainEvent/EventBridge）、
+  `scaffold-kafka` 有序消息（OrderingRules 版本号单调 + murmur2 分区）、
+  `scaffold-framework/config/multiregion` 多区域路由（租户→部署单元映射）三者已具备，
+  本批在其上补「复制语义」纯逻辑层，不新增 Maven 依赖、不改动既有事件发布链路。
+- 新增 `scaffold-common/event/replication` 包（零 Spring 上下文可测）：
+  - `ReplicationEnvelope`：复制信封（eventId 幂等键/源单元/目标单元/租户/逻辑版本/负载摘要）；
+  - `ReplicationTopology`：按单元在线状态计算扇出目标，排除源单元、fail-closed 未知单元；
+  - `ConsistencyRules`：版本单调判定（只用严格大于）、向量时钟偏序/合并、并发冲突确定性裁决
+    （SOURCE_ID_ASC/DESC/REJECT）；
+  - `ReplicationBus`：复制协调器（幂等去重 + 拓扑扇出 + 统计），**不实现 EventBridge**
+    以避免与 `NoOpEventBridge` 冲突；未配置拓扑/目标时零回归。
+- 新增 2 测试类 / 9 例；后端累计 262 例全绿；质量门禁 7/7 通过。
+- 演进接口：`ReplicationBus.ReplicationTarget` 函数式端口供外部 jar（Kafka 适配器）落地具体投递，
+  框架本体保持零依赖。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18
