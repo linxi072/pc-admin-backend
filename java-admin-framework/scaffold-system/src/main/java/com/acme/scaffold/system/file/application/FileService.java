@@ -6,6 +6,7 @@ import com.acme.scaffold.common.api.dto.PageQuery;
 import com.acme.scaffold.common.api.dto.PageResult;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.common.config.SystemConfigs;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.Condition;
@@ -89,10 +90,16 @@ public class FileService {
     @Value("${app.file.allowed-extensions:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z}")
     private String allowedExtensionsRaw;
 
-    /** 扩展名白名单（每次解析，便于运行时通过配置热更新）。 */
+    /** 单文件大小上限：优先系统变量 app.file.max-bytes，缺省回退 @Value 默认值。 */
+    private long maxBytes() {
+        return SystemConfigs.getLong("app.file.max-bytes", maxBytes);
+    }
+
+    /** 扩展名白名单（每次解析，优先系统变量，便于运行时热更新）。 */
     private Set<String> allowedExtensions() {
+        String raw = SystemConfigs.getString("app.file.allowed-extensions", allowedExtensionsRaw);
         Set<String> set = new java.util.LinkedHashSet<>();
-        for (String s : allowedExtensionsRaw.split(",")) {
+        for (String s : raw.split(",")) {
             String t = s.trim().toLowerCase(Locale.ROOT);
             if (!t.isEmpty()) {
                 set.add(t);
@@ -120,9 +127,10 @@ public class FileService {
         if (sourceModule == null || sourceModule.isBlank()) {
             throw BusinessException.badRequest("来源功能模块不能为空");
         }
-        if (file.getSize() > maxBytes) {
+        long sizeLimit = maxBytes();
+        if (file.getSize() > sizeLimit) {
             throw BusinessException.of(FileErrorCode.FILE_TOO_LARGE,
-                    "文件不能超过 " + (maxBytes / 1024 / 1024) + "MB");
+                    "文件不能超过 " + (sizeLimit / 1024 / 1024) + "MB");
         }
         Set<String> allowed = allowedExtensions();
         String ext = FileValidator.resolveExtension(file.getOriginalFilename(), allowed);

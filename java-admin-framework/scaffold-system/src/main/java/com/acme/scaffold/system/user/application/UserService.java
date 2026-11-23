@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.user.application;
 import com.acme.scaffold.common.api.PagingRules;
+import com.acme.scaffold.common.config.SystemConfigs;
 
 import com.acme.scaffold.common.api.dto.KeysetPageQuery;
 import com.acme.scaffold.common.api.dto.KeysetPageResult;
@@ -107,6 +108,11 @@ public class UserService {
      */
     @Value("${column-permission.enforce:false}")
     private boolean columnPermissionEnforce;
+
+    /** 字段权限脱敏开关：优先系统变量 column-permission.enforce，缺省回退 @Value 默认值。 */
+    private boolean columnPermissionEnabled() {
+        return SystemConfigs.getBoolean("column-permission.enforce", columnPermissionEnforce);
+    }
 
     @Transactional
     public Long create(CreateUserRequest request) {
@@ -498,7 +504,7 @@ public class UserService {
      * 空值直接返回。开关关闭或缺失主体时由调用方传入空集合，这里等同不脱敏。</p>
      */
     private String applyColumnMask(String value, String resourceCode, String field, Set<String> grantedColumnCodes) {
-        if (!columnPermissionEnforce || value == null) {
+        if (!columnPermissionEnabled() || value == null) {
             return value;
         }
         if (grantedColumnCodes.contains(ColumnPermissionRules.columnPermissionCode(resourceCode, field))) {
@@ -516,7 +522,7 @@ public class UserService {
      * 开关关闭或无主体时返回空集，避免无谓查询。
      */
     private Set<String> currentGrantedColumnCodes() {
-        if (!columnPermissionEnforce) {
+        if (!columnPermissionEnabled()) {
             return Set.of();
         }
         return securityContextFacade.getCurrentPrincipal()

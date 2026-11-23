@@ -1,5 +1,6 @@
 package com.acme.scaffold.system.file.application;
 
+import com.acme.scaffold.common.config.SystemConfigs;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.system.file.domain.repository.FileStoragePort;
 import com.acme.scaffold.system.file.enums.FileErrorCode;
@@ -28,11 +29,16 @@ public class FileStorageService implements FileStoragePort {
     @Value("${app.file.storage-dir:./uploads/file}")
     private String storageDir;
 
+    /** 存储目录：优先系统变量 app.file.storage-dir，缺省回退 @Value 默认值。 */
+    private String storageDir() {
+        return SystemConfigs.getString("app.file.storage-dir", storageDir);
+    }
+
     /** 写入文件，返回服务端存储名（仅文件名，不含目录）。 */
     @Override
     public String store(MultipartFile file, String ext) {
         String storedName = UUID.randomUUID().toString().replace("-", "") + "." + ext;
-        Path dir = Paths.get(storageDir).toAbsolutePath().normalize();
+        Path dir = Paths.get(storageDir()).toAbsolutePath().normalize();
         try {
             Files.createDirectories(dir);
             Path target = dir.resolve(storedName).normalize();
@@ -51,7 +57,7 @@ public class FileStorageService implements FileStoragePort {
 
     /** 由存储名解析绝对路径；目录固定为 baseDir，并校验不越界（本地实现专用，Router.storagePath 会调用）。 */
     public Path resolve(String storedName) {
-        Path dir = Paths.get(storageDir).toAbsolutePath().normalize();
+        Path dir = Paths.get(storageDir()).toAbsolutePath().normalize();
         Path target = dir.resolve(storedName).normalize();
         if (!target.startsWith(dir)) {
             throw BusinessException.of(FileErrorCode.FILE_STORE_FAILED, "非法的存储路径");

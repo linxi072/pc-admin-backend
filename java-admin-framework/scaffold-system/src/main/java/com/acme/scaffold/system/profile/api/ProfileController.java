@@ -2,6 +2,7 @@ package com.acme.scaffold.system.profile.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
+import com.acme.scaffold.common.config.SystemConfigs;
 import com.acme.scaffold.common.constant.CommonConstants;
 import com.acme.scaffold.common.context.SecurityContextFacade;
 import com.acme.scaffold.common.exception.BusinessException;
@@ -77,6 +78,15 @@ public class ProfileController {
     @Value("${app.upload.max-avatar-bytes:2097152}")
     private long maxAvatarBytes;
 
+    /** 头像目录/大小上限：优先系统变量，缺省回退 @Value 默认值。 */
+    private String avatarDir() {
+        return SystemConfigs.getString("app.upload.avatar-dir", avatarDir);
+    }
+
+    private long maxAvatarBytes() {
+        return SystemConfigs.getLong("app.upload.max-avatar-bytes", maxAvatarBytes);
+    }
+
     // ==================== 资料 ====================
 
     @Operation(summary = "获取我的资料")
@@ -106,8 +116,9 @@ public class ProfileController {
         if (file == null || file.isEmpty()) {
             throw BusinessException.badRequest("请选择要上传的头像文件");
         }
-        if (file.getSize() > maxAvatarBytes) {
-            throw BusinessException.badRequest("头像文件不能超过 " + (maxAvatarBytes / 1024 / 1024) + "MB");
+        long sizeLimit = maxAvatarBytes();
+        if (file.getSize() > sizeLimit) {
+            throw BusinessException.badRequest("头像文件不能超过 " + (sizeLimit / 1024 / 1024) + "MB");
         }
         String ext = resolveExtension(file);
         validateImageContent(file, ext);
@@ -117,7 +128,7 @@ public class ProfileController {
         String filename = userId + "_" + LocalDateTime.now().format(FILE_TS) + "_"
                 + UUID.randomUUID().toString().substring(0, 8) + "." + ext;
         try {
-            Path dir = Paths.get(avatarDir).toAbsolutePath().normalize();
+            Path dir = Paths.get(avatarDir()).toAbsolutePath().normalize();
             Files.createDirectories(dir);
             Path target = dir.resolve(filename).normalize();
             if (!target.startsWith(dir)) {

@@ -244,6 +244,25 @@
 - 新增 `SemanticQueryRulesTest` 5 例；后端累计 275 例全绿；质量门禁 7/7 通过。
 - **探索定位**：本批只交付可测试的解析层与意图契约，不接入 Controller / 不新增端点（P3 范围控制）。
 
+### 代码规范与配置归口重构（命名 / SQL / 系统变量）
+
+- **命名规范化（严格口径）**：前端 3 个 `__tests__` 目录重命名为 `tests`（消除下划线）、
+  `src/locales/zh-cn.js` 重命名为 `zhCN.js`（camelCase），同步更新 10 处导入引用；
+  `index.js`/`App.vue` 等入口与框架惯例文件保留。Java 侧经门禁 + 独立扫描确认包名/目录、
+  文件名/public 类名、方法名均合规，无需重命名。
+- **初始化 SQL 规范化**：`dml.sql` 所有多值 INSERT 拆为单值（17 处、333 条 INSERT），
+  `INSERT...SELECT` 动态授权语句原样保留（无法拆为单值且属幂等授权核心）；
+  移除 USE/SET/DELIMITER/DROP PROCEDURE/存储过程体/CALL 等非 INSERT 语句；
+  `ddl.sql` 仅保留 CREATE TABLE / CREATE INDEX，符合允许语句类型。
+- **硬编码配置归口到「系统变量」**：新增 `SystemConfigPort`（scaffold-common 端口，
+  依赖倒置避免破坏模块 DAG）+ `SystemConfigs` 静态入口 + `SystemConfigPortImpl`
+  （scaffold-system 委托 ConfigService，仅认 ACTIVE 且非空值）；改造 `FileService`
+  （max-bytes / allowed-extensions）、`FileStorageService`（storage-dir）、`ProfileController`
+  （avatar-dir / max-avatar-bytes）、`UserService`（column-permission.enforce）共 6 处硬编码，
+  一律「优先读系统变量，缺省回退 @Value 默认值」，支持经参数中心/直改库热更新，零回归。
+- `dml.sql` 新增 6 条 sys_config 种子（id 9100~9105）；新增 `SystemConfigPortImplTest` 5 例。
+- 后端累计 280 例、前端 67 例全绿；前端构建成功；质量门禁 7/7（frontend_only 0）。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18
