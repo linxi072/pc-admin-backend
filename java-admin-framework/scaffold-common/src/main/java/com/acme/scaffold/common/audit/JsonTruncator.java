@@ -106,7 +106,9 @@ public final class JsonTruncator {
                 return null; // 即使只留一个元素仍超限，交由文本兜底
             }
             if (node.isObject()) {
-                ObjectNode copy = (ObjectNode) node;
+                // deepCopy 而非强转原节点：原实现变量名为 copy 实为入参引用，
+                // dropEmptyFields 会就地修改入参，埋下调用方无辜被改写的隐患。
+                ObjectNode copy = ((ObjectNode) node).deepCopy();
                 dropEmptyFields(copy);
                 String json = mapper.writeValueAsString(copy);
                 if (json.length() <= max) {

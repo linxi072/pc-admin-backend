@@ -38,6 +38,8 @@ public final class CircuitBreaker {
     private State state = State.CLOSED;
     private int consecutiveFailures = 0;
     private long openedAt = 0L;
+    /** HALF_OPEN 试探占用标记：保证冷却结束后仅放行一个试探请求。 */
+    private boolean halfOpenProbeInFlight = false;
 
     private final AtomicInteger failureCountView = new AtomicInteger(0);
     private final AtomicLong openedAtView = new AtomicLong(0L);
@@ -70,11 +72,23 @@ public final class CircuitBreaker {
             if (state == State.OPEN) {
                 if (openMs > 0 && System.currentTimeMillis() - openedAt >= openMs) {
                     state = State.HALF_OPEN;
+                    // 本次调用即试探请求，占用名额，后续并发请求在探针出结果前一律拒绝
+                    halfOpenProbeInFlight = true;
                     return true;
                 }
                 return false;
             }
-            return true;
+            if (state == State.HALF_OPEN) {
+                // 半开期仅放行一个试探请求：原实现无条件 true，
+                // 并发下多个请求同时试探下游，违背"仅放行一次"契约，
+                // 且试探结果（成功 CLOSED / 失败 OPEN）会相互覆盖导致状态抖动。
+                if (halfOpenProbeInFlight) {
+                    return false;
+                }
+                halfOpenProbeInFlight = true;
+                return true;
+            }
+            return true; // CLOSED
         }
     }
 
@@ -110,6 +124,7 @@ public final class CircuitBreaker {
             failureCountView.set(0);
             if (state == State.HALF_OPEN) {
                 state = State.CLOSED;
+                halfOpenProbeInFlight = false;
             }
         }
     }
@@ -122,6 +137,7 @@ public final class CircuitBreaker {
                 state = State.OPEN;
                 openedAt = System.currentTimeMillis();
                 openedAtView.set(openedAt);
+                halfOpenProbeInFlight = false;
             } else if (consecutiveFailures >= failureThreshold) {
                 state = State.OPEN;
                 openedAt = System.currentTimeMillis();
@@ -136,6 +152,7 @@ public final class CircuitBreaker {
             state = State.CLOSED;
             consecutiveFailures = 0;
             openedAt = 0L;
+            halfOpenProbeInFlight = false;
             failureCountView.set(0);
             openedAtView.set(0L);
         }
