@@ -44,6 +44,8 @@ public class JwtProvider {
                 .claim("roles", roles)
                 .claim("tokenVersion", principal.tokenVersion() == null ? 1 : principal.tokenVersion())
                 .claim("clientId", principal.clientId())
+                // 租户 ID 必须随令牌下发，否则 JWT 转换后租户上下文恒为 0，导致跨租户数据隔离失效
+                .claim("tenantId", principal.tenantId())
                 .claim("aud", properties.getAudience())
                 .id(UUID.randomUUID().toString())
                 .signWith(key, Jwts.SIG.HS256)

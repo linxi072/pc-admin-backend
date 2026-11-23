@@ -43,17 +43,21 @@ public class ReplayNonceService {
         if (nonce == null || nonce.isBlank()) {
             return false;
         }
-        Long existing = seen.get(nonce);
+        long expiry = now + (long) ttlSeconds * 1000L;
+        // putIfAbsent 原子完成「检查-占用」：并发同 nonce 只有一个请求能写入成功，
+        // 原 get+put 非原子会让并发重放请求双双放行。
+        Long existing = seen.putIfAbsent(nonce, expiry);
         if (existing != null) {
             if (existing > now) {
                 return true;
             }
-            seen.remove(nonce);
+            // 已过期：原子覆盖，允许 reuse
+            seen.put(nonce, expiry);
+            return false;
         }
         if (seen.size() >= maxSize) {
             seen.entrySet().removeIf(e -> e.getValue() < now);
         }
-        seen.put(nonce, now + (long) ttlSeconds * 1000L);
         return false;
     }
 }

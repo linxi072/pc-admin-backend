@@ -26,6 +26,8 @@ public class CaptchaService {
     private final CaptchaProperties props;
     private final SecureRandom random = new SecureRandom();
     private final Map<String, Entry> store = new ConcurrentHashMap<>();
+    /** 未消费验证码上限：公开端点可被高频调用，必须设硬上限防止内存无界增长。 */
+    private static final int MAX_PENDING = 1024;
 
     public CaptchaService(CaptchaProperties props) {
         this.props = props;
@@ -43,7 +45,24 @@ public class CaptchaService {
         ArithmeticRules.Problem p = ArithmeticRules.draw(
                 random, props.getMaxNumber(), props.getMulMaxNumber(), props.getOperators());
         String token = UUID.randomUUID().toString().replace("-", "");
-        store.put(token, new Entry(p.answer(), Instant.now().plusSeconds(props.getExpireSeconds())));
+        Instant now = Instant.now();
+        // 生成时惰性清理过期项：验证码是公开端点，若不清理则未消费条目永久驻留直至 OOM。
+        store.entrySet().removeIf(e -> e.getValue().expireAt().isBefore(now));
+        // 达到硬上限时淘汰最早过期的条目（TTL 固定，等价于最早生成），保证有界且端点始终可用。
+        if (store.size() >= MAX_PENDING) {
+            String oldest = null;
+            Instant earliest = null;
+            for (Map.Entry<String, Entry> e : store.entrySet()) {
+                if (earliest == null || e.getValue().expireAt().isBefore(earliest)) {
+                    earliest = e.getValue().expireAt();
+                    oldest = e.getKey();
+                }
+            }
+            if (oldest != null) {
+                store.remove(oldest);
+            }
+        }
+        store.put(token, new Entry(p.answer(), now.plusSeconds(props.getExpireSeconds())));
         return new Captcha(token, p.question(), p.answer(), p.op());
     }
 

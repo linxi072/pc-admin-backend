@@ -369,10 +369,16 @@ public class AuthService {
     }
 
     private void handleLoginFailure(UserAccount user) {
-        int failed = (user.failedLoginCount() == null ? 0 : user.failedLoginCount()) + 1;
+        // 基于最新持久化值计算失败次数：user 是登录开始时加载的快照，
+        // 多个并发失败请求若都基于该旧值计算，后写覆盖先写会绕过渐进式锁定阈值。
+        UserAccount latest = accountPort.loadById(user.id());
+        if (latest == null) {
+            latest = user;
+        }
+        int failed = (latest.failedLoginCount() == null ? 0 : latest.failedLoginCount()) + 1;
         // 设计文档 §5.3：渐进式锁定——达到阈值后锁定时长随失败次数递增，封顶 lockDurationMax
-        String status = user.status();
-        LocalDateTime lockedUntil = user.lockedUntil();
+        String status = latest.status();
+        LocalDateTime lockedUntil = latest.lockedUntil();
         if (LockoutRules.shouldLock(failed, jwtProperties.getMaxLoginFailures())) {
             Duration dur = LockoutRules.computeDuration(failed, jwtProperties.getMaxLoginFailures(),
                     jwtProperties.getLockDuration(), jwtProperties.getLockDurationMax());

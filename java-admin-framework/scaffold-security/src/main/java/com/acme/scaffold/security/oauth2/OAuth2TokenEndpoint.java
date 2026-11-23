@@ -82,13 +82,20 @@ public class OAuth2TokenEndpoint {
 
         // Basic 认证头优先（RFC 6749 §2.3.1）
         if (authorization != null && authorization.startsWith("Basic ")) {
-            String decoded = new String(Base64.getDecoder().decode(authorization.substring(6)),
-                    StandardCharsets.UTF_8);
-            int idx = decoded.indexOf(':');
-            if (idx >= 0) {
-                clientId = decoded.substring(0, idx);
-                clientSecret = decoded.substring(idx + 1);
+            String decoded;
+            try {
+                decoded = new String(Base64.getDecoder().decode(authorization.substring(6)),
+                        StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException ex) {
+                // 公开端点：畸形 Base64 必须返回 400 invalid_client，不能落到全局兜底变 500
+                return error(HttpStatus.BAD_REQUEST, "invalid_client", "Basic 认证头编码非法");
             }
+            int idx = decoded.indexOf(':');
+            if (idx < 0) {
+                return error(HttpStatus.BAD_REQUEST, "invalid_client", "Basic 认证头缺少客户端凭据分隔符");
+            }
+            clientId = decoded.substring(0, idx);
+            clientSecret = decoded.substring(idx + 1);
         }
 
         // 按授权模式分别校验请求形态

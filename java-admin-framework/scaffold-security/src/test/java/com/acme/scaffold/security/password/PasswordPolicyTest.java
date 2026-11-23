@@ -67,7 +67,9 @@ class PasswordPolicyTest {
 
     @Test
     void weakDenyCanTurnOffByConfig() {
-        PasswordPolicy.PolicyConfig noDeny = new PasswordPolicy.PolicyConfig(8, 64, true, true, true, true, false);
+        // 仅关闭弱口令黑名单这一个变量：其余复杂度规则也需放宽，
+        // 否则 "password123"（无大写/特殊字符）会先被复杂度规则拦截，无法验证 denyCommon 开关。
+        PasswordPolicy.PolicyConfig noDeny = new PasswordPolicy.PolicyConfig(8, 64, false, false, false, false, false);
         assertDoesNotThrow(() -> PasswordPolicy.validate("password123", noDeny));
     }
 }
