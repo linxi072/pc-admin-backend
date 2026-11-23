@@ -1,6 +1,7 @@
 package com.acme.scaffold.system.file.application;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.system.file.domain.repository.FileStoragePort;
 import com.acme.scaffold.system.file.enums.FileErrorCode;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,12 +23,13 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Slf4j
 @Component
-public class FileStorageService {
+public class FileStorageService implements FileStoragePort {
 
     @Value("${app.file.storage-dir:./uploads/file}")
     private String storageDir;
 
     /** 写入文件，返回服务端存储名（仅文件名，不含目录）。 */
+    @Override
     public String store(MultipartFile file, String ext) {
         String storedName = UUID.randomUUID().toString().replace("-", "") + "." + ext;
         Path dir = Paths.get(storageDir).toAbsolutePath().normalize();
@@ -47,7 +49,7 @@ public class FileStorageService {
         }
     }
 
-    /** 由存储名解析绝对路径；目录固定为 baseDir，并校验不越界。 */
+    /** 由存储名解析绝对路径；目录固定为 baseDir，并校验不越界（本地实现专用，Router.storagePath 会调用）。 */
     public Path resolve(String storedName) {
         Path dir = Paths.get(storageDir).toAbsolutePath().normalize();
         Path target = dir.resolve(storedName).normalize();
@@ -57,7 +59,23 @@ public class FileStorageService {
         return target;
     }
 
+    /** 以流读取文件内容（Port 契约）；文件不存在返回 404 业务异常。 */
+    @Override
+    public InputStream openStream(String storedName) {
+        Path target = resolve(storedName);
+        if (!Files.exists(target) || !Files.isRegularFile(target)) {
+            throw BusinessException.of(FileErrorCode.FILE_NOT_FOUND, "文件不存在或已删除");
+        }
+        try {
+            return Files.newInputStream(target);
+        } catch (IOException e) {
+            log.error("读取文件流失败 storedName={}", storedName, e);
+            throw BusinessException.of(FileErrorCode.FILE_STORE_FAILED, "文件读取失败，请稍后重试");
+        }
+    }
+
     /** 读取为资源；文件不存在返回 404 业务异常。 */
+    @Override
     public Resource loadAsResource(String storedName) {
         Path target = resolve(storedName);
         if (!Files.exists(target) || !Files.isRegularFile(target)) {
@@ -67,6 +85,7 @@ public class FileStorageService {
     }
 
     /** 删除物理文件（不存在时静默忽略，避免删除 DB 记录时因文件缺失而失败）。 */
+    @Override
     public void delete(String storedName) {
         try {
             Files.deleteIfExists(resolve(storedName));
@@ -76,6 +95,7 @@ public class FileStorageService {
     }
 
     /** 物理文件是否存在（秒传命中时校验存量文件未被外部清理，V50 新增）。 */
+    @Override
     public boolean exists(String storedName) {
         Path target = resolve(storedName);
         return Files.exists(target) && Files.isRegularFile(target);

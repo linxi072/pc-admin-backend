@@ -29,7 +29,6 @@ import com.acme.scaffold.system.file.enums.FileErrorCode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -80,7 +79,8 @@ public class FileService {
     private static final SqlTables.TableRef FILE = SqlTables.SYS_FILE;
 
     private final DSLContext dsl;
-    private final FileStorageService fileStorageService;
+    /** 文件存储统一路由（E4）：默认本地，外部 jar 提供 ObjectStoragePort 时可切远端，业务无感。 */
+    private final FileStorageRouter fileStorageService;
     private final SecurityContextFacade securityContextFacade;
 
     @Value("${app.file.max-bytes:10485760}")
@@ -144,20 +144,19 @@ public class FileService {
         SysFileDO existing = findByContentHash(contentHash);
         boolean deduplicated = existing != null && fileStorageService.exists(existing.getStoredName());
         String storedName;
-        Path abs;
         if (deduplicated) {
             storedName = existing.getStoredName();
-            abs = fileStorageService.resolve(storedName);
         } else {
             // 先落盘（文件名服务端生成），再写记录；落盘失败直接抛异常，不会留脏数据
             storedName = fileStorageService.store(file, ext);
-            abs = fileStorageService.resolve(storedName);
         }
+        // 存储位置描述：本地为绝对路径（兼容旧数据），远端为 remote://backend/key 逻辑 URI
+        String storagePath = fileStorageService.storagePath(storedName);
 
         SysFileDO record = new SysFileDO();
         record.setOriginalName(file.getOriginalFilename());
         record.setStoredName(storedName);
-        record.setStoragePath(abs.toString());
+        record.setStoragePath(storagePath);
         record.setFileSize(file.getSize());
         record.setContentType(file.getContentType());
         record.setContentHash(contentHash);

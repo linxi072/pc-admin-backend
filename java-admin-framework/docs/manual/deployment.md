@@ -68,6 +68,17 @@ gateway:
 
 **IP 口径**：网关复用全局 `ClientIpResolver`（含可信代理层级 `app.client-ip.trusted-proxy-count`），确保「网关限流键 = 后端审计 IP」，需与 Nginx `X-Forwarded-For` 配置一致。若 Nginx 与后端同机，`clientIp` 可能为 `127.0.0.1`，此时应调整可信代理数或让 Nginx 透传并仅信任其地址。
 
+## 2.5 文件存储后端（E4）
+
+文件物理存储经 `FileStorageRouter` 统一路由，业务 `FileService` 无感：
+
+- **默认（local）**：本地磁盘 `app.file.storage-dir`（默认 `./uploads/file`），与旧版行为完全一致。
+- **远端（remote）**：需外部 jar 提供 `ObjectStoragePort` Bean（s3/oss/minio 适配，框架本体零依赖），
+  且配置 `app.file.storage-backend=remote` 才切换；两者缺一即回退本地（零回归）。
+- DB 的 `storage_path` 列：本地为绝对路径（兼容旧数据），远端为 `remote://{backendId}/{key}` 逻辑 URI；
+  下载/删除只依赖 `stored_name`，不解析该列，故远端无本地路径语义也不影响功能。
+- 秒传去重（SHA-256）与引用计数删除保护在两种后端下语义一致。
+
 ## 3. 灰度双挂过渡（B1 验收④）
 
 分三阶段，全程业务 API 路径不变：

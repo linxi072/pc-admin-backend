@@ -144,6 +144,19 @@
 - 修复 `config.test.js` 的 `/api` 字面量导致的 api-contract frontend_only 误报（改为拼接），frontend_only 归零。
 - 全量验证：后端 211 例、前端 65 例、前端构建成功、lint 0 errors、质量门禁 7/7 通过。
 
+### 延伸需求 E4（P1）：对象存储 Port 抽象（本批以 E4 替代 E3）
+
+- **缺口修正**：审查确认 E3「短信渠道补全+多渠道编排+送达回执」实际已完整实现
+  （`HttpSmsGateway`/`LoggingSmsGateway`/`SmsGateway` + 五渠道编排 M11–M17 + 送达记录/重试/故障转移/熔断），
+  原缺口分析基于浅层关键词搜索有误，故撤销 E3、改做真实缺口 E4（对象存储）。
+- 新增 `FileStoragePort`（store/openStream/loadAsResource/delete/exists）与 `ObjectStoragePort` SPI
+  （远端 s3/oss/minio 由外部 jar 提供，框架零新增依赖）；`FileStorageService` 实现 Port 作为本地默认。
+- 新增 `FileStorageRouter`：`app.file.storage-backend=local`（默认）走本地，`remote` 且存在 `ObjectStoragePort` Bean
+  才切远端，二者缺一回退本地（零回归）；`storagePath()` 本地返回绝对路径、远端返回 `remote://backend/key` 逻辑 URI。
+- `FileService` 注入改为 Router；移除无用 `Path` import（冗余清理）；秒传去重/引用计数删除语义两后端一致。
+- 新增 `FileStorageRouterTest` 3 例（无远端回退/本地后端保持/远端切换与逻辑 URI）；后端累计 214 例全绿，门禁 7/7。
+- 部署手册新增 §2.5 文件存储后端配置说明。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18
