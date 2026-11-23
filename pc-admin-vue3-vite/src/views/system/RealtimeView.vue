@@ -363,8 +363,8 @@ async function doBroadcast() {
       const res = await realtimeBroadcast(broadcastForm.type, buildPayload(broadcastForm.payload), null, null)
       delivered = res?.delivered ?? 0
     }
-    pushResult.value = { ok: true, title: '广播已下发，成功触达 ${delivered} 个在线会话' }
-    ElMessage.success('广播成功触达 ${delivered} 个会话')
+    pushResult.value = { ok: true, title: `广播已下发，成功触达 ${delivered} 个在线会话` }
+    ElMessage.success(`广播成功触达 ${delivered} 个会话`)
   } catch (e) {
     // 响应拦截器已弹出错误提示（如 403 无权限），此处仅记录内联状态，避免重复提示
     pushResult.value = { ok: false, title: e?.message || '广播推送失败' }
@@ -407,9 +407,9 @@ async function doPushToUser() {
     }
     pushResult.value = {
       ok: true,
-      title: '定向推送已下发，成功触达 ${delivered} / ${ids.length} 个用户'
+      title: `定向推送已下发，成功触达 ${delivered} / ${ids.length} 个用户`
     }
-    ElMessage.success('定向推送成功触达 ${delivered} 个用户')
+    ElMessage.success(`定向推送成功触达 ${delivered} 个用户`)
   } catch (e) {
     pushResult.value = { ok: false, title: e?.message || '定向推送失败' }
   } finally {

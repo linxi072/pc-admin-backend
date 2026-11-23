@@ -324,7 +324,7 @@ async function onSave() {
 
 async function onRemove(row) {
   try {
-    await ElMessageBox.confirm('确认删除表单「${row.formName}（${row.formCode}）」？', '删除确认', {
+    await ElMessageBox.confirm(`确认删除表单「${row.formName}（${row.formCode}）」？`, '删除确认', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消'

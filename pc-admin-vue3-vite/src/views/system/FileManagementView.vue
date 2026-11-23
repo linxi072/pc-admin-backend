@@ -317,7 +317,7 @@ async function onSubmit() {
   }
   const ext = (picked.name.split('.').pop() || '').toLowerCase()
   if (!allowedExts.includes(ext)) {
-    ElMessage.error('不支持的文件类型：.${ext}')
+    ElMessage.error(`不支持的文件类型：.${ext}`)
     return
   }
   await precheckDedup(picked)
@@ -350,7 +350,7 @@ async function precheckDedup(picked) {
     const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
     const res = await checkDedup(hex)
     if (res?.exists) {
-      ElMessage.info('检测到相同内容文件「${res.originalName || \'\'}」，将秒传复用，不占用额外空间')
+      ElMessage.info(`检测到相同内容文件「${res.originalName ?? ''}」，将秒传复用，不占用额外空间`)
     }
   } catch (e) {
     // 预检失败不阻断上传（后端仍会计算哈希去重）
@@ -402,7 +402,7 @@ async function onBatchDelete() {
     const res = await batchDeleteFiles(selectedRows.value.map((r) => r.id))
     const failed = res?.failures || []
     if (failed.length) {
-      ElMessage.warning('已删除 {deletedCount} 个，{failedCount} 个失败：{details}')
+      ElMessage.warning(`已删除 ${res.deletedCount} 个，${failed.length} 个失败：${failed.map((f) => f.name || f.id).join('、')}`)
     } else {
       ElMessage.success(`已删除 ${res.deletedCount} 个文件`)
     }

@@ -262,9 +262,14 @@ async function openEdit(row) {
 async function openDetail(row) {
   detailData.value = await getArticle(row.id)
   detailVisible.value = true
-  // 打开详情即计一次浏览：后端 POST /api/cms/article/{id}/view（乐观自增，失败仅服务端告警）
-  viewArticle(row.id).catch(() => {})
-  row.viewCount = (row.viewCount ?? 0) + 1
+  // 打开详情即计一次浏览：后端 POST /api/cms/article/{id}/view 为权威计数源（返回 Result<Void>）。
+  // 仅在后端自增成功后才在本地 +1，避免后端失败时本地制造虚假计数导致漂移。
+  viewArticle(row.id)
+    .then(() => {
+      row.viewCount = (row.viewCount ?? 0) + 1
+      if (detailData.value) detailData.value.viewCount = (detailData.value.viewCount ?? 0) + 1
+    })
+    .catch(() => {})
 }
 
 function onSubmit() {

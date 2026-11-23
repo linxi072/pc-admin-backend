@@ -114,7 +114,7 @@ const usagePct = computed(() =>
 
 const healthText = computed(() => {
   if (countsUnavailable.value) return '计数不可用'
-  if (waiting.value > 0) return '有 ${waiting.value} 个线程在等待连接，建议排查慢 SQL 或调大 maximumPoolSize'
+  if (waiting.value > 0) return `有 ${waiting.value} 个线程在等待连接，建议排查慢 SQL 或调大 maximumPoolSize`
   if (usagePct.value != null && usagePct.value >= 80) return '使用率偏高，关注连接竞争'
   return '连接池状态健康'
 })

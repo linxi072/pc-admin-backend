@@ -169,7 +169,7 @@
       />
 
       <el-tabs v-model="scanTab">
-        <el-tab-pane :label="'`待新增 (${scanResult.newResources.length})`'" name="new">
+        <el-tab-pane :label="`待新增 (${scanResult.newResources.length})`" name="new">
           <el-table :data="scanResult.newResources" border stripe max-height="460">
             <el-table-column :label="'方法'" width="100">
               <template #default="{ row }">
@@ -182,7 +182,7 @@
             <el-table-column prop="controllerMethod" :label="'源码位置'" min-width="190" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
-        <el-tab-pane :label="'`待更新 (${scanResult.changedResources.length})`'" name="changed">
+        <el-tab-pane :label="`待更新 (${scanResult.changedResources.length})`" name="changed">
           <el-table :data="scanResult.changedResources" border stripe max-height="460">
             <el-table-column :label="'方法'" width="100">
               <template #default="{ row }">
@@ -195,7 +195,7 @@
             <el-table-column prop="controllerMethod" :label="'源码位置'" min-width="190" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
-        <el-tab-pane :label="'`库中失效 (${scanResult.orphanedResources.length})`'" name="orphan">
+        <el-tab-pane :label="`库中失效 (${scanResult.orphanedResources.length})`" name="orphan">
           <el-table :data="scanResult.orphanedResources" border stripe max-height="460">
             <el-table-column prop="id" label="ID" width="180" show-overflow-tooltip />
             <el-table-column prop="resourceName" :label="'资源名称'" min-width="160" />
@@ -403,7 +403,7 @@ async function onSync() {
   }
   try {
     await ElMessageBox.confirm(
-      '将新增 ${scanResult.newResources.length} 条、更新 ${scanResult.changedResources.length} 条接口资源。更新会覆盖权限标识与资源名称（状态与风险等级保留）。是否继续？',
+      `将新增 ${scanResult.newResources.length} 条、更新 ${scanResult.changedResources.length} 条接口资源。更新会覆盖权限标识与资源名称（状态与风险等级保留）。是否继续？`,
       '确认同步',
       { type: 'warning', confirmButtonText: '同步', cancelButtonText: '取消' }
     )
@@ -414,7 +414,7 @@ async function onSync() {
   try {
     const r = await syncApiResources()
     ElMessage.success(
-      '同步完成：新增 ${r.insertedCount} 条，更新 ${r.updatedCount} 条，无变化 ${r.unchangedCount} 条'
+      `同步完成：新增 ${r.insertedCount} 条，更新 ${r.updatedCount} 条，无变化 ${r.unchangedCount} 条`
     )
     scanVisible.value = false
     load()
