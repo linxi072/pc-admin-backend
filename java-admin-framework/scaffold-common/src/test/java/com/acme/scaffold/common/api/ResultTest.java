@@ -1,5 +1,6 @@
 package com.acme.scaffold.common.api;
 
+import com.acme.scaffold.common.constant.CommonConstants;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -35,10 +35,10 @@ class CircuitBreakerTest {
     @Test
     void successShouldResetConsecutiveFailures() {
         CircuitBreaker cb = new CircuitBreaker(3, 60_000);
-        cb.execute(() -> { throw new RuntimeException("f1"); });
-        cb.execute(() -> { throw new RuntimeException("f2"); });
+        assertThrows(RuntimeException.class, () -> cb.execute(() -> { throw new RuntimeException("f1"); }));
+        assertThrows(RuntimeException.class, () -> cb.execute(() -> { throw new RuntimeException("f2"); }));
         assertEquals("ok", cb.execute(() -> "ok"));
-        cb.execute(() -> { throw new RuntimeException("f3"); });
+        assertThrows(RuntimeException.class, () -> cb.execute(() -> { throw new RuntimeException("f3"); }));
         // 成功打断连续失败计数，不应熔断
         assertEquals(CircuitBreaker.State.CLOSED, cb.getState());
     }
@@ -46,7 +46,7 @@ class CircuitBreakerTest {
     @Test
     void shouldHalfOpenAfterCooldownAndCloseOnSuccess() throws InterruptedException {
         CircuitBreaker cb = new CircuitBreaker(1, 50);
-        cb.execute(() -> { throw new RuntimeException("boom"); });
+        assertThrows(RuntimeException.class, () -> cb.execute(() -> { throw new RuntimeException("boom"); }));
         assertEquals(CircuitBreaker.State.OPEN, cb.getState());
         Thread.sleep(60);
         assertEquals("ok", cb.execute(() -> "ok"));
@@ -56,7 +56,7 @@ class CircuitBreakerTest {
     @Test
     void halfOpenProbeFailureShouldReopen() throws InterruptedException {
         CircuitBreaker cb = new CircuitBreaker(1, 50);
-        cb.execute(() -> { throw new RuntimeException("boom"); });
+        assertThrows(RuntimeException.class, () -> cb.execute(() -> { throw new RuntimeException("boom"); }));
         Thread.sleep(60);
         // HALF_OPEN 放行一次试探，失败回到 OPEN
         assertThrows(RuntimeException.class, () -> cb.execute(() -> { throw new RuntimeException("probe"); }));
@@ -66,7 +66,7 @@ class CircuitBreakerTest {
     @Test
     void resetShouldForceClosed() {
         CircuitBreaker cb = new CircuitBreaker(1, 0); // openMs=0 不自动恢复
-        cb.execute(() -> { throw new RuntimeException("boom"); });
+        assertThrows(RuntimeException.class, () -> cb.execute(() -> { throw new RuntimeException("boom"); }));
         assertEquals(CircuitBreaker.State.OPEN, cb.getState());
         cb.reset();
         assertEquals(CircuitBreaker.State.CLOSED, cb.getState());

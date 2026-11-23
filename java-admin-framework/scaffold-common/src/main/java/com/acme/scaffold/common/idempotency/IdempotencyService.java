@@ -1,6 +1,7 @@
 package com.acme.scaffold.common.idempotency;
 
 import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordDO;
+import com.acme.scaffold.common.idempotency.rules.IdempotencyRecordRules;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -115,7 +116,14 @@ public class IdempotencyService {
 
     private AcquireResult doAcquire(String key, String scope, Long userId, String fingerprint, int ttlSeconds) {
         var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
+        LocalDateTime now = LocalDateTime.now();
         IdempotencyRecordDO existing = find(key, scope);
+        // 读路径兜底：清理任务未运行/失败时，已过期记录必须视为不存在并重新登记，
+        // 否则过期的 SUCCESS 仍会 REPLAY 旧响应、过期的 PROCESSING 会永久返回 409。
+        if (existing != null && IdempotencyRecordRules.isExpired(existing.getExpiresAt(), now)) {
+            dsl.deleteFrom(t.table()).where(t.field("id", Long.class).eq(existing.getId())).execute();
+            existing = null;
+        }
         if (existing == null) {
             try {
                 IdempotencyRecordDO record = new IdempotencyRecordDO();
@@ -124,7 +132,7 @@ public class IdempotencyService {
                 record.setUserId(userId);
                 record.setRequestFingerprint(fingerprint);
                 record.setStatus(IdempotencyStatus.PROCESSING.name());
-                record.setExpiresAt(LocalDateTime.now().plusSeconds(Math.max(ttlSeconds, 1)));
+                record.setExpiresAt(now.plusSeconds(Math.max(ttlSeconds, 1)));
                 SqlWriters.insert(dsl, t, record);
                 return AcquireResult.proceed();
             } catch (DataIntegrityViolationException e) {
@@ -148,8 +156,8 @@ public class IdempotencyService {
                     .set(t.field("error_code", String.class), (String) null)
                     .set(t.field("error_message", String.class), (String) null)
                     .set(t.field("expires_at", LocalDateTime.class),
-                            LocalDateTime.now().plusSeconds(Math.max(ttlSeconds, 1)))
-                    .set(t.field("updated_at", LocalDateTime.class), LocalDateTime.now())
+                            now.plusSeconds(Math.max(ttlSeconds, 1)))
+                    .set(t.field("updated_at", LocalDateTime.class), now)
                     .where(t.field("id", Long.class).eq(existing.getId()))
                     .execute();
         }

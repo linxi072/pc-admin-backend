@@ -113,6 +113,9 @@ public final class KeysetPager {
         if (decoded.isEmpty()) {
             return step.limit(q.size() + 1);
         }
+        if (decoded.size() != keyFields.length) {
+            throw BusinessException.badRequest("游标字段数与排序键不匹配");
+        }
         Object[] seekValues = new Object[keyFields.length];
         for (int i = 0; i < keyFields.length; i++) {
             seekValues[i] = convertToFieldType(keyFields[i], decoded.get(i));
@@ -120,41 +123,46 @@ public final class KeysetPager {
         return step.seek(seekValues).limit(q.size() + 1);
     }
 
-    /** 把游标解码出的字符串按目标字段类型还原，保证 jOOQ 绑定正确。 */
+    /** 把游标解码出的字符串按目标字段类型还原，保证 jOOQ 绑定正确；非法值按 400 参数错误处理。 */
     private static Object convertToFieldType(Field<?> field, String raw) {
         if (raw == null || raw.isEmpty()) {
             return null;
         }
         Class<?> type = field.getType();
-        if (type == Long.class || type == long.class) {
-            return Long.parseLong(raw);
-        }
-        if (type == Integer.class || type == int.class) {
-            return Integer.parseInt(raw);
-        }
-        if (type == Short.class || type == short.class) {
-            return Short.parseShort(raw);
-        }
-        if (type == Double.class || type == double.class) {
-            return Double.parseDouble(raw);
-        }
-        if (type == Float.class || type == float.class) {
-            return Float.parseFloat(raw);
-        }
-        if (type == Boolean.class || type == boolean.class) {
-            return Boolean.parseBoolean(raw);
-        }
-        if (type == BigDecimal.class) {
-            return new BigDecimal(raw);
-        }
-        if (type == LocalDateTime.class) {
-            return LocalDateTime.parse(raw);
-        }
-        if (type == LocalDate.class) {
-            return LocalDate.parse(raw);
-        }
-        if (type == java.sql.Timestamp.class) {
-            return java.sql.Timestamp.valueOf(LocalDateTime.parse(raw));
+        try {
+            if (type == Long.class || type == long.class) {
+                return Long.parseLong(raw);
+            }
+            if (type == Integer.class || type == int.class) {
+                return Integer.parseInt(raw);
+            }
+            if (type == Short.class || type == short.class) {
+                return Short.parseShort(raw);
+            }
+            if (type == Double.class || type == double.class) {
+                return Double.parseDouble(raw);
+            }
+            if (type == Float.class || type == float.class) {
+                return Float.parseFloat(raw);
+            }
+            if (type == BigDecimal.class) {
+                return new BigDecimal(raw);
+            }
+            if (type == LocalDateTime.class) {
+                return LocalDateTime.parse(raw);
+            }
+            if (type == LocalDate.class) {
+                return LocalDate.parse(raw);
+            }
+            if (type == java.sql.Timestamp.class) {
+                return java.sql.Timestamp.valueOf(LocalDateTime.parse(raw));
+            }
+            if (type == Boolean.class || type == boolean.class) {
+                return Boolean.parseBoolean(raw);
+            }
+        } catch (RuntimeException ex) {
+            // 非法游标是调用方错误：返回 400 而非全局兜底的 500
+            throw BusinessException.badRequest("游标排序键值非法");
         }
         return raw;
     }
