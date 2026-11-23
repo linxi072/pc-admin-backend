@@ -47,6 +47,9 @@
 | `gateway.fail-closed` | `true` | 限流器异常时拒绝（true）/放行（false） |
 | `gateway.allowed-origins` | `[]` | CORS 来源白名单；为空不处理 CORS |
 | `gateway.internal-cidrs` | `[127.,10.,192.168.,172.16.~172.2]` | actuator 内网网段前缀 |
+| `gateway.canary-percent` | `0` | 灰度权重 0~100；0 全 stable、100 全 canary（E10） |
+| `gateway.canary-header` | `""` | 强制 canary 的 header 名（值为 `true` 命中，优先于权重） |
+| `gateway.canary-ips` | `[]` | 强制 canary 的客户端 IP 白名单（精确匹配，优先于权重） |
 
 **启用示例**（`application-prod.yml`）：
 
@@ -88,6 +91,21 @@ gateway:
 3. **阶段三（收敛）**：监控确认直连入口无流量后下线直连，仅保留网关路径；后端 CORS 配置可随之移除。
 
 回退预案：任一阶段异常，将 `gateway.enabled` 置 false 并重启实例即回到直连行为（feature-gate 零回归）。
+
+### 3.5 灰度路由决策（E10）
+
+`GatewayCanaryRules` 提供纯函数灰度决策，按优先级：
+
+1. **显式 header**：配置 `gateway.canary-header=X-Canary` 后，请求头 `X-Canary: true` 强制走 canary；
+2. **显式 IP**：`gateway.canary-ips` 白名单内的客户端 IP 强制走 canary；
+3. **权重分桶**：无显式命中时，按 stickyKey（userId/deviceId/IP）做 0~99 稳定哈希分桶，
+   `bucket < gateway.canary-percent` 走 canary，否则 stable。同一 key 恒定同桶，不抖动。
+
+权重边界：`canary-percent=0` 全 stable（默认，零回归），`=100` 全 canary；越界配置自动钳制到 0~100。
+显式规则优先于权重，因此权重 0 时仍可用 header/IP 定点验证 canary 实例，验证通过后调权重渐进放量。
+
+> 当前实现为**决策规则层**：规则算出目标（stable/canary）与命中原因，供过滤器/上层集成；
+> 实际到不同后端实例的转发由部署侧（Nginx / 服务网格）按决策结果执行，框架本体不引入反向代理依赖。
 
 ## 4. 启动方式（原生进程）
 

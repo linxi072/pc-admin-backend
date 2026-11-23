@@ -223,6 +223,17 @@
 - 新增 `FormVersionRulesTest` 4 例；后端累计 266 例、前端 67 例全绿；前端构建成功、lint 0 errors、
   质量门禁 7/7 通过（backend 路由 378、frontend_only 0）。
 
+### 延伸需求 E10（P2）：网关灰度路由深化
+
+- 新增 `GatewayCanaryRules` 纯函数规则（零依赖）：按显式 header / 客户端 IP 白名单优先定点命中，
+  否则按 stickyKey（userId/deviceId/IP）做 FNV-1a 稳定分桶（0~99）+ 权重决策；
+  权重 0 全 stable（默认零回归）、100 全 canary、越界钳制；决策携带 target/reason/bucket 供可观测。
+- `GatewayProperties` 增加 `gateway.canary-percent` / `canary-header` / `canary-ips` 配置项（默认不启用灰度）。
+- **测试驱动修复**：初始实现在权重 0 时先短路返回 stable，导致 header/IP 显式规则失效；
+  调整为显式规则优先于权重边界，与"定点先遣/故障回切"设计意图一致。
+- 部署手册新增 §3.5 灰度路由决策说明与配置表 3 项；新增 `GatewayCanaryRulesTest` 4 例。
+- 后端累计 270 例全绿；质量门禁 7/7 通过。
+
 > 注：版本号以根 POM 为准（当前 1.1.0），本条为下一版本规划跟踪；`check-version.py` 仍以 `[1.1.0]` 条目为权威判据。
 
 ## [1.1.0] - 2026-11-18
