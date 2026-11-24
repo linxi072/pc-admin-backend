@@ -71,6 +71,11 @@ public class SecurityConfig {
             // 收敛到 [0,10000] 防线程耗尽型滥用
             new AntPathRequestMatcher("/api/connectivity/ping", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/connectivity/slow", HttpMethod.GET.name()),
+            // CMS 公开内容端点（C7）：feature-gate cms.public.enabled 默认关（Controller 不注册），
+            // 开启后匿名可访问，安全性由端点内「仅 PUBLISHED + 强分页」约束承担；
+            // 预览端点同理（cms.preview.enabled 默认关，令牌有效性由 Service 校验）
+            new AntPathRequestMatcher("/api/cms/public/articles", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/api/cms/preview/*", HttpMethod.GET.name()),
             // OAuth2 授权服务器端点（协议级开放平台）：令牌签发与 JWKS 公钥暴露，匿名可访问；
             // 真实安全性由端点内 client 认证（client_id/client_secret 校验）承担
             new AntPathRequestMatcher("/oauth2/token", HttpMethod.POST.name()),

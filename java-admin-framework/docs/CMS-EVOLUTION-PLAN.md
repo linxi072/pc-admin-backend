@@ -1,6 +1,6 @@
 # CMS 模块深度扩展需求与迭代计划
 
-> 版本：1.2 · 日期：2026-11-24 · 状态：迭代二（M2）已完成（随迭代同步更新实现一致性）
+> 版本：1.3 · 日期：2026-11-24 · 状态：迭代三（M3，CMS 深扩完成）（随迭代同步更新实现一致性）
 > 适用模块：`scaffold-cms`（后端）+ `pc-admin-vue3-vite/src/views/cms`（前端）
 
 ## 1. 现有功能范围与架构约束
@@ -217,7 +217,7 @@
 | C4 版本历史 | 已完成 | `CmsArticleVersionService`/`CmsArticleVersion` + `ArticleVersionView`；Controller `versions`/`rollback` | `CmsVersionRulesTest` 4 例 + 编译通过；update 前固化快照、回滚写回主表 | 二（M2） |
 | C5 定时发布 | 已完成 | `CmsArticleRules.resolveInitialStatus/isDueForPublish`；`scheduled_publish_at` 列/字段；`CmsArticleService.publishDue`；`CmsScheduledPublishJob` | 2 例排期规则单测 + 编译通过；feature-gate `cms.scheduled-publish.enabled` 默认开 | 二（M2） |
 | C6 预览令牌 | 已完成 | `CmsPreviewTokenRules`/`CmsPreviewToken`/`CmsPreviewTokenService`；`CmsArticleController.previewToken` + `CmsPreviewController`（feature-gate 默认关） | `CmsPreviewTokenRulesTest` 4 例 + 编译通过；UUID/24h过期/参数化校验 | 二（M2） |
-| C7 公开查询 | 待开发 | — | — | — |
+| C7 公开查询 | 已完成 | `CmsPublicRules`/`PublicArticleView`/`CmsPublicService`；`CmsPublicController`（feature-gate `cms.public.enabled` 默认关）；`SecurityConfig` 放行匿名 | `CmsPublicRulesTest` 2 例 + 编译通过；仅 PUBLISHED、size≤50、字段脱敏白名单 | 三（M3） |
 | C8 前端测试/i18n | 已完成 | `src/api/tests/cms.test.js`（17 端点契约）+ `cms.js` 3 个新函数 + `zhCN.js` 15 条新文案 | 前端 73 例全绿、build EXIT=0、门禁 frontend_only=0 | 二（M2） |
 
 ### 迭代一验证记录（M1，2026-11-24）
@@ -234,3 +234,12 @@
 - DDL 新增 `cms_article_version`/`cms_preview_token` 两表 + 索引，`cms_article` 加 `scheduled_publish_at` 列，均已同步 `SqlTables` 注册。
 - **架构说明**：`scaffold-cms` 仅依赖 `scaffold-common`（依赖 DAG 硬约束），`FeatureGateRegistry`（framework 模块）已登记 3 个 CMS 开关元数据，CMS 侧用 `@ConditionalOnProperty` 读配置，无编译期跨模块依赖；`@EnableScheduling` 已在启动类开启。
 - **i18n 说明**：前端 i18n 引擎已移除（App.vue 硬编码 zh-CN、无语言切换机制），故"第二 locale"不适用；C8 改为补齐 `zhCN.js` 的 `cms.*` 新增文案（版本/排期/预览 15 条），以契约测试锁定字典键完整性。
+
+### 迭代三验证记录（M3，2026-11-24 · CMS 深扩完成）
+
+- `mvn -o test`（全 14 模块）：320 例全绿，Failures=0 Errors=0 Skipped=0（基线 280 + CMS 新增 40）。
+- `python3 scripts/check-all.py`：门禁 7/7 通过，frontend_only=0，duplicate=0，EXIT=0。
+- 前端 `npm test` 73 例全绿、`npx vite build` EXIT=0（迭代二已验证，迭代三前端无改动）。
+- C7 公开端点 `/api/cms/public/articles` 在 api-contract 中正确识别为 backend_only（公开 API 豁免），
+  `SecurityConfig` 已放行匿名 GET，与 `cms.public.enabled` feature-gate 联动（默认关时 Controller 不注册）。
+- **一致性结论**：C1~C8 八项需求全部落地，需求清单（§2）、表/接口变更（§4）、验证范围（§7）与磁盘实现一致。

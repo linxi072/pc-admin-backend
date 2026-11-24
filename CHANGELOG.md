@@ -4,6 +4,14 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### CMS 模块深度扩展 · 迭代三（M3，CMS 深扩完成）
+
+- **C7 公开内容查询**：新增 `CmsPublicService`/`CmsPublicController`（`GET /api/cms/public/articles`），
+  仅 PUBLISHED、强分页 size≤50、脱敏视图 `PublicArticleView`；feature-gate `cms.public.enabled` 默认关，
+  `SecurityConfig` 放行匿名 GET（与开关联动）；`CmsPublicRules` + 2 例单测。
+- 全量回归：后端 14 模块 320 例全绿（基线 280 + CMS 新增 40），门禁 7/7（frontend_only 0）。
+- 一致性：C1~C8 八项需求全部落地，`CMS-EVOLUTION-PLAN.md` 跟踪表与磁盘实现一致。
+
 ### CMS 模块深度扩展 · 迭代二（M2，需求文档 `java-admin-framework/docs/CMS-EVOLUTION-PLAN.md`）
 
 - **C4 版本历史**：新增 `cms_article_version` 表、`CmsArticleVersionService`（update 前固化快照/版本列表/回滚写回）、

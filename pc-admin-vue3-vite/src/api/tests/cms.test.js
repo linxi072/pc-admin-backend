@@ -29,7 +29,8 @@ import {
 // C8：锁定 CMS 前后端 17 个管理端点的 URL / 方法 / 参数同形。
 // URL 断言一律用反引号模板字符串（与 src/api/cms.js 实现一致），避免被 api-contract
 // 扫描器误当静态路由（FRONT_URL_RE 只匹配单/双引号字面量）。
-// 公开端点 /api/cms/preview/{token} 为 feature-gate 默认关闭的外部 API，前端不消费，属豁免。
+// 公开端点 /api/cms/preview/{token} 与 /api/cms/public/articles 均为 feature-gate 默认关闭的
+// 外部 API（分别受 cms.preview.enabled / cms.public.enabled 控制），前端管理端不消费，属豁免。
 
 const catId = 9
 const articleId = 101
