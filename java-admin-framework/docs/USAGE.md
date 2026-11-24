@@ -47,7 +47,7 @@ python3 scripts/check-all.py --test-tmpdir /tmp             # 受限环境钉定
 - 分层：`controller → service → domain`（`scripts/check-conventions.py` H3 守护）；`scaffold-system` 按 §4 子域簇分层。
 - 跨模块协作经 **Port（防腐层）**，特性模块不互相直连 Service。
 - 数据写入统一走 `SqlWriters`，自动填充/逻辑删除/租户隔离不变；DDL 标识符须显式加引号保留 snake_case 小写。
-- i18n：消息目录 `src/i18n/messages.js` 嵌套点分键，新子组须塞进父命名空间内部。
+- 文案：i18n 引擎已移除，前端文案统一内联中文，无需维护消息目录。
 - 权限码：新 `@PreAuthorize` 端点由 `ApiResourceAutoSyncRunner` 自动登记，无需手工维护；格式与动作词见 `docs/NAMING.md` §6。
 
 ## 5. 新增模块
@@ -58,9 +58,9 @@ python3 scripts/check-all.py --test-tmpdir /tmp             # 受限环境钉定
 - 视图 `src/views/{system,workflow,monitor,oauth2,profile,report}/`
 - API 客户端 `src/api/*.js`（经 `src/api/http.js` 统一拦截，自动携带租户/JWT、统一报错）
 - 路由 `src/router/index.js`（菜单驱动侧边栏，未授权路由重定向 `/dashboard`）
-- 前端门禁：`node scripts/check-sfc.mjs <file.vue> [...]` + `node scripts/i18n-leak-scan.mjs src` + `npx vite build`
-- **当前前端无单测**：4 个 `src/**/__tests__/` 目录为空，`package.json` 已移除失效的 `test` 脚本；`npm test` 不可用，勿作为门禁或汇报口径。
-- 新增后端端点时，前端须同步补：路由 + i18n 键 + 菜单种子（版本化结构链 `db/migration/` 新增版本文件后重生成 `db/init/01_full_schema.sql`）+ API 客户端函数。
+- 前端门禁：`node scripts/check-sfc.mjs <file.vue> [...]` + `npx vite build` + `npm test`（Vitest 73 例）。
+- 前端已有单测（Vitest，`src/api/tests/` 等），`npm test` 可用，作为门禁与汇报口径。
+- 新增后端端点时，前端须同步补：路由 + 菜单种子（版本化结构链 `db/migration/` 新增版本文件后重生成 `db/init/01_full_schema.sql`）+ API 客户端函数。
 
 ## 7. 数据库初始化与参考件
 - **唯一可执行初始化入口**：`scaffold-admin/src/main/resources/db/init/`（`00_create_database.sql` → `01_full_schema.sql`，可选 `02_backfill_tenant_id.sql`）。运行时已移除 Flyway，**应用启动不执行任何 DDL**，全新环境须由 DBA 手工执行；`db/migration/` 降级为版本化结构源（当前 `V32~V85`，53 个 SQL 文件 + 1 个 Java 类迁移 V57），`db/reference/` 为分类阅读参考件。

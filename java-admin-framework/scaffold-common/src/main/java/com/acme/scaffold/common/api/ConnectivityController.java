@@ -4,7 +4,6 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.domain.ConnectivityProbe;
 import com.acme.scaffold.common.api.domain.ConnectivitySlowProbe;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.common.i18n.I18nService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.Locale;
@@ -22,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>设计要点：
  * <ul>
  *   <li>不依赖任何业务模块/数据库，后端未完全就绪时也能响应，适合作为「链路是否通」的首个探针；</li>
- *   <li>通过 {@code LocaleContextHolder} 回显后端实际解析到的语言，验证多语言协商链路；</li>
+ *   <li>回显运行时语言标签（{@code locale} 字段，契约保留）；</li>
  *   <li>返回统一 {@link Result} 包络，字段对齐前端 {@code src/api/connectivity.js}。</li>
  * </ul>
  */
@@ -50,17 +49,9 @@ public class ConnectivityController {
      */
     static final int MAX_DELAY_MS = 10000;
 
-    private final I18nService i18n;
-
-    public ConnectivityController(I18nService i18n) {
-        this.i18n = i18n;
-    }
-
     @GetMapping("/ping")
     public Result<ConnectivityProbe> ping(HttpServletRequest request) {
         Locale locale = LocaleContextHolder.getLocale();
-        // 顺带验证 i18n 链路可用：解析一个已知键，异常时会记日志但不影响联通判定。
-        i18n.getMessage("result.ok");
         return Result.success(new ConnectivityProbe(
                 Instant.now(),
                 locale.toLanguageTag(),

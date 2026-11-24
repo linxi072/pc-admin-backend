@@ -62,7 +62,7 @@ java-admin-framework/
 |---|---|---|
 | 契约 | `api`(10) / `api.dto` | Result / PageResult / KeysetPageResult / CursorCodec / PagingRules |
 | 契约 | `constant`(1) | 跨模块稳定字面值，见 `CommonConstants` 收录标准 |
-| 契约 | `error`(2) / `exception`(2) / `i18n`(4) / `validation`(4) | 错误码、异常、国际化、校验 |
+| 契约 | `error`(2) / `exception`(2) / `validation`(4) | 错误码、异常（中文文案）、校验 |
 | 运行时 | `context`(2) / `web`(1) / `controller`(1) / `security`(1) / `sensitive`(2) / `tenant`(12) | 上下文、MVC、脱敏、多租户 |
 | 运行时 | `observability`(2) / `resilience`(2) | 链路与容错 |
 | 能力 | `audit`(14) / `event`(9) / `idempotency`(13) / `id`(1) | 审计、领域事件、幂等、ID |
@@ -287,7 +287,7 @@ pc-admin-vue3-vite/src/
 ├── api/                        68 个平铺 JS 文件：API 客户端 + http.js（统一请求封装）
 ├── router/  store/  layout/    路由 / 状态 / 外壳
 ├── components/                 跨页面共享组件
-├── composables/  utils/  i18n/ 组合式函数 / 工具 / 国际化（__tests__/ 目录当前为空）
+├── composables/  utils/         组合式函数 / 工具（__tests__/ 目录当前为空）
 ├── styles/                     base.css（全局基础）+ theme-tokens.css + element-theme.css
 ├── views/                      16 个特性目录（system / workflow / monitor / oauth2 / ...）
 └── micro-apps/                 微前端示例（hello / notes）
@@ -308,8 +308,8 @@ import 一律用 `@/` alias，无相对路径风险。2026-11-11 已把 4 个历
 `LoginView.vue` → `auth/`、`WorkbenchView.vue` → `dashboard/`、
 `JobListView.vue` → `job/`、`CodegenView.vue` → `codegen/`（按各页主 API 模块 /
 后端模块归位；工作台与 `/dashboard` 路由同属仪表盘特性，归既有 `dashboard/`）。
-当前 4 个 `src/**/__tests__/` 目录为空、前端无 `node:test` 用例，`package.json` 已移除
-失效的 `test` 脚本；前端门禁改用 `check-sfc.mjs` / `i18n-leak-scan.mjs` / `vite build`。
+前端测试使用 Vitest（`npm test`），共 10 个测试文件 73 例；门禁使用 `check-sfc.mjs` / `vite build`。
+i18n 引擎与组件库包（pc-admin-ui）已移除，前端文案统一内联中文。
 
 > `src/api` 采用平铺而非若依的 `api/system/*.js` 分子目录。分目录需同步改 68 个文件与
 > 全部 import，属大规模搬迁，保留并在差异文档说明。
@@ -341,7 +341,7 @@ import 一律用 `@/` alias，无相对路径风险。2026-11-11 已把 4 个历
 | 菜单权限码 ↔ 接口权限码一致 P1 | `python3 scripts/check-permission.py`（EXIT=0），行为回归 `scripts/test_check_permission.py` 12 例；规则详见 `docs/NAMING.md` §6 |
 | 前后端接口契约静态对称 | `python3 scripts/check-api-contract.py`（信息性；`--strict` 才阻断），行为回归 `scripts/test_check_api_contract.py` 33 例 |
 | 统一响应与错误码字段口径 | `scripts/api-contract.json`（唯一事实来源）+ `scripts/check-api-contract.py`（路由静态对称）；`ApiContractConsistencyTest` / `result.test.js` / `CommonConstantsTest` 均为已移除的历史测试资产 |
-| 前端目录与构建可解析 | `node scripts/check-sfc.mjs <file.vue>` + `node scripts/i18n-leak-scan.mjs src` + `npx vite build`（`npm test` 当前不可用） |
+| 前端目录与构建可解析 | `node scripts/check-sfc.mjs <file.vue>` + `npx vite build` + `npm test`（Vitest 73 例） |
 | 全量编译与校验器回归 | `mvn -o -f pom.xml clean compile`（从根聚合 POM，禁止 `-f scaffold-admin/pom.xml`）+ `python3 -m unittest discover -s scripts -p "test_*.py"`（100 例） |
 
 **统一门禁入口**：`python3 scripts/check-all.py` 把 `check-conventions.py`（硬性）、

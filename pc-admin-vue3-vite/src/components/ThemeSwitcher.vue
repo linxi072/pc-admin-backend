@@ -12,7 +12,7 @@
           :class="{ 'is-active': item.key === current }"
         >
           <span class="dot" :style="{ background: dotColor(item.key) }" />
-          {{ tx('theme.' + item.key) }}
+          {{ item.label }}
         </el-dropdown-item>
       </el-dropdown-menu>
     </template>
@@ -23,10 +23,10 @@
 import { computed } from 'vue'
 import { Brush } from '@element-plus/icons-vue'
 import { THEMES, currentTheme, setTheme } from '@/utils/theme'
-import { tx } from '@/locales/zhCN'
 
 const current = computed(() => currentTheme.value)
-const currentLabel = computed(() => tx('theme.' + current.value))
+const currentLabel = computed(() =>
+  THEMES.find((item) => item.key === current.value)?.label || '浅色')
 
 const dots = {
   light: '#409eff',

@@ -16,8 +16,8 @@ import java.util.Map;
  * {@code NOTIFICATION} 处理、{@code payload} 被忽略。</p>
  */
 public record RealtimeUserPushRequest(
-        @NotEmpty(message = "{validation.realtime.userIds.notEmpty}") List<Long> userIds,
-        @NotBlank(message = "{validation.realtime.type.notBlank}") String type,
+        @NotEmpty(message = "请至少指定一个接收用户") List<Long> userIds,
+        @NotBlank(message = "推送消息类型不能为空") String type,
         Object payload,
         String templateCode,
         Map<String, String> variables) {

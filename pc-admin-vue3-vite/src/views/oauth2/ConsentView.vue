@@ -71,7 +71,6 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { decodeJwtPayload, splitScopes, submitConsent, buildCodeRedirectUrl } from '@/api/oauth2'
-import { tx } from '@/locales/zhCN'
 
 const route = useRoute()
 const router = useRouter()
@@ -109,11 +108,15 @@ onMounted(() => {
   ready.value = true
 })
 
-// scope 描述：命中多语言字典则展示，否则留空（仅显示原始 scope 名）
+// scope 描述：命中已知 scope 则展示中文说明，否则留空（仅显示原始 scope 名）
+const SCOPE_DESCS = {
+  read: '读取您的基本资料与名下资源',
+  write: '创建或修改您名下的资源',
+  profile: '读取您的个人资料（昵称、头像等）',
+  admin: '以管理员身份操作（最高权限）'
+}
 function scopeDesc(s) {
-  const key = 'oauth2Consent.scopeDescs.' + s
-  const d = tx(key)
-  return d === key ? '' : d
+  return SCOPE_DESCS[s] || ''
 }
 
 function goHome() {

@@ -126,7 +126,6 @@ import BaseChart from '@/components/BaseChart.vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
 import { parseFileName } from '@/utils/download'
 import { reportData, reportExport } from '@/api/report'
-import { tx } from '@/locales/zhCN'
 
 /**
  * 统计视角报表面板：承载单个统计报表的完整交互（筛选 / 汇总 / 趋势 / 分布 / 明细 / 导出）。
@@ -151,14 +150,14 @@ const type = computed(() => props.type)
 
 // 统计视角元数据：主/次指标、失败口径、是否有耗时维度
 const STAT_META = {
-  JOB_EXEC: { main: 'report.execCount', secondary: 'report.taskCount', fail: 'report.failCount', duration: true, dist: 'report.costDist', details: 'report.recentDetail' },
-  LOGIN: { main: 'report.loginCount', secondary: 'report.activeUsers', fail: 'report.failCount', duration: false, dist: 'report.loginTypeDist', details: 'report.anomalyLogins' },
-  API_CALL: { main: 'report.callCount', secondary: 'report.endpointCount', fail: 'report.errorCount', duration: true, dist: 'report.respTimeDist', details: 'report.topApis' }
+  JOB_EXEC: { main: '执行次数', secondary: '涉及任务数', fail: '失败次数', duration: true, dist: '耗时分布', details: '最近执行明细' },
+  LOGIN: { main: '登录次数', secondary: '活跃登录用户', fail: '失败次数', duration: false, dist: '登录类型分布', details: '异常登录记录' },
+  API_CALL: { main: '调用量', secondary: '涉及端点数', fail: '错误数', duration: true, dist: '响应时间分布', details: 'Top 接口（按调用量）' }
 }
 const KEYWORD_PLACEHOLDERS = {
-  JOB_EXEC: 'report.taskNameKeyword',
-  LOGIN: 'report.usernameKeyword',
-  API_CALL: 'report.pathKeyword'
+  JOB_EXEC: '任务名称关键字',
+  LOGIN: '用户名关键字',
+  API_CALL: '请求路径关键字'
 }
 
 // 图表走 Canvas 渲染，无法解析 CSS 变量：运行时读取 :root 的品牌色（失败回落到原值）
@@ -176,7 +175,7 @@ const error = ref('')
 const report = ref(null)
 
 const statMeta = computed(() => STAT_META[type.value] || null)
-const keywordPlaceholder = computed(() => tx(KEYWORD_PLACEHOLDERS[type.value] || 'report.keyword'))
+const keywordPlaceholder = computed(() => KEYWORD_PLACEHOLDERS[type.value] || '关键字')
 
 const distribution = computed(() => report.value?.distribution || [])
 const detailsColumns = computed(() => report.value?.details?.columns || [])
@@ -185,11 +184,11 @@ const detailsRows = computed(() => report.value?.details?.rows || [])
 const trendTitle = computed(() => {
   const meta = statMeta.value
   return meta
-    ? `${tx(meta.main)}趋势（${tx(meta.main)} / ${tx(meta.secondary)} / ${tx(meta.fail)}）`
+    ? `${meta.main}趋势（${meta.main} / ${meta.secondary} / ${meta.fail}）`
     : '趋势'
 })
-const distributionTitle = computed(() => tx(statMeta.value?.dist || 'report.distribution'))
-const detailsTitle = computed(() => tx(statMeta.value?.details || 'report.detail'))
+const distributionTitle = computed(() => statMeta.value?.dist || '分布')
+const detailsTitle = computed(() => statMeta.value?.details || '明细')
 
 function disableFuture(date) {
   return date.getTime() > Date.now()
@@ -220,10 +219,10 @@ const summaries = computed(() => {
   const meta = statMeta.value
   if (!s || !meta) return []
   const list = [
-    { key: 'visits', label: tx(meta.main), value: s.totalVisits ?? '--', unit: '次' },
-    { key: 'active', label: tx(meta.secondary), value: s.activeUsers ?? '--', unit: '人' },
+    { key: 'visits', label: meta.main, value: s.totalVisits ?? '--', unit: '次' },
+    { key: 'active', label: meta.secondary, value: s.activeUsers ?? '--', unit: '人' },
     { key: 'success', label: '成功率', value: s.successRate ?? '--', unit: '%' },
-    { key: 'failed', label: tx(meta.fail), value: s.failedVisits ?? '--', unit: '次' }
+    { key: 'failed', label: meta.fail, value: s.failedVisits ?? '--', unit: '次' }
   ]
   if (meta.duration) {
     list.push(
@@ -242,23 +241,23 @@ const trendOption = computed(() => {
   if (!meta) return { grid, series: [] }
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: [tx(meta.main), tx(meta.secondary), tx(meta.fail)] },
+    legend: { data: [meta.main, meta.secondary, meta.fail] },
     grid,
     xAxis: { type: 'category', boundaryGap: false, data: trend.map((p) => p.bucket) },
     yAxis: { type: 'value' },
     series: [
       {
-        name: tx(meta.main), type: 'line', smooth: true, showSymbol: false,
+        name: meta.main, type: 'line', smooth: true, showSymbol: false,
         areaStyle: { opacity: 0.12 }, itemStyle: { color: BRAND },
         data: trend.map((p) => p.visits)
       },
       {
-        name: tx(meta.secondary), type: 'line', smooth: true, showSymbol: false,
+        name: meta.secondary, type: 'line', smooth: true, showSymbol: false,
         areaStyle: { opacity: 0.12 }, itemStyle: { color: '#67c23a' },
         data: trend.map((p) => p.activeUsers)
       },
       {
-        name: tx(meta.fail), type: 'line', smooth: true, showSymbol: false,
+        name: meta.fail, type: 'line', smooth: true, showSymbol: false,
         areaStyle: { opacity: 0.08 }, itemStyle: { color: '#f56c6c' },
         data: trend.map((p) => p.failed)
       }
@@ -417,7 +416,7 @@ function openReportDrill(dimension, parent, title) {
 /** 趋势线点击：非「今日」范围下钻该天逐小时分布（今日已按小时，无需下钻）。 */
 function onTrendClick(p) {
   if (rangeType.value === 'TODAY') return
-  openReportDrill('TIME_DAY', p.name, `${statMeta.value?.main ? tx(statMeta.value.main) : '趋势'} · ${p.name} 逐小时分布`)
+  openReportDrill('TIME_DAY', p.name, `${statMeta.value?.main ? statMeta.value.main : '趋势'} · ${p.name} 逐小时分布`)
 }
 
 /** 分布图点击：耗时分布→DURATION 明细；登录类型分布→LOGIN_TYPE 趋势。 */

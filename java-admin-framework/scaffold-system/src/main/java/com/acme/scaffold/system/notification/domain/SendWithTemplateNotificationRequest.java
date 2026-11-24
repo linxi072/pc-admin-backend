@@ -22,8 +22,8 @@ import java.util.Map;
  * @param variables    变量名 → 取值；缺省为空（未提供的变量渲染后保持 {@code ${name}} 原样）
  */
 public record SendWithTemplateNotificationRequest(
-        @NotBlank(message = "{validation.templateCode.notBlank}")
-        @Size(max = 64, message = "{validation.templateCode.size}") String templateCode,
+        @NotBlank(message = "模板编码不能为空")
+        @Size(max = 64, message = "模板编码长度不能超过64") String templateCode,
         Map<String, String> variables,
         List<Long> receiverIds,
         List<Long> roleIds,

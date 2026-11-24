@@ -13,6 +13,6 @@ import java.util.Set;
  * @param codes 该角色拥有明文可见权的字段权限码集合；空集合表示「全部脱敏/隐藏」
  */
 public record SaveRoleColumnPermissionRequest(
-        @NotNull(message = "{validation.columnPermission.codes.notNull}")
+        @NotNull(message = "字段权限码集合不能为空")
         Set<String> codes) {
 }

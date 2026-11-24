@@ -21,10 +21,10 @@ import jakarta.validation.constraints.NotBlank;
  * @param enabled 开关：0/1 设置，null 恢复默认
  */
 public record PreferenceItemRequest(
-        @NotBlank(message = "{validation.channel.notBlank}")
+        @NotBlank(message = "渠道不能为空")
         String channel,
         String msgType,
-        @Min(value = 0, message = "{validation.preference.switch.range}")
-        @Max(value = 1, message = "{validation.preference.switch.range}")
+        @Min(value = 0, message = "开关取值只能为 0 或 1")
+        @Max(value = 1, message = "开关取值只能为 0 或 1")
         Integer enabled) {
 }

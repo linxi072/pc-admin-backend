@@ -23,7 +23,7 @@
       <el-alert type="info" :closable="false" show-icon class="icon-tip"
         :title="'图标来自 Element Plus 图标库（全局注册），按语义分组；运维管理相关图标已归入「监控运维」组。'" />
       <div v-for="group in filteredGroups" :key="group.i18nKey" class="icon-group">
-        <div class="icon-group-title">{{ tx('iconPicker.' + group.i18nKey) }}（{{ group.icons.length }}）</div>
+        <div class="icon-group-title">{{ group.label }}（{{ group.icons.length }}）</div>
         <div class="icon-grid">
           <div v-for="name in group.icons" :key="name"
             class="icon-cell" :class="{ 'is-active': name === modelValue }"
@@ -47,7 +47,6 @@
 import { ref, computed } from 'vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { Close, Picture, Search } from '@element-plus/icons-vue'
-import { tx } from '@/locales/zhCN'
 
 /**
  * 图标选择器（菜单管理「图标」字段）。
@@ -86,6 +85,7 @@ const safePreview = computed(() => {
 const GROUPS = [
   {
     i18nKey: 'groupMonitor',
+    label: '监控运维',
     icons: ['Odometer', 'Monitor', 'Box', 'Link', 'Key', 'Document', 'Connection', 'DataLine',
       'DataAnalysis', 'PieChart', 'TrendCharts', 'Aim', 'Cpu', 'SetUp', 'Tools', 'Setting',
       'Warning', 'WarningFilled', 'Bell', 'AlarmClock', 'Timer', 'Stopwatch', 'Lightning',
@@ -93,12 +93,14 @@ const GROUPS = [
   },
   {
     i18nKey: 'groupSystem',
+    label: '系统管理',
     icons: ['User', 'UserFilled', 'Avatar', 'Menu', 'OfficeBuilding', 'Notebook', 'Coin',
       'School', 'Briefcase', 'Suitcase', 'Postcard', 'Reading', 'Collection', 'Files',
       'Folder', 'FolderOpened', 'FolderChecked', 'FolderAdd', 'Tickets', 'Stamp', 'PriceTag']
   },
   {
     i18nKey: 'groupWorkflow',
+    label: '工作流协作',
     icons: ['Share', 'Edit', 'EditPen', 'MagicStick', 'Switch', 'Refresh',
       'RefreshLeft', 'RefreshRight', 'CircleCheck', 'CircleClose', 'CirclePlus', 'Finished',
       'Select', 'Rank', 'Histogram', 'Guide', 'ChatDotRound', 'ChatLineRound', 'Message',
@@ -106,12 +108,14 @@ const GROUPS = [
   },
   {
     i18nKey: 'groupReport',
+    label: '报表统计',
     icons: ['DataBoard', 'Sort', 'SortUp', 'SortDown', 'Grid', 'List',
       'Medal', 'Trophy', 'Discount', 'SoldOut', 'ShoppingCart', 'Goods', 'Wallet', 'Money',
       'CreditCard']
   },
   {
     i18nKey: 'groupGeneral',
+    label: '通用操作',
     icons: ['Search', 'Plus', 'Minus', 'Close', 'Check', 'Delete', 'View', 'Hide',
       'Download', 'Upload', 'Top', 'Bottom', 'Back', 'FullScreen', 'Lock', 'Unlock', 'Star',
       'StarFilled', 'Flag', 'QuestionFilled', 'InfoFilled', 'More', 'MoreFilled', 'Operation',
@@ -119,6 +123,7 @@ const GROUPS = [
   },
   {
     i18nKey: 'groupDev',
+    label: '开发工具',
     icons: ['Platform', 'Iphone', 'Camera', 'Picture', 'VideoCamera',
       'Microphone', 'Headset', 'Mouse', 'Printer', 'Brush', 'MilkTea', 'Lollipop',
       'IceCream', 'Coffee', 'Goblet']
@@ -129,7 +134,7 @@ const filteredGroups = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return GROUPS
   return GROUPS
-    .map((g) => ({ i18nKey: g.i18nKey, icons: g.icons.filter((n) => n.toLowerCase().includes(q)) }))
+    .map((g) => ({ i18nKey: g.i18nKey, label: g.label, icons: g.icons.filter((n) => n.toLowerCase().includes(q)) }))
     .filter((g) => g.icons.length)
 })
 

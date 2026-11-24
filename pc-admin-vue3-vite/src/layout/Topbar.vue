@@ -6,7 +6,7 @@
       </el-button>
       <el-breadcrumb separator="/">
         <el-breadcrumb-item :to="{ path: '/dashboard' }">{{ '首页' }}</el-breadcrumb-item>
-        <el-breadcrumb-item>{{ tx(currentTitle) }}</el-breadcrumb-item>
+        <el-breadcrumb-item>{{ currentTitle }}</el-breadcrumb-item>
       </el-breadcrumb>
     </div>
 
@@ -89,7 +89,6 @@ import { authState, clearAuth } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { pageAnnouncements, getAnnouncement } from '@/api/announcement'
 import { closeRealtime } from '@/api/realtime'
-import { tx } from '@/locales/zhCN'
 import NotificationBell from '@/components/NotificationBell.vue'
 import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import { useConnectivity } from '@/utils/connectivity'

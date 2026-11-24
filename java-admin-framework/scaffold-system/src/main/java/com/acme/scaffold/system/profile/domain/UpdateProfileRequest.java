@@ -15,16 +15,16 @@ import jakarta.validation.constraints.Size;
  * @param avatarUrl   头像相对路径
  */
 public record UpdateProfileRequest(
-        @NotBlank(message = "{validation.profile.nickname.notBlank}")
-        @Size(max = 100, message = "{validation.profile.nickname.size}")
+        @NotBlank(message = "昵称不能为空")
+        @Size(max = 100, message = "昵称长度不能超过 100")
         String displayName,
 
-        @Pattern(regexp = "^$|^1[3-9]\\d{9}$", message = "{validation.profile.mobile.pattern}")
+        @Pattern(regexp = "^$|^1[3-9]\\d{9}$", message = "手机号格式不正确")
         String mobile,
 
-        @Pattern(regexp = "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", message = "{validation.profile.email.pattern}")
+        @Pattern(regexp = "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", message = "邮箱格式不正确")
         String email,
 
-        @Size(max = 255, message = "{validation.profile.avatar.size}")
+        @Size(max = 255, message = "头像地址过长")
         String avatarUrl) {
 }

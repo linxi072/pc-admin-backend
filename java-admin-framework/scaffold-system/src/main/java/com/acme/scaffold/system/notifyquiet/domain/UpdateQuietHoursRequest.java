@@ -17,12 +17,12 @@ import jakarta.validation.constraints.NotNull;
  * @param alertBreakthrough 告警消息是否穿透免打扰
  */
 public record UpdateQuietHoursRequest(
-        @NotNull(message = "{validation.quietHours.switch.notNull}")
+        @NotNull(message = "免打扰开关不能为空")
         Boolean enabled,
-        @NotBlank(message = "{validation.quietHours.time.notBlank}")
+        @NotBlank(message = "免打扰起止时间不能为空")
         String startTime,
-        @NotBlank(message = "{validation.quietHours.time.notBlank}")
+        @NotBlank(message = "免打扰起止时间不能为空")
         String endTime,
-        @NotNull(message = "{validation.quietHours.switch.notNull}")
+        @NotNull(message = "免打扰开关不能为空")
         Boolean alertBreakthrough) {
 }

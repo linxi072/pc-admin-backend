@@ -4,16 +4,15 @@
 
   内容：
   - common.api / common.error / common.exception：统一响应 Result/PageResult、错误码 ErrorCode、
-    业务异常与全局异常处理（GlobalExceptionHandler）；
-  - common.i18n / common.validation：多语言消息源与 Bean Validation 校验消息键化；
+    业务异常与全局异常处理（GlobalExceptionHandler，中文文案）；
+  - common.validation：Bean Validation 校验（注解消息直接使用中文文案）；
   - common.context：安全上下文端口（SecurityContextFacade / CurrentPrincipal），
     实现在 scaffold-system（依赖倒置，避免 common → system 成环）；
   - common.web：客户端真实 IP 解析（审计/限流/登录日志共用）；
   - common.audit / common.idempotency：操作审计切面、写接口幂等切面；
   - common.export / common.importer：导出中心（CSV/XLSX）与导入中心；
   - common.sensitive / common.tree / common.id / common.notification：脱敏、树构建、ID 生成、通知抽象；
-  - mybatis.dsl：动态 SQL 兼容层、表登记/写入助手、Record 映射与 keyset 分页（单一包）；
-  - 资源：i18n 消息束（messages*/validation*）。
+  - mybatis.dsl：动态 SQL 兼容层、表登记/写入助手、Record 映射与 keyset 分页（单一包）。
 
   注意：MyBatis 核心与 mybatis-spring 依赖在本模块声明，其余模块经传递依赖使用
   （版本由父 POM 统一收敛；spring-boot-starter-jdbc 提供 DataSource / 事务链路）。
@@ -31,7 +30,7 @@
 
     <artifactId>scaffold-common</artifactId>
     <name>scaffold-common</name>
-    <description>公共基础层：统一响应/异常/错误码、i18n、校验、审计、幂等、导出/导入、脱敏、MyBatis 动态 SQL 兼容层</description>
+    <description>公共基础层：统一响应/异常/错误码、校验、审计、幂等、导出/导入、脱敏、MyBatis 动态 SQL 兼容层</description>
 
     <dependencies>
         <dependency>

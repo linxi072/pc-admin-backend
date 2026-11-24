@@ -60,11 +60,9 @@ async function probe() {
     }
     driftSeconds.value = Math.round(drift * 100) / 100
 
-    // 语言协商一致性：后端实际解析到的 locale 应以前端上报的 backendLocale 为前缀
-    const expected = 'zh_CN'
-    localeMismatch.value = !!(data?.receivedLocale && !data.receivedLocale.startsWith(expected))
+    // i18n 引擎已移除，不再做语言协商一致性断言；receivedLocale 仅作为信息回显。
 
-    if (drift >= DRIFT_WARN_SECONDS || localeMismatch.value) {
+    if (drift >= DRIFT_WARN_SECONDS) {
       status.value = 'degraded'
     } else {
       status.value = 'ok'

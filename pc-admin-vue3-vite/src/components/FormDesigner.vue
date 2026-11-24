@@ -11,7 +11,7 @@
         :icon="Plus"
         @click="addField(t.type)"
       >
-        {{ tx(t.labelKey) }}
+        {{ t.labelKey }}
       </el-button>
       <div class="fd-palette-hint">{{ '点击添加字段到表单' }}</div>
     </div>
@@ -111,7 +111,7 @@
           </el-form-item>
           <el-form-item :label="'运算符'">
             <el-select v-model="current.visibleWhen.op" style="width: 100%">
-              <el-option v-for="(lbl, k) in opOptions" :key="k" :label="tx(lbl)" :value="k" />
+              <el-option v-for="(lbl, k) in opOptions" :key="k" :label="lbl" :value="k" />
             </el-select>
           </el-form-item>
           <el-form-item v-if="!['truthy', 'falsy'].includes(current.visibleWhen.op)" :label="'比较值'">
@@ -143,7 +143,6 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import DynamicForm from '@/components/DynamicForm.vue'
-import { tx } from '@/locales/zhCN'
 
 const props = defineProps({
   /** Schema JSON 字符串（与表单定义管理后端契约一致：{version,title,fields[]}）。 */
@@ -154,25 +153,25 @@ const emit = defineEmits(['update:modelValue'])
 const KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*$/
 
 const opOptions = {
-  eq: 'form.opEq',
-  ne: 'form.opNe',
-  in: 'form.opIn',
-  gt: 'form.opGt',
-  lt: 'form.opLt',
-  gte: 'form.opGte',
-  lte: 'form.opLte',
-  truthy: 'form.opTruthy',
-  falsy: 'form.opFalsy'
+  eq: '等于',
+  ne: '不等于',
+  in: '属于',
+  gt: '大于',
+  lt: '小于',
+  gte: '大于等于',
+  lte: '小于等于',
+  truthy: '已填写',
+  falsy: '未填写'
 }
 
 const palette = [
-  { type: 'INPUT', labelKey: 'formDesigner.typeInput' },
-  { type: 'TEXTAREA', labelKey: 'formDesigner.typeTextarea' },
-  { type: 'NUMBER', labelKey: 'formDesigner.typeNumber' },
-  { type: 'SELECT', labelKey: 'formDesigner.typeSelect' },
-  { type: 'RADIO', labelKey: 'formDesigner.typeRadio' },
-  { type: 'SWITCH', labelKey: 'formDesigner.typeSwitch' },
-  { type: 'DATE', labelKey: 'formDesigner.typeDate' }
+  { type: 'INPUT', labelKey: '单行文本' },
+  { type: 'TEXTAREA', labelKey: '多行文本' },
+  { type: 'NUMBER', labelKey: '数字' },
+  { type: 'SELECT', labelKey: '下拉选择' },
+  { type: 'RADIO', labelKey: '单选' },
+  { type: 'SWITCH', labelKey: '开关' },
+  { type: 'DATE', labelKey: '日期' }
 ]
 
 const title = ref('')
@@ -194,16 +193,16 @@ const schemaObject = computed(() => ({ version: 1, title: title.value, fields: f
 
 const keyError = computed(() => {
   const f = current.value
-  if (!f || !f.key) return tx('formDesigner.keyRequired')
-  if (!KEY_PATTERN.test(f.key)) return tx('formDesigner.keyInvalid')
+  if (!f || !f.key) return '字段键必填'
+  if (!KEY_PATTERN.test(f.key)) return '字段键须为字母开头的驼峰标识符'
   const dup = fields.filter((x) => x.key === f.key).length > 1
-  return dup ? tx('formDesigner.duplicateKey') : ''
+  return dup ? '字段键重复' : ''
 })
 
 
 function typeLabel(t) {
   const found = palette.find((p) => p.type === t)
-  return found ? tx(found.labelKey) : t
+  return found ? found.labelKey : t
 }
 
 function hasPlaceholder(t) {

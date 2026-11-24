@@ -6,7 +6,7 @@
 
 | 模块 | 层 | 职责（一句话） | 依赖 | 关键包 |
 |---|---|---|---|---|
-| `scaffold-common` | 基础 | 跨模块基础设施：统一响应/异常/分页、**通用常量**、i18n、审计/幂等切面、导出/导入、**MyBatis DSL**、插件 SPI 运行时 | 无 | `common.*`（含 `common.constant`）、`mybatis.*`、`plugin.*` |
+| `scaffold-common` | 基础 | 跨模块基础设施：统一响应/异常/分页、**通用常量**、审计/幂等切面、导出/导入、**MyBatis DSL**、插件 SPI 运行时 | 无 | `common.*`（含 `common.constant`）、`mybatis.*`、`plugin.*` |
 | `scaffold-realtime` | 基础 | WebSocket 握手鉴权端口与会话管理 | common | `realtime.port`/`realtime.websocket` |
 | `scaffold-kafka` | 基础 | Kafka 保序规则与消费者薄封装 | common | `kafka.*` |
 | `scaffold-codegen` | 工具 | 表元数据读取与 CRUD 骨架生成（M50）+ AI 脚手架（R3） | common | `codegen.*`、`ai.*` |
@@ -46,7 +46,7 @@
 3. 仅声明**真正需要**的依赖（保持 DAG 无环）；非 Spring Boot BOM 管理的第三方依赖版本写入父 POM
    `<dependencyManagement>`，子模块省略 `<version>`；
 4. 包根 `com.acme.scaffold.xxx`，遵循 `controller → service → domain` 分层（H3 规则）；
-5. 若暴露 HTTP 端点，同步补：前端路由 + i18n 键 + 菜单种子（`db/migration`）+ API 客户端；
+5. 若暴露 HTTP 端点，同步补：前端路由 + 内联中文文案 + 菜单种子（`db/migration`）+ API 客户端；
 6. 跑统一门禁（`python3 scripts/check-all.py`，7 步；另加 `mvn -o -f pom.xml clean compile`）确认无环、无违规，并同步更新本表。
 
 ---

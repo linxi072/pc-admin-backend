@@ -15,7 +15,7 @@ import java.util.Map;
  * {@code NOTIFICATION} 处理、{@code payload} 被忽略。二者皆为空时走原始 {@code type}/{@code payload} 路径。</p>
  */
 public record RealtimeBroadcastRequest(
-        @NotBlank(message = "{validation.realtime.type.notBlank}") String type,
+        @NotBlank(message = "推送消息类型不能为空") String type,
         Object payload,
         String templateCode,
         Map<String, String> variables) {

@@ -117,7 +117,6 @@ import { useRouter } from 'vue-router'
 import { CircleCheck, CircleClose, DataAnalysis, Timer } from '@element-plus/icons-vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
 import { workbenchStats, recentActivities } from '@/api/workbench'
-import { tx } from '@/locales/zhCN'
 
 const router = useRouter()
 const loading = ref(false)
@@ -151,8 +150,8 @@ const CARD_ACTION = {
   ACTIVE_API: { type: 'route', name: 'apiResource' }
 }
 const METRIC_LABEL = {
-  NEW_USERS: 'dashboard.metricNewUsers', NEW_TENANTS: 'dashboard.metricNewTenants', ACTIVE_TENANTS: 'dashboard.metricActiveTenants',
-  LOGIN_LOGS: 'dashboard.metricLoginLogs', OPERATION_LOGS: 'dashboard.metricOperationLogs', NOTIFICATIONS: 'dashboard.metricNotifications'
+  NEW_USERS: '新增用户', NEW_TENANTS: '新增租户', ACTIVE_TENANTS: '活跃租户',
+  LOGIN_LOGS: '登录日志', OPERATION_LOGS: '操作日志', NOTIFICATIONS: '通知发送'
 }
 
 const drillVisible = ref(false)
@@ -183,7 +182,7 @@ function onStatCardClick(c) {
   const action = CARD_ACTION[c.key]
   if (!action) return
   if (action.type === 'drill') {
-    openDashboardDrill(action.metric, todayISO(), `${tx(METRIC_LABEL[action.metric])} · ${'今日逐小时分布'}`)
+    openDashboardDrill(action.metric, todayISO(), `${METRIC_LABEL[action.metric]} · ${'今日逐小时分布'}`)
   } else if (action.type === 'route') {
     router.push({ name: action.name, query: action.query || {} })
   }

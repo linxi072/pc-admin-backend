@@ -39,7 +39,7 @@
                 v-if="live && !live.ok"
                 type="error"
                 :closable="false"
-                :title="tx(live.error || 'health.unreachable')"
+                :title="live.error || '探针不可达'"
                 show-icon
               />
               <template v-else-if="live && live.ok">
@@ -67,7 +67,7 @@
                 v-if="ready && !ready.ok"
                 type="error"
                 :closable="false"
-                :title="tx(ready.error || 'health.unreachable')"
+                :title="ready.error || '探针不可达'"
                 show-icon
               />
               <template v-else-if="ready && ready.ok">
@@ -89,7 +89,6 @@
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { getLiveness, getReadiness } from '@/api/health'
-import { tx } from '@/locales/zhCN'
 
 // 两个探针各自独立加载（一个失败不阻塞另一个）；loading 与结果分别持有。
 const live = ref(null)

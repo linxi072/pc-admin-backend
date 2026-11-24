@@ -19,9 +19,9 @@ public record CreateUserRequest(
         @NotBlank String displayName,
         String mobile,
         String email,
-        @NotEmpty(message = "{validation.user.roleIds.notEmpty}") List<Long> roleIds,
+        @NotEmpty(message = "至少绑定一个角色") List<Long> roleIds,
         Long primaryRoleId,
-        @NotEmpty(message = "{validation.user.deptIds.notEmpty}") List<Long> deptIds,
+        @NotEmpty(message = "至少归属一个部门") List<Long> deptIds,
         Long primaryDeptId,
         List<Long> postIds) {
 }

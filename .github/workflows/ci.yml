@@ -18,7 +18,7 @@ env:
   NODE_VERSION: "20"
 
 jobs:
-  # ─── 1. 静态门禁（Python 7 步编排 + 前端 SFC/i18n 泄漏扫描）──────────────
+  # ─── 1. 静态门禁（Python 7 步编排 + 前端 SFC 规范扫描）────────────────────
   gates:
     name: gates (conventions / naming / directory / permission / version)
     runs-on: ubuntu-latest
@@ -36,19 +36,10 @@ jobs:
       - name: 后端统一门禁（失败即阻断）
         run: python3 java-admin-framework/scripts/check-all.py
 
-      - name: 前端 i18n 泄漏扫描
-        run: node java-admin-framework/scripts/i18n-leak-scan.mjs pc-admin-vue3-vite/src
-
       - name: 前端 SFC 单文件规范扫描（views 全量）
         run: |
           FILES=$(find pc-admin-vue3-vite/src -name "*.vue" | tr '\n' ' ')
           node java-admin-framework/scripts/check-sfc.mjs $FILES
-
-      - name: 组件库 SFC / i18n 扫描（V1.2 方向 A）
-        run: |
-          UI_FILES=$(find pc-admin-ui/src -name "*.vue" | tr '\n' ' ')
-          node java-admin-framework/scripts/check-sfc.mjs $UI_FILES
-          node java-admin-framework/scripts/i18n-leak-scan.mjs pc-admin-ui/src
 
   # ─── 2. 后端构建 + 测试（含 JaCoCo 覆盖率产出）──────────────────────────
   backend:
@@ -115,31 +106,7 @@ jobs:
         run: npm run build
         working-directory: pc-admin-vue3-vite
 
-  # ─── 4. 组件库包构建 + 单测（V1.2 方向 A；ESM + CJS 双产物）─────────────
-  ui-lib:
-    name: ui-lib build & test
-    runs-on: ubuntu-latest
-    needs: gates
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: 安装依赖
-        run: npm install --no-audit --no-fund
-        working-directory: pc-admin-ui
-
-      - name: 组件库单元测试（vitest）
-        run: npm test
-        working-directory: pc-admin-ui
-
-      - name: lib 构建（ESM + CJS）
-        run: npm run build
-        working-directory: pc-admin-ui
-
-  # ─── 5. 覆盖率门禁（解析 JaCoCo XML，低于阈值即红）──────────────────────
+  # ─── 4. 覆盖率门禁（解析 JaCoCo XML，低于阈值即红）──────────────────────
   coverage-gate:
     name: coverage gate (INSTRUCTION≥0.10 / BRANCH≥0.05 起步线)
     runs-on: ubuntu-latest

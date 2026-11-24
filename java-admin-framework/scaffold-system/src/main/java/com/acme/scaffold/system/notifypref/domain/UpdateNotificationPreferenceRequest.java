@@ -16,7 +16,7 @@ import java.util.List;
  * @param items 偏好项列表（1～16 项，超出即非法：矩阵总共只有 16 格）
  */
 public record UpdateNotificationPreferenceRequest(
-        @NotEmpty(message = "{validation.preference.items.notEmpty}")
-        @Size(max = 16, message = "{validation.preference.items.size}")
+        @NotEmpty(message = "偏好项不能为空")
+        @Size(max = 16, message = "偏好项数量不能超过16")
         List<@Valid PreferenceItemRequest> items) {
 }

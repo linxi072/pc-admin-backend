@@ -3,12 +3,6 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 // Vite 标准配置：Vue 插件 + @ 别名 + 开发服务器代理（转发 /api 等前缀到后端/网关）。
-// 默认走「源码直引」（pc-admin-ui/src，dev/test 免预构建）；
-// ACME_UI_PACKAGE=1 时切到「包引用」（file: 依赖 → dist，需先 npm run build:ui）。
-const useUiPackage = process.env.ACME_UI_PACKAGE === '1'
-const uiEntry = useUiPackage
-  ? new URL('../pc-admin-ui/dist/admin-ui.js', import.meta.url)
-  : new URL('../pc-admin-ui/src/index.js', import.meta.url)
 
 export default defineConfig(({ mode }) => {
   // 代理目标可配置（方向 B4）：默认直连 scaffold-admin:8080；
@@ -21,12 +15,8 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
     resolve: {
       alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url)),
-        '@acme/admin-ui': fileURLToPath(uiEntry)
-      },
-      // 源码直引模式下，库包源码位于 pc-admin-ui/src，其 peer 裸导入需强制从主应用
-      // node_modules 解析（否则向上找不到依赖）；dedupe 同时保证 vue/element-plus 单实例。
-      dedupe: ['vue', 'element-plus', '@element-plus/icons-vue', 'echarts']
+        '@': fileURLToPath(new URL('./src', import.meta.url))
+      }
     },
     server: {
       port: 5173,

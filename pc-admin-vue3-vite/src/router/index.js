@@ -8,7 +8,7 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/auth/LoginView.vue'),
-    meta: { public: true, title: 'route.loginTitle' }
+    meta: { public: true, title: '登录' }
   },
   {
     // OAuth2 用户同意页（#900）：授权码 + PKCE 流程中，由第三方客户端经 consent_required
@@ -16,7 +16,7 @@ const routes = [
     path: '/oauth2/consent',
     name: 'oauth2Consent',
     component: () => import('@/views/oauth2/ConsentView.vue'),
-    meta: { title: 'route.oauth2Consent' }
+    meta: { title: '授权同意' }
   },
   {
     path: '/',
@@ -27,69 +27,69 @@ const routes = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/dashboard/WorkbenchView.vue'),
-        meta: { title: 'route.dashboard' }
+        meta: { title: '工作台' }
       },
       {
         path: 'profile',
         name: 'profile',
         component: () => import('@/views/profile/ProfileView.vue'),
-        meta: { title: 'route.profile' }
+        meta: { title: '个人中心' }
       },
       {
         path: 'system/user',
         name: 'user',
         component: () => import('@/views/system/UserView.vue'),
-        meta: { title: 'route.user' }
+        meta: { title: '用户管理' }
       },
       {
         path: 'system/role',
         name: 'role',
         component: () => import('@/views/system/RoleView.vue'),
-        meta: { title: 'route.role' }
+        meta: { title: '角色管理' }
       },
       {
         path: 'system/menu',
         name: 'menu',
         component: () => import('@/views/system/MenuView.vue'),
-        meta: { title: 'route.menu' }
+        meta: { title: '菜单管理' }
       },
       {
         path: 'system/api-resource',
         name: 'apiResource',
         component: () => import('@/views/system/ApiResourceView.vue'),
-        meta: { title: 'route.apiResource' }
+        meta: { title: '接口资源管理' }
       },
       {
         path: 'system/department',
         name: 'department',
         component: () => import('@/views/system/DepartmentView.vue'),
-        meta: { title: 'route.department' }
+        meta: { title: '部门管理' }
       },
       {
         // 岗位管理（V35）：岗位 CRUD + 用户岗位分配，菜单与权限由后端驱动
         path: 'system/post',
         name: 'post',
         component: () => import('@/views/system/PostView.vue'),
-        meta: { title: 'route.post', permission: 'system:post:read' }
+        meta: { title: '岗位管理', permission: 'system:post:read' }
       },
       {
         path: 'system/dict',
         name: 'dict',
         component: () => import('@/views/system/DictView.vue'),
-        meta: { title: 'route.dict' }
+        meta: { title: '字典管理' }
       },
       {
         path: 'system/config',
         name: 'config',
         component: () => import('@/views/system/ConfigView.vue'),
-        meta: { title: 'route.config' }
+        meta: { title: '系统变量' }
       },
       {
         // 消息中心：合并「系统公告」与「站内信」，页内以 Tab 切换
         path: 'system/notice',
         name: 'notice',
         component: () => import('@/views/system/NoticeView.vue'),
-        meta: { title: 'route.notice', permission: 'system:announcement:read' }
+        meta: { title: '消息中心', permission: 'system:announcement:read' }
       },
       {
         // 旧入口保留重定向，避免历史书签/菜单配置失效
@@ -105,49 +105,49 @@ const routes = [
         path: 'system/monitor',
         name: 'monitor',
         component: () => import('@/views/system/RuntimeMonitorView.vue'),
-        meta: { title: 'route.monitor', permission: 'system:monitor:read' }
+        meta: { title: '系统监控', permission: 'system:monitor:read' }
       },
       {
         // 在线用户管理（V27）：在线会话跟踪 / 强制下线 / 临时限制登录，菜单与权限由后端驱动
         path: 'system/online',
         name: 'onlineUser',
         component: () => import('@/views/system/OnlineUserView.vue'),
-        meta: { title: 'route.onlineUser', permission: 'system:online:read' }
+        meta: { title: '在线用户管理', permission: 'system:online:read' }
       },
       {
         // 缓存监控（V29）：进程内缓存条目/命中率/淘汰统计与清理，菜单与权限由后端驱动
         path: 'system/cache',
         name: 'cacheMonitor',
         component: () => import('@/views/system/CacheMonitorView.vue'),
-        meta: { title: 'route.cacheMonitor', permission: 'system:monitor:read' }
+        meta: { title: '缓存监控', permission: 'system:monitor:read' }
       },
       {
         // 连接池监控（V29）：HikariCP 活跃/空闲/等待线程与池配置，菜单与权限由后端驱动
         path: 'system/datasource',
         name: 'poolMonitor',
         component: () => import('@/views/system/PoolMonitorView.vue'),
-        meta: { title: 'route.poolMonitor', permission: 'system:monitor:read' }
+        meta: { title: '连接池监控', permission: 'system:monitor:read' }
       },
       {
         // 登录日志（V29）：登录成功/失败逐条明细（安全审计），菜单与权限由后端驱动
         path: 'system/login-log',
         name: 'loginLog',
         component: () => import('@/views/system/LoginLogView.vue'),
-        meta: { title: 'route.loginLog', permission: 'system:login-log:read' }
+        meta: { title: '登录日志', permission: 'system:login-log:read' }
       },
       {
         // 操作日志（V29）：审计日志明细与 traceId 链路，菜单与权限由后端驱动
         path: 'system/operation-log',
         name: 'operationLog',
         component: () => import('@/views/system/OperationLogView.vue'),
-        meta: { title: 'route.operationLog', permission: 'system:audit:read' }
+        meta: { title: '操作日志', permission: 'system:audit:read' }
       },
       {
         // 短信记录（V37）：短信渠道发送明细（对账排查），入库前已脱敏，菜单与权限由后端驱动
         path: 'system/sms-record',
         name: 'smsRecord',
         component: () => import('@/views/system/SmsLogView.vue'),
-        meta: { title: 'route.smsRecord', permission: 'system:sms-record:read' }
+        meta: { title: '短信记录', permission: 'system:sms-record:read' }
       },
       {
         // 幂等记录管理（#971）：M2 幂等模块的运维侧面；分页/统计/过期清理三接口齐备，
@@ -155,7 +155,7 @@ const routes = [
         path: 'system/idempotency',
         name: 'idempotency',
         component: () => import('@/views/system/IdempotencyRecordView.vue'),
-        meta: { title: 'route.idempotency', permission: 'system:idempotency:read' }
+        meta: { title: '幂等记录', permission: 'system:idempotency:read' }
       },
       {
         // API 文档中心（#972）：复用 Springdoc 标准端点 /v3/api-docs，纯前端浏览器；
@@ -163,39 +163,39 @@ const routes = [
         path: 'system/api-docs',
         name: 'apiDocs',
         component: () => import('@/views/system/ApiDocView.vue'),
-        meta: { title: 'route.apiDocs', permission: 'system:api-docs:read' }
+        meta: { title: 'API 文档', permission: 'system:api-docs:read' }
       },
       {
         // 通知模板中心（V41）：为 M6 多渠道通知提供可复用 ${var} 模板；权限码与菜单由后端驱动
         path: 'system/notification-templates',
         name: 'notificationTemplate',
         component: () => import('@/views/system/NotificationTemplateView.vue'),
-        meta: { title: 'route.notificationTemplate', permission: 'system:notification-template:read' }
+        meta: { title: '通知模板', permission: 'system:notification-template:read' }
       },
       {
         // 通知记录（V42）：全五渠道统一发送审计面（含被拒与失败），入库前已脱敏摘要，菜单与权限由后端驱动
         path: 'system/notification-records',
         name: 'notificationRecord',
         component: () => import('@/views/system/NotificationRecordView.vue'),
-        meta: { title: 'route.notificationRecord', permission: 'system:notification-record:read' }
+        meta: { title: '通知记录', permission: 'system:notification-record:read' }
       },
       {
         path: 'workflow/task',
         name: 'task',
         component: () => import('@/views/workflow/TaskView.vue'),
-        meta: { title: 'route.task' }
+        meta: { title: '我的待办' }
       },
       {
         path: 'workflow/instance',
         name: 'instance',
         component: () => import('@/views/workflow/InstanceView.vue'),
-        meta: { title: 'route.instance' }
+        meta: { title: '我发起的流程' }
       },
       {
         path: 'workflow/definition',
         name: 'definition',
         component: () => import('@/views/workflow/DesignListView.vue'),
-        meta: { title: 'route.definition', permission: 'workflow:definition:read' }
+        meta: { title: '工作流设计', permission: 'workflow:definition:read' }
       },
       {
         // 流程监控（M23）：运行实例 / 超时任务 / 定义版本链 / 统计摘要 + 催办，
@@ -203,13 +203,13 @@ const routes = [
         path: 'workflow/monitor',
         name: 'workflowMonitor',
         component: () => import('@/views/workflow/WorkflowMonitorView.vue'),
-        meta: { title: 'route.workflowMonitor', permission: 'workflow:monitor:read' }
+        meta: { title: '工作流监控', permission: 'workflow:monitor:read' }
       },
       {
         path: 'workflow/designer/:id',
         name: 'designer',
         component: () => import('@/views/workflow/WorkflowDesigner.vue'),
-        meta: { title: 'route.designer', permission: 'workflow:definition:update' }
+        meta: { title: '工作流设计器', permission: 'workflow:definition:update' }
       },
       {
         // 流程实例治理（M23 续）：管理员对运行实例执行挂起 / 恢复 / 改派 / 迁移写操作，
@@ -218,7 +218,7 @@ const routes = [
         path: 'workflow/instance-admin',
         name: 'workflowInstanceAdmin',
         component: () => import('@/views/workflow/InstanceAdminView.vue'),
-        meta: { title: 'route.instanceAdmin', permission: 'workflow:instance:reassign' }
+        meta: { title: '流程实例治理', permission: 'workflow:instance:reassign' }
       },
       {
         // 报表入口：V30 移除公共统计页（使用/类别/状态）后，旧入口重定向到保留的
@@ -232,21 +232,21 @@ const routes = [
         path: 'report/job-exec',
         name: 'reportJobExec',
         component: () => import('@/views/report/JobExecReportView.vue'),
-        meta: { title: 'route.reportJobExec', permission: 'report:read' }
+        meta: { title: '定时任务执行统计', permission: 'report:read' }
       },
       {
         // 报表-登录统计：登录次数 / 活跃用户趋势 / 异常登录记录
         path: 'report/login',
         name: 'reportLogin',
         component: () => import('@/views/report/LoginReportView.vue'),
-        meta: { title: 'route.reportLogin', permission: 'report:read' }
+        meta: { title: '登录统计', permission: 'report:read' }
       },
       {
         // 报表-接口调用统计：调用量 / 响应时间分布 / 错误率 / Top 接口
         path: 'report/api-call',
         name: 'reportApiCall',
         component: () => import('@/views/report/ApiCallReportView.vue'),
-        meta: { title: 'route.reportApiCall', permission: 'report:read' }
+        meta: { title: '接口调用统计', permission: 'report:read' }
       },
       {
         // 报表大屏（M27）：运营总览 + 时间序列趋势，菜单与权限由后端驱动
@@ -254,21 +254,21 @@ const routes = [
         path: 'report/dashboard',
         name: 'reportDashboard',
         component: () => import('@/views/report/OpsDashboardView.vue'),
-        meta: { title: 'route.reportDashboard', permission: 'system:dashboard:read' }
+        meta: { title: '报表大屏', permission: 'system:dashboard:read' }
       },
       {
         // 定时任务：在线任务管理（列表/启动/暂停/编辑/日志），菜单与权限由后端驱动
         path: 'job/list',
         name: 'jobList',
         component: () => import('@/views/job/JobListView.vue'),
-        meta: { title: 'route.jobList', permission: 'job:read' }
+        meta: { title: '定时任务', permission: 'job:read' }
       },
       {
         // 代码生成：按表结构生成 CRUD 骨架（后端六层 + 前端两文件），菜单与权限由后端驱动
         path: 'dev/codegen',
         name: 'codegen',
         component: () => import('@/views/codegen/CodegenView.vue'),
-        meta: { title: 'route.codegen', permission: 'codegen:read' }
+        meta: { title: '代码生成', permission: 'codegen:read' }
       },
       {
         // 文件管理（V33）：上传 / 下载 / 列表 / 删除，记录来源功能模块与上传人，
@@ -276,7 +276,7 @@ const routes = [
         path: 'system/file',
         name: 'file',
         component: () => import('@/views/system/FileManagementView.vue'),
-        meta: { title: 'route.file', permission: 'system:file:read' }
+        meta: { title: '文件管理', permission: 'system:file:read' }
       },
       {
         // 导出中心（V34）+ 导入中心（V36）已合并为「模板中心」统一页（TemplateCenterView，双 Tab）。
@@ -285,13 +285,13 @@ const routes = [
         path: 'system/export',
         name: 'exportCenter',
         component: () => import('@/views/system/TemplateCenterView.vue'),
-        meta: { title: 'route.exportCenter', permission: 'system:export:read', defaultTab: 'export' }
+        meta: { title: '导出中心', permission: 'system:export:read', defaultTab: 'export' }
       },
       {
         path: 'system/import',
         name: 'importCenter',
         component: () => import('@/views/system/TemplateCenterView.vue'),
-        meta: { title: 'route.importCenter', permission: 'system:import:read', defaultTab: 'import' }
+        meta: { title: '导入中心', permission: 'system:import:read', defaultTab: 'import' }
       },
       {
         // 租户管理（V51 / M19 P2）：租户注册表 CRUD + 启停，菜单与权限由后端驱动
@@ -299,7 +299,7 @@ const routes = [
         path: 'system/tenants',
         name: 'tenant',
         component: () => import('@/views/system/TenantView.vue'),
-        meta: { title: 'route.tenant', permission: 'system:tenant:read' }
+        meta: { title: '租户管理', permission: 'system:tenant:read' }
       },
       {
         // 租户隔离态势（M28 只读运维诊断）：聚合隔离「配置态 + 运行态 + 当前执行作用域 + 配置校验结果」，
@@ -307,7 +307,7 @@ const routes = [
         path: 'system/tenant-isolation',
         name: 'tenantIsolation',
         component: () => import('@/views/system/TenantIsolationView.vue'),
-        meta: { title: 'route.tenantIsolation', permission: 'system:tenant-isolation:read' }
+        meta: { title: '租户隔离态势', permission: 'system:tenant-isolation:read' }
       },
       {
         // 脱敏策略中心（V46）：按字段键 + 角色豁免的统一脱敏策略配置面，
@@ -315,7 +315,7 @@ const routes = [
         path: 'system/mask-strategies',
         name: 'maskStrategy',
         component: () => import('@/views/system/MaskStrategyView.vue'),
-        meta: { title: 'route.maskStrategy', permission: 'system:mask-strategy:read' }
+        meta: { title: '脱敏策略', permission: 'system:mask-strategy:read' }
       },
       {
         // 实时推送管理（M29）：在线会话只读视图 + 运维侧手动广播/定向推送，
@@ -324,7 +324,7 @@ const routes = [
         path: 'system/realtime',
         name: 'realtime',
         component: () => import('@/views/system/RealtimeView.vue'),
-        meta: { title: 'route.realtime', permission: 'system:realtime:read' }
+        meta: { title: '实时推送', permission: 'system:realtime:read' }
       },
       {
         // 数据权限配置（M31）：角色 × 资源的数据范围可视化配置面，资源清单由后端
@@ -333,7 +333,7 @@ const routes = [
         path: 'system/data-scope',
         name: 'dataScope',
         component: () => import('@/views/system/DataScopeView.vue'),
-        meta: { title: 'route.dataScope', permission: 'system:data-scope:read' }
+        meta: { title: '数据权限', permission: 'system:data-scope:read' }
       },
       {
         // 字段/数据权限统一配置（M41）：同一页面内以 Tab 同时配置「行级数据范围」与「列级字段明文可见权」，
@@ -342,7 +342,7 @@ const routes = [
         path: 'system/permission-policy',
         name: 'permissionPolicy',
         component: () => import('@/views/system/PermissionPolicyView.vue'),
-        meta: { title: 'route.permissionPolicy', permission: 'system:column-permission:read' }
+        meta: { title: '字段数据权限', permission: 'system:column-permission:read' }
       },
       {
         // 低代码表单试点（V47 / M22 spike）：Schema 契约 + 零依赖渲染验证，提交落库与绑定目标
@@ -351,7 +351,7 @@ const routes = [
         path: 'system/form-pilot',
         name: 'formPilot',
         component: () => import('@/views/system/FormPilotView.vue'),
-        meta: { title: 'route.formPilot', permission: 'system:form-definition:read' }
+        meta: { title: '低代码表单', permission: 'system:form-definition:read' }
       },
       {
         // 表单定义管理（M22 深化）：表单定义 CRUD + JSON-Schema 可视化编辑 + 实时预览；
@@ -360,7 +360,7 @@ const routes = [
         path: 'system/form-definition',
         name: 'formDefinition',
         component: () => import('@/views/system/FormDefinitionView.vue'),
-        meta: { title: 'route.formDefinition', permission: 'system:form-definition:read' }
+        meta: { title: '表单定义管理', permission: 'system:form-definition:read' }
       },
       {
         // 表单提交管理（M47 跨表单统一提交管理）：跨表单检索/统计/详情/逻辑删除 + 导出中心内置模板；
@@ -369,7 +369,7 @@ const routes = [
         path: 'system/form-submissions',
         name: 'formSubmissionManage',
         component: () => import('@/views/system/FormSubmissionManageView.vue'),
-        meta: { title: 'route.formSubmission', permission: 'system:form-submission:read' }
+        meta: { title: '表单提交管理', permission: 'system:form-submission:read' }
       },
       {
         // 开放平台客户端（V48 / M24）：客户端注册 + 密钥治理（明文一次性展示/哈希落库/轮换/停用），
@@ -378,7 +378,7 @@ const routes = [
         path: 'system/openapi-clients',
         name: 'openApiClient',
         component: () => import('@/views/system/OpenApiClientView.vue'),
-        meta: { title: 'route.openApiClient', permission: 'system:openapi-client:read' }
+        meta: { title: '开放平台客户端', permission: 'system:openapi-client:read' }
       },
       {
         // 可观测中心：链路追踪 / Kafka 监控 / N+1 疑似 / 幂等记录 / 告警收件箱五个运维面统一入口，
@@ -388,7 +388,7 @@ const routes = [
         path: 'system/observability',
         name: 'observabilityCenter',
         component: () => import('@/views/monitor/ObservabilityCenterView.vue'),
-        meta: { title: 'route.observabilityCenter', permission: 'system:monitor:read' }
+        meta: { title: '可观测中心', permission: 'system:monitor:read' }
       },
       {
         // 健康探针（M42）：可视化 /livez、/readyz 两个 k8s 风格根路径探针的存活/就绪状态与明细，
@@ -398,7 +398,7 @@ const routes = [
         path: 'system/health',
         name: 'health',
         component: () => import('@/views/system/HealthView.vue'),
-        meta: { title: 'route.health', permission: 'system:monitor:read' }
+        meta: { title: '健康探针', permission: 'system:monitor:read' }
       },
       {
         // OAuth2 令牌管理（M43）：活动令牌分页查询 + 即时吊销治理面，
@@ -407,7 +407,7 @@ const routes = [
         path: 'system/oauth2-tokens',
         name: 'oauth2Token',
         component: () => import('@/views/system/TokenManagerView.vue'),
-        meta: { title: 'route.oauth2Token', permission: 'system:oauth2-token:read' }
+        meta: { title: 'OAuth2 令牌管理', permission: 'system:oauth2-token:read' }
       },
       {
         // CMS 栏目管理（R5）：树形栏目维护，后端 CmsCategoryController（/api/cms/category），
@@ -415,7 +415,7 @@ const routes = [
         path: 'cms/category',
         name: 'cmsCategory',
         component: () => import('@/views/cms/CategoryView.vue'),
-        meta: { title: 'route.cmsCategory', permission: 'cms:category:manage' }
+        meta: { title: 'CMS 栏目管理', permission: 'cms:category:manage' }
       },
       {
         // CMS 文章管理（R5）：分页列表 + 发布/下线/详情，后端 CmsArticleController（/api/cms/article），
@@ -423,7 +423,7 @@ const routes = [
         path: 'cms/article',
         name: 'cmsArticle',
         component: () => import('@/views/cms/ArticleView.vue'),
-        meta: { title: 'route.cmsArticle', permission: 'cms:article:manage' }
+        meta: { title: 'CMS 文章管理', permission: 'cms:article:manage' }
       },
       {
         // IM 会话管理（R6）：会话列表 + 创建/加成员/退出/删除，后端 ImConversationController
@@ -431,7 +431,7 @@ const routes = [
         path: 'im/conversation',
         name: 'imConversation',
         component: () => import('@/views/im/ConversationView.vue'),
-        meta: { title: 'route.imConversation', permission: 'im:conversation:manage' }
+        meta: { title: 'IM 会话管理', permission: 'im:conversation:manage' }
       },
       {
         // IM 消息中心（R6）：会话列表 + 消息气泡/发送/撤回/已读，后端 ImMessageController
@@ -439,7 +439,7 @@ const routes = [
         path: 'im/message',
         name: 'imMessage',
         component: () => import('@/views/im/ImConversationView.vue'),
-        meta: { title: 'route.imMessage', permission: 'im:message:view' }
+        meta: { title: 'IM 消息中心', permission: 'im:message:view' }
       },
       {
         // 审批中心门户（R7）：待办/已办/我发起/可发起 + 统计的只读聚合页，
@@ -448,7 +448,7 @@ const routes = [
         path: 'approval/portal',
         name: 'approvalPortal',
         component: () => import('@/views/approval/PortalView.vue'),
-        meta: { title: 'route.approvalPortal', permission: 'approval:portal:view' }
+        meta: { title: '审批工作台', permission: 'approval:portal:view' }
       },
       {
         // 看板模板管理（R8）：模板 CRUD + 拖拽布局配置器（layout_json 双向编辑）+ 发布态流转，
@@ -457,7 +457,7 @@ const routes = [
         path: 'dashboard/template',
         name: 'dashboardTemplate',
         component: () => import('@/views/dashboard/DashboardTemplateView.vue'),
-        meta: { title: 'route.dashboardTemplate', permission: 'dashboard:template:manage' }
+        meta: { title: '看板模板管理', permission: 'dashboard:template:manage' }
       },
       {
         // 微前端宿主（R12）：离线安全主壳，import.meta.glob 懒加载 src/micro-apps/*/index.js
@@ -466,7 +466,7 @@ const routes = [
         path: 'micro/host',
         name: 'microHost',
         component: () => import('@/views/micro/MicroFrontendHost.vue'),
-        meta: { title: 'route.microHost', permission: 'system:monitor:read' }
+        meta: { title: '微前端宿主', permission: 'system:monitor:read' }
       },
       {
         // AI 脚手架（R3）：提示词→表结构/建表 DDL/代码草稿预览，后端 AiScaffoldController
@@ -474,7 +474,7 @@ const routes = [
         path: 'ai/scaffold',
         name: 'aiScaffold',
         component: () => import('@/views/ai/ScaffoldView.vue'),
-        meta: { title: 'route.aiScaffold', permission: 'ai:scaffold:generate' }
+        meta: { title: 'AI 脚手架', permission: 'ai:scaffold:generate' }
       },
       {
         // 混沌工程（R15）：故障注入治理面，后端 ChaosController（/api/system/chaos），
@@ -483,7 +483,7 @@ const routes = [
         path: 'system/chaos',
         name: 'chaos',
         component: () => import('@/views/chaos/ChaosView.vue'),
-        meta: { title: 'route.chaos', permission: 'system:chaos:read' }
+        meta: { title: '混沌工程', permission: 'system:chaos:read' }
       },
       {
         // 配置中心（R16）：状态/快照/热刷新，后端 ConfigCenterController（/api/system/config-center），
@@ -492,7 +492,7 @@ const routes = [
         path: 'system/config-center',
         name: 'configCenter',
         component: () => import('@/views/system/ConfigCenterView.vue'),
-        meta: { title: 'route.configCenter', permission: 'system:config-center:read' }
+        meta: { title: '配置中心', permission: 'system:config-center:read' }
       },
       {
         // 统一运维控制台（E2）：聚合各 feature-gate 运行态，后端 OpsConsoleController
@@ -501,7 +501,7 @@ const routes = [
         path: 'system/ops',
         name: 'opsConsole',
         component: () => import('@/views/system/OpsConsoleView.vue'),
-        meta: { title: 'route.opsConsole', permission: 'system:ops:read' }
+        meta: { title: '统一运维控制台', permission: 'system:ops:read' }
       }
     ]
   },

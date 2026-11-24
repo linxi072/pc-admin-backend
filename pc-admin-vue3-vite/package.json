@@ -10,11 +10,9 @@
     "preview": "vite preview --port 4173",
     "lint": "eslint src --ext .js,.vue",
     "format": "prettier --write \"src/**/*.{js,vue,json,css,scss,html}\"",
-    "test": "vitest run",
-    "build:ui": "npm --prefix ../pc-admin-ui run build"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@acme/admin-ui": "file:../pc-admin-ui",
     "@element-plus/icons-vue": "^2.3.1",
     "axios": "^1.7.7",
     "echarts": "^5.5.1",

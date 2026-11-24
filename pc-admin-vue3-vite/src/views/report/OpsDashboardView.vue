@@ -111,7 +111,6 @@ import { ref, computed, onMounted } from 'vue'
 import BaseChart from '@/components/BaseChart.vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
 import { dashboardOverview, dashboardTrend } from '@/api/dashboard'
-import { tx } from '@/locales/zhCN'
 
 // 图表走 Canvas 渲染，无法解析 CSS 变量：运行时读取 :root 的品牌色（失败回落到原值）
 const BRAND = (getComputedStyle(document.documentElement).getPropertyValue('--brand') || '').trim() || '#409eff'
@@ -186,8 +185,8 @@ const CARD_DRILL = {
   operationLogCount: 'OPERATION_LOGS'
 }
 const METRIC_LABEL = {
-  NEW_USERS: 'dashboard.metricNewUsers', NEW_TENANTS: 'dashboard.metricNewTenants', ACTIVE_TENANTS: 'dashboard.metricActiveTenants',
-  LOGIN_LOGS: 'dashboard.metricLoginLogs', OPERATION_LOGS: 'dashboard.metricOperationLogs', NOTIFICATIONS: 'dashboard.metricNotifications'
+  NEW_USERS: '新增用户', NEW_TENANTS: '新增租户', ACTIVE_TENANTS: '活跃租户',
+  LOGIN_LOGS: '登录日志', OPERATION_LOGS: '操作日志', NOTIFICATIONS: '通知发送'
 }
 
 const drillVisible = ref(false)
@@ -219,7 +218,7 @@ function onTrendClick(p, m) {
 function onStatCardClick(s) {
   const metric = CARD_DRILL[s.key]
   if (!metric) return
-  openDashboardDrill(metric, todayISO(), `${tx(METRIC_LABEL[metric])} · ${'今日逐小时分布'}`)
+  openDashboardDrill(metric, todayISO(), `${METRIC_LABEL[metric]} · ${'今日逐小时分布'}`)
 }
 
 function trendOption(m) {

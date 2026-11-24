@@ -132,7 +132,6 @@ import { User, Lock, Key, Refresh, Iphone, Message } from '@element-plus/icons-v
 import { ElMessage } from 'element-plus'
 import { login, getCaptcha, changePassword, forgotPassword } from '@/api/auth'
 import { setAuth } from '@/store/auth'
-import { tx } from '@/locales/zhCN'
 import { validateOrWarn } from '@/utils/validate'
 
 const route = useRoute()
@@ -143,7 +142,6 @@ const form = reactive({ username: '', password: '', captchaAnswer: '' })
 const captcha = reactive({ token: '', question: '' })
 
 // 语言在应用启动时已按浏览器/系统语言自动选定（见 src/i18n），登录页无需手动切换；
-// 校验提示文案直接由 tx() 按当前语言解析。
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],

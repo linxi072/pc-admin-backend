@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 移除 i18n 引擎与 pc-admin-ui 组件库
+
+- **i18n 引擎（前端）**：删除 `src/locales/zhCN.js` 静态字典与全部 `tx()` 调用（10 文件 27 处），
+  数据源（路由 title/主题/指标/报表/表单字段/scope 描述等）改为内联中文；`http.js` 移除 `lang=zh_CN` 注入，
+  `connectivity.js` 移除语言协商断言（保留 receivedLocale 信息回显）。
+- **i18n 引擎（后端）**：删除 `common/i18n/` 整个包（I18nService/Config/Properties/ValidationMessageConfig）
+  与 `i18n/*.properties` 资源束；`GlobalExceptionHandler`/`BusinessException`/`ErrorCode`/
+  `ConnectivityController` 移除 i18n 依赖，改用中文文案；81 处 Bean Validation 注解的
+  `{validation.xxx}` 资源键内联为中文文案；删除 `i18n-leak-scan.mjs` 与 CI 中的 i18n/组件库扫描步骤。
+- **pc-admin-ui**：删除整个组件库目录（18 文件）；`package.json` 移除 `@acme/admin-ui` 依赖与 `build:ui` 脚本；
+  `vite.config.js` 移除 alias/dedupe；`components/index.js` 移除 re-export；
+  `JobListView.vue` 的 `BaseChart` 改为主应用本地组件；CI 移除 ui-lib job；同步更新验证手册/使用说明。
+- 验证：后端全模块编译通过 + 320 例全绿；前端 `npm test` 73 例全绿 + `npx vite build` EXIT=0；门禁 7/7（frontend_only 0）。
+
 ### CMS 模块深度扩展 · 迭代三（M3，CMS 深扩完成）
 
 - **C7 公开内容查询**：新增 `CmsPublicService`/`CmsPublicController`（`GET /api/cms/public/articles`），

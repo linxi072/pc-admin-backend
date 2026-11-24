@@ -425,8 +425,7 @@ git mv 保历史 → 全量 FQN 替换 → 同包隐式引用补 import
 3. **编译**：`mvn -o -f pom.xml clean compile`，15 个 reactor 项 BUILD SUCCESS。
    测试源码已移除，`mvn test` / `verify` 为空跑，不作为通过标准。
 4. **前端构建**：`npx vite build`（验证 `styles/base.css` 路径可解析）；另有
-   `node scripts/check-sfc.mjs <file.vue>` 与 `node scripts/i18n-leak-scan.mjs src`
-   两个静态检查。`npm test` 当前不可用（`test` 脚本已移除、无用例）。
+   `node scripts/check-sfc.mjs <file.vue>` 静态检查。`npm test` 可用（Vitest 73 例）。
 5. **契约口径**：`scripts/api-contract.json` 为 `Result<T>` 字段唯一事实来源；
    `scripts/check-api-contract.py` 做前后端路由静态对称（信息性，`--strict` 才阻断）。
 
