@@ -4,6 +4,17 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### CMS 模块深度扩展 · 迭代一（M1，需求文档 `java-admin-framework/docs/CMS-EVOLUTION-PLAN.md`）
+
+- **C1 规则抽取**：新增 3 个纯函数规则类 `CmsStatusRules`/`CmsArticleRules`/`CmsCategoryRules`，
+  `CmsArticleService`/`CmsCategoryService` 改为委托；21 例规则单测全绿。
+- **C2 删除引用校验**：`CmsCategoryService.delete` 增加关联文章计数校验（对齐前端文案）；
+  `ddl.sql` 的 `idx_cms_category_code` 升级为唯一索引 `uk_cms_category_code`（租户内唯一）。
+- **C3 文章导出**：新增 `CmsArticleExportTask`（code=`cms-article`），复用 `ExportTask` 默认契约
+  支持 CSV/XLSX/PDF，翻页复用 `CmsArticleService.page`、栏目名映射复用 `CmsCategoryService.list`；
+  7 例单测覆盖契约/字段映射/筛选透传/三格式字节产物。
+- 验证：`mvn -o -pl scaffold-cms -am test` 35 例全绿（cms 模块），质量门禁 7/7 通过（frontend_only 0）。
+
 ### 代码结构调整（全项目包结构与命名统一）
 
 - **包结构统一**（按类型归位）：`controller` → `api`（Controller 77 个）、

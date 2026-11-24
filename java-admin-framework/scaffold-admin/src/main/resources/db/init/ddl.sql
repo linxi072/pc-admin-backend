@@ -1002,7 +1002,7 @@ CREATE INDEX `idx_user_revoked` ON `sys_refresh_token` (`user_id`, `revoked_at`)
 CREATE INDEX `idx_tenant_status_deleted` ON `wf_workflow_design` (tenant_id, status, deleted);
 CREATE INDEX `idx_content_hash` ON `sys_file` (`content_hash`);
 CREATE INDEX `idx_cms_category_tenant_parent` ON `cms_category` (`tenant_id`, `parent_id`);
-CREATE INDEX `idx_cms_category_code` ON `cms_category` (`tenant_id`, `category_code`);
+CREATE UNIQUE INDEX `uk_cms_category_code` ON `cms_category` (`tenant_id`, `category_code`);
 CREATE INDEX `idx_cms_category_status` ON `cms_category` (`tenant_id`, `status`);
 CREATE INDEX `idx_cms_article_tenant_category` ON `cms_article` (`tenant_id`, `category_id`);
 CREATE INDEX `idx_cms_article_status` ON `cms_article` (`tenant_id`, `status`);

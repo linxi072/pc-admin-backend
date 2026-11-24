@@ -2,6 +2,7 @@ package com.acme.scaffold.cms.category.service;
 
 import com.acme.scaffold.cms.category.domain.model.CmsCategory;
 import com.acme.scaffold.cms.category.domain.CategoryCreateRequest;
+import com.acme.scaffold.cms.category.domain.rule.CmsCategoryRules;
 import com.acme.scaffold.cms.category.domain.CategoryNode;
 import com.acme.scaffold.cms.category.domain.CategoryUpdateRequest;
 import com.acme.scaffold.cms.category.domain.CategoryView;
@@ -99,7 +100,7 @@ public class CmsCategoryService {
     }
 
     /**
-     * 删除栏目（逻辑删除）。存在子栏目时拒绝，避免悬空父引用。
+     * 删除栏目（逻辑删除）。存在子栏目或关联文章时拒绝（C2：对齐前端提示文案，避免悬空引用）。
      */
     @Transactional
     public void delete(Long id) {
@@ -107,8 +108,12 @@ public class CmsCategoryService {
         long childCount = SqlWriters.count(dsl, CATEGORY, DSL.and(
                 SqlWriters.notDeleted(CATEGORY),
                 CATEGORY.field("parent_id", Long.class).eq(id)));
-        if (childCount > 0) {
-            throw BusinessException.of(CommonErrorCode.CONFLICT, "栏目下存在 " + childCount + " 个子栏目，无法删除");
+        long articleCount = SqlWriters.count(dsl, SqlTables.CMS_ARTICLE, DSL.and(
+                SqlWriters.notDeleted(SqlTables.CMS_ARTICLE),
+                SqlTables.CMS_ARTICLE.field("category_id", Long.class).eq(id)));
+        if (!CmsCategoryRules.canDelete(childCount, articleCount)) {
+            throw BusinessException.of(CommonErrorCode.CONFLICT,
+                    CmsCategoryRules.deleteRejectMessage(childCount, articleCount));
         }
         SqlWriters.delete(dsl, CATEGORY, id, true);
     }
@@ -201,7 +206,7 @@ public class CmsCategoryService {
     }
 
     private Long normalizeParentId(Long parentId) {
-        return (parentId == null || parentId == 0L) ? null : parentId;
+        return CmsCategoryRules.normalizeParentId(parentId);
     }
 
     private CategoryView toView(CmsCategory e) {

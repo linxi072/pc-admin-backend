@@ -1,6 +1,8 @@
 package com.acme.scaffold.cms.article.service;
 
 import com.acme.scaffold.cms.article.domain.event.ArticlePublishedEvent;
+import com.acme.scaffold.cms.article.domain.rule.CmsArticleRules;
+import com.acme.scaffold.cms.article.domain.rule.CmsStatusRules;
 import com.acme.scaffold.cms.article.domain.model.CmsArticle;
 import com.acme.scaffold.cms.article.domain.ArticleCreateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleUpdateRequest;
@@ -70,10 +72,10 @@ public class CmsArticleService {
         entity.setTitle(req.getTitle());
         entity.setSummary(req.getSummary());
         entity.setContent(req.getContent());
-        entity.setAuthor(req.getAuthor() != null ? req.getAuthor() : currentOperator());
+        entity.setAuthor(CmsArticleRules.resolveAuthor(req.getAuthor(), currentOperator()));
         entity.setCoverUrl(req.getCoverUrl());
-        entity.setStatus(req.getStatus() == null ? "DRAFT" : req.getStatus());
-        boolean published = "PUBLISHED".equals(entity.getStatus());
+        entity.setStatus(CmsStatusRules.normalize(req.getStatus()));
+        boolean published = CmsStatusRules.isPublishable(entity.getStatus());
         if (published) {
             entity.setPublishedAt(LocalDateTime.now());
         }
@@ -104,13 +106,12 @@ public class CmsArticleService {
         boolean becamePublished = false;
         boolean clearOfflineAt = false;
         if (req.getStatus() != null) {
-            becamePublished = "PUBLISHED".equals(req.getStatus())
-                    && !"PUBLISHED".equals(existing.getStatus());
+            becamePublished = CmsStatusRules.becamePublished(existing.getStatus(), req.getStatus());
             existing.setStatus(req.getStatus());
             if (becamePublished) {
                 existing.setPublishedAt(LocalDateTime.now());
             }
-            if (!"OFFLINE".equals(req.getStatus())) {
+            if (CmsStatusRules.shouldClearOfflineAt(req.getStatus())) {
                 existing.setOfflineAt(null);
                 clearOfflineAt = true;
             }
@@ -137,7 +138,7 @@ public class CmsArticleService {
     @Transactional
     public void publish(Long id) {
         CmsArticle existing = requireExisting(id);
-        if ("PUBLISHED".equals(existing.getStatus())) {
+        if (CmsStatusRules.isPublishNoop(existing.getStatus())) {
             log.info("文章已处于发布态，跳过重复发布 articleId={}", id);
             return;
         }
@@ -159,7 +160,7 @@ public class CmsArticleService {
     @Transactional
     public void offline(Long id) {
         CmsArticle existing = requireExisting(id);
-        if ("OFFLINE".equals(existing.getStatus())) {
+        if (CmsStatusRules.isOfflineNoop(existing.getStatus())) {
             log.info("文章已处于下线态，跳过重复下线 articleId={}", id);
             return;
         }
@@ -209,8 +210,9 @@ public class CmsArticleService {
         if (categoryId != null) {
             conds.add(ARTICLE.field("category_id", Long.class).eq(categoryId));
         }
-        if (title != null && !title.isBlank()) {
-            conds.add(ARTICLE.field("title", String.class).like("%" + title.trim() + "%"));
+        String titlePattern = CmsArticleRules.likePattern(title);
+        if (titlePattern != null) {
+            conds.add(ARTICLE.field("title", String.class).like(titlePattern));
         }
         if (status != null && !status.isBlank()) {
             conds.add(ARTICLE.field("status", String.class).eq(status.trim()));
@@ -236,7 +238,7 @@ public class CmsArticleService {
     }
 
     private void requireCategory(Long categoryId) {
-        if (categoryId == null || categoryId == 0L) {
+        if (!CmsArticleRules.validCategoryId(categoryId)) {
             throw BusinessException.badRequest("所属栏目不能为空");
         }
         if (SqlWriters.fetchById(dsl, SqlTables.CMS_CATEGORY, com.acme.scaffold.cms.category.domain.model.CmsCategory.class,
