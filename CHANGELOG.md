@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### CMS 高级能力前端接入（C4/C5/C6）
+
+- **背景**：CMS 深扩 C1–C8 后端能力已就绪、`cms.js` API 函数已定义，但 `ArticleView.vue` 仅接了基础 CRUD，
+  三个高级能力无 UI 入口。本轮补齐前后端衔接。
+- **C4 版本历史**：操作列加「版本」按钮 → 时间线抽屉展示快照（版本号/备注/状态/作者/创建人）；
+  回滚前强确认 + 最新版本提前拦截；回滚后刷新列表。
+- **C5 定时发布**：编辑表单加 `el-date-picker`（`YYYY-MM-DDTHH:mm:ss` 对齐后端 `LocalDateTime`）；
+  状态筛选/标签/表格/详情四处支持 SCHEDULED（全局 `utils/status.js` 增映射）；排期时间列表与详情可见。
+- **C6 预览令牌**：操作列加「预览」按钮 → 生成令牌并展示可复制链接（含有效期）与一键复制
+  （clipboard API 失败降级提示）；弹窗注明 feature-gate 排障线索。
+- **错误处理**：所有新增/既有写操作补 try/catch 防未捕获 rejection，遵循项目「http 拦截器统一提示」约定避免重复弹窗；
+  loading 状态在 finally 中恢复；`utils/status.js` 新增 SCHEDULED 映射 + 3 例单测。
+- 验证：前端 76 例全绿（新增 3 例）、`vite build` EXIT=0、门禁 7/7（frontend_only 0）。
+
 ### 移除 i18n 引擎与 pc-admin-ui 组件库
 
 - **i18n 引擎（前端）**：删除 `src/locales/zhCN.js` 静态字典与全部 `tx()` 调用（10 文件 27 处），

@@ -14,6 +14,8 @@ export const STATUS_TAGS = {
   PUBLISHED: { label: '已发布', type: 'success' },
   OFFLINE: { label: '已下线', type: 'info' },
   DRAFT: { label: '草稿', type: 'info' },
+  // CMS 定时发布（C5）：已排期未到点的文章，等待调度任务自动发布
+  SCHEDULED: { label: '待发布', type: 'warning' },
   // 在线会话状态（ONLINE / IDLE / RESTRICTED）
   ONLINE: { label: '在线', type: 'success' },
   IDLE: { label: '空闲', type: 'info' },

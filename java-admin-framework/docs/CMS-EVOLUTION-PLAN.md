@@ -1,6 +1,6 @@
 # CMS 模块深度扩展需求与迭代计划
 
-> 版本：1.3 · 日期：2026-11-24 · 状态：迭代三（M3，CMS 深扩完成）（随迭代同步更新实现一致性）
+> 版本：1.4 · 日期：2026-11-24 · 状态：迭代四（C4/C5/C6 前端接入完成）（随迭代同步更新实现一致性）
 > 适用模块：`scaffold-cms`（后端）+ `pc-admin-vue3-vite/src/views/cms`（前端）
 
 ## 1. 现有功能范围与架构约束
@@ -214,9 +214,9 @@
 | C1 规则抽取 | 已完成 | `article/domain/rule/CmsStatusRules`、`CmsArticleRules`、`category/domain/rule/CmsCategoryRules` + Service 委托 | 3 类 21 例规则单测全绿，cms 单测 7→35 | 一（M1） |
 | C2 删除校验+唯一约束 | 已完成 | `CmsCategoryService.delete` 引用计数 + `CmsCategoryRules.canDelete`；`ddl.sql` `uk_cms_category_code` | 4 例删除/编码单测全绿；门禁 7/7 | 一（M1） |
 | C3 导出 | 已完成 | `cms/export/service/CmsArticleExportTask`（code=cms-article，CSV/XLSX/PDF） | 7 例导出单测全绿（含三格式字节产物）；`@Component` 自动注册 | 一（M1） |
-| C4 版本历史 | 已完成 | `CmsArticleVersionService`/`CmsArticleVersion` + `ArticleVersionView`；Controller `versions`/`rollback` | `CmsVersionRulesTest` 4 例 + 编译通过；update 前固化快照、回滚写回主表 | 二（M2） |
-| C5 定时发布 | 已完成 | `CmsArticleRules.resolveInitialStatus/isDueForPublish`；`scheduled_publish_at` 列/字段；`CmsArticleService.publishDue`；`CmsScheduledPublishJob` | 2 例排期规则单测 + 编译通过；feature-gate `cms.scheduled-publish.enabled` 默认开 | 二（M2） |
-| C6 预览令牌 | 已完成 | `CmsPreviewTokenRules`/`CmsPreviewToken`/`CmsPreviewTokenService`；`CmsArticleController.previewToken` + `CmsPreviewController`（feature-gate 默认关） | `CmsPreviewTokenRulesTest` 4 例 + 编译通过；UUID/24h过期/参数化校验 | 二（M2） |
+| C4 版本历史 | 已完成（含前端） | 后端同 M2；前端 `ArticleView.vue` 版本抽屉 + 回滚确认 | 后端 4 例 + 前端构建通过；版本时间线/最新版本拦截/回滚刷新 | 二（M2）+ 四 |
+| C5 定时发布 | 已完成（含前端） | 后端同 M2；前端 `ArticleView.vue` 排期选择器 + 四处 SCHEDULED 展示；`utils/status.js` 增映射 | 后端 2 例 + 前端 `status.test.js` 3 例；排期列/详情/筛选/标签齐全 | 二（M2）+ 四 |
+| C6 预览令牌 | 已完成（含前端） | 后端同 M2；前端 `ArticleView.vue` 令牌弹窗 + 复制链接 | 后端 4 例 + 前端构建通过；feature-gate 排障线索注明 | 二（M2）+ 四 |
 | C7 公开查询 | 已完成 | `CmsPublicRules`/`PublicArticleView`/`CmsPublicService`；`CmsPublicController`（feature-gate `cms.public.enabled` 默认关）；`SecurityConfig` 放行匿名 | `CmsPublicRulesTest` 2 例 + 编译通过；仅 PUBLISHED、size≤50、字段脱敏白名单 | 三（M3） |
 | C8 前端测试/i18n | 已完成 | `src/api/tests/cms.test.js`（17 端点契约）+ `cms.js` 3 个新函数 + `zhCN.js` 15 条新文案 | 前端 73 例全绿、build EXIT=0、门禁 frontend_only=0 | 二（M2） |
 
@@ -233,7 +233,7 @@
 - 前端 `npm test` 73 例全绿（新增 CMS 契约 6 例），`npx vite build` EXIT=0。
 - DDL 新增 `cms_article_version`/`cms_preview_token` 两表 + 索引，`cms_article` 加 `scheduled_publish_at` 列，均已同步 `SqlTables` 注册。
 - **架构说明**：`scaffold-cms` 仅依赖 `scaffold-common`（依赖 DAG 硬约束），`FeatureGateRegistry`（framework 模块）已登记 3 个 CMS 开关元数据，CMS 侧用 `@ConditionalOnProperty` 读配置，无编译期跨模块依赖；`@EnableScheduling` 已在启动类开启。
-- **i18n 说明**：前端 i18n 引擎已移除（App.vue 硬编码 zh-CN、无语言切换机制），故"第二 locale"不适用；C8 改为补齐 `zhCN.js` 的 `cms.*` 新增文案（版本/排期/预览 15 条），以契约测试锁定字典键完整性。
+- **i18n 说明**：前端 i18n 引擎已移除（文案内联中文、无语言切换机制），故"第二 locale"不适用；C8 以契约测试锁定 17 个 CMS 端点的前后端同形。相关字典文件后续已随「移除 i18n 引擎」变更整体删除。
 
 ### 迭代三验证记录（M3，2026-11-24 · CMS 深扩完成）
 
@@ -243,3 +243,11 @@
 - C7 公开端点 `/api/cms/public/articles` 在 api-contract 中正确识别为 backend_only（公开 API 豁免），
   `SecurityConfig` 已放行匿名 GET，与 `cms.public.enabled` feature-gate 联动（默认关时 Controller 不注册）。
 - **一致性结论**：C1~C8 八项需求全部落地，需求清单（§2）、表/接口变更（§4）、验证范围（§7）与磁盘实现一致。
+
+### 迭代四验证记录（2026-11-24 · C4/C5/C6 前端接入）
+
+- 背景：后端能力（M2）与 `cms.js` API 函数均已就绪，但 `ArticleView.vue` 仅用基础 CRUD，三个高级能力无 UI 入口。
+- 改动：`ArticleView.vue` 接入版本历史抽屉/回滚、定时发布选择器与 SCHEDULED 展示、预览令牌弹窗；
+  `utils/status.js` 增 SCHEDULED 映射；`utils/tests/status.test.js` 新增 3 例。
+- 验证：前端 `npm test` 76 例全绿（新增 3 例）、`npx vite build` EXIT=0、门禁 7/7（frontend_only 0）。
+- **一致性结论**：C4/C5/C6 由「后端可用」升级为「前后端闭环」，需求清单与磁盘实现一致。
