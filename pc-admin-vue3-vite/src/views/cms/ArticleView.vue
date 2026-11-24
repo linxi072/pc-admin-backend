@@ -26,12 +26,18 @@
           <el-button type="primary" :icon="Search" @click="onSearch">{{ '搜索' }}</el-button>
         </div>
         <div class="actions">
+          <el-button
+            type="warning"
+            :disabled="selectedRows.length === 0"
+            @click="openBatchMove"
+          >{{ selectedRows.length ? `批量移动 (${selectedRows.length})` : '批量移动' }}</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">{{ '创建' }}</el-button>
           <el-button :icon="Refresh" @click="load">{{ '刷新' }}</el-button>
         </div>
       </div>
 
-      <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange">
+      <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange" @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="46" align="center" />
         <el-table-column prop="id" label="ID" width="90" />
         <el-table-column prop="title" :label="'文章标题'" min-width="200" show-overflow-tooltip />
         <el-table-column :label="'所属栏目'" width="130">
@@ -137,6 +143,25 @@
       <div class="detail-content">{{ detailData.content }}</div>
     </el-drawer>
 
+    <!-- 批量移动对话框 -->
+    <el-dialog v-model="batchMoveVisible" title="批量移动文章" width="460px" destroy-on-close>
+      <el-alert
+        :closable="false"
+        type="info"
+        :title="`已将 ${selectedRows.length} 篇文章选中，移动后其所属栏目将统一变更。`"
+      />
+      <div class="batch-move-field">
+        <span class="batch-move-label">{{ '目标栏目' }}</span>
+        <el-select v-model="batchTargetCategoryId" placeholder="请选择目标栏目" style="width: 100%">
+          <el-option v-for="item in categories" :key="item.id" :label="item.categoryName" :value="item.id" />
+        </el-select>
+      </div>
+      <template #footer>
+        <el-button @click="batchMoveVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="batchMoveSubmitting" @click="onBatchMove">{{ '确认移动' }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 版本历史抽屉（C4） -->
     <el-drawer v-model="versionVisible" :title="`版本历史 - ${versionArticleTitle}`" size="55%">
       <div v-loading="versionLoading">
@@ -211,6 +236,7 @@ import {
   offlineArticle,
   viewArticle,
   listCategories,
+  batchMoveArticles,
   listArticleVersions,
   rollbackArticle,
   createArticlePreviewToken
@@ -226,6 +252,12 @@ const total = ref(0)
 const categories = ref([])
 const formRef = ref()
 const detailData = ref({})
+
+// 批量移动
+const selectedRows = ref([])
+const batchMoveVisible = ref(false)
+const batchMoveSubmitting = ref(false)
+const batchTargetCategoryId = ref(null)
 
 // 版本历史（C4）
 const versionVisible = ref(false)
@@ -300,6 +332,41 @@ async function load() {
 async function loadCategories() {
   const data = await listCategories()
   categories.value = Array.isArray(data) ? data : []
+}
+
+function onSelectionChange(rows) {
+  selectedRows.value = rows || []
+}
+
+function openBatchMove() {
+  if (!selectedRows.value.length) return
+  batchTargetCategoryId.value = null
+  batchMoveVisible.value = true
+}
+
+async function onBatchMove() {
+  if (batchTargetCategoryId.value == null) {
+    ElMessage.warning('请选择目标栏目')
+    return
+  }
+  batchMoveSubmitting.value = true
+  try {
+    const ids = selectedRows.value.map((row) => row.id)
+    const result = await batchMoveArticles(ids, batchTargetCategoryId.value)
+    const skipped = result?.skippedIds || []
+    if (skipped.length) {
+      ElMessage.warning(`已移动 ${result?.moved ?? 0} 篇，${skipped.length} 篇已不存在或已删除被跳过`)
+    } else {
+      ElMessage.success(`已移动 ${result?.moved ?? 0} 篇到「${categoryName(batchTargetCategoryId.value)}」`)
+    }
+    batchMoveVisible.value = false
+    selectedRows.value = []
+    await load()
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理，保留对话框供用户重试
+  } finally {
+    batchMoveSubmitting.value = false
+  }
 }
 
 function onSearch() {
@@ -594,5 +661,14 @@ onMounted(async () => {
 .preview-expiry {
   color: var(--el-text-color-secondary);
   font-size: 13px;
+}
+.batch-move-field {
+  margin-top: 16px;
+}
+.batch-move-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
 }
 </style>

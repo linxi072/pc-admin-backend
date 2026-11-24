@@ -1,11 +1,15 @@
 # CMS 模块深度扩展需求与迭代计划
 
-> 版本：1.4 · 日期：2026-11-24 · 状态：迭代四（C4/C5/C6 前端接入完成）（随迭代同步更新实现一致性）
+> 版本：1.5 · 日期：2026-11-24 · 状态：批量移动落地（随迭代同步更新实现一致性）
 > 适用模块：`scaffold-cms`（后端）+ `pc-admin-vue3-vite/src/views/cms`（前端）
 
 ## 1. 现有功能范围与架构约束
 
-### 1.1 现状盘点（磁盘事实，非文档宣称）
+### 1.1 现状盘点（M1 时点的历史快照，非当前状态）
+
+> **状态注记（2026-11-24）**：下表为迭代一立项时的历史盘点。表中"未实现"的草稿预览/定时发布/版本历史/
+> 公开查询/前端契约测试已随 M2–M3 完成，C4/C5/C6 前端接入见迭代四，"批量移动"已随本次迭代落地；
+> 当前权威状态以 §5 一致性跟踪表为准。
 
 | 维度 | 已实现 | 部分实现 | 未实现 |
 |---|---|---|---|
@@ -218,7 +222,8 @@
 | C5 定时发布 | 已完成（含前端） | 后端同 M2；前端 `ArticleView.vue` 排期选择器 + 四处 SCHEDULED 展示；`utils/status.js` 增映射 | 后端 2 例 + 前端 `status.test.js` 3 例；排期列/详情/筛选/标签齐全 | 二（M2）+ 四 |
 | C6 预览令牌 | 已完成（含前端） | 后端同 M2；前端 `ArticleView.vue` 令牌弹窗 + 复制链接 | 后端 4 例 + 前端构建通过；feature-gate 排障线索注明 | 二（M2）+ 四 |
 | C7 公开查询 | 已完成 | `CmsPublicRules`/`PublicArticleView`/`CmsPublicService`；`CmsPublicController`（feature-gate `cms.public.enabled` 默认关）；`SecurityConfig` 放行匿名 | `CmsPublicRulesTest` 2 例 + 编译通过；仅 PUBLISHED、size≤50、字段脱敏白名单 | 三（M3） |
-| C8 前端测试/i18n | 已完成 | `src/api/tests/cms.test.js`（17 端点契约）+ `cms.js` 3 个新函数 + `zhCN.js` 15 条新文案 | 前端 73 例全绿、build EXIT=0、门禁 frontend_only=0 | 二（M2） |
+| C8 前端测试/i18n | 已完成 | `src/api/tests/cms.test.js`（端点契约）+ `cms.js` 3 个新函数；文案内联中文（i18n 引擎后续已整体移除） | 前端契约测试全绿、build EXIT=0、门禁 frontend_only=0 | 二（M2） |
+| 批量移动 | 已完成 | `BatchMoveArticleRequest`/`BatchMoveArticleView`、`CmsBatchMoveRules`、`CmsArticleService.batchMove`、`POST /batch-move`；前端多选 + 批量移动对话框 | `CmsBatchMoveRulesTest` 5 例 + 前端契约 1 例；cms 52 例、前端 77 例全绿 | 本次 |
 
 ### 迭代一验证记录（M1，2026-11-24）
 

@@ -4,6 +4,17 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### CMS 文章批量移动（盘点表"批量移动/排序"未实现项落地）
+
+- **后端**：新增 `BatchMoveArticleRequest`/`BatchMoveArticleView`、`CmsBatchMoveRules`（纯函数：ids 归一/去重/
+  上限 200/目标栏目校验）、`CmsArticleService.batchMove`（单事务、目标栏目存在校验、逐条查存在性，
+  不存在/已删除的 id 记入 skippedIds 回报，不做部分更新）、`POST /api/cms/article/batch-move`
+  （权限 `cms:article:manage` + 审计）。
+- **前端**：`cms.js` 增 `batchMoveArticles`；`ArticleView.vue` 表格加多选列、工具栏加"批量移动(N)"按钮
+  （未选中禁用）、对话框选目标栏目；结果区分"全部成功/部分跳过"提示；错误处理沿用 http 拦截器统一提示。
+- **测试**：`CmsBatchMoveRulesTest` 5 例（归一/非法 id/上限/去重后上限/目标校验）+ 前端契约测试 1 例。
+- 验证：cms 52 例、前端 77 例全绿；`vite build` EXIT=0；门禁 7/7（frontend_only 0，新端点已闭环）。
+
 ### CMS 高级能力前端接入（C4/C5/C6）
 
 - **背景**：CMS 深扩 C1–C8 后端能力已就绪、`cms.js` API 函数已定义，但 `ArticleView.vue` 仅接了基础 CRUD，

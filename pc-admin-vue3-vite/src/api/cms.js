@@ -32,6 +32,10 @@ export const viewArticle = (id) => request({ method: 'POST', url: `/api/cms/arti
 
 export const pageArticles = (query) => request({ method: 'GET', url: '/api/cms/article/page', params: query })
 
+/** 批量移动文章到目标栏目（ids 最多 200 篇，服务端事务原子执行）。 */
+export const batchMoveArticles = (ids, categoryId) =>
+  request({ method: 'POST', url: '/api/cms/article/batch-move', data: { ids, categoryId } })
+
 // ==================== 文章版本历史（C4） ====================
 
 export const listArticleVersions = (id) => request({ method: 'GET', url: `/api/cms/article/${id}/versions` })

@@ -2,11 +2,14 @@ package com.acme.scaffold.cms.article.service;
 
 import com.acme.scaffold.cms.article.domain.event.ArticlePublishedEvent;
 import com.acme.scaffold.cms.article.domain.rule.CmsArticleRules;
+import com.acme.scaffold.cms.article.domain.rule.CmsBatchMoveRules;
 import com.acme.scaffold.cms.article.domain.rule.CmsStatusRules;
 import com.acme.scaffold.cms.article.domain.model.CmsArticle;
 import com.acme.scaffold.cms.article.domain.ArticleCreateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleUpdateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleView;
+import com.acme.scaffold.cms.article.domain.BatchMoveArticleRequest;
+import com.acme.scaffold.cms.article.domain.BatchMoveArticleView;
 import com.acme.scaffold.common.api.domain.PageQuery;
 import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.context.CurrentPrincipal;
@@ -269,6 +272,47 @@ public class CmsArticleService {
                         ARTICLE.field("id", Long.class).desc()));
         List<ArticleView> views = raw.records().stream().map(this::toView).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);
+    }
+
+    /**
+     * 批量移动文章到目标栏目（事务内原子执行）。
+     *
+     * <p>入参经 {@link CmsBatchMoveRules} 归一（去重 / 去非法 id）并校验上限；目标栏目须存在（复用
+     * {@link #requireCategory}）。逐条查询文章，未匹配到有效文章的 id 记入 {@code skippedIds} 返回，
+     * 不做部分更新；任一数据库更新异常将导致整体回滚。</p>
+     *
+     * @return 移动结果（moved 数量 + 跳过的 id + 目标栏目）
+     */
+    @Transactional
+    public BatchMoveArticleView batchMove(BatchMoveArticleRequest req) {
+        if (req == null || !CmsBatchMoveRules.validIds(req.getIds())) {
+            throw BusinessException.badRequest("待移动文章不能为空，单次最多 "
+                    + CmsBatchMoveRules.MAX_IDS + " 篇");
+        }
+        if (!CmsBatchMoveRules.validTargetCategory(req.getCategoryId())) {
+            throw BusinessException.badRequest("目标栏目不能为空");
+        }
+        requireCategory(req.getCategoryId());
+
+        List<Long> ids = CmsBatchMoveRules.normalizeIds(req.getIds());
+        List<Long> skipped = new ArrayList<>();
+        int moved = 0;
+        String operator = currentOperator();
+        for (Long id : ids) {
+            CmsArticle article = SqlWriters.fetchById(dsl, ARTICLE, CmsArticle.class, id);
+            if (article == null) {
+                skipped.add(id); // 不存在或已逻辑删除，跳过并回报
+                continue;
+            }
+            CmsArticle patch = new CmsArticle();
+            patch.setCategoryId(req.getCategoryId());
+            patch.setUpdatedBy(operator);
+            SqlWriters.updateById(dsl, ARTICLE, id, patch);
+            moved++;
+        }
+        log.info("CMS 批量移动完成 ids={} target={} moved={} skipped={}",
+                ids.size(), req.getCategoryId(), moved, skipped.size());
+        return new BatchMoveArticleView(moved, skipped, req.getCategoryId());
     }
 
     // ---------------- 内部辅助 ----------------

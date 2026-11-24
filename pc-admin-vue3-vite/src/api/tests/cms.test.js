@@ -23,7 +23,8 @@ import {
   pageArticles,
   listArticleVersions,
   rollbackArticle,
-  createArticlePreviewToken
+  createArticlePreviewToken,
+  batchMoveArticles
 } from '../cms.js'
 
 // C8：锁定 CMS 前后端 17 个管理端点的 URL / 方法 / 参数同形。
@@ -106,6 +107,15 @@ describe('CMS 迭代二新增端点契约', () => {
       method: 'POST',
       url: `/api/cms/article/${articleId}/preview-token`,
       params: { ttlHours: 48 }
+    })
+  })
+
+  it('批量移动端点同形（ids + categoryId 走请求体）', () => {
+    batchMoveArticles([101, 102], 7)
+    expect(request).toHaveBeenCalledWith({
+      method: 'POST',
+      url: `/api/cms/article/batch-move`,
+      data: { ids: [101, 102], categoryId: 7 }
     })
   })
 

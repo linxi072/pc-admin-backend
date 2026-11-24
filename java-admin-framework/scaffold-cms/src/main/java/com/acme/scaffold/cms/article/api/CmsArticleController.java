@@ -7,6 +7,8 @@ import com.acme.scaffold.cms.article.domain.ArticleCreateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleUpdateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleVersionView;
 import com.acme.scaffold.cms.article.domain.ArticleView;
+import com.acme.scaffold.cms.article.domain.BatchMoveArticleRequest;
+import com.acme.scaffold.cms.article.domain.BatchMoveArticleView;
 import com.acme.scaffold.cms.article.domain.PreviewTokenView;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.domain.PageResult;
@@ -45,6 +47,14 @@ public class CmsArticleController {
     @AuditOperation(module = "cms", type = "CREATE", name = "创建文章")
     public Result<Long> create(@Valid @RequestBody ArticleCreateRequest req) {
         return Result.success(articleService.create(req));
+    }
+
+    @Operation(summary = "批量移动文章到目标栏目（单事务，最多 200 篇）")
+    @PostMapping("/batch-move")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    @AuditOperation(module = "cms", type = "UPDATE", name = "批量移动文章")
+    public Result<BatchMoveArticleView> batchMove(@Valid @RequestBody BatchMoveArticleRequest req) {
+        return Result.success(articleService.batchMove(req));
     }
 
     @Operation(summary = "更新文章")
