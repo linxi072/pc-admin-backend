@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 /**
  * 账号聚合的轻量快照，供 security 侧（认证 / 令牌签发 / 状态守卫）使用，
- * 定义于 {@code security.user} 包，避免 security 直接依赖 {@code system.entity.SysUserDO}。
+ * 定义于 {@code security.user} 包，避免 security 直接依赖 {@code system.entity.SysUser}。
  *
  * <p>仅承载鉴权链路所需的字段；跨模块读取经由 {@link UserAccountDataPort}（system 适配器实现）完成，
  * 满足模块边界（B1/B5 同款防腐层约束）。</p>

@@ -1,0 +1,24 @@
+package com.acme.scaffold.system.apiresource.domain.model;
+
+import java.time.LocalDateTime;
+
+import lombok.Data;
+
+@Data
+public class SysApiResource {
+
+    private Long id;
+
+    private Long tenantId = 0L;
+    private String resourceName;
+    private String permissionCode;
+    private String httpMethod;
+    private String pathPattern;
+    private String controllerMethod;
+    private String authMode = "REQUIRED";
+    private String status = "ACTIVE";
+    private String riskLevel = "NORMAL";
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}

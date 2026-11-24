@@ -7,7 +7,7 @@ import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.user.domain.model.SysUserDO;
+import com.acme.scaffold.system.user.domain.model.SysUser;
 
 import java.util.Map;
 import java.util.Set;
@@ -42,9 +42,9 @@ public final class CurrentUserSupport {
     }
 
     /** 当前登录用户实体（不存在抛 {@link CommonErrorCode#NOT_FOUND}）。 */
-    public static SysUserDO loadCurrentUser(DSLContext dsl, SecurityContextFacade facade) {
+    public static SysUser loadCurrentUser(DSLContext dsl, SecurityContextFacade facade) {
         Long userId = facade.requireCurrentPrincipal().userId();
-        SysUserDO user = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.SYS_USER, SysUserDO.class, userId), "用户不存在");
+        SysUser user = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.SYS_USER, SysUser.class, userId), "用户不存在");
         return user;
     }
 
@@ -53,9 +53,9 @@ public final class CurrentUserSupport {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return SqlWriters.fetchList(dsl, SqlTables.SYS_USER, SysUserDO.class,
+        return SqlWriters.fetchList(dsl, SqlTables.SYS_USER, SysUser.class,
                         SqlTables.SYS_USER.field("id", Long.class).in(userIds)).stream()
                 .filter(u -> u.getId() != null)
-                .collect(Collectors.toMap(SysUserDO::getId, SysUserDO::getDisplayName, (a, b) -> a));
+                .collect(Collectors.toMap(SysUser::getId, SysUser::getDisplayName, (a, b) -> a));
     }
 }

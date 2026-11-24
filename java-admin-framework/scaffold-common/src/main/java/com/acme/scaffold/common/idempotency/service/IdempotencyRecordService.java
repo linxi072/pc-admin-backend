@@ -1,12 +1,12 @@
 package com.acme.scaffold.common.idempotency.service;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.idempotency.IdempotencyService;
 import com.acme.scaffold.common.idempotency.IdempotencyStatus;
-import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordDO;
-import com.acme.scaffold.common.idempotency.dto.IdempotencyRecordView;
-import com.acme.scaffold.common.idempotency.dto.IdempotencyStatsView;
+import com.acme.scaffold.common.idempotency.domain.IdempotencyRecord;
+import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordView;
+import com.acme.scaffold.common.idempotency.domain.IdempotencyStatsView;
 import com.acme.scaffold.common.idempotency.rules.IdempotencyRecordRules;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSL;
@@ -77,12 +77,12 @@ public class IdempotencyRecordService {
         Condition cond = buildCondition(status, apiScope, userId, keyword, startTime, endTime, now);
         PageQuery query = PageQuery.of(page, size, sortField, sortDirection);
         var table = SqlTables.SYS_IDEMPOTENCY_RECORD;
-        PageResult<IdempotencyRecordDO> raw = SqlWriters.page(dsl, table, IdempotencyRecordDO.class,
+        PageResult<IdempotencyRecord> raw = SqlWriters.page(dsl, table, IdempotencyRecord.class,
                 cond, query, SqlSorts.resolve(table, query, IDEMPOTENCY_RECORD_SORT_FIELDS,
                         table.field("created_at", LocalDateTime.class).desc(),
                         table.field("id", Long.class).desc()));
         List<IdempotencyRecordView> views = new ArrayList<>(raw.records().size());
-        for (IdempotencyRecordDO record : raw.records()) {
+        for (IdempotencyRecord record : raw.records()) {
             views.add(IdempotencyRecordView.of(record, now));
         }
         return PageResult.of(raw.page(), raw.size(), raw.total(), views);

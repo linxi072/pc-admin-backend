@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.common.notification.StepNotifyPort;
-import com.acme.scaffold.system.message.application.MessageService;
+import com.acme.scaffold.system.message.service.MessageService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 

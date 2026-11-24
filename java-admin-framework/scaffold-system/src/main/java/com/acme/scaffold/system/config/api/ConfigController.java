@@ -5,11 +5,11 @@ import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.security.ratelimit.RateLimit;
-import com.acme.scaffold.system.config.application.ConfigService;
-import com.acme.scaffold.system.config.dto.ConfigGroupVO;
-import com.acme.scaffold.system.config.dto.ConfigVO;
-import com.acme.scaffold.system.config.dto.CreateConfigRequest;
-import com.acme.scaffold.system.config.dto.UpdateConfigRequest;
+import com.acme.scaffold.system.config.service.ConfigService;
+import com.acme.scaffold.system.config.domain.ConfigGroupView;
+import com.acme.scaffold.system.config.domain.ConfigView;
+import com.acme.scaffold.system.config.domain.CreateConfigRequest;
+import com.acme.scaffold.system.config.domain.UpdateConfigRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,14 +36,14 @@ public class ConfigController {
     @Operation(summary = "配置列表")
     @GetMapping
     @PreAuthorize("hasAuthority('system:config:read')")
-    public Result<List<ConfigVO>> list() {
+    public Result<List<ConfigView>> list() {
         return Result.success(configService.list());
     }
 
     @Operation(summary = "配置分组列表（按 key 命名空间前缀聚合）")
     @GetMapping("/groups")
     @PreAuthorize("hasAuthority('system:config:read')")
-    public Result<List<ConfigGroupVO>> listGrouped() {
+    public Result<List<ConfigGroupView>> listGrouped() {
         return Result.success(configService.listGrouped());
     }
 
@@ -59,8 +59,8 @@ public class ConfigController {
     @Operation(summary = "按配置键动态读取")
     @GetMapping("/key/{key}")
     @PreAuthorize("hasAuthority('system:config:read')")
-    public Result<ConfigVO> getByKey(@PathVariable String key) {
-        ConfigVO vo = configService.getByKey(key);
+    public Result<ConfigView> getByKey(@PathVariable String key) {
+        ConfigView vo = configService.getByKey(key);
         if (vo == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "配置不存在");
         }

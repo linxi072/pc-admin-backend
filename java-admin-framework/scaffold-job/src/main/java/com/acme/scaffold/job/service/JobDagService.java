@@ -6,7 +6,7 @@ import com.acme.scaffold.job.domain.JobIntervalUnit;
 import com.acme.scaffold.job.domain.JobNextFire;
 import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.domain.JobTriggerType;
-import com.acme.scaffold.job.entity.SysJobDO;
+import com.acme.scaffold.job.entity.SysJob;
 import com.acme.scaffold.job.port.JobDagPort;
 import com.acme.scaffold.job.port.JobSchedulerPort;
 import java.time.Instant;
@@ -67,8 +67,8 @@ public class JobDagService {
      * 幂等：仅对 {@code WAITING} 且依赖全部满足者触发；无下游或下游未就绪则空操作。
      */
     public void onJobSuccess(Long jobId) {
-        List<SysJobDO> dependents = dagPort.findDependents(jobId);
-        for (SysJobDO dep : dependents) {
+        List<SysJob> dependents = dagPort.findDependents(jobId);
+        for (SysJob dep : dependents) {
             if (JobStatus.WAITING.name().equals(dep.getStatus()) && isReady(dep)) {
                 triggerReady(dep);
             }
@@ -77,9 +77,9 @@ public class JobDagService {
 
     /** 手动触发某任务的所有就绪下游（Admin 主动操作）。返回实际触发的下游数量。 */
     public int triggerDownstream(Long id) {
-        List<SysJobDO> dependents = dagPort.findDependents(id);
+        List<SysJob> dependents = dagPort.findDependents(id);
         int count = 0;
-        for (SysJobDO dep : dependents) {
+        for (SysJob dep : dependents) {
             if (JobStatus.WAITING.name().equals(dep.getStatus()) && isReady(dep)) {
                 if (triggerReady(dep)) {
                     count++;
@@ -120,17 +120,17 @@ public class JobDagService {
         return dagPort.findById(id).map(this::isReady).orElse(false);
     }
 
-    private boolean isReady(SysJobDO job) {
+    private boolean isReady(SysJob job) {
         List<Long> deps = JobDagRules.parseDependsOn(job.getDependsOn());
         if (deps.isEmpty()) {
             return true;
         }
         for (Long dep : deps) {
-            Optional<SysJobDO> d = dagPort.findById(dep);
+            Optional<SysJob> d = dagPort.findById(dep);
             if (d.isEmpty()) {
                 continue; // 上游已删除 → 视为已满足（避免悬空边永久阻塞）
             }
-            SysJobDO depJob = d.get();
+            SysJob depJob = d.get();
             boolean satisfied = JobStatus.COMPLETED.name().equals(depJob.getStatus())
                     || (depJob.getSuccessRuns() != null && depJob.getSuccessRuns() > 0);
             if (!satisfied) {
@@ -161,7 +161,7 @@ public class JobDagService {
     }
 
     /** 将 WAITING 任务翻为 RUNNING 并按其触发类型注册调度（即时触发）。 */
-    private boolean triggerReady(SysJobDO job) {
+    private boolean triggerReady(SysJob job) {
         if (!JobStatus.WAITING.name().equals(job.getStatus()) || !schedulerPort.available()) {
             return false;
         }

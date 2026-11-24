@@ -2,9 +2,9 @@ package com.acme.scaffold.im.conversation.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.im.conversation.application.ImConversationService;
-import com.acme.scaffold.im.conversation.dto.ConversationCreateRequest;
-import com.acme.scaffold.im.conversation.dto.ConversationView;
+import com.acme.scaffold.im.conversation.service.ImConversationService;
+import com.acme.scaffold.im.conversation.domain.ConversationCreateRequest;
+import com.acme.scaffold.im.conversation.domain.ConversationView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

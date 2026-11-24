@@ -5,7 +5,7 @@ import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.password.PasswordHistoryDataPort;
 import com.acme.scaffold.security.password.PasswordHistoryRecord;
-import com.acme.scaffold.system.password.domain.model.SysPasswordHistoryDO;
+import com.acme.scaffold.system.password.domain.model.SysPasswordHistory;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,7 +30,7 @@ public class PasswordHistoryDataAdapter implements PasswordHistoryDataPort {
 
     @Override
     public void insert(Long userId, String encodedHash, LocalDateTime createdAt) {
-        SysPasswordHistoryDO entity = new SysPasswordHistoryDO();
+        SysPasswordHistory entity = new SysPasswordHistory();
         entity.setUserId(userId);
         entity.setPasswordHash(encodedHash);
         entity.setCreatedAt(createdAt);
@@ -39,16 +39,16 @@ public class PasswordHistoryDataAdapter implements PasswordHistoryDataPort {
 
     @Override
     public List<String> recentHashes(Long userId, int limit) {
-        List<SysPasswordHistoryDO> recent = SqlWriters.fetchList(dsl, PH,
-                SysPasswordHistoryDO.class,
+        List<SysPasswordHistory> recent = SqlWriters.fetchList(dsl, PH,
+                SysPasswordHistory.class,
                 SqlTables.SYS_PASSWORD_HISTORY.field("user_id", Long.class).eq(userId),
                 SqlTables.SYS_PASSWORD_HISTORY.field("created_at", java.time.LocalDateTime.class).desc());
-        return recent.stream().limit(limit).map(SysPasswordHistoryDO::getPasswordHash).collect(Collectors.toList());
+        return recent.stream().limit(limit).map(SysPasswordHistory::getPasswordHash).collect(Collectors.toList());
     }
 
     @Override
     public List<PasswordHistoryRecord> allRecords(Long userId) {
-        return SqlWriters.fetchList(dsl, PH, SysPasswordHistoryDO.class,
+        return SqlWriters.fetchList(dsl, PH, SysPasswordHistory.class,
                         SqlTables.SYS_PASSWORD_HISTORY.field("user_id", Long.class).eq(userId)).stream()
                 .map(d -> new PasswordHistoryRecord(d.getId(), d.getCreatedAt()))
                 .collect(Collectors.toList());

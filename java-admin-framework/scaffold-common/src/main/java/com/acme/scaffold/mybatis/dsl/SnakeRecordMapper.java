@@ -108,7 +108,7 @@ public class SnakeRecordMapper<E> implements RecordMapper<Record, E> {
             }
         }
         // Boolean → 数值/Boolean：MySQL TINYINT(1) 被 jOOQ 默认读为 Boolean，兼容 Integer/Long 等 DO 字段
-        // （如 sys_tenant.deleted TINYINT(1) 映射到 SysTenantDO.deleted Integer）。
+        // （如 sys_tenant.deleted TINYINT(1) 映射到 SysTenant.deleted Integer）。
         if (value instanceof Boolean b) {
             if (targetType == Boolean.class || targetType == boolean.class) {
                 return b;

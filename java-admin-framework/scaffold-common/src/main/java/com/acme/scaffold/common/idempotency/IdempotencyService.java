@@ -1,6 +1,6 @@
 package com.acme.scaffold.common.idempotency;
 
-import com.acme.scaffold.common.idempotency.domain.IdempotencyRecordDO;
+import com.acme.scaffold.common.idempotency.domain.IdempotencyRecord;
 import com.acme.scaffold.common.idempotency.rules.IdempotencyRecordRules;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSL;
@@ -117,7 +117,7 @@ public class IdempotencyService {
     private AcquireResult doAcquire(String key, String scope, Long userId, String fingerprint, int ttlSeconds) {
         var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
         LocalDateTime now = LocalDateTime.now();
-        IdempotencyRecordDO existing = find(key, scope);
+        IdempotencyRecord existing = find(key, scope);
         // 读路径兜底：清理任务未运行/失败时，已过期记录必须视为不存在并重新登记，
         // 否则过期的 SUCCESS 仍会 REPLAY 旧响应、过期的 PROCESSING 会永久返回 409。
         if (existing != null && IdempotencyRecordRules.isExpired(existing.getExpiresAt(), now)) {
@@ -126,7 +126,7 @@ public class IdempotencyService {
         }
         if (existing == null) {
             try {
-                IdempotencyRecordDO record = new IdempotencyRecordDO();
+                IdempotencyRecord record = new IdempotencyRecord();
                 record.setIdempotencyKey(key);
                 record.setApiScope(scope);
                 record.setUserId(userId);
@@ -164,8 +164,8 @@ public class IdempotencyService {
         return new AcquireResult(action, existing.getResponseSnapshot());
     }
 
-    private IdempotencyRecordDO find(String key, String scope) {
-        return SqlWriters.fetchOne(dsl, SqlTables.SYS_IDEMPOTENCY_RECORD, IdempotencyRecordDO.class,
+    private IdempotencyRecord find(String key, String scope) {
+        return SqlWriters.fetchOne(dsl, SqlTables.SYS_IDEMPOTENCY_RECORD, IdempotencyRecord.class,
                 keyCondition(key, scope));
     }
 

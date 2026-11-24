@@ -4,7 +4,7 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.tenant.TenantIsolationAuditReport;
 import com.acme.scaffold.common.tenant.TenantIsolationAuditRules;
 import com.acme.scaffold.mybatis.dsl.TenantTables;
-import com.acme.scaffold.system.tenant.application.TenantIsolationAuditService;
+import com.acme.scaffold.system.tenant.service.TenantIsolationAuditService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

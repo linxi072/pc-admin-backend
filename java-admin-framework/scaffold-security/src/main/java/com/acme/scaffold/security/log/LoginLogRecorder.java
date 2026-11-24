@@ -4,7 +4,7 @@ import com.acme.scaffold.common.text.TextUtils;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.security.entity.SysLoginLogDO;
+import com.acme.scaffold.security.entity.SysLoginLog;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,7 +56,7 @@ public class LoginLogRecorder {
     public void record(String username, Long userId, boolean success, String failureCode,
                        String ip, String userAgent) {
         try {
-            SysLoginLogDO row = new SysLoginLogDO();
+            SysLoginLog row = new SysLoginLog();
             row.setUsername(TextUtils.truncate(username, 64));
             row.setUserId(userId);
             row.setLoginType(LOGIN_TYPE_PASSWORD);

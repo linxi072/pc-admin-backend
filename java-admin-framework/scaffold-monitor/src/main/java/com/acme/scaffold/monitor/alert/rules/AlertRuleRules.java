@@ -1,7 +1,7 @@
 package com.acme.scaffold.monitor.alert.rules;
 
 import com.acme.scaffold.monitor.alert.AlertInboxEntry;
-import com.acme.scaffold.monitor.entity.AlertRuleDO;
+import com.acme.scaffold.monitor.entity.AlertRule;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -145,7 +145,7 @@ public final class AlertRuleRules {
      * 校验规则配置，返回错误列表（空表示通过）。
      * 仅做字段级静态校验，不触达存储（存储可用性与去重由服务层负责）。
      */
-    public static List<String> validate(AlertRuleDO rule) {
+    public static List<String> validate(AlertRule rule) {
         List<String> errors = new ArrayList<>();
         if (rule == null) {
             errors.add("规则对象不能为空");
@@ -189,7 +189,7 @@ public final class AlertRuleRules {
      * status=firing、instance=rules-engine，severity 取规则配置（缺省 WARNING），
      * summary 携带指标当前值与阈值关系，便于排障直接定位。
      */
-    public static AlertInboxEntry buildEntry(AlertRuleDO rule, BigDecimal actual, Instant now) {
+    public static AlertInboxEntry buildEntry(AlertRule rule, BigDecimal actual, Instant now) {
         String displayName = safe(rule.getRuleName(), "未命名规则");
         String severity = safe(rule.getSeverity(), Severity.WARNING.name());
         String metricLabel = safe(rule.getMetricKey(), "?");

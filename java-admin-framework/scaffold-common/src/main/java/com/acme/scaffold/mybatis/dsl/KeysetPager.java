@@ -1,8 +1,8 @@
 package com.acme.scaffold.mybatis.dsl;
 
 import com.acme.scaffold.common.api.CursorCodec;
-import com.acme.scaffold.common.api.dto.KeysetPageQuery;
-import com.acme.scaffold.common.api.dto.KeysetPageResult;
+import com.acme.scaffold.common.api.domain.KeysetPageQuery;
+import com.acme.scaffold.common.api.domain.KeysetPageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.Condition;

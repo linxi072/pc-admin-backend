@@ -1,9 +1,9 @@
 package com.acme.scaffold.observability.service;
 
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.observability.dto.MetricView;
-import com.acme.scaffold.observability.dto.SpanView;
-import com.acme.scaffold.observability.dto.TraceSummaryView;
+import com.acme.scaffold.observability.domain.MetricView;
+import com.acme.scaffold.observability.domain.SpanView;
+import com.acme.scaffold.observability.domain.TraceSummaryView;
 import com.acme.scaffold.observability.export.OtlpSpan;
 import com.acme.scaffold.observability.export.SpanExporter;
 import com.acme.scaffold.observability.metrics.MetricsRegistry;

@@ -3,11 +3,11 @@ package com.acme.scaffold.system.menu.api;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.system.menu.application.MenuService;
-import com.acme.scaffold.system.menu.dto.CreateMenuRequest;
-import com.acme.scaffold.system.menu.dto.MenuSortItem;
-import com.acme.scaffold.system.menu.dto.MenuTreeVO;
-import com.acme.scaffold.system.menu.dto.UpdateMenuRequest;
+import com.acme.scaffold.system.menu.service.MenuService;
+import com.acme.scaffold.system.menu.domain.CreateMenuRequest;
+import com.acme.scaffold.system.menu.domain.MenuSortItem;
+import com.acme.scaffold.system.menu.domain.MenuTreeView;
+import com.acme.scaffold.system.menu.domain.UpdateMenuRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,7 +34,7 @@ public class MenuController {
 
     @Operation(summary = "我的菜单（按当前登录用户角色过滤）")
     @GetMapping("/mine")
-    public Result<List<MenuTreeVO>> mine() {
+    public Result<List<MenuTreeView>> mine() {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
         return Result.success(menuService.menusForCurrentUser(userId));
     }
@@ -42,7 +42,7 @@ public class MenuController {
     @Operation(summary = "菜单树")
     @GetMapping("/tree")
     @PreAuthorize("hasAuthority('system:menu:read')")
-    public Result<List<MenuTreeVO>> tree() {
+    public Result<List<MenuTreeView>> tree() {
         return Result.success(menuService.tree());
     }
 

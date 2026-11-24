@@ -1,7 +1,7 @@
 package com.acme.scaffold.ai.port;
 
-import com.acme.scaffold.ai.dto.ColumnSpec;
-import com.acme.scaffold.ai.dto.TableSpec;
+import com.acme.scaffold.ai.domain.ColumnSpec;
+import com.acme.scaffold.ai.domain.TableSpec;
 import com.acme.scaffold.codegen.service.JavaTypeMapper;
 import java.util.ArrayList;
 

@@ -1,0 +1,246 @@
+package com.acme.scaffold.system.log.service;
+
+import com.acme.scaffold.common.api.domain.KeysetPageQuery;
+import com.acme.scaffold.common.api.domain.KeysetPageResult;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.Field;
+import com.acme.scaffold.mybatis.dsl.KeysetPager;
+import com.acme.scaffold.mybatis.dsl.SnakeRecordMapper;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.security.entity.SysLoginLog;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+
+import java.util.List;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import com.acme.scaffold.system.log.domain.LoginLogView;
+/**
+ * 登录日志查询服务（V29 登录日志页）。
+ *
+ * <p>只读服务：登录日志由认证链路写入（{@code LoginLogRecorder}），此处仅提供
+ * 分页查询与统计摘要，不做任何写操作。
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class LoginLogService {
+
+    /** 导出单次最大取数（防止导出大表时耗尽内存；超出部分截断并记录告警）。 */
+    private static final int EXPORT_MAX_ROWS = 10_000;
+
+    /** 登录日志可排序字段白名单：客户端字段名 → 数据库列名（白名单外一律忽略）。 */
+    private static final Map<String, String> LOGIN_LOG_SORT_FIELDS = SqlSorts.whitelist(
+            "id", "id",
+            "username", "username",
+            "loginType", "login_type",
+            "result", "result",
+            "ipAddress", "ip_address",
+            "occurredAt", "occurred_at");
+
+    private static final SqlTables.TableRef LL = SqlTables.SYS_LOGIN_LOG;
+
+    private final DSLContext dsl;
+
+    /**
+     * 分页查询登录日志。
+     *
+     * @param page          页码（从 1 开始）
+     * @param size          每页条数
+     * @param username      用户名模糊筛选，为空不过滤
+     * @param result        结果精确筛选（SUCCESS / FAILURE），为空不过滤
+     * @param loginType     登录类型精确筛选，为空不过滤
+     * @param failureCode   失败码精确筛选，为空不过滤
+     * @param ipAddress     IP 模糊筛选，为空不过滤
+     * @param keyword       用户名/IP/失败码联合模糊筛选，为空不过滤
+     * @param startTime     起始时间（含），为空默认 7 天前
+     * @param endTime       结束时间（含），为空默认当前
+     * @param sortField     排序字段（服务端白名单映射，白名单外忽略）
+     * @param sortDirection 排序方向：ASC / DESC，为空按 occurred_at DESC
+     * @param sensitiveVisible 是否回传未脱敏 IP（由 Controller 依据 {@code system:login-log:sensitive} 权限决定）
+     */
+    public PageResult<LoginLogView> page(
+            int page, int size, String username, String result, String loginType,
+            String failureCode, String ipAddress, String keyword,
+            LocalDateTime startTime, LocalDateTime endTime, String sortField, String sortDirection,
+            boolean sensitiveVisible) {
+        Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
+                keyword, startTime, endTime);
+        var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
+        PageResult<SysLoginLog> raw = SqlWriters.page(dsl, LL,
+                SysLoginLog.class, cond, pageQuery,
+                SqlSorts.resolve(LL, pageQuery, LOGIN_LOG_SORT_FIELDS,
+                        SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc()));
+        List<LoginLogView> views = raw.records().stream()
+                .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
+        return PageResult.of(raw.page(), raw.size(), raw.total(), views);
+    }
+
+    /**
+     * keyset 游标分页（深翻页优化）：固定按 (occurred_at DESC, id DESC) 排序，
+     * 游标由服务端基于上一页末条记录的排序键生成，避免 offset 分页随偏移量退化。
+     *
+     * <p>筛选条件与 {@link #page} 完全一致（复用 {@link #buildCondition}）；排序键含 id 作为
+     * tie-breaker 以保证顺序唯一确定。出参不含 total（keyset 不廉价计算总数），
+     * 以 {@code nextCursor} 表示是否还有下一页，前端据此判断是否展示「下一页」。</p>
+     */
+    public KeysetPageResult<LoginLogView> keysetPage(int size, String cursor,
+            String username, String result, String loginType, String failureCode,
+            String ipAddress, String keyword, LocalDateTime startTime, LocalDateTime endTime,
+            boolean sensitiveVisible) {
+        Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
+                keyword, startTime, endTime);
+        KeysetPageQuery q = new KeysetPageQuery(size, cursor);
+        Field<?>[] keyFields = new Field<?>[]{
+                SqlTables.SYS_LOGIN_LOG.field("occurred_at", LocalDateTime.class),
+                SqlTables.SYS_LOGIN_LOG.field("id", Long.class)
+        };
+        boolean[] ascending = {false, false}; // occurred_at DESC, id DESC
+        KeysetPageResult<SysLoginLog> raw = KeysetPager.query(dsl, LL, SysLoginLog.class,
+                cond, q, f -> new Object[]{f.getOccurredAt(), f.getId()}, keyFields, ascending);
+        List<LoginLogView> views = raw.records().stream()
+                .map(d -> LoginLogView.of(d, sensitiveVisible)).toList();
+        return KeysetPageResult.of(raw.size(), views, raw.nextCursor());
+    }
+
+    /**
+     * 统计摘要（与 page 相同筛选口径）。
+     *
+     * @return total / success / failure / failureRate / distinctUsers / lastLoginAt
+     */
+    public Map<String, Object> summary(String username, String result, String loginType,
+                                       String failureCode, String ipAddress, String keyword,
+                                       LocalDateTime startTime, LocalDateTime endTime) {
+        Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
+                keyword, startTime, endTime);
+        Long total = dsl.selectCount().from(LL.table())
+                .where(cond).fetchOne(0, Long.class);
+        Long success = dsl.selectCount().from(LL.table())
+                .where(DSL.and(cond, SqlTables.SYS_LOGIN_LOG.field("result", String.class)
+                        .eq("SUCCESS"))).fetchOne(0, Long.class);
+        Integer distinctUsers = dsl.selectDistinct(
+                        SqlTables.SYS_LOGIN_LOG.field("username", String.class))
+                .from(LL.table()).where(cond).fetch().size();
+        LocalDateTime lastLoginAt = dsl.select(
+                        SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).max())
+                .from(LL.table())
+                .where(DSL.and(cond, SqlTables.SYS_LOGIN_LOG.field("result", String.class)
+                        .eq("SUCCESS"))).fetchOne(0, LocalDateTime.class);
+
+        long totalVal = total == null ? 0L : total;
+        long successVal = success == null ? 0L : success;
+        double failureRate = totalVal == 0 ? 0.0 : (double) (totalVal - successVal) / totalVal;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("total", totalVal);
+        out.put("success", successVal);
+        out.put("failure", totalVal - successVal);
+        out.put("failureRate", failureRate);
+        out.put("distinctUsers", distinctUsers);
+        out.put("lastLoginAt", lastLoginAt);
+        return out;
+    }
+
+    /** 统一筛选条件构造：时间区间默认收敛到最近 7 天，防止全表扫描。 */
+    private Condition buildCondition(String username, String result, String loginType,
+                                     String failureCode, String ipAddress, String keyword,
+                                     LocalDateTime startTime, LocalDateTime endTime) {
+        LocalDateTime end = endTime == null ? LocalDateTime.now() : endTime;
+        LocalDateTime begin = startTime == null ? end.minusDays(7) : startTime;
+        if (begin.isAfter(end)) {
+            begin = end;
+        }
+        List<Condition> conds = new ArrayList<>();
+        conds.add(DSL.and(
+                SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).ge(begin),
+                SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).le(end)));
+        if (username != null && !username.isBlank()) {
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("username", String.class)
+                    .like("%" + username.trim() + "%"));
+        }
+        if (result != null && !result.isBlank()) {
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("result", String.class).eq(result.trim()));
+        }
+        if (loginType != null && !loginType.isBlank()) {
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("login_type", String.class).eq(loginType.trim()));
+        }
+        if (failureCode != null && !failureCode.isBlank()) {
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("failure_code", String.class)
+                    .eq(failureCode.trim()));
+        }
+        if (ipAddress != null && !ipAddress.isBlank()) {
+            conds.add(SqlTables.SYS_LOGIN_LOG.field("ip_address", String.class)
+                    .like("%" + ipAddress.trim() + "%"));
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = "%" + keyword.trim() + "%";
+            conds.add(DSL.or(
+                    SqlTables.SYS_LOGIN_LOG.field("username", String.class).like(kw),
+                    SqlTables.SYS_LOGIN_LOG.field("ip_address", String.class).like(kw),
+                    SqlTables.SYS_LOGIN_LOG.field("failure_code", String.class).like(kw),
+                    SqlTables.SYS_LOGIN_LOG.field("trace_id", String.class).like(kw)));
+        }
+        return DSL.and(conds);
+    }
+
+    /**
+     * 导出用批量查询（只读）：与 {@link #page} 采用同一筛选口径与排序（{@code occurred_at DESC}），
+     * 但不受分页大小上限（100）约束，供「导出中心」一次性取数。
+     *
+     * <p><b>安全</b>：导出文件会离开系统边界，故 IP <b>一律掩码</b>——即便导出者持有
+     * {@code system:login-log:sensitive} 权限也不放行原文，避免审计数据随文件外流泄漏。</p>
+     *
+     * @param limit 最大返回行数（内部钳制在 1..{@value #EXPORT_MAX_ROWS}），超出则截断并记录告警
+     * @return 登录日志视图列表（IP 已掩码）
+     */
+    public List<LoginLogView> listForExport(String username, String result, String loginType,
+                                            String failureCode, String ipAddress, String keyword,
+                                            LocalDateTime startTime, LocalDateTime endTime, int limit) {
+        Condition cond = buildCondition(username, result, loginType, failureCode, ipAddress,
+                keyword, startTime, endTime);
+        int bounded = Math.min(Math.max(limit, 1), EXPORT_MAX_ROWS);
+        // 多取一行用于判定是否被截断，便于提示用户缩小范围
+        List<SysLoginLog> records = dsl.selectFrom(LL.table())
+                .where(cond)
+                .orderBy(SqlTables.SYS_LOGIN_LOG.field("occurred_at", java.time.LocalDateTime.class).desc())
+                .limit(bounded + 1)
+                .fetch(new SnakeRecordMapper<>(SysLoginLog.class));
+        if (records.size() > bounded) {
+            log.warn("登录日志导出达到行数上限 {}，已截断；请缩小时间范围或筛选条件后分批导出", bounded);
+            records = records.subList(0, bounded);
+        }
+        return records.stream().map(d -> LoginLogView.of(d, false)).toList();
+    }
+
+    /**
+     * 清理发生时间早于 {@code cutoff} 的登录日志（留存清理，对应 operations §27.6 后续方向）。
+     *
+     * <p>物理删除（登录日志为纯追加审计数据，无逻辑删除列）；跨全租户统一按时间窗口清理，
+     * 留存口径由 {@code LoginLogRetentionJob} 经 {@link com.acme.scaffold.common.audit.AuditRetentionRules#cutoff}
+     * 计算，与操作审计留存保持一致。
+     *
+     * @param cutoff 截止时间（不含）；{@code null} 时直接返回 0（调用方应已判空跳过）
+     * @return 删除的记录条数
+     */
+    public int purgeBefore(LocalDateTime cutoff) {
+        if (cutoff == null) {
+            return 0;
+        }
+        int removed = dsl.deleteFrom(LL.table())
+                .where(LL.field("occurred_at", LocalDateTime.class).lt(cutoff))
+                .execute();
+        if (removed > 0) {
+            log.info("清理过期登录日志 {} 条（早于 {}）", removed, cutoff);
+        }
+        return removed;
+    }
+}

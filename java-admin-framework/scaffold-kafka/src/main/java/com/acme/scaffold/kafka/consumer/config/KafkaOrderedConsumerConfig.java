@@ -1,8 +1,8 @@
 package com.acme.scaffold.kafka.consumer.config;
 
 import com.acme.scaffold.kafka.consumer.adapter.KafkaRecordSource;
-import com.acme.scaffold.kafka.consumer.application.OrderedKafkaConsumer;
-import com.acme.scaffold.kafka.consumer.application.OrderedRecordHandler;
+import com.acme.scaffold.kafka.consumer.service.OrderedKafkaConsumer;
+import com.acme.scaffold.kafka.consumer.service.OrderedRecordHandler;
 import com.acme.scaffold.kafka.consumer.domain.model.KafkaOrderedConsumerProperties;
 import com.acme.scaffold.kafka.consumer.domain.repository.RecordSource;
 import org.springframework.beans.factory.ObjectProvider;

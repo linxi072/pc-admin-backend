@@ -4,8 +4,8 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.monitor.detection.NPlusOneProbe;
 import com.acme.scaffold.monitor.detection.NPlusOneSuspect;
 import com.acme.scaffold.monitor.detection.NPlusOneSuspectRegistry;
-import com.acme.scaffold.monitor.dto.NPlusOneStatusView;
-import com.acme.scaffold.monitor.dto.NPlusOneSuspectView;
+import com.acme.scaffold.monitor.domain.NPlusOneStatusView;
+import com.acme.scaffold.monitor.domain.NPlusOneSuspectView;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 

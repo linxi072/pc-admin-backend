@@ -4,8 +4,8 @@ import com.acme.scaffold.monitor.alert.AlertInboxEntry;
 import com.acme.scaffold.monitor.alert.AlertReceiverService;
 import com.acme.scaffold.monitor.alert.rules.AlertInboxRules.Summary;
 import com.acme.scaffold.monitor.alert.rules.AlertInboxRules;
-import com.acme.scaffold.monitor.dto.AlertInboxItemView;
-import com.acme.scaffold.monitor.dto.AlertInboxStatsView;
+import com.acme.scaffold.monitor.domain.AlertInboxItemView;
+import com.acme.scaffold.monitor.domain.AlertInboxStatsView;
 import java.util.ArrayList;
 import java.util.List;
 

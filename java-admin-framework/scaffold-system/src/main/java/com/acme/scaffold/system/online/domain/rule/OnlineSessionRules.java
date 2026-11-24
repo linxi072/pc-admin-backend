@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.online.domain.rule;
 
-import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
+import com.acme.scaffold.system.online.domain.model.SysOnlineSession;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -32,7 +32,7 @@ public final class OnlineSessionRules {
      * @param restricted    该用户当前是否存在生效的登录限制
      * @param idleThreshold 空闲判定阈值：最近活跃距当前超过该值视为空闲
      * @param now           当前时间（调用方注入，保证可测）
-     * @return {@link SysOnlineSessionDO#STATUS_ONLINE} / {@code IDLE} / {@code RESTRICTED}
+     * @return {@link SysOnlineSession#STATUS_ONLINE} / {@code IDLE} / {@code RESTRICTED}
      */
     public static String displayStatus(LocalDateTime lastActiveAt, boolean restricted,
                                        Duration idleThreshold, LocalDateTime now) {
@@ -40,13 +40,13 @@ public final class OnlineSessionRules {
             return "RESTRICTED";
         }
         if (lastActiveAt == null) {
-            return SysOnlineSessionDO.STATUS_ONLINE;
+            return SysOnlineSession.STATUS_ONLINE;
         }
         Duration idle = Duration.between(lastActiveAt, now);
         if (idle.compareTo(idleThreshold) > 0) {
             return "IDLE";
         }
-        return SysOnlineSessionDO.STATUS_ONLINE;
+        return SysOnlineSession.STATUS_ONLINE;
     }
 
     /** 心跳是否到点：距上次心跳不足一个间隔则跳过（节流写库）。 */

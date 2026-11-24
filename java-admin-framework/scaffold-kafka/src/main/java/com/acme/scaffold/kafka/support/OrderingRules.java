@@ -11,7 +11,7 @@ import java.util.Objects;
  *   <li><b>生产端有序</b>：同 key 消息经 murmur2 哈希稳定落入同一分区，Kafka 分区内 FIFO
  *       有序；生产端开启 {@code enable.idempotence=true}（{@code max.in.flight<=5}）避免重试乱序；</li>
  *   <li><b>分区内串行消费</b>：单线程按分区顺序 poll-处理-提交，禁止同分区并发（见
- *       {@code com.acme.scaffold.kafka.consumer.application.OrderedKafkaConsumer}）；</li>
+ *       {@code com.acme.scaffold.kafka.consumer.service.OrderedKafkaConsumer}）；</li>
  *   <li><b>乱序兜底</b>：消息携带版本号（version），消费端以「严格大于才处理」丢弃
  *       迟到/重复的旧版本（本类 {@link #shouldProcess}）；</li>
  *   <li><b>键分区选择</b>：{@link #partitionForKey} 与 Kafka 默认分区器行为一致

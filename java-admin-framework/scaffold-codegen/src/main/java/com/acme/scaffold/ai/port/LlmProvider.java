@@ -1,6 +1,6 @@
 package com.acme.scaffold.ai.port;
 
-import com.acme.scaffold.ai.dto.TableSpec;
+import com.acme.scaffold.ai.domain.TableSpec;
 
 /**
  * 大模型提供者端口：自然语言 → 表规格。

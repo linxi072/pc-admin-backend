@@ -1,8 +1,8 @@
 package com.acme.scaffold.mybatis.dsl;
 
 import com.acme.scaffold.common.IdGenerator;
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.tenant.TenantEnforcement;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSL;

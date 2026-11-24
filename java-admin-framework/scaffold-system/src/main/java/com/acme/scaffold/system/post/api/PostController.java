@@ -1,15 +1,15 @@
 package com.acme.scaffold.system.post.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.post.application.PostService;
-import com.acme.scaffold.system.post.dto.AssignUserPostsRequest;
-import com.acme.scaffold.system.post.dto.CreatePostRequest;
-import com.acme.scaffold.system.post.dto.PostOptionVO;
-import com.acme.scaffold.system.post.dto.PostQuery;
-import com.acme.scaffold.system.post.dto.PostView;
-import com.acme.scaffold.system.post.dto.UpdatePostRequest;
+import com.acme.scaffold.system.post.service.PostService;
+import com.acme.scaffold.system.post.domain.AssignUserPostsRequest;
+import com.acme.scaffold.system.post.domain.CreatePostRequest;
+import com.acme.scaffold.system.post.domain.PostOptionView;
+import com.acme.scaffold.system.post.domain.PostQuery;
+import com.acme.scaffold.system.post.domain.PostView;
+import com.acme.scaffold.system.post.domain.UpdatePostRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -51,7 +51,7 @@ public class PostController {
     @Operation(summary = "全部启用岗位（下拉选项）")
     @GetMapping("/options")
     @PreAuthorize("hasAuthority('system:post:read')")
-    public Result<List<PostOptionVO>> options() {
+    public Result<List<PostOptionView>> options() {
         return Result.success(postService.options());
     }
 

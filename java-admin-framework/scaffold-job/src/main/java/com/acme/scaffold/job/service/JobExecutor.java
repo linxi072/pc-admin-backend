@@ -6,8 +6,8 @@ import com.acme.scaffold.job.domain.JobHandler;
 import com.acme.scaffold.job.domain.JobNextFire;
 import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.domain.JobTriggerType;
-import com.acme.scaffold.job.entity.SysJobDO;
-import com.acme.scaffold.job.entity.SysJobLogDO;
+import com.acme.scaffold.job.entity.SysJob;
+import com.acme.scaffold.job.entity.SysJobLog;
 import com.acme.scaffold.job.port.JobInvoker;
 import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -56,7 +56,7 @@ public class JobExecutor implements JobInvoker {
             log.warn("定时任务触发但 jobId 为空，忽略");
             return;
         }
-        SysJobDO job = SqlWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, jobId);
+        SysJob job = SqlWriters.fetchById(dsl, SYS_JOB, SysJob.class, jobId);
         if (job == null) {
             log.warn("定时任务触发但任务不存在或已删除：jobId={}", jobId);
             return;
@@ -108,13 +108,13 @@ public class JobExecutor implements JobInvoker {
         }
     }
 
-    private void recordResult(SysJobDO job, LocalDateTime fireTime, LocalDateTime finishedTime,
+    private void recordResult(SysJob job, LocalDateTime fireTime, LocalDateTime finishedTime,
                               long cost, boolean success, String error, Instant fireInstant) {
         JobTriggerType type = JobService.triggerTypeOrNull(job.getTriggerType());
         ZoneId zone = ZoneId.systemDefault();
         boolean completed = type == JobTriggerType.ONE_TIME;
 
-        SysJobDO patch = new SysJobDO();
+        SysJob patch = new SysJob();
         patch.setLastFireTime(fireTime);
         patch.setLastStatus(success ? "SUCCESS" : "FAILED");
         patch.setLastDurationMs(cost);
@@ -149,7 +149,7 @@ public class JobExecutor implements JobInvoker {
             SqlWriters.updateByIdWithNulls(dsl, SYS_JOB, job.getId(), patch, nullColumns);
         }
 
-        SysJobLogDO logRow = new SysJobLogDO();
+        SysJobLog logRow = new SysJobLog();
         logRow.setJobId(job.getId());
         logRow.setJobName(job.getJobName());
         logRow.setTaskKey(job.getTaskKey());

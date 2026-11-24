@@ -2,9 +2,9 @@ package com.acme.scaffold.system.dashboard.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.tenant.TenantIgnorable;
-import com.acme.scaffold.system.dashboard.application.DashboardService;
+import com.acme.scaffold.system.dashboard.service.DashboardService;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
-import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillVO;
+import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillView;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardOverview;
 import com.acme.scaffold.system.dashboard.domain.model.DashboardTrend;
 import io.swagger.v3.oas.annotations.Operation;
@@ -54,7 +54,7 @@ public class DashboardController {
     @GetMapping("/drill")
     @PreAuthorize("hasAuthority('system:dashboard:read')")
     @TenantIgnorable("平台级全局统计，跨租户聚合")
-    public Result<DashboardDrillVO> drill(
+    public Result<DashboardDrillView> drill(
             @RequestParam DashboardDrillMetric metric,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {

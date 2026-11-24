@@ -6,10 +6,10 @@ import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.DataScopeDataPort;
-import com.acme.scaffold.system.org.domain.model.SysOrgDO;
-import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeDO;
-import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeOrgDO;
-import com.acme.scaffold.system.user.domain.model.SysUserOrgDO;
+import com.acme.scaffold.system.org.domain.model.SysOrg;
+import com.acme.scaffold.system.role.domain.model.SysRoleDataScope;
+import com.acme.scaffold.system.role.domain.model.SysRoleDataScopeOrg;
+import com.acme.scaffold.system.user.domain.model.SysUserOrg;
 import java.util.List;
 import java.util.Map;
 
@@ -43,18 +43,18 @@ public class DataScopeDataAdapter implements DataScopeDataPort {
         if (roleIds.isEmpty()) {
             return Map.of();
         }
-        return SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE, SysRoleDataScopeDO.class,
+        return SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE, SysRoleDataScope.class,
                         DSL.and(SqlTables.SYS_ROLE_DATA_SCOPE.field("role_id", Long.class).in(roleIds),
                                 SqlTables.SYS_ROLE_DATA_SCOPE.field("resource_code", String.class).eq(resourceCode)))
                 .stream().collect(Collectors.toMap(
-                        SysRoleDataScopeDO::getId,
-                        SysRoleDataScopeDO::getScopeType,
+                        SysRoleDataScope::getId,
+                        SysRoleDataScope::getScopeType,
                         (a, b) -> a));
     }
 
     @Override
     public Long primaryOrgIdOfUser(Long userId) {
-        List<SysUserOrgDO> orgRows = SqlWriters.fetchList(dsl, USER_ORG, SysUserOrgDO.class,
+        List<SysUserOrg> orgRows = SqlWriters.fetchList(dsl, USER_ORG, SysUserOrg.class,
                 DSL.and(USER_ORG.field("user_id", Long.class).eq(userId),
                         USER_ORG.field("is_primary", Integer.class).eq(1)));
         return orgRows.isEmpty() ? null : orgRows.get(0).getOrgId();
@@ -62,16 +62,16 @@ public class DataScopeDataAdapter implements DataScopeDataPort {
 
     @Override
     public Set<Long> childOrgIds(Long orgId) {
-        return SqlWriters.fetchList(dsl, SqlTables.SYS_ORG, SysOrgDO.class,
+        return SqlWriters.fetchList(dsl, SqlTables.SYS_ORG, SysOrg.class,
                         DSL.and(SqlWriters.notDeleted(SqlTables.SYS_ORG), ancestorContains(orgId)))
-                .stream().map(SysOrgDO::getId).collect(Collectors.toSet());
+                .stream().map(SysOrg::getId).collect(Collectors.toSet());
     }
 
     @Override
     public Set<Long> customOrgIds(Long ruleId) {
-        return SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE_ORG, SysRoleDataScopeOrgDO.class,
+        return SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_DATA_SCOPE_ORG, SysRoleDataScopeOrg.class,
                         SqlTables.SYS_ROLE_DATA_SCOPE_ORG.field("rule_id", Long.class).eq(ruleId))
-                .stream().map(SysRoleDataScopeOrgDO::getOrgId).collect(Collectors.toSet());
+                .stream().map(SysRoleDataScopeOrg::getOrgId).collect(Collectors.toSet());
     }
 
     /**

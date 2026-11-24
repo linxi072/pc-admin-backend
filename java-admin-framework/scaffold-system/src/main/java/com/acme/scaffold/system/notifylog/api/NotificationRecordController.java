@@ -1,9 +1,9 @@
 package com.acme.scaffold.system.notifylog.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.system.notifylog.application.NotificationRecordService;
-import com.acme.scaffold.system.notifylog.application.NotificationRecordView;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.system.notifylog.service.NotificationRecordService;
+import com.acme.scaffold.system.notifylog.domain.NotificationRecordView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;

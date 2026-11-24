@@ -12,7 +12,7 @@ import com.acme.scaffold.system.dashboard.domain.model.DashboardDrillMetric;
 import com.acme.scaffold.system.dashboard.domain.model.HourlyPoint;
 import com.acme.scaffold.system.dashboard.domain.model.TrendPoint;
 import com.acme.scaffold.system.dashboard.domain.repository.SystemStatsPort;
-import com.acme.scaffold.system.online.domain.model.SysOnlineSessionDO;
+import com.acme.scaffold.system.online.domain.model.SysOnlineSession;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 
@@ -69,7 +69,7 @@ public class SqlSystemStatsAdapter implements SystemStatsPort {
     @Override
     public long countOnlineSessions() {
         Condition online = OS.field("status", String.class)
-                .eq(SysOnlineSessionDO.STATUS_ONLINE);
+                .eq(SysOnlineSession.STATUS_ONLINE);
         return safe(() -> dsl.fetchCount(OS.table(), online));
     }
 

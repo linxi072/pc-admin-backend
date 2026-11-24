@@ -7,8 +7,8 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.security.captcha.CaptchaProperties;
 import com.acme.scaffold.security.captcha.CaptchaService;
-import com.acme.scaffold.security.dto.LoginCommand;
-import com.acme.scaffold.security.dto.RefreshCommand;
+import com.acme.scaffold.security.domain.LoginRequest;
+import com.acme.scaffold.security.domain.RefreshRequest;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.jwt.JwtProvider;
@@ -26,7 +26,7 @@ import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
 import com.acme.scaffold.security.user.UserAccountPatch;
-import com.acme.scaffold.security.vo.TokenView;
+import com.acme.scaffold.security.domain.TokenView;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -93,7 +93,7 @@ public class AuthService {
      * 必然抛出 BusinessException 告知调用方失败。默认回滚规则会让这笔写入随异常一并撤销，导致
      * 「失败 N 次锁定账号」与渐进式锁定（设计文档 §5.3）<b>完全失效</b>。故该写操作以独立事务提交。</p>
      */
-    public TokenView login(LoginCommand command, String ip, String userAgent, String deviceId) {
+    public TokenView login(LoginRequest command, String ip, String userAgent, String deviceId) {
         // 验证码校验优先于密码校验：避免在验证码缺失/错误时消耗登录失败计数导致误锁账号（无 DB）
         if (captchaProperties.isEnabled()) {
             if (command.captchaToken() == null || command.captchaAnswer() == null) {
@@ -222,7 +222,7 @@ public class AuthService {
     }
 
     @Transactional
-    public TokenView refresh(RefreshCommand command) {
+    public TokenView refresh(RefreshRequest command) {
         Long userId = refreshTokenService.verify(command.refreshToken());
         UserAccount user = accountPort.loadById(userId);
         if (user == null || "DISABLED".equals(user.status())) {

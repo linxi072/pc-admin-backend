@@ -1,7 +1,7 @@
 package com.acme.scaffold.job.service;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.job.domain.JobDagRules;
@@ -11,14 +11,14 @@ import com.acme.scaffold.job.domain.JobNextFire;
 import com.acme.scaffold.job.domain.JobStatus;
 import com.acme.scaffold.job.domain.JobTriggerType;
 import com.acme.scaffold.job.domain.JobValidator;
-import com.acme.scaffold.job.dto.JobCreateDTO;
-import com.acme.scaffold.job.dto.JobHandlerOptionView;
-import com.acme.scaffold.job.dto.JobLogView;
-import com.acme.scaffold.job.dto.JobQuery;
-import com.acme.scaffold.job.dto.JobUpdateDTO;
-import com.acme.scaffold.job.dto.JobView;
-import com.acme.scaffold.job.entity.SysJobDO;
-import com.acme.scaffold.job.entity.SysJobLogDO;
+import com.acme.scaffold.job.domain.JobCreateRequest;
+import com.acme.scaffold.job.domain.JobHandlerOptionView;
+import com.acme.scaffold.job.domain.JobLogView;
+import com.acme.scaffold.job.domain.JobQuery;
+import com.acme.scaffold.job.domain.JobUpdateRequest;
+import com.acme.scaffold.job.domain.JobView;
+import com.acme.scaffold.job.entity.SysJob;
+import com.acme.scaffold.job.entity.SysJobLog;
 import com.acme.scaffold.job.port.JobSchedulerPort;
 import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.mybatis.dsl.Condition;
@@ -80,9 +80,9 @@ public class JobService {
     public PageResult<JobView> page(JobQuery query) {
         Condition cond = buildCondition(query);
         PageQuery pq = PageQuery.of(query.page(), query.size());
-        PageResult<SysJobDO> raw = SqlWriters.page(dsl, SYS_JOB, SysJobDO.class, cond, pq,
+        PageResult<SysJob> raw = SqlWriters.page(dsl, SYS_JOB, SysJob.class, cond, pq,
                 SYS_JOB.field("id", Long.class).desc());
-        Set<Long> ids = raw.records().stream().map(SysJobDO::getId).collect(Collectors.toSet());
+        Set<Long> ids = raw.records().stream().map(SysJob::getId).collect(Collectors.toSet());
         Map<Long, List<Long>> dependentsMap = dagService.dependentsMap(ids);
         List<JobView> records = raw.records().stream().map(j -> toVO(j, dependentsMap)).toList();
         return PageResult.of(raw.page(), raw.size(), raw.total(), records);
@@ -99,7 +99,7 @@ public class JobService {
         // 租户隔离由 SqlWriters.page/count 的 scopedSelect 自动施加（withTenant）；
         // 此处不能硬编码 tenant_id=0，否则多租户下与自动条件叠加导致日志恒为空。
         Condition cond = SYS_JOB_LOG.field("job_id", Long.class).eq(jobId);
-        PageResult<SysJobLogDO> raw = SqlWriters.page(dsl, SYS_JOB_LOG, SysJobLogDO.class, cond,
+        PageResult<SysJobLog> raw = SqlWriters.page(dsl, SYS_JOB_LOG, SysJobLog.class, cond,
                 PageQuery.of(page, size),
                 SYS_JOB_LOG.field("fire_time", LocalDateTime.class).desc(),
                 SYS_JOB_LOG.field("id", Long.class).desc());
@@ -127,7 +127,7 @@ public class JobService {
     // ------------------------------------------------------------------
 
     /** 新建任务（默认暂停、不调度），返回主键。 */
-    public Long create(JobCreateDTO dto) {
+    public Long create(JobCreateRequest dto) {
         JobTriggerType type = requireTriggerType(dto.triggerType());
         JobIntervalUnit unit = intervalUnitOrNull(dto.intervalUnit());
         Instant now = Instant.now();
@@ -138,7 +138,7 @@ public class JobService {
         // 依赖编排：存在性 + 环检测（自依赖由 JobDagRules 内部拦截）
         dagService.validateDependencyEdit(null, JobDagRules.dedupe(dto.dependsOn()));
 
-        SysJobDO job = new SysJobDO();
+        SysJob job = new SysJob();
         applyEditableFields(job, dto.jobName(), dto.jobGroup(), dto.taskKey(), type,
                 dto.cronExpression(), dto.intervalValue(), unit, dto.oneTimeAt(),
                 dto.jobParams(), dto.remark());
@@ -154,8 +154,8 @@ public class JobService {
     }
 
     /** 编辑任务：运行中先取消调度，写入新配置后按新配置重启（即时生效）。 */
-    public void update(Long id, JobUpdateDTO dto) {
-        SysJobDO existing = require(id);
+    public void update(Long id, JobUpdateRequest dto) {
+        SysJob existing = require(id);
         JobTriggerType type = requireTriggerType(dto.triggerType());
         JobIntervalUnit unit = intervalUnitOrNull(dto.intervalUnit());
         Instant now = Instant.now();
@@ -172,7 +172,7 @@ public class JobService {
             cancelSchedule(existing);
         }
 
-        SysJobDO patch = new SysJobDO();
+        SysJob patch = new SysJob();
         applyEditableFields(patch, dto.jobName(), dto.jobGroup(), dto.taskKey(), type,
                 dto.cronExpression(), dto.intervalValue(), unit, dto.oneTimeAt(),
                 dto.jobParams(), dto.remark());
@@ -207,7 +207,7 @@ public class JobService {
 
     /** 启动任务：立即向调度器注册并按类型计算下次执行时间。幂等（重复启动会先取消旧调度再注册）。 */
     public void start(Long id) {
-        SysJobDO job = require(id);
+        SysJob job = require(id);
         JobTriggerType type = requireTriggerType(job.getTriggerType());
         requireHandler(job.getTaskKey());
 
@@ -255,7 +255,7 @@ public class JobService {
             default -> throw BusinessException.badRequest("不支持的触发类型");
         }
 
-        SysJobDO patch = new SysJobDO();
+        SysJob patch = new SysJob();
         patch.setStatus(JobStatus.RUNNING.name());
         patch.setSchedulerRef(ref);
         if (nextFire != null) {
@@ -271,9 +271,9 @@ public class JobService {
 
     /** 暂停任务：立即取消调度并清空调度引用与下次执行时间。 */
     public void pause(Long id) {
-        SysJobDO job = require(id);
+        SysJob job = require(id);
         cancelSchedule(job);
-        SysJobDO patch = new SysJobDO();
+        SysJob patch = new SysJob();
         patch.setStatus(JobStatus.PAUSED.name());
         SqlWriters.updateByIdWithNulls(dsl, SYS_JOB, id, patch,
                 Set.of("scheduler_ref", "next_fire_time"));
@@ -282,7 +282,7 @@ public class JobService {
 
     /** 删除任务（逻辑删除）：运行中先取消调度。执行日志保留以便追溯。被其他任务依赖时拒绝删除。 */
     public void delete(Long id) {
-        SysJobDO job = require(id);
+        SysJob job = require(id);
         // 依赖编排删除守卫：存在下游依赖时拒绝，避免悬空依赖边
         dagService.assertNoDependents(id);
         cancelSchedule(job);
@@ -294,8 +294,8 @@ public class JobService {
     // 内部实现
     // ------------------------------------------------------------------
 
-    private SysJobDO require(Long id) {
-        SysJobDO job = SqlWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id);
+    private SysJob require(Long id) {
+        SysJob job = SqlWriters.fetchById(dsl, SYS_JOB, SysJob.class, id);
         if (job == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "定时任务不存在");
         }
@@ -309,7 +309,7 @@ public class JobService {
     }
 
     /** 按触发类型取消调度（幂等）。 */
-    private void cancelSchedule(SysJobDO job) {
+    private void cancelSchedule(SysJob job) {
         String ref = job.getSchedulerRef();
         if (ref == null || ref.isBlank()) {
             return;
@@ -322,7 +322,7 @@ public class JobService {
         }
     }
 
-    private void applyEditableFields(SysJobDO target, String jobName, String jobGroup, String taskKey,
+    private void applyEditableFields(SysJob target, String jobName, String jobGroup, String taskKey,
                                      JobTriggerType type, String cron, Integer intervalValue,
                                      JobIntervalUnit unit, LocalDateTime oneTimeAt,
                                      String params, String remark) {
@@ -351,7 +351,7 @@ public class JobService {
         };
     }
 
-    private JobView toVO(SysJobDO job, Map<Long, List<Long>> dependentsMap) {
+    private JobView toVO(SysJob job, Map<Long, List<Long>> dependentsMap) {
         JobTriggerType type = triggerTypeOrNull(job.getTriggerType());
         JobStatus status = JobStatus.parse(job.getStatus());
         JobIntervalUnit unit = intervalUnitOrNull(job.getIntervalUnit());
@@ -382,7 +382,7 @@ public class JobService {
     }
 
     /** 实时计算下次执行时间（仅运行中任务展示；暂停/完成返回 null）。 */
-    private LocalDateTime liveNextFire(SysJobDO job) {
+    private LocalDateTime liveNextFire(SysJob job) {
         if (!JobStatus.RUNNING.name().equals(job.getStatus())) {
             return null;
         }

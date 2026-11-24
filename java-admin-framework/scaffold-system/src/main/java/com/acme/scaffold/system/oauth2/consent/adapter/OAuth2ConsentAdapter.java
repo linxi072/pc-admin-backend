@@ -6,7 +6,7 @@ import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.oauth2.OAuth2ConsentDataPort;
 import com.acme.scaffold.security.oauth2.OAuth2ConsentInfo;
-import com.acme.scaffold.system.oauth2.consent.domain.model.OAuth2ConsentDO;
+import com.acme.scaffold.system.oauth2.consent.domain.model.OAuth2Consent;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 
@@ -25,7 +25,7 @@ public class OAuth2ConsentAdapter implements OAuth2ConsentDataPort {
 
     @Override
     public Optional<OAuth2ConsentInfo> findLatestApproved(Long userId, String clientId) {
-        OAuth2ConsentDO d = SqlWriters.fetchOne(dsl, SqlTables.SYS_OAUTH2_CONSENT, OAuth2ConsentDO.class,
+        OAuth2Consent d = SqlWriters.fetchOne(dsl, SqlTables.SYS_OAUTH2_CONSENT, OAuth2Consent.class,
                 DSL.and(SqlWriters.notDeleted(SqlTables.SYS_OAUTH2_CONSENT),
                         SqlTables.SYS_OAUTH2_CONSENT.field("user_id", Long.class).eq(userId),
                         SqlTables.SYS_OAUTH2_CONSENT.field("client_id", String.class).eq(clientId),
@@ -38,19 +38,19 @@ public class OAuth2ConsentAdapter implements OAuth2ConsentDataPort {
 
     @Override
     public void recordApproved(Long userId, String clientId, String scopes) {
-        OAuth2ConsentDO existing = SqlWriters.fetchOne(dsl, SqlTables.SYS_OAUTH2_CONSENT, OAuth2ConsentDO.class,
+        OAuth2Consent existing = SqlWriters.fetchOne(dsl, SqlTables.SYS_OAUTH2_CONSENT, OAuth2Consent.class,
                 DSL.and(SqlWriters.notDeleted(SqlTables.SYS_OAUTH2_CONSENT),
                         SqlTables.SYS_OAUTH2_CONSENT.field("user_id", Long.class).eq(userId),
                         SqlTables.SYS_OAUTH2_CONSENT.field("client_id", String.class).eq(clientId)));
         if (existing == null) {
-            OAuth2ConsentDO d = new OAuth2ConsentDO();
+            OAuth2Consent d = new OAuth2Consent();
             d.setUserId(userId);
             d.setClientId(clientId);
             d.setScopes(scopes);
             d.setStatus(STATUS_APPROVED);
             SqlWriters.insert(dsl, SqlTables.SYS_OAUTH2_CONSENT, d);
         } else {
-            OAuth2ConsentDO patch = new OAuth2ConsentDO();
+            OAuth2Consent patch = new OAuth2Consent();
             patch.setScopes(scopes);
             patch.setStatus(STATUS_APPROVED);
             SqlWriters.updateById(dsl, SqlTables.SYS_OAUTH2_CONSENT, existing.getId(), patch);

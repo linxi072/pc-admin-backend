@@ -1,10 +1,10 @@
 package com.acme.scaffold.system.tenant.api;
 
 import com.acme.scaffold.common.tenant.TenantIgnorable;
-import com.acme.scaffold.system.tenant.application.TenantGovernanceService;
-import com.acme.scaffold.system.tenant.dto.BackfillTenantRequest;
-import com.acme.scaffold.system.tenant.dto.ReassignTenantRequest;
-import com.acme.scaffold.system.tenant.dto.TenantDataOverview;
+import com.acme.scaffold.system.tenant.service.TenantGovernanceService;
+import com.acme.scaffold.system.tenant.domain.BackfillTenantRequest;
+import com.acme.scaffold.system.tenant.domain.ReassignTenantRequest;
+import com.acme.scaffold.system.tenant.domain.TenantDataOverview;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;

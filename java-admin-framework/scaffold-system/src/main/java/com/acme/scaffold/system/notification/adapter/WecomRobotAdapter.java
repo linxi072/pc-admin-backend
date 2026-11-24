@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.notification.adapter;
 
 import com.acme.scaffold.common.notification.Channel;
-import com.acme.scaffold.system.config.application.ConfigService;
+import com.acme.scaffold.system.config.service.ConfigService;
 import com.acme.scaffold.system.notification.config.WecomRobotProperties;
 import com.acme.scaffold.system.notification.domain.repository.WebhookClient;
 import com.acme.scaffold.system.notification.domain.rule.RobotSigningRules;

@@ -1,7 +1,7 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

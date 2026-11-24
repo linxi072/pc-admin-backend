@@ -1,25 +1,25 @@
 package com.acme.scaffold.monitor.service;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.common.audit.domain.SysOperationLog;
 import com.acme.scaffold.config.cache.CacheStats;
 import com.acme.scaffold.config.cache.StatisticsCacheManager;
 import com.acme.scaffold.config.datasource.DataSourceRegistry;
 import com.acme.scaffold.monitor.domain.ServerMetrics;
-import com.acme.scaffold.monitor.dto.CacheStatView;
-import com.acme.scaffold.monitor.dto.OnlineSessionView;
-import com.acme.scaffold.monitor.dto.PoolStatView;
-import com.acme.scaffold.monitor.entity.SysMonitorSampleDO;
+import com.acme.scaffold.monitor.domain.CacheStatView;
+import com.acme.scaffold.monitor.domain.OnlineSessionView;
+import com.acme.scaffold.monitor.domain.PoolStatView;
+import com.acme.scaffold.monitor.entity.SysMonitorSample;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlSorts;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.security.entity.SysRefreshTokenDO;
+import com.acme.scaffold.security.entity.SysRefreshToken;
 import com.acme.scaffold.security.token.service.TokenVersionService;
-import com.acme.scaffold.system.user.domain.model.SysUserDO;
+import com.acme.scaffold.system.user.domain.model.SysUser;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
 import java.time.Duration;
@@ -211,29 +211,29 @@ public class MonitorService {
         // 避免活跃会话量大时把全部刷新令牌拉进堆内。按 last_used_at 倒序取最近窗口，
         // 语义上等价于「最近活跃的会话」。
         int sqlCap = Math.min(Math.max(limit * 10, 500), 5000);
-        List<SysRefreshTokenDO> tokens = SqlWriters.fetchTop(dsl, RT,
-                SysRefreshTokenDO.class, DSL.and(conds), sqlCap,
+        List<SysRefreshToken> tokens = SqlWriters.fetchTop(dsl, RT,
+                SysRefreshToken.class, DSL.and(conds), sqlCap,
                 RT.field("last_used_at", LocalDateTime.class).desc().nullsLast());
 
         // 按 sessionId 去重，保留最近活跃的一条
-        Map<String, SysRefreshTokenDO> bySession = new HashMap<>();
-        for (SysRefreshTokenDO t : tokens) {
+        Map<String, SysRefreshToken> bySession = new HashMap<>();
+        for (SysRefreshToken t : tokens) {
             bySession.putIfAbsent(t.getSessionId(), t);
         }
-        List<SysRefreshTokenDO> dedup = new ArrayList<>(bySession.values());
+        List<SysRefreshToken> dedup = new ArrayList<>(bySession.values());
 
-        Set<Long> userIds = dedup.stream().map(SysRefreshTokenDO::getUserId)
+        Set<Long> userIds = dedup.stream().map(SysRefreshToken::getUserId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
-        Map<Long, SysUserDO> users = new HashMap<>();
+        Map<Long, SysUser> users = new HashMap<>();
         if (!userIds.isEmpty()) {
-            SqlWriters.fetchList(dsl, USER, SysUserDO.class,
+            SqlWriters.fetchList(dsl, USER, SysUser.class,
                             USER.field("id", Long.class).in(userIds))
                     .forEach(u -> users.put(u.getId(), u));
         }
 
         List<OnlineSessionView> views = new ArrayList<>();
-        for (SysRefreshTokenDO t : dedup) {
-            SysUserDO u = users.get(t.getUserId());
+        for (SysRefreshToken t : dedup) {
+            SysUser u = users.get(t.getUserId());
             String username = u == null ? null : u.getUsername();
             String displayName = u == null ? null : u.getDisplayName();
             if (keyword != null && !keyword.isBlank()) {
@@ -288,7 +288,7 @@ public class MonitorService {
      * @param sortField     排序字段（服务端白名单映射，白名单外忽略）
      * @param sortDirection 排序方向：ASC / DESC，为空按 ASC
      */
-    public PageResult<SysOperationLogDO> errorLogs(int page, int size, LocalDateTime from,
+    public PageResult<SysOperationLog> errorLogs(int page, int size, LocalDateTime from,
                                                    LocalDateTime to, String module, String keyword,
                                                    String sortField, String sortDirection) {
         LocalDateTime end = to == null ? LocalDateTime.now() : to;
@@ -315,14 +315,14 @@ public class MonitorService {
         }
 
         var pageQuery = PageQuery.of(page, size, sortField, sortDirection);
-        return SqlWriters.page(dsl, SqlTables.SYS_OPERATION_LOG, SysOperationLogDO.class,
+        return SqlWriters.page(dsl, SqlTables.SYS_OPERATION_LOG, SysOperationLog.class,
                 DSL.and(conds), pageQuery,
                 SqlSorts.resolve(SqlTables.SYS_OPERATION_LOG, pageQuery, ERROR_LOG_SORT_FIELDS,
                         SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc()));
     }
 
     /** 按时间范围查询历史采样（用于趋势图）。limit 下推至 SQL，防止超大时间窗口全量拉取。 */
-    public List<SysMonitorSampleDO> samples(LocalDateTime from, LocalDateTime to, int limit) {
+    public List<SysMonitorSample> samples(LocalDateTime from, LocalDateTime to, int limit) {
         LocalDateTime end = to == null ? LocalDateTime.now() : to;
         LocalDateTime begin = from == null ? end.minusHours(24) : from;
         List<Condition> conds = new ArrayList<>();
@@ -330,7 +330,7 @@ public class MonitorService {
                 SqlTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).ge(begin),
                 SqlTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).le(end)));
 
-        return SqlWriters.fetchTop(dsl, SqlTables.SYS_MONITOR_SAMPLE, SysMonitorSampleDO.class,
+        return SqlWriters.fetchTop(dsl, SqlTables.SYS_MONITOR_SAMPLE, SysMonitorSample.class,
                 DSL.and(conds), limit <= 0 ? 200 : limit,
                 SqlTables.SYS_MONITOR_SAMPLE.field("sampled_at", LocalDateTime.class).desc());
     }
@@ -346,7 +346,7 @@ public class MonitorService {
             @SuppressWarnings("unchecked")
             Map<String, Object> online = (Map<String, Object>) onlineSummary();
 
-            SysMonitorSampleDO s = new SysMonitorSampleDO();
+            SysMonitorSample s = new SysMonitorSample();
             s.setCpuUsage(m.getCpuUsage());
             s.setMemoryUsage(m.getMemoryUsage());
             s.setSystemMemoryUsage(m.getSystemMemoryUsage());

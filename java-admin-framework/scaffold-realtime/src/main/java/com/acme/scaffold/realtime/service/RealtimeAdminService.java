@@ -2,10 +2,10 @@ package com.acme.scaffold.realtime.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
-import com.acme.scaffold.realtime.dto.RealtimeBroadcastRequest;
-import com.acme.scaffold.realtime.dto.RealtimePushResultView;
-import com.acme.scaffold.realtime.dto.RealtimeSessionView;
-import com.acme.scaffold.realtime.dto.RealtimeUserPushRequest;
+import com.acme.scaffold.realtime.domain.RealtimeBroadcastRequest;
+import com.acme.scaffold.realtime.domain.RealtimePushResultView;
+import com.acme.scaffold.realtime.domain.RealtimeSessionView;
+import com.acme.scaffold.realtime.domain.RealtimeUserPushRequest;
 import com.acme.scaffold.realtime.gateway.GatewayNode;
 import com.acme.scaffold.realtime.payload.RealtimeNotificationPayload;
 import com.acme.scaffold.realtime.port.RealtimeTemplatePort;

@@ -3,7 +3,7 @@ package com.acme.scaffold.system.permission.adapter;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.system.user.domain.model.SysUserRoleDO;
+import com.acme.scaffold.system.user.domain.model.SysUserRole;
 
 import java.util.List;
 import java.util.Set;
@@ -23,11 +23,11 @@ final class UserRoleSupport {
 
     /** 多对多：从 {@code sys_user_role} 关联表取该用户全部角色 id（并集）。 */
     static Set<Long> roleIdsOfUser(DSLContext dsl, Long userId) {
-        List<SysUserRoleDO> rows = SqlWriters.fetchList(dsl, SqlTables.SYS_USER_ROLE, SysUserRoleDO.class,
+        List<SysUserRole> rows = SqlWriters.fetchList(dsl, SqlTables.SYS_USER_ROLE, SysUserRole.class,
                 SqlTables.SYS_USER_ROLE.field("user_id", Long.class).eq(userId));
         if (rows.isEmpty()) {
             return Set.of();
         }
-        return rows.stream().map(SysUserRoleDO::getRoleId).collect(Collectors.toSet());
+        return rows.stream().map(SysUserRole::getRoleId).collect(Collectors.toSet());
     }
 }

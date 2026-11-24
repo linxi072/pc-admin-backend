@@ -5,11 +5,11 @@ import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.permission.PermissionDataPort;
-import com.acme.scaffold.system.apiresource.domain.model.SysApiResourceDO;
-import com.acme.scaffold.system.menu.domain.model.SysMenuDO;
-import com.acme.scaffold.system.role.domain.model.SysRoleApiDO;
-import com.acme.scaffold.system.role.domain.model.SysRoleDO;
-import com.acme.scaffold.system.role.domain.model.SysRoleMenuDO;
+import com.acme.scaffold.system.apiresource.domain.model.SysApiResource;
+import com.acme.scaffold.system.menu.domain.model.SysMenu;
+import com.acme.scaffold.system.role.domain.model.SysRoleApi;
+import com.acme.scaffold.system.role.domain.model.SysRole;
+import com.acme.scaffold.system.role.domain.model.SysRoleMenu;
 import java.util.HashSet;
 import java.util.List;
 
@@ -47,21 +47,21 @@ public class PermissionDataAdapter implements PermissionDataPort {
             return permissions;
         }
 
-        List<Long> apiIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_API, SysRoleApiDO.class,
+        List<Long> apiIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_API, SysRoleApi.class,
                         SqlTables.SYS_ROLE_API.field("role_id", Long.class).in(roleIds)).stream()
-                .map(SysRoleApiDO::getApiId).collect(Collectors.toList());
+                .map(SysRoleApi::getApiId).collect(Collectors.toList());
         if (!apiIds.isEmpty()) {
-            SqlWriters.fetchList(dsl, AR, SysApiResourceDO.class,
+            SqlWriters.fetchList(dsl, AR, SysApiResource.class,
                             DSL.and(SqlWriters.notDeleted(AR),
                                     AR.field("id", Long.class).in(apiIds)))
                     .forEach(a -> permissions.add(a.getPermissionCode()));
         }
 
-        List<Long> menuIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_MENU, SysRoleMenuDO.class,
+        List<Long> menuIds = SqlWriters.fetchList(dsl, SqlTables.SYS_ROLE_MENU, SysRoleMenu.class,
                         SqlTables.SYS_ROLE_MENU.field("role_id", Long.class).in(roleIds)).stream()
-                .map(SysRoleMenuDO::getMenuId).collect(Collectors.toList());
+                .map(SysRoleMenu::getMenuId).collect(Collectors.toList());
         if (!menuIds.isEmpty()) {
-            SqlWriters.fetchList(dsl, SqlTables.SYS_MENU, SysMenuDO.class,
+            SqlWriters.fetchList(dsl, SqlTables.SYS_MENU, SysMenu.class,
                             DSL.and(SqlWriters.notDeleted(SqlTables.SYS_MENU),
                                     SqlTables.SYS_MENU.field("id", Long.class).in(menuIds)))
                     .forEach(m -> {
@@ -78,9 +78,9 @@ public class PermissionDataAdapter implements PermissionDataPort {
         if (roleIds.isEmpty()) {
             return Set.of();
         }
-        return SqlWriters.fetchList(dsl, ROLE, SysRoleDO.class,
+        return SqlWriters.fetchList(dsl, ROLE, SysRole.class,
                         DSL.and(SqlWriters.notDeleted(ROLE),
                                 ROLE.field("id", Long.class).in(roleIds)))
-                .stream().map(SysRoleDO::getRoleCode).collect(Collectors.toSet());
+                .stream().map(SysRole::getRoleCode).collect(Collectors.toSet());
     }
 }

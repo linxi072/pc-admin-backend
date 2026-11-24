@@ -2,7 +2,7 @@ package com.acme.scaffold.job.port;
 
 import com.acme.scaffold.job.domain.JobDagRules;
 import com.acme.scaffold.job.domain.JobStatus;
-import com.acme.scaffold.job.entity.SysJobDO;
+import com.acme.scaffold.job.entity.SysJob;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
  * 避免为依赖查询引入额外索引或复杂递归 SQL，逻辑清晰且易于单测。
  *
  * <p>状态写回（{@link #setRunning} / {@link #setStatus}）使用精确列更新，
- * 仅写目标列、不触碰统计数据等其他字段（规避 {@code new SysJobDO()} 默认值污染的问题）。
+ * 仅写目标列、不触碰统计数据等其他字段（规避 {@code new SysJob()} 默认值污染的问题）。
  */
 @Component
 @RequiredArgsConstructor
@@ -33,11 +33,11 @@ public class SqlJobDagAdapter implements JobDagPort {
 
     private final DSLContext dsl;
 
-    private Map<Long, SysJobDO> loadAll() {
-        List<SysJobDO> all = SqlWriters.fetchList(dsl, SYS_JOB, SysJobDO.class,
+    private Map<Long, SysJob> loadAll() {
+        List<SysJob> all = SqlWriters.fetchList(dsl, SYS_JOB, SysJob.class,
                 SqlWriters.notDeleted(SYS_JOB));
-        Map<Long, SysJobDO> map = new HashMap<>();
-        for (SysJobDO j : all) {
+        Map<Long, SysJob> map = new HashMap<>();
+        for (SysJob j : all) {
             map.put(j.getId(), j);
         }
         return map;
@@ -49,17 +49,17 @@ public class SqlJobDagAdapter implements JobDagPort {
     }
 
     @Override
-    public Optional<SysJobDO> findById(Long id) {
-        return Optional.ofNullable(SqlWriters.fetchById(dsl, SYS_JOB, SysJobDO.class, id));
+    public Optional<SysJob> findById(Long id) {
+        return Optional.ofNullable(SqlWriters.fetchById(dsl, SYS_JOB, SysJob.class, id));
     }
 
     @Override
-    public List<SysJobDO> findDependents(Long id) {
+    public List<SysJob> findDependents(Long id) {
         List<Long> ids = dependentIds(id);
-        Map<Long, SysJobDO> all = loadAll();
-        List<SysJobDO> result = new ArrayList<>();
+        Map<Long, SysJob> all = loadAll();
+        List<SysJob> result = new ArrayList<>();
         for (Long did : ids) {
-            SysJobDO j = all.get(did);
+            SysJob j = all.get(did);
             if (j != null) {
                 result.add(j);
             }
@@ -69,9 +69,9 @@ public class SqlJobDagAdapter implements JobDagPort {
 
     @Override
     public List<Long> dependentIds(Long id) {
-        Map<Long, SysJobDO> all = loadAll();
+        Map<Long, SysJob> all = loadAll();
         List<Long> result = new ArrayList<>();
-        for (SysJobDO j : all.values()) {
+        for (SysJob j : all.values()) {
             if (JobDagRules.parseDependsOn(j.getDependsOn()).contains(id)) {
                 result.add(j.getId());
             }
@@ -81,12 +81,12 @@ public class SqlJobDagAdapter implements JobDagPort {
 
     @Override
     public Map<Long, List<Long>> dependentsMap(Set<Long> ids) {
-        Map<Long, SysJobDO> all = loadAll();
+        Map<Long, SysJob> all = loadAll();
         Map<Long, List<Long>> map = new HashMap<>();
         for (Long id : ids) {
             map.put(id, new ArrayList<>());
         }
-        for (SysJobDO j : all.values()) {
+        for (SysJob j : all.values()) {
             for (Long dep : JobDagRules.parseDependsOn(j.getDependsOn())) {
                 if (map.containsKey(dep)) {
                     map.get(dep).add(j.getId());

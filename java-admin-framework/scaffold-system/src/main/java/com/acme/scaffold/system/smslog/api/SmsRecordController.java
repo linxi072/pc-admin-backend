@@ -1,9 +1,9 @@
 package com.acme.scaffold.system.smslog.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.system.smslog.application.SmsRecordService;
-import com.acme.scaffold.system.smslog.application.SmsRecordView;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.system.smslog.service.SmsRecordService;
+import com.acme.scaffold.system.smslog.domain.SmsRecordView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;

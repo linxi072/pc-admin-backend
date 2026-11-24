@@ -2,12 +2,12 @@ package com.acme.scaffold.system.apiresource.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.apiresource.application.ApiResourceService;
-import com.acme.scaffold.system.apiresource.dto.ApiResourceScanResult;
-import com.acme.scaffold.system.apiresource.dto.ApiResourceSyncResult;
-import com.acme.scaffold.system.apiresource.dto.ApiResourceView;
-import com.acme.scaffold.system.apiresource.dto.CreateApiResourceRequest;
-import com.acme.scaffold.system.apiresource.dto.UpdateApiResourceRequest;
+import com.acme.scaffold.system.apiresource.service.ApiResourceService;
+import com.acme.scaffold.system.apiresource.domain.ApiResourceScanResult;
+import com.acme.scaffold.system.apiresource.domain.ApiResourceSyncResult;
+import com.acme.scaffold.system.apiresource.domain.ApiResourceView;
+import com.acme.scaffold.system.apiresource.domain.CreateApiResourceRequest;
+import com.acme.scaffold.system.apiresource.domain.UpdateApiResourceRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

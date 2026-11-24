@@ -1,12 +1,12 @@
 package com.acme.scaffold.security.oauth2;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
+import com.acme.scaffold.security.oauth2.domain.OAuth2Token;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,7 +36,7 @@ public class SqlOAuth2TokenRegistry implements OAuth2TokenRegistry {
     @Override
     public void recordIssuance(String jti, String clientId, Long userId, String username,
                               Set<String> scopes, String tokenType, LocalDateTime issuedAt, LocalDateTime expiresAt) {
-        OAuth2TokenDO token = new OAuth2TokenDO();
+        OAuth2Token token = new OAuth2Token();
         token.setJti(jti);
         token.setClientId(clientId);
         token.setUserId(userId);
@@ -52,12 +52,12 @@ public class SqlOAuth2TokenRegistry implements OAuth2TokenRegistry {
 
     @Override
     public void revoke(String jti) {
-        OAuth2TokenDO existing = SqlWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
+        OAuth2Token existing = SqlWriters.fetchOne(dsl, OT, OAuth2Token.class,
                 activeByJti(jti));
         if (existing == null) {
             return;
         }
-        OAuth2TokenDO update = new OAuth2TokenDO();
+        OAuth2Token update = new OAuth2Token();
         update.setStatus("REVOKED");
         SqlWriters.updateById(dsl, OT, existing.getId(), update);
         log.info("OAuth2 令牌已吊销 jti={}", jti);
@@ -68,14 +68,14 @@ public class SqlOAuth2TokenRegistry implements OAuth2TokenRegistry {
         if (jti == null || jti.isBlank()) {
             return false;
         }
-        OAuth2TokenDO token = SqlWriters.fetchOne(dsl, OT, OAuth2TokenDO.class,
+        OAuth2Token token = SqlWriters.fetchOne(dsl, OT, OAuth2Token.class,
                 activeByJti(jti));
         // 查不到（未签发 / 已吊销 / 已逻辑删除）→ 不视为「已吊销」，避免误伤登录态
         return token != null && !STATUS_ACTIVE.equals(token.getStatus());
     }
 
     @Override
-    public PageResult<OAuth2TokenDO> listActive(PageQuery query, String clientId, Long userId) {
+    public PageResult<OAuth2Token> listActive(PageQuery query, String clientId, Long userId) {
         Condition cond = SqlWriters.notDeleted(OT)
                 .and(OT.field("status", String.class).eq(STATUS_ACTIVE))
                 .and(OT.field("expires_at", LocalDateTime.class).gt(LocalDateTime.now()));
@@ -85,12 +85,12 @@ public class SqlOAuth2TokenRegistry implements OAuth2TokenRegistry {
         if (userId != null) {
             cond = cond.and(OT.field("user_id", Long.class).eq(userId));
         }
-        List<OAuth2TokenDO> records = SqlWriters.fetchList(dsl, OT, OAuth2TokenDO.class,
+        List<OAuth2Token> records = SqlWriters.fetchList(dsl, OT, OAuth2Token.class,
                 cond, OT.field("expires_at", LocalDateTime.class).desc());
         long total = SqlWriters.count(dsl, OT, cond);
         int from = (int) Math.min(query.offset(), records.size());
         int to = (int) Math.min(from + query.limit(), records.size());
-        List<OAuth2TokenDO> pageRecords = records.subList(from, to);
+        List<OAuth2Token> pageRecords = records.subList(from, to);
         return new PageResult<>(query.page(), query.size(), total, pageRecords);
     }
 

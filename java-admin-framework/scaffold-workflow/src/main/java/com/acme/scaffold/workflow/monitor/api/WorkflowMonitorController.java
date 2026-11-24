@@ -1,13 +1,13 @@
 package com.acme.scaffold.workflow.monitor.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.workflow.definition.dto.DefinitionVersionView;
-import com.acme.scaffold.workflow.instance.dto.RunningInstanceView;
-import com.acme.scaffold.workflow.monitor.application.WorkflowMonitorService;
-import com.acme.scaffold.workflow.monitor.dto.MonitorStatsView;
-import com.acme.scaffold.workflow.monitor.dto.OverdueTaskView;
+import com.acme.scaffold.workflow.definition.domain.DefinitionVersionView;
+import com.acme.scaffold.workflow.instance.domain.RunningInstanceView;
+import com.acme.scaffold.workflow.monitor.service.WorkflowMonitorService;
+import com.acme.scaffold.workflow.monitor.domain.MonitorStatsView;
+import com.acme.scaffold.workflow.monitor.domain.OverdueTaskView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;

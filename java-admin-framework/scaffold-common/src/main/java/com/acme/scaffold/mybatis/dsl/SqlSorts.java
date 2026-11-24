@@ -1,7 +1,7 @@
 package com.acme.scaffold.mybatis.dsl;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.SortItem;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.SortItem;
 import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.OrderField;
 import java.util.ArrayList;

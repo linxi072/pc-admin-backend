@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.message.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.KeysetPageResult;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.KeysetPageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.message.application.MessageService;
-import com.acme.scaffold.system.message.domain.model.SysMessageDO;
-import com.acme.scaffold.system.message.dto.MessageView;
-import com.acme.scaffold.system.message.dto.SendMessageRequest;
+import com.acme.scaffold.system.message.service.MessageService;
+import com.acme.scaffold.system.message.domain.model.SysMessage;
+import com.acme.scaffold.system.message.domain.MessageView;
+import com.acme.scaffold.system.message.domain.SendMessageRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -82,7 +82,7 @@ public class MessageController {
     @GetMapping("/sent")
     @PreAuthorize("hasAuthority('system:message:read')")
     @AuditOperation(module = "system", type = "QUERY", name = "查询已发送站内信")
-    public Result<PageResult<SysMessageDO>> sent(@RequestParam(defaultValue = "1") int page,
+    public Result<PageResult<SysMessage>> sent(@RequestParam(defaultValue = "1") int page,
                                                  @RequestParam(defaultValue = "20") int size) {
         return Result.success(messageService.pageSent(page, size));
     }
@@ -91,7 +91,7 @@ public class MessageController {
     @GetMapping("/sent-keyset")
     @PreAuthorize("hasAuthority('system:message:read')")
     @AuditOperation(module = "system", type = "QUERY", name = "游标查询已发送站内信")
-    public Result<KeysetPageResult<SysMessageDO>> sentKeyset(@RequestParam(defaultValue = "20") int size,
+    public Result<KeysetPageResult<SysMessage>> sentKeyset(@RequestParam(defaultValue = "20") int size,
                                                            @RequestParam(required = false) String cursor) {
         return Result.success(messageService.pageSentKeyset(size, cursor));
     }

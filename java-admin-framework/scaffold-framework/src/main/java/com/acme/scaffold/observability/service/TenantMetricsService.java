@@ -1,6 +1,6 @@
 package com.acme.scaffold.observability.service;
 
-import com.acme.scaffold.observability.dto.TenantMetricView;
+import com.acme.scaffold.observability.domain.TenantMetricView;
 import com.acme.scaffold.observability.recorder.TenantMetrics;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

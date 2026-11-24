@@ -1,12 +1,12 @@
 package com.acme.scaffold.system.form.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.form.application.FormSubmissionService;
-import com.acme.scaffold.system.form.dto.FormSubmissionAdminQuery;
-import com.acme.scaffold.system.form.dto.FormSubmissionManageView;
-import com.acme.scaffold.system.form.dto.FormSubmissionStat;
+import com.acme.scaffold.system.form.service.FormSubmissionService;
+import com.acme.scaffold.system.form.domain.FormSubmissionAdminQuery;
+import com.acme.scaffold.system.form.domain.FormSubmissionManageView;
+import com.acme.scaffold.system.form.domain.FormSubmissionStat;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

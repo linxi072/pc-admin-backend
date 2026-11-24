@@ -16,7 +16,7 @@ import javax.crypto.spec.SecretKeySpec;
  * 退订令牌纯函数规则（M15）：HMAC-SHA256 签名的「免登录退订」凭证编解码。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
- * {@link com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService}
+ * {@link com.acme.scaffold.system.notification.unsubscribe.service.NotificationUnsubscribeService}
  * 铸造（邮件/短信正文注入）与验签（公开退订端点）复用，保证「签什么、验什么」同源。</p>
  *
  * <p><b>令牌格式</b>（点分三段，非标准 JWT——与 realtime 网关短期令牌同范式，避免为退订

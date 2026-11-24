@@ -1,6 +1,6 @@
 package com.acme.scaffold.job.port;
 
-import com.acme.scaffold.job.entity.SysJobDO;
+import com.acme.scaffold.job.entity.SysJob;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,10 +25,10 @@ public interface JobDagPort {
     Set<Long> allIds();
 
     /** 按 ID 加载任务（已删除或不存在返回 empty）。 */
-    Optional<SysJobDO> findById(Long id);
+    Optional<SysJob> findById(Long id);
 
     /** 返回依赖指定任务的所有任务（被依赖者 → 依赖者 的反向索引）。 */
-    List<SysJobDO> findDependents(Long id);
+    List<SysJob> findDependents(Long id);
 
     /** 依赖指定任务的任务 ID 列表（与 {@link #findDependents} 等价，仅返回 ID）。 */
     List<Long> dependentIds(Long id);

@@ -2,8 +2,8 @@ package com.acme.scaffold.monitor.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.monitor.dto.NPlusOneStatusView;
-import com.acme.scaffold.monitor.dto.NPlusOneSuspectView;
+import com.acme.scaffold.monitor.domain.NPlusOneStatusView;
+import com.acme.scaffold.monitor.domain.NPlusOneSuspectView;
 import com.acme.scaffold.monitor.service.NPlusOneService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.acme.scaffold.ai.LlmNotImplementedException;
 import com.acme.scaffold.ai.config.AiProperties;
-import com.acme.scaffold.ai.dto.TableSpec;
+import com.acme.scaffold.ai.domain.TableSpec;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;

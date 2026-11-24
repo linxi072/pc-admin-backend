@@ -6,9 +6,9 @@ import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.SmsProperties;
 import com.acme.scaffold.system.notification.domain.repository.SmsGateway;
 import com.acme.scaffold.system.notification.domain.rule.SmsRules;
-import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
+import com.acme.scaffold.system.notification.unsubscribe.service.NotificationUnsubscribeService;
 import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeAppendRules;
-import com.acme.scaffold.system.smslog.application.SmsRecordRecorder;
+import com.acme.scaffold.system.smslog.service.SmsRecordRecorder;
 import java.util.List;
 import java.util.Map;
 

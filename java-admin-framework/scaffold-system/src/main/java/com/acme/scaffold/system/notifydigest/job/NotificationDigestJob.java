@@ -1,9 +1,9 @@
 package com.acme.scaffold.system.notifydigest.job;
 
 import com.acme.scaffold.common.notification.NotificationMessage;
-import com.acme.scaffold.system.notification.application.NotificationService;
-import com.acme.scaffold.system.notifydigest.application.NotificationDigestService;
-import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigestDO;
+import com.acme.scaffold.system.notification.service.NotificationService;
+import com.acme.scaffold.system.notifydigest.service.NotificationDigestService;
+import com.acme.scaffold.system.notifydigest.domain.model.SysNotificationDigest;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,12 +50,12 @@ public class NotificationDigestJob {
         if (!digestService.isEnabled()) {
             return;
         }
-        List<SysNotificationDigestDO> due = digestService.findDue(DUE_BATCH);
+        List<SysNotificationDigest> due = digestService.findDue(DUE_BATCH);
         if (due.isEmpty()) {
             return;
         }
         int deleted = 0;
-        for (SysNotificationDigestDO row : due) {
+        for (SysNotificationDigest row : due) {
             NotificationMessage digestMessage = digestService.buildDigestMessage(row);
             if (digestMessage == null) {
                 // 无处可投（用户已删 / 渠道地址缺失）：直接删行，不进投递链路

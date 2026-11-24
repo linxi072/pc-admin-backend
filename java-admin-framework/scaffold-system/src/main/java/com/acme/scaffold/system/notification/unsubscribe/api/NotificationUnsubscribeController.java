@@ -2,7 +2,7 @@ package com.acme.scaffold.system.notification.unsubscribe.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.security.ratelimit.RateLimit;
-import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
+import com.acme.scaffold.system.notification.unsubscribe.service.NotificationUnsubscribeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

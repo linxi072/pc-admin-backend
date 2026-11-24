@@ -1,15 +1,15 @@
 package com.acme.scaffold.workbench.report.domain.rule;
 
 import com.acme.scaffold.common.export.XlsxSheet;
-import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
-import com.acme.scaffold.workbench.report.dto.ReportQuery;
-import com.acme.scaffold.workbench.report.dto.ReportVO;
+import com.acme.scaffold.workbench.report.domain.ReportDetailTableView;
+import com.acme.scaffold.workbench.report.domain.ReportQuery;
+import com.acme.scaffold.workbench.report.domain.ReportView;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 报表多 Sheet 模型纯函数：{@link ReportVO} → {@link XlsxSheet} 列表（零依赖、无 Spring / DB）。
+ * 报表多 Sheet 模型纯函数：{@link ReportView} → {@link XlsxSheet} 列表（零依赖、无 Spring / DB）。
  *
  * <p>与 {@link ReportCsvWriter}（多段 CSV）同源同口径：汇总 / 分布 / 明细 / 趋势各映射为一个
  * 工作表，指标中文名（主 / 次指标）直接复用 {@code ReportCsvWriter} 的标签函数，
@@ -36,7 +36,7 @@ public final class ReportSheets {
      * @param vo    报表数据（已由 {@code ReportService.report} 组装）
      * @return 至少包含「汇总」「趋势」两页的工作表列表
      */
-    public static List<XlsxSheet> sheets(ReportQuery query, ReportVO vo) {
+    public static List<XlsxSheet> sheets(ReportQuery query, ReportView vo) {
         List<XlsxSheet> sheets = new ArrayList<>();
         sheets.add(new XlsxSheet("汇总", List.of("指标", "数值"), summaryRows(vo)));
         if (ReportCsvWriter.isStatView(vo.type())) {
@@ -54,7 +54,7 @@ public final class ReportSheets {
     }
 
     /** 汇总页行：与 CSV 汇总段字段一一对应（统计视角前两行为主 / 次指标）。 */
-    private static List<List<String>> summaryRows(ReportVO vo) {
+    private static List<List<String>> summaryRows(ReportView vo) {
         List<List<String>> rows = new ArrayList<>();
         if (ReportCsvWriter.isStatView(vo.type())) {
             rows.add(List.of(ReportCsvWriter.mainLabel(vo.type()), String.valueOf(vo.summary().totalVisits())));
@@ -75,7 +75,7 @@ public final class ReportSheets {
     }
 
     /** 统计视角分布页行（label / 数量 / 占比）。 */
-    private static List<List<String>> distributionRows(ReportVO vo) {
+    private static List<List<String>> distributionRows(ReportView vo) {
         List<List<String>> rows = new ArrayList<>();
         for (var d : vo.distribution()) {
             rows.add(List.of(d.label(), String.valueOf(d.count()), String.valueOf(d.ratio())));
@@ -84,7 +84,7 @@ public final class ReportSheets {
     }
 
     /** 使用视角类别分布页行（模块 / 操作次数 / 占比）。 */
-    private static List<List<String>> categoryRows(ReportVO vo) {
+    private static List<List<String>> categoryRows(ReportView vo) {
         List<List<String>> rows = new ArrayList<>();
         for (var c : vo.categoryStats()) {
             rows.add(List.of(c.moduleCode(), String.valueOf(c.count()), String.valueOf(c.ratio())));
@@ -93,7 +93,7 @@ public final class ReportSheets {
     }
 
     /** 使用视角状态分布页行（状态 / 操作次数 / 占比）。 */
-    private static List<List<String>> statusRows(ReportVO vo) {
+    private static List<List<String>> statusRows(ReportView vo) {
         List<List<String>> rows = new ArrayList<>();
         for (var s : vo.statusStats()) {
             rows.add(List.of(s.statusLabel(), String.valueOf(s.count()), String.valueOf(s.ratio())));
@@ -105,19 +105,19 @@ public final class ReportSheets {
      * 明细页（仅统计视角且明细表有列时存在）：表头取列中文名，行按列 key 取值（缺失归一空串，
      * 与 CSV 明细段 {@code null → ""} 行为一致）。
      */
-    private static XlsxSheet detailSheet(ReportVO vo) {
-        ReportDetailTableVO details = vo.details();
+    private static XlsxSheet detailSheet(ReportView vo) {
+        ReportDetailTableView details = vo.details();
         if (details == null || details.columns() == null || details.columns().isEmpty()) {
             return null;
         }
         List<String> headers = new ArrayList<>(details.columns().size());
-        for (ReportDetailTableVO.Column c : details.columns()) {
+        for (ReportDetailTableView.Column c : details.columns()) {
             headers.add(c.label());
         }
         List<List<String>> rows = new ArrayList<>(details.rows().size());
         for (java.util.Map<String, String> row : details.rows()) {
             List<String> line = new ArrayList<>(details.columns().size());
-            for (ReportDetailTableVO.Column c : details.columns()) {
+            for (ReportDetailTableView.Column c : details.columns()) {
                 String v = row.get(c.key());
                 line.add(v == null ? "" : v);
             }
@@ -135,7 +135,7 @@ public final class ReportSheets {
     }
 
     /** 趋势页行（时间桶 / 访问量 / 活跃用户 / 失败数）。 */
-    private static List<List<String>> trendRows(ReportVO vo) {
+    private static List<List<String>> trendRows(ReportView vo) {
         List<List<String>> rows = new ArrayList<>(vo.trend().size());
         for (var p : vo.trend()) {
             rows.add(List.of(p.bucket(), String.valueOf(p.visits()),

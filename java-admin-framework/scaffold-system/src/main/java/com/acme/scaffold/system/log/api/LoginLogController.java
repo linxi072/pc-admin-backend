@@ -1,11 +1,11 @@
 package com.acme.scaffold.system.log.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.KeysetPageResult;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.KeysetPageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.system.log.application.LoginLogService;
-import com.acme.scaffold.system.log.application.LoginLogView;
+import com.acme.scaffold.system.log.service.LoginLogService;
+import com.acme.scaffold.system.log.domain.LoginLogView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;

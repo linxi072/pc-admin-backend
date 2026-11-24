@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.form.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.system.form.application.FormDefinitionService;
-import com.acme.scaffold.system.form.application.FormSubmissionService;
-import com.acme.scaffold.system.form.dto.FormDefinitionView;
-import com.acme.scaffold.system.form.dto.FormSubmissionView;
+import com.acme.scaffold.system.form.service.FormDefinitionService;
+import com.acme.scaffold.system.form.service.FormSubmissionService;
+import com.acme.scaffold.system.form.domain.FormDefinitionView;
+import com.acme.scaffold.system.form.domain.FormSubmissionView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;

@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.announcement.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.announcement.application.AnnouncementReadService;
-import com.acme.scaffold.system.announcement.dto.AnnouncementReadStatsView;
-import com.acme.scaffold.system.announcement.dto.AnnouncementReceiptQuery;
-import com.acme.scaffold.system.announcement.dto.AnnouncementReceiptView;
-import com.acme.scaffold.system.announcement.dto.AnnouncementView;
+import com.acme.scaffold.system.announcement.service.AnnouncementReadService;
+import com.acme.scaffold.system.announcement.domain.AnnouncementReadStatsView;
+import com.acme.scaffold.system.announcement.domain.AnnouncementReceiptQuery;
+import com.acme.scaffold.system.announcement.domain.AnnouncementReceiptView;
+import com.acme.scaffold.system.announcement.domain.AnnouncementView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;

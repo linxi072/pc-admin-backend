@@ -3,15 +3,15 @@ package com.acme.scaffold.ai.service;
 import com.acme.scaffold.ai.AiScaffoldException;
 import com.acme.scaffold.ai.LlmNotImplementedException;
 import com.acme.scaffold.ai.config.AiProperties;
-import com.acme.scaffold.ai.dto.ScaffoldResult;
-import com.acme.scaffold.ai.dto.TableSpec;
+import com.acme.scaffold.ai.domain.ScaffoldResult;
+import com.acme.scaffold.ai.domain.TableSpec;
 import com.acme.scaffold.ai.port.CloudLlmProvider;
 import com.acme.scaffold.ai.port.HeuristicLlmProvider;
 import com.acme.scaffold.codegen.config.CodeGenProperties;
-import com.acme.scaffold.codegen.dto.ColumnMetaVO;
-import com.acme.scaffold.codegen.dto.GenOption;
-import com.acme.scaffold.codegen.dto.GeneratedFileVO;
-import com.acme.scaffold.codegen.dto.TableMetaVO;
+import com.acme.scaffold.codegen.domain.ColumnMetaView;
+import com.acme.scaffold.codegen.domain.GenOption;
+import com.acme.scaffold.codegen.domain.GeneratedFileView;
+import com.acme.scaffold.codegen.domain.TableMetaView;
 import com.acme.scaffold.codegen.service.CodeTemplates;
 import com.acme.scaffold.codegen.service.JavaTypeMapper;
 import java.util.List;
@@ -72,7 +72,7 @@ public class AiScaffoldService {
         Parsed parsed = resolveSpec(prompt);
         TableSpec spec = parsed.spec();
         String ddl = DdlRenderer.render(spec);
-        List<GeneratedFileVO> files = renderCode(spec, moduleName);
+        List<GeneratedFileView> files = renderCode(spec, moduleName);
 
         return new ScaffoldResult(spec, ddl, files, true, estimatedTokens, parsed.providerName());
     }
@@ -103,13 +103,13 @@ public class AiScaffoldService {
         }
     }
 
-    private List<GeneratedFileVO> renderCode(TableSpec spec, String moduleName) {
+    private List<GeneratedFileView> renderCode(TableSpec spec, String moduleName) {
         String module = (moduleName == null || moduleName.isBlank())
                 ? deriveModule(spec.tableName()) : moduleName.trim();
-        List<ColumnMetaVO> cols = spec.columns().stream().map(c -> new ColumnMetaVO(
+        List<ColumnMetaView> cols = spec.columns().stream().map(c -> new ColumnMetaView(
                 c.columnName(), c.dataType(), c.javaType(), c.javaField(),
                 c.comment(), c.primaryKey(), c.nullable(), c.autoIncrement())).toList();
-        TableMetaVO meta = new TableMetaVO(spec.tableName(),
+        TableMetaView meta = new TableMetaView(spec.tableName(),
                 JavaTypeMapper.toClassName(spec.tableName()), spec.comment(), cols);
 
         CodeGenProperties cgp = new CodeGenProperties();

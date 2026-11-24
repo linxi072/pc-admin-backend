@@ -1,13 +1,13 @@
 package com.acme.scaffold.system.openapi.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.openapi.application.OpenApiClientService;
-import com.acme.scaffold.system.openapi.dto.ClientSecretView;
-import com.acme.scaffold.system.openapi.dto.CreateOpenApiClientRequest;
-import com.acme.scaffold.system.openapi.dto.OpenApiClientView;
-import com.acme.scaffold.system.openapi.dto.UpdateOpenApiClientRequest;
+import com.acme.scaffold.system.openapi.service.OpenApiClientService;
+import com.acme.scaffold.system.openapi.domain.ClientSecretView;
+import com.acme.scaffold.system.openapi.domain.CreateOpenApiClientRequest;
+import com.acme.scaffold.system.openapi.domain.OpenApiClientView;
+import com.acme.scaffold.system.openapi.domain.UpdateOpenApiClientRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

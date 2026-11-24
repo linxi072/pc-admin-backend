@@ -12,8 +12,8 @@ import java.util.Map;
  * 「细分优先、无行默认开」的生效判定、渠道 × 类型矩阵构建与接收者分区。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
- * {@link com.acme.scaffold.system.notifypref.application.NotificationPreferenceService}（矩阵查询/批量 upsert/
- * 发送前过滤）与 {@link com.acme.scaffold.system.notification.application.NotificationService}
+ * {@link com.acme.scaffold.system.notifypref.service.NotificationPreferenceService}（矩阵查询/批量 upsert/
+ * 发送前过滤）与 {@link com.acme.scaffold.system.notification.service.NotificationService}
  * （dispatch 挂点）复用，保证「存什么、查什么、按什么放行」三处口径同源。</p>
  *
  * <p><b>生效模型</b>（两级）：
@@ -122,7 +122,7 @@ public final class NotificationPreferenceRules {
     }
 
     /**
-     * 渠道总开关的列默认值（与 {@code SysUserDO} 字段默认值一致）：
+     * 渠道总开关的列默认值（与 {@code SysUser} 字段默认值一致）：
      * IN_APP/EMAIL 默认开，SMS 默认关（短信为选择性订阅语义），WEBSOCKET 无列恒开。
      * 用户行缺失（理论异常）时以默认值兜底，避免把通知整体误判为退订。
      */

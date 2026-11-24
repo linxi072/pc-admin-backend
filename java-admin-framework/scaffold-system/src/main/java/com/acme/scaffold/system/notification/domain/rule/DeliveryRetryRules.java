@@ -6,7 +6,7 @@ import com.acme.scaffold.common.exception.BusinessException;
  * 投递重试纯函数规则（M16）：可重试判定、退避计算、次数钳制。
  *
  * <p>无副作用、不依赖 Spring 上下文，可直接离线单测；供
- * {@link com.acme.scaffold.system.notification.application.NotificationService}
+ * {@link com.acme.scaffold.system.notification.service.NotificationService}
  * 的重试循环复用，保证「什么值得重试、等多久、最多几次」三处口径同源。</p>
  */
 public final class DeliveryRetryRules {

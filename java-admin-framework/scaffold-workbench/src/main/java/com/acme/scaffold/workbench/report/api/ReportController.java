@@ -1,17 +1,17 @@
 package com.acme.scaffold.workbench.report.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.workbench.report.application.ReportService;
-import com.acme.scaffold.workbench.report.dto.DrillDimension;
-import com.acme.scaffold.workbench.report.dto.DrillResultVO;
-import com.acme.scaffold.workbench.report.dto.ReportCsvVO;
-import com.acme.scaffold.workbench.report.dto.ReportQuery;
-import com.acme.scaffold.workbench.report.dto.ReportRange;
-import com.acme.scaffold.workbench.report.dto.ReportType;
-import com.acme.scaffold.workbench.report.dto.ReportTypeMeta;
-import com.acme.scaffold.workbench.report.dto.ReportVO;
-import com.acme.scaffold.workbench.report.dto.SortField;
-import com.acme.scaffold.workbench.report.dto.SortOrder;
+import com.acme.scaffold.workbench.report.service.ReportService;
+import com.acme.scaffold.workbench.report.domain.DrillDimension;
+import com.acme.scaffold.workbench.report.domain.DrillResultView;
+import com.acme.scaffold.workbench.report.domain.ReportCsvView;
+import com.acme.scaffold.workbench.report.domain.ReportQuery;
+import com.acme.scaffold.workbench.report.domain.ReportRange;
+import com.acme.scaffold.workbench.report.domain.ReportType;
+import com.acme.scaffold.workbench.report.domain.ReportTypeMeta;
+import com.acme.scaffold.workbench.report.domain.ReportView;
+import com.acme.scaffold.workbench.report.domain.SortField;
+import com.acme.scaffold.workbench.report.domain.SortOrder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.charset.StandardCharsets;
@@ -61,7 +61,7 @@ public class ReportController {
 
     @Operation(summary = "报表数据：按时间范围 / 类别 / 状态 / 关键字聚合（支持筛选与排序）")
     @GetMapping("/data")
-    public Result<ReportVO> data(
+    public Result<ReportView> data(
             @RequestParam(defaultValue = "USAGE") ReportType type,
             @RequestParam(defaultValue = "LAST_7D") ReportRange rangeType,
             @RequestParam(required = false)
@@ -92,7 +92,7 @@ public class ReportController {
             @RequestParam(required = false, defaultValue = "COUNT") SortField sortBy,
             @RequestParam(required = false, defaultValue = "DESC") SortOrder order) {
         ReportQuery query = new ReportQuery(type, rangeType, start, end, module, success, keyword, sortBy, order);
-        ReportCsvVO export = reportService.exportCsv(query);
+        ReportCsvView export = reportService.exportCsv(query);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + export.filename() + "\"")
@@ -102,7 +102,7 @@ public class ReportController {
 
     @Operation(summary = "报表下钻：在现有聚合条件上叠加父级维度过滤，返回更细粒度时间序列 / 明细")
     @GetMapping("/drill")
-    public Result<DrillResultVO> drill(
+    public Result<DrillResultView> drill(
             @RequestParam(defaultValue = "USAGE") ReportType type,
             @RequestParam(defaultValue = "LAST_7D") ReportRange rangeType,
             @RequestParam(required = false)

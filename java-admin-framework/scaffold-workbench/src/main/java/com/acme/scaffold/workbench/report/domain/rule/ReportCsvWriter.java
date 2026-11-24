@@ -1,14 +1,14 @@
 package com.acme.scaffold.workbench.report.domain.rule;
 
 import com.acme.scaffold.common.export.CsvExporter;
-import com.acme.scaffold.workbench.report.dto.ReportCategoryStatVO;
-import com.acme.scaffold.workbench.report.dto.ReportDetailTableVO;
-import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
-import com.acme.scaffold.workbench.report.dto.ReportQuery;
-import com.acme.scaffold.workbench.report.dto.ReportSeriesPointVO;
-import com.acme.scaffold.workbench.report.dto.ReportStatusStatVO;
-import com.acme.scaffold.workbench.report.dto.ReportType;
-import com.acme.scaffold.workbench.report.dto.ReportVO;
+import com.acme.scaffold.workbench.report.domain.ReportCategoryStatView;
+import com.acme.scaffold.workbench.report.domain.ReportDetailTableView;
+import com.acme.scaffold.workbench.report.domain.ReportDistributionView;
+import com.acme.scaffold.workbench.report.domain.ReportQuery;
+import com.acme.scaffold.workbench.report.domain.ReportSeriesPointView;
+import com.acme.scaffold.workbench.report.domain.ReportStatusStatView;
+import com.acme.scaffold.workbench.report.domain.ReportType;
+import com.acme.scaffold.workbench.report.domain.ReportView;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 报表 CSV 行模型纯函数：{@link ReportVO} → 扁平行序列（零依赖、无 Spring / DB，便于离线单测）。
+ * 报表 CSV 行模型纯函数：{@link ReportView} → 扁平行序列（零依赖、无 Spring / DB，便于离线单测）。
  *
  * <p>从 {@code ReportService} 抽出（原私有 {@code appendUsageCsv/appendStatCsv/escapeCsv}），
  * 使报表编排与 CSV 序列化职责分离；序列化（转义 / BOM / 行尾）统一委托
@@ -42,7 +42,7 @@ public final class ReportCsvWriter {
      * @param vo    报表数据（已由 {@code ReportService.report} 组装）
      * @return 扁平行序列；行内字段为原始值，转义由 {@link CsvExporter} 统一处理
      */
-    public static List<List<String>> lines(ReportQuery query, ReportVO vo) {
+    public static List<List<String>> lines(ReportQuery query, ReportView vo) {
         List<List<String>> lines = new ArrayList<>();
         lines.add(List.of("报表管理导出", "", ""));
         lines.add(List.of("统计窗口", vo.start() + " ~ " + vo.end()));
@@ -59,7 +59,7 @@ public final class ReportCsvWriter {
     }
 
     /** 下载文件名（不含路径）：{@code 报表管理_<RANGE>_<起>_<止>.csv}。 */
-    public static String fileName(ReportQuery query, ReportVO vo) {
+    public static String fileName(ReportQuery query, ReportView vo) {
         return String.format("报表管理_%s_%s_%s.csv",
                 query.rangeType().name(), vo.start().substring(0, 10), vo.end().substring(0, 10));
     }
@@ -90,7 +90,7 @@ public final class ReportCsvWriter {
                 || ReportType.API_CALL.name().equals(type);
     }
 
-    private static void appendUsageLines(List<List<String>> lines, ReportVO vo) {
+    private static void appendUsageLines(List<List<String>> lines, ReportView vo) {
         lines.add(List.of());
         lines.add(List.of("汇总指标", "数值", ""));
         lines.add(List.of("访问量", String.valueOf(vo.summary().totalVisits()), ""));
@@ -103,23 +103,23 @@ public final class ReportCsvWriter {
         lines.add(List.of("P95耗时(ms)", String.valueOf(vo.summary().p95DurationMs()), ""));
         lines.add(List.of());
         lines.add(List.of("类别分布", "操作次数", "占比(%)"));
-        for (ReportCategoryStatVO c : vo.categoryStats()) {
+        for (ReportCategoryStatView c : vo.categoryStats()) {
             lines.add(List.of(c.moduleCode(), String.valueOf(c.count()), String.valueOf(c.ratio())));
         }
         lines.add(List.of());
         lines.add(List.of("状态分布", "操作次数", "占比(%)"));
-        for (ReportStatusStatVO s : vo.statusStats()) {
+        for (ReportStatusStatView s : vo.statusStats()) {
             lines.add(List.of(s.statusLabel(), String.valueOf(s.count()), String.valueOf(s.ratio())));
         }
         lines.add(List.of());
         lines.add(List.of("时间", "访问量", "活跃用户数", "失败数"));
-        for (ReportSeriesPointVO p : vo.trend()) {
+        for (ReportSeriesPointView p : vo.trend()) {
             lines.add(List.of(p.bucket(), String.valueOf(p.visits()),
                     String.valueOf(p.activeUsers()), String.valueOf(p.failed())));
         }
     }
 
-    private static void appendStatLines(List<List<String>> lines, ReportVO vo) {
+    private static void appendStatLines(List<List<String>> lines, ReportView vo) {
         String secondary = secondaryLabel(vo.type());
         lines.add(List.of());
         lines.add(List.of("汇总指标", "数值", ""));
@@ -132,21 +132,21 @@ public final class ReportCsvWriter {
         lines.add(List.of("P95耗时(ms)", String.valueOf(vo.summary().p95DurationMs()), ""));
         lines.add(List.of());
         lines.add(List.of("分布", "数量", "占比(%)"));
-        for (ReportDistributionVO d : vo.distribution()) {
+        for (ReportDistributionView d : vo.distribution()) {
             lines.add(List.of(d.label(), String.valueOf(d.count()), String.valueOf(d.ratio())));
         }
         lines.add(List.of());
-        ReportDetailTableVO details = vo.details();
+        ReportDetailTableView details = vo.details();
         lines.add(List.of("明细"));
         if (details != null && details.columns() != null && !details.columns().isEmpty()) {
             List<String> header = new ArrayList<>();
-            for (ReportDetailTableVO.Column c : details.columns()) {
+            for (ReportDetailTableView.Column c : details.columns()) {
                 header.add(c.label());
             }
             lines.add(header);
             for (Map<String, String> row : details.rows()) {
                 List<String> line = new ArrayList<>();
-                for (ReportDetailTableVO.Column c : details.columns()) {
+                for (ReportDetailTableView.Column c : details.columns()) {
                     // 行数据可能缺 key（null 视作空串，与迁移前 escapeCsv(null) → "" 一致；
                     // List.of 不接受 null 元素，故此处必须归一）
                     String v = row.get(c.key());
@@ -157,7 +157,7 @@ public final class ReportCsvWriter {
         }
         lines.add(List.of());
         lines.add(List.of("时间", mainLabel(vo.type()), secondary, "失败数"));
-        for (ReportSeriesPointVO p : vo.trend()) {
+        for (ReportSeriesPointView p : vo.trend()) {
             lines.add(List.of(p.bucket(), String.valueOf(p.visits()),
                     String.valueOf(p.activeUsers()), String.valueOf(p.failed())));
         }

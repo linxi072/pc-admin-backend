@@ -16,8 +16,8 @@ import java.util.stream.Collectors;
  * 通知发送记录纯函数规则：接收方按渠道掩码、标题/正文摘要、筛选值归一。
  *
  * <p>无副作用、不依赖 Spring 上下文，可直接离线单测；供
- * {@link com.acme.scaffold.system.notifylog.application.NotificationRecordRecorder}（落库前脱敏摘要）与
- * {@link com.acme.scaffold.system.notifylog.application.NotificationRecordService}（筛选值收敛）复用，
+ * {@link com.acme.scaffold.system.notifylog.service.NotificationRecordRecorder}（落库前脱敏摘要）与
+ * {@link com.acme.scaffold.system.notifylog.service.NotificationRecordService}（筛选值收敛）复用，
  * 保证「存什么」与「查什么」口径同源——与短信记录 {@code SmsRecordRules} 同范式。</p>
  */
 public final class NotificationRecordRules {

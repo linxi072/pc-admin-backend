@@ -14,7 +14,7 @@ import com.acme.scaffold.common.importer.ImportTask;
 import com.acme.scaffold.common.importer.MultiSegmentImportTask;
 import com.acme.scaffold.common.importer.SegmentSpec;
 import com.acme.scaffold.security.ratelimit.RateLimit;
-import com.acme.scaffold.system.importer.application.ImportCenterService;
+import com.acme.scaffold.system.importer.service.ImportCenterService;
 import com.acme.scaffold.system.support.FileResponseSupport;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

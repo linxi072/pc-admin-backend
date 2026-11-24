@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.acme.scaffold.ai.LlmNotImplementedException;
 import com.acme.scaffold.ai.config.AiProperties;
-import com.acme.scaffold.ai.dto.ScaffoldResult;
-import com.acme.scaffold.ai.dto.TableSpec;
+import com.acme.scaffold.ai.domain.ScaffoldResult;
+import com.acme.scaffold.ai.domain.TableSpec;
 import com.acme.scaffold.ai.port.CloudLlmProvider;
 import com.acme.scaffold.ai.port.HeuristicLlmProvider;
 import org.junit.jupiter.api.Test;

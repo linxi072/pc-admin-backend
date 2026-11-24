@@ -1,10 +1,10 @@
 package com.acme.scaffold.codegen.service;
 
 import com.acme.scaffold.codegen.config.CodeGenProperties;
-import com.acme.scaffold.codegen.dto.ColumnMetaVO;
-import com.acme.scaffold.codegen.dto.GenOption;
-import com.acme.scaffold.codegen.dto.GeneratedFileVO;
-import com.acme.scaffold.codegen.dto.TableMetaVO;
+import com.acme.scaffold.codegen.domain.ColumnMetaView;
+import com.acme.scaffold.codegen.domain.GenOption;
+import com.acme.scaffold.codegen.domain.GeneratedFileView;
+import com.acme.scaffold.codegen.domain.TableMetaView;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
  * 代码生成模板纯函数：按表结构拼装后端六层（DO / VO / Query / Controller / Service /
  * ServiceImpl）与前端两文件（Vue 页面 / api.js）的源码文本。
  *
- * <p>与 Spring 及 DB 解耦（输入为 {@link TableMetaVO}），便于离线单测；产物对齐框架既有范式：
+ * <p>与 Spring 及 DB 解耦（输入为 {@link TableMetaView}），便于离线单测；产物对齐框架既有范式：
  * DO 用 Lombok {@code @Data}，VO 用 record 且雪花 ID 字符串序列化，Controller 走
  * {@code Result} / {@code PageResult} 包装 + {@code @PreAuthorize} 权限码，ServiceImpl 经
  * 构造器注入 {@code DSLContext} 并调用 {@code SqlWriters}。</p>
@@ -40,7 +40,7 @@ public final class CodeTemplates {
     }
 
     /** 全部生成文件（顺序即预览 Tab 顺序）。 */
-    public static List<GeneratedFileVO> renderAll(TableMetaVO meta, GenOption option, CodeGenProperties props) {
+    public static List<GeneratedFileView> renderAll(TableMetaView meta, GenOption option, CodeGenProperties props) {
         String author = (option.author() == null || option.author().isBlank()) ? props.getAuthor() : option.author();
         String functionName = (option.functionName() == null || option.functionName().isBlank())
                 ? (meta.comment() == null || meta.comment().isBlank() ? meta.className() : meta.comment())
@@ -48,7 +48,7 @@ public final class CodeTemplates {
         Ctx ctx = new Ctx(meta, option, props, author, functionName);
         String cls = ctx.cls;
 
-        List<GeneratedFileVO> files = new ArrayList<>();
+        List<GeneratedFileView> files = new ArrayList<>();
         files.add(javaFile(ctx, cls + "DO", doSource(ctx), ctx.basePkg()));
         files.add(javaFile(ctx, cls + "VO", voSource(ctx), ctx.basePkg() + ".dto"));
         files.add(javaFile(ctx, cls + "Query", querySource(ctx), ctx.basePkg() + ".dto"));
@@ -68,7 +68,7 @@ public final class CodeTemplates {
 
     /** 模板共享上下文（派生命名一次算清）。 */
     private static final class Ctx {
-        final TableMetaVO meta;
+        final TableMetaView meta;
         final GenOption option;
         final CodeGenProperties props;
         final String author;
@@ -82,13 +82,13 @@ public final class CodeTemplates {
         /** REST 路径段（如 user / order-item）。 */
         final String pathSeg;
         /** 主键字段（无主键时 null）。 */
-        final ColumnMetaVO pk;
+        final ColumnMetaView pk;
         /** 非主键字段。 */
-        final List<ColumnMetaVO> fields;
+        final List<ColumnMetaView> fields;
         /** 权限码前缀（如 user）。 */
         final String perm;
 
-        Ctx(TableMetaVO meta, GenOption option, CodeGenProperties props, String author, String functionName) {
+        Ctx(TableMetaView meta, GenOption option, CodeGenProperties props, String author, String functionName) {
             this.meta = meta;
             this.option = option;
             this.props = props;
@@ -100,7 +100,7 @@ public final class CodeTemplates {
             this.pkgSeg = packageSegment(option.moduleName());
             this.pathSeg = pathSegment(option.moduleName());
             this.perm = pkgSeg.replace('.', ':');
-            this.pk = meta.columns().stream().filter(ColumnMetaVO::primaryKey).findFirst().orElse(null);
+            this.pk = meta.columns().stream().filter(ColumnMetaView::primaryKey).findFirst().orElse(null);
             this.fields = meta.columns().stream().filter(c -> !c.primaryKey()).collect(Collectors.toList());
         }
 
@@ -124,7 +124,7 @@ public final class CodeTemplates {
     private static String doSource(Ctx c) {
         Set<String> imports = new LinkedHashSet<>();
         imports.add("lombok.Data");
-        for (ColumnMetaVO col : c.meta.columns()) {
+        for (ColumnMetaView col : c.meta.columns()) {
             if (JavaTypeMapper.needsImport(col.javaType())) {
                 imports.add(importOf(col.javaType()));
             }
@@ -134,7 +134,7 @@ public final class CodeTemplates {
         sb.append("import ").append(String.join(";\nimport ", imports)).append(";\n\n");
         sb.append("@Data\n");
         sb.append("public class ").append(c.cls).append("DO {\n\n");
-        for (ColumnMetaVO col : c.meta.columns()) {
+        for (ColumnMetaView col : c.meta.columns()) {
             sb.append("    /** ").append(commentOf(col)).append(" */\n");
             sb.append("    private ").append(col.javaType()).append(' ').append(col.javaField()).append(";\n\n");
         }
@@ -150,7 +150,7 @@ public final class CodeTemplates {
         Set<String> imports = new LinkedHashSet<>();
         imports.add("com.fasterxml.jackson.databind.annotation.JsonSerialize");
         imports.add("com.fasterxml.jackson.databind.ser.std.ToStringSerializer");
-        for (ColumnMetaVO col : c.meta.columns()) {
+        for (ColumnMetaView col : c.meta.columns()) {
             if (JavaTypeMapper.needsImport(col.javaType())) {
                 imports.add(importOf(col.javaType()));
             }
@@ -160,7 +160,7 @@ public final class CodeTemplates {
         sb.append("import ").append(String.join(";\nimport ", imports)).append(";\n\n");
         sb.append("public record ").append(c.cls).append("VO(\n");
         List<String> lines = new ArrayList<>();
-        for (ColumnMetaVO col : c.meta.columns()) {
+        for (ColumnMetaView col : c.meta.columns()) {
             String ann = (col == c.pk)
                     ? "    @JsonSerialize(using = ToStringSerializer.class)\n"
                     : "";
@@ -181,7 +181,7 @@ public final class CodeTemplates {
 
     private static String querySource(Ctx c) {
         StringBuilder params = new StringBuilder();
-        for (ColumnMetaVO col : c.fields) {
+        for (ColumnMetaView col : c.fields) {
             String f = col.javaField().toLowerCase();
             String cn = col.columnName().toLowerCase();
             if (QUERY_EXCLUDE.contains(f) || QUERY_EXCLUDE.contains(cn)) {
@@ -213,7 +213,7 @@ public final class CodeTemplates {
         String permManage = c.perm + ":manage";
         return header(c, "接口")
                 + """
-                import com.acme.scaffold.common.api.dto.PageResult;
+                import com.acme.scaffold.common.api.domain.PageResult;
                 import com.acme.scaffold.common.api.Result;
                 import %1$s.dto.%2$sQuery;
                 import %1$s.dto.%2$sVO;
@@ -294,7 +294,7 @@ public final class CodeTemplates {
     private static String serviceSource(Ctx c) {
         return header(c, "服务接口")
                 + """
-                import com.acme.scaffold.common.api.dto.PageResult;
+                import com.acme.scaffold.common.api.domain.PageResult;
                 import %1$s.dto.%2$sQuery;
                 import %1$s.dto.%2$sVO;
 
@@ -327,8 +327,8 @@ public final class CodeTemplates {
         return header(c, "服务实现（CRUD 骨架；业务校验以 TODO 标注，按需补齐）")
                 + """
                 import com.acme.scaffold.common.IdGenerator;
-                import com.acme.scaffold.common.api.dto.PageQuery;
-                import com.acme.scaffold.common.api.dto.PageResult;
+                import com.acme.scaffold.common.api.domain.PageQuery;
+                import com.acme.scaffold.common.api.domain.PageResult;
                 import com.acme.scaffold.common.error.CommonErrorCode;
                 import com.acme.scaffold.common.exception.BusinessException;
                 import com.acme.scaffold.mybatis.dsl.SqlTables;
@@ -417,8 +417,8 @@ public final class CodeTemplates {
     // 前端：Vue 页面
     // ------------------------------------------------------------------
 
-    private static GeneratedFileVO vueFile(Ctx c) {
-        return new GeneratedFileVO(
+    private static GeneratedFileView vueFile(Ctx c) {
+        return new GeneratedFileView(
                 props_path(c) + "/views/" + c.pkgSeg.replace('.', '/') + "/" + c.cls + "View.vue",
                 "VUE",
                 """
@@ -622,10 +622,10 @@ public final class CodeTemplates {
     // 前端：api.js
     // ------------------------------------------------------------------
 
-    private static GeneratedFileVO jsFile(Ctx c) {
+    private static GeneratedFileView jsFile(Ctx c) {
         String var = c.var;
         String module = c.option.moduleName().trim();
-        return new GeneratedFileVO(
+        return new GeneratedFileView(
                 props_path(c) + "/api/" + module + ".js",
                 "JS",
                 """
@@ -664,9 +664,9 @@ public final class CodeTemplates {
     // ------------------------------------------------------------------
 
     /** Java 文件载体：包声明 + 源码体（文件头注释由各模板自带，避免重复）。 */
-    private static GeneratedFileVO javaFile(Ctx c, String fileName, String body, String pkg) {
+    private static GeneratedFileView javaFile(Ctx c, String fileName, String body, String pkg) {
         String src = "package " + pkg + ";\n\n" + body;
-        return new GeneratedFileVO(
+        return new GeneratedFileView(
                 "src/main/java/" + pkg.replace('.', '/') + "/" + fileName + ".java",
                 "JAVA",
                 src);
@@ -698,14 +698,14 @@ public final class CodeTemplates {
         };
     }
 
-    private static String commentOf(ColumnMetaVO col) {
+    private static String commentOf(ColumnMetaView col) {
         return (col.comment() == null || col.comment().isBlank()) ? col.columnName() : col.comment();
     }
 
     /** 生成 buildCondition 的条件行（按字段可选等值/模糊匹配，字符串走 contains、其余走 eq）。 */
     private static String buildConditionBody(Ctx c) {
         StringBuilder sb = new StringBuilder();
-        for (ColumnMetaVO col : c.fields) {
+        for (ColumnMetaView col : c.fields) {
             String f = col.javaField().toLowerCase();
             String cn = col.columnName().toLowerCase();
             if (QUERY_EXCLUDE.contains(f) || QUERY_EXCLUDE.contains(cn)) {
@@ -740,7 +740,7 @@ public final class CodeTemplates {
         return sb.toString();
     }
 
-    private static String getterOf(ColumnMetaVO col) {
+    private static String getterOf(ColumnMetaView col) {
         String f = col.javaField();
         return "get" + Character.toUpperCase(f.charAt(0)) + f.substring(1) + "()";
     }

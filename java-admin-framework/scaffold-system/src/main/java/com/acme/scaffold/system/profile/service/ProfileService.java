@@ -1,0 +1,311 @@
+package com.acme.scaffold.system.profile.service;
+
+import com.acme.scaffold.common.context.SecurityContextFacade;
+import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.system.org.domain.model.SysOrg;
+import com.acme.scaffold.system.profile.domain.BindContactRequest;
+import com.acme.scaffold.system.profile.domain.DeviceView;
+import com.acme.scaffold.system.profile.domain.PreferenceView;
+import com.acme.scaffold.system.profile.domain.ProfileView;
+import com.acme.scaffold.system.profile.domain.UpdatePreferenceRequest;
+import com.acme.scaffold.system.profile.domain.UpdateProfileRequest;
+import com.acme.scaffold.system.role.domain.model.SysRole;
+import com.acme.scaffold.system.support.CurrentUserSupport;
+import com.acme.scaffold.system.user.domain.model.SysUser;
+import com.acme.scaffold.system.user.domain.model.SysUserOrg;
+import com.acme.scaffold.system.user.domain.model.SysUserRole;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+/**
+ * 个人中心 / 账号设置应用服务（C2 重构：设备 / 改密子域已抽离至
+ * {@link ProfileDeviceService} / {@link ProfilePasswordService}）。
+ *
+ * <p><b>边界约定</b>：本服务只操作「当前登录用户本人」，一律从
+ * {@link SecurityContextFacade} 取 userId，<b>不接收前端传入的用户 ID</b>，
+ * 从根本上杜绝越权改他人资料的可能。本类保留「资料维护」与「偏好设置」两组职责；
+ * 登录设备与自助改密分别委托给对应的子域服务，保持公开方法签名不变。
+ */
+@Service
+@RequiredArgsConstructor
+public class ProfileService {
+
+    private static final SqlTables.TableRef USER_ROLE = SqlTables.SYS_USER_ROLE;
+    private static final SqlTables.TableRef USER_ORG = SqlTables.SYS_USER_ORG;
+    private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
+
+    private static final SqlTables.TableRef ROLE = SqlTables.SYS_ROLE;
+
+    private final DSLContext dsl;
+    private final SecurityContextFacade securityContextFacade;
+    private final ProfileDeviceService profileDeviceService;
+    private final ProfilePasswordService profilePasswordService;
+
+    private static final Pattern MOBILE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
+    // ==================== 资料 ====================
+
+    public ProfileView getProfile() {
+        SysUser user = loadCurrentUser();
+        return toProfileView(user);
+    }
+
+    /**
+     * 修改本人资料。
+     * <p>手机/邮箱允许传空串表示「解绑」，非空值须通过格式校验与唯一性预检。
+     */
+    @Transactional
+    public ProfileView updateProfile(UpdateProfileRequest request) {
+        SysUser current = loadCurrentUser();
+
+        SysUser patch = new SysUser();
+        patch.setDisplayName(request.displayName().trim());
+        patch.setAvatarUrl(StringUtils.hasText(request.avatarUrl()) ? request.avatarUrl().trim() : null);
+
+        Set<String> nullColumns = new HashSet<>();
+        if (request.mobile() != null) {
+            String mobile = normalize(request.mobile());
+            if (!mobile.isEmpty()) {
+                assertMobileFormat(mobile);
+                assertContactAvailable("mobile", mobile, current.getId());
+            }
+            patch.setMobile(mobile);
+            if (mobile.isEmpty()) {
+                nullColumns.add("mobile");
+            }
+        }
+        if (request.email() != null) {
+            String email = normalize(request.email()).toLowerCase();
+            if (!email.isEmpty()) {
+                assertEmailFormat(email);
+                assertContactAvailable("email", email, current.getId());
+            }
+            patch.setEmail(email);
+            if (email.isEmpty()) {
+                nullColumns.add("email");
+            }
+        }
+
+        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        return getProfile();
+    }
+
+    /**
+     * 绑定/解绑手机号或邮箱。
+     * <p>绑定走短信/邮件验证码校验（当前演示环境未接网关，故仅校验格式与唯一性）。
+     */
+    @Transactional
+    public ProfileView bindContact(BindContactRequest request) {
+        SysUser current = loadCurrentUser();
+        boolean isMobile = "MOBILE".equals(request.channel());
+        String contact = normalize(request.contact());
+
+        if (!contact.isEmpty()) {
+            if (isMobile) {
+                assertMobileFormat(contact);
+            } else {
+                assertEmailFormat(contact);
+            }
+            assertContactAvailable(isMobile ? "mobile" : "email", contact, current.getId());
+        }
+        // 解除 sms 通知依赖：解绑手机号时自动关闭短信通道，避免发信失败
+        SysUser patch = new SysUser();
+        Set<String> nullColumns = new HashSet<>();
+        if (isMobile) {
+            patch.setMobile(contact);
+            if (contact.isEmpty()) {
+                nullColumns.add("mobile");
+                patch.setNotifyMobile(0);
+            }
+        } else {
+            patch.setEmail(contact);
+            if (contact.isEmpty()) {
+                nullColumns.add("email");
+                patch.setNotifyEmail(0);
+            }
+        }
+        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        return getProfile();
+    }
+
+    /**
+     * 上传头像：仅保存服务端生成的相对路径。
+     */
+    @Transactional
+    public ProfileView updateAvatar(String avatarUrl) {
+        SysUser current = loadCurrentUser();
+        SysUser patch = new SysUser();
+        boolean hasAvatar = StringUtils.hasText(avatarUrl);
+        patch.setAvatarUrl(hasAvatar ? avatarUrl.trim() : null);
+        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch,
+                hasAvatar ? Set.of() : Set.of("avatar_url"));
+        return getProfile();
+    }
+
+    // ==================== 密码（委托 ProfilePasswordService） ====================
+
+    /** 自助改密：委托 {@link ProfilePasswordService}（校验原密码 / 强度 / 复用 / 失效旧令牌）。 */
+    @Transactional
+    public void changePassword(com.acme.scaffold.system.profile.domain.ChangePasswordRequest request) {
+        profilePasswordService.changePassword(request);
+    }
+
+    // ==================== 偏好设置 ====================
+
+    public PreferenceView getPreference() {
+        return toPreferenceView(loadCurrentUser());
+    }
+
+    /** 局部更新：null 字段表示不改动，避免未提交的区块被清空。 */
+    @Transactional
+    public PreferenceView updatePreference(UpdatePreferenceRequest request) {
+        SysUser current = loadCurrentUser();
+        SysUser patch = new SysUser();
+        if (request.notifySiteMessage() != null) {
+            patch.setNotifySiteMessage(request.notifySiteMessage());
+        }
+        if (request.notifyEmail() != null) {
+            patch.setNotifyEmail(request.notifyEmail());
+        }
+        if (request.notifyMobile() != null) {
+            patch.setNotifyMobile(request.notifyMobile());
+        }
+        if (request.showLoginLog() != null) {
+            patch.setShowLoginLog(request.showLoginLog());
+        }
+        if (request.maskMobile() != null) {
+            patch.setMaskMobile(request.maskMobile());
+        }
+        if (request.discoverable() != null) {
+            patch.setDiscoverable(request.discoverable());
+        }
+        SqlWriters.updateById(dsl, USER, current.getId(), patch);
+        return getPreference();
+    }
+
+    // ==================== 登录设备（委托 ProfileDeviceService） ====================
+
+    public List<DeviceView> listDevices() {
+        return profileDeviceService.listDevices();
+    }
+
+    public void revokeDevice(String sessionId) {
+        profileDeviceService.revokeDevice(sessionId);
+    }
+
+    public int logoutOtherDevices() {
+        return profileDeviceService.logoutOtherDevices();
+    }
+
+    // ==================== 内部方法 ====================
+
+    private SysUser loadCurrentUser() {
+        return CurrentUserSupport.loadCurrentUser(dsl, securityContextFacade);
+    }
+
+    /** 手机/邮箱唯一性校验：排除自身，冲突时给出可读提示。 */
+    private void assertContactAvailable(String column, String value, Long selfId) {
+        if (!StringUtils.hasText(value)) {
+            return;
+        }
+        Condition cond = USER.field(column, String.class).eq(value)
+                .and(SqlWriters.notDeleted(USER));
+        if (selfId != null) {
+            cond = cond.and(USER.field("id", Long.class).ne(selfId));
+        }
+        if (SqlWriters.count(dsl, USER, cond) > 0) {
+            throw BusinessException.conflict("MOBILE".equalsIgnoreCase(column) || "mobile".equals(column)
+                    ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
+        }
+    }
+
+    private void assertMobileFormat(String mobile) {
+        if (!MOBILE_PATTERN.matcher(mobile).matches()) {
+            throw BusinessException.badRequest("手机号格式不正确");
+        }
+    }
+
+    private void assertEmailFormat(String email) {
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            throw BusinessException.badRequest("邮箱格式不正确");
+        }
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private PreferenceView toPreferenceView(SysUser u) {
+        return new PreferenceView(
+                flag(u.getNotifySiteMessage()),
+                flag(u.getNotifyEmail()),
+                flag(u.getNotifyMobile()),
+                flag(u.getShowLoginLog()),
+                flag(u.getMaskMobile()),
+                flag(u.getDiscoverable()));
+    }
+
+    /** 数据库用 TINYINT 存开关，null 视为「开」以兼容迁移前的存量数据。 */
+    private boolean flag(Integer v) {
+        return v == null || v == 1;
+    }
+
+    private ProfileView toProfileView(SysUser u) {
+        return new ProfileView(
+                u.getId(),
+                u.getUsername(),
+                u.getDisplayName(),
+                u.getAvatarUrl(),
+                u.getMobile(),
+                StringUtils.hasText(u.getMobile()),
+                u.getEmail(),
+                StringUtils.hasText(u.getEmail()),
+                loadRoleNames(u.getId()),
+                loadOrgNames(u.getId()),
+                u.getStatus(),
+                u.getLastLoginAt(),
+                u.getPasswordChangedAt(),
+                u.getCreatedAt());
+    }
+
+    /** 取用户全部角色名称（多对多，sys_user_role 关联表）。 */
+    private List<String> loadRoleNames(Long userId) {
+        List<Long> roleIds = SqlWriters.fetchList(dsl, USER_ROLE, SysUserRole.class,
+                        USER_ROLE.field("user_id", Long.class).eq(userId)).stream()
+                .map(SysUserRole::getRoleId).toList();
+        if (roleIds.isEmpty()) {
+            return List.of();
+        }
+        return SqlWriters.fetchList(dsl, ROLE, SysRole.class,
+                        DSL.and(SqlWriters.notDeleted(ROLE),
+                                ROLE.field("id", Long.class).in(roleIds)))
+                .stream().map(SysRole::getRoleName).toList();
+    }
+
+    /** 取用户全部部门名称（多对多，sys_user_org 关联表）。 */
+    private List<String> loadOrgNames(Long userId) {
+        List<Long> orgIds = SqlWriters.fetchList(dsl, USER_ORG, SysUserOrg.class,
+                        USER_ORG.field("user_id", Long.class).eq(userId)).stream()
+                .map(SysUserOrg::getOrgId).toList();
+        if (orgIds.isEmpty()) {
+            return List.of();
+        }
+        return SqlWriters.fetchList(dsl, SqlTables.SYS_ORG, SysOrg.class,
+                        DSL.and(SqlWriters.notDeleted(SqlTables.SYS_ORG),
+                                SqlTables.SYS_ORG.field("id", Long.class).in(orgIds)))
+                .stream().map(SysOrg::getOrgName).toList();
+    }
+}

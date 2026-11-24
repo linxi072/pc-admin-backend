@@ -1,7 +1,7 @@
 package com.acme.scaffold.workbench.report.domain.rule;
 
-import com.acme.scaffold.workbench.report.dto.ReportDistributionVO;
-import com.acme.scaffold.workbench.report.dto.ReportSeriesPointVO;
+import com.acme.scaffold.workbench.report.domain.ReportDistributionView;
+import com.acme.scaffold.workbench.report.domain.ReportSeriesPointView;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -39,14 +39,14 @@ public final class ReportStats {
      *
      * @param counts 与 {@link #DURATION_LABELS} 顺序一致的 6 个分桶计数
      */
-    public static List<ReportDistributionVO> toDistribution(long[] counts) {
+    public static List<ReportDistributionView> toDistribution(long[] counts) {
         long total = 0L;
         for (long c : counts) {
             total += c;
         }
-        List<ReportDistributionVO> out = new ArrayList<>(counts.length);
+        List<ReportDistributionView> out = new ArrayList<>(counts.length);
         for (int i = 0; i < counts.length; i++) {
-            out.add(new ReportDistributionVO(DURATION_LABELS[i], counts[i], ratio(counts[i], total)));
+            out.add(new ReportDistributionView(DURATION_LABELS[i], counts[i], ratio(counts[i], total)));
         }
         return out;
     }
@@ -80,23 +80,23 @@ public final class ReportStats {
     }
 
     /** 按 0–23 整点补零生成连续序列（纯函数）。失败数取第三元素，缺省 0。 */
-    public static List<ReportSeriesPointVO> fillHourly(Map<Integer, long[]> agg) {
-        List<ReportSeriesPointVO> out = new ArrayList<>(24);
+    public static List<ReportSeriesPointView> fillHourly(Map<Integer, long[]> agg) {
+        List<ReportSeriesPointView> out = new ArrayList<>(24);
         for (int h = 0; h < 24; h++) {
             long[] v = agg.getOrDefault(h, ZERO);
             long failed = v.length > 2 ? v[2] : 0L;
-            out.add(new ReportSeriesPointVO(String.format("%02d:00", h), v[0], v[1], failed));
+            out.add(new ReportSeriesPointView(String.format("%02d:00", h), v[0], v[1], failed));
         }
         return out;
     }
 
     /** 按 [from, to] 连续日期补零生成序列（纯函数）。失败数取第三元素，缺省 0。 */
-    public static List<ReportSeriesPointVO> fillDaily(LocalDate from, LocalDate to, Map<LocalDate, long[]> agg) {
-        List<ReportSeriesPointVO> out = new ArrayList<>();
+    public static List<ReportSeriesPointView> fillDaily(LocalDate from, LocalDate to, Map<LocalDate, long[]> agg) {
+        List<ReportSeriesPointView> out = new ArrayList<>();
         for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
             long[] v = agg.getOrDefault(d, ZERO);
             long failed = v.length > 2 ? v[2] : 0L;
-            out.add(new ReportSeriesPointVO(d.format(DAY_FMT), v[0], v[1], failed));
+            out.add(new ReportSeriesPointView(d.format(DAY_FMT), v[0], v[1], failed));
         }
         return out;
     }

@@ -5,8 +5,8 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.realtime.port.RealtimeTemplatePort;
 import com.acme.scaffold.realtime.port.RealtimeTemplateRenderResult;
-import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
-import com.acme.scaffold.system.notifymgmt.domain.model.SysNotificationTemplateDO;
+import com.acme.scaffold.system.notifymgmt.service.NotificationTemplateService;
+import com.acme.scaffold.system.notifymgmt.domain.model.SysNotificationTemplate;
 import com.acme.scaffold.system.notifymgmt.domain.rule.NotificationTemplateRules;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +33,7 @@ public class RealtimeTemplateAdapter implements RealtimeTemplatePort {
 
     @Override
     public RealtimeTemplateRenderResult render(String templateCode, Map<String, String> variables) {
-        SysNotificationTemplateDO tpl = templateService.requireEnabledByCode(templateCode);
+        SysNotificationTemplate tpl = templateService.requireEnabledByCode(templateCode);
         if (!Channel.WEBSOCKET.name().equals(tpl.getChannel())) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                     "实时推送仅支持 WEBSOCKET 渠道模板，当前模板渠道: " + tpl.getChannel());

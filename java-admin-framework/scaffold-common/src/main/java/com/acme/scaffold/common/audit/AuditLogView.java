@@ -1,6 +1,6 @@
 package com.acme.scaffold.common.audit;
 
-import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
+import com.acme.scaffold.common.audit.domain.SysOperationLog;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import java.time.LocalDateTime;
 
@@ -16,7 +16,7 @@ public record AuditLogView(Long id, String moduleCode, String operationType, Str
                            String requestSummary, String resultSummary, String resultCode, Long durationMs,
                            String ipAddress, String traceId, Boolean success, LocalDateTime occurredAt) {
 
-    public static AuditLogView of(SysOperationLogDO log, boolean sensitiveVisible) {
+    public static AuditLogView of(SysOperationLog log, boolean sensitiveVisible) {
         if (log == null) {
             return null;
         }

@@ -1,7 +1,7 @@
 package com.acme.scaffold.codegen.service;
 
-import com.acme.scaffold.codegen.dto.ColumnMetaVO;
-import com.acme.scaffold.codegen.dto.TableMetaVO;
+import com.acme.scaffold.codegen.domain.ColumnMetaView;
+import com.acme.scaffold.codegen.domain.TableMetaView;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +35,7 @@ public class TableSchemaService {
     /**
      * 表字段元信息（含 Java 映射结果）。表不存在时返回 null（由上层转 404）。
      */
-    public TableMetaVO tableMeta(String tableName) {
+    public TableMetaView tableMeta(String tableName) {
         if (tableName == null || tableName.isBlank()) {
             return null;
         }
@@ -46,7 +46,7 @@ public class TableSchemaService {
         if (comment == null) {
             return null;
         }
-        List<ColumnMetaVO> columns = new ArrayList<>();
+        List<ColumnMetaView> columns = new ArrayList<>();
         dsl.resultQuery(
                         "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, COLUMN_COMMENT, COLUMN_KEY, IS_NULLABLE, EXTRA "
                                 + "FROM information_schema.COLUMNS "
@@ -58,7 +58,7 @@ public class TableSchemaService {
                     boolean tinyintOne = "tinyint".equalsIgnoreCase(dataType)
                             && columnType != null && columnType.toLowerCase().contains("(1)");
                     String extra = r.get("EXTRA", String.class);
-                    columns.add(new ColumnMetaVO(
+                    columns.add(new ColumnMetaView(
                             r.get("COLUMN_NAME", String.class),
                             dataType,
                             JavaTypeMapper.toJavaType(dataType, tinyintOne),
@@ -68,6 +68,6 @@ public class TableSchemaService {
                             "YES".equalsIgnoreCase(r.get("IS_NULLABLE", String.class)),
                             extra != null && extra.toLowerCase().contains("auto_increment")));
                 });
-        return new TableMetaVO(tableName, JavaTypeMapper.toClassName(tableName), comment, columns);
+        return new TableMetaView(tableName, JavaTypeMapper.toClassName(tableName), comment, columns);
     }
 }

@@ -2,8 +2,8 @@ package com.acme.scaffold.system.form.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.form.application.FormVersionService;
-import com.acme.scaffold.system.form.domain.model.FormDefinitionVersionDO;
+import com.acme.scaffold.system.form.service.FormVersionService;
+import com.acme.scaffold.system.form.domain.model.FormDefinitionVersion;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -33,7 +33,7 @@ public class FormVersionController {
     @Operation(summary = "表单版本列表（按版本号升序）")
     @GetMapping
     @PreAuthorize("hasAuthority('system:form-definition:read')")
-    public Result<List<FormDefinitionVersionDO>> list(@PathVariable Long id) {
+    public Result<List<FormDefinitionVersion>> list(@PathVariable Long id) {
         return Result.success(service.listVersions(id));
     }
 
@@ -41,7 +41,7 @@ public class FormVersionController {
     @PostMapping("/publish")
     @PreAuthorize("hasAuthority('system:form-definition:update')")
     @AuditOperation(module = "system", type = "CREATE", name = "发布表单版本")
-    public Result<FormDefinitionVersionDO> publish(@PathVariable Long id) {
+    public Result<FormDefinitionVersion> publish(@PathVariable Long id) {
         return Result.success(service.publish(id));
     }
 
@@ -49,7 +49,7 @@ public class FormVersionController {
     @PostMapping("/{versionNo}/rollback")
     @PreAuthorize("hasAuthority('system:form-definition:update')")
     @AuditOperation(module = "system", type = "UPDATE", name = "回滚表单版本")
-    public Result<FormDefinitionVersionDO> rollback(@PathVariable Long id, @PathVariable int versionNo) {
+    public Result<FormDefinitionVersion> rollback(@PathVariable Long id, @PathVariable int versionNo) {
         return Result.success(service.rollback(id, versionNo));
     }
 

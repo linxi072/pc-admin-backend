@@ -4,7 +4,7 @@ import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.service.TokenVersionDataPort;
-import com.acme.scaffold.system.user.domain.model.SysUserRoleDO;
+import com.acme.scaffold.system.user.domain.model.SysUserRole;
 import java.util.List;
 import java.util.Set;
 
@@ -31,9 +31,9 @@ public class TokenVersionDataAdapter implements TokenVersionDataPort {
         if (roleIds == null || roleIds.isEmpty()) {
             return List.of();
         }
-        return SqlWriters.fetchList(dsl, USER_ROLE, SysUserRoleDO.class,
+        return SqlWriters.fetchList(dsl, USER_ROLE, SysUserRole.class,
                         USER_ROLE.field("role_id", Long.class).in(roleIds)).stream()
-                .map(SysUserRoleDO::getUserId)
+                .map(SysUserRole::getUserId)
                 .distinct()
                 .collect(Collectors.toList());
     }

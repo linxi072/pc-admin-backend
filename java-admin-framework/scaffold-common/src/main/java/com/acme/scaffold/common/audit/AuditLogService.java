@@ -1,10 +1,10 @@
 package com.acme.scaffold.common.audit;
 
-import com.acme.scaffold.common.api.dto.KeysetPageQuery;
-import com.acme.scaffold.common.api.dto.KeysetPageResult;
-import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
-import com.acme.scaffold.common.audit.dto.AuditLogQuery;
+import com.acme.scaffold.common.api.domain.KeysetPageQuery;
+import com.acme.scaffold.common.api.domain.KeysetPageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.common.audit.domain.SysOperationLog;
+import com.acme.scaffold.common.audit.domain.AuditLogQuery;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.mybatis.dsl.Condition;
@@ -168,7 +168,7 @@ public class AuditLogService {
             return;
         }
         try {
-            List<SysOperationLogDO> entities = records.stream().map(this::toEntity).toList();
+            List<SysOperationLog> entities = records.stream().map(this::toEntity).toList();
             SqlWriters.batchInsert(dsl, SqlTables.SYS_OPERATION_LOG, entities);
         } catch (Exception e) {
             log.error("批量写入审计日志失败 size={}", records.size(), e);
@@ -184,8 +184,8 @@ public class AuditLogService {
     }
 
     /** 将审计承载对象映射为持久化 DO（含摘要 JSON 合法性截断）。 */
-    private SysOperationLogDO toEntity(AuditRecord record) {
-        SysOperationLogDO entity = new SysOperationLogDO();
+    private SysOperationLog toEntity(AuditRecord record) {
+        SysOperationLog entity = new SysOperationLog();
         entity.setTenantId(0L);
         entity.setModuleCode(record.getModuleCode());
         entity.setOperationType(record.getOperationType());
@@ -216,8 +216,8 @@ public class AuditLogService {
      */
     public PageResult<AuditLogView> query(AuditLogQuery query, boolean sensitiveVisible) {
         var pageQuery = query.toPageQuery();
-        PageResult<SysOperationLogDO> page = SqlWriters.page(dsl, SqlTables.SYS_OPERATION_LOG,
-                SysOperationLogDO.class, conditions(query), pageQuery,
+        PageResult<SysOperationLog> page = SqlWriters.page(dsl, SqlTables.SYS_OPERATION_LOG,
+                SysOperationLog.class, conditions(query), pageQuery,
                 SqlSorts.resolve(SqlTables.SYS_OPERATION_LOG, pageQuery, AUDIT_SORT_FIELDS,
                         // 默认：发生时间倒序（最新在前），id 兜底保证翻页稳定
                         SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc(),
@@ -249,8 +249,8 @@ public class AuditLogService {
                 SqlTables.SYS_OPERATION_LOG.field("id", Long.class)
         };
         boolean[] ascending = {false, false}; // occurred_at DESC, id DESC
-        KeysetPageResult<SysOperationLogDO> raw = KeysetPager.query(dsl, SqlTables.SYS_OPERATION_LOG,
-                SysOperationLogDO.class, conditions(query), q,
+        KeysetPageResult<SysOperationLog> raw = KeysetPager.query(dsl, SqlTables.SYS_OPERATION_LOG,
+                SysOperationLog.class, conditions(query), q,
                 l -> new Object[]{l.getOccurredAt(), l.getId()}, keyFields, ascending);
         List<AuditLogView> views = raw.records().stream()
                 .map(l -> AuditLogView.of(l, sensitiveVisible))
@@ -268,8 +268,8 @@ public class AuditLogService {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "traceId 不能为空");
         }
         // 链路追溯按时间正序，便于看完整调用顺序
-        List<SysOperationLogDO> logs = SqlWriters.fetchList(dsl, SqlTables.SYS_OPERATION_LOG,
-                SysOperationLogDO.class,
+        List<SysOperationLog> logs = SqlWriters.fetchList(dsl, SqlTables.SYS_OPERATION_LOG,
+                SysOperationLog.class,
                 SqlTables.SYS_OPERATION_LOG.field("trace_id", String.class).eq(traceId.trim()),
                 SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).asc(),
                 SqlTables.SYS_OPERATION_LOG.field("id", Long.class).asc());
@@ -294,8 +294,8 @@ public class AuditLogService {
                 ? DSL.trueCondition()
                 : SqlTables.SYS_OPERATION_LOG.field("operator_id", Long.class).eq(operatorId);
         // 不做 count：面板只需最近 N 条，count(*) 在千万行审计表上是纯浪费（见接口注释 F1）
-        List<SysOperationLogDO> logs = SqlWriters.fetchTop(dsl, SqlTables.SYS_OPERATION_LOG,
-                SysOperationLogDO.class, cond, size,
+        List<SysOperationLog> logs = SqlWriters.fetchTop(dsl, SqlTables.SYS_OPERATION_LOG,
+                SysOperationLog.class, cond, size,
                 SqlTables.SYS_OPERATION_LOG.field("occurred_at", LocalDateTime.class).desc(),
                 SqlTables.SYS_OPERATION_LOG.field("id", Long.class).desc());
         return logs.stream().map(l -> AuditLogView.of(l, sensitiveVisible)).toList();

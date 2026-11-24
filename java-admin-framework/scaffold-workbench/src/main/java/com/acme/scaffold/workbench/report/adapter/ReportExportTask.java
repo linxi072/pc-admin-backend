@@ -6,13 +6,13 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.XlsxSheet;
-import com.acme.scaffold.workbench.report.application.ReportService;
+import com.acme.scaffold.workbench.report.service.ReportService;
 import com.acme.scaffold.workbench.report.domain.rule.ReportCsvWriter;
 import com.acme.scaffold.workbench.report.domain.rule.ReportSheets;
-import com.acme.scaffold.workbench.report.dto.ReportQuery;
-import com.acme.scaffold.workbench.report.dto.ReportRange;
-import com.acme.scaffold.workbench.report.dto.ReportType;
-import com.acme.scaffold.workbench.report.dto.ReportVO;
+import com.acme.scaffold.workbench.report.domain.ReportQuery;
+import com.acme.scaffold.workbench.report.domain.ReportRange;
+import com.acme.scaffold.workbench.report.domain.ReportType;
+import com.acme.scaffold.workbench.report.domain.ReportView;
 import java.util.List;
 import java.util.Map;
 
@@ -79,7 +79,7 @@ public class ReportExportTask implements ExportTask {
     public byte[] csv(Map<String, String> params) {
         requireReportRead();
         ReportQuery query = toQuery(params);
-        ReportVO vo = reportService.report(query);
+        ReportView vo = reportService.report(query);
         return ReportCsvWriter.toCsvBytes(ReportCsvWriter.lines(query, vo));
     }
 
@@ -93,7 +93,7 @@ public class ReportExportTask implements ExportTask {
     public List<XlsxSheet> xlsxSheets(Map<String, String> params) {
         requireReportRead();
         ReportQuery query = toQuery(params);
-        ReportVO vo = reportService.report(query);
+        ReportView vo = reportService.report(query);
         return ReportSheets.sheets(query, vo);
     }
 

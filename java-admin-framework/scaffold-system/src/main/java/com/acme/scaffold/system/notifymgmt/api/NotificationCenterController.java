@@ -2,9 +2,9 @@ package com.acme.scaffold.system.notifymgmt.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.notifymgmt.application.NotificationCenterService;
-import com.acme.scaffold.system.notifymgmt.dto.NotificationItemView;
-import com.acme.scaffold.system.notifymgmt.dto.NotificationSummaryView;
+import com.acme.scaffold.system.notifymgmt.service.NotificationCenterService;
+import com.acme.scaffold.system.notifymgmt.domain.NotificationItemView;
+import com.acme.scaffold.system.notifymgmt.domain.NotificationSummaryView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;

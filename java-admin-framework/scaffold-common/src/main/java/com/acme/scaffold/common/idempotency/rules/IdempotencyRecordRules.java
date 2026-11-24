@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
  * {@link com.acme.scaffold.common.idempotency.service.IdempotencyRecordService}
- * （查询条件构造）与 {@link com.acme.scaffold.common.idempotency.dto.IdempotencyRecordView}
+ * （查询条件构造）与 {@link com.acme.scaffold.common.idempotency.domain.IdempotencyRecordView}
  * （过期标记计算）复用，保证「查什么」与「标什么」口径同源。</p>
  *
  * <p><b>容错查询 posture</b>：与登录日志 / 短信记录页一致——非法筛选值

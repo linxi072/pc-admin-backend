@@ -2,7 +2,7 @@ package com.acme.scaffold.monitor.alert.service;
 
 import com.acme.scaffold.monitor.alert.AlertInboxEntry;
 import com.acme.scaffold.monitor.alert.rules.AlertRuleRules;
-import com.acme.scaffold.monitor.entity.AlertRuleDO;
+import com.acme.scaffold.monitor.entity.AlertRule;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -43,7 +43,7 @@ public class AlertDispatchService {
      * @param entry  合成告警条目（入收件箱的同一条）
      * @param actual 命中时的实际指标值（随报文外发便于接收端定位）
      */
-    public void dispatch(AlertRuleDO rule, AlertInboxEntry entry, BigDecimal actual) {
+    public void dispatch(AlertRule rule, AlertInboxEntry entry, BigDecimal actual) {
         if (AlertRuleRules.ChannelType.WEBHOOK != AlertRuleRules.parseChannelType(rule.getChannelType())) {
             return;
         }

@@ -1,7 +1,7 @@
 package com.acme.scaffold.system.maskstrategy.domain.rule;
 
 import com.acme.scaffold.common.sensitive.SensitiveType;
-import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategyDO;
+import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategy;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -14,8 +14,8 @@ import java.util.Set;
  * 角色豁免判定与最终类型裁决。
  *
  * <p>无副作用、不依赖 Spring 上下文与数据库，可直接离线单测；供
- * {@link com.acme.scaffold.system.maskstrategy.application.MaskStrategyResolver}（序列化/导出前分派）、
- * {@link com.acme.scaffold.system.maskstrategy.application.MaskStrategyService}（管理写入校验）复用，
+ * {@link com.acme.scaffold.system.maskstrategy.service.MaskStrategyResolver}（序列化/导出前分派）、
+ * {@link com.acme.scaffold.system.maskstrategy.service.MaskStrategyService}（管理写入校验）复用，
  * 保证「存什么、查什么、按什么放行」三处口径同源。</p>
  *
  * <p><b>作用范围</b>：
@@ -105,13 +105,13 @@ public final class MaskStrategyRules {
      * 按字段键命中策略：返回匹配 fieldKey 且启用中的、优先级数值最高的一条；无匹配返回 null。
      * 同优先级时取首条（遍历顺序稳定），避免随机抖动。
      */
-    public static SysMaskStrategyDO selectStrategy(List<SysMaskStrategyDO> strategies, String fieldKey) {
+    public static SysMaskStrategy selectStrategy(List<SysMaskStrategy> strategies, String fieldKey) {
         if (strategies == null || fieldKey == null) {
             return null;
         }
-        SysMaskStrategyDO best = null;
+        SysMaskStrategy best = null;
         int bestPriority = Integer.MIN_VALUE;
-        for (SysMaskStrategyDO s : strategies) {
+        for (SysMaskStrategy s : strategies) {
             if (s.getFieldKey() == null || !s.getFieldKey().equals(fieldKey)) {
                 continue;
             }
@@ -134,7 +134,7 @@ public final class MaskStrategyRules {
      *
      * @param roles 当前调用方角色集合（null/空视为无豁免）
      */
-    public static boolean shouldMask(SysMaskStrategyDO strategy, Set<String> roles) {
+    public static boolean shouldMask(SysMaskStrategy strategy, Set<String> roles) {
         String scope = strategy.getApplyScope();
         if (SCOPE_NONE.equals(scope)) {
             return false;
@@ -158,7 +158,7 @@ public final class MaskStrategyRules {
     }
 
     /** 命中策略的最终脱敏类型（脱敏算法由该类型驱动）；非法类型回落 NONE（不脱敏，不抛异常）。 */
-    public static SensitiveType decideType(SysMaskStrategyDO strategy) {
+    public static SensitiveType decideType(SysMaskStrategy strategy) {
         SensitiveType t = parseSensitiveType(strategy.getSensitiveType());
         return t == null ? SensitiveType.NONE : t;
     }

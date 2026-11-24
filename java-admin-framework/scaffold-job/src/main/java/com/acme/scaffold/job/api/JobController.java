@@ -1,15 +1,15 @@
 package com.acme.scaffold.job.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
 import com.acme.scaffold.job.domain.JobNextFire;
-import com.acme.scaffold.job.dto.JobCreateDTO;
-import com.acme.scaffold.job.dto.JobHandlerOptionView;
-import com.acme.scaffold.job.dto.JobLogView;
-import com.acme.scaffold.job.dto.JobQuery;
-import com.acme.scaffold.job.dto.JobUpdateDTO;
-import com.acme.scaffold.job.dto.JobView;
+import com.acme.scaffold.job.domain.JobCreateRequest;
+import com.acme.scaffold.job.domain.JobHandlerOptionView;
+import com.acme.scaffold.job.domain.JobLogView;
+import com.acme.scaffold.job.domain.JobQuery;
+import com.acme.scaffold.job.domain.JobUpdateRequest;
+import com.acme.scaffold.job.domain.JobView;
 import com.acme.scaffold.job.service.JobDagService;
 import com.acme.scaffold.job.service.JobService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -98,7 +98,7 @@ public class JobController {
     @PostMapping
     @PreAuthorize("hasAuthority('job:manage')")
     @AuditOperation(module = "job", type = "CREATE", name = "新建定时任务")
-    public Result<String> create(@RequestBody JobCreateDTO dto) {
+    public Result<String> create(@RequestBody JobCreateRequest dto) {
         // 雪花 ID 以字符串返回，避免 18 位数字经 JSON number 上链被前端 round 后无法按 ID 操作
         return Result.success(String.valueOf(jobService.create(dto)));
     }
@@ -107,7 +107,7 @@ public class JobController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('job:manage')")
     @AuditOperation(module = "job", type = "UPDATE", name = "编辑定时任务")
-    public Result<Void> update(@PathVariable Long id, @RequestBody JobUpdateDTO dto) {
+    public Result<Void> update(@PathVariable Long id, @RequestBody JobUpdateRequest dto) {
         jobService.update(id, dto);
         return Result.success();
     }

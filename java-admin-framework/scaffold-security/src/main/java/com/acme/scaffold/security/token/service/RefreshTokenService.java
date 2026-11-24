@@ -5,7 +5,7 @@ import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
-import com.acme.scaffold.security.entity.SysRefreshTokenDO;
+import com.acme.scaffold.security.entity.SysRefreshToken;
 import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.rules.SessionLimitRules;
@@ -59,7 +59,7 @@ public class RefreshTokenService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiresAt = now.plus(jwtProps.getRefreshTokenTtl());
 
-        SysRefreshTokenDO entity = new SysRefreshTokenDO();
+        SysRefreshToken entity = new SysRefreshToken();
         entity.setUserId(userId);
         entity.setClientId(clientId);
         entity.setSessionId(sessionId);
@@ -76,7 +76,7 @@ public class RefreshTokenService {
 
     /** 校验刷新令牌，返回对应用户 ID；无效/过期/已吊销则抛异常。 */
     public Long verify(String rawToken) {
-        SysRefreshTokenDO token = findByRaw(rawToken);
+        SysRefreshToken token = findByRaw(rawToken);
         Long userId = token.getUserId();
         if (token.getRevokedAt() != null) {
             // 重放检测：已吊销令牌被再次使用，吊销整个家族
@@ -95,7 +95,7 @@ public class RefreshTokenService {
 
     /** 轮换：校验旧令牌后签发新令牌并令旧令牌失效，返回新原始令牌。 */
     public String rotate(String rawToken) {
-        SysRefreshTokenDO old = findByRaw(rawToken);
+        SysRefreshToken old = findByRaw(rawToken);
         if (old.getRevokedAt() != null) {
             revokeFamily(old.getFamilyId());
             throw new BusinessException(SecurityErrorCode.TOKEN_REVOKED, "凭证已失效，请重新登录");
@@ -252,10 +252,10 @@ public class RefreshTokenService {
         log.warn("检测到刷新令牌重放，已吊销家族 familyId={}", familyId);
     }
 
-    private SysRefreshTokenDO findByRaw(String rawToken) {
+    private SysRefreshToken findByRaw(String rawToken) {
         String h = hash(rawToken);
-        SysRefreshTokenDO token = SqlWriters.fetchOne(dsl, RT,
-                SysRefreshTokenDO.class, tokenHashField().eq(h));
+        SysRefreshToken token = SqlWriters.fetchOne(dsl, RT,
+                SysRefreshToken.class, tokenHashField().eq(h));
         if (token == null) {
             throw new BusinessException(SecurityErrorCode.REFRESH_INVALID, "刷新令牌无效");
         }

@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  * 复用 {@link PermissionService} 聚合 {@code authorities}/{@code roles}，与登录主链路同源。</p>
  *
  * <p>账号读取经 {@link UserAccountDataPort}（system 适配器实现）完成，security 不再直连
- * {@code system.entity.SysUserDO}（B1/B5 同款防腐层约束）。</p>
+ * {@code system.entity.SysUser}（B1/B5 同款防腐层约束）。</p>
  */
 @Component
 public class OAuth2UserAuthenticator {

@@ -4,10 +4,10 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.monitor.alert.AlertInboxEntry;
 import com.acme.scaffold.monitor.alert.AlertReceiverService;
 import com.acme.scaffold.monitor.alert.rules.AlertRuleRules;
-import com.acme.scaffold.monitor.dto.AlertRuleCreateRequest;
-import com.acme.scaffold.monitor.dto.AlertRuleUpdateRequest;
-import com.acme.scaffold.monitor.dto.AlertRuleView;
-import com.acme.scaffold.monitor.entity.AlertRuleDO;
+import com.acme.scaffold.monitor.domain.AlertRuleCreateRequest;
+import com.acme.scaffold.monitor.domain.AlertRuleUpdateRequest;
+import com.acme.scaffold.monitor.domain.AlertRuleView;
+import com.acme.scaffold.monitor.entity.AlertRule;
 import java.math.BigDecimal;
 import java.time.Duration;
 
@@ -59,7 +59,7 @@ public class AlertRuleService {
     }
 
     public AlertRuleView get(Long id) {
-        AlertRuleDO d = store.findById(id);
+        AlertRule d = store.findById(id);
         if (d == null) {
             throw BusinessException.badRequest("告警规则不存在: " + id);
         }
@@ -67,7 +67,7 @@ public class AlertRuleService {
     }
 
     public AlertRuleView create(AlertRuleCreateRequest req) {
-        AlertRuleDO d = toDO(req);
+        AlertRule d = toDO(req);
         List<String> errs = AlertRuleRules.validate(d);
         if (!errs.isEmpty()) {
             throw BusinessException.badRequest(String.join("; ", errs));
@@ -77,7 +77,7 @@ public class AlertRuleService {
     }
 
     public AlertRuleView update(Long id, AlertRuleUpdateRequest req) {
-        AlertRuleDO existing = store.findById(id);
+        AlertRule existing = store.findById(id);
         if (existing == null) {
             throw BusinessException.badRequest("告警规则不存在: " + id);
         }
@@ -99,7 +99,7 @@ public class AlertRuleService {
     }
 
     public AlertRuleView setEnabled(Long id, boolean enabled) {
-        AlertRuleDO existing = store.findById(id);
+        AlertRule existing = store.findById(id);
         if (existing == null) {
             throw BusinessException.badRequest("告警规则不存在: " + id);
         }
@@ -117,7 +117,7 @@ public class AlertRuleService {
      */
     public int evaluateTick(Instant now) {
         int fired = 0;
-        for (AlertRuleDO rule : store.findEnabled()) {
+        for (AlertRule rule : store.findEnabled()) {
             if (rule.getId() == null) {
                 continue;
             }
@@ -159,8 +159,8 @@ public class AlertRuleService {
 
     // ---------------- 映射 ----------------
 
-    private AlertRuleDO toDO(AlertRuleCreateRequest req) {
-        AlertRuleDO d = new AlertRuleDO();
+    private AlertRule toDO(AlertRuleCreateRequest req) {
+        AlertRule d = new AlertRule();
         d.setRuleName(req.ruleName());
         d.setMetricKey(req.metricKey());
         d.setComparator(req.comparator());
@@ -175,7 +175,7 @@ public class AlertRuleService {
         return d;
     }
 
-    private void apply(AlertRuleDO d, AlertRuleUpdateRequest req) {
+    private void apply(AlertRule d, AlertRuleUpdateRequest req) {
         if (req.ruleName() != null) {
             d.setRuleName(req.ruleName());
         }

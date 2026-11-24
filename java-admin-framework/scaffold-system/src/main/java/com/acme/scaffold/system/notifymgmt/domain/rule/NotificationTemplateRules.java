@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  * 通知模板纯函数规则：渠道归一、变量提取、渲染、业务校验。
  *
  * <p>无副作用、不依赖 Spring 上下文，可直接离线单测；供
- * {@link com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService} 与
+ * {@link com.acme.scaffold.system.notifymgmt.service.NotificationTemplateService} 与
  * 视图层复用，保证「解析什么」与「校验什么」口径同源。</p>
  */
 public final class NotificationTemplateRules {

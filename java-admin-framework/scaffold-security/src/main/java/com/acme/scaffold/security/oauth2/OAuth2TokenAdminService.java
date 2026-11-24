@@ -1,8 +1,8 @@
 package com.acme.scaffold.security.oauth2;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.security.oauth2.domain.OAuth2Token;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 
@@ -22,7 +22,7 @@ public class OAuth2TokenAdminService {
 
     /** 分页查询活动令牌，可按 clientId / userId 过滤。 */
     public PageResult<OAuth2TokenView> page(int page, int size, String clientId, Long userId) {
-        PageResult<OAuth2TokenDO> result = registry.listActive(PageQuery.of(page, size), clientId, userId);
+        PageResult<OAuth2Token> result = registry.listActive(PageQuery.of(page, size), clientId, userId);
         List<OAuth2TokenView> views = result.records().stream().map(OAuth2TokenAdminService::toView).toList();
         return new PageResult<>(result.page(), result.size(), result.total(), views);
     }
@@ -32,7 +32,7 @@ public class OAuth2TokenAdminService {
         registry.revoke(jti);
     }
 
-    private static OAuth2TokenView toView(OAuth2TokenDO t) {
+    private static OAuth2TokenView toView(OAuth2Token t) {
         return new OAuth2TokenView(
                 t.getJti(),
                 t.getClientId(),

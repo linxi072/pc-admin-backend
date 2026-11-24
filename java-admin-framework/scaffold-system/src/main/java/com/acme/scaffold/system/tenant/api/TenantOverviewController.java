@@ -1,8 +1,8 @@
 package com.acme.scaffold.system.tenant.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.system.tenant.application.TenantOverviewService;
-import com.acme.scaffold.system.tenant.dto.TenantOverviewView;
+import com.acme.scaffold.system.tenant.service.TenantOverviewService;
+import com.acme.scaffold.system.tenant.domain.TenantOverviewView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

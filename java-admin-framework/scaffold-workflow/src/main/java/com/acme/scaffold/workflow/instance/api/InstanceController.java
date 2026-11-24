@@ -2,11 +2,11 @@ package com.acme.scaffold.workflow.instance.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.workflow.instance.application.WorkflowService;
-import com.acme.scaffold.workflow.instance.dto.ApprovalRecordView;
-import com.acme.scaffold.workflow.instance.dto.InstanceDetailView;
-import com.acme.scaffold.workflow.instance.dto.InstanceView;
-import com.acme.scaffold.workflow.instance.dto.StartProcessRequest;
+import com.acme.scaffold.workflow.instance.service.WorkflowService;
+import com.acme.scaffold.workflow.instance.domain.ApprovalRecordView;
+import com.acme.scaffold.workflow.instance.domain.InstanceDetailView;
+import com.acme.scaffold.workflow.instance.domain.InstanceView;
+import com.acme.scaffold.workflow.instance.domain.StartProcessRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

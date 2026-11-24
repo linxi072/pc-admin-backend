@@ -23,10 +23,10 @@ import java.util.stream.Collectors;
  *
  * <p>用法（机构树「父节点被数据权限过滤掉时升为根」的森林语义）：
  * <pre>{@code
- * List<OrgTreeVO> forest = TreeBuilder.build(all, SysOrgDO::getId,
+ * List<OrgTreeView> forest = TreeBuilder.build(all, SysOrg::getId,
  *         o -> o.getParentId() == null ? 0L : o.getParentId(),
  *         o -> { Long p = ...; return p == 0L || !visible.contains(p); },
- *         (node, children) -> new OrgTreeVO(..., children));
+ *         (node, children) -> new OrgTreeView(..., children));
  * }</pre>
  */
 public final class TreeBuilder {

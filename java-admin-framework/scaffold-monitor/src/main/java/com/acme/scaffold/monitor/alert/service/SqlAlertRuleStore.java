@@ -1,6 +1,6 @@
 package com.acme.scaffold.monitor.alert.service;
 
-import com.acme.scaffold.monitor.entity.AlertRuleDO;
+import com.acme.scaffold.monitor.entity.AlertRule;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
@@ -26,29 +26,29 @@ public class SqlAlertRuleStore implements AlertRuleStore {
     private final DSLContext dsl;
 
     @Override
-    public List<AlertRuleDO> findAll() {
-        return SqlWriters.fetchList(dsl, T, AlertRuleDO.class, SqlWriters.notDeleted(T));
+    public List<AlertRule> findAll() {
+        return SqlWriters.fetchList(dsl, T, AlertRule.class, SqlWriters.notDeleted(T));
     }
 
     @Override
-    public List<AlertRuleDO> findEnabled() {
+    public List<AlertRule> findEnabled() {
         Condition cond = SqlWriters.notDeleted(T)
                 .and(T.field("enabled", Integer.class).eq(1));
-        return SqlWriters.fetchList(dsl, T, AlertRuleDO.class, cond);
+        return SqlWriters.fetchList(dsl, T, AlertRule.class, cond);
     }
 
     @Override
-    public AlertRuleDO findById(Long id) {
-        return SqlWriters.fetchById(dsl, T, AlertRuleDO.class, id);
+    public AlertRule findById(Long id) {
+        return SqlWriters.fetchById(dsl, T, AlertRule.class, id);
     }
 
     @Override
-    public void insert(AlertRuleDO rule) {
+    public void insert(AlertRule rule) {
         SqlWriters.insert(dsl, T, rule);
     }
 
     @Override
-    public void update(Long id, AlertRuleDO rule) {
+    public void update(Long id, AlertRule rule) {
         SqlWriters.updateById(dsl, T, id, rule);
     }
 

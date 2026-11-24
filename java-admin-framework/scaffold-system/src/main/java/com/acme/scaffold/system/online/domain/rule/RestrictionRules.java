@@ -1,6 +1,6 @@
 package com.acme.scaffold.system.online.domain.rule;
 
-import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
+import com.acme.scaffold.system.online.domain.model.SysLoginRestriction;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -47,8 +47,8 @@ public final class RestrictionRules {
      * <p>口径：{@code status=ACTIVE} 且（长期 或 {@code expireAt} 晚于当前时间）。
      * 到期未扫到的记录同样判为不生效（登录放行），与定时任务的最终解除互为兜底。
      */
-    public static boolean isActive(SysLoginRestrictionDO restriction, LocalDateTime now) {
-        if (restriction == null || !SysLoginRestrictionDO.STATUS_ACTIVE.equals(restriction.getStatus())) {
+    public static boolean isActive(SysLoginRestriction restriction, LocalDateTime now) {
+        if (restriction == null || !SysLoginRestriction.STATUS_ACTIVE.equals(restriction.getStatus())) {
             return false;
         }
         LocalDateTime expireAt = restriction.getExpireAt();

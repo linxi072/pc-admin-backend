@@ -2,7 +2,7 @@ package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.context.CurrentPrincipal;
 import com.acme.scaffold.common.oauth2.OpenApiClientRules;
-import com.acme.scaffold.security.oauth2.dto.ConsentRequest;
+import com.acme.scaffold.security.oauth2.domain.ConsentRequest;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;

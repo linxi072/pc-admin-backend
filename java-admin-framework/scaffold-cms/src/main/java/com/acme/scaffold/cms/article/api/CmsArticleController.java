@@ -1,11 +1,11 @@
 package com.acme.scaffold.cms.article.api;
 
-import com.acme.scaffold.cms.article.application.CmsArticleService;
-import com.acme.scaffold.cms.article.dto.ArticleCreateRequest;
-import com.acme.scaffold.cms.article.dto.ArticleUpdateRequest;
-import com.acme.scaffold.cms.article.dto.ArticleView;
+import com.acme.scaffold.cms.article.service.CmsArticleService;
+import com.acme.scaffold.cms.article.domain.ArticleCreateRequest;
+import com.acme.scaffold.cms.article.domain.ArticleUpdateRequest;
+import com.acme.scaffold.cms.article.domain.ArticleView;
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

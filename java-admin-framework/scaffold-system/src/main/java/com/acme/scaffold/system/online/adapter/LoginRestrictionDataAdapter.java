@@ -2,15 +2,15 @@ package com.acme.scaffold.system.online.adapter;
 
 import com.acme.scaffold.security.online.LoginRestriction;
 import com.acme.scaffold.security.online.LoginRestrictionDataPort;
-import com.acme.scaffold.system.online.application.LoginRestrictionService;
-import com.acme.scaffold.system.online.domain.model.SysLoginRestrictionDO;
+import com.acme.scaffold.system.online.service.LoginRestrictionService;
+import com.acme.scaffold.system.online.domain.model.SysLoginRestriction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
  * {@link LoginRestrictionDataPort} 的 system 侧适配器实现。
  *
- * <p>承载对 {@code sys_login_restriction} 的查询，将 {@code system.entity.SysLoginRestrictionDO}
+ * <p>承载对 {@code sys_login_restriction} 的查询，将 {@code system.entity.SysLoginRestriction}
  * 映射为 security 自有 {@link LoginRestriction} 快照；本类位于 {@code system} 包，允许 import
  * {@code system.entity}。</p>
  */
@@ -25,7 +25,7 @@ public class LoginRestrictionDataAdapter implements LoginRestrictionDataPort {
         if (userId == null) {
             return null;
         }
-        SysLoginRestrictionDO restriction = loginRestrictionService.findActiveRestriction(userId);
+        SysLoginRestriction restriction = loginRestrictionService.findActiveRestriction(userId);
         return restriction == null ? null : new LoginRestriction(restriction.getExpireAt());
     }
 

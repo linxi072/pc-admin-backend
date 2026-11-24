@@ -1,12 +1,12 @@
 package com.acme.scaffold.workflow.approval.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.workflow.approval.application.ApprovalPortalService;
-import com.acme.scaffold.workflow.approval.dto.ApprovalPortalView;
+import com.acme.scaffold.workflow.approval.service.ApprovalPortalService;
+import com.acme.scaffold.workflow.approval.domain.ApprovalPortalView;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;
-import com.acme.scaffold.workflow.instance.dto.InstanceDetailView;
-import com.acme.scaffold.workflow.instance.dto.InstanceView;
-import com.acme.scaffold.workflow.instance.dto.TaskView;
+import com.acme.scaffold.workflow.instance.domain.InstanceDetailView;
+import com.acme.scaffold.workflow.instance.domain.InstanceView;
+import com.acme.scaffold.workflow.instance.domain.TaskView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;

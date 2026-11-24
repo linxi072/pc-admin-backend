@@ -1,0 +1,277 @@
+package com.acme.scaffold.system.openapi.service;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
+
+import com.acme.scaffold.common.error.CommonErrorCode;
+import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.oauth2.OpenApiClientRules;
+import com.acme.scaffold.common.util.MergeFields;
+import com.acme.scaffold.mybatis.dsl.Condition;
+import com.acme.scaffold.mybatis.dsl.DSL;
+import com.acme.scaffold.mybatis.dsl.DSLContext;
+import com.acme.scaffold.mybatis.dsl.FetchSupport;
+import com.acme.scaffold.mybatis.dsl.SqlSorts;
+import com.acme.scaffold.mybatis.dsl.SqlTables;
+import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.system.openapi.domain.model.OpenApiClient;
+import com.acme.scaffold.system.openapi.domain.ClientSecretView;
+import com.acme.scaffold.system.openapi.domain.CreateOpenApiClientRequest;
+import com.acme.scaffold.system.openapi.domain.OpenApiClientView;
+import com.acme.scaffold.system.openapi.domain.UpdateOpenApiClientRequest;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+/**
+ * 开放平台客户端应用服务（V48 API 开放平台 / M24）。
+ *
+ * <p><b>密钥治理</b>：创建时生成明文密钥（一次性返回，仅哈希落库）；轮换重新生成并刷新
+ * {@code secret_rotated_at}；停用/启用经 toggle；过期时间仅记录，协议级拦截待授权服务器落地。</p>
+ *
+ * <p><b>协议级开放</b>：密钥治理与令牌签发职责分离——本服务仅负责客户端注册与密钥治理，
+ * 令牌签发由 {@code OAuth2TokenEndpoint}（client_credentials + RS256）承担；授权服务器侧以自包含方式
+ * 手搓 RS256，无需离线仓库缺失的 authorization-server 依赖。</p>
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class OpenApiClientService {
+
+    /** 排序白名单：客户端字段名 → 数据库列名（白名单外忽略，防 ORDER BY 注入）。 */
+    private static final Map<String, String> SORT_FIELDS = SqlSorts.whitelist(
+            "id", "id",
+            "clientId", "client_id",
+            "clientName", "client_name",
+            "status", "status",
+            "secretRotatedAt", "secret_rotated_at",
+            "expiredAt", "expired_at",
+            "createdAt", "created_at");
+
+    private final DSLContext dsl;
+
+    /** 与用户口令同机制的密钥哈希器（DelegatingPasswordEncoder，默认 BCrypt）。 */
+    private final PasswordEncoder passwordEncoder;
+
+    // ------------------------------------------------------------------
+    // 管理面查询
+    // ------------------------------------------------------------------
+
+    public PageResult<OpenApiClientView> page(int page, int size, String clientId,
+                                              String status, String sortField, String sortDirection) {
+        Condition cond = buildCondition(clientId, status);
+        var query = PageQuery.of(page, size, sortField, sortDirection);
+        PageResult<OpenApiClient> raw = SqlWriters.page(dsl, SqlTables.OPENAPI_CLIENT,
+                OpenApiClient.class, cond, query,
+                SqlSorts.resolve(SqlTables.OPENAPI_CLIENT, query, SORT_FIELDS,
+                        SqlTables.OPENAPI_CLIENT.field("id", Long.class).desc()));
+        return PageResult.of(raw.page(), raw.size(), raw.total(),
+                raw.records().stream().map(OpenApiClientView::of).toList());
+    }
+
+    /** 全部客户端（含停用，按 id 升序）。 */
+    public List<OpenApiClientView> list() {
+        List<OpenApiClient> rows = SqlWriters.fetchList(dsl, SqlTables.OPENAPI_CLIENT,
+                OpenApiClient.class, SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                SqlTables.OPENAPI_CLIENT.field("id", Long.class).asc());
+        return rows.stream().map(OpenApiClientView::of).toList();
+    }
+
+    public OpenApiClientView get(Long id) {
+        return OpenApiClientView.of(requireById(id));
+    }
+
+    // ------------------------------------------------------------------
+    // 注册 / 治理
+    // ------------------------------------------------------------------
+
+    /**
+     * 注册客户端：结构校验 + client_id 唯一性 → 生成密钥明文（一次性返回）→ 仅哈希落库。
+     */
+    public ClientSecretView create(CreateOpenApiClientRequest req) {
+        List<String> errors = OpenApiClientRules.validate(req.clientId(), req.clientName(),
+                req.scopes(), req.status(), req.expiredAt());
+        errors.addAll(OpenApiClientRules.validateRedirectUris(req.redirectUris()));
+        if (!errors.isEmpty()) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, String.join("；", errors));
+        }
+        if (existsByClientId(req.clientId())) {
+            throw new BusinessException(CommonErrorCode.CONFLICT, "客户端 ID 已存在");
+        }
+        String plainSecret = OpenApiClientRules.generateSecret();
+        LocalDateTime now = LocalDateTime.now();
+        OpenApiClient d = new OpenApiClient();
+        d.setClientId(req.clientId());
+        d.setClientName(req.clientName());
+        d.setScopes(OpenApiClientRules.normalizeScopes(req.scopes()));
+        d.setClientSecretHash(passwordEncoder.encode(plainSecret));
+        d.setStatus(OpenApiClientRules.normalizeStatus(req.status()) == null
+                ? OpenApiClientRules.DEFAULT_STATUS : OpenApiClientRules.normalizeStatus(req.status()));
+        d.setSecretRotatedAt(now);
+        d.setExpiredAt(req.expiredAt());
+        d.setRedirectUris(OpenApiClientRules.normalizeRedirectUris(req.redirectUris()));
+        d.setPkceRequired(req.pkceRequired() != null && req.pkceRequired() ? 1 : 0);
+        d.setRemark(req.remark());
+        SqlWriters.insert(dsl, SqlTables.OPENAPI_CLIENT, d);
+        return new ClientSecretView(d.getClientId(), plainSecret, now);
+    }
+
+    /**
+     * 更新客户端：仅传入的非空字段参与；以「合并后的完整值」做结构校验
+     * （client_id 不可变更；密钥变更走 {@link #rotateSecret}）。
+     */
+    public void update(Long id, UpdateOpenApiClientRequest req) {
+        OpenApiClient existing = requireById(id);
+        String name = MergeFields.orKeep(req::clientName, existing::getClientName);
+        String scopes = MergeFields.orKeep(req::scopes, existing::getScopes);
+        String status = MergeFields.orKeep(req::status, existing::getStatus);
+        LocalDateTime expiredAt = MergeFields.orKeep(req::expiredAt, existing::getExpiredAt);
+        String redirectUris = MergeFields.orKeep(req::redirectUris, existing::getRedirectUris);
+        List<String> errors = OpenApiClientRules.validate(existing.getClientId(), name, scopes,
+                status, expiredAt);
+        errors.addAll(OpenApiClientRules.validateRedirectUris(redirectUris));
+        if (!errors.isEmpty()) {
+            throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, String.join("；", errors));
+        }
+        OpenApiClient patch = new OpenApiClient();
+        if (req.clientName() != null) {
+            patch.setClientName(req.clientName());
+        }
+        if (req.scopes() != null) {
+            patch.setScopes(OpenApiClientRules.normalizeScopes(req.scopes()));
+        }
+        if (req.status() != null) {
+            patch.setStatus(OpenApiClientRules.normalizeStatus(req.status()));
+        }
+        if (req.expiredAt() != null) {
+            patch.setExpiredAt(req.expiredAt());
+        }
+        if (req.redirectUris() != null) {
+            patch.setRedirectUris(OpenApiClientRules.normalizeRedirectUris(req.redirectUris()));
+        }
+        if (req.pkceRequired() != null) {
+            patch.setPkceRequired(req.pkceRequired() ? 1 : 0);
+        }
+        if (req.remark() != null) {
+            patch.setRemark(req.remark());
+        }
+        SqlWriters.updateById(dsl, SqlTables.OPENAPI_CLIENT, id, patch);
+    }
+
+    /** 删除客户端（逻辑删除，便于审计与恢复）。 */
+    public void delete(Long id) {
+        requireById(id);
+        SqlWriters.delete(dsl, SqlTables.OPENAPI_CLIENT, id, true);
+    }
+
+    /** 启停客户端。 */
+    public void toggle(Long id, boolean enabled) {
+        requireById(id);
+        OpenApiClient patch = new OpenApiClient();
+        patch.setStatus(enabled ? "ENABLED" : "DISABLED");
+        SqlWriters.updateById(dsl, SqlTables.OPENAPI_CLIENT, id, patch);
+    }
+
+    /**
+     * 轮换密钥：重新生成明文（一次性返回）→ 哈希覆盖 → 刷新 {@code secret_rotated_at}。
+     * 旧密钥立即失效（哈希被覆盖，无法回放）。
+     */
+    public ClientSecretView rotateSecret(Long id) {
+        OpenApiClient existing = requireById(id);
+        String plainSecret = OpenApiClientRules.generateSecret();
+        LocalDateTime now = LocalDateTime.now();
+        OpenApiClient patch = new OpenApiClient();
+        patch.setClientSecretHash(passwordEncoder.encode(plainSecret));
+        patch.setSecretRotatedAt(now);
+        SqlWriters.updateById(dsl, SqlTables.OPENAPI_CLIENT, id, patch);
+        return new ClientSecretView(existing.getClientId(), plainSecret, now);
+    }
+
+    // ------------------------------------------------------------------
+    // 内部方法
+    // ------------------------------------------------------------------
+
+    private OpenApiClient requireById(Long id) {
+        OpenApiClient d = FetchSupport.requirePresent(SqlWriters.fetchById(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClient.class, id), "开放平台客户端不存在");
+        return d;
+    }
+
+    private boolean existsByClientId(String clientId) {
+        return SqlWriters.fetchOne(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClient.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId))) != null;
+    }
+
+    /**
+     * 客户端认证（OAuth2 授权服务器接入点）：查库 → BCrypt 校验密钥哈希 → 状态/过期校验。
+     * 失败（含不存在、停用、过期、密钥错误）统一抛 {@link CommonErrorCode#UNAUTHORIZED}，
+     * 不泄露具体失败原因，与登录链路口径一致。
+     *
+     * @return 通过认证的客户端实体（含 scopes 等签发令牌所需信息）
+     */
+    public OpenApiClient authenticateClient(String clientId, String secret) {
+        if (!StringUtils.hasText(clientId) || !StringUtils.hasText(secret)) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端凭证缺失");
+        }
+        OpenApiClient d = SqlWriters.fetchOne(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClient.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
+        if (d == null) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端不存在或已注销");
+        }
+        if (!"ENABLED".equals(d.getStatus())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已停用");
+        }
+        if (d.getExpiredAt() != null && d.getExpiredAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已过期");
+        }
+        if (!passwordEncoder.matches(secret, d.getClientSecretHash())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端密钥错误");
+        }
+        return d;
+    }
+
+    /**
+     * 仅按 client_id 取「启用中」的客户端（不校验密钥），供授权端点校验客户端合法性与授权范围。
+     *
+     * @throws BusinessException 客户端不存在 / 已注销 / 已停用 / 已过期
+     */
+    public OpenApiClient getActiveClient(String clientId) {
+        if (!StringUtils.hasText(clientId)) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端标识缺失");
+        }
+        OpenApiClient d = SqlWriters.fetchOne(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClient.class,
+                DSL.and(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
+                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId)));
+        if (d == null) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端不存在或已注销");
+        }
+        if (!"ENABLED".equals(d.getStatus())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已停用");
+        }
+        if (d.getExpiredAt() != null && d.getExpiredAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, "客户端已过期");
+        }
+        return d;
+    }
+
+    /** 统一筛选条件：逻辑删除恒成立；client_id 模糊匹配/状态精确匹配按需收敛。 */
+    private Condition buildCondition(String clientId, String status) {
+        List<Condition> conds = new ArrayList<>();
+        conds.add(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT));
+        if (StringUtils.hasText(clientId)) {
+            conds.add(SqlTables.OPENAPI_CLIENT.field("client_id", String.class).like("%" + clientId.trim() + "%"));
+        }
+        String st = OpenApiClientRules.normalizeStatus(status);
+        if (st != null) {
+            conds.add(SqlTables.OPENAPI_CLIENT.field("status", String.class).eq(st));
+        }
+        return DSL.and(conds);
+    }
+}

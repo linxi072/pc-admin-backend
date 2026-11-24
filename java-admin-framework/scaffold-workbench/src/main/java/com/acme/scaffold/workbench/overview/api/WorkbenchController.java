@@ -4,8 +4,8 @@ import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditLogService;
 import com.acme.scaffold.common.audit.AuditLogView;
 import com.acme.scaffold.common.context.SecurityContextFacade;
-import com.acme.scaffold.workbench.overview.application.WorkbenchService;
-import com.acme.scaffold.workbench.overview.dto.WorkbenchStatsVO;
+import com.acme.scaffold.workbench.overview.service.WorkbenchService;
+import com.acme.scaffold.workbench.overview.domain.WorkbenchStatsView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -37,7 +37,7 @@ public class WorkbenchController {
      */
     @Operation(summary = "工作台统计卡片数据（按当前登录人收敛）")
     @GetMapping("/stats")
-    public Result<WorkbenchStatsVO> stats() {
+    public Result<WorkbenchStatsView> stats() {
         Long userId = securityContextFacade.requireCurrentPrincipal().userId();
         return Result.success(workbenchService.stats(userId));
     }

@@ -6,7 +6,7 @@ import com.acme.scaffold.common.notification.NotificationPort;
 import com.acme.scaffold.system.notification.config.EmailProperties;
 import com.acme.scaffold.system.notification.domain.repository.MailClient;
 import com.acme.scaffold.system.notification.domain.rule.EmailRules;
-import com.acme.scaffold.system.notification.unsubscribe.application.NotificationUnsubscribeService;
+import com.acme.scaffold.system.notification.unsubscribe.service.NotificationUnsubscribeService;
 import com.acme.scaffold.system.notification.unsubscribe.domain.rule.UnsubscribeAppendRules;
 import java.util.List;
 import java.util.Locale;

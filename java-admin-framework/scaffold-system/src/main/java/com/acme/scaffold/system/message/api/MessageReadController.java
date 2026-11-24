@@ -1,12 +1,12 @@
 package com.acme.scaffold.system.message.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.message.application.MessageReadService;
-import com.acme.scaffold.system.message.dto.MessageReadStatsView;
-import com.acme.scaffold.system.message.dto.MessageReceiptQuery;
-import com.acme.scaffold.system.message.dto.MessageReceiptView;
+import com.acme.scaffold.system.message.service.MessageReadService;
+import com.acme.scaffold.system.message.domain.MessageReadStatsView;
+import com.acme.scaffold.system.message.domain.MessageReceiptQuery;
+import com.acme.scaffold.system.message.domain.MessageReceiptView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;

@@ -1,15 +1,15 @@
 package com.acme.scaffold.monitor.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.common.audit.domain.SysOperationLogDO;
+import com.acme.scaffold.common.audit.domain.SysOperationLog;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.monitor.domain.ServerMetrics;
-import com.acme.scaffold.monitor.dto.CacheStatView;
-import com.acme.scaffold.monitor.dto.OnlineSessionView;
-import com.acme.scaffold.monitor.dto.PoolStatView;
-import com.acme.scaffold.monitor.entity.SysMonitorSampleDO;
+import com.acme.scaffold.monitor.domain.CacheStatView;
+import com.acme.scaffold.monitor.domain.OnlineSessionView;
+import com.acme.scaffold.monitor.domain.PoolStatView;
+import com.acme.scaffold.monitor.entity.SysMonitorSample;
 import com.acme.scaffold.monitor.service.MonitorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -67,7 +67,7 @@ public class MonitorController {
     @GetMapping("/error-logs")
     @PreAuthorize("hasAuthority('system:monitor:read')")
     @AuditOperation(module = "system", type = "QUERY", name = "查询异常日志")
-    public Result<PageResult<SysOperationLogDO>> errorLogs(
+    public Result<PageResult<SysOperationLog>> errorLogs(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false)
@@ -96,7 +96,7 @@ public class MonitorController {
     @Operation(summary = "历史采样趋势（按时间范围）")
     @GetMapping("/samples")
     @PreAuthorize("hasAuthority('system:monitor:read')")
-    public Result<List<SysMonitorSampleDO>> samples(
+    public Result<List<SysMonitorSample>> samples(
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false)

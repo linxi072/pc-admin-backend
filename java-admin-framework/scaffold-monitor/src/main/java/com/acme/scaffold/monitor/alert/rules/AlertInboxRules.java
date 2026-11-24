@@ -167,7 +167,7 @@ public final class AlertInboxRules {
 
     /**
      * 收件箱汇总结果（纯数据，由服务层映射为
-     * {@link com.acme.scaffold.monitor.dto.AlertInboxStatsView} 视图）。
+     * {@link com.acme.scaffold.monitor.domain.AlertInboxStatsView} 视图）。
      */
     public record Summary(int capacity, int total, int firing, int resolved,
                           Map<String, Integer> severityCounts, long mostRecentEpochMillis,

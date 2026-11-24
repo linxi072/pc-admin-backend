@@ -2,7 +2,7 @@ package com.acme.scaffold.workflow.admin.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.workflow.admin.application.WorkflowInstanceAdminService;
+import com.acme.scaffold.workflow.admin.service.WorkflowInstanceAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

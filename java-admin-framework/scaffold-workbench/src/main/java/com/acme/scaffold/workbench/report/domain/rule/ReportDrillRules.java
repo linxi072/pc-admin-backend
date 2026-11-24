@@ -5,9 +5,9 @@ import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.SqlTables.TableRef;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
-import com.acme.scaffold.workbench.report.dto.DrillDimension;
-import com.acme.scaffold.workbench.report.dto.ReportRange;
-import com.acme.scaffold.workbench.report.dto.ReportType;
+import com.acme.scaffold.workbench.report.domain.DrillDimension;
+import com.acme.scaffold.workbench.report.domain.ReportRange;
+import com.acme.scaffold.workbench.report.domain.ReportType;
 
 import java.time.LocalDate;
 import java.time.MonthDay;

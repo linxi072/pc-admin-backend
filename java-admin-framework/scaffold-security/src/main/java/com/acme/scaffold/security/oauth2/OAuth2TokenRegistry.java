@@ -1,8 +1,8 @@
 package com.acme.scaffold.security.oauth2;
 
-import com.acme.scaffold.common.api.dto.PageQuery;
-import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.security.oauth2.domain.OAuth2TokenDO;
+import com.acme.scaffold.common.api.domain.PageQuery;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.security.oauth2.domain.OAuth2Token;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -31,5 +31,5 @@ public interface OAuth2TokenRegistry {
     boolean isRevoked(String jti);
 
     /** 分页查询活动令牌（status=ACTIVE 且未过期），可按 clientId / userId 过滤。 */
-    PageResult<OAuth2TokenDO> listActive(PageQuery query, String clientId, Long userId);
+    PageResult<OAuth2Token> listActive(PageQuery query, String clientId, Long userId);
 }

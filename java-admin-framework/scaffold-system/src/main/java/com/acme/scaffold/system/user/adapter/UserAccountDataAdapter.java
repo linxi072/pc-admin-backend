@@ -8,7 +8,7 @@ import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
 import com.acme.scaffold.security.user.UserAccountPatch;
-import com.acme.scaffold.system.user.domain.model.SysUserDO;
+import com.acme.scaffold.system.user.domain.model.SysUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +30,7 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (username == null) {
             return null;
         }
-        SysUserDO u = SqlWriters.fetchOne(dsl, USER, SysUserDO.class,
+        SysUser u = SqlWriters.fetchOne(dsl, USER, SysUser.class,
                 DSL.and(SqlWriters.notDeleted(USER),
                         USER.field("username", String.class).eq(username)));
         return toAccount(u);
@@ -41,11 +41,11 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
         if (id == null) {
             return null;
         }
-        SysUserDO u = SqlWriters.fetchById(dsl, USER, SysUserDO.class, id);
+        SysUser u = SqlWriters.fetchById(dsl, USER, SysUser.class, id);
         return toAccount(u);
     }
 
-    private UserAccount toAccount(SysUserDO u) {
+    private UserAccount toAccount(SysUser u) {
         if (u == null) {
             return null;
         }
@@ -60,7 +60,7 @@ public class UserAccountDataAdapter implements UserAccountDataPort {
             return;
         }
         // 仅非空字段参与更新（SqlWriters.updateById 跳过 null），与 AuthService 的部分补丁语义一致
-        SysUserDO p = new SysUserDO();
+        SysUser p = new SysUser();
         p.setPasswordHash(patch.passwordHash());
         p.setPasswordChangedAt(patch.passwordChangedAt());
         p.setPasswordExpired(patch.passwordExpired());

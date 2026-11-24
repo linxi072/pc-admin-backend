@@ -1,9 +1,9 @@
 package com.acme.scaffold.codegen.service;
 
 import com.acme.scaffold.codegen.config.CodeGenProperties;
-import com.acme.scaffold.codegen.dto.GenOption;
-import com.acme.scaffold.codegen.dto.GeneratedFileVO;
-import com.acme.scaffold.codegen.dto.TableMetaVO;
+import com.acme.scaffold.codegen.domain.GenOption;
+import com.acme.scaffold.codegen.domain.GeneratedFileView;
+import com.acme.scaffold.codegen.domain.TableMetaView;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import java.io.ByteArrayOutputStream;
@@ -31,17 +31,17 @@ public class CodeGenService {
     private final CodeGenProperties props;
 
     /** 生成预览文件列表（顺序：DO → VO → Query → Controller → Service → ServiceImpl → [Vue → api.js]）。 */
-    public List<GeneratedFileVO> preview(GenOption option) {
-        TableMetaVO meta = requireMeta(option.tableName());
+    public List<GeneratedFileView> preview(GenOption option) {
+        TableMetaView meta = requireMeta(option.tableName());
         return CodeTemplates.renderAll(meta, option, props);
     }
 
     /** 打包为 zip（entry 使用建议落盘相对路径，保留目录结构）。 */
     public byte[] downloadZip(GenOption option) {
-        List<GeneratedFileVO> files = preview(option);
+        List<GeneratedFileView> files = preview(option);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try (ZipOutputStream zos = new ZipOutputStream(bos)) {
-            for (GeneratedFileVO f : files) {
+            for (GeneratedFileView f : files) {
                 zos.putNextEntry(new ZipEntry(f.path()));
                 zos.write(f.content().getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 zos.closeEntry();
@@ -58,8 +58,8 @@ public class CodeGenService {
         return "codegen-" + option.tableName().trim() + ".zip";
     }
 
-    private TableMetaVO requireMeta(String tableName) {
-        TableMetaVO meta = tableSchemaService.tableMeta(tableName);
+    private TableMetaView requireMeta(String tableName) {
+        TableMetaView meta = tableSchemaService.tableMeta(tableName);
         if (meta == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "表不存在: " + tableName);
         }

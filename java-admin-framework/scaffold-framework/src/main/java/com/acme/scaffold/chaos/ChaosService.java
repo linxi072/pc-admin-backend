@@ -1,6 +1,6 @@
 package com.acme.scaffold.chaos;
 
-import com.acme.scaffold.chaos.dto.ChaosArmRequest;
+import com.acme.scaffold.chaos.domain.ChaosArmRequest;
 import com.acme.scaffold.chaos.model.ChaosFault;
 import com.acme.scaffold.chaos.model.ChaosFaultType;
 import com.acme.scaffold.common.exception.BusinessException;

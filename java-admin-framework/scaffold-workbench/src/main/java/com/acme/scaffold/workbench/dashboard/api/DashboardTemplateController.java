@@ -1,12 +1,12 @@
 package com.acme.scaffold.workbench.dashboard.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
+import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.workbench.dashboard.application.DashboardTemplateService;
-import com.acme.scaffold.workbench.dashboard.dto.DashboardTemplateVO;
-import com.acme.scaffold.workbench.dashboard.dto.TemplateSaveRequest;
-import com.acme.scaffold.workbench.dashboard.dto.TemplateUpdateRequest;
+import com.acme.scaffold.workbench.dashboard.service.DashboardTemplateService;
+import com.acme.scaffold.workbench.dashboard.domain.DashboardTemplateView;
+import com.acme.scaffold.workbench.dashboard.domain.TemplateSaveRequest;
+import com.acme.scaffold.workbench.dashboard.domain.TemplateUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -62,7 +62,7 @@ public class DashboardTemplateController {
     @Operation(summary = "看板模板详情")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('dashboard:template:manage')")
-    public Result<DashboardTemplateVO> getById(@PathVariable Long id) {
+    public Result<DashboardTemplateView> getById(@PathVariable Long id) {
         return Result.success(templateService.getById(id));
     }
 
@@ -95,7 +95,7 @@ public class DashboardTemplateController {
     @Operation(summary = "看板模板分页（支持编码/名称/状态筛选）")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('dashboard:template:manage')")
-    public Result<PageResult<DashboardTemplateVO>> page(
+    public Result<PageResult<DashboardTemplateView>> page(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String templateCode,

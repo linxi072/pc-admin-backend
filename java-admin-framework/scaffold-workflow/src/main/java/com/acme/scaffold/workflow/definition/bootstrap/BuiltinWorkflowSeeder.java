@@ -1,6 +1,6 @@
 package com.acme.scaffold.workflow.definition.bootstrap;
 
-import com.acme.scaffold.workflow.definition.application.WorkflowDesignService;
+import com.acme.scaffold.workflow.definition.service.WorkflowDesignService;
 import com.acme.scaffold.workflow.definition.dto.design.CreateDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.SaveDesignRequest;
 import com.acme.scaffold.workflow.definition.dto.design.WorkflowDesignView;

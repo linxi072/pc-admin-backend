@@ -1,12 +1,12 @@
 package com.acme.scaffold.system.notifymgmt.api;
 
 import com.acme.scaffold.common.api.Result;
-import com.acme.scaffold.common.api.dto.PageResult;
-import com.acme.scaffold.system.notifymgmt.application.NotificationTemplateService;
-import com.acme.scaffold.system.notifymgmt.dto.CreateNotificationTemplateRequest;
-import com.acme.scaffold.system.notifymgmt.dto.NotificationTemplateView;
-import com.acme.scaffold.system.notifymgmt.dto.PreviewNotificationTemplateRequest;
-import com.acme.scaffold.system.notifymgmt.dto.UpdateNotificationTemplateRequest;
+import com.acme.scaffold.common.api.domain.PageResult;
+import com.acme.scaffold.system.notifymgmt.service.NotificationTemplateService;
+import com.acme.scaffold.system.notifymgmt.domain.CreateNotificationTemplateRequest;
+import com.acme.scaffold.system.notifymgmt.domain.NotificationTemplateView;
+import com.acme.scaffold.system.notifymgmt.domain.PreviewNotificationTemplateRequest;
+import com.acme.scaffold.system.notifymgmt.domain.UpdateNotificationTemplateRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

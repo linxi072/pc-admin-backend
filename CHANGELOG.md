@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 代码结构调整（全项目包结构与命名统一）
+
+- **包结构统一**（按类型归位）：`controller` → `api`（Controller 77 个）、
+  `application` → `service`（Service 94 个）、`dto` → `domain`（View/Request 等，整包改名保证引用自动同步）、
+  9 个错放在 `service`/`vo` 包的 View 归入 `domain`（共 95 个 View 在 domain）。
+  三类旧包残留均为 0；清理 104 个搬迁后空目录。
+- **命名统一**：数据层对象去掉 `DO` 后缀并按表名 PascalCase 命名（如 `SysUserDO` → `SysUser`，
+  57 个）；视图层 `VO` → `View`（23 个）；入参 `DTO`/`Command` → `Request`（4 个）；
+  全项目 `DO`/`VO`/`DTO` 后缀清零，`View` 107 个、`Request` 78 个。
+  改名经同名冲突扫描（0 冲突）并全量同步 import/类型引用（含测试）。
+- **例外说明**：`permission`/`design`/`oauth2`/`audit` 等业务语义包中的 12 个 View 保留原位
+  （其包名按业务域组织而非类型包，与设计器/权限等强耦合，强行迁移收益低风险高）。
+- 验证：后端编译成功、280 例单测全绿（零回归）、质量门禁 7/7 通过（frontend_only 0）。
+
 ## [1.2.0] - 2026-11-23（规划中，版本待发布；本条目跟踪组件库抽取进度）
 
 主题：平台化演进方向 A —— 前端独立组件库包（P1，分两批交付）。

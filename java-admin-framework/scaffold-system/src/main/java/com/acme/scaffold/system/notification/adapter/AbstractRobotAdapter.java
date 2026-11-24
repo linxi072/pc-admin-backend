@@ -5,8 +5,8 @@ import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.common.notification.Channel;
 import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.notification.NotificationPort;
-import com.acme.scaffold.system.config.application.ConfigService;
-import com.acme.scaffold.system.config.dto.ConfigVO;
+import com.acme.scaffold.system.config.service.ConfigService;
+import com.acme.scaffold.system.config.domain.ConfigView;
 import com.acme.scaffold.system.notification.config.AbstractRobotProperties;
 import com.acme.scaffold.system.notification.domain.repository.WebhookClient;
 import com.acme.scaffold.system.notification.domain.rule.RobotPayloads;
@@ -83,7 +83,7 @@ public abstract class AbstractRobotAdapter<P extends AbstractRobotProperties> im
     }
 
     private String configValue(String key) {
-        ConfigVO vo = configService.getByKey(key);
+        ConfigView vo = configService.getByKey(key);
         return vo != null ? vo.configValue() : null;
     }
 }

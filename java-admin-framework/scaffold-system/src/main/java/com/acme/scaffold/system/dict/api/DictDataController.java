@@ -2,10 +2,10 @@ package com.acme.scaffold.system.dict.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.dict.application.DictDataService;
-import com.acme.scaffold.system.dict.dto.CreateDictDataRequest;
-import com.acme.scaffold.system.dict.dto.DictDataVO;
-import com.acme.scaffold.system.dict.dto.UpdateDictDataRequest;
+import com.acme.scaffold.system.dict.service.DictDataService;
+import com.acme.scaffold.system.dict.domain.CreateDictDataRequest;
+import com.acme.scaffold.system.dict.domain.DictDataView;
+import com.acme.scaffold.system.dict.domain.UpdateDictDataRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,7 +32,7 @@ public class DictDataController {
     @Operation(summary = "字典数据列表（按字典类型筛选）")
     @GetMapping
     @PreAuthorize("hasAuthority('system:dict:read')")
-    public Result<List<DictDataVO>> list(@RequestParam(required = false) String dictType) {
+    public Result<List<DictDataView>> list(@RequestParam(required = false) String dictType) {
         return Result.success(dictDataService.listByType(dictType));
     }
 

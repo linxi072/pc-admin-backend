@@ -2,10 +2,10 @@ package com.acme.scaffold.system.dict.api;
 
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.audit.AuditOperation;
-import com.acme.scaffold.system.dict.application.DictTypeService;
-import com.acme.scaffold.system.dict.dto.CreateDictTypeRequest;
-import com.acme.scaffold.system.dict.dto.DictTypeVO;
-import com.acme.scaffold.system.dict.dto.UpdateDictTypeRequest;
+import com.acme.scaffold.system.dict.service.DictTypeService;
+import com.acme.scaffold.system.dict.domain.CreateDictTypeRequest;
+import com.acme.scaffold.system.dict.domain.DictTypeView;
+import com.acme.scaffold.system.dict.domain.UpdateDictTypeRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,7 +32,7 @@ public class DictTypeController {
     @Operation(summary = "字典类型列表")
     @GetMapping
     @PreAuthorize("hasAuthority('system:dict:read')")
-    public Result<List<DictTypeVO>> list() {
+    public Result<List<DictTypeView>> list() {
         return Result.success(dictTypeService.list());
     }
 
