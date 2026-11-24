@@ -31,3 +31,18 @@ export const offlineArticle = (id) => request({ method: 'POST', url: `/api/cms/a
 export const viewArticle = (id) => request({ method: 'POST', url: `/api/cms/article/${id}/view` })
 
 export const pageArticles = (query) => request({ method: 'GET', url: '/api/cms/article/page', params: query })
+
+// ==================== 文章版本历史（C4） ====================
+
+export const listArticleVersions = (id) => request({ method: 'GET', url: `/api/cms/article/${id}/versions` })
+
+export const rollbackArticle = (id, versionNo) =>
+  request({ method: 'POST', url: `/api/cms/article/${id}/rollback`, params: { versionNo } })
+
+// ==================== 草稿预览令牌（C6） ====================
+
+export const createArticlePreviewToken = (id, ttlHours) =>
+  request({ method: 'POST', url: `/api/cms/article/${id}/preview-token`, params: { ttlHours } })
+
+// 注：/api/cms/preview/{token} 为 feature-gate 默认关闭的公开端点（cms.preview.enabled），
+// 供外部免登录预览，前端管理端不消费，故不在本模块登记同形函数（api-contract 豁免）。

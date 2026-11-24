@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
  * 文章更新请求（按 id 选择性更新，null 字段不覆盖）。
@@ -33,6 +34,9 @@ public class ArticleUpdateRequest implements Serializable {
     private String coverUrl;
 
     private String status;
+
+    /** 定时发布时间（C5）：null 表示不排期；置空需配合显式清空策略。 */
+    private LocalDateTime scheduledPublishAt;
 
     public Long getId() {
         return id;
@@ -96,5 +100,13 @@ public class ArticleUpdateRequest implements Serializable {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public LocalDateTime getScheduledPublishAt() {
+        return scheduledPublishAt;
+    }
+
+    public void setScheduledPublishAt(LocalDateTime scheduledPublishAt) {
+        this.scheduledPublishAt = scheduledPublishAt;
     }
 }

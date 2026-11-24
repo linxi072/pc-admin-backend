@@ -386,8 +386,19 @@ public final class SqlTables {
     /** 内容文章（富文本 + 发布态）。逻辑删除（deleted），乐观锁（version）。列名与 V74__cms.sql 严格一致。 */
     public static final TableRef CMS_ARTICLE = new TableRef("cms_article",
             "id", "tenant_id", "category_id", "title", "summary", "content", "author",
-            "cover_url", "status", "view_count", "published_at", "offline_at",
+            "cover_url", "status", "view_count", "published_at", "offline_at", "scheduled_publish_at",
             "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    /** 文章版本快照（C4）：update 前固化，支持版本列表与回滚。列名与 ddl.sql 严格一致。 */
+    public static final TableRef CMS_ARTICLE_VERSION = new TableRef("cms_article_version",
+            "id", "tenant_id", "article_id", "version_no", "category_id", "title", "summary",
+            "content", "author", "cover_url", "status", "view_count", "published_at", "offline_at",
+            "remark", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+
+    /** 草稿预览令牌（C6）：UUID 令牌 + 过期时间。列名与 ddl.sql 严格一致。 */
+    public static final TableRef CMS_PREVIEW_TOKEN = new TableRef("cms_preview_token",
+            "id", "tenant_id", "article_id", "token", "expires_at", "created_by",
+            "version", "deleted", "created_at", "updated_at");
 
     // ---------------- 数据看板模板库（R8，V78） ----------------
 

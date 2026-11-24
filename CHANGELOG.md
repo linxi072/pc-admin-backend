@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### CMS 模块深度扩展 · 迭代二（M2，需求文档 `java-admin-framework/docs/CMS-EVOLUTION-PLAN.md`）
+
+- **C4 版本历史**：新增 `cms_article_version` 表、`CmsArticleVersionService`（update 前固化快照/版本列表/回滚写回）、
+  `ArticleVersionView`；Controller 增 `GET /{id}/versions`、`POST /{id}/rollback`；`CmsVersionRules` 纯函数 + 4 例单测。
+- **C5 定时发布**：`cms_article` 加 `scheduled_publish_at` 列与 Request/View 字段；
+  `CmsArticleRules.resolveInitialStatus/isDueForPublish` 排期规则；`CmsArticleService.publishDue` + `CmsScheduledPublishJob`（`@Scheduled`）；
+  feature-gate `cms.scheduled-publish.enabled` 默认开；2 例单测。
+- **C6 草稿预览令牌**：新增 `cms_preview_token` 表、`CmsPreviewTokenRules`/`Service`；管理端生成令牌 +
+  公开预览端点 `GET /api/cms/preview/{token}`（feature-gate `cms.preview.enabled` 默认关）；4 例单测。
+- **C8 前端**：`src/api/tests/cms.test.js` 17 端点契约测试（6 例）；`cms.js` 增版本/回滚/令牌 3 函数；
+  `zhCN.js` 增 15 条 CMS 文案；3 个 feature-gate 登记入 `FeatureGateRegistry`。
+- 验证：cms 模块 45 例全绿、前端 73 例全绿 + build 成功、质量门禁 7/7（frontend_only 0）。
+
 ### CMS 模块深度扩展 · 迭代一（M1，需求文档 `java-admin-framework/docs/CMS-EVOLUTION-PLAN.md`）
 
 - **C1 规则抽取**：新增 3 个纯函数规则类 `CmsStatusRules`/`CmsArticleRules`/`CmsCategoryRules`，

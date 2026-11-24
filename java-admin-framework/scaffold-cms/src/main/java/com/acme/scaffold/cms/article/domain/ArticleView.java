@@ -28,6 +28,8 @@ public class ArticleView implements Serializable {
 
     private LocalDateTime offlineAt;
 
+    private LocalDateTime scheduledPublishAt;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -129,6 +131,14 @@ public class ArticleView implements Serializable {
 
     public void setOfflineAt(LocalDateTime offlineAt) {
         this.offlineAt = offlineAt;
+    }
+
+    public LocalDateTime getScheduledPublishAt() {
+        return scheduledPublishAt;
+    }
+
+    public void setScheduledPublishAt(LocalDateTime scheduledPublishAt) {
+        this.scheduledPublishAt = scheduledPublishAt;
     }
 
     public LocalDateTime getCreatedAt() {

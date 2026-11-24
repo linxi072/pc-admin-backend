@@ -1,6 +1,6 @@
 # CMS 模块深度扩展需求与迭代计划
 
-> 版本：1.1 · 日期：2026-11-24 · 状态：迭代一（M1）已完成（随迭代同步更新实现一致性）
+> 版本：1.2 · 日期：2026-11-24 · 状态：迭代二（M2）已完成（随迭代同步更新实现一致性）
 > 适用模块：`scaffold-cms`（后端）+ `pc-admin-vue3-vite/src/views/cms`（前端）
 
 ## 1. 现有功能范围与架构约束
@@ -214,14 +214,23 @@
 | C1 规则抽取 | 已完成 | `article/domain/rule/CmsStatusRules`、`CmsArticleRules`、`category/domain/rule/CmsCategoryRules` + Service 委托 | 3 类 21 例规则单测全绿，cms 单测 7→35 | 一（M1） |
 | C2 删除校验+唯一约束 | 已完成 | `CmsCategoryService.delete` 引用计数 + `CmsCategoryRules.canDelete`；`ddl.sql` `uk_cms_category_code` | 4 例删除/编码单测全绿；门禁 7/7 | 一（M1） |
 | C3 导出 | 已完成 | `cms/export/service/CmsArticleExportTask`（code=cms-article，CSV/XLSX/PDF） | 7 例导出单测全绿（含三格式字节产物）；`@Component` 自动注册 | 一（M1） |
-| C4 版本历史 | 待开发 | — | — | — |
-| C5 定时发布 | 待开发 | — | — | — |
-| C6 预览令牌 | 待开发 | — | — | — |
+| C4 版本历史 | 已完成 | `CmsArticleVersionService`/`CmsArticleVersion` + `ArticleVersionView`；Controller `versions`/`rollback` | `CmsVersionRulesTest` 4 例 + 编译通过；update 前固化快照、回滚写回主表 | 二（M2） |
+| C5 定时发布 | 已完成 | `CmsArticleRules.resolveInitialStatus/isDueForPublish`；`scheduled_publish_at` 列/字段；`CmsArticleService.publishDue`；`CmsScheduledPublishJob` | 2 例排期规则单测 + 编译通过；feature-gate `cms.scheduled-publish.enabled` 默认开 | 二（M2） |
+| C6 预览令牌 | 已完成 | `CmsPreviewTokenRules`/`CmsPreviewToken`/`CmsPreviewTokenService`；`CmsArticleController.previewToken` + `CmsPreviewController`（feature-gate 默认关） | `CmsPreviewTokenRulesTest` 4 例 + 编译通过；UUID/24h过期/参数化校验 | 二（M2） |
 | C7 公开查询 | 待开发 | — | — | — |
-| C8 前端测试/i18n | 待开发 | — | — | — |
+| C8 前端测试/i18n | 已完成 | `src/api/tests/cms.test.js`（17 端点契约）+ `cms.js` 3 个新函数 + `zhCN.js` 15 条新文案 | 前端 73 例全绿、build EXIT=0、门禁 frontend_only=0 | 二（M2） |
 
 ### 迭代一验证记录（M1，2026-11-24）
 
 - `mvn -o -pl scaffold-cms -am test`：35 例全绿（规则 21 + 栏目树 7 + 导出 7），Failures=0 Errors=0。
 - `python3 scripts/check-all.py`：门禁 7/7 通过，frontend_only=0，duplicate=0，EXIT=0。
 - DDL 唯一索引 `uk_cms_category_code(tenant_id, category_code)` 已落地；导出任务经 `@SpringBootApplication` 根包扫描自动注册，导出中心 `/templates` 自动可见。
+
+### 迭代二验证记录（M2，2026-11-24）
+
+- `mvn -o -pl scaffold-cms -am test`：45 例全绿（新增 C4 版本规则 4、C5 排期规则 2、C6 令牌规则 4），Failures=0 Errors=0。
+- `python3 scripts/check-all.py`：门禁 7/7 通过，frontend_only=0，duplicate=0，EXIT=0。
+- 前端 `npm test` 73 例全绿（新增 CMS 契约 6 例），`npx vite build` EXIT=0。
+- DDL 新增 `cms_article_version`/`cms_preview_token` 两表 + 索引，`cms_article` 加 `scheduled_publish_at` 列，均已同步 `SqlTables` 注册。
+- **架构说明**：`scaffold-cms` 仅依赖 `scaffold-common`（依赖 DAG 硬约束），`FeatureGateRegistry`（framework 模块）已登记 3 个 CMS 开关元数据，CMS 侧用 `@ConditionalOnProperty` 读配置，无编译期跨模块依赖；`@EnableScheduling` 已在启动类开启。
+- **i18n 说明**：前端 i18n 引擎已移除（App.vue 硬编码 zh-CN、无语言切换机制），故"第二 locale"不适用；C8 改为补齐 `zhCN.js` 的 `cms.*` 新增文案（版本/排期/预览 15 条），以契约测试锁定字典键完整性。

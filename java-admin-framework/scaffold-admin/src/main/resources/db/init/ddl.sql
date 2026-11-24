@@ -897,11 +897,49 @@ CREATE TABLE `cms_article` (
     `view_count`   BIGINT        NOT NULL DEFAULT 0,
     `published_at` TIMESTAMP     NULL,
     `offline_at`   TIMESTAMP     NULL,
+    `scheduled_publish_at` TIMESTAMP NULL,
     `version`      INT           NOT NULL DEFAULT 0,
     `deleted`      INT           NOT NULL DEFAULT 0,
     `created_by`   VARCHAR(64)   NULL,
     `created_at`   TIMESTAMP     NULL,
     `updated_by`   VARCHAR(64)   NULL,
+    `updated_at`   TIMESTAMP     NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `cms_article_version` (
+    `id`           BIGINT        NOT NULL,
+    `tenant_id`    BIGINT        NOT NULL DEFAULT 0,
+    `article_id`   BIGINT        NOT NULL,
+    `version_no`   INT           NOT NULL,
+    `category_id`  BIGINT        NULL,
+    `title`        VARCHAR(255)  NULL,
+    `summary`      VARCHAR(512)  NULL,
+    `content`      TEXT          NULL,
+    `author`       VARCHAR(64)   NULL,
+    `cover_url`    VARCHAR(512)  NULL,
+    `status`       VARCHAR(20)   NULL,
+    `view_count`   BIGINT        NOT NULL DEFAULT 0,
+    `published_at` TIMESTAMP     NULL,
+    `offline_at`   TIMESTAMP     NULL,
+    `remark`       VARCHAR(128)  NULL,
+    `version`      INT           NOT NULL DEFAULT 0,
+    `deleted`      INT           NOT NULL DEFAULT 0,
+    `created_by`   VARCHAR(64)   NULL,
+    `created_at`   TIMESTAMP     NULL,
+    `updated_by`   VARCHAR(64)   NULL,
+    `updated_at`   TIMESTAMP     NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `cms_preview_token` (
+    `id`           BIGINT        NOT NULL,
+    `tenant_id`    BIGINT        NOT NULL DEFAULT 0,
+    `article_id`   BIGINT        NOT NULL,
+    `token`        VARCHAR(64)   NOT NULL,
+    `expires_at`   TIMESTAMP     NOT NULL,
+    `created_by`   VARCHAR(64)   NULL,
+    `version`      INT           NOT NULL DEFAULT 0,
+    `deleted`      INT           NOT NULL DEFAULT 0,
+    `created_at`   TIMESTAMP     NULL,
     `updated_at`   TIMESTAMP     NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -1007,6 +1045,9 @@ CREATE INDEX `idx_cms_category_status` ON `cms_category` (`tenant_id`, `status`)
 CREATE INDEX `idx_cms_article_tenant_category` ON `cms_article` (`tenant_id`, `category_id`);
 CREATE INDEX `idx_cms_article_status` ON `cms_article` (`tenant_id`, `status`);
 CREATE INDEX `idx_cms_article_title` ON `cms_article` (`tenant_id`, `title`);
+CREATE INDEX `idx_cms_article_version_article` ON `cms_article_version` (`tenant_id`, `article_id`, `version_no`);
+CREATE UNIQUE INDEX `uk_cms_preview_token` ON `cms_preview_token` (`token`);
+CREATE INDEX `idx_cms_preview_token_article` ON `cms_preview_token` (`tenant_id`, `article_id`);
 CREATE INDEX `idx_im_conversation_tenant_type` ON `im_conversation` (`tenant_id`, `conversation_type`);
 CREATE INDEX `idx_im_conversation_status` ON `im_conversation` (`tenant_id`, `status`);
 CREATE INDEX `idx_im_member_tenant_conv` ON `im_conversation_member` (`tenant_id`, `conversation_id`);

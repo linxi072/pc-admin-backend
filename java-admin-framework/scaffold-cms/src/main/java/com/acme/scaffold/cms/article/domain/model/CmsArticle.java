@@ -37,6 +37,9 @@ public class CmsArticle {
 
     private LocalDateTime offlineAt;
 
+    /** 定时发布时间（C5）：到达该时刻由调度任务自动发布；null 表示未排期。 */
+    private LocalDateTime scheduledPublishAt;
+
     private Integer version = 0;
 
     private Integer deleted = 0;

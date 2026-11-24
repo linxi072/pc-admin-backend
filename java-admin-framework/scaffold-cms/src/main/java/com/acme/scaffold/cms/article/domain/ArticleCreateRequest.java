@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
  * 文章创建请求。新建文章默认进入 DRAFT 草稿态。
@@ -31,6 +32,9 @@ public class ArticleCreateRequest implements Serializable {
     private String coverUrl;
 
     private String status = "DRAFT";
+
+    /** 定时发布时间（C5）：null 表示不排期。 */
+    private LocalDateTime scheduledPublishAt;
 
     public Long getCategoryId() {
         return categoryId;
@@ -86,5 +90,13 @@ public class ArticleCreateRequest implements Serializable {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public LocalDateTime getScheduledPublishAt() {
+        return scheduledPublishAt;
+    }
+
+    public void setScheduledPublishAt(LocalDateTime scheduledPublishAt) {
+        this.scheduledPublishAt = scheduledPublishAt;
     }
 }

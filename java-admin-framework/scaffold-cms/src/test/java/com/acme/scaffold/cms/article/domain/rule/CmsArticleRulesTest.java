@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 /** 文章规则单测（C1）：栏目引用、作者回退、标题、关键字、排序白名单。 */
@@ -63,5 +64,27 @@ class CmsArticleRulesTest {
     void shouldKeepInnerSpacesInLikePattern() {
         assertEquals("%foo bar%", CmsArticleRules.likePattern(" foo bar "));
         assertEquals("%a%b%", CmsArticleRules.likePattern("a%b"));
+    }
+
+    @Test
+    void shouldResolveScheduledStatus() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 24, 10, 0);
+        LocalDateTime future = now.plusDays(1);
+        LocalDateTime past = now.minusDays(1);
+        assertEquals("SCHEDULED", CmsArticleRules.resolveInitialStatus("DRAFT", future, now));
+        assertEquals("SCHEDULED", CmsArticleRules.resolveInitialStatus(null, future, now));
+        assertEquals("DRAFT", CmsArticleRules.resolveInitialStatus("draft", past, now));
+        assertEquals("PUBLISHED", CmsArticleRules.resolveInitialStatus("published", future, now));
+        assertEquals("DRAFT", CmsArticleRules.resolveInitialStatus("draft", null, now));
+    }
+
+    @Test
+    void shouldDetectDueForPublish() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 24, 10, 0);
+        assertTrue(CmsArticleRules.isDueForPublish("SCHEDULED", now.minusMinutes(1), now));
+        assertTrue(CmsArticleRules.isDueForPublish("SCHEDULED", now, now));
+        assertFalse(CmsArticleRules.isDueForPublish("SCHEDULED", now.plusMinutes(1), now));
+        assertFalse(CmsArticleRules.isDueForPublish("DRAFT", now.minusMinutes(1), now));
+        assertFalse(CmsArticleRules.isDueForPublish("SCHEDULED", null, now));
     }
 }

@@ -1,11 +1,16 @@
 package com.acme.scaffold.cms.article.api;
 
 import com.acme.scaffold.cms.article.service.CmsArticleService;
+import com.acme.scaffold.cms.article.service.CmsArticleVersionService;
+import com.acme.scaffold.cms.article.service.CmsPreviewTokenService;
 import com.acme.scaffold.cms.article.domain.ArticleCreateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleUpdateRequest;
+import com.acme.scaffold.cms.article.domain.ArticleVersionView;
 import com.acme.scaffold.cms.article.domain.ArticleView;
+import com.acme.scaffold.cms.article.domain.PreviewTokenView;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.domain.PageResult;
+import java.util.List;
 import com.acme.scaffold.common.audit.AuditOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class CmsArticleController {
 
     private final CmsArticleService articleService;
+    private final CmsArticleVersionService versionService;
+    private final CmsPreviewTokenService previewTokenService;
 
     @Operation(summary = "创建文章（默认草稿态）")
     @PostMapping
@@ -104,5 +111,29 @@ public class CmsArticleController {
             @RequestParam(required = false) String sortDirection) {
         return Result.success(articleService.page(page, size, categoryId, title, status,
                 sortField, sortDirection));
+    }
+
+    @Operation(summary = "文章版本列表（C4）")
+    @GetMapping("/{id}/versions")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    public Result<List<ArticleVersionView>> versions(@PathVariable Long id) {
+        return Result.success(versionService.listVersions(id));
+    }
+
+    @Operation(summary = "回滚文章到指定版本（C4）")
+    @PostMapping("/{id}/rollback")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    @AuditOperation(module = "cms", type = "UPDATE", name = "回滚文章版本")
+    public Result<Void> rollback(@PathVariable Long id, @RequestParam int versionNo) {
+        versionService.rollback(id, versionNo);
+        return Result.success();
+    }
+
+    @Operation(summary = "生成草稿预览令牌（C6）")
+    @PostMapping("/{id}/preview-token")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    public Result<PreviewTokenView> previewToken(@PathVariable Long id,
+                                                 @RequestParam(required = false) Integer ttlHours) {
+        return Result.success(previewTokenService.generate(id, ttlHours));
     }
 }

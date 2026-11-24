@@ -1,5 +1,6 @@
 package com.acme.scaffold.cms.article.domain.rule;
 
+import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Set;
 
@@ -10,6 +11,9 @@ import java.util.Set;
  * 但字段归一化与白名单口径统一在此，避免多处重复。</p>
  */
 public final class CmsArticleRules {
+
+    /** 定时发布态（C5）。独立于 CmsStatus 三态，避免改变既有合法性判定契约。 */
+    public static final String SCHEDULED = "SCHEDULED";
 
     /** 与 CmsArticleService 的 ARTICLE_SORT_FIELDS 保持一致（小写归一后比较）。 */
     private static final Set<String> SORT_FIELDS = Set.of(
@@ -61,5 +65,25 @@ public final class CmsArticleRules {
         }
         String d = direction.trim().toLowerCase(Locale.ROOT);
         return "asc".equals(d) || "desc".equals(d) ? d : "desc";
+    }
+
+    /**
+     * 排期状态解析（C5）：有排期且未到时刻 → SCHEDULED；否则沿用规范化状态。
+     *
+     * <p>只有请求状态为 DRAFT（或空）时才允许排期接管；显式 PUBLISHED 优先立即发布。</p>
+     */
+    public static String resolveInitialStatus(String status, LocalDateTime scheduledAt, LocalDateTime now) {
+        String normalized = status == null || status.isBlank()
+                ? CmsStatusRules.DRAFT : status.trim().toUpperCase(Locale.ROOT);
+        if (scheduledAt != null && scheduledAt.isAfter(now)
+                && CmsStatusRules.DRAFT.equals(normalized)) {
+            return SCHEDULED;
+        }
+        return normalized;
+    }
+
+    /** 是否到期待发布（C5）：SCHEDULED 态且排期时刻 <= now。 */
+    public static boolean isDueForPublish(String status, LocalDateTime scheduledAt, LocalDateTime now) {
+        return SCHEDULED.equals(status) && scheduledAt != null && !scheduledAt.isAfter(now);
     }
 }

@@ -57,6 +57,7 @@ public class CmsArticleService {
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
     private final EventPublisher eventPublisher;
+    private final CmsArticleVersionService versionService;
 
     /**
      * 创建文章；默认进入 DRAFT 草稿态，所属栏目须存在。
@@ -74,10 +75,13 @@ public class CmsArticleService {
         entity.setContent(req.getContent());
         entity.setAuthor(CmsArticleRules.resolveAuthor(req.getAuthor(), currentOperator()));
         entity.setCoverUrl(req.getCoverUrl());
-        entity.setStatus(CmsStatusRules.normalize(req.getStatus()));
+        entity.setScheduledPublishAt(req.getScheduledPublishAt());
+        LocalDateTime now = LocalDateTime.now();
+        entity.setStatus(CmsArticleRules.resolveInitialStatus(
+                req.getStatus(), req.getScheduledPublishAt(), now));
         boolean published = CmsStatusRules.isPublishable(entity.getStatus());
         if (published) {
-            entity.setPublishedAt(LocalDateTime.now());
+            entity.setPublishedAt(now);
         }
         entity.setViewCount(0L);
         entity.setCreatedBy(currentOperator());
@@ -97,31 +101,39 @@ public class CmsArticleService {
     public void update(ArticleUpdateRequest req) {
         CmsArticle existing = requireExisting(req.getId());
         requireCategory(req.getCategoryId());
+        // C4：更新前固化快照（内容无变化时版本服务内部自动跳过）
+        versionService.snapshot(existing, "更新前快照");
         existing.setCategoryId(req.getCategoryId());
         existing.setTitle(req.getTitle());
         existing.setSummary(req.getSummary());
         existing.setContent(req.getContent());
         existing.setAuthor(req.getAuthor());
         existing.setCoverUrl(req.getCoverUrl());
+        existing.setScheduledPublishAt(req.getScheduledPublishAt());
+        java.util.Set<String> nullColumns = new java.util.HashSet<>();
+        if (req.getScheduledPublishAt() == null) {
+            nullColumns.add("scheduled_publish_at"); // 全量更新语义：未传排期即取消排期
+        }
         boolean becamePublished = false;
-        boolean clearOfflineAt = false;
         if (req.getStatus() != null) {
-            becamePublished = CmsStatusRules.becamePublished(existing.getStatus(), req.getStatus());
-            existing.setStatus(req.getStatus());
+            String targetStatus = CmsArticleRules.resolveInitialStatus(
+                    req.getStatus(), req.getScheduledPublishAt(), LocalDateTime.now());
+            becamePublished = CmsStatusRules.becamePublished(existing.getStatus(), targetStatus);
+            existing.setStatus(targetStatus);
             if (becamePublished) {
                 existing.setPublishedAt(LocalDateTime.now());
             }
-            if (CmsStatusRules.shouldClearOfflineAt(req.getStatus())) {
+            if (CmsStatusRules.shouldClearOfflineAt(targetStatus)) {
                 existing.setOfflineAt(null);
-                clearOfflineAt = true;
+                nullColumns.add("offline_at");
             }
         }
         existing.setUpdatedBy(currentOperator());
-        if (clearOfflineAt) {
-            // updateById 跳过 null 字段，清空 offline_at 必须显式声明置空列。
-            SqlWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
-        } else {
+        if (nullColumns.isEmpty()) {
             SqlWriters.updateById(dsl, ARTICLE, existing.getId(), existing);
+        } else {
+            // updateById 跳过 null 字段，置空列必须显式声明。
+            SqlWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, nullColumns);
         }
         if (becamePublished) {
             publishEvent(existing);
@@ -145,9 +157,11 @@ public class CmsArticleService {
         existing.setStatus("PUBLISHED");
         existing.setPublishedAt(LocalDateTime.now());
         existing.setOfflineAt(null);
+        existing.setScheduledPublishAt(null);
         existing.setUpdatedBy(currentOperator());
-        // 重新发布（OFFLINE → PUBLISHED）必须清除下线时间；updateById 跳过 null，故显式置空。
-        SqlWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing, Set.of("offline_at"));
+        // 重新发布（OFFLINE/SCHEDULED → PUBLISHED）须清下线时间与排期；updateById 跳过 null，故显式置空。
+        SqlWriters.updateByIdWithNulls(dsl, ARTICLE, existing.getId(), existing,
+                Set.of("offline_at", "scheduled_publish_at"));
         publishEvent(existing);
         log.info("文章已发布 articleId={} title={}", existing.getId(), existing.getTitle());
     }
@@ -182,6 +196,36 @@ public class CmsArticleService {
         } catch (RuntimeException e) {
             log.warn("浏览计数更新失败 articleId={}", id, e);
         }
+    }
+
+    /**
+     * 定时发布扫描（C5）：发布所有 SCHEDULED 且排期时刻已到的文章。
+     *
+     * <p>逐条复用 {@link #publish} 的幂等与事件语义；单条失败仅告警不阻塞其余，
+     * 由 {@code CmsScheduledPublishJob} 周期调用。</p>
+     *
+     * @return 本次成功发布的文章数
+     */
+    @Transactional
+    public int publishDue() {
+        LocalDateTime now = LocalDateTime.now();
+        List<CmsArticle> due = SqlWriters.fetchList(dsl, ARTICLE, CmsArticle.class,
+                DSL.and(SqlWriters.notDeleted(ARTICLE),
+                        ARTICLE.field("status", String.class).eq(CmsArticleRules.SCHEDULED),
+                        ARTICLE.field("scheduled_publish_at", LocalDateTime.class).le(now)));
+        int published = 0;
+        for (CmsArticle article : due) {
+            try {
+                publish(article.getId()); // SCHEDULED 非 PUBLISHED，publish 幂等检查不会跳过
+                published++;
+            } catch (RuntimeException e) {
+                log.warn("定时发布失败 articleId={} title={}", article.getId(), article.getTitle(), e);
+            }
+        }
+        if (published > 0) {
+            log.info("定时发布完成 due={} published={}", due.size(), published);
+        }
+        return published;
     }
 
     /** 按 id 查询（含逻辑删除过滤），不存在抛 404。 */
@@ -258,6 +302,7 @@ public class CmsArticleService {
                 e.getCoverUrl(), e.getStatus(), e.getViewCount(), e.getPublishedAt(),
                 e.getCreatedAt(), e.getUpdatedAt());
         v.setOfflineAt(e.getOfflineAt());
+        v.setScheduledPublishAt(e.getScheduledPublishAt());
         return v;
     }
 

@@ -38,7 +38,10 @@ public final class FeatureGateRegistry {
             new Gate("realtime.gateway.enabled", "实时通道网关", true),
             new Gate("realtime.gateway.hmac.enabled", "实时通道 HMAC", false),
             new Gate("kafka.gateway.enabled", "Kafka 网关", false),
-            new Gate("kafka.ordered-consumer.enabled", "Kafka 保序消费", false)
+            new Gate("kafka.ordered-consumer.enabled", "Kafka 保序消费", false),
+            new Gate("cms.scheduled-publish.enabled", "CMS 定时发布", true),
+            new Gate("cms.preview.enabled", "CMS 草稿预览", false),
+            new Gate("cms.public.enabled", "CMS 公开内容查询", false)
     );
 
     private FeatureGateRegistry() {
