@@ -17,7 +17,8 @@ import { rawAxios } from './http'
  * 生产环境由同源后端直接处理根路径探针。
  *
  * @returns {Promise<{ok:boolean, httpStatus:number, status?:string, message?:string, details?:Object, error?:string}>}
- *   ok=false 时携带 error（i18n key：'health.unreachable' | 'health.format'）。
+ *   ok=false 时携带 error（可直接展示的中文诊断信息）。i18n 引擎已移除，不得再返回 i18n key，
+ *   否则 HealthView 会把 'health.unreachable' 之类的字面量直接显示给用户。
  */
 function fetchProbe(url) {
   return rawAxios
@@ -26,7 +27,11 @@ function fetchProbe(url) {
       const data = resp.data
       if (!data || typeof data.status !== 'string') {
         // 响应体非预期结构：通常是代理未生效，浏览器拿到了前端 SPA 兜底 HTML（200）。
-        return { ok: false, httpStatus: resp.status, error: 'health.format' }
+        return {
+          ok: false,
+          httpStatus: resp.status,
+          error: `探针响应格式异常（HTTP ${resp.status}），请检查代理是否已转发该路径`
+        }
       }
       return {
         ok: true,
@@ -36,7 +41,12 @@ function fetchProbe(url) {
         details: data.details || {}
       }
     })
-    .catch((err) => ({ ok: false, httpStatus: 0, error: 'health.unreachable', raw: err.message }))
+    .catch((err) => ({
+      ok: false,
+      httpStatus: 0,
+      error: `探针不可达，请检查后端服务与网络（${err?.message || '未知错误'}）`,
+      raw: err?.message
+    }))
 }
 
 // GET /livez

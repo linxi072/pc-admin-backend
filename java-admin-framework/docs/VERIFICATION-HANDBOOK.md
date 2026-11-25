@@ -553,6 +553,23 @@ npm test -- --run
 # 预期 Test Files 21 passed / Tests 140 passed
 ```
 
+### 3.6t 健康探针错误文案
+
+**目标**：i18n 引擎已移除，健康探针失败必须返回可直接展示的中文诊断，不得泄漏 i18n key。
+
+**验收标准**：`health.test.js` 4 例全过；前端累计 144 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `fetchProbe` | `/livez`、`/readyz` 路径，`validateStatus` 全放行（503 DOWN 合法） |
+| 失败文案 | 格式异常含 HTTP 状态码；网络失败含原始错误；两者都不以 `health.` 开头 |
+
+```bash
+cd pc-admin-vue3-vite
+npm test -- --run
+# 预期 Test Files 22 passed / Tests 144 passed
+```
+
 ---
 
 ## 3.7 组件库（已移除）

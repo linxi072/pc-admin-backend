@@ -4,6 +4,18 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 健康探针失败暴露 i18n key 修复
+
+- **背景**：i18n 引擎已移除（`src/utils/connectivity.js:63` 与验证手册 3.7 均已确认），但
+  `src/api/health.js:29/39` 仍返回 `'health.format'`、`'health.unreachable'` 两个 i18n key，
+  而 `HealthView.vue:42/70` 直接把 `error` 作为 `el-alert` 标题展示。后端宕机或 Vite 代理未转发
+  `/livez`、`/readyz` 时，用户看到的正是最需要诊断信息的故障场景下的一串无意义字面量。
+- **实现**：两处错误改为可直接展示的中文诊断（含 HTTP 状态码 / 原始网络错误），JSDoc 同步声明
+  `error` 是可读文案而非 i18n key；视图零改动，原有 `|| '探针不可达'` 兜底保持兼容。
+- **测试**：新增 `src/api/tests/health.test.js`（4 例），锁定 `/livez`、`/readyz` 路径、
+  `validateStatus` 全放行（503 DOWN 是合法业务态）、格式异常与网络失败的可读文案；
+  前端测试 140 → 144 例全过。
+
 ### 游标分页回退后可再次前进（含单测补齐）
 
 - **背景**：`src/utils/keyset.js:93-101` 的 `goPrev` 注释称「cursors 保留以便再次前进」，但实际只回退
