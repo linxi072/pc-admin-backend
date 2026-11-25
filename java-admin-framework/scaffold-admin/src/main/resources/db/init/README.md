@@ -42,8 +42,10 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
    对空库无净效果，已移除。
 
 其余结构演进（V6 关联表 DROP、后续重建、列下线、V84/V85 表重命名、information_schema
-幂等守卫）全部保留。`dml.sql` 末尾的 `tenant_id` 回填例程为原 `02` 脚本原文，
-仅在「旧库升级 / 导入历史数据」时需要，全新空库为 no-op。
+幂等守卫）全部保留。历史上的 `tenant_id` 回填存储过程（`scaffold_backfill_tenant_id`）
+已在初始化 SQL 规范化时移除；当前 `ddl.sql`/`dml.sql` 只含 CREATE TABLE / INDEX / INSERT，
+不含任何存储过程、函数、触发器或 `DELIMITER` 段。若旧库存在 tenant_id 为 NULL 的孤儿行，
+需在应用侧按租户治理流程逐表修复，不再依赖数据库端例程。
 
 ## 4. 约束与风险
 
@@ -57,8 +59,8 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
   需对每个单元各执行一遍 `ddl.sql` + `dml.sql`。
 - **调度**：Quartz 使用 RAMJobStore，不产生 `QRTZ_*` 表；若切换到 JDBC JobStore，
   需另行导入 Quartz 官方表结构脚本。
-- **客户端**：`dml.sql` 末尾的回填例程含 `DELIMITER $$`，请使用支持该指令的
-  MySQL 客户端（如 `mysql` CLI）；纯初始化可跳过该段。
+- **客户端**：`ddl.sql`/`dml.sql` 均为标准 SQL（无 `DELIMITER $$`、无存储过程体），
+  普通 MySQL 客户端即可执行，无需特殊指令支持。
 
 ## 5. 校验
 

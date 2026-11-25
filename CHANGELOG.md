@@ -4,6 +4,23 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 存储过程迁移核实与初始化 SQL 文档校正
+
+- **核实结论**：应「把所有存储过程改写为后端方法」的要求，对全仓做了逐层核验，确认**当前代码库不存在任何存储过程**：
+  - SQL 脚本仅 `ddl.sql`/`dml.sql` 两个（`db/migration/` 只有 README、Flyway 已移除），`CREATE PROCEDURE/FUNCTION/TRIGGER`、
+    `DELIMITER`、`CALL` 全仓 `.sql` 零命中（唯一 `report-api-call` 为菜单 code 字符串，非 SQL）；
+  - Java 侧 `CallableStatement`/`SimpleJdbcCall`/`@Procedure`/`JdbcTemplate`/`{call ...}` 零命中
+    （`redis.call` 为 Lua、`Callable.call` 为函数式接口，均非数据库存储过程）；
+  - 全仓 18 个 XML 均为构建/日志配置，无 MyBatis mapper XML，动态 SQL 走 `@SelectProvider` 等注解。
+- **历史证据**：`git log` 显示提交 `790d8a3d`（初始化 SQL 规范化）已移除唯一的历史存储过程
+  `scaffold_backfill_tenant_id`（一次性 tenant_id NULL 回填 + 零孤儿断言，属初始化脚手架而非运行时业务逻辑）。
+  其业务语义当前由租户治理与应用侧校验覆盖，无逻辑丢失。
+- **本次改动**：修正 `db/init/README.md` 两处过时描述（45-46 行、60-61 行仍称 dml.sql 末尾有 `DELIMITER $$` 回填例程），
+  明确当前脚本只含 CREATE TABLE/INDEX/INSERT、无数据库端例程，旧库 NULL 孤儿行改由应用侧租户治理流程修复。
+  无存储过程可改写，故无后端方法改写与前后结果对比测试。
+- **影响说明**：项目早已完成"数据库层无自定义逻辑"迁移（MyBatis + 自研 DSL，逻辑全部在 Java 层），
+  本次仅校正文档，不改变运行时行为、不新增文件、不影响性能。
+
 ### 运维监控数据展示增强（异常聚合 + 任务失败原因）
 
 - **背景**：全仓扫描发现两个"后端能力已就绪、前端未展示"的真实缺口：
