@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 实时网关单测补强（scaffold-realtime 零测试覆盖清零）
+
+- **背景**：`scaffold-realtime` 此前无任何测试类，而心跳保活、慢消费者三级处置、背压计数与短期令牌
+  都是 WebSocket 网关的稳定性/安全口径；判定错误会导致误断链、误告警或令牌校验绕过。
+- **实现**：新增 4 个测试类共 19 例：
+  - `HeartbeatPolicyTest`（5 例）：设计默认值、构造时序约束、ping/空闲/路由 TTL 三类到期边界
+    （路由过期用严格大于，恰好 TTL 仍有效）；
+  - `SlowConsumerPolicyTest`（5 例）：默认阈值、构造校验、队列上限边界、实时消息 L1 丢弃 vs
+    关键消息 L2 断链、节点熔断严格高水位；
+  - `BackpressureCounterTest`（4 例）：初始零值、七类事件独立计数、快照不可变、并发 8×1000 原子递增；
+  - `TokenCodecTest`（5 例）：签发/解析往返、载荷篡改与错误密钥拒绝、畸形输入容错，
+    并锁定 `verify` 仅验签、时效由调用方按 `exp` 判定的职责边界。
+- **验证**：单模块 19/19 通过；后端全量测试 419 → 438 例；零生产代码与构建文件改动。
+
 ### 报表下钻规则单测补强（scaffold-workbench 零测试覆盖清零）
 
 - **背景**：`scaffold-workbench` 此前无任何测试类，而 `ReportDrillRules` 负责下钻谓词构建（直接生成

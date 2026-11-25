@@ -399,6 +399,27 @@ python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 
 > 注意：`JOB_EXEC + STATUS` 下钻分支因 `dimensionApplies` 约束当前不可达，测试锁定其退化为不下钻的实际语义。
 
+### 3.6l 实时网关单测补强
+
+**目标**：为 `scaffold-realtime`（此前零测试模块）补齐心跳/慢消费者/背压/令牌单测，防止误断链、误告警或令牌校验绕过。
+
+**验收标准**：4 个测试类共 19 例全过；后端累计 438 例全绿；质量门禁 8/8。
+
+| 测试类 | 覆盖契约 |
+|---|---|
+| `HeartbeatPolicyTest` | 构造时序约束、ping/空闲/路由 TTL 边界（路由用严格大于） |
+| `SlowConsumerPolicyTest` | 队列上限边界、L1 丢弃 vs L2 断链、节点熔断严格高水位 |
+| `BackpressureCounterTest` | 七类事件独立计数、不可变快照、并发原子性 |
+| `TokenCodecTest` | 签发/解析往返、篡改与错误密钥拒绝、畸形输入、`verify` 仅验签职责 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-realtime -am test -Dtest='HeartbeatPolicyTest,SlowConsumerPolicyTest,BackpressureCounterTest,TokenCodecTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 19, Failures: 0, Errors: 0
+mvn -o test          # 预期 438 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
 ---
 
 ## 3.7 组件库（已移除）
