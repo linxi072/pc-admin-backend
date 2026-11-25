@@ -376,6 +376,29 @@ mvn -o test          # 预期 409 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
+### 3.6k 报表下钻规则单测补强
+
+**目标**：为 `scaffold-workbench`（此前零测试模块）补齐下钻谓词与日期解析回归，防止跨表 SQL 或错误筛选。
+
+**验收标准**：`ReportDrillRulesTest` 10 例全过；后端累计 419 例全绿；质量门禁 8/8。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `dimensionApplies` | 维度 × 报表类型适用性矩阵 |
+| `parentCondition` | 空值/不适用维度退化、模块/路径/登录方式/状态的 SQL 与绑定、耗时分桶 |
+| `resolveDay` | 完整日期 → 窗口内 MM-dd → 今日的回落 |
+| `drillTitle` | 六种维度的标题模板与 null 父级 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-workbench -am test -Dtest=ReportDrillRulesTest -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 10, Failures: 0, Errors: 0
+mvn -o test          # 预期 419 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
+> 注意：`JOB_EXEC + STATUS` 下钻分支因 `dimensionApplies` 约束当前不可达，测试锁定其退化为不下钻的实际语义。
+
 ---
 
 ## 3.7 组件库（已移除）

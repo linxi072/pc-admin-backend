@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 报表下钻规则单测补强（scaffold-workbench 零测试覆盖清零）
+
+- **背景**：`scaffold-workbench` 此前无任何测试类，而 `ReportDrillRules` 负责下钻谓词构建（直接生成
+  WHERE 条件）、维度适用性、父级日期解析与标题拼装；谓词错误会造成跨表 SQL 或错误筛选结果。
+- **实现**：新增 `ReportDrillRulesTest`（10 例），锁定：
+  - 维度适用性矩阵（时间/耗时全类型适用，模块/状态/路径仅操作日志视角，登录方式仅登录视角）；
+  - 空父级值或不适用维度退化为 `noCondition`；
+  - 模块/路径/登录方式/状态谓词的 SQL 形态与参数绑定（成功失败映射、中文登录标签映射）；
+  - 耗时分桶六个标签的区间绑定与未知标签退化；
+  - 父级日期「完整日期 → 窗口内 MM-dd → 今日」的回落策略，超长关键字截断与标题模板。
+- **发现（未改生产代码）**：`parentCondition` 中 `JOB_EXEC + STATUS` 分支当前不可达——`dimensionApplies`
+  按设计只允许操作日志视角使用 STATUS 维度；测试锁定实际对外语义（退化为不下钻）。若后续要支持
+  定时任务按状态下钻，需同时放开 `dimensionApplies` 并复核该分支。
+- **验证**：单模块 10/10 通过；后端全量测试 409 → 419 例；零生产代码与构建文件改动。
+
 ### 工作流规则单测补强（scaffold-workflow 零测试覆盖清零）
 
 - **背景**：`scaffold-workflow` 此前无任何测试类，而认领判定、定义/实例挂起激活状态机、
