@@ -227,7 +227,8 @@ import {
   updateOpenApiClient,
   deleteOpenApiClient,
   rotateOpenApiClientSecret,
-  issueClientToken
+  issueClientToken,
+  resolveOAuthErrorMessage
 } from '@/api/openApiClient'
 import { validateOrWarn } from '@/utils/validate'
 
@@ -489,7 +490,9 @@ async function onIssueToken() {
     tokenResult.value = resp.data
     ElMessage.success('令牌签发成功')
   } catch (e) {
-    /* handleHttpError 已统一提示（如「客户端认证失败」） */
+    // issueClientToken 使用 skipAuthErrorHandling，错误不会经过 handleHttpError 的统一提示，
+    // 必须在这里显式提示，否则输错密钥时按钮停转但页面零反馈。
+    ElMessage.error(resolveOAuthErrorMessage(e))
   } finally {
     tokenTesting.value = false
   }

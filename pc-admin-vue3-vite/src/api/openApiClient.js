@@ -72,3 +72,16 @@ export const issueClientToken = (clientId, clientSecret) => {
     skipAuthErrorHandling: true
   })
 }
+
+/**
+ * 把 OAuth2 错误响应解析为可展示文本。
+ *
+ * 该端点走 requestRaw + skipAuthErrorHandling：rawAxios 错误拦截器会直接 reject，
+ * 不经过 handleHttpError 的 ElMessage.error，因此调用方必须显式提示，否则页面零反馈。
+ * 后端错误包络为 { error, error_description }（见 OAuth2EndpointSupport.error）。
+ */
+export function resolveOAuthErrorMessage(error) {
+  const body = error?.response?.data
+  if (typeof body === 'string' && body.trim()) return body
+  return body?.error_description || body?.message || body?.error || error?.message || '令牌签发失败'
+}

@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 开放平台令牌自测失败零反馈修复
+
+- **背景**：`issueClientToken` 走 `requestRaw` 且设置 `skipAuthErrorHandling: true`（401 `invalid_client`
+  是业务校验失败，不应清理管理员登录态或跳登录）。但 `rawAxios` 错误拦截器在这种情况下直接
+  `Promise.reject`，不经过 `handleHttpError` 的 `ElMessage.error`；`OpenApiClientView.onIssueToken`
+  的 catch 为空，且注释误称「handleHttpError 已统一提示」。结果是输错密钥后按钮停转、页面零反馈，
+  用户无法区分认证失败与无响应。
+- **实现**：
+  - `src/api/openApiClient.js` 新增纯函数 `resolveOAuthErrorMessage(error)`，按
+    `error_description → message → error → Error.message → 兜底文案` 解析后端 OAuth2 错误包络；
+  - `OpenApiClientView.onIssueToken` 的 catch 改为 `ElMessage.error(resolveOAuthErrorMessage(e))`，
+    并修正误导性注释；保留 `skipAuthErrorHandling` 与 `http.js` 不变。
+  - 新增 `src/api/tests/openApiClient.test.js`（4 例）：锁定 form-urlencoded 请求形状与错误解析优先级。
+- **验证**：前端测试 118 → 122 例全过；后端 477 例、门禁 29 例与 Vite 构建见提交说明。
+
 ### 分页大小切换未重置页码（5 处）
 
 - **背景**：页码重置工作此前覆盖了筛选回车与「查询」按钮，但遗漏了 `@size-change`。

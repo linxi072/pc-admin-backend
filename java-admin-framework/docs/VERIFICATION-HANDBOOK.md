@@ -481,6 +481,23 @@ mvn -o test          # 预期 477 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
+### 3.6p 开放平台令牌自测错误提示
+
+**目标**：令牌签发失败（如密钥错误返回 401 `invalid_client`）必须在页面显式提示，不得静默。
+
+**验收标准**：`openApiClient.test.js` 4 例全过；前端累计 122 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `issueClientToken` | form-urlencoded 请求体、`skipAuthErrorHandling: true`（不跳登录） |
+| `resolveOAuthErrorMessage` | `error_description → message → error → Error.message → 兜底` 优先级 |
+
+```bash
+cd pc-admin-vue3-vite
+npm test -- --run
+# 预期 Test Files 19 passed / Tests 122 passed
+```
+
 ---
 
 ## 3.7 组件库（已移除）
