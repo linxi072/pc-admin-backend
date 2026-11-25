@@ -9,8 +9,10 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * 由后端返回更细粒度的时间序列或明细。各维度适用的报表类型见 {@code ReportService#drill} 的适用性约束：
  * <ul>
  *   <li>{@link #TIME_DAY}：点击趋势天桶，下钻该日逐小时分布（所有报表类型适用）；</li>
- *   <li>{@link #MODULE} / {@link #STATUS} / {@link #REQUEST_PATH}：基于 {@code sys_operation_log} 的视角
+ *   <li>{@link #MODULE} / {@link #REQUEST_PATH}：基于 {@code sys_operation_log} 的视角
  *       （USAGE / CATEGORY / STATUS / API_CALL）按其字段下钻；</li>
+ *   <li>{@link #STATUS}：操作日志视角按 {@code success} 下钻（USAGE / CATEGORY / STATUS / API_CALL），
+ *       定时任务视角（JOB_EXEC）按 {@code sys_job_log.status} 下钻；</li>
  *   <li>{@link #LOGIN_TYPE}：基于 {@code sys_login_log} 的登录视角（LOGIN）按其字段下钻；</li>
  *   <li>{@link #DURATION}：定时任务视角（JOB_EXEC）按耗时分桶返回明细（其余类型退化为整窗趋势）。</li>
  * </ul>

@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 修复 JOB_EXEC 状态下钻返回未过滤序列
+
+- **背景**：`ReportPanel.vue:432-435` 的状态饼图允许 `JOB_EXEC` 点击发起 `STATUS` 维度下钻，标题为
+  「状态「成功/失败」趋势」；但 `ReportDrillRules.dimensionApplies` 此前只放行操作日志视角，
+  导致 `parentCondition` 中已有的 `sys_job_log.status` 专用谓词不可达，实际返回整窗未过滤序列。
+  图表宣称按状态下钻、数据却未过滤，属误导性结果（此前章节曾把该不可达分支记为「按设计退化」，本批更正）。
+- **实现**：`dimensionApplies` 将 `STATUS` 从 `MODULE/REQUEST_PATH` 组合中拆出，增加 `JOB_EXEC`；
+  `DrillDimension` 文档同步说明 STATUS 的双表语义（操作日志按 `success`，定时任务按 `sys_job_log.status`）。
+  `ReportService` 的 JOB_EXEC 基础条件本就基于 `SYS_JOB_LOG`，无跨表风险。
+- **测试**：`ReportDrillRulesTest` 将原「退化为不下钻」断言改为校验 `status = ?` 与 `SUCCESS`/`FAILED`
+  参数绑定，并补充适用性断言；10/10 通过。
+- **验证**：后端全量 477 例、前端 122 例、门禁 29 例与 Vite 构建见提交说明。
+
 ### 开放平台令牌自测失败零反馈修复
 
 - **背景**：`issueClientToken` 走 `requestRaw` 且设置 `skipAuthErrorHandling: true`（401 `invalid_client`

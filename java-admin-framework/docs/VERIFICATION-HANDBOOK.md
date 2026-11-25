@@ -397,7 +397,8 @@ mvn -o test          # 预期 419 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
-> 注意：`JOB_EXEC + STATUS` 下钻分支因 `dimensionApplies` 约束当前不可达，测试锁定其退化为不下钻的实际语义。
+> 注意：`JOB_EXEC + STATUS` 下钻已修复（见后续批次）——`dimensionApplies` 已放行 JOB_EXEC，
+> 测试锁定 `sys_job_log.status` 的 `SUCCESS`/`FAILED` 参数绑定；本批次的历史断言描述已失效。
 
 ### 3.6l 实时网关单测补强
 

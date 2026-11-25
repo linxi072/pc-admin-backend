@@ -39,9 +39,15 @@ public final class ReportDrillRules {
     public static boolean dimensionApplies(ReportType type, DrillDimension dimension) {
         return switch (dimension) {
             case TIME_DAY, DURATION -> true;
-            case MODULE, STATUS, REQUEST_PATH ->
+            case MODULE, REQUEST_PATH ->
                     type == ReportType.USAGE || type == ReportType.CATEGORY
                             || type == ReportType.STATUS || type == ReportType.API_CALL;
+            // STATUS 同时覆盖定时任务视角：parentCondition 已有 sys_job_log.status 专用谓词，
+            // 前端状态饼图（ReportPanel.onStatusClick）也会对 JOB_EXEC 发起该维度下钻。
+            case STATUS ->
+                    type == ReportType.USAGE || type == ReportType.CATEGORY
+                            || type == ReportType.STATUS || type == ReportType.API_CALL
+                            || type == ReportType.JOB_EXEC;
             case LOGIN_TYPE -> type == ReportType.LOGIN;
         };
     }

@@ -30,7 +30,7 @@ class ReportDrillRulesTest {
 
     @Test
     void logDimensionsApplyOnlyToOperationLogAndLoginViews() {
-        for (DrillDimension d : List.of(DrillDimension.MODULE, DrillDimension.STATUS, DrillDimension.REQUEST_PATH)) {
+        for (DrillDimension d : List.of(DrillDimension.MODULE, DrillDimension.REQUEST_PATH)) {
             assertTrue(ReportDrillRules.dimensionApplies(ReportType.USAGE, d));
             assertTrue(ReportDrillRules.dimensionApplies(ReportType.CATEGORY, d));
             assertTrue(ReportDrillRules.dimensionApplies(ReportType.STATUS, d));
@@ -38,6 +38,9 @@ class ReportDrillRulesTest {
             assertFalse(ReportDrillRules.dimensionApplies(ReportType.JOB_EXEC, d));
             assertFalse(ReportDrillRules.dimensionApplies(ReportType.LOGIN, d));
         }
+        // STATUS 是双表语义：操作日志视角 + 定时任务视角均适用。
+        assertTrue(ReportDrillRules.dimensionApplies(ReportType.JOB_EXEC, DrillDimension.STATUS));
+        assertFalse(ReportDrillRules.dimensionApplies(ReportType.LOGIN, DrillDimension.STATUS));
         assertTrue(ReportDrillRules.dimensionApplies(ReportType.LOGIN, DrillDimension.LOGIN_TYPE));
         assertFalse(ReportDrillRules.dimensionApplies(ReportType.USAGE, DrillDimension.LOGIN_TYPE));
     }
@@ -70,10 +73,12 @@ class ReportDrillRulesTest {
         Condition failure = ReportDrillRules.parentCondition(ReportType.STATUS, DrillDimension.STATUS, "失败");
         assertEquals(List.of(0), failure.binds());
 
-        // STATUS 维度按设计不适用于 JOB_EXEC（仅操作日志视角），应退化为不下钻；
-        // parentCondition 中保留的 JOB_EXEC 分支当前不可达，测试锁定实际对外语义。
-        assertTrue(ReportDrillRules.parentCondition(ReportType.JOB_EXEC, DrillDimension.STATUS, "成功").isEmpty());
-        assertTrue(ReportDrillRules.parentCondition(ReportType.JOB_EXEC, DrillDimension.STATUS, "异常").isEmpty());
+        // 定时任务状态饼图点击应真正过滤 sys_job_log.status，而非退化为整窗未过滤序列。
+        Condition jobSuccess = ReportDrillRules.parentCondition(ReportType.JOB_EXEC, DrillDimension.STATUS, "成功");
+        assertTrue(jobSuccess.sql().contains("status"));
+        assertEquals(List.of("SUCCESS"), jobSuccess.binds());
+        assertEquals(List.of("FAILED"),
+                ReportDrillRules.parentCondition(ReportType.JOB_EXEC, DrillDimension.STATUS, "异常").binds());
     }
 
     @Test
