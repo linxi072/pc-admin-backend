@@ -13,7 +13,7 @@ import {
 } from '../message.js'
 
 // 锁定站内消息 API 全 11 个端点的前后端同形：发送/收件箱（含深翻页兜底）/回执链路。
-// URL 断言用反引号模板串，避免被 api-contract 扫描器误当静态路由。
+// URL 断言与实现保持一致；契约扫描器已排除 src/api/tests/ 夹具目录。
 
 describe('站内消息 API 契约', () => {
   beforeEach(() => vi.clearAllMocks())

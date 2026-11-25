@@ -4,6 +4,25 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 接口契约扫描支持反引号模板 URL（消除历史误报）
+
+- **背景**：`check-api-contract.py` 的 `FRONT_URL_RE` 长期只匹配单/双引号字面量，前端大量
+  `` `/api/.../${id}` `` 反引号模板调用被漏扫，导致 `backend_only` 虚高（本轮修复前 144 条），
+  契约扫描的结论价值被削弱。多轮提交说明已把该限制记为已知信息性偏差。
+- **实现**：
+  - 新增 `FRONT_TEMPLATE_RE` 独立通道纳管反引号模板 URL，`norm_frontend_url()` 将 `${expr}`
+    归一为 `{}`，与后端 `@GetMapping("/{id}")` 的归一化形状对齐；`encodeURIComponent(...)` 等
+    复合表达式同样收敛为单个占位符。
+  - 排除 `src/api/tests/` 夹具目录：单测中的 `r-1`/`pi-1` 等假 ID 不是真实端点，此前用反引号
+    规避扫描；修复后若继续纳入会把它们误报为 `frontend_only` 并破坏 `--strict` 门禁。
+  - 清理 6 处因该限制而写的规避注释/拼接写法，断言恢复直白表达。
+  - 新增 8 例契约扫描单测；`check-all.py` 的 `gate-tests` 步骤改为统一入口
+    `scripts/tests/run_all.py`，一次运行全部门禁脚本单测（现共 21 例）。
+- **效果**：前端引用 191 → 299 条，`backend_only` 144 → 36 条（降幅约 75%），
+  `frontend_only` 保持 0、`duplicate` 0，`--strict` 同样通过。剩余 36 条为 OAuth2 端点、
+  健康探针与尚未接入前端的管理端点，属真实后端-only，非扫描误报。
+- **验证**：门禁单测 21/21 通过；后端 356 例、前端 118 例、Vite 构建与 8/8 门禁均通过。
+
 ### 数据库端例程禁用门禁（防回退）
 
 - **背景**：上一轮已核实当前代码库不存在任何存储过程/函数，但「无过程」只是现状，缺少机制保证后续版本不回退。

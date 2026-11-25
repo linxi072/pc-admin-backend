@@ -5,7 +5,7 @@ check-api-contract.py：前后端契约扫描（信息性检查，重刻版）�
 
 行为：
 - 扫描 14 个 scaffold-*/src/main/java 的 @RequestMapping/@*Mapping 拼装后端路由；
-- 扫描前端 src/api/*.js 中的 '/api/...' 请求路径；
+- 扫描前端 src/api/*.js 中的 '/api/...' 请求路径（含反引号模板字符串中的 ${...} 动态段）；
 - 输出三类差异：frontend_only（前端调用但后端未见）、backend_only（信息性，不必处置）、
   duplicate_backend（后端同路径同方法重复注册）；
 - 默认不阻断；--strict 时 frontend_only 非空返回 1。
@@ -28,9 +28,20 @@ CLASS_BASE_RE = re.compile(r"@RequestMapping\s*\(([^)]*)\)")
 PATH_LITERAL_RE = re.compile(r"[\"']([^\"']+)[\"']")
 # 捕获 HTTP 方法，避免 GET/POST 共享同一类级路径时被误判为重复注册
 METHOD_MAP_RE = re.compile(r"@(Get|Post|Put|Delete|Patch)Mapping(?:\(\s*(?:value\s*=\s*)?[\"']([^\"']*)[\"'])?")
-FRONT_URL_RE = re.compile(r"[\"'](/api/[A-Za-z0-9_\-/${}:.]*)[\"']")
+# 前端 URL 两种写法分开匹配：
+#   1) 单/双引号字面量：'/api/system/users'（沿用原有口径）；
+#   2) 反引号模板字符串：`/api/system/users/${id}`（此前漏扫，导致大量 backend_only 误报）。
+# 模板中的 ${expr} 在 norm_frontend_url 中归一为 {}，与后端 @GetMapping("/{id}") 对齐。
+FRONT_URL_RE = re.compile(r"[\"'](/api/[^\"'\s]*)[\"']")
+FRONT_TEMPLATE_RE = re.compile(r"`(/api/[^`]*)`")
+TEMPLATE_EXPR_RE = re.compile(r"\$\{[^}]*\}")
 
 norm = lambda p: re.sub(r"\{[^}]+\}", "{}", p.rstrip("/"))  # noqa: E731
+
+
+def norm_frontend_url(raw: str) -> str:
+    """把前端 URL 归一到后端路由形状：${expr} → {}（含 encodeURIComponent(...) 等复合表达式）。"""
+    return norm(TEMPLATE_EXPR_RE.sub("{}", raw))
 
 
 def class_bases(text: str) -> list:
@@ -71,22 +82,26 @@ def backend_routes() -> dict:
 def frontend_urls() -> dict:
     urls = {}
     for path in walk_files(FRONTEND_ROOT, (".js",), skip_dirs=(".git", "node_modules", "dist")):
-        if "/src/api/" not in path.replace("\\", "/"):
+        norm_path = path.replace("\\", "/")
+        # src/api/tests/ 下为单测契约断言（含 r-1 / pi-1 等假 ID），不是真实 API 定义，必须排除，
+        # 否则模板串支持开启后会把这些夹具值误报为 frontend_only 并破坏 --strict 门禁。
+        if "/src/api/" not in norm_path or "/src/api/tests/" in norm_path:
             continue
         text = read_text(path)
         # 注释里的 URL 示例（如 "// GET /api/system/files/page -> ..."）不是真实请求，先剥离注释再扫描，
         # 否则类级前缀 "/api/system/files" 会被误当独立端点而报 frontend_only。
         text = re.sub(r"//[^\n]*", "", text)
         text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-        for m in FRONT_URL_RE.finditer(text):
-            raw = m.group(1)
+        matches = [(m, m.group(1)) for m in FRONT_URL_RE.finditer(text)]
+        matches += [(m, m.group(1)) for m in FRONT_TEMPLATE_RE.finditer(text)]
+        for m, raw in matches:
             # 字符串以 '/' 结尾且紧接 '+' 拼接变量（如 '/api/system/files/download/' + id），
             # 是动态路径段，补 {} 与后端 @GetMapping("/download/{id}") 的 norm 结果对齐。
             tail = text[m.end():m.end() + 12]
             if raw.endswith("/") and re.match(r"\s*\+\s*[A-Za-z_$]", tail):
-                u = norm(raw + "{}")
+                u = norm_frontend_url(raw + "{}")
             else:
-                u = norm(raw)
+                u = norm_frontend_url(raw)
             urls.setdefault(u, os.path.relpath(path, FRONTEND_ROOT))
     return urls
 

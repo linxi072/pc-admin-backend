@@ -42,16 +42,20 @@ npm run build                           # 预期 ✓ built in ...s
 
 ### 3.1 质量门禁 / 接口契约
 
-**优化目标**：契约扫描覆盖类级 `@RequestMapping` 数组形式、前端拼接 URL；`frontend_only` 归零。
+**优化目标**：契约扫描覆盖类级 `@RequestMapping` 数组形式、前端拼接 URL 与反引号模板串 `${...}`；
+`frontend_only` 归零，排除 `src/api/tests/` 夹具目录避免假 ID 误报。
 **验收标准**：`python3 scripts/check-api-contract.py --strict` → `EXIT=0`，输出 `frontend_only 0；duplicate 0`。
 
 ```bash
 cd java-admin-framework
 python3 scripts/check-api-contract.py --strict
 # 预期末行：[check-api-contract] EXIT=0
-# 预期汇总：后端路由 370 条；前端引用 184 条；frontend_only 0；duplicate 0
+# 预期汇总：后端路由 389 条；前端引用 299 条；frontend_only 0；duplicate 0
+# 参考：backend_only 36 条（修复前 144），剩余为 OAuth2/探针/未接入端点
 python3 scripts/check-all.py --strict
 # 预期 check-all EXIT=0（契约步升级为阻断同样通过）
+python3 scripts/tests/run_all.py
+# 预期 21 例门禁脚本单测全过（契约扫描 8 例 + 存储过程禁用 13 例）
 ```
 
 ### 3.2 安全模块（JWT 租户 / 验证码 / 防重放 / 登录锁定）

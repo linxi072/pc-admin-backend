@@ -38,7 +38,6 @@ describe('API_BASE', () => {
   it('默认值是同源相对路径（空串），不含任何 host', () => {
     expect(API_BASE).toBe('')
     expect(API_BASE).not.toMatch(/^https?:\/\//)
-    // 用拼接避免字面量被 api-contract 扫描器误识别为前端路由引用
-    expect(API_BASE).not.toContain('/' + 'api')
+    expect(API_BASE).not.toContain('/api')
   })
 })

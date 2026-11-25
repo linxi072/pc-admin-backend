@@ -39,7 +39,7 @@ STEPS = [
     ("cluster-layout", "check-cluster-layout.py", True),
     ("permission", "check-permission.py", True),
     ("no-procedure", "check-no-procedure.py", True),
-    ("gate-tests", "tests/test_check_no_procedure.py", True),
+    ("gate-tests", "tests/run_all.py", True),
     ("api-contract", "check-api-contract.py", False),
 ]
 

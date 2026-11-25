@@ -33,8 +33,7 @@ import {
 } from '../cms.js'
 
 // C8：锁定 CMS 前后端 22 个管理端点的 URL / 方法 / 参数同形（含 C9 回收站 4 个 + C10 排序 1 个）。
-// URL 断言一律用反引号模板字符串（与 src/api/cms.js 实现一致），避免被 api-contract
-// 扫描器误当静态路由（FRONT_URL_RE 只匹配单/双引号字面量）。
+// URL 断言与 src/api/cms.js 实现保持一致；契约扫描器已排除 src/api/tests/ 夹具目录。
 // 公开端点 /api/cms/preview/{token} 与 /api/cms/public/articles 均为 feature-gate 默认关闭的
 // 外部 API（分别受 cms.preview.enabled / cms.public.enabled 控制），前端管理端不消费，属豁免。
 

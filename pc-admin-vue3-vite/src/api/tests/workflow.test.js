@@ -17,8 +17,7 @@ import {
 } from '../workflow.js'
 
 // 锁定工作流 API 全部 27 个端点的前后端同形（方法/URL/参数形状）。
-// URL 断言一律用反引号模板字符串（与 src/api/workflow.js 实现一致），避免被 api-contract
-// 扫描器误当静态路由（FRONT_URL_RE 只匹配单/双引号字面量）。
+// URL 断言与 src/api/workflow.js 实现保持一致；契约扫描器已排除 src/api/tests/ 夹具目录。
 
 describe('工作流 API 契约', () => {
   beforeEach(() => vi.clearAllMocks())
