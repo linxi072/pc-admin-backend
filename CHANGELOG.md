@@ -4,6 +4,17 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 报表导出失败不再抹掉已加载报表
+
+- **背景**：`ReportPanel.vue:338-379` 的 `download()` 在四类失败分支（无文件内容、空内容、
+  JSON 业务错误、异常）都写入页面主错误状态 `error.value`；而模板 `v-if="error"` 会用「错误提示 +
+  重试按钮」替换整个报表正文。导出只是旁路操作，失败却会让用户丢失已加载的统计图表与明细，
+  必须点「重试」重新查询才能恢复。该组件被 JOB_EXEC / LOGIN / API_CALL 三个报表页复用。
+- **实现**：四处 `error.value = ...` 改为 `ElMessage.error(...)`；导出成功提示、主加载流程与 API 契约不变。
+- **防回归**：新增 `scripts/tests/test_frontend_export_consistency.py`（4 例），扫描所有 `.vue` 的
+  `download`/`onExport*`/`export*` 函数体，禁止写入 `error.value`；门禁单测现 33 例。
+- **验证**：门禁单测 33/33 通过；后端 477 例、前端 130 例与 Vite 构建见提交说明。
+
 ### 前端 CSV 导出补齐公式注入防护（CWE-1236）
 
 - **背景**：后端 `CsvExporter.neutralizeFormula` 已对 `= + - @`、Tab、CR 开头的单元格前置单引号，

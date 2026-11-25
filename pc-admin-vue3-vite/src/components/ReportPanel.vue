@@ -344,12 +344,12 @@ async function download() {
     // 正常导出才是 CSV Blob——非 Blob 一律显式包装，杜绝 createObjectURL 类型不匹配。
     const raw = resp?.data
     if (raw == null) {
-      error.value = '导出失败：服务端未返回文件内容'
+      ElMessage.error('导出失败：服务端未返回文件内容')
       return
     }
     const blob = raw instanceof Blob ? raw : new Blob([raw])
     if (!blob.size) {
-      error.value = '导出内容为空'
+      ElMessage.error('导出内容为空')
       return
     }
     if (blob.type && blob.type.includes('application/json')) {
@@ -358,7 +358,7 @@ async function download() {
       try {
         msg = JSON.parse(text).message || msg
       } catch (e) { /* 非 JSON 错误体，保留通用文案 */ }
-      error.value = msg
+      ElMessage.error(msg)
       return
     }
     // 复用 utils/download 的 parseFileName（支持 RFC 5987 filename*，中文报表名不回退硬编码名）
@@ -373,7 +373,7 @@ async function download() {
     URL.revokeObjectURL(url)
     ElMessage.success(`已导出：${filename}`)
   } catch (e) {
-    error.value = e.message || '导出失败'
+    ElMessage.error(e.message || '导出失败')
   } finally {
     exporting.value = false
   }

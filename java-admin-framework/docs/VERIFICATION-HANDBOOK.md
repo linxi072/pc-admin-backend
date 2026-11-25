@@ -55,7 +55,7 @@ python3 scripts/check-api-contract.py --strict
 python3 scripts/check-all.py --strict
 # 预期 check-all EXIT=0（契约步升级为阻断同样通过）
 python3 scripts/tests/run_all.py
-# 预期 29 例门禁脚本单测全过（契约扫描 8 + 存储过程禁用 13 + 前端分页/搜索一致性 8）
+# 预期 33 例门禁脚本单测全过（契约扫描 8 + 存储过程禁用 13 + 前端分页/搜索一致性 8 + 导出一致性 4）
 ```
 
 ### 3.2 安全模块（JWT 租户 / 验证码 / 防重放 / 登录锁定）
@@ -515,6 +515,24 @@ npm test -- --run
 cd pc-admin-vue3-vite
 npm test -- --run
 # 预期 Test Files 20 passed / Tests 130 passed
+```
+
+### 3.6r 报表导出失败状态隔离
+
+**目标**：导出失败只提示，不得写入页面主错误状态而抹掉已加载的报表正文。
+
+**验收标准**：导出一致性静态测试 4 例全过；门禁单测累计 33 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `ReportPanel.download()` | 四类失败分支改用 `ElMessage.error`，保留 `error.value` 给主加载流程 |
+| 静态检测 | `download`/`onExport*`/`export*` 函数体禁止 `error.value =`；`load()` 不受限 |
+
+```bash
+cd java-admin-framework
+python3 scripts/tests/test_frontend_export_consistency.py
+# 预期 Ran 4 tests ... OK
+python3 scripts/check-all.py   # 预期 EXIT=0，9/9 通过
 ```
 
 ---
