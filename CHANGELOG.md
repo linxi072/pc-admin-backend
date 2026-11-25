@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 游标分页回退后可再次前进（含单测补齐）
+
+- **背景**：`src/utils/keyset.js:93-101` 的 `goPrev` 注释称「cursors 保留以便再次前进」，但实际只回退
+  index 并清空 `nextCursor`；`canGoNext` 仅判断 `nextCursor`，`goNext` 也只压入 `nextCursor`，
+  页栈中已有的 `cursors[index+1]` 从未用于前进。因此 `OperationLogView` 用户在第 3 页点「上一页」后，
+  若回看重载失败（`:424` 把 nextCursor 置空），「下一页」按钮永久禁用，深翻页回看后无法恢复。
+  模块头注释声称「被离线单测覆盖」，仓库实际没有 keyset 测试文件。
+- **实现**：`canGoNext` 与 `goNext` 改为「本页 `nextCursor` 优先，否则用页栈保留的更深层游标」，
+  新游标仍会覆盖旧值；视图与 API 零改动。
+- **测试**：新增 `src/utils/tests/keyset.test.js`（10 例），覆盖 OFFSET 阈值切换、护栏错误识别、
+  栈归一容错、多层前进、回退后再前进、回看失败后恢复、新游标优先等；前端测试 130 → 140 例全过。
+- **验证**：门禁 33 例与后端 477 例均通过，详见提交说明。
+
 ### 报表导出失败不再抹掉已加载报表
 
 - **背景**：`ReportPanel.vue:338-379` 的 `download()` 在四类失败分支（无文件内容、空内容、

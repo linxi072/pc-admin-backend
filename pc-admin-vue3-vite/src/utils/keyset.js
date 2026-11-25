@@ -81,12 +81,17 @@ export function setNextCursor(stack, nextCursor) {
   return { ...s, nextCursor: nextCursor || '' }
 }
 
-/** 进入下一页：把 nextCursor 压栈作为新页起始游标；无下一页时原样返回。 */
+/**
+ * 进入下一页：优先用本页响应返回的 nextCursor；为空时用页栈中已记录的更深层游标。
+ * 后者用于「上一页 → 再次前进」：goPrev 会清空 nextCursor 但保留 cursors，
+ * 若只认 nextCursor，回看后再也前进不了（回看时重载失败尤其明显）。
+ */
 export function goNext(stack) {
   const s = normalizeStack(stack)
-  if (!s.nextCursor) return s
+  const cursor = s.nextCursor || s.cursors[s.index + 1]
+  if (!cursor) return s
   const cursors = s.cursors.slice(0, s.index + 1)
-  cursors.push(s.nextCursor)
+  cursors.push(cursor)
   return { cursors, index: s.index + 1, nextCursor: '' }
 }
 
@@ -97,8 +102,10 @@ export function goPrev(stack) {
   return { ...s, index: s.index - 1, nextCursor: '' }
 }
 
+/** 是否可前进：本页 nextCursor 或页栈中已保留的更深层游标任一存在即可。 */
 export function canGoNext(stack) {
-  return Boolean(normalizeStack(stack).nextCursor)
+  const s = normalizeStack(stack)
+  return Boolean(s.nextCursor || s.cursors[s.index + 1])
 }
 
 export function canGoPrev(stack) {

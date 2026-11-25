@@ -535,6 +535,24 @@ python3 scripts/tests/test_frontend_export_consistency.py
 python3 scripts/check-all.py   # 预期 EXIT=0，9/9 通过
 ```
 
+### 3.6s 游标分页页栈回退再前进
+
+**目标**：深翻页回看后必须能再次前进，回看重载失败也不得让「下一页」永久禁用。
+
+**验收标准**：`keyset.test.js` 10 例全过；前端累计 140 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `canGoNext` / `goNext` | `nextCursor` 优先，否则用 `cursors[index+1]` 保留游标；无游标原样返回 |
+| `goPrev` / `canGoPrev` | 只回退下标、保留更深层游标 |
+| 其余纯函数 | OFFSET 软阈值、护栏错误识别、非法栈归一、页码 |
+
+```bash
+cd pc-admin-vue3-vite
+npm test -- --run
+# 预期 Test Files 21 passed / Tests 140 passed
+```
+
 ---
 
 ## 3.7 组件库（已移除）
