@@ -4,6 +4,18 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 通知记录 TraceId 链路跳转（运维排障联动）
+
+- **背景**：`NotificationRecordView.vue:143` 的 TraceId 为纯文本展示，而操作日志页 `OperationLogView.vue:180`
+  已将同源 traceId（`NotificationRecordRecorder.java:113` 写入 `MDC.get("traceId")`）做成 `el-link` + 链路抽屉，
+  可从一次请求的操作序列定位通知失败原因；通知记录页缺失同款入口，排障需手工跨页查 traceId。
+- **前端**（单文件改动，零后端改动、零新权限）：TraceId 列改为 `el-link` 点击调用 `auditLogTrace(traceId)`，
+  新增与操作日志页同口径的操作链路抽屉（时间/模块/操作/错误码），loading 防重复、空态提示、
+  错误由 http 响应拦截器统一提示。
+- **说明**：多轮调研确认的其余孤儿端点（`jobDetail`/`getAlertRule`/`maskStrategy` 详情）均因列表已返回完整 DTO
+  而属有意冗余，未接入以免制造重复入口；`getCacheStats`/`clearCache`/`getPoolStats` 已有专用视图消费，非缺口。
+- 验证：前端测试/构建、后端全量测试与门禁见提交说明。
+
 ### 存储过程迁移核实与初始化 SQL 文档校正
 
 - **核实结论**：应「把所有存储过程改写为后端方法」的要求，对全仓做了逐层核验，确认**当前代码库不存在任何存储过程**：

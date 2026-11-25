@@ -140,7 +140,14 @@
             <span v-else class="muted">{{ '系统' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="traceId" label="TraceId" width="150" show-overflow-tooltip />
+        <el-table-column label="TraceId" width="150">
+          <template #default="{ row }">
+            <el-link v-if="row.traceId" type="primary" :underline="false" @click="openTrace(row.traceId)">
+              {{ row.traceId }}
+            </el-link>
+            <span v-else class="muted">--</span>
+          </template>
+        </el-table-column>
       </el-table>
 
       <div class="pager">
@@ -156,6 +163,24 @@
       </div>
       <div class="hint">{{ '默认查询最近 7 天记录；覆盖 IN_APP/WEBHOOK/WEBSOCKET/EMAIL/SMS 全渠道的每次投递尝试（含被拒、失败与跳过），标题/正文为摘要、接收方已掩码；短信网关对账请到「短信记录」页；「来源模板」为 M11 按模板发送回填，直发为空；「已跳过」为 M13 通知偏好生效——定向接收者全部退订该类型，非故障、不计入失败率；「聚合中」为 M17 聚合摘要生效——命中类型的定向消息已合并进摘要队列等待阈值/限时合并投递，属独立生命周期态、不计入失败率，且原消息不单独投递。' }}</div>
     </el-card>
+
+    <!-- TraceId 操作链路抽屉：与操作日志页同口径，展示同一请求的操作序列 -->
+    <el-drawer v-model="traceVisible" :title="`操作链路 · ${activeTraceId}`" size="480px">
+      <el-table :data="traceRows" v-loading="traceLoading" border stripe size="small">
+        <el-table-column prop="occurredAt" :label="'时间'" width="170" />
+        <el-table-column prop="moduleCode" :label="'模块'" width="90" />
+        <el-table-column prop="operationName" :label="'操作'" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="resultCode" :label="'错误码'" width="110">
+          <template #default="{ row }">
+            <el-tag v-if="row.resultCode" type="danger" size="small">{{ row.resultCode }}</el-tag>
+            <span v-else class="muted">--</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div v-if="!traceLoading && traceRows.length === 0" class="muted trace-empty">
+        {{ '该链路暂无审计操作记录' }}
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -165,12 +190,18 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Download } from '@element-plus/icons-vue'
 import { pageNotificationRecords, notificationRecordSummary } from '@/api/notificationRecord'
+import { auditLogTrace } from '@/api/audit'
 import { toCsv, downloadCsv } from '@/utils/csv'
 
 const loading = ref(false)
 const rows = ref([])
 const total = ref(0)
 const summary = ref({})
+// TraceId 操作链路抽屉
+const traceVisible = ref(false)
+const traceLoading = ref(false)
+const traceRows = ref([])
+const activeTraceId = ref('')
 const dateRange = ref([])
 const query = reactive({
   page: 1,
@@ -304,6 +335,22 @@ function onExportCsv() {
   ElMessage.success(`已导出 ${data.length} 行`)
 }
 
+/** 点击 TraceId 查看同一请求的操作链路（与操作日志页同口径）。 */
+async function openTrace(traceId) {
+  if (!traceId) return
+  activeTraceId.value = traceId
+  traceVisible.value = true
+  traceLoading.value = true
+  traceRows.value = []
+  try {
+    traceRows.value = (await auditLogTrace(traceId)) || []
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理
+  } finally {
+    traceLoading.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -335,6 +382,7 @@ onMounted(load)
 .muted { color: #c0c4cc; }
 .error-text { color: #f56c6c; }
 .skip-text { color: #e6a23c; }
+.trace-empty { font-size: 12px; text-align: center; padding: 16px 0; }
 .hint {
   font-size: 12px;
   color: #a8abb2;
