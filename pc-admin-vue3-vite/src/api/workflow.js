@@ -93,6 +93,16 @@ export const monitorStats = () =>
 export const remindTask = (taskId) =>
   request({ method: 'POST', url: `/api/workflow/monitor/tasks/${taskId}/remind` })
 
+// POST /api/workflow/monitor/definitions/{processDefinitionId}/suspend -> void
+// 挂起流程定义：阻止新实例发起，不影响在途实例
+export const suspendDefinition = (processDefinitionId) =>
+  request({ method: 'POST', url: `/api/workflow/monitor/definitions/${processDefinitionId}/suspend` })
+
+// POST /api/workflow/monitor/definitions/{processDefinitionId}/activate -> void
+// 激活流程定义：恢复新实例发起能力
+export const activateDefinition = (processDefinitionId) =>
+  request({ method: 'POST', url: `/api/workflow/monitor/definitions/${processDefinitionId}/activate` })
+
 // ---------------- 流程实例治理（M23 续 /api/workflow/admin） ----------------
 
 // POST /api/workflow/admin/instances/{processInstanceId}/reassign?toUserId= -> void

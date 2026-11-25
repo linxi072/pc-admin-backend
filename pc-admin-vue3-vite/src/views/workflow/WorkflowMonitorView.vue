@@ -188,6 +188,24 @@
             </el-table-column>
             <el-table-column prop="id" :label="'定义 ID'" min-width="220" show-overflow-tooltip />
             <el-table-column prop="deploymentId" :label="'部署 ID'" min-width="180" show-overflow-tooltip />
+            <el-table-column :label="'操作'" width="100" align="center" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  v-if="!row.suspended"
+                  link
+                  type="warning"
+                  :loading="definitionActionId === row.id"
+                  @click="onToggleDefinition(row, 'suspend')"
+                >{{ '挂起' }}</el-button>
+                <el-button
+                  v-else
+                  link
+                  type="success"
+                  :loading="definitionActionId === row.id"
+                  @click="onToggleDefinition(row, 'activate')"
+                >{{ '激活' }}</el-button>
+              </template>
+            </el-table-column>
           </el-table>
           <el-empty v-if="!versionLoading && versionRows.length === 0" :description="'选择流程定义查看版本链'" />
         </el-tab-pane>
@@ -196,7 +214,7 @@
       <div class="hint">
         监控数据以引擎与业务扩展表为准：超时判定取任务到期时间（BPMN 配置），停留时长按发起时间累计；
         催办受服务端最小间隔约束（默认 30 分钟，{@code app.workflow.monitor.remind-min-interval-minutes} 可配），
-        记录写入审批流水（action=REMIND）。
+        记录写入审批流水（action=REMIND）。定义版本链可挂起/激活流程定义（阻止或恢复新实例发起，不影响在途实例）。
       </div>
     </el-card>
   </div>
@@ -205,7 +223,7 @@
 <script setup>
 
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Refresh, Bell } from '@element-plus/icons-vue'
 import {
   runningInstances,
@@ -213,7 +231,9 @@ import {
   definitionVersions,
   monitorStats,
   remindTask,
-  listDefinitions
+  listDefinitions,
+  suspendDefinition,
+  activateDefinition
 } from '@/api/workflow'
 
 const activeTab = ref('instances')
@@ -322,6 +342,7 @@ const versionLoading = ref(false)
 const versionRows = ref([])
 const versionKey = ref('')
 const definitions = ref([])
+const definitionActionId = ref(null)
 
 async function loadVersions() {
   if (!versionKey.value) {
@@ -333,6 +354,35 @@ async function loadVersions() {
     versionRows.value = (await definitionVersions(versionKey.value)) || []
   } finally {
     versionLoading.value = false
+  }
+}
+
+/** 挂起/激活流程定义：二次确认后调用端点，成功刷新版本链；404/409 由 http 拦截器统一提示。 */
+async function onToggleDefinition(row, action) {
+  if (definitionActionId.value != null) return
+  const isSuspend = action === 'suspend'
+  const confirmed = await ElMessageBox.confirm(
+    isSuspend
+      ? `确认挂起流程定义「${row.name || row.key}」v${row.version} 吗？挂起后无法发起新实例，在途实例不受影响。`
+      : `确认激活流程定义「${row.name || row.key}」v${row.version} 吗？激活后恢复新实例发起能力。`,
+    '提示',
+    { type: isSuspend ? 'warning' : 'info', confirmButtonText: isSuspend ? '确认挂起' : '确认激活', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  definitionActionId.value = row.id
+  try {
+    if (isSuspend) {
+      await suspendDefinition(row.id)
+      ElMessage.success('流程定义已挂起')
+    } else {
+      await activateDefinition(row.id)
+      ElMessage.success('流程定义已激活')
+    }
+    await loadVersions()
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理（含不存在/状态冲突的 404/409）
+  } finally {
+    definitionActionId.value = null
   }
 }
 

@@ -4,6 +4,18 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 工作流监控补齐流程定义挂起/激活前端闭环
+
+- **背景**：后端 `WorkflowMonitorController` 已有 `POST /definitions/{id}/suspend|activate`（权限 `workflow:definition:state`、
+  审计、404/409 幂等守卫），但前端 `workflow.js` 无同形函数、监控页「定义版本链」表格仅有状态列无操作入口，
+  两个端点长期为 backend_only（信息性），管理员无法从界面挂起/激活定义。
+- **前端**：`workflow.js` 新增 `suspendDefinition`/`activateDefinition`；`WorkflowMonitorView.vue` 定义版本链表格加操作列
+  （活跃显示「挂起」、已挂起显示「激活」），二次确认后调用端点并刷新版本链，loading 防重复点击，错误由 http 拦截器统一提示。
+- **测试**：新建 `src/api/tests/workflow.test.js`（3 例：定义挂起/激活同形、实例挂起/恢复回归、统一 request 通道）。
+- 验证：前端 `npm test` 82 例全绿（新增 3 例）、`vite build` EXIT=0；门禁 7/7、`frontend_only=0`、`duplicate=0`。
+- 说明：两个端点含路径参数（`{processDefinitionId}`），api-contract 扫描器正则仅识别引号字面量、不匹配反引号模板字符串，
+  故仍列为 backend_only（信息性），与既有 `cms/article/{}/delete` 等动态端点表现一致，非本次缺陷；前端已同形接入并由契约测试锁定。
+
 ### CMS 发布权限码补齐（盘点表"权限码未入菜单种子/前端 meta 未体现"完善）
 
 - **背景**：后端 `CmsArticleController` 的发布/下线端点已用 `cms:article:publish`，但菜单种子仅有 `cms:article:manage`，
