@@ -1,10 +1,14 @@
 import { reactive } from 'vue'
 
 const TOKEN_KEY = 'pc_admin_token'
+const REFRESH_KEY = 'pc_admin_refresh_token'
 const USER_KEY = 'pc_admin_user'
 
 export const authState = reactive({
   token: localStorage.getItem(TOKEN_KEY) || '',
+  // 刷新令牌（AUTH 会话续期）：登录/刷新成功后落库，401 时用于换取新令牌；
+  // 旧会话（升级前无此字段）为空，此时 401 仍按既有逻辑直接登出，保持向后兼容。
+  refreshToken: localStorage.getItem(REFRESH_KEY) || '',
   username: localStorage.getItem(USER_KEY) || '',
   // 当前登录用户「按角色动态加载」的菜单树（来自 GET /api/system/menus/mine），
   // 驱动侧边栏渲染与路由守卫鉴权；非前端硬编码。
@@ -18,21 +22,27 @@ export function isAuthenticated() {
   return !!authState.token
 }
 
-export function setAuth(token, username) {
+export function setAuth(token, username, refreshToken) {
   authState.token = token
+  // 未传 refreshToken 时清空（无刷新凭据的旧会话，401 仍按既有逻辑直接登出）。
+  authState.refreshToken = refreshToken || ''
   authState.username = username || ''
   authState.menus = []
   authState.menusLoaded = 'unloaded'
   localStorage.setItem(TOKEN_KEY, token)
+  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
+  else localStorage.removeItem(REFRESH_KEY)
   if (username) localStorage.setItem(USER_KEY, username)
 }
 
 export function clearAuth() {
   authState.token = ''
+  authState.refreshToken = ''
   authState.username = ''
   authState.menus = []
   authState.menusLoaded = 'unloaded'
   localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(USER_KEY)
 }
 

@@ -282,7 +282,7 @@ async function onSubmit() {
   loading.value = true
   try {
     const tokenView = await login(form.username, form.password, captcha.token, form.captchaAnswer)
-    setAuth(tokenView.accessToken, form.username)
+    setAuth(tokenView.accessToken, form.username, tokenView.refreshToken)
     ElMessage.success('登录成功')
     router.replace(route.query.redirect || '/dashboard')
   } catch (e) {

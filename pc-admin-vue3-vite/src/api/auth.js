@@ -15,6 +15,13 @@ export const login = (username, password, captchaToken, captchaAnswer) =>
     data: { username, password, captchaToken, captchaAnswer }
   })
 
+// POST /api/auth/refresh -> TokenView { accessToken, refreshToken, expiresIn }
+// 公开端点，用 refreshToken 换取新令牌对并轮换。实际 401 自动续期由 http.js 的
+// refreshAccessToken（裸 axios 通道）调用；此处导出同形函数供契约锁定与普通调用。
+// skipAuthRefresh 防止该函数自身的 401 触发再次刷新（避免死循环）。
+export const refreshToken = (token) =>
+  request({ method: 'POST', url: '/api/auth/refresh', data: { refreshToken: token }, skipAuthRefresh: true })
+
 // POST /api/auth/logout
 export const logout = () => request({ method: 'POST', url: '/api/auth/logout' })
 

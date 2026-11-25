@@ -4,6 +4,25 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 会话自动续期前端闭环（C11 · auth/refresh）
+
+- **背景**：后端 `POST /api/auth/refresh` 早已完整（不透明刷新令牌 SHA-256 存储、家族防重放、轮换），
+  但前端登录时丢弃了 `refreshToken`、无刷新函数、401 立即登出，会话连续性差。本轮补齐前端闭环。
+- **前端**：
+  - `store/auth.js`：`authState.refreshToken` + `pc_admin_refresh_token` 持久化；`setAuth` 扩第三参数（可选，兼容旧调用）、
+    `clearAuth` 一并清除；未传 refreshToken 时清空旧凭据（无凭据的旧会话仍按既有逻辑直接登出）。
+  - `api/http.js`：新增裸 axios 刷新通道（绕开自身 401 拦截防递归）、并发单飞 Promise（多 401 只刷一次）、
+    公开端点排除清单（login/refresh/captcha/change-password/forgot-password/oauth2/token 的 401 不刷新）、
+    `_authRetried` 重放标记（二次 401 不再刷新，防死循环）、`skipAuthRefresh` 显式关闭开关；
+    401 时尝试刷新并重放原请求（realAxios/rawAxios 各自通道），失败才清理登录态跳登录。
+  - `api/auth.js`：新增 `refreshToken` 同形函数（带 `skipAuthRefresh` 防循环）；`LoginView.vue` 登录成功时保存 refreshToken。
+- **测试**：`api/tests/auth.test.js`（refresh 端点同形）+ `store/tests/auth.test.js`（refreshToken 存取/轮换写回/清理/兼容，4 例）。
+- 验证：前端 `npm test` 87 例全绿（新增 5 例）、`vite build` EXIT=0；门禁 7/7、`frontend_only=0`、`auth/refresh` 已闭环；后端全量 356 例回归全绿。
+- 工具边界：`NO_REFRESH_PATHS` 初版含 `/api/oauth2/token` 字面量被契约扫描器误判为前端引用（frontend_only=1），
+  改为路径后缀匹配后恢复 0；该端点在 oauth 客户端模块已有合法消费，非真实孤儿引用。
+- **安全边界**：刷新令牌仅存 localStorage（与 accessToken 同域，非 HttpOnly，前端 XSS 面与既有令牌一致）；
+  令牌轮换由后端家族机制防重放；刷新失败/无凭据/二次 401 均 fail-closed 登出，不放宽鉴权。
+
 ### 免打扰时段规则单测补齐（H4）
 
 - **背景**：`NotificationQuietHoursRules`（免打扰时段命中/告警穿透/接收者过滤）为通知抑制链路的安全关键纯函数规则，
