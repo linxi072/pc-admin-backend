@@ -336,6 +336,25 @@ mvn -o test          # 预期 368 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
+### 3.6i 告警规则单测补强
+
+**目标**：为 `scaffold-monitor`（此前零测试模块）补齐告警口径回归，防止阈值/排序/计数错误误导排障。
+
+**验收标准**：`AlertRuleRulesTest` 11 例 + `AlertInboxRulesTest` 9 例全过；后端累计 388 例全绿；质量门禁 8/8。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `AlertRuleRules` | 枚举容错解析、六种比较符与边界、null 不触发、全字段校验、WEBHOOK 渠道配置、合成告警状态/实例/缺省值 |
+| `AlertInboxRules` | status 白名单 vs severity 自由 label、上限钳制、筛选保序与大小写不敏感、汇总 unknown 桶与稳定排序、留存时间窗口 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-monitor -am test -Dtest='AlertRuleRulesTest,AlertInboxRulesTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 20, Failures: 0, Errors: 0
+mvn -o test          # 预期 388 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
 ---
 
 ## 3.7 组件库（已移除）

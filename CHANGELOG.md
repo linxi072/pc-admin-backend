@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 告警规则单测补强（scaffold-monitor 零测试覆盖清零）
+
+- **背景**：`scaffold-monitor` 模块此前无任何测试类，而 `AlertRuleRules`（阈值比较/配置校验/合成告警）
+  与 `AlertInboxRules`（容错筛选/汇总统计）是告警链路的口径单一来源；排序或计数错误会直接误导排障。
+- **实现**：新增 `AlertRuleRulesTest`（11 例）与 `AlertInboxRulesTest`（9 例），锁定：
+  - 枚举容错解析（大小写/空白/非法值）、六种比较符与边界语义、缺失输入不触发；
+  - 配置校验的全字段错误收集、WEBHOOK 专属 `channelConfig` 要求、计次/时长边界；
+  - 合成告警恒为 `firing`、`instance=rules-engine`、名称前缀与缺省严重度回退；
+  - 收件箱 status 白名单/severity 自由 label 的不同容错 posture、读取上限钳制；
+  - 筛选保序与大小写不敏感、非法 status 忽略但 severity 仍生效；
+  - 汇总中 `unknown` 桶保证「总数 = 各 severity 桶之和」，计数降序且同计数按字母序、留存时间窗口。
+- **验证**：单模块 20/20 通过；后端全量测试 368 → 388 例；零生产代码与构建文件改动。
+
 ### 任务 DAG 规则单测补强（scaffold-job 零测试覆盖清零）
 
 - **背景**：`scaffold-job` 是 14 个模块中唯一没有任何 `*Test.java` 的模块；而 `JobDagRules`
