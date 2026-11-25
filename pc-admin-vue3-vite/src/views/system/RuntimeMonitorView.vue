@@ -9,7 +9,7 @@
           <span class="card-title">{{ '服务器与运行状态' }}</span>
           <div class="filter-group">
             <span class="filter-label">{{ '时间范围' }}</span>
-            <el-select v-model="range" style="width: 150px" @change="loadSamples">
+            <el-select v-model="range" style="width: 150px" @change="onRangeChange">
               <el-option :label="'最近1小时'" value="1" />
               <el-option :label="'最近6小时'" value="6" />
               <el-option :label="'最近24小时'" value="24" />
@@ -165,6 +165,22 @@
         </div>
       </div>
 
+      <!-- 异常聚合（按模块/错误码）：与下方明细共用时间范围，快速定位高频故障源 -->
+      <el-table :data="errorSummary" v-loading="summaryLoading" border stripe size="small" class="error-summary-table">
+        <el-table-column prop="moduleCode" :label="'模块'" min-width="140">
+          <template #default="{ row }">{{ row.moduleCode || '--' }}</template>
+        </el-table-column>
+        <el-table-column prop="resultCode" :label="'错误码'" min-width="160">
+          <template #default="{ row }">{{ row.resultCode || '--' }}</template>
+        </el-table-column>
+        <el-table-column prop="count" :label="'次数'" width="110" align="right" sortable>
+          <template #default="{ row }">{{ row.count ?? 0 }}</template>
+        </el-table-column>
+      </el-table>
+      <div v-if="!summaryLoading && errorSummary.length === 0" class="summary-empty muted">
+        {{ '当前时间范围无异常聚合数据' }}
+      </div>
+
       <el-table :data="errors" v-loading="errLoading" border stripe @sort-change="onErrorSortChange">
         <el-table-column prop="occurredAt" :label="'时间'" width="170" sortable="custom" />
         <el-table-column prop="moduleCode" :label="'模块'" width="100" />
@@ -211,6 +227,7 @@ import {
   listOnlineSessions,
   listMonitorSamples,
   pageErrorLogs,
+  getErrorSummary,
   triggerMonitorSample
 } from '@/api/monitor'
 
@@ -222,6 +239,9 @@ const sessionKeyword = ref('')
 const errors = ref([])
 const errLoading = ref(false)
 const errTotal = ref(0)
+// 异常聚合（按模块/错误码），时间范围与明细一致
+const errorSummary = ref([])
+const summaryLoading = ref(false)
 // 默认每页条数统一为 10（与其他列表页一致）
 const errQuery = reactive({ page: 1, size: 10, keyword: '', sortField: '', sortDirection: '' })
 const range = ref('24')
@@ -306,6 +326,22 @@ async function loadErrors() {
   }
 }
 
+/** 异常聚合：与采样/明细共用「时间范围」窗口，按模块/错误码汇总高频故障源。 */
+async function loadErrorSummary() {
+  summaryLoading.value = true
+  const hours = Number(range.value) || 24
+  const to = new Date()
+  const from = new Date(to.getTime() - hours * 3600 * 1000)
+  try {
+    const list = await getErrorSummary({ from: from.toISOString(), to: to.toISOString() })
+    errorSummary.value = Array.isArray(list) ? list : []
+  } catch (e) {
+    errorSummary.value = []
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
 /** 异常日志分页：每页条数变化后回到第一页。 */
 function onErrorSizeChange(size) {
   errQuery.size = size
@@ -366,7 +402,7 @@ async function refreshAll() {
   try {
     // 手动触发一次采样落库，保证趋势数据连续
     await triggerMonitorSample()
-    await Promise.all([loadMetrics(), loadOnline(), loadSessions(), loadErrors()])
+    await Promise.all([loadMetrics(), loadOnline(), loadSessions(), loadErrors(), loadErrorSummary(), loadSamples()])
     ElMessage.success('已刷新')
   } catch (e) {
     // 拦截器已提示；采样失败不阻断后续刷新
@@ -392,11 +428,18 @@ function setupAutoRefresh() {
 // 勾选「自动刷新」后接线生效（此前 setupAutoRefresh 定义了却从未调用）
 watch(autoRefresh, setupAutoRefresh)
 
+/** 时间范围变化：历史趋势与异常聚合均按新窗口重算。 */
+function onRangeChange() {
+  loadSamples()
+  loadErrorSummary()
+}
+
 onMounted(() => {
   loadMetrics()
   loadOnline()
   loadSessions()
   loadErrors()
+  loadErrorSummary()
   loadSamples()
 })
 onBeforeUnmount(() => {
@@ -463,5 +506,13 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: #a8abb2;
   margin-top: 8px;
+}
+.error-summary-table {
+  margin-bottom: 10px;
+}
+.summary-empty {
+  font-size: 12px;
+  padding: 8px 0 12px;
+  text-align: center;
 }
 </style>

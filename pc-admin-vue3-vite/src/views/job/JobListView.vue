@@ -114,7 +114,7 @@
               <el-tag :type="statusTagType(row.status)" size="small">{{ row.statusLabel || row.status }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column :label="'上次执行'" width="150">
+          <el-table-column :label="'上次执行'" width="190">
             <template #default="{ row }">
               <div>{{ fmtTime(row.lastFireTime) }}</div>
               <div v-if="row.lastStatus" class="cell-sub">
@@ -122,6 +122,9 @@
                   {{ row.lastStatus === 'SUCCESS' ? '成功' : '失败' }}
                 </el-tag>
                 <span v-if="row.lastDurationMs != null" class="ml-4">{{ row.lastDurationMs }}ms</span>
+              </div>
+              <div v-if="row.lastStatus !== 'SUCCESS' && row.lastError" class="cell-sub error-text" :title="row.lastError">
+                {{ row.lastError }}
               </div>
             </template>
           </el-table-column>
@@ -742,6 +745,7 @@ onBeforeUnmount(stopTimer)
 .dag-label { color: #a8abb2; font-size: 12px; margin-right: 6px; flex: none; }
 .cell-name { font-weight: 500; color: var(--text); }
 .cell-sub { color: #a8abb2; font-size: 12px; margin-top: 2px; }
+.error-text { color: #f56c6c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
 .rule-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .err-text { color: #f56c6c; }

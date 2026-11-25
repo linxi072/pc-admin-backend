@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 运维监控数据展示增强（异常聚合 + 任务失败原因）
+
+- **背景**：全仓扫描发现两个"后端能力已就绪、前端未展示"的真实缺口：
+  ① `monitor.js:getErrorSummary`（`GET /api/system/monitor/error-summary`，按模块/错误码聚合）定义后全项目零调用，
+  系统监控页仅有逐条异常日志，运维需人工翻页统计高频故障源；
+  ② `JobView.lastError`（后端已返回最近失败原因）在任务列表未展示，失败任务只能再点「日志」定位原因。
+- **前端**（零后端改动）：
+  - `RuntimeMonitorView.vue`：异常日志卡片上方新增「按模块/错误码聚合」表格（次数可排序），
+    与历史趋势共用「时间范围」下拉窗口；时间范围变更触发 `onRangeChange` 同步重算采样与聚合；
+    手动「刷新」纳入聚合与采样；加载失败静默（拦截器统一提示）、空态友好提示。
+  - `JobListView.vue`：「上次执行」列在失败态下新增 `lastError` 行（红色省略 + 原生 title tooltip），列宽 150→190。
+- **说明**：`reportTypes` 替换 `TemplateCenterView` 硬编码经评估后未纳入——后端注释明确 USAGE/CATEGORY/STATUS
+  类型的前端页面已随 V30 移除，直接动态替换会把废弃类型重新引入，风险大于收益，保留既有常量。
+- 验证：前端测试/构建、后端全量测试与门禁见提交说明。
+
 ### 前端 API 契约测试大面积补齐（TEST-COVERAGE-PLAN 前端口径）
 
 - **背景**：`src/api/tests/` 此前仅 7 个文件，而 `src/api/*.js` 有 69 个模块；`workflow.js` 27 个端点仅 4 个有断言，
