@@ -12,7 +12,7 @@
               clearable
               :prefix-icon="Search"
               style="width: 220px"
-              @keyup.enter="load"
+              @keyup.enter="onSearch"
             />
           </div>
           <div class="filter-group">
@@ -382,6 +382,12 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+/** 筛选条件变化后回到第一页，与同仓其他列表页保持一致。 */
+function onSearch() {
+  query.page = 1
+  load()
 }
 
 function onSortChange({ prop, order }) {

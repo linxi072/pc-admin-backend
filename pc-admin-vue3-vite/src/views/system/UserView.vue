@@ -12,7 +12,7 @@
               :placeholder="'用户名（模糊）'"
               clearable
               style="width: 180px"
-              @keyup.enter="load"
+              @keyup.enter="onSearch"
             />
           </div>
           <div class="filter-group">
@@ -25,7 +25,7 @@
         </div>
         <div class="toolbar-actions">
           <div class="action-buttons">
-            <el-button type="primary" :icon="Search" @click="load">{{ '查询' }}</el-button>
+            <el-button type="primary" :icon="Search" @click="onSearch">{{ '查询' }}</el-button>
             <el-button :icon="RefreshLeft" @click="resetQuery">{{ '重置' }}</el-button>
           </div>
           <div class="action-buttons">
@@ -233,6 +233,12 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+/** 筛选条件变化后回到第一页，与同仓其他列表页保持一致。 */
+function onSearch() {
+  query.page = 1
+  load()
 }
 
 /**

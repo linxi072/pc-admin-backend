@@ -55,7 +55,7 @@ python3 scripts/check-api-contract.py --strict
 python3 scripts/check-all.py --strict
 # 预期 check-all EXIT=0（契约步升级为阻断同样通过）
 python3 scripts/tests/run_all.py
-# 预期 25 例门禁脚本单测全过（契约扫描 8 + 存储过程禁用 13 + 前端筛选一致性 4）
+# 预期 27 例门禁脚本单测全过（契约扫描 8 + 存储过程禁用 13 + 前端搜索一致性 6）
 ```
 
 ### 3.2 安全模块（JWT 租户 / 验证码 / 防重放 / 登录锁定）

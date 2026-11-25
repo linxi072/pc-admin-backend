@@ -9,25 +9,46 @@ from __future__ import annotations
 
 import os
 import re
-import sys
 import unittest
 
-SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, SCRIPTS_DIR)
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+VIEWS_DIR = os.path.join(REPO_ROOT, "pc-admin-vue3-vite", "src", "views")
+SKIP_DIRS = {".git", "node_modules", "dist"}
 
-from gate_lib import REPO_ROOT, read_text, rel, walk_files  # noqa: E402
+
+def iter_vue_files():
+    """就近遍历前端视图目录，避免依赖 scripts/gate_lib 的隐式相对导入。"""
+    for root, dirs, files in os.walk(VIEWS_DIR):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in files:
+            if name.endswith(".vue"):
+                yield os.path.join(root, name)
+
+
+def read_text(path: str) -> str:
+    with open(path, encoding="utf-8") as f:
+        return f.read()
 
 ENTER_LOAD_RE = re.compile(r"@keyup\.enter\s*=\s*['\"]\s*load\s*['\"]")
+SEARCH_BUTTON_LOAD_RE = re.compile(
+    r":icon\s*=\s*['\"]Search['\"]\s+@click\s*=\s*['\"]\s*load\s*['\"]"
+)
 HAS_ON_SEARCH_RE = re.compile(r"(?:function\s+onSearch\s*\(|const\s+onSearch\s*=)")
 
 
 def find_offending(text: str) -> list[tuple[int, str]]:
-    """返回 (行号, 命中片段)；仅对定义了 onSearch 的视图判定。"""
+    """返回 (行号, 命中片段)；仅对定义了 onSearch 的视图判定。
+
+    覆盖两个搜索入口：筛选框回车与 Search 图标的「查询」按钮。
+    刷新/重试按钮（@click="load" 但无 Search 图标）不应重置页码，故不纳入。
+    """
     if not HAS_ON_SEARCH_RE.search(text):
         return []
+    patterns = (ENTER_LOAD_RE, SEARCH_BUTTON_LOAD_RE)
     return [
         (text.count("\n", 0, m.start()) + 1, m.group(0))
-        for m in ENTER_LOAD_RE.finditer(text)
+        for pattern in patterns
+        for m in pattern.finditer(text)
     ]
 
 
@@ -35,6 +56,14 @@ class FrontendSearchConsistencyTests(unittest.TestCase):
     def test_detector_flags_direct_load_on_enter(self):
         sample = '<el-input @keyup.enter="load" />\nfunction onSearch() { query.page = 1; load() }'
         self.assertEqual(len(find_offending(sample)), 1)
+
+    def test_detector_flags_search_button_direct_load(self):
+        sample = '<el-button :icon="Search" @click="load">查询</el-button>\nfunction onSearch() { query.page = 1 }'
+        self.assertEqual(len(find_offending(sample)), 1)
+
+    def test_detector_accepts_refresh_button_direct_load(self):
+        sample = '<el-button :icon="Refresh" @click="load">刷新</el-button>\nfunction onSearch() { query.page = 1 }'
+        self.assertEqual(find_offending(sample), [])
 
     def test_detector_accepts_on_search_handler(self):
         sample = '<el-input @keyup.enter="onSearch" />\nfunction onSearch() { query.page = 1; load() }'
@@ -45,15 +74,15 @@ class FrontendSearchConsistencyTests(unittest.TestCase):
         self.assertEqual(find_offending(sample), [])
 
     def test_all_views_are_consistent(self):
-        violations = []
+        violations: list[str] = []
         scanned = 0
-        for path in walk_files(REPO_ROOT, (".vue",)):
+        for path in iter_vue_files():
             scanned += 1
             for line, snippet in find_offending(read_text(path)):
-                violations.append(f"{rel(path)}:{line} {snippet}")
+                violations.append(f"{os.path.relpath(path, REPO_ROOT)}:{line} {snippet}")
         self.assertGreater(scanned, 0, "应扫描到前端视图文件")
         self.assertEqual(violations, [])
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    _ = unittest.main(verbosity=2)

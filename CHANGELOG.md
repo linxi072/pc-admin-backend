@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 搜索入口页码重置补齐剩余四个列表页
+
+- **背景**：上一批只修复了「按钮走 `onSearch`、回车走 `load`」的 6 个视图；另有 4 个分页视图
+  （`TenantView`、`PostView`、`UserView`、`OnlineUserView`）的两个搜索入口都直接调用 `load()`，
+  而 `load()` 本身不重置页码。在第 2 页以上修改筛选条件后，无论点「查询」还是按回车都会停在旧页，
+  得到空页或错位数据——属于同一类缺陷的另一种表现形式。
+- **实现**：为这 4 个视图各新增 `onSearch()`（`query.page = 1` 后 `load()`），并把 5 个筛选框回车与
+  2 个「查询」按钮接入该函数；`OnlineUserView` 的静默自动刷新仍直接调用 `load(silent)`，不改变页码，
+  其限制人对话框的独立查询入口也未受影响。
+- **防回归**：扩展 `test_frontend_search_consistency.py`，除回车外新增对 `:icon="Search"` 查询按钮的
+  检测；刷新/重试按钮（`:icon="Refresh"` 或无图标）不纳入，避免误伤保留页码的合理场景。门禁单测现 27 例。
+- **验证**：门禁单测 27/27 通过；后端 477 例、前端 118 例与 Vite 构建见提交说明。
+
 ### 筛选框回车搜索统一重置页码（12 处一致性缺陷）
 
 - **背景**：6 个列表视图同时存在「查询」按钮（走 `onSearch()`，先 `query.page = 1` 再加载）和筛选框
