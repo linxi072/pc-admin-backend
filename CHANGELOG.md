@@ -4,6 +4,17 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 安全规则单测补齐（退订令牌 / Webhook 签名）
+
+- **背景**：`TEST-COVERAGE-PLAN.md` 目标为业务模块主链路全覆盖；`UnsubscribeTokenRules`（M15 免登录退订 HMAC 凭证）与
+  `WebhookSignatureRules`（M18 外发 HMAC 签名）均为安全关键纯函数规则，但磁盘无对应单测。
+- **测试**：新增 `UnsubscribeTokenRulesTest`（6 例：铸造/验签往返、nonce 不可关联、篡改/错误密钥、过期边界、
+  形态非法、payload 语义非法）与 `WebhookSignatureRulesTest`（6 例：签名往返、请求头封装/剥离、nonce 唯一、
+  报文/nonce/密钥/时间戳篡改拒绝、时间戳新鲜度窗口、空值非法输入）。
+- **边界**：两类规则纯 JDK、无 Spring/DB 依赖，单测离线运行；验签恒定时间比较、密钥空白拒绝、时间注入
+  （`nowMillis`）等安全边界均被覆盖；测试用伪造签名构造语义非法 payload，单独验证解析失败分支。
+- 验证：`mvn -o -pl scaffold-system -am test` 新增 12 例全绿；全量测试/门禁见提交说明。零生产代码改动。
+
 ### 工作流监控补齐流程定义挂起/激活前端闭环
 
 - **背景**：后端 `WorkflowMonitorController` 已有 `POST /definitions/{id}/suspend|activate`（权限 `workflow:definition:state`、
