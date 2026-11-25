@@ -123,7 +123,7 @@
               :page-sizes="[10, 20, 50]"
               layout="total, sizes, prev, pager, next, jumper"
               @current-change="load"
-              @size-change="load"
+              @size-change="onSizeChange"
             />
           </div>
         </el-tab-pane>
@@ -217,7 +217,7 @@
               :page-sizes="[10, 20, 50]"
               layout="total, sizes, prev, pager, next, jumper"
               @current-change="loadRestrictions"
-              @size-change="loadRestrictions"
+              @size-change="onRestrictionSizeChange"
             />
           </div>
         </el-tab-pane>
@@ -361,6 +361,18 @@ async function load(silent = false) {
 function onSearch() {
   query.page = 1
   load()
+}
+
+/** 每页条数变化后回到第一页；size 已由 v-model:page-size 更新。 */
+function onSizeChange() {
+  query.page = 1
+  load()
+}
+
+/** 限制人弹窗每页条数变化后回到第一页。 */
+function onRestrictionSizeChange() {
+  rQuery.page = 1
+  loadRestrictions()
 }
 
 function onSelectionChange(val) {

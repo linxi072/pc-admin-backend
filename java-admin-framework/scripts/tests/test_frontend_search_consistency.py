@@ -33,18 +33,19 @@ ENTER_LOAD_RE = re.compile(r"@keyup\.enter\s*=\s*['\"]\s*load\s*['\"]")
 SEARCH_BUTTON_LOAD_RE = re.compile(
     r":icon\s*=\s*['\"]Search['\"]\s+@click\s*=\s*['\"]\s*load\s*['\"]"
 )
+SIZE_CHANGE_LOAD_RE = re.compile(r"@size-change\s*=\s*['\"]\s*load(?:Restrictions)?\s*['\"]")
 HAS_ON_SEARCH_RE = re.compile(r"(?:function\s+onSearch\s*\(|const\s+onSearch\s*=)")
 
 
 def find_offending(text: str) -> list[tuple[int, str]]:
     """返回 (行号, 命中片段)；仅对定义了 onSearch 的视图判定。
 
-    覆盖两个搜索入口：筛选框回车与 Search 图标的「查询」按钮。
+    覆盖三个入口：筛选框回车、Search 图标的「查询」按钮、分页 size 切换。
     刷新/重试按钮（@click="load" 但无 Search 图标）不应重置页码，故不纳入。
     """
     if not HAS_ON_SEARCH_RE.search(text):
         return []
-    patterns = (ENTER_LOAD_RE, SEARCH_BUTTON_LOAD_RE)
+    patterns = (ENTER_LOAD_RE, SEARCH_BUTTON_LOAD_RE, SIZE_CHANGE_LOAD_RE)
     return [
         (text.count("\n", 0, m.start()) + 1, m.group(0))
         for pattern in patterns
@@ -60,6 +61,16 @@ class FrontendSearchConsistencyTests(unittest.TestCase):
     def test_detector_flags_search_button_direct_load(self):
         sample = '<el-button :icon="Search" @click="load">查询</el-button>\nfunction onSearch() { query.page = 1 }'
         self.assertEqual(len(find_offending(sample)), 1)
+
+    def test_detector_flags_size_change_direct_load(self):
+        sample = '<el-pagination @size-change="load" />\nfunction onSearch() { query.page = 1 }'
+        self.assertEqual(len(find_offending(sample)), 1)
+        restricted = '<el-pagination @size-change="loadRestrictions" />\nfunction onSearch() { query.page = 1 }'
+        self.assertEqual(len(find_offending(restricted)), 1)
+
+    def test_detector_accepts_size_change_handler(self):
+        sample = '<el-pagination @size-change="onSizeChange" />\nfunction onSearch() { query.page = 1 }'
+        self.assertEqual(find_offending(sample), [])
 
     def test_detector_accepts_refresh_button_direct_load(self):
         sample = '<el-button :icon="Refresh" @click="load">刷新</el-button>\nfunction onSearch() { query.page = 1 }'

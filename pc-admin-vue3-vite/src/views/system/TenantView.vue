@@ -81,7 +81,7 @@
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="load"
-          @size-change="load"
+          @size-change="onSizeChange"
         />
       </div>
     </el-card>
@@ -386,6 +386,12 @@ async function load() {
 
 /** 筛选条件变化后回到第一页，与同仓其他列表页保持一致。 */
 function onSearch() {
+  query.page = 1
+  load()
+}
+
+/** 每页条数变化后回到第一页；size 已由 v-model:page-size 更新。 */
+function onSizeChange() {
   query.page = 1
   load()
 }

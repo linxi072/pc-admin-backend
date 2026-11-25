@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 分页大小切换未重置页码（5 处）
+
+- **背景**：页码重置工作此前覆盖了筛选回车与「查询」按钮，但遗漏了 `@size-change`。
+  `UserView`、`TenantView`、`PostView` 的主列表以及 `OnlineUserView` 的主列表与「限制人」弹窗
+  共 5 处分页大小切换直接调用不重置页码的 `load()`/`loadRestrictions()`；用户在第 2 页以上切换
+  每页条数后，会按旧页码请求并得到空数据，且难以自行恢复。
+- **实现**：为 4 个视图新增 `onSizeChange()`（`query.page = 1` 后 `load()`），`OnlineUserView`
+  另加 `onRestrictionSizeChange()`（`rQuery.page = 1` 后 `loadRestrictions()`）；5 处绑定改为对应处理器。
+  每页条数本身由 `v-model:page-size` 更新，处理器只负责页码归位。
+- **防回归**：扩展 `test_frontend_search_consistency.py` 至 8 例，新增 `@size-change` 直连
+  `load`/`loadRestrictions` 的检测；门禁单测现 29 例。
+- **验证**：门禁单测 29/29 通过；后端 477 例、前端 118 例与 Vite 构建见提交说明。
+
 ### 搜索入口页码重置补齐剩余四个列表页
 
 - **背景**：上一批只修复了「按钮走 `onSearch`、回车走 `load`」的 6 个视图；另有 4 个分页视图
