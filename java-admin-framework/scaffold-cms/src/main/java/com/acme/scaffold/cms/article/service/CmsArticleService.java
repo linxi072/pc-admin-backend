@@ -2,14 +2,20 @@ package com.acme.scaffold.cms.article.service;
 
 import com.acme.scaffold.cms.article.domain.event.ArticlePublishedEvent;
 import com.acme.scaffold.cms.article.domain.rule.CmsArticleRules;
+import com.acme.scaffold.cms.article.domain.rule.CmsArticleSortRules;
 import com.acme.scaffold.cms.article.domain.rule.CmsBatchMoveRules;
+import com.acme.scaffold.cms.article.domain.rule.CmsRecycleRules;
 import com.acme.scaffold.cms.article.domain.rule.CmsStatusRules;
 import com.acme.scaffold.cms.article.domain.model.CmsArticle;
 import com.acme.scaffold.cms.article.domain.ArticleCreateRequest;
+import com.acme.scaffold.cms.article.domain.ArticleSortItem;
 import com.acme.scaffold.cms.article.domain.ArticleUpdateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleView;
 import com.acme.scaffold.cms.article.domain.BatchMoveArticleRequest;
 import com.acme.scaffold.cms.article.domain.BatchMoveArticleView;
+import com.acme.scaffold.cms.article.domain.BatchRestoreArticleRequest;
+import com.acme.scaffold.cms.article.domain.BatchRestoreArticleView;
+import com.acme.scaffold.cms.article.domain.BatchSortArticleView;
 import com.acme.scaffold.common.api.domain.PageQuery;
 import com.acme.scaffold.common.api.domain.PageResult;
 import com.acme.scaffold.common.context.CurrentPrincipal;
@@ -53,7 +59,8 @@ public class CmsArticleService {
             "title", "title",
             "viewCount", "view_count",
             "publishedAt", "published_at",
-            "createdAt", "created_at");
+            "createdAt", "created_at",
+            "sortNo", "sort_no");
 
     private static final SqlTables.TableRef ARTICLE = SqlTables.CMS_ARTICLE;
 
@@ -79,6 +86,7 @@ public class CmsArticleService {
         entity.setAuthor(CmsArticleRules.resolveAuthor(req.getAuthor(), currentOperator()));
         entity.setCoverUrl(req.getCoverUrl());
         entity.setScheduledPublishAt(req.getScheduledPublishAt());
+        entity.setSortNo(CmsArticleSortRules.normalizeSortNo(req.getSortNo()));
         LocalDateTime now = LocalDateTime.now();
         entity.setStatus(CmsArticleRules.resolveInitialStatus(
                 req.getStatus(), req.getScheduledPublishAt(), now));
@@ -113,6 +121,9 @@ public class CmsArticleService {
         existing.setAuthor(req.getAuthor());
         existing.setCoverUrl(req.getCoverUrl());
         existing.setScheduledPublishAt(req.getScheduledPublishAt());
+        if (req.getSortNo() != null) {
+            existing.setSortNo(CmsArticleSortRules.normalizeSortNo(req.getSortNo()));
+        }
         java.util.Set<String> nullColumns = new java.util.HashSet<>();
         if (req.getScheduledPublishAt() == null) {
             nullColumns.add("scheduled_publish_at"); // 全量更新语义：未传排期即取消排期
@@ -315,7 +326,160 @@ public class CmsArticleService {
         return new BatchMoveArticleView(moved, skipped, req.getCategoryId());
     }
 
+    /**
+     * 回收站分页（C9）：查询逻辑删除（{@code deleted=1}）的文章，支持标题关键字筛选。
+     *
+     * <p>不能使用 {@code fetchById} / {@code notDeleted}（它们默认排除已删除行），故显式构造
+     * {@code deleted=1} 条件经 {@link SqlWriters#page} 查询；排序字段仍走白名单，默认按更新时间倒序
+     * （逻辑删除会刷新 updated_at，等同"最近删除优先"）。</p>
+     */
+    @Transactional(readOnly = true)
+    public PageResult<ArticleView> recyclePage(int page, int size, String title,
+                                               String sortField, String sortDirection) {
+        List<Condition> conds = new ArrayList<>();
+        conds.add(ARTICLE.field("deleted", Integer.class).eq(1));
+        String titlePattern = CmsArticleRules.likePattern(title);
+        if (titlePattern != null) {
+            conds.add(ARTICLE.field("title", String.class).like(titlePattern));
+        }
+        Condition cond = DSL.and(conds);
+        PageQuery q = PageQuery.of(page, size, sortField, sortDirection);
+        var raw = SqlWriters.page(dsl, ARTICLE, CmsArticle.class, cond, q,
+                SqlSorts.resolve(ARTICLE, q, ARTICLE_SORT_FIELDS,
+                        ARTICLE.field("updated_at", LocalDateTime.class).desc(),
+                        ARTICLE.field("id", Long.class).desc()));
+        List<ArticleView> views = raw.records().stream().map(this::toView).toList();
+        return PageResult.of(raw.page(), raw.size(), raw.total(), views);
+    }
+
+    /**
+     * 恢复单篇文章（C9）：把 {@code deleted} 由 1 置回 0，重新出现在正常列表。
+     *
+     * <p>仅命中回收站文章；若其所属栏目已被删除则拒绝恢复，避免出现"文章挂在不存在栏目下"的悬挂数据。
+     * 恢复不改变发布态（原文保持 DRAFT/PUBLISHED/OFFLINE），也不重新广播发布事件。</p>
+     */
+    @Transactional
+    public void restore(Long id) {
+        CmsArticle recycled = findRecycled(id);
+        if (recycled == null) {
+            throw BusinessException.of(CommonErrorCode.NOT_FOUND, "回收站中不存在该文章: " + id);
+        }
+        if (!categoryExists(recycled.getCategoryId())) {
+            throw BusinessException.badRequest("所属栏目已不存在，请先恢复栏目再恢复文章: "
+                    + recycled.getCategoryId());
+        }
+        CmsArticle patch = new CmsArticle();
+        patch.setDeleted(0);
+        patch.setUpdatedBy(currentOperator());
+        SqlWriters.updateById(dsl, ARTICLE, id, patch);
+        log.info("CMS 文章恢复 articleId={} title={}", id, recycled.getTitle());
+    }
+
+    /**
+     * 批量恢复（C9，事务内原子执行）：ids 经 {@link CmsRecycleRules} 归一并校验上限。
+     *
+     * <p>逐条在回收站中命中并恢复；不在回收站或栏目已删除的 id 记入 {@code skippedIds} 回报，不抛错中断；
+     * 任一数据库更新异常将导致整体回滚。</p>
+     */
+    @Transactional
+    public BatchRestoreArticleView batchRestore(BatchRestoreArticleRequest req) {
+        if (req == null || !CmsRecycleRules.validIds(req.getIds())) {
+            throw BusinessException.badRequest("待恢复文章不能为空，单次最多 "
+                    + CmsRecycleRules.MAX_IDS + " 篇");
+        }
+        List<Long> ids = CmsRecycleRules.normalizeIds(req.getIds());
+        List<Long> skipped = new ArrayList<>();
+        int restored = 0;
+        String operator = currentOperator();
+        for (Long id : ids) {
+            CmsArticle recycled = findRecycled(id);
+            if (recycled == null || !categoryExists(recycled.getCategoryId())) {
+                skipped.add(id);
+                continue;
+            }
+            CmsArticle patch = new CmsArticle();
+            patch.setDeleted(0);
+            patch.setUpdatedBy(operator);
+            SqlWriters.updateById(dsl, ARTICLE, id, patch);
+            restored++;
+        }
+        log.info("CMS 批量恢复完成 ids={} restored={} skipped={}", ids.size(), restored, skipped.size());
+        return new BatchRestoreArticleView(restored, skipped);
+    }
+
+    /**
+     * 彻底删除（C9，不可逆）：仅允许对回收站文章操作，物理删除主表行。
+     *
+     * <p>级联清理该文章的版本快照与预览令牌（物理删除），避免残留孤儿数据；主表走
+     * {@link SqlWriters#delete} 的 {@code logical=false} 分支。正常列表中的文章不可直接彻底删除，
+     * 必须先进入回收站。</p>
+     */
+    @Transactional
+    public void purge(Long id) {
+        CmsArticle recycled = findRecycled(id);
+        if (recycled == null) {
+            throw BusinessException.of(CommonErrorCode.NOT_FOUND, "回收站中不存在该文章: " + id);
+        }
+        SqlWriters.deleteByColumn(dsl, SqlTables.CMS_ARTICLE_VERSION, "article_id", id);
+        SqlWriters.deleteByColumn(dsl, SqlTables.CMS_PREVIEW_TOKEN, "article_id", id);
+        SqlWriters.delete(dsl, ARTICLE, id, false);
+        log.info("CMS 文章彻底删除 articleId={} title={}", id, recycled.getTitle());
+    }
+
+    /**
+     * 批量调整文章排序号（C10，事务内原子执行）。
+     *
+     * <p>入参经 {@link CmsArticleSortRules} 归一（去 null/非正 id、按 id 首次出现去重、钳制排序号）
+     * 并校验上限；逐条查询未删除文章后仅更新 {@code sort_no}，不存在/已删除的 id 记入 {@code skippedIds}
+     * 回报，不抛错中断；任一数据库更新异常将导致整体回滚。排序号越小越靠前，列表可搭配
+     * {@code sortNo} 排序字段展示。</p>
+     */
+    @Transactional
+    public BatchSortArticleView reorder(List<ArticleSortItem> items) {
+        if (!CmsArticleSortRules.validItems(items)) {
+            throw BusinessException.badRequest("排序项不能为空，单次最多 "
+                    + CmsArticleSortRules.MAX_ITEMS + " 篇");
+        }
+        List<ArticleSortItem> normalized = CmsArticleSortRules.normalizeItems(items);
+        List<Long> skipped = new ArrayList<>();
+        int sorted = 0;
+        String operator = currentOperator();
+        for (ArticleSortItem item : normalized) {
+            CmsArticle existing = SqlWriters.fetchById(dsl, ARTICLE, CmsArticle.class, item.id());
+            if (existing == null) {
+                skipped.add(item.id()); // 不存在或已逻辑删除，跳过并回报
+                continue;
+            }
+            CmsArticle patch = new CmsArticle();
+            patch.setSortNo(CmsArticleSortRules.normalizeSortNo(item.sortNo()));
+            patch.setUpdatedBy(operator);
+            SqlWriters.updateById(dsl, ARTICLE, item.id(), patch);
+            sorted++;
+        }
+        log.info("CMS 批量排序完成 items={} sorted={} skipped={}", normalized.size(), sorted, skipped.size());
+        return new BatchSortArticleView(sorted, skipped);
+    }
+
     // ---------------- 内部辅助 ----------------
+
+    /** 按 id 查询回收站文章（deleted=1），不走默认逻辑删除过滤；不存在返回 null。 */
+    private CmsArticle findRecycled(Long id) {
+        if (id == null || id <= 0) {
+            return null;
+        }
+        return SqlWriters.fetchOne(dsl, ARTICLE, CmsArticle.class,
+                DSL.and(ARTICLE.field("deleted", Integer.class).eq(1),
+                        ARTICLE.field("id", Long.class).eq(id)));
+    }
+
+    /** 栏目是否仍存在（含未删除过滤），用于恢复前的悬挂校验。 */
+    private boolean categoryExists(Long categoryId) {
+        if (!CmsArticleRules.validCategoryId(categoryId)) {
+            return false;
+        }
+        return SqlWriters.fetchById(dsl, SqlTables.CMS_CATEGORY,
+                com.acme.scaffold.cms.category.domain.model.CmsCategory.class, categoryId) != null;
+    }
 
     private CmsArticle requireExisting(Long id) {
         CmsArticle entity = SqlWriters.fetchById(dsl, ARTICLE, CmsArticle.class, id);
@@ -347,6 +511,7 @@ public class CmsArticleService {
                 e.getCreatedAt(), e.getUpdatedAt());
         v.setOfflineAt(e.getOfflineAt());
         v.setScheduledPublishAt(e.getScheduledPublishAt());
+        v.setSortNo(e.getSortNo());
         return v;
     }
 

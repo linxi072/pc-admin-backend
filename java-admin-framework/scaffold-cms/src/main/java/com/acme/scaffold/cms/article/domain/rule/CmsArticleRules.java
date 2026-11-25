@@ -17,7 +17,7 @@ public final class CmsArticleRules {
 
     /** 与 CmsArticleService 的 ARTICLE_SORT_FIELDS 保持一致（小写归一后比较）。 */
     private static final Set<String> SORT_FIELDS = Set.of(
-            "id", "title", "viewcount", "publishedat", "createdat");
+            "id", "title", "viewcount", "publishedat", "createdat", "sortno");
 
     private CmsArticleRules() {
     }

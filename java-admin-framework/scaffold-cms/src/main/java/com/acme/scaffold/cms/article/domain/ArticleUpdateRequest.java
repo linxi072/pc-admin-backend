@@ -38,6 +38,11 @@ public class ArticleUpdateRequest implements Serializable {
     /** 定时发布时间（C5）：null 表示不排期；置空需配合显式清空策略。 */
     private LocalDateTime scheduledPublishAt;
 
+    /** 业务排序号（C10）：null 表示不调整，保留原值。 */
+    @jakarta.validation.constraints.Min(0)
+    @jakarta.validation.constraints.Max(9999)
+    private Integer sortNo;
+
     public Long getId() {
         return id;
     }
@@ -108,5 +113,13 @@ public class ArticleUpdateRequest implements Serializable {
 
     public void setScheduledPublishAt(LocalDateTime scheduledPublishAt) {
         this.scheduledPublishAt = scheduledPublishAt;
+    }
+
+    public Integer getSortNo() {
+        return sortNo;
+    }
+
+    public void setSortNo(Integer sortNo) {
+        this.sortNo = sortNo;
     }
 }

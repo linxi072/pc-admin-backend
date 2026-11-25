@@ -36,6 +36,21 @@ export const pageArticles = (query) => request({ method: 'GET', url: '/api/cms/a
 export const batchMoveArticles = (ids, categoryId) =>
   request({ method: 'POST', url: '/api/cms/article/batch-move', data: { ids, categoryId } })
 
+/** 批量调整文章排序号（items 最多 200 项，服务端事务原子执行）。 */
+export const reorderArticles = (items) =>
+  request({ method: 'PUT', url: '/api/cms/article/sort', data: items })
+
+// ==================== 文章回收站（C9） ====================
+
+export const pageRecycleArticles = (query) => request({ method: 'GET', url: '/api/cms/article/recycle/page', params: query })
+
+export const restoreArticle = (id) => request({ method: 'POST', url: `/api/cms/article/${id}/restore` })
+
+export const batchRestoreArticles = (ids) =>
+  request({ method: 'POST', url: '/api/cms/article/batch-restore', data: { ids } })
+
+export const purgeArticle = (id) => request({ method: 'POST', url: `/api/cms/article/${id}/purge` })
+
 // ==================== 文章版本历史（C4） ====================
 
 export const listArticleVersions = (id) => request({ method: 'GET', url: `/api/cms/article/${id}/versions` })

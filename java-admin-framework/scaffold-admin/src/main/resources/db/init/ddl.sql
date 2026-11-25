@@ -898,6 +898,7 @@ CREATE TABLE `cms_article` (
     `published_at` TIMESTAMP     NULL,
     `offline_at`   TIMESTAMP     NULL,
     `scheduled_publish_at` TIMESTAMP NULL,
+    `sort_no`      INT           NOT NULL DEFAULT 0,
     `version`      INT           NOT NULL DEFAULT 0,
     `deleted`      INT           NOT NULL DEFAULT 0,
     `created_by`   VARCHAR(64)   NULL,

@@ -1,6 +1,6 @@
 # CMS 模块深度扩展需求与迭代计划
 
-> 版本：1.5 · 日期：2026-11-24 · 状态：批量移动落地（随迭代同步更新实现一致性）
+> 版本：1.8 · 日期：2026-11-25 · 状态：发布权限码补齐（随迭代同步更新实现一致性）
 > 适用模块：`scaffold-cms`（后端）+ `pc-admin-vue3-vite/src/views/cms`（前端）
 
 ## 1. 现有功能范围与架构约束
@@ -8,7 +8,8 @@
 ### 1.1 现状盘点（M1 时点的历史快照，非当前状态）
 
 > **状态注记（2026-11-24）**：下表为迭代一立项时的历史盘点。表中"未实现"的草稿预览/定时发布/版本历史/
-> 公开查询/前端契约测试已随 M2–M3 完成，C4/C5/C6 前端接入见迭代四，"批量移动"已随本次迭代落地；
+> 公开查询/前端契约测试已随 M2–M3 完成，C4/C5/C6 前端接入见迭代四，"批量移动"、"回收站"与"批量排序"
+> 已随后续迭代落地；
 > 当前权威状态以 §5 一致性跟踪表为准。
 
 | 维度 | 已实现 | 部分实现 | 未实现 |
@@ -223,7 +224,10 @@
 | C6 预览令牌 | 已完成（含前端） | 后端同 M2；前端 `ArticleView.vue` 令牌弹窗 + 复制链接 | 后端 4 例 + 前端构建通过；feature-gate 排障线索注明 | 二（M2）+ 四 |
 | C7 公开查询 | 已完成 | `CmsPublicRules`/`PublicArticleView`/`CmsPublicService`；`CmsPublicController`（feature-gate `cms.public.enabled` 默认关）；`SecurityConfig` 放行匿名 | `CmsPublicRulesTest` 2 例 + 编译通过；仅 PUBLISHED、size≤50、字段脱敏白名单 | 三（M3） |
 | C8 前端测试/i18n | 已完成 | `src/api/tests/cms.test.js`（端点契约）+ `cms.js` 3 个新函数；文案内联中文（i18n 引擎后续已整体移除） | 前端契约测试全绿、build EXIT=0、门禁 frontend_only=0 | 二（M2） |
-| 批量移动 | 已完成 | `BatchMoveArticleRequest`/`BatchMoveArticleView`、`CmsBatchMoveRules`、`CmsArticleService.batchMove`、`POST /batch-move`；前端多选 + 批量移动对话框 | `CmsBatchMoveRulesTest` 5 例 + 前端契约 1 例；cms 52 例、前端 77 例全绿 | 本次 |
+| 批量移动 | 已完成 | `BatchMoveArticleRequest`/`BatchMoveArticleView`、`CmsBatchMoveRules`、`CmsArticleService.batchMove`、`POST /batch-move`；前端多选 + 批量移动对话框 | `CmsBatchMoveRulesTest` 5 例 + 前端契约 1 例；cms 52 例、前端 77 例全绿 | 迭代五 |
+| C9 文章回收站 | 已完成 | `CmsRecycleRules`、`BatchRestoreArticleRequest`/`BatchRestoreArticleView`、`CmsArticleService` 的 `recyclePage`/`restore`/`batchRestore`/`purge`、4 个端点（`recycle/page`/`batch-restore`/`{id}/restore`/`{id}/purge`）；`ArticleView.vue` 回收站对话框 | `CmsRecycleRulesTest` 4 例 + 前端契约 1 例；恢复校验栏目悬挂、彻底删除级联清理版本/令牌 | 迭代六 |
+| C10 文章批量排序 | 已完成 | `cms_article.sort_no`（ddl.sql + SqlTables）、`CmsArticleSortRules`、`ArticleSortItem`/`BatchSortArticleView`、`CmsArticleService.reorder` + create/update/toView 映射、`PUT /sort`；`ArticleView.vue` 排序列/表单输入/批量排序对话框 | `CmsArticleSortRulesTest` 5 例 + 前端契约 1 例；排序号 0~9999 钳制、去重/上限 200、跳过已删回报 | 迭代七 |
+| 发布权限码补齐 | 已完成 | `dml.sql` CMS 段新增按钮菜单 `id=9304`（`cms:article:publish`、`visible=0`）+ 绑定 SUPER_ADMIN；前端路由 meta 注释声明 publish 为按钮级权限 | `check-permission.py` EXIT=0（菜单码 51 ⊆ Java 码 141）；`INSERT IGNORE` 幂等，不进侧边栏 | 本次（八） |
 
 ### 迭代一验证记录（M1，2026-11-24）
 
@@ -256,3 +260,38 @@
   `utils/status.js` 增 SCHEDULED 映射；`utils/tests/status.test.js` 新增 3 例。
 - 验证：前端 `npm test` 76 例全绿（新增 3 例）、`npx vite build` EXIT=0、门禁 7/7（frontend_only 0）。
 - **一致性结论**：C4/C5/C6 由「后端可用」升级为「前后端闭环」，需求清单与磁盘实现一致。
+
+### 迭代六验证记录（2026-11-24 · C9 文章回收站）
+
+- 背景：盘点表"回收站"列为未实现；文章删除为逻辑删除（deleted=1）但删除后无法查询/恢复，本轮补齐闭环。
+- 改动：`CmsRecycleRules` + 批量恢复 DTO + `CmsArticleService` 四方法（`recyclePage`/`restore`/`batchRestore`/`purge`）
+  + 4 端点（`GET recycle/page`、`POST batch-restore`、`POST {id}/restore`、`POST {id}/purge`）；
+  前端 `cms.js` 4 同形函数 + `ArticleView.vue` 回收站对话框（筛选/多选批量恢复/单篇恢复/彻底删除）。
+- 边界：回收站查询显式 `deleted=1` 绕开 `fetchById` 默认过滤；恢复校验栏目悬挂（栏目已删则拒绝/跳过）；
+  彻底删除仅作用于回收站文章并级联物理清理版本快照与预览令牌；批量上限 200 + ids 归一去重，事务原子。
+- 验证：`CmsRecycleRulesTest` 4 例 + 前端契约 1 例；`mvn -o -pl scaffold-cms -am test` 全绿、
+  前端 `npm test` 全绿、`npx vite build` EXIT=0、门禁 7/7（frontend_only 0）。
+- **一致性结论**：C9 与批量移动均落地，盘点表"回收站/批量移动"两项由未实现转为已完成。
+
+### 迭代七验证记录（2026-11-24 · C10 文章批量排序）
+
+- 背景：盘点表"批量移动/排序"中的排序一直未落地；文章无业务排序号，列表仅支持动态列排序，无法手工置顶。
+- 改动：`cms_article.sort_no` 列（ddl.sql + SqlTables + 模型/DTO/视图）；`CmsArticleSortRules` + `ArticleSortItem`/
+  `BatchSortArticleView`；`CmsArticleService.reorder` + create/update/toView/排序白名单；`PUT /sort`；
+  前端 `cms.js` 同形函数 + `ArticleView.vue` 排序列/表单输入/批量排序对话框。
+- 边界：排序号钳制 0~9999；ids 归一去重、上限 200、非正数过滤；不存在/已删除 id 跳过回报；事务原子；
+  复用栏目 sort_no 与菜单 PUT /sort 范式，零新增依赖。
+- 验证：`CmsArticleSortRulesTest` 5 例 + 前端契约 1 例；`mvn -o -pl scaffold-cms -am test` 全绿、
+  前端 `npm test` 全绿、`npx vite build` EXIT=0、门禁 7/7（frontend_only 0）。
+- **一致性结论**：盘点表"批量移动/排序"两项全部落地，C1–C10 需求与磁盘实现一致。
+
+### 迭代八验证记录（2026-11-25 · 发布权限码补齐）
+
+- 背景：盘点表"端点 · 部分实现"标注 `cms:article:publish` 未入菜单种子；普通角色无法通过授权界面获得发布/下线权限。
+- 改动：`dml.sql` 新增 `BUTTON` 菜单 `id=9304`（parent=9303, visible=0, permission=cms:article:publish）并绑定 SUPER_ADMIN；
+  前端路由 meta 注释已声明 publish 为按钮级权限，无需改动运行时代码。
+- 兼容：`menusForCurrentUser` 按 `visible==1` 过滤，按钮菜单不进侧边栏/动态路由；`INSERT IGNORE` 幂等；
+  authorities 由 `sys_role_menu → sys_menu.permission_code` 动态加载，授权后即时生效。
+- 边界：前端无按钮级权限指令，发布/下线按钮仍按文章状态显示，未授权点击由后端 `@PreAuthorize` 返回 403 兜底。
+- 验证：`check-permission.py` EXIT=0；全量门禁 7/7；`mvn -o test` 与前端全量测试/构建见提交说明。
+- **一致性结论**：盘点表标注的菜单权限码漂移已消除，C1–C10 + 权限补齐全部与磁盘实现一致。

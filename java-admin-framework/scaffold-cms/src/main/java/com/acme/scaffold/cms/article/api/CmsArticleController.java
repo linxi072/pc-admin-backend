@@ -4,11 +4,15 @@ import com.acme.scaffold.cms.article.service.CmsArticleService;
 import com.acme.scaffold.cms.article.service.CmsArticleVersionService;
 import com.acme.scaffold.cms.article.service.CmsPreviewTokenService;
 import com.acme.scaffold.cms.article.domain.ArticleCreateRequest;
+import com.acme.scaffold.cms.article.domain.ArticleSortItem;
 import com.acme.scaffold.cms.article.domain.ArticleUpdateRequest;
 import com.acme.scaffold.cms.article.domain.ArticleVersionView;
 import com.acme.scaffold.cms.article.domain.ArticleView;
 import com.acme.scaffold.cms.article.domain.BatchMoveArticleRequest;
 import com.acme.scaffold.cms.article.domain.BatchMoveArticleView;
+import com.acme.scaffold.cms.article.domain.BatchRestoreArticleRequest;
+import com.acme.scaffold.cms.article.domain.BatchRestoreArticleView;
+import com.acme.scaffold.cms.article.domain.BatchSortArticleView;
 import com.acme.scaffold.cms.article.domain.PreviewTokenView;
 import com.acme.scaffold.common.api.Result;
 import com.acme.scaffold.common.api.domain.PageResult;
@@ -55,6 +59,14 @@ public class CmsArticleController {
     @AuditOperation(module = "cms", type = "UPDATE", name = "批量移动文章")
     public Result<BatchMoveArticleView> batchMove(@Valid @RequestBody BatchMoveArticleRequest req) {
         return Result.success(articleService.batchMove(req));
+    }
+
+    @Operation(summary = "批量调整文章排序号（单事务，最多 200 篇，C10）")
+    @PutMapping("/sort")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    @AuditOperation(module = "cms", type = "UPDATE", name = "文章排序")
+    public Result<BatchSortArticleView> reorder(@RequestBody List<@Valid ArticleSortItem> items) {
+        return Result.success(articleService.reorder(items));
     }
 
     @Operation(summary = "更新文章")
@@ -121,6 +133,44 @@ public class CmsArticleController {
             @RequestParam(required = false) String sortDirection) {
         return Result.success(articleService.page(page, size, categoryId, title, status,
                 sortField, sortDirection));
+    }
+
+    @Operation(summary = "回收站分页（已逻辑删除的文章，C9）")
+    @GetMapping("/recycle/page")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    public Result<PageResult<ArticleView>> recyclePage(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String sortField,
+            @RequestParam(required = false) String sortDirection) {
+        return Result.success(articleService.recyclePage(page, size, title, sortField, sortDirection));
+    }
+
+    @Operation(summary = "批量恢复回收站文章（单事务，最多 200 篇，C9）")
+    @PostMapping("/batch-restore")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    @AuditOperation(module = "cms", type = "UPDATE", name = "批量恢复文章")
+    public Result<BatchRestoreArticleView> batchRestore(@Valid @RequestBody BatchRestoreArticleRequest req) {
+        return Result.success(articleService.batchRestore(req));
+    }
+
+    @Operation(summary = "恢复单篇回收站文章（C9）")
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    @AuditOperation(module = "cms", type = "UPDATE", name = "恢复文章")
+    public Result<Void> restore(@PathVariable Long id) {
+        articleService.restore(id);
+        return Result.success();
+    }
+
+    @Operation(summary = "彻底删除回收站文章（物理删除，不可恢复，C9）")
+    @PostMapping("/{id}/purge")
+    @PreAuthorize("hasAuthority('cms:article:manage')")
+    @AuditOperation(module = "cms", type = "DELETE", name = "彻底删除文章")
+    public Result<Void> purge(@PathVariable Long id) {
+        articleService.purge(id);
+        return Result.success();
     }
 
     @Operation(summary = "文章版本列表（C4）")

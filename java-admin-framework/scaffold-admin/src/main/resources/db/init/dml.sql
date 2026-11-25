@@ -970,10 +970,15 @@ INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, men
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at) VALUES (9302, 0, 9301, 'cms:category', '栏目管理', 'MENU', '/cms/category', 'cms/CategoryView', 'cms:category:manage', 'FolderOpened', 1, 0, 10, 'ACTIVE', NOW(3), NOW(3));
 -- [from V74__cms.sql]
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at) VALUES (9303, 0, 9301, 'cms:article', '文章管理', 'MENU', '/cms/article', 'cms/ArticleView', 'cms:article:manage', 'FileText', 1, 0, 20, 'ACTIVE', NOW(3), NOW(3));
+-- [C10 权限码补齐] 发布/下线按钮权限：后端 CmsArticleController 已用 cms:article:publish，
+-- 此前无对应菜单导致普通角色无法通过授权界面获得该权限；visible=0 不进侧边栏，仅用于角色授权。
+INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at) VALUES (9304, 0, 9303, 'cms:article:publish', '文章发布', 'BUTTON', NULL, NULL, 'cms:article:publish', NULL, 0, 0, 30, 'ACTIVE', NOW(3), NOW(3));
 -- [from V74__cms.sql]
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9302;
 -- [from V74__cms.sql]
 INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9303;
+-- [C10 权限码补齐] SUPER_ADMIN 绑定发布按钮权限
+INSERT IGNORE INTO sys_role_menu (tenant_id, role_id, menu_id) SELECT 0, 1, 9304;
 -- [from V75__im.sql]
 -- ---------------- 菜单种子 ----------------
 INSERT IGNORE INTO sys_menu (id, tenant_id, parent_id, menu_code, menu_name, menu_type, route_path, component_path, permission_code, icon, visible, keep_alive, sort_no, status, created_at, updated_at) VALUES (9401, 0, 0, 'im', '站内消息', 'CATALOG', NULL, NULL, NULL, 'ChatDotRound', 1, 0, 90, 'ACTIVE', NOW(3), NOW(3));

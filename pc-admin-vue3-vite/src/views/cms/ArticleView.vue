@@ -31,7 +31,9 @@
             :disabled="selectedRows.length === 0"
             @click="openBatchMove"
           >{{ selectedRows.length ? `批量移动 (${selectedRows.length})` : '批量移动' }}</el-button>
+          <el-button type="success" :disabled="rows.length === 0" @click="openBatchSort">{{ '批量排序' }}</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">{{ '创建' }}</el-button>
+          <el-button type="info" @click="openRecycle">{{ '回收站' }}</el-button>
           <el-button :icon="Refresh" @click="load">{{ '刷新' }}</el-button>
         </div>
       </div>
@@ -39,6 +41,9 @@
       <el-table :data="rows" v-loading="loading" border stripe @sort-change="onSortChange" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="46" align="center" />
         <el-table-column prop="id" label="ID" width="90" />
+        <el-table-column prop="sortNo" :label="'排序'" width="80" align="center" sortable="custom">
+          <template #default="{ row }">{{ row.sortNo ?? 0 }}</template>
+        </el-table-column>
         <el-table-column prop="title" :label="'文章标题'" min-width="200" show-overflow-tooltip />
         <el-table-column :label="'所属栏目'" width="130">
           <template #default="{ row }">{{ categoryName(row.categoryId) }}</template>
@@ -108,6 +113,9 @@
         <el-form-item :label="'摘要'" prop="summary">
           <el-input v-model="form.summary" type="textarea" :rows="2" maxlength="500" show-word-limit :placeholder="'请输入文章摘要（可选）'" />
         </el-form-item>
+        <el-form-item :label="'排序'" prop="sortNo">
+          <el-input-number v-model="form.sortNo" :min="0" :max="9999" />
+        </el-form-item>
         <el-form-item :label="'定时发布'" prop="scheduledPublishAt">
           <el-date-picker
             v-model="form.scheduledPublishAt"
@@ -159,6 +167,28 @@
       <template #footer>
         <el-button @click="batchMoveVisible = false">{{ '取消' }}</el-button>
         <el-button type="primary" :loading="batchMoveSubmitting" @click="onBatchMove">{{ '确认移动' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量排序对话框（C10） -->
+    <el-dialog v-model="batchSortVisible" title="批量排序" width="640px" destroy-on-close top="8vh">
+      <el-alert
+        :closable="false"
+        type="info"
+        title="排序号越小越靠前；调整后可在列表按「排序」列查看效果。仅调整当前页文章。"
+      />
+      <el-table :data="batchSortItems" border stripe max-height="420" style="margin-top: 12px">
+        <el-table-column prop="id" label="ID" width="90" align="center" />
+        <el-table-column prop="title" :label="'文章标题'" min-width="200" show-overflow-tooltip />
+        <el-table-column :label="'排序号'" width="160" align="center">
+          <template #default="{ row }">
+            <el-input-number v-model="row.sortNo" :min="0" :max="9999" size="small" controls-position="right" />
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="batchSortVisible = false">{{ '取消' }}</el-button>
+        <el-button type="primary" :loading="batchSortSubmitting" @click="onBatchSort">{{ '保存排序' }}</el-button>
       </template>
     </el-dialog>
 
@@ -217,6 +247,81 @@
         <el-button type="primary" :loading="previewSubmitting" @click="refreshPreviewToken">{{ '重新生成' }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 文章回收站（C9） -->
+    <el-dialog v-model="recycleVisible" title="文章回收站" width="1000px" destroy-on-close top="5vh">
+      <el-alert
+        :closable="false"
+        type="info"
+        title="此处为已删除的文章。恢复后重新出现在文章列表；彻底删除不可恢复，将同时清除版本历史与预览令牌。"
+        style="margin-bottom: 12px"
+      />
+      <div class="toolbar">
+        <div class="filters">
+          <el-input
+            v-model="recycleQuery.title"
+            :placeholder="'请输入文章标题'"
+            clearable
+            style="width: 220px"
+            @keyup.enter="onRecycleSearch"
+          >
+            <template #prefix><el-icon><Search /></el-icon></template>
+          </el-input>
+          <el-button type="primary" :icon="Search" @click="onRecycleSearch">{{ '搜索' }}</el-button>
+        </div>
+        <div class="actions">
+          <el-button
+            type="success"
+            :disabled="recycleSelected.length === 0"
+            :loading="recycleBatchRestoring"
+            @click="openBatchRestore"
+          >{{ recycleSelected.length ? `批量恢复 (${recycleSelected.length})` : '批量恢复' }}</el-button>
+        </div>
+      </div>
+
+      <el-table
+        :data="recycleRows"
+        v-loading="recycleLoading"
+        border
+        stripe
+        max-height="440"
+        @selection-change="onRecycleSelectionChange"
+      >
+        <el-table-column type="selection" width="46" align="center" />
+        <el-table-column prop="id" label="ID" width="90" />
+        <el-table-column prop="title" :label="'文章标题'" min-width="180" show-overflow-tooltip />
+        <el-table-column :label="'所属栏目'" width="120">
+          <template #default="{ row }">{{ categoryName(row.categoryId) }}</template>
+        </el-table-column>
+        <el-table-column :label="'状态'" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="articleStatusTag(row.status).type">{{ articleStatusTag(row.status).label }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="updatedAt" :label="'删除时间'" width="160">
+          <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
+        </el-table-column>
+        <el-table-column :label="'操作'" width="170" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="success" :icon="RefreshLeft" :loading="recycleActionId === row.id" @click="onRestore(row)">
+              {{ '恢复' }}
+            </el-button>
+            <el-button link type="danger" :icon="Delete" @click="onPurge(row)">{{ '彻底删除' }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        class="pagination"
+        v-model:current-page="recycleQuery.page"
+        v-model:page-size="recycleQuery.size"
+        :total="recycleTotal"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadRecycle"
+        @size-change="onRecycleSizeChange"
+      />
+    </el-dialog>
   </div>
 </template>
 
@@ -225,7 +330,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { formatDateTime } from '@/utils/datetime'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Edit, Delete, Refresh, View, DocumentCopy } from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, Refresh, View, DocumentCopy, RefreshLeft } from '@element-plus/icons-vue'
 import {
   pageArticles,
   createArticle,
@@ -239,7 +344,12 @@ import {
   batchMoveArticles,
   listArticleVersions,
   rollbackArticle,
-  createArticlePreviewToken
+  createArticlePreviewToken,
+  pageRecycleArticles,
+  restoreArticle,
+  batchRestoreArticles,
+  purgeArticle,
+  reorderArticles
 } from '@/api/cms'
 import { statusTag } from '@/utils/status'
 
@@ -259,6 +369,11 @@ const batchMoveVisible = ref(false)
 const batchMoveSubmitting = ref(false)
 const batchTargetCategoryId = ref(null)
 
+// 批量排序（C10）
+const batchSortVisible = ref(false)
+const batchSortSubmitting = ref(false)
+const batchSortItems = ref([])
+
 // 版本历史（C4）
 const versionVisible = ref(false)
 const versionLoading = ref(false)
@@ -273,6 +388,22 @@ const previewSubmitting = ref(false)
 const previewUrl = ref('')
 const previewExpiresAt = ref(null)
 const previewArticleId = ref(null)
+
+// 回收站（C9）
+const recycleVisible = ref(false)
+const recycleLoading = ref(false)
+const recycleBatchRestoring = ref(false)
+const recycleActionId = ref(null)
+const recycleRows = ref([])
+const recycleTotal = ref(0)
+const recycleSelected = ref([])
+const recycleQuery = reactive({
+  page: 1,
+  size: 10,
+  title: '',
+  sortField: '',
+  sortDirection: ''
+})
 
 const query = reactive({
   page: 1,
@@ -292,7 +423,8 @@ const form = reactive({
   content: '',
   author: '',
   coverUrl: '',
-  scheduledPublishAt: null
+  scheduledPublishAt: null,
+  sortNo: 0
 })
 
 const rules = {
@@ -369,6 +501,36 @@ async function onBatchMove() {
   }
 }
 
+// ===== C10：批量排序 =====
+
+function openBatchSort() {
+  if (!rows.value.length) return
+  // 以当前页数据建立可编辑副本，避免直接修改表格行导致排序未完成即生效
+  batchSortItems.value = rows.value.map((row) => ({ id: row.id, title: row.title, sortNo: row.sortNo ?? 0 }))
+  batchSortVisible.value = true
+}
+
+async function onBatchSort() {
+  const items = batchSortItems.value.map((row) => ({ id: row.id, sortNo: row.sortNo ?? 0 }))
+  if (!items.length) return
+  batchSortSubmitting.value = true
+  try {
+    const result = await reorderArticles(items)
+    const skipped = result?.skippedIds || []
+    if (skipped.length) {
+      ElMessage.warning(`已排序 ${result?.sorted ?? 0} 篇，${skipped.length} 篇已不存在或已删除被跳过`)
+    } else {
+      ElMessage.success(`已保存 ${result?.sorted ?? 0} 篇的排序`)
+    }
+    batchSortVisible.value = false
+    await load()
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理，保留对话框供用户重试
+  } finally {
+    batchSortSubmitting.value = false
+  }
+}
+
 function onSearch() {
   query.page = 1
   load()
@@ -395,6 +557,7 @@ function resetForm() {
   form.author = ''
   form.coverUrl = ''
   form.scheduledPublishAt = null
+  form.sortNo = 0
 }
 
 function openCreate() {
@@ -413,7 +576,8 @@ async function openEdit(row) {
     content: detail.content || '',
     author: detail.author || '',
     coverUrl: detail.coverUrl || '',
-    scheduledPublishAt: detail.scheduledPublishAt || null
+    scheduledPublishAt: detail.scheduledPublishAt || null,
+    sortNo: detail.sortNo ?? 0
   })
   dialogVisible.value = true
 }
@@ -577,6 +741,114 @@ async function onCopyPreviewUrl() {
   } catch (error) {
     // 非安全上下文或权限拒绝时，选中文本作为兜底提示
     ElMessage.warning('自动复制失败，请手动复制链接')
+  }
+}
+
+// ===== C9：文章回收站 =====
+
+function openRecycle() {
+  recycleQuery.page = 1
+  recycleQuery.title = ''
+  recycleSelected.value = []
+  recycleVisible.value = true
+  loadRecycle()
+}
+
+async function loadRecycle() {
+  recycleLoading.value = true
+  try {
+    const data = await pageRecycleArticles({ ...recycleQuery })
+    recycleRows.value = data.records || []
+    recycleTotal.value = data.total ?? 0
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理
+  } finally {
+    recycleLoading.value = false
+  }
+}
+
+function onRecycleSearch() {
+  recycleQuery.page = 1
+  loadRecycle()
+}
+
+function onRecycleSizeChange() {
+  recycleQuery.page = 1
+  loadRecycle()
+}
+
+function onRecycleSelectionChange(rows) {
+  recycleSelected.value = rows || []
+}
+
+async function onRestore(row) {
+  if (recycleActionId.value != null) return
+  const confirmed = await ElMessageBox.confirm(`确认恢复文章「${row.title}」吗？恢复后将重新出现在文章列表。`, '提示', {
+    type: 'info',
+    confirmButtonText: '确认恢复',
+    cancelButtonText: '取消'
+  }).catch(() => false)
+  if (!confirmed) return
+  recycleActionId.value = row.id
+  try {
+    await restoreArticle(row.id)
+    ElMessage.success('恢复成功')
+    await loadRecycle()
+    await load()
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理
+  } finally {
+    recycleActionId.value = null
+  }
+}
+
+function openBatchRestore() {
+  if (!recycleSelected.value.length) return
+  onBatchRestore()
+}
+
+async function onBatchRestore() {
+  const count = recycleSelected.value.length
+  if (!count) return
+  const confirmed = await ElMessageBox.confirm(`确认恢复选中的 ${count} 篇文章吗？`, '提示', {
+    type: 'info',
+    confirmButtonText: '确认恢复',
+    cancelButtonText: '取消'
+  }).catch(() => false)
+  if (!confirmed) return
+  recycleBatchRestoring.value = true
+  try {
+    const ids = recycleSelected.value.map((row) => row.id)
+    const result = await batchRestoreArticles(ids)
+    const skipped = result?.skippedIds || []
+    if (skipped.length) {
+      ElMessage.warning(`已恢复 ${result?.restored ?? 0} 篇，${skipped.length} 篇已不存在或栏目已删除被跳过`)
+    } else {
+      ElMessage.success(`已恢复 ${result?.restored ?? 0} 篇`)
+    }
+    recycleSelected.value = []
+    await loadRecycle()
+    await load()
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理，保留对话框供用户重试
+  } finally {
+    recycleBatchRestoring.value = false
+  }
+}
+
+async function onPurge(row) {
+  const confirmed = await ElMessageBox.confirm(
+    `确认彻底删除文章「${row.title}」吗？此操作不可恢复，且将同时清除该文章的版本历史与预览令牌。`,
+    '警告',
+    { type: 'warning', confirmButtonText: '彻底删除', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  try {
+    await purgeArticle(row.id)
+    ElMessage.success('彻底删除成功')
+    await loadRecycle()
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理
   }
 }
 

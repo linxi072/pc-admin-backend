@@ -387,7 +387,7 @@ public final class SqlTables {
     public static final TableRef CMS_ARTICLE = new TableRef("cms_article",
             "id", "tenant_id", "category_id", "title", "summary", "content", "author",
             "cover_url", "status", "view_count", "published_at", "offline_at", "scheduled_publish_at",
-            "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
+            "sort_no", "version", "deleted", "created_by", "created_at", "updated_by", "updated_at");
 
     /** 文章版本快照（C4）：update 前固化，支持版本列表与回滚。列名与 ddl.sql 严格一致。 */
     public static final TableRef CMS_ARTICLE_VERSION = new TableRef("cms_article_version",

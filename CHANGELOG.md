@@ -4,6 +4,42 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### CMS 发布权限码补齐（盘点表"权限码未入菜单种子/前端 meta 未体现"完善）
+
+- **背景**：后端 `CmsArticleController` 的发布/下线端点已用 `cms:article:publish`，但菜单种子仅有 `cms:article:manage`，
+  导致普通角色无法通过角色授权界面获得发布权限（该权限码无对应菜单可选）；盘点表标注为部分实现。
+- **数据**：`dml.sql` 的 CMS 段新增按钮菜单 `id=9304`（`parent_id=9303`、`menu_type=BUTTON`、`visible=0`、
+  `permission_code=cms:article:publish`），并绑定 SUPER_ADMIN（`sys_role_menu`）；`visible=0` 保证不进侧边栏，
+  仅用于角色授权，零运行时渲染影响。
+- **说明**：前端无按钮级权限指令，发布/下线按钮仍按文章状态显示，未授权点击由后端 `@PreAuthorize` 返回 403 兜底；
+  路由 meta 注释已声明 publish 为独立按钮级权限。权限门禁单向校验（菜单码 ⊆ Java 码）通过。
+- 验证：`check-permission.py` EXIT=0（菜单权限码 51 个）；全量门禁 7/7；种子幂等（`INSERT IGNORE`），存量库重跑 dml 即可生效。
+
+### CMS 文章批量排序（C10，盘点表"排序"未实现项落地）
+
+- **背景**：盘点表"批量移动/排序"中排序一直未落地——文章无业务排序号，列表仅支持动态列排序，无法手工置顶/排序。
+- **数据**：`cms_article` 加 `sort_no INT NOT NULL DEFAULT 0`（`ddl.sql` + `SqlTables.CMS_ARTICLE`），与栏目 `sort_no` 口径一致。
+- **后端**：新增 `CmsArticleSortRules`（纯函数：排序号钳制 0~9999、items 归一去重、上限 200）、`ArticleSortItem`/`BatchSortArticleView`；
+  `CmsArticleService` 增 `reorder`（单事务、跳过不存在/已删除 id 回报）、create/update 写入 sortNo、`toView` 映射与排序白名单加 `sortNo`；
+  新增端点 `PUT /api/cms/article/sort`（权限 `cms:article:manage` + 审计）。
+- **前端**：`cms.js` 增 `reorderArticles`；`ArticleView.vue` 列表加「排序」列（可排序）、编辑表单加排序号输入、
+  工具栏加「批量排序」对话框（当前页逐行调整，一次性提交）；错误处理沿用 http 拦截器统一提示。
+- **测试**：`CmsArticleSortRulesTest` 5 例（排序号钳制/校验/归一去重/非法值/上限）+ 前端契约测试 1 例。
+- 验证：`mvn -o -pl scaffold-cms -am test` 全绿；前端 `npm test` 全绿、`vite build` EXIT=0；门禁 7/7（frontend_only 0，新端点已闭环）。
+
+### CMS 文章回收站（C9，盘点表"回收站"未实现项落地）
+
+- **背景**：文章删除为逻辑删除（`deleted=1`），但删除后无法查询、无法恢复；规划盘点列为未实现。本轮补齐回收站闭环。
+- **后端**：新增 `CmsRecycleRules`（纯函数 ids 归一/去重/上限 200）、`BatchRestoreArticleRequest`/`BatchRestoreArticleView`；
+  `CmsArticleService` 增 `recyclePage`（显式 `deleted=1` 条件查询，绕开默认逻辑删除过滤）/ `restore`（单篇恢复 + 栏目悬挂校验）/
+  `batchRestore`（单事务批量恢复，跳过不存在或栏目已删的 id）/ `purge`（仅对回收站文章物理删除，级联清理版本快照与预览令牌）；
+  新增 4 端点 `GET /recycle/page`、`POST /batch-restore`、`POST /{id}/restore`、`POST /{id}/purge`
+  （权限 `cms:article:manage` + 审计）。
+- **前端**：`cms.js` 增 4 个同形函数；`ArticleView.vue` 工具栏加「回收站」入口，对话框含标题筛选、多选批量恢复、
+  单篇恢复与彻底删除（均二次确认）；恢复后同时刷新回收站与主列表；错误处理沿用 http 拦截器统一提示。
+- **测试**：`CmsRecycleRulesTest` 4 例（归一/非法 id/上限/去重后上限）+ 前端契约测试 1 例。
+- 验证：`mvn -o -pl scaffold-cms -am test` 全绿；前端 `npm test` 全绿、`vite build` EXIT=0；门禁 7/7（frontend_only 0，新端点已闭环）。
+
 ### CMS 文章批量移动（盘点表"批量移动/排序"未实现项落地）
 
 - **后端**：新增 `BatchMoveArticleRequest`/`BatchMoveArticleView`、`CmsBatchMoveRules`（纯函数：ids 归一/去重/

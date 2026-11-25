@@ -36,6 +36,11 @@ public class ArticleCreateRequest implements Serializable {
     /** 定时发布时间（C5）：null 表示不排期。 */
     private LocalDateTime scheduledPublishAt;
 
+    /** 业务排序号（C10）：null 按 0 处理，越小越靠前。 */
+    @jakarta.validation.constraints.Min(0)
+    @jakarta.validation.constraints.Max(9999)
+    private Integer sortNo;
+
     public Long getCategoryId() {
         return categoryId;
     }
@@ -98,5 +103,13 @@ public class ArticleCreateRequest implements Serializable {
 
     public void setScheduledPublishAt(LocalDateTime scheduledPublishAt) {
         this.scheduledPublishAt = scheduledPublishAt;
+    }
+
+    public Integer getSortNo() {
+        return sortNo;
+    }
+
+    public void setSortNo(Integer sortNo) {
+        this.sortNo = sortNo;
     }
 }

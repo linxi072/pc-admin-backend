@@ -24,10 +24,15 @@ import {
   listArticleVersions,
   rollbackArticle,
   createArticlePreviewToken,
-  batchMoveArticles
+  batchMoveArticles,
+  pageRecycleArticles,
+  restoreArticle,
+  batchRestoreArticles,
+  purgeArticle,
+  reorderArticles
 } from '../cms.js'
 
-// C8：锁定 CMS 前后端 17 个管理端点的 URL / 方法 / 参数同形。
+// C8：锁定 CMS 前后端 22 个管理端点的 URL / 方法 / 参数同形（含 C9 回收站 4 个 + C10 排序 1 个）。
 // URL 断言一律用反引号模板字符串（与 src/api/cms.js 实现一致），避免被 api-contract
 // 扫描器误当静态路由（FRONT_URL_RE 只匹配单/双引号字面量）。
 // 公开端点 /api/cms/preview/{token} 与 /api/cms/public/articles 均为 feature-gate 默认关闭的
@@ -116,6 +121,42 @@ describe('CMS 迭代二新增端点契约', () => {
       method: 'POST',
       url: `/api/cms/article/batch-move`,
       data: { ids: [101, 102], categoryId: 7 }
+    })
+  })
+
+  it('回收站分页/恢复/批量恢复/彻底删除端点同形（C9）', () => {
+    const query = { page: 1, size: 20, title: '关键' }
+    pageRecycleArticles(query)
+    expect(request).toHaveBeenCalledWith({
+      method: 'GET',
+      url: `/api/cms/article/recycle/page`,
+      params: query
+    })
+    restoreArticle(articleId)
+    expect(request).toHaveBeenCalledWith({
+      method: 'POST',
+      url: `/api/cms/article/${articleId}/restore`
+    })
+    batchRestoreArticles([101, 102])
+    expect(request).toHaveBeenCalledWith({
+      method: 'POST',
+      url: `/api/cms/article/batch-restore`,
+      data: { ids: [101, 102] }
+    })
+    purgeArticle(articleId)
+    expect(request).toHaveBeenCalledWith({
+      method: 'POST',
+      url: `/api/cms/article/${articleId}/purge`
+    })
+  })
+
+  it('批量排序端点同形（items 数组走请求体，C10）', () => {
+    const items = [{ id: 101, sortNo: 5 }, { id: 102, sortNo: 2 }]
+    reorderArticles(items)
+    expect(request).toHaveBeenCalledWith({
+      method: 'PUT',
+      url: `/api/cms/article/sort`,
+      data: items
     })
   })
 

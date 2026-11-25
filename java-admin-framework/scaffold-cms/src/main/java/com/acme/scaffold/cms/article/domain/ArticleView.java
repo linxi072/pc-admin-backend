@@ -30,6 +30,9 @@ public class ArticleView implements Serializable {
 
     private LocalDateTime scheduledPublishAt;
 
+    /** 业务排序号（C10）：越小越靠前。 */
+    private Integer sortNo;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -139,6 +142,14 @@ public class ArticleView implements Serializable {
 
     public void setScheduledPublishAt(LocalDateTime scheduledPublishAt) {
         this.scheduledPublishAt = scheduledPublishAt;
+    }
+
+    public Integer getSortNo() {
+        return sortNo;
+    }
+
+    public void setSortNo(Integer sortNo) {
+        this.sortNo = sortNo;
     }
 
     public LocalDateTime getCreatedAt() {
