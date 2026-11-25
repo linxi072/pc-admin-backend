@@ -355,6 +355,27 @@ mvn -o test          # 预期 388 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
+### 3.6j 工作流规则单测补强
+
+**目标**：为 `scaffold-workflow`（此前零测试模块）补齐认领/状态机/审计 ID/监控筛选的回归，防止状态误判与审计唯一键冲突回归。
+
+**验收标准**：4 个测试类共 21 例全过；后端累计 409 例全绿；质量门禁 8/8。
+
+| 测试类 | 覆盖契约 |
+|---|---|
+| `ClaimRulesTest` | 可认领/已认领/被他人认领/池化四种互斥结果 |
+| `WorkflowDefinitionRulesTest` | 挂起/激活转移真值表与重复操作 `CONFLICT` 异常 |
+| `WorkflowInstanceAdminRulesTest` | 实例转移真值表、`operationId` 唯一后缀与 64 列宽截断 |
+| `WorkflowMonitorRulesTest` | 超时/停留时长非负、催办间隔边界、状态/关键字归一、批量 ID 去重 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-workflow -am test -Dtest='ClaimRulesTest,WorkflowDefinitionRulesTest,WorkflowInstanceAdminRulesTest,WorkflowMonitorRulesTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 21, Failures: 0, Errors: 0
+mvn -o test          # 预期 409 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
 ---
 
 ## 3.7 组件库（已移除）

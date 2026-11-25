@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 工作流规则单测补强（scaffold-workflow 零测试覆盖清零）
+
+- **背景**：`scaffold-workflow` 此前无任何测试类，而认领判定、定义/实例挂起激活状态机、
+  审计 `operationId` 唯一性与监控超时催办口径都收敛在该模块的纯函数中；其中 `operationId`
+  的历史实现曾因同毫秒重复而撞 `uk_operation_id` 唯一键，属高价值回归守护点。
+- **实现**：新增 4 个测试类共 21 例：
+  - `ClaimRulesTest`（3 例）：四种互斥认领结果与 null 办理人池化语义；
+  - `WorkflowDefinitionRulesTest`（5 例）：挂起/激活转移真值表与重复操作冲突异常；
+  - `WorkflowInstanceAdminRulesTest`（7 例）：实例转移真值表、`operationId` 小写前缀/空值回退/
+    同实例唯一性/64 列宽截断与超长后缀保尾；
+  - `WorkflowMonitorRulesTest`（6 例）：超时判定与时长非负、催办最小间隔边界、状态白名单回落、
+    关键字截断不拒绝、批量 ID 去重保序。
+- **验证**：单模块 21/21 通过；后端全量测试 388 → 409 例；零生产代码与构建文件改动。
+
 ### 告警规则单测补强（scaffold-monitor 零测试覆盖清零）
 
 - **背景**：`scaffold-monitor` 模块此前无任何测试类，而 `AlertRuleRules`（阈值比较/配置校验/合成告警）
