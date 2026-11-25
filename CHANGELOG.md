@@ -4,6 +4,17 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 免打扰时段规则单测补齐（H4）
+
+- **背景**：`NotificationQuietHoursRules`（免打扰时段命中/告警穿透/接收者过滤）为通知抑制链路的安全关键纯函数规则，
+  磁盘无对应单测；前端面板 `NotificationQuietHoursPanel.vue` 已接入该能力，属测试覆盖缺口而非功能缺口。
+- **测试**：新增 `NotificationQuietHoursRulesTest`（10 例）：`HH:mm` 解析/格式化（含 trim 与非法值）、窗口合法性、
+  当日半开区间 `[start,end)`、跨午夜窗口、退化/空值防御、告警类型判定（trim + 大小写不敏感）、
+  穿透决策、单用户抑制、批量接收者过滤（保序/null 剔除/重复保留）、常量口径。
+- **边界结论**：测试过程确认了"告警穿透仅对 `ALERT` 生效，`NOTICE`/`SYSTEM` 等即使配置穿透仍在免打扰时段被抑制"
+  的业务语义，与类注释一致；退化窗口按"不命中"防御历史脏数据全量误抑制。
+- 验证：`mvn -o -pl scaffold-system -am test` 10 例全绿；全量测试/门禁见提交说明。零生产代码改动。
+
 ### 安全规则单测补齐（退订令牌 / Webhook 签名）
 
 - **背景**：`TEST-COVERAGE-PLAN.md` 目标为业务模块主链路全覆盖；`UnsubscribeTokenRules`（M15 免登录退订 HMAC 凭证）与
