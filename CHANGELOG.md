@@ -4,6 +4,23 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 数据库端例程禁用门禁（防回退）
+
+- **背景**：上一轮已核实当前代码库不存在任何存储过程/函数，但「无过程」只是现状，缺少机制保证后续版本不回退。
+  本轮新增硬性门禁，把核实结论固化为自动检查，避免 `DDL`/`DML` 或 Java 调用点被无意重新引入。
+- **实现**：
+  - 新增 `scripts/check-no-procedure.py`：扫描 `.sql`/`.java`/`.xml`，NP1 禁止 `CREATE PROCEDURE/FUNCTION`
+    （含 `OR REPLACE`、`DEFINER=` 写法），NP2 禁止 `CALL <name>(...)`，NP3 禁止 `{call ...}`，
+    NP4 禁止 `CallableStatement`/`SimpleJdbcCall`/`StoredProcedure(Query)`/`@Procedure`；
+    扫描前剥离 SQL 注释与字符串字面量、Java 注释与文本块、XML 注释，仅代码类文件纳管，文档历史描述不误报；
+    `CREATE TRIGGER` 属需求允许项，仅计数不阻断。
+  - 新增 `scripts/tests/test_check_no_procedure.py`：13 例单测覆盖四类违规命中、注释/字符串/文本块误报抑制、
+    触发器与 Markdown 豁免、非过程 API（`redis.call`/`Callable.call`）不误报，以及当前仓库干净态。
+  - `check-all.py` 接入 `no-procedure` 与 `gate-tests` 两个硬性步骤，门禁由 7 步扩为 8 步（另有 1 个信息性契约步）。
+- **验证**：门禁脚本 `EXIT=0`（扫描 1167 个文件、允许项触发器 0 个）；13 例单测全过；
+  后端全量测试 356 例、前端测试 118 例与 Vite 构建见提交说明。
+- **注意**：门禁为静态扫描，不连接数据库；若生产库存在仓库之外的存储过程，仍需按外部导出逐条迁移，本门禁无法覆盖。
+
 ### 通知记录 TraceId 链路跳转（运维排障联动）
 
 - **背景**：`NotificationRecordView.vue:143` 的 TraceId 为纯文本展示，而操作日志页 `OperationLogView.vue:180`

@@ -3,7 +3,7 @@
 """
 check-all.py：质量门禁统一入口（重刻版）。
 
-编排 7 个硬性检查步骤 + 1 个信息性契约步骤；任一硬性步骤失败即整体 EXIT=1（阻断）。
+编排 8 个硬性检查步骤 + 1 个信息性契约步骤；任一硬性步骤失败即整体 EXIT=1（阻断）。
 
 用法：
     python3 scripts/check-all.py
@@ -18,7 +18,9 @@ check-all.py：质量门禁统一入口（重刻版）。
   4 directory        硬性  目录约定（模块白名单/配置与视图归位/文档死链）
   5 cluster-layout   硬性  scaffold-system 子域簇 ≡ 权威清单
   6 permission       硬性  菜单权限码 ⊆ Java 权限码 + 豁免
-  7 api-contract     信息性 前后端契约差异（--strict 升级为阻断）
+  7 no-procedure     硬性  数据库端存储过程/函数定义与调用禁用
+  8 gate-tests       硬性  门禁脚本行为回归（unittest）
+  9 api-contract     信息性 前后端契约差异（--strict 升级为阻断）
 """
 from __future__ import annotations
 
@@ -36,6 +38,8 @@ STEPS = [
     ("directory", "check-directory.py", True),
     ("cluster-layout", "check-cluster-layout.py", True),
     ("permission", "check-permission.py", True),
+    ("no-procedure", "check-no-procedure.py", True),
+    ("gate-tests", "tests/test_check_no_procedure.py", True),
     ("api-contract", "check-api-contract.py", False),
 ]
 

@@ -24,7 +24,7 @@
 # 后端：编译 + 测试 + 静态门禁
 cd java-admin-framework
 mvn -q clean test                       # 预期 BUILD SUCCESS，Tests run 全部 Failures=0 Errors=0
-python3 scripts/check-all.py            # 预期 check-all EXIT=0，7/7 通过
+python3 scripts/check-all.py            # 预期 check-all EXIT=0，8/8 通过
 
 # 前端：规范 + 单测 + 构建
 cd ../pc-admin-vue3-vite
@@ -32,6 +32,9 @@ npm run lint                            # 预期 0 errors
 npm test                                # 预期 Test Files 10 passed / Tests 73 passed
 npm run build                           # 预期 ✓ built in ...s
 ```
+
+> 门禁 `no-procedure`（禁止数据库端存储过程/函数定义与调用）与 `gate-tests`（门禁脚本单测）已计入上述 8 步。
+> 单独复核：`python3 scripts/check-no-procedure.py`、`python3 scripts/tests/test_check_no_procedure.py`。
 
 ---
 
