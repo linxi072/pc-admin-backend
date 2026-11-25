@@ -316,6 +316,26 @@ python3 scripts/check-all.py   # 预期 EXIT=0，7/7 通过（前端路由未改
 
 **后续（不在本批）**：网关部署拓扑文档（B5）、多区域路由（方向 C）。
 
+### 3.6h 任务 DAG 规则单测补强
+
+**目标**：为 `scaffold-job`（14 个模块中唯一零测试模块）补上 DAG 核心契约回归，防止环检测/拓扑序错误导致任务死锁或漏触发。
+
+**验收标准**：`JobDagRulesTest` 12 例全过；后端累计 368 例全绿；质量门禁 8/8 通过。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `parseDependsOn` / `serializeDependsOn` | 去重保序、非数字元素忽略、非法输入返空、空列表序列化为 null、往返一致 |
+| `validateDependencies` | 合法/空/null 输入放行、自依赖与不存在依赖抛 `BusinessException`、`existingIds=null` 跳过存在性检查 |
+| `hasCycle` / `topologicalOrder` | 直接自环与多跳回边检出、无环放行、`depsOf` 返回 null 安全降级、依赖前置于被依赖任务、集合外依赖忽略 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-job -am test -Dtest=JobDagRulesTest -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 12, Failures: 0, Errors: 0
+mvn -o test          # 预期 368 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
 ---
 
 ## 3.7 组件库（已移除）

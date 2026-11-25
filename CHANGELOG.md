@@ -4,6 +4,17 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 任务 DAG 规则单测补强（scaffold-job 零测试覆盖清零）
+
+- **背景**：`scaffold-job` 是 14 个模块中唯一没有任何 `*Test.java` 的模块；而 `JobDagRules`
+  承担任务依赖的解析、校验、环检测与拓扑排序，顺序错误会造成任务死锁或漏触发。
+- **实现**：新增 `JobDagRulesTest`（12 例），锁定 `depends_on` 解析去重保序与非数字/非法输入返空、
+  序列化空列表返回 `null`、序列化/解析往返一致、自依赖与不存在依赖抛 `BusinessException`、
+  直接自环与多跳回边检测、无环与 `depsOf` 返回 null 的安全降级、拓扑序中依赖前置于被依赖任务、
+  集合外依赖忽略，以及 `dedupe` 忽略 null 并保序。
+- **验证**：单模块 `mvn -o -pl scaffold-job -am test -Dtest=JobDagRulesTest -Dsurefire.failIfNoSpecifiedTests=false`
+  12/12 通过；后端全量测试 356 → 368 例；零生产代码与构建文件改动，父 POM 已继承 `spring-boot-starter-test`。
+
 ### 接口契约扫描支持反引号模板 URL（消除历史误报）
 
 - **背景**：`check-api-contract.py` 的 `FRONT_URL_RE` 长期只匹配单/双引号字面量，前端大量
