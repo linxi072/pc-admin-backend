@@ -462,6 +462,25 @@ mvn -o test          # 预期 466 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
+### 3.6o 装配模块单测补强（14 模块全覆盖）
+
+**目标**：为最后一个零测试模块 `scaffold-admin` 补齐时区守卫与 JSON 日志编码回归。
+
+**验收标准**：2 个测试类共 11 例全过；后端累计 477 例全绿；质量门禁 8/8。
+
+| 测试类 | 覆盖契约 |
+|---|---|
+| `DataSourceTimeZoneGuardTest` | 时区参数解析、偏移换算、fail-fast 与只告警分支、URL 回落 |
+| `JsonLogEncoderTest` | 标准字段、MDC 透出与冲突保护、异常扁平化、单行换行 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin -am test -Dtest='DataSourceTimeZoneGuardTest,JsonLogEncoderTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 11, Failures: 0, Errors: 0
+mvn -o test          # 预期 477 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
 ---
 
 ## 3.7 组件库（已移除）

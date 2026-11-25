@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 装配模块单测补强（scaffold-admin 零测试覆盖清零，14 模块全覆盖）
+
+- **背景**：`scaffold-admin` 是最后一个零测试模块；虽以启动装配为主，但仍含两类高风险逻辑：
+  生产启动期数据源时区一致性 fail-fast（错位会让 MySQL DATETIME 读回整体 +8h），以及 JSON 日志编码器
+  （MDC 字段透出与标准字段冲突保护，直接影响 trace 串联）。
+- **实现**：新增 2 个测试类共 11 例：
+  - `DataSourceTimeZoneGuardTest`（6 例）：新旧 Connector/J 时区参数解析、UTC 别名与命名时区偏移换算、
+    `SERVER`/未知值只告警、启用开关、主 URL 与旧版 `spring.datasource.url` 回落、UTC/JVM 匹配通过与
+    `Asia/Shanghai` 不对称时 fail-fast；
+  - `JsonLogEncoderTest`（5 例）：标准字段与 ISO 时间戳、MDC 原样透出、MDC 不得覆盖标准字段、
+    异常类/消息扁平化、单行 JSON 与平台换行符。
+- **验证**：单模块 11/11 通过；后端全量测试 466 → 477 例；零生产代码与构建文件改动。
+  至此 14 个后端模块全部具备测试覆盖。
+
 ### 站内消息规则层抽取与单测（scaffold-im 零测试覆盖清零）
 
 - **背景**：`scaffold-im` 此前无任何测试类，且会话创建校验、成员集合、消息类型/预览归一、
