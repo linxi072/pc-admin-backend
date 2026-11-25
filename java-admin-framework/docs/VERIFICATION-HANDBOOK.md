@@ -499,6 +499,24 @@ npm test -- --run
 # 预期 Test Files 19 passed / Tests 122 passed
 ```
 
+### 3.6q 前端 CSV 公式注入防护
+
+**目标**：前端「导出当前页」与后端 CSV 导出采用同一套公式注入中和口径（CWE-1236）。
+
+**验收标准**：`csv.test.js` 8 例全过；前端累计 130 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `neutralizeFormula` | `= + - @` Tab/CR 六类危险首字符、数值例外（`-5`/`+3.14`）、仅判定首字符 |
+| `escapeCsvField` | 先中和后 RFC 4180 加引号、CR 前缀的引号包裹 |
+| `toCsv` / BOM | 逐单元格防护与 UTF-8 BOM |
+
+```bash
+cd pc-admin-vue3-vite
+npm test -- --run
+# 预期 Test Files 20 passed / Tests 130 passed
+```
+
 ---
 
 ## 3.7 组件库（已移除）

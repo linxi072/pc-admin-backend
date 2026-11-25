@@ -1,26 +1,61 @@
 /**
  * 轻量 CSV 导出工具（纯函数 + 浏览器下载），供各列表视图「导出当前页」复用。
  *
- * 不依赖 element-plus / 后端：纯函数部分（escapeCsvField / toCsv / buildCsvBlobContent）
- * 可在 Node 测试环境单测；仅 downloadCsv 在浏览器中触发下载（视图调用，测试不触达）。
+ * 不依赖 element-plus / 后端：纯函数部分（neutralizeFormula / escapeCsvField / toCsv /
+ * buildCsvBlobContent）可在 Node 测试环境单测；仅 downloadCsv 在浏览器中触发下载。
  */
 
 /**
  * CSV 字段转义（纯函数，可单测）。
  *
- * 规则：含逗号、双引号或换行符的字段须用双引号包裹，内部双引号翻倍为两个双引号；
- * 空值（null/undefined）统一返回空串。与 RFC 4180 一致，可被 Excel / 文本编辑器正确解析。
+ * 规则：先做公式注入中和（与后端 CsvExporter.neutralizeFormula 同口径），再按 RFC 4180
+ * 对含逗号、双引号或换行符的字段加引号，内部双引号翻倍；空值统一返回空串。
+ * 顺序不可颠倒——先加引号会让首字符变成引号，中和逻辑便无法生效。
  *
  * @param {*} value 任意值
  * @returns {string}
  */
 export function escapeCsvField(value) {
   if (value === null || value === undefined) return ''
-  const s = String(value)
-  if (/[",\r\n]/.test(s)) {
-    return '"' + s.replace(/"/g, '""') + '"'
+  const safe = neutralizeFormula(value)
+  if (/[",\r\n]/.test(safe)) {
+    return '"' + safe.replace(/"/g, '""') + '"'
   }
-  return s
+  return safe
+}
+
+/** 是否为纯数字（可含一个小数点），用于区分负数值与以 -/+ 开头的公式。 */
+function isPlainNumber(s) {
+  if (!s) return false
+  let dotSeen = false
+  for (const ch of s) {
+    if (ch >= '0' && ch <= '9') continue
+    if (ch === '.' && !dotSeen) {
+      dotSeen = true
+      continue
+    }
+    return false
+  }
+  return true
+}
+
+/**
+ * CSV 公式注入防护（CWE-1236）：以 = + - @、Tab、CR 开头的单元格在 Excel / WPS 中会被当作公式执行。
+ * 前置单引号强制按文本处理；-5 / +3.14 这类合法数值例外，避免数值列整体转文本。
+ * 移植自后端 CsvExporter.neutralizeFormula，保持两端导出口径一致。
+ *
+ * @param {*} value 任意值
+ * @returns {string}
+ */
+export function neutralizeFormula(value) {
+  const s = String(value ?? '')
+  if (!s) return s
+  const first = s[0]
+  if (first !== '=' && first !== '+' && first !== '-' && first !== '@' && first !== '\t' && first !== '\r') {
+    return s
+  }
+  if ((first === '-' || first === '+') && isPlainNumber(s.slice(1))) return s
+  return `'${s}`
 }
 
 /**

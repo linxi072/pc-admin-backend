@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 前端 CSV 导出补齐公式注入防护（CWE-1236）
+
+- **背景**：后端 `CsvExporter.neutralizeFormula` 已对 `= + - @`、Tab、CR 开头的单元格前置单引号，
+  并在 CHANGELOG 中明确为统一防护口径；但前端 `src/utils/csv.js:17-24` 的 `escapeCsvField`
+  只做 RFC 4180 转义。各列表页「导出当前页」使用前端通道，导出内容含用户可控字段
+  （如任务名、限制原因），Excel / WPS 打开即可能执行 `=HYPERLINK` 等公式。
+- **实现**：新增纯函数 `neutralizeFormula(value)`，逐字移植后端逻辑（危险首字符前置 `'`，
+  `-5`/`+3.14` 这类合法数值例外），`escapeCsvField` 改为「先中和、再按 RFC 4180 加引号」，
+  顺序与后端一致；各视图零改动。
+- **测试**：新增 `src/utils/tests/csv.test.js`（8 例），覆盖六类危险首字符、经典 `HYPERLINK` 载荷、
+  数值例外、首字符判定、CR 前缀的引号包裹、`toCsv` 端到端与 BOM；前端测试 122 → 130 例全过。
+- **注意**：单个小数点（如 `-.`）按后端 `isPlainNumber` 口径视为数值候选而不中和，保持两端导出结果一致。
+
 ### 修复 JOB_EXEC 状态下钻返回未过滤序列
 
 - **背景**：`ReportPanel.vue:432-435` 的状态饼图允许 `JOB_EXEC` 点击发起 `STATUS` 维度下钻，标题为
