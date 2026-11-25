@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 前端 API 契约测试大面积补齐（TEST-COVERAGE-PLAN 前端口径）
+
+- **背景**：`src/api/tests/` 此前仅 7 个文件，而 `src/api/*.js` 有 69 个模块；`workflow.js` 27 个端点仅 4 个有断言，
+  `message.js`/`alertRule.js`/`observability.js` 等核心模块零契约测试——前后端契约漂移无回归防线。
+- **测试**（纯新增 4 文件，零生产代码改动）：
+  - `workflow.test.js` 从 4 端点扩到全量 27 端点（参数化覆盖无参 GET / query GET / 路径参数 GET / 无参 POST /
+    query 写端点 / body 写端点），保留治理端点专项断言；
+  - 新增 `message.test.js`（11 端点：发送/收件箱/深翻页 keyset/未读数/已读/回执统计明细催办）；
+  - 新增 `alertRule.test.js`（7 端点：CRUD/启停/立即评估）；
+  - 新增 `observability.test.js`（5 端点：span 列表/单 trace 聚合含 traceId URL 转义/摘要/指标/清空）。
+- **口径**：URL 断言一律用反引号模板串（与实现一致），避免被 api-contract 扫描器误当静态路由；
+  所有模块统一断言「全部走 request、不用 blob 通道」。
+- 验证：前端 `npm test` 118 例全绿（新增 22 例，18 文件）；门禁 7/7、`frontend_only=0`；后端零改动。
+
 ### Trace 调用链详情入口（C12 · 可观测中心）
 
 - **背景**：后端 `GET /api/observability/traces/{traceId}` 与前端 `getTrace()` 同形函数早已就绪，但全项目零调用——
