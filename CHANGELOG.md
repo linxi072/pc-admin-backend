@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### Kafka 保序与拓扑单测补强（scaffold-kafka 零测试覆盖清零）
+
+- **背景**：`scaffold-kafka` 此前无任何测试类；`OrderingRules` 的 murmur2 声称「与 Kafka 默认分区器
+  位级兼容」，是同 key 保序的根基，一旦位运算偏移出错会导致同 key 落不同分区、顺序彻底失效；
+  版本号乱序兜底错误则会让迟到旧数据覆盖新数据。
+- **实现**：新增 3 个测试类共 18 例：
+  - `OrderingRulesTest`（8 例）：5 组 murmur2 参考向量由**独立实现交叉计算**锁定（含空串、ASCII、
+    中文 UTF-8、长键），`toPositive` 边界、分区稳定性与 UTF-8 重载一致、null 键等同空键、
+    非法分区数拒绝、版本号 null 语义与「严格大于才处理」的乱序兜底；
+  - `TopologyRulesTest`（5 例）：acks 白名单、设计稿分区公式 `max(吞吐/单分区上限, 并行度×1.5)`、
+    向上取整、非法参数拒绝、热点判定严格大于 2× 均值；
+  - `FanoutRouterTest`（5 例）：64 分片数、复用统一分区哈希、广播全量有序展开、单播仅归属分片、null 键回退。
+- **说明**：旧批次曾把 `OrderingRules` 记为「审查无问题、本批不改」，指当时无缺陷需修；本批是主动补回归守护，
+  未改动其实现。
+- **验证**：单模块 18/18 通过；后端全量测试 438 → 456 例；零生产代码与构建文件改动。
+
 ### 实时网关单测补强（scaffold-realtime 零测试覆盖清零）
 
 - **背景**：`scaffold-realtime` 此前无任何测试类，而心跳保活、慢消费者三级处置、背压计数与短期令牌

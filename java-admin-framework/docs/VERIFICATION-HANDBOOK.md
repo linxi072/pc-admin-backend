@@ -420,6 +420,26 @@ mvn -o test          # 预期 438 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
+### 3.6m Kafka 保序与拓扑单测补强
+
+**目标**：为 `scaffold-kafka`（此前零测试模块）锁定 murmur2 位级兼容、版本乱序兜底与分区/扇出拓扑。
+
+**验收标准**：3 个测试类共 18 例全过；后端累计 456 例全绿；质量门禁 8/8。
+
+| 测试类 | 覆盖契约 |
+|---|---|
+| `OrderingRulesTest` | murmur2 独立实现交叉参考向量、`toPositive`、分区稳定与 UTF-8、版本严格大于才处理 |
+| `TopologyRulesTest` | acks 白名单、分区推导公式与向上取整、热点严格大于 2× 均值 |
+| `FanoutRouterTest` | 64 分片、统一哈希复用、广播全量/单播归属、null 键回退 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-kafka -am test -Dtest='OrderingRulesTest,TopologyRulesTest,FanoutRouterTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 18, Failures: 0, Errors: 0
+mvn -o test          # 预期 456 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
 ---
 
 ## 3.7 组件库（已移除）
