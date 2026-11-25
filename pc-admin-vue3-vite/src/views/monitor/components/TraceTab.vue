@@ -101,6 +101,11 @@
               <span v-else class="muted">--</span>
             </template>
           </el-table-column>
+          <el-table-column :label="'操作'" width="90" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openTrace(row.traceId)">{{ '链路' }}</el-button>
+            </template>
+          </el-table-column>
         </el-table>
         <div class="hint">
           留存为有界环形（默认 200 条，超出淘汰最旧）；累计口径含已被淘汰的 span。
@@ -136,6 +141,52 @@
           <el-table-column prop="description" :label="'说明'" min-width="200" show-overflow-tooltip />
         </el-table>
       </el-card>
+
+      <!-- Trace 调用链详情（按 traceId 聚合全部 span，父子层级瀑布视图） -->
+      <el-dialog v-model="traceDetailVisible" :title="`调用链 · ${traceDetailId || ''}`" width="1000px" top="5vh" destroy-on-close>
+        <div class="trace-summary">
+          <span>{{ `Span ${traceRows.length}` }}</span>
+          <span>{{ `总耗时 ${fmtDuration(traceTotalDuration)}` }}</span>
+          <span :class="traceErrorCount ? 'error-text' : ''">{{ `错误 ${traceErrorCount}` }}</span>
+        </div>
+        <el-table :data="traceRows" v-loading="traceLoading" border stripe max-height="480" row-key="spanId" :tree-props="{ children: 'children' }" default-expand-all>
+          <el-table-column prop="name" label="Span / 调用层级" min-width="280" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span :class="row.status === 'ERROR' ? 'error-text' : ''">{{ row.name }}</span>
+              <span class="muted span-kind">{{ row.kind || '--' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" :label="'状态'" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'ERROR' ? 'danger' : row.status === 'OK' ? 'success' : 'info'" size="small">
+                {{ row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column :label="'起始偏移'" width="120" align="right">
+            <template #default="{ row }">{{ fmtDuration(row.offsetMillis) }}</template>
+          </el-table-column>
+          <el-table-column prop="durationMillis" :label="'耗时'" width="110" align="right">
+            <template #default="{ row }">{{ fmtDuration(row.durationMillis) }}</template>
+          </el-table-column>
+          <el-table-column :label="'属性'" min-width="200">
+            <template #default="{ row }">
+              <el-button v-if="row.attributes && Object.keys(row.attributes).length" link type="info" @click="showAttributes(row)">
+                {{ `${Object.keys(row.attributes).length} 项` }}
+              </el-button>
+              <span v-else class="muted">--</span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="hint">
+          层级依据 parentSpanId 构建；起始偏移与耗时均为毫秒。属性来自 span 埋点 context，可直接查看键值。
+        </div>
+      </el-dialog>
+
+      <!-- span 属性 JSON -->
+      <el-dialog v-model="attrVisible" :title="`Span 属性 · ${attrSpanName}`" width="560px" append-to-body>
+        <pre class="attr-json">{{ attrJson }}</pre>
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -145,8 +196,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Refresh, Delete } from '@element-plus/icons-vue'
-import { listSpans, getTraceSummary, listMetrics, clearSpans } from '@/api/observability'
-import { fmtEpoch, fmtDuration, isForbidden } from './format'
+import { listSpans, getTraceSummary, listMetrics, clearSpans, getTrace } from '@/api/observability'
+import { fmtEpoch, fmtDuration, isForbidden, buildTraceTree, traceSummary } from './format'
 
 const spans = ref([])
 const summary = ref({})
@@ -156,6 +207,17 @@ const metricLoading = ref(false)
 const denied = ref(false)
 const metricPrefix = ref('')
 const query = reactive({ status: '', traceId: '', limit: 50 })
+
+// Trace 调用链详情
+const traceDetailVisible = ref(false)
+const traceDetailId = ref('')
+const traceLoading = ref(false)
+const traceRows = ref([])
+const traceTotalDuration = ref(0)
+const traceErrorCount = ref(0)
+const attrVisible = ref(false)
+const attrSpanName = ref('')
+const attrJson = ref('')
 
 async function load() {
   loading.value = true
@@ -216,6 +278,35 @@ async function onClear() {
   }
 }
 
+// ===== Trace 调用链详情（C12） =====
+
+async function openTrace(traceId) {
+  if (!traceId) return
+  traceDetailId.value = traceId
+  traceDetailVisible.value = true
+  traceLoading.value = true
+  traceRows.value = []
+  traceErrorCount.value = 0
+  traceTotalDuration.value = 0
+  try {
+    const list = (await getTrace(traceId)) || []
+    traceRows.value = buildTraceTree(list)
+    const sum = traceSummary(list)
+    traceErrorCount.value = sum.errors
+    traceTotalDuration.value = sum.totalDuration
+  } catch {
+    // 错误提示由 http 响应拦截器统一处理
+  } finally {
+    traceLoading.value = false
+  }
+}
+
+function showAttributes(row) {
+  attrSpanName.value = row.name || row.spanId
+  attrJson.value = JSON.stringify(row.attributes || {}, null, 2)
+  attrVisible.value = true
+}
+
 onMounted(() => {
   load()
   loadMetrics()
@@ -228,5 +319,26 @@ onMounted(() => {
 }
 .muted {
   color: #a8abb2;
+}
+.trace-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #606266;
+}
+.span-kind {
+  margin-left: 8px;
+  font-size: 12px;
+}
+.attr-json {
+  max-height: 420px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.6;
 }
 </style>

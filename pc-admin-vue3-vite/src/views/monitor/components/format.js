@@ -59,3 +59,41 @@ export function fmtShare(share) {
 export function isForbidden(err) {
   return err?.response?.status === 403
 }
+
+/**
+ * 平铺 span（后端按时间正序）→ 父子层级树，用于 Trace 调用链瀑布视图（C12）。
+ *
+ * - 父 span 不在结果中（被有界留存淘汰）或自引用时提升为根，避免丢失节点或成环；
+ * - offsetMillis 以本 trace 最早 span 为基准，便于观察调用先后；
+ * - 不改变入参顺序（同级按后端时间正序）。
+ */
+export function buildTraceTree(list) {
+  const spans = Array.isArray(list) ? list : []
+  const earliest = spans.length ? Math.min(...spans.map((x) => x.startEpochMillis || 0)) : 0
+  const nodes = spans.map((s) => ({
+    ...s,
+    offsetMillis: (s.startEpochMillis || 0) - earliest,
+    children: []
+  }))
+  const byId = new Map(nodes.map((n) => [n.spanId, n]))
+  const roots = []
+  for (const node of nodes) {
+    const parent = node.parentSpanId ? byId.get(node.parentSpanId) : null
+    if (parent && parent !== node) parent.children.push(node)
+    else roots.push(node)
+  }
+  return roots
+}
+
+/** Trace 摘要：span 数、错误数、总耗时（最晚结束 - 最早开始）。 */
+export function traceSummary(list) {
+  const spans = Array.isArray(list) ? list : []
+  if (!spans.length) return { count: 0, errors: 0, totalDuration: 0 }
+  const starts = spans.map((s) => s.startEpochMillis || 0)
+  const ends = spans.map((s) => (s.startEpochMillis || 0) + (s.durationMillis || 0))
+  return {
+    count: spans.length,
+    errors: spans.filter((s) => s.status === 'ERROR').length,
+    totalDuration: Math.max(...ends) - Math.min(...starts)
+  }
+}

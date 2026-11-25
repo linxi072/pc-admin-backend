@@ -4,6 +4,23 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### Trace 调用链详情入口（C12 · 可观测中心）
+
+- **背景**：后端 `GET /api/observability/traces/{traceId}` 与前端 `getTrace()` 同形函数早已就绪，但全项目零调用——
+  监控中心「链路追踪」Tab 仅有平铺 span 列表（无父子关系/属性查看），用户无法按 traceId 查看完整调用链。
+- **前端**：`TraceTab.vue` span 列表加「链路」操作按钮；新增调用链详情对话框（父子层级瀑布视图，依据
+  `parentSpanId` 构建树，展示相对起始偏移、耗时、状态、错误数、总耗时）与 span 属性 JSON 查看弹窗；
+  加载错误由 http 拦截器统一提示，loading/空态已处理。
+- **纯函数提取**：`format.js` 新增 `buildTraceTree`（父缺失/自引用提升为根防丢失成环、偏移基准为最早 span）
+  与 `traceSummary`（span 数/错误数/总耗时覆盖并发 span），便于离线单测。
+- **测试**：新增 `views/monitor/components/tests/format.test.js`（9 例：既有时间/数值格式化 + Trace 树/摘要边界）。
+- 验证：前端 `npm test` 96 例全绿（新增 9 例，15 文件）、`vite build` EXIT=0（13.71s）；
+  门禁 7/7、`frontend_only=0`；后端全量 356 例回归全绿。
+- 边界：测试过程确认 `buildTraceTree` 按输入顺序保留根节点（非按时间排序），父缺失/自引用节点提升为根且无子、不成环；
+  总耗时按最晚结束-最早开始计算以覆盖并发 span。
+- 说明：`getTrace` URL 含路径参数（反引号模板串），契约扫描器仅识别引号字面量，仍列 backend_only（信息性）；
+  端点与前端同形函数早已存在，本轮仅补视图入口，非新增孤儿引用。
+
 ### 会话自动续期前端闭环（C11 · auth/refresh）
 
 - **背景**：后端 `POST /api/auth/refresh` 早已完整（不透明刷新令牌 SHA-256 存储、家族防重放、轮换），
