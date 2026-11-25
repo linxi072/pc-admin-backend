@@ -26,7 +26,7 @@
               :placeholder="'编码/名称/正文'"
               clearable
               style="width: 220px"
-              @keyup.enter="load"
+              @keyup.enter="onSearch"
             />
           </div>
         </div>

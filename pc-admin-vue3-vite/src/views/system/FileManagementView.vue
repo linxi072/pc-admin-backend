@@ -100,11 +100,11 @@
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '上传人' }}</span>
-            <el-input v-model="query.uploaderName" :placeholder="'上传人（模糊）'" clearable style="width: 160px" @keyup.enter="load" />
+            <el-input v-model="query.uploaderName" :placeholder="'上传人（模糊）'" clearable style="width: 160px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '文件名' }}</span>
-            <el-input v-model="query.originalName" :placeholder="'文件名（模糊）'" clearable style="width: 180px" @keyup.enter="load" />
+            <el-input v-model="query.originalName" :placeholder="'文件名（模糊）'" clearable style="width: 180px" @keyup.enter="onSearch" />
           </div>
         </div>
         <div class="toolbar-actions">

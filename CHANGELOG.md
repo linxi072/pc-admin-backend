@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 筛选框回车搜索统一重置页码（12 处一致性缺陷）
+
+- **背景**：6 个列表视图同时存在「查询」按钮（走 `onSearch()`，先 `query.page = 1` 再加载）和筛选框
+  回车（直接 `load()`，沿用当前页码）。用户在第 2 页以上修改筛选条件后按回车，会按旧页码请求，
+  得到空页或错位数据，且无法自行恢复——与点击「查询」的两个入口行为不一致，容易被误判为「无匹配数据」。
+- **实现**：将 6 个视图共 12 个 `@keyup.enter="load"` 统一改为 `@keyup.enter="onSearch"`：
+  `LoginLogView`（4 处）、`IdempotencyRecordView`（3 处）、`FileManagementView`（2 处）、
+  `NotificationTemplateView`、`SmsLogView`、`NotificationRecordView`（各 1 处）。
+  未改动没有 `onSearch` 的视图（这些视图的按钮与回车都走 `load()`，行为本身一致）。
+- **防回归**：新增 `scripts/tests/test_frontend_search_consistency.py`（4 例），静态扫描所有 `.vue`，
+  对定义了 `onSearch` 的视图禁止筛选框回车直接调用 `load`；已纳入 `gate-tests` 统一入口（现 25 例）。
+- **验证**：门禁单测 25/25 通过；后端 477 例、前端 118 例与 Vite 构建见提交说明。
+
 ### 装配模块单测补强（scaffold-admin 零测试覆盖清零，14 模块全覆盖）
 
 - **背景**：`scaffold-admin` 是最后一个零测试模块；虽以启动装配为主，但仍含两类高风险逻辑：

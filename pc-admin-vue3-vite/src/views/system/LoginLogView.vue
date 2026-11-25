@@ -8,7 +8,7 @@
         <div class="toolbar-filters">
           <div class="filter-group">
             <span class="filter-label">{{ '用户名' }}</span>
-            <el-input v-model="query.username" :placeholder="'用户名（模糊）'" clearable style="width: 160px" @keyup.enter="load" />
+            <el-input v-model="query.username" :placeholder="'用户名（模糊）'" clearable style="width: 160px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '结果' }}</span>
@@ -25,11 +25,11 @@
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '失败码' }}</span>
-            <el-input v-model="query.failureCode" :placeholder="'如 AUTH_001'" clearable style="width: 140px" @keyup.enter="load" />
+            <el-input v-model="query.failureCode" :placeholder="'如 AUTH_001'" clearable style="width: 140px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
             <span class="filter-label">IP</span>
-            <el-input v-model="query.ipAddress" :placeholder="'IP（模糊）'" clearable style="width: 140px" @keyup.enter="load" />
+            <el-input v-model="query.ipAddress" :placeholder="'IP（模糊）'" clearable style="width: 140px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '时间范围' }}</span>
@@ -46,7 +46,7 @@
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '关键字' }}</span>
-            <el-input v-model="query.keyword" :placeholder="'用户名/IP/失败码/traceId'" clearable style="width: 200px" @keyup.enter="load" />
+            <el-input v-model="query.keyword" :placeholder="'用户名/IP/失败码/traceId'" clearable style="width: 200px" @keyup.enter="onSearch" />
           </div>
         </div>
         <div class="toolbar-actions">

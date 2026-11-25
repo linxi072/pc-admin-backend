@@ -35,7 +35,7 @@
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '关键字' }}</span>
-            <el-input v-model="query.keyword" :placeholder="'批次号/操作人/失败原因/traceId'" clearable style="width: 240px" @keyup.enter="load" />
+            <el-input v-model="query.keyword" :placeholder="'批次号/操作人/失败原因/traceId'" clearable style="width: 240px" @keyup.enter="onSearch" />
           </div>
         </div>
         <div class="toolbar-actions">

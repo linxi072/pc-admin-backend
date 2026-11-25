@@ -16,15 +16,15 @@
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '接口域' }}</span>
-            <el-input v-model="query.apiScope" :placeholder="'接口域'" clearable style="width: 160px" @keyup.enter="load" />
+            <el-input v-model="query.apiScope" :placeholder="'接口域'" clearable style="width: 160px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '用户ID' }}</span>
-            <el-input v-model="query.userId" :placeholder="'用户ID'" clearable style="width: 130px" @keyup.enter="load" />
+            <el-input v-model="query.userId" :placeholder="'用户ID'" clearable style="width: 130px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '关键字' }}</span>
-            <el-input v-model="query.keyword" :placeholder="'幂等键'" clearable style="width: 220px" @keyup.enter="load" />
+            <el-input v-model="query.keyword" :placeholder="'幂等键'" clearable style="width: 220px" @keyup.enter="onSearch" />
           </div>
           <div class="filter-group">
             <span class="filter-label">{{ '时间范围' }}</span>
