@@ -440,6 +440,28 @@ mvn -o test          # 预期 456 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
 ```
 
+### 3.6n 站内消息规则层抽取与单测
+
+**目标**：为 `scaffold-im`（此前零测试模块）抽出纯规则层并清零测试盲区，防止会话创建/已读游标口径漂移。
+
+**验收标准**：`ImRulesTest` 10 例全过；后端累计 466 例全绿；质量门禁 8/8。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `validateCreateConversation` | 类型白名单、空成员、P2P 人数、创建者本人入会 |
+| `resolveMemberIds` | 创建者置首、按入参顺序去重 |
+| `normalizeMsgType` / `preview` | 空值回退 TEXT、超长截断省略号与边界 |
+| `shouldAdvanceReadCursor` | 无消息/重复/回退均跳过，仅向前推进 |
+| `compareLastMessageAt` | 最近消息倒序、无消息排末尾 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-im -am test -Dtest=ImRulesTest -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 10, Failures: 0, Errors: 0
+mvn -o test          # 预期 466 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，8/8 通过
+```
+
 ---
 
 ## 3.7 组件库（已移除）

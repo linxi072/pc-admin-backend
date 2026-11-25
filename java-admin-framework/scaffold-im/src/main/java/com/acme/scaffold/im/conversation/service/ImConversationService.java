@@ -9,6 +9,7 @@ import com.acme.scaffold.im.conversation.domain.model.ImConversationMember;
 import com.acme.scaffold.im.conversation.domain.ConversationCreateRequest;
 import com.acme.scaffold.im.conversation.domain.ConversationView;
 import com.acme.scaffold.im.message.domain.model.ImMessage;
+import com.acme.scaffold.im.support.ImRules;
 import com.acme.scaffold.im.support.ImStatus;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -16,7 +17,6 @@ import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 import java.util.Set;
@@ -47,28 +47,10 @@ public class ImConversationService {
     @Transactional
     public Long createConversation(ConversationCreateRequest req) {
         String type = req.getConversationType();
-        if (!ImStatus.TYPE_P2P.equals(type) && !ImStatus.TYPE_GROUP.equals(type)) {
-            throw BusinessException.badRequest("会话类型必须为 P2P 或 GROUP");
-        }
         List<Long> peers = req.getMemberIds();
-        if (peers == null || peers.isEmpty()) {
-            throw BusinessException.badRequest("会话成员不能为空");
-        }
-        if (ImStatus.TYPE_P2P.equals(type) && peers.size() != 1) {
-            throw BusinessException.badRequest("点对点会话仅支持 1 名对方成员");
-        }
-        if (ImStatus.TYPE_GROUP.equals(type) && peers.size() < 1) {
-            throw BusinessException.badRequest("群组会话至少需要 1 名成员");
-        }
         Long ownerId = currentUserId();
-        if (peers.contains(ownerId)) {
-            // 创建者会自动作为 OWNER 入会；若对端列表又包含自己，去重后会得到「单人 P2P」
-            // 或人数少于预期的群，属于无意义的会话数据，前置拦截。
-            throw BusinessException.badRequest("会话成员不能包含创建者本人");
-        }
-        Set<Long> userIds = new LinkedHashSet<>();
-        userIds.add(ownerId);
-        userIds.addAll(peers);
+        ImRules.validateCreateConversation(type, peers, ownerId);
+        Set<Long> userIds = ImRules.resolveMemberIds(ownerId, peers);
 
         ImConversation conv = new ImConversation();
         conv.setConversationType(type);
@@ -109,20 +91,7 @@ public class ImConversationService {
             }
             views.add(toView(conv, mem));
         }
-        views.sort((a, b) -> {
-            LocalDateTime ta = a.getLastMessageAt();
-            LocalDateTime tb = b.getLastMessageAt();
-            if (ta == null && tb == null) {
-                return 0;
-            }
-            if (ta == null) {
-                return 1;
-            }
-            if (tb == null) {
-                return -1;
-            }
-            return tb.compareTo(ta);
-        });
+        views.sort((a, b) -> ImRules.compareLastMessageAt(a.getLastMessageAt(), b.getLastMessageAt()));
         return views;
     }
 

@@ -13,6 +13,7 @@ import com.acme.scaffold.im.conversation.domain.model.ImConversationMember;
 import com.acme.scaffold.im.message.domain.model.ImMessage;
 import com.acme.scaffold.im.message.domain.MessageSendRequest;
 import com.acme.scaffold.im.message.domain.MessageView;
+import com.acme.scaffold.im.support.ImRules;
 import com.acme.scaffold.im.support.ImStatus;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSL;
@@ -43,8 +44,8 @@ public class ImMessageService {
     private static final SqlTables.TableRef MEMBER = SqlTables.IM_CONVERSATION_MEMBER;
     private static final SqlTables.TableRef MESSAGE = SqlTables.IM_MESSAGE;
 
-    /** 内容预览截断长度（实时推送气泡与通知摘要用）。 */
-    private static final int PREVIEW_MAX = 50;
+    /** 内容预览截断长度（口径由 {@link ImRules#PREVIEW_MAX} 单点定义）。 */
+    private static final int PREVIEW_MAX = ImRules.PREVIEW_MAX;
 
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
@@ -68,7 +69,7 @@ public class ImMessageService {
         msg.setConversationId(req.getConversationId());
         msg.setSenderId(senderId);
         msg.setContent(content);
-        msg.setMsgType(req.getMsgType() == null || req.getMsgType().isBlank() ? ImStatus.MSG_TEXT : req.getMsgType());
+        msg.setMsgType(ImRules.normalizeMsgType(req.getMsgType()));
         msg.setStatus(ImStatus.MSG_STATUS_SENT);
         msg.setReplyToId(req.getReplyToId());
         msg.setCreatedBy(operator);
@@ -83,7 +84,7 @@ public class ImMessageService {
                         .and(MEMBER.field("user_id", Long.class).ne(senderId)));
         List<Long> receiverIds = receivers.stream().map(ImConversationMember::getUserId).toList();
 
-        String preview = content.length() > PREVIEW_MAX ? content.substring(0, PREVIEW_MAX) + "…" : content;
+        String preview = ImRules.preview(content, PREVIEW_MAX);
         eventPublisher.publish(new ImMessageSentEvent(conv.getTenantId(), "im", req.getConversationId(),
                 messageId, senderId, receiverIds, conv.getConversationType(), preview));
         log.info("消息已发送 messageId={} conversationId={} senderId={} receiverCount={}",
@@ -152,9 +153,8 @@ public class ImMessageService {
             // 否则历史已读状态会回退，旧消息重新变成未读。
             return;
         }
-        Long current = member.getLastReadMessageId();
-        if (current != null && current >= maxId) {
-            // 重复标记已读或游标已超过当前最大消息 id：幂等返回，不回退。
+        // 重复标记已读或游标已超过当前最大消息 id：幂等返回，不回退。
+        if (!ImRules.shouldAdvanceReadCursor(member.getLastReadMessageId(), maxId)) {
             return;
         }
         member.setLastReadMessageId(maxId);

@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 站内消息规则层抽取与单测（scaffold-im 零测试覆盖清零）
+
+- **背景**：`scaffold-im` 此前无任何测试类，且会话创建校验、成员集合、消息类型/预览归一、
+  已读游标推进与会话排序口径全部内联在两个 Spring Service 中，无法离线单测，规则易在多处漂移。
+- **实现**：
+  - 新增纯函数层 `ImRules`（无 Spring / 无 DB）：`validateCreateConversation`、`resolveMemberIds`、
+    `normalizeMsgType`、`preview`、`shouldAdvanceReadCursor`、`compareLastMessageAt`；
+  - `ImConversationService` 与 `ImMessageService` 改为委托该规则层，逐字保留原有校验顺序、错误信息、
+    预览上限（50）与「只前进不回退」语义；`PREVIEW_MAX` 单点定义于 `ImRules`；
+  - 新增 `ImRulesTest`（10 例）覆盖全部分支与边界。
+- **验证**：单模块 10/10 通过；后端全量测试 456 → 466 例；重构前后逻辑等价，编译零警告。
+- **注意**：这是本轮唯一涉及生产代码的改动，但仅做静态逻辑抽取与委托，不改变任何运行时行为或 API 契约。
+
 ### Kafka 保序与拓扑单测补强（scaffold-kafka 零测试覆盖清零）
 
 - **背景**：`scaffold-kafka` 此前无任何测试类；`OrderingRules` 的 murmur2 声称「与 Kafka 默认分区器
