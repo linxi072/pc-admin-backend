@@ -9,6 +9,12 @@ app:
   # 避免限流失效被绕过（如防爆破）。单实例或非安全场景可显式置 false。
   ratelimit:
     fail-closed: true
+  # 外部密钥 fail-fast（prod 生效）：JWT_SECRET / APP_OAUTH2_PRIVATE_KEY 任一缺失即拒绝启动，
+  # 避免临时密钥在重启后失效导致会话与客户端令牌不可用；特殊部署可显式置 false（不推荐）。
+  security:
+    secrets:
+      guard:
+        enabled: true
   datasources:
     entries:
       primary:

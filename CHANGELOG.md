@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 生产外部密钥缺失 fail-fast 守卫
+
+- **背景**：`JwtProperties.resolveSigningKey()` 与 `RsaKeyProvider` 在密钥未配置时只告警并生成
+  仅当前进程有效的临时密钥，适合开发/测试。生产若漏配 `JWT_SECRET` 或
+  `APP_OAUTH2_PRIVATE_KEY`，服务仍会正常启动，但重启后管理员会话全部失效、OAuth2 JWKS 的 kid
+  变化导致客户端令牌无法跨重启校验，问题只在重启后暴露。
+- **实现**：新增 `@Profile("prod")` 的 `ProductionSecretsGuard`（`ApplicationRunner`），启动期校验
+  `app.security.jwt-secret` 与 `app.security.oauth2.private-key` 非空，缺失即 `IllegalStateException`；
+  `application-prod.yml` 显式开启，并提供 `app.security.secrets.guard.enabled=false` 逃生开关。
+  错误信息只列环境变量名与配置键，不输出任何密钥内容。
+- **测试**：新增 `ProductionSecretsGuardTest`（8 例），覆盖双密钥齐全、单项/全部缺失、空白视作缺失、
+  逃生开关、默认启用以及 prod profile / ApplicationRunner 契约；定向测试 19 例全过。
+- **验证**：后端全量 485 例、前端 144 例、门禁 33/33、Lint 与 Vite 生产构建均通过。
+- **注意**：生产部署必须注入 `JWT_SECRET` 与 `APP_OAUTH2_PRIVATE_KEY`，否则拒绝启动；临时关闭守卫
+  仅用于过渡排障，不推荐长期关闭。该修复不改变 JWT/OAuth2 令牌格式与接口契约。
+
 ### 健康探针失败暴露 i18n key 修复
 
 - **背景**：i18n 引擎已移除（`src/utils/connectivity.js:63` 与验证手册 3.7 均已确认），但

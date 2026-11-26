@@ -570,6 +570,26 @@ npm test -- --run
 # 预期 Test Files 22 passed / Tests 144 passed
 ```
 
+### 3.6u 生产外部密钥 fail-fast 守卫
+
+**目标**：生产环境漏配 `JWT_SECRET` / `APP_OAUTH2_PRIVATE_KEY` 时不得「正常」启动并使用临时密钥。
+
+**验收标准**：`ProductionSecretsGuardTest` 8 例全过；后端累计 485 例全绿；前端与门禁不受影响。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `ProductionSecretsGuard` | `@Profile("prod")`、`ApplicationRunner`、默认启用、逃生开关 |
+| 缺失校验 | JWT 单项缺失、OAuth2 单项缺失、双缺失、空白字符串视作缺失 |
+| 错误信息 | 只列环境变量名/配置键与关闭开关，不输出密钥内容 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin -am test -Dtest='ProductionSecretsGuardTest,DataSourceTimeZoneGuardTest,JsonLogEncoderTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 19, Failures: 0, Errors: 0
+mvn -o test          # 预期 485 例全过，BUILD SUCCESS
+python3 scripts/check-all.py   # 预期 EXIT=0，门禁全过
+```
+
 ---
 
 ## 3.7 组件库（已移除）
