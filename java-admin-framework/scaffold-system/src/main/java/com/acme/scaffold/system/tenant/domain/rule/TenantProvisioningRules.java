@@ -6,6 +6,7 @@ import com.acme.scaffold.security.password.PasswordPolicy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 租户开通纯函数规则（M19 SaaS 开通 / 平台开通闭环）。
@@ -29,12 +30,12 @@ public final class TenantProvisioningRules {
 
     /** 派生租户管理员角色编码（全局唯一）。 */
     public static String deriveRoleCode(String tenantCode) {
-        return ADMIN_ROLE_PREFIX + (tenantCode == null ? "" : tenantCode.toUpperCase());
+        return ADMIN_ROLE_PREFIX + (tenantCode == null ? "" : tenantCode.toUpperCase(Locale.ROOT));
     }
 
     /** 派生默认部门编码。 */
     public static String deriveDeptCode(String tenantCode) {
-        return ADMIN_DEPT_PREFIX + (tenantCode == null ? "" : tenantCode.toUpperCase());
+        return ADMIN_DEPT_PREFIX + (tenantCode == null ? "" : tenantCode.toUpperCase(Locale.ROOT));
     }
 
     /**

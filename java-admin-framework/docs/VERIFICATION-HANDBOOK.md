@@ -786,6 +786,30 @@ mvn -o test          # 预期 505 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ae 规则层枚举归一锁定 Locale.ROOT
+
+**目标**：规则层所有枚举/状态码大小写归一不受 JVM 默认 Locale 影响，`tr-TR` 下合法值仍可解析。
+
+**验收标准**：新增 7 例 tr-TR 回归测试与 3 例静态门禁全过；后端累计 512 例、前端 158 例、门禁 49 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 告警规则 | `INFO` / `CRITICAL` / `DISK_USAGE` / `ONLINE_USERS` / `INBOX` 解析；`FIRING` 状态与 severity 归一 |
+| 幂等与内容 | `PROCESSING`、发布态 `PUBLISHED` / `OFFLINE` 归一 |
+| 日志与租户 | `SKIPPED` / `DIGEST_PENDING` / `SUCCESS`；租户编码 `TENANT_ADMIN_INVY` |
+| 工作流 | `RATIO` / `INITIATOR` / `PREVIOUS` 审批配置在 tr-TR 下校验通过 |
+| 静态门禁 | 规则包禁止无参 `toUpperCase()` / `toLowerCase()` |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common,scaffold-monitor,scaffold-cms,scaffold-system,scaffold-workflow -am test -Dtest='RuleLocaleTest,IdempotencyLocaleTest,CmsStatusRulesLocaleTest,LogAndTenantLocaleTest,WorkflowDesignValidatorLocaleTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 BUILD SUCCESS
+python3 scripts/tests/test_rule_locale_security.py
+# 预期 Ran 3 tests / OK
+mvn -o test          # 预期 512 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 49/49
+```
+
 ---
 
 ## 3.7 组件库（已移除）

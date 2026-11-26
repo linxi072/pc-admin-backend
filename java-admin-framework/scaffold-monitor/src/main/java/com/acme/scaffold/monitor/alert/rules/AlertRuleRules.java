@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -79,7 +80,7 @@ public final class AlertRuleRules {
             return null;
         }
         try {
-            return MetricKey.valueOf(s.trim().toUpperCase());
+            return MetricKey.valueOf(s.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -90,7 +91,7 @@ public final class AlertRuleRules {
             return null;
         }
         try {
-            return Comparator.valueOf(s.trim().toUpperCase());
+            return Comparator.valueOf(s.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -101,7 +102,7 @@ public final class AlertRuleRules {
             return null;
         }
         try {
-            return Severity.valueOf(s.trim().toUpperCase());
+            return Severity.valueOf(s.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -112,7 +113,7 @@ public final class AlertRuleRules {
             return null;
         }
         try {
-            return ChannelType.valueOf(s.trim().toUpperCase());
+            return ChannelType.valueOf(s.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }

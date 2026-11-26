@@ -7,8 +7,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-
 import java.util.TreeMap;
 
 /**
@@ -52,7 +52,7 @@ public final class AlertInboxRules {
         if (status == null || status.isBlank()) {
             return null;
         }
-        String s = status.trim().toLowerCase();
+        String s = status.trim().toLowerCase(Locale.ROOT);
         return STATUS_FIRING.equals(s) || STATUS_RESOLVED.equals(s) ? s : null;
     }
 
@@ -65,7 +65,7 @@ public final class AlertInboxRules {
         if (severity == null || severity.isBlank()) {
             return null;
         }
-        return truncate(severity.trim().toLowerCase(), MAX_SEVERITY_LEN);
+        return truncate(severity.trim().toLowerCase(Locale.ROOT), MAX_SEVERITY_LEN);
     }
 
     /**
@@ -131,7 +131,7 @@ public final class AlertInboxRules {
                 resolved++;
             }
             String key = e.getSeverity() == null || e.getSeverity().isBlank()
-                    ? UNKNOWN_SEVERITY : e.getSeverity().trim().toLowerCase();
+                    ? UNKNOWN_SEVERITY : e.getSeverity().trim().toLowerCase(Locale.ROOT);
             bySeverity.merge(key, 1, Integer::sum);
             long millis = toEpochMilli(e.getReceivedAt());
             if (millis > 0) {

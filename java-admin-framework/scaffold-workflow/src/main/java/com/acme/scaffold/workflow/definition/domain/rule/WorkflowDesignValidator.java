@@ -8,6 +8,7 @@ import com.acme.scaffold.workflow.support.WorkflowNodeType;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -144,7 +145,7 @@ public final class WorkflowDesignValidator {
     }
 
     private static void validateApproval(WorkflowNodeView n) {
-        String mode = n.approvalMode() == null ? "ANY" : n.approvalMode().toUpperCase();
+        String mode = n.approvalMode() == null ? "ANY" : n.approvalMode().toUpperCase(Locale.ROOT);
         if (!Set.of("ALL", "ANY", "RATIO").contains(mode)) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                     "审批节点 " + n.id() + " 的审批模式非法: " + n.approvalMode());
@@ -156,7 +157,7 @@ public final class WorkflowDesignValidator {
                         "审批节点 " + n.id() + " 的通过比例需介于 (0,1]");
             }
         }
-        String at = n.assigneeType() == null ? "USER" : n.assigneeType().toUpperCase();
+        String at = n.assigneeType() == null ? "USER" : n.assigneeType().toUpperCase(Locale.ROOT);
         if (!Set.of("USER", "ROLE", "ORG", "INITIATOR", "INITIATOR_MANAGER").contains(at)) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                     "审批节点 " + n.id() + " 的受让人类型非法: " + n.assigneeType());
@@ -165,7 +166,7 @@ public final class WorkflowDesignValidator {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                     "审批节点 " + n.id() + " 指定人员(USER)时必填受让人表达式（逗号分隔的用户ID）");
         }
-        String rp = n.rejectPolicy() == null ? "NONE" : n.rejectPolicy().toUpperCase();
+        String rp = n.rejectPolicy() == null ? "NONE" : n.rejectPolicy().toUpperCase(Locale.ROOT);
         if (!Set.of("NONE", "PREVIOUS", "END", "SPECIFIC").contains(rp)) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                     "审批节点 " + n.id() + " 的驳回策略非法: " + n.rejectPolicy());

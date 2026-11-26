@@ -7,6 +7,7 @@ import com.acme.scaffold.common.notification.NotificationMessage;
 import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.text.TextUtils;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import java.util.regex.Pattern;
@@ -91,7 +92,7 @@ public final class NotificationRecordRules {
         if (status == null || status.isBlank()) {
             return null;
         }
-        String s = status.trim().toUpperCase();
+        String s = status.trim().toUpperCase(Locale.ROOT);
         return STATUS_SUCCESS.equals(s) || STATUS_FAILED.equals(s) || STATUS_SKIPPED.equals(s)
                 || STATUS_DIGEST_PENDING.equals(s)
                 ? s : null;

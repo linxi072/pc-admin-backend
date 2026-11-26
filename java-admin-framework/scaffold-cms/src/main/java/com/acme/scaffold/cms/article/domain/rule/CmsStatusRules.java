@@ -2,6 +2,7 @@ package com.acme.scaffold.cms.article.domain.rule;
 
 import com.acme.scaffold.cms.support.CmsStatus;
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 /**
  * 内容发布态流转规则（C1，纯函数）：把散落在 Service 私有方法的状态判定收口为单一口径。
@@ -20,7 +21,7 @@ public final class CmsStatusRules {
 
     /** 请求状态缺省时归一为 DRAFT。 */
     public static String normalize(String status) {
-        return status == null || status.isBlank() ? DRAFT : status.trim().toUpperCase();
+        return status == null || status.isBlank() ? DRAFT : status.trim().toUpperCase(Locale.ROOT);
     }
 
     /** 是否为合法发布态。 */

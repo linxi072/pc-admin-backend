@@ -1,5 +1,7 @@
 package com.acme.scaffold.common.idempotency;
 
+import java.util.Locale;
+
 /**
  * 幂等记录状态机。
  *
@@ -30,7 +32,7 @@ public enum IdempotencyStatus {
             return PROCESSING;
         }
         try {
-            return IdempotencyStatus.valueOf(value.trim().toUpperCase());
+            return IdempotencyStatus.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return PROCESSING;
         }

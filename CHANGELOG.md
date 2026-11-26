@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 规则层枚举归一全面锁定 Locale.ROOT
+
+- **背景**：此前只修复了 `ChannelNormalizeRules`，但规则层仍有 18 处无参 `toUpperCase()` / `toLowerCase()`
+  用于枚举或状态码归一。JVM 默认 `tr-TR` 时，`i` 会变成带点 `İ`，导致 `INFO`、`DISK_USAGE`、
+  `PUBLISHED`、`PROCESSING`、`INITIATOR`、`RATIO` 等合法值静默解析失败；告警 severity 汇总还会被拆成
+  不同桶。
+- **实现**：在告警规则、CMS 状态、工作流审批校验、通知/短信日志、幂等状态与租户编码派生等
+  9 个生产类中统一改为 `toUpperCase(Locale.ROOT)` / `toLowerCase(Locale.ROOT)`，保留 trim、白名单、
+  `valueOf` 与容错 posture 不变。
+- **测试**：新增 7 例 tr-TR 回归测试（告警解析/收件箱归一、幂等状态、CMS 状态、日志与租户编码、
+  工作流审批校验），新增静态门禁 `test_rule_locale_security.py`（3 例）扫描规则包禁止无参大小写调用。
+  后端测试 505 → 512 例，门禁 46 → 49 例。
+- **验证**：前端 158 例、Lint 与 Vite 生产构建均通过。
+- **注意**：只固定大小写映射语义，不改变状态白名单、枚举集合与容错行为；非规则层的无参调用不在本次范围。
+
 ### OAuth2 授权码并发兑换防双花
 
 - **背景**：`OAuth2AuthorizationCodeService.consume` 原先用 `usedJtis.contains(jti)` 前置校验，

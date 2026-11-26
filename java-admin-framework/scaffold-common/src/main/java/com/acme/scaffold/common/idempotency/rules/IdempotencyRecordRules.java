@@ -4,6 +4,7 @@ import com.acme.scaffold.common.idempotency.IdempotencyStatus;
 import com.acme.scaffold.common.text.TextUtils;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 /**
  * 幂等记录查询纯函数规则：筛选值归一、时间窗收敛、过期判定。
@@ -41,7 +42,7 @@ public final class IdempotencyRecordRules {
         if (status == null || status.isBlank()) {
             return null;
         }
-        String s = status.trim().toUpperCase();
+        String s = status.trim().toUpperCase(Locale.ROOT);
         for (IdempotencyStatus value : IdempotencyStatus.values()) {
             if (value.name().equals(s)) {
                 return s;

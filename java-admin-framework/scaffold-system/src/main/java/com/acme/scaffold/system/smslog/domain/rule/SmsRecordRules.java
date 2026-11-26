@@ -5,6 +5,7 @@ import com.acme.scaffold.common.text.TextUtils;
 
 import com.acme.scaffold.system.notification.config.SmsProperties;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import java.util.stream.Collectors;
@@ -82,7 +83,7 @@ public final class SmsRecordRules {
         if (status == null || status.isBlank()) {
             return null;
         }
-        String s = status.trim().toUpperCase();
+        String s = status.trim().toUpperCase(Locale.ROOT);
         return STATUS_SUCCESS.equals(s) || STATUS_FAILED.equals(s) ? s : null;
     }
 
@@ -94,7 +95,7 @@ public final class SmsRecordRules {
         if (provider == null || provider.isBlank()) {
             return null;
         }
-        String p = provider.trim().toUpperCase();
+        String p = provider.trim().toUpperCase(Locale.ROOT);
         for (SmsProperties.Provider value : SmsProperties.Provider.values()) {
             if (value.name().equals(p)) {
                 return p;
