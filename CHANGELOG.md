@@ -4,6 +4,18 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### OAuth2 password 授权补齐锁定到期语义
+
+- **背景**：此前已让交互式登录通过 `LockoutRules.isLocked` 区分到期临时锁与人工长期锁，但
+  `OAuth2UserAuthenticator` 仍用裸 `"LOCKED".equals(user.status())` 判断。账号被渐进式锁定后，
+  `lockedUntil` 到期走前端登录可成功，走 `grant_type=password` 仍被拒，同一账号两条认证入口口径分裂。
+- **实现**：OAuth2 password 路径改用 `LockoutRules.isLocked(status, lockedUntil, now)`，到期临时锁放行；
+  `DISABLED` 与无到期时间的 `LOCKED` 仍拒绝，错误码/文案保持不变。
+- **测试**：新增 `OAuth2UserAuthenticatorTest`（4 例），覆盖到期临时锁放行、人工长期锁/未来临时锁/
+  DISABLED 拒绝。后端测试 539 → 543 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：OAuth2 路径仍不触发登录失败计数与审计，这是既有设计；本次仅对齐锁定状态判定，不改令牌契约。
+
 ### 告警 severity 筛选与汇总口径统一
 
 - **背景**：`AlertInboxRules` 对 severity 存在三套口径：查询值 `normalizeSeverity` 做

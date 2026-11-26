@@ -2,9 +2,11 @@ package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import com.acme.scaffold.security.password.LockoutRules;
 import com.acme.scaffold.security.permission.PermissionService;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
+import java.time.LocalDateTime;
 import java.util.Set;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -49,7 +51,10 @@ public class OAuth2UserAuthenticator {
         if (user == null) {
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
         }
-        if ("DISABLED".equals(user.status()) || "LOCKED".equals(user.status())) {
+        // 与 AuthService 交互式登录同源：带 lockedUntil 的临时锁到期后应放行，
+        // 人工长期锁（LOCKED 且无到期时间）仍持续阻断。
+        if ("DISABLED".equals(user.status())
+                || LockoutRules.isLocked(user.status(), user.lockedUntil(), LocalDateTime.now())) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_DISABLED, "账号已禁用或锁定");
         }
         if (!passwordEncoder.matches(password, user.passwordHash())) {

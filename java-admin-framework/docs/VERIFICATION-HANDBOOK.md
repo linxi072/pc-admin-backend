@@ -975,6 +975,26 @@ mvn -o test          # 预期 539 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6an OAuth2 password 授权补齐锁定到期语义
+
+**目标**：临时锁到期后，`grant_type=password` 与交互式登录口径一致，不再要求用户先做一次前端登录解锁。
+
+**验收标准**：`OAuth2UserAuthenticatorTest` 4 例全过；后端累计 543 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 临时锁 | `LOCKED` + 过期 `lockedUntil` 放行 |
+| 长期锁 | `LOCKED` + `lockedUntil=null` 拒绝 |
+| 其他状态 | 未来临时锁拒绝；`DISABLED` 拒绝 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='OAuth2UserAuthenticatorTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 543 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）
