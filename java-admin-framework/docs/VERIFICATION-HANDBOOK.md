@@ -1100,6 +1100,27 @@ mvn -o test          # 预期 574 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6at XLSX 导入解压增加压缩炸弹边界
+
+**目标**：XLSX 解析前的解压阶段不再无界分配堆内存，高压缩比文件在表头/行数校验前即被拒绝。
+
+**验收标准**：`XlsxDataReaderSafetyTest` 3 例全过；后端累计 577 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 单 entry 超限 | 单个 sheet XML 解压 > 32 MB 时抛 `IllegalArgumentException` |
+| 累计超限 | 多个 entry 单个未超限但累计 > 32 MB 时同样拒绝 |
+| 兼容 | 正常内联字符串工作簿仍可解析出表头与数据行 |
+| 条目数 | 单工作簿 ZIP entry 上限 200，防止海量小条目攻击 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -Dtest='XlsxDataReaderSafetyTest' test
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 577 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

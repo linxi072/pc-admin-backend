@@ -1,6 +1,7 @@
 package com.acme.scaffold.common.importer;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -33,8 +34,10 @@ import javax.xml.stream.XMLStreamReader;
  *       {@link IllegalArgumentException}，由上层转为 400 业务错误。</li>
  * </ul>
  *
- * <p>实现上一次性读入 ZIP 各条目到内存（上限由上传文件大小约束），换取「与条目顺序无关」的稳健解析
- * ——若改为单遍流式读取，一旦 {@code sharedStrings.xml} 排在工作表之后，字符串索引将无法解析。</p>
+ * <p>实现上一次性读入 ZIP 各条目到内存，换取「与条目顺序无关」的稳健解析
+ * ——若改为单遍流式读取，一旦 {@code sharedStrings.xml} 排在工作表之后，字符串索引将无法解析。
+ * 为防止压缩炸弹，解压过程强制限制条目数量与累计解压字节数，超限直接抛
+ * {@link IllegalArgumentException}（由上层转 400），不让输入决定 JVM 堆分配。</p>
  *
  * <p>本类是纯函数工具，不依赖 Spring 容器，便于离线单测。</p>
  */
@@ -43,6 +46,15 @@ public final class XlsxDataReader {
     private static final String SHEET1 = "xl/worksheets/sheet1.xml";
     private static final String SHEET_PREFIX = "xl/worksheets/";
     private static final String SHARED_STRINGS = "xl/sharedStrings.xml";
+
+    /** 单个 XLSX 允许的 ZIP 条目上限（正常工作簿远低于此值）。 */
+    private static final int MAX_ZIP_ENTRIES = 200;
+
+    /** 所有 ZIP 条目累计解压后的字节上限，防压缩炸弹耗尽堆内存。 */
+    private static final long MAX_UNCOMPRESSED_BYTES = 32L * 1024 * 1024;
+
+    /** 解压缓冲区大小。 */
+    private static final int COPY_BUFFER_SIZE = 8192;
 
     private XlsxDataReader() {
     }
@@ -136,15 +148,23 @@ public final class XlsxDataReader {
         return new TabularData(padded.get(0), padded.subList(1, padded.size()));
     }
 
-    /** 解包全部非目录条目（名称 → 内容）。 */
+    /** 解包全部非目录条目（名称 → 内容），并施加条目数与累计解压字节上限。 */
     private static Map<String, byte[]> unzip(byte[] bytes) {
         Map<String, byte[]> parts = new LinkedHashMap<>();
+        long remaining = MAX_UNCOMPRESSED_BYTES;
+        int entries = 0;
         try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(bytes))) {
             ZipEntry e;
             while ((e = zis.getNextEntry()) != null) {
-                if (!e.isDirectory()) {
-                    parts.put(e.getName(), zis.readAllBytes());
+                if (e.isDirectory()) {
+                    continue;
                 }
+                if (++entries > MAX_ZIP_ENTRIES) {
+                    throw new IllegalArgumentException("不是有效的 XLSX 文件：ZIP 条目过多");
+                }
+                byte[] content = readBounded(zis, remaining);
+                remaining -= content.length;
+                parts.put(e.getName(), content);
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("不是有效的 XLSX 文件：ZIP 结构损坏", e);
@@ -153,6 +173,21 @@ public final class XlsxDataReader {
             throw new IllegalArgumentException("不是有效的 XLSX 文件：内容为空");
         }
         return parts;
+    }
+
+    /** 按剩余配额读取单个 ZIP entry，避免 {@code readAllBytes()} 无界分配。 */
+    private static byte[] readBounded(ZipInputStream zis, long remaining) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[COPY_BUFFER_SIZE];
+        int read;
+        while ((read = zis.read(buffer)) != -1) {
+            if (read > remaining) {
+                throw new IllegalArgumentException("不是有效的 XLSX 文件：解压后内容过大");
+            }
+            out.write(buffer, 0, read);
+            remaining -= read;
+        }
+        return out.toByteArray();
     }
 
     /** 解析 workbook.xml：按顺序返回 (工作表名, r:id) 对；无工作表或结构非法返回 {@code null}。 */

@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### XLSX 导入解压增加压缩炸弹边界
+
+- **背景**：`XlsxDataReader.unzip` 对每个 ZIP entry 直接调用 `readAllBytes()`，注释误以为上传文件大小能约束
+  解压后体积。高压缩比的几十 KB `bomb.xlsx` 可展开为数百 MB，在表头/行数校验之前就耗尽堆内存，
+  造成单请求 OOM 与实例不可用；IP 限流无法阻止单次攻击。
+- **实现**：解压改为分块有界读取，限制单个工作簿最多 200 个 ZIP entry、累计解压不超过 32 MB；
+  超限统一抛 `IllegalArgumentException`，由现有导入链路转为 400。正常工作簿解析路径与共享字符串/
+  多 Sheet 逻辑不变。
+- **测试**：新增 `XlsxDataReaderSafetyTest`（3 例），覆盖单 entry 高压缩炸弹、多 entry 累计超限
+  与正常内联字符串工作簿仍可解析。后端测试 574 → 577 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：阈值只约束解压后的 ZIP 载荷，不改变上传文件大小限制；确需更大工作簿时，应同步调整
+  `MAX_UNCOMPRESSED_BYTES` 与导入行数上限，避免只放宽一侧。
+
 ### 会话无关改密补齐防爆破防护
 
 - **背景**：`POST /api/auth/change-password` 是公开端点，以「用户名 + 原密码」完成身份认证，但
