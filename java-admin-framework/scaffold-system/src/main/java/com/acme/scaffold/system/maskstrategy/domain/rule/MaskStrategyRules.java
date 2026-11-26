@@ -128,6 +128,40 @@ public final class MaskStrategyRules {
     }
 
     /**
+     * 合并平台（租户 0）默认策略与当前租户策略后按字段键命中。
+     *
+     * <p>优先级高者胜；优先级相同则当前租户策略胜出，避免平台默认策略把租户定制覆盖掉。
+     * 该口径让业务租户无需逐条复制平台默认策略。</p>
+     */
+    public static SysMaskStrategy selectStrategyWithTenantDefault(List<SysMaskStrategy> platformStrategies,
+                                                                  List<SysMaskStrategy> tenantStrategies,
+                                                                  String fieldKey) {
+        SysMaskStrategy best = null;
+        int bestPriority = Integer.MIN_VALUE;
+        int bestRank = -1;
+        List<List<SysMaskStrategy>> groups = List.of(
+                platformStrategies == null ? List.of() : platformStrategies,
+                tenantStrategies == null ? List.of() : tenantStrategies);
+        for (int rank = 0; rank < groups.size(); rank++) {
+            for (SysMaskStrategy s : groups.get(rank)) {
+                if (s.getFieldKey() == null || !s.getFieldKey().equals(fieldKey)) {
+                    continue;
+                }
+                if (s.getEnabled() == null || s.getEnabled() != 1) {
+                    continue;
+                }
+                int p = s.getPriority() == null ? 0 : s.getPriority();
+                if (best == null || p > bestPriority || (p == bestPriority && rank > bestRank)) {
+                    best = s;
+                    bestPriority = p;
+                    bestRank = rank;
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
      * 是否应脱敏（基于命中策略与作用范围/角色）。
      * ALL→脱敏；NONE→不脱敏；ROLE_EXEMPT→豁免角色命中则不脱敏，否则脱敏
      * （未配置豁免角色时按「脱敏」兜底，避免被误判为放行）。
@@ -157,7 +191,12 @@ public final class MaskStrategyRules {
         return true;
     }
 
-    /** 命中策略的最终脱敏类型（脱敏算法由该类型驱动）；非法类型回落 NONE（不脱敏，不抛异常）。 */
+    /**
+     * 命中策略的最终脱敏类型（脱敏算法由该类型驱动）；非法类型回落 NONE。
+     *
+     * <p>调用方在 {@code shouldMask=true} 且本方法返回 NONE 时必须继续走兜底类型或通用掩码，
+     * 不得把 NONE 解释为「判定要脱敏却输出明文」。</p>
+     */
     public static SensitiveType decideType(SysMaskStrategy strategy) {
         SensitiveType t = parseSensitiveType(strategy.getSensitiveType());
         return t == null ? SensitiveType.NONE : t;

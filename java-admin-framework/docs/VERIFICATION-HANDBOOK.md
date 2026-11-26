@@ -872,6 +872,26 @@ mvn -o test          # 预期 522 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ai 脱敏策略中心 fail-open 与租户默认策略
+
+**目标**：判定要脱敏就必须产出掩码；租户 0 的平台默认策略对业务租户生效，租户同优先级策略可覆盖。
+
+**验收标准**：策略中心 9 例全过；后端累计 531 例、前端 158 例、门禁 50 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 策略命中 | 平台默认继承；租户同优先级覆盖；更高优先级仍胜出 |
+| fail-closed | 非法/空类型 + fallbackType；非法/空类型 + NONE 走通用掩码 |
+| 保持不变 | 角色豁免分支仍返回明文 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='MaskStrategyRulesTest,MaskStrategyResolverTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 9, Failures: 0, Errors: 0
+mvn -o test          # 预期 531 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

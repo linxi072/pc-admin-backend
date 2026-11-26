@@ -6,6 +6,7 @@ import com.acme.scaffold.common.sensitive.SensitiveMasker;
 import com.acme.scaffold.common.sensitive.SensitiveType;
 import com.acme.scaffold.system.maskstrategy.domain.model.SysMaskStrategy;
 import com.acme.scaffold.system.maskstrategy.domain.rule.MaskStrategyRules;
+import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +33,7 @@ public class MaskStrategyResolver {
     /**
      * 解析单个值的脱敏结果（显式上下文）。
      *
-     * @param tenantId     租户 ID（策略按租户隔离；平台级默认策略通常挂在租户 0）
+     * @param tenantId     租户 ID（策略按租户隔离；租户 0 的平台默认策略对所有业务租户生效）
      * @param fieldKey     逻辑字段键（如 sys_user.mobile / audit.ip），用于命中策略
      * @param value        原始值（null 原样返回）
      * @param fallbackType 未命中策略时的兜底脱敏类型（null 视为 NONE = 不脱敏）
@@ -44,8 +45,11 @@ public class MaskStrategyResolver {
         if (value == null) {
             return null;
         }
-        SysMaskStrategy strategy = MaskStrategyRules.selectStrategy(
-                service.activeStrategies(tenantId), fieldKey);
+        List<SysMaskStrategy> tenantStrategies = service.activeStrategies(tenantId);
+        List<SysMaskStrategy> platformStrategies = tenantId == 0L
+                ? List.of() : service.activeStrategies(0L);
+        SysMaskStrategy strategy = MaskStrategyRules.selectStrategyWithTenantDefault(
+                platformStrategies, tenantStrategies, fieldKey);
         if (strategy == null) {
             // 默认安全回落：沿用调用方声明的类型驱动默认掩码
             return SensitiveMasker.mask(value, fallbackType == null ? SensitiveType.NONE : fallbackType);
@@ -54,7 +58,16 @@ public class MaskStrategyResolver {
             // 命中角色豁免（如特权角色）→ 明文
             return value;
         }
-        return SensitiveMasker.mask(value, MaskStrategyRules.decideType(strategy));
+        SensitiveType type = MaskStrategyRules.decideType(strategy);
+        if (type == null || type == SensitiveType.NONE) {
+            // 策略声明要脱敏但类型非法/缺失：先取调用方兜底类型，仍为 NONE 则通用掩码，
+            // 绝不能因「判定要脱敏、算法为 NONE」而把明文放出去。
+            type = fallbackType == null ? SensitiveType.NONE : fallbackType;
+            return type == SensitiveType.NONE
+                    ? SensitiveMasker.genericMask(value)
+                    : SensitiveMasker.mask(value, type);
+        }
+        return SensitiveMasker.mask(value, type);
     }
 
     /**

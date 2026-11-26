@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 脱敏策略中心 fail-open 与租户默认策略修复
+
+- **背景**：策略已声明 `shouldMask=true` 但 `decideType` 因未知/空类型回落 `NONE` 时，
+  `MaskStrategyResolver` 直接调用 `SensitiveMasker.mask(value, NONE)` 原样返回明文；同时
+  `resolve` 只查当前租户的策略，租户 0 的平台默认策略对业务租户完全不生效，文档中的
+  「平台默认 + 租户覆盖」从未实现。
+- **实现**：新增 `MaskStrategyRules.selectStrategyWithTenantDefault`，合并平台与租户策略、优先级高者胜，
+  同优先级租户策略胜出；解析器按该规则命中，判定脱敏但类型无效时先取调用方 `fallbackType`，
+  仍为 `NONE` 则走 `SensitiveMasker.genericMask`，杜绝明文出口。角色豁免分支保持不变。
+- **测试**：补齐仓库此前零覆盖的脱敏策略中心：`MaskStrategyRulesTest` 4 例 + `MaskStrategyResolverTest`
+  5 例，覆盖平台默认继承、租户同优先级覆盖、非法类型兜底、通用掩码兜底与角色豁免。
+  后端测试 522 → 531 例。
+- **验证**：前端 158 例、门禁 50/50、Lint 与 Vite 生产构建均通过。
+- **注意**：租户 0 的策略现在会下沉到所有业务租户，若此前刻意配置过租户 0 策略需确认其影响范围；
+  仅改变命中与兜底口径，不改动 `sys_mask_strategy` 存储结构与管理 API。
+
 ### 列权限脱敏 fail-open 修复
 
 - **背景**：列权限存在两条脱敏路径。`ColumnPermissionApplier` 已用通用掩码兜底 `null/NONE`，但
