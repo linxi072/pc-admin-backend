@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 幂等记录写路径补齐租户隔离
+
+- **背景**：`IdempotencyService.find()` 经 `SqlWriters.fetchOne` 带租户条件，但 `markSuccess` / `markFailed` /
+  `release` 以及过期清理、FAILED→PROCESSING 重入都直接按裸 `id` 或 `(key, scope)` 更新/删除。
+  强隔离下两个租户使用相同 `Idempotency-Key` 与 scope 时，A 的成功写会污染 B 的记录并写入 A 的响应快照，
+  B 重试可能 REPLAY A 的响应；`release` 还会误删 B 的在途保护。
+- **实现**：`keyCondition` 统一经 `SqlWriters.withTenant` 装饰；按 id 的过期删除与重入更新同样追加租户条件。
+  读路径继续复用 `keyCondition`，读写口径一致；`purgeExpired` 作为全局清理任务保持跨租户。
+- **测试**：新增 `IdempotencyTenantScopeTest`（4 例），覆盖成功/失败/释放三类写路径带租户条件、
+  关闭隔离时不注入条件。后端测试 606 → 610 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：DDL 中尚未建立 `(tenant_id, idempotency_key, api_scope)` 唯一索引，
+  极端并发下唯一索引兜底仍缺失；本次只修写路径作用域，索引变更需单独评估存量数据。
+
 ### 机构树缓存键加入租户维度
 
 - **背景**：`OrgService.orgScopeKey()` 只按数据权限范围生成 `ALL` / `SELF:<userId>` / `ORG:<ids>`。

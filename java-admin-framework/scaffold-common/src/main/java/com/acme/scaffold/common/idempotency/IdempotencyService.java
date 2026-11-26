@@ -26,6 +26,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 客户端重试就会变成一次真实的新执行——幂等形同虚设。
  * 独立事务的代价是：业务失败但记录已落 SUCCESS 的窗口极小（仅在提交后写回阶段失败），
  * 此时由 markFailed 覆盖状态，保证最终一致。
+ *
+ * <p>所有按 (key, scope) 的读写均经 {@code SqlWriters.withTenant} 施加租户条件，强隔离下不同租户
+ * 使用相同 key/scope 不会互相覆盖状态、响应快照或误删在途记录。</p>
  */
 @Slf4j
 @Service
@@ -121,7 +124,8 @@ public class IdempotencyService {
         // 读路径兜底：清理任务未运行/失败时，已过期记录必须视为不存在并重新登记，
         // 否则过期的 SUCCESS 仍会 REPLAY 旧响应、过期的 PROCESSING 会永久返回 409。
         if (existing != null && IdempotencyRecordRules.isExpired(existing.getExpiresAt(), now)) {
-            dsl.deleteFrom(t.table()).where(t.field("id", Long.class).eq(existing.getId())).execute();
+            dsl.deleteFrom(t.table()).where(SqlWriters.withTenant(t,
+                    t.field("id", Long.class).eq(existing.getId()))).execute();
             existing = null;
         }
         if (existing == null) {
@@ -158,7 +162,8 @@ public class IdempotencyService {
                     .set(t.field("expires_at", LocalDateTime.class),
                             now.plusSeconds(Math.max(ttlSeconds, 1)))
                     .set(t.field("updated_at", LocalDateTime.class), now)
-                    .where(t.field("id", Long.class).eq(existing.getId()))
+                    .where(SqlWriters.withTenant(t,
+                            t.field("id", Long.class).eq(existing.getId())))
                     .execute();
         }
         return new AcquireResult(action, existing.getResponseSnapshot());
@@ -171,8 +176,11 @@ public class IdempotencyService {
 
     private Condition keyCondition(String key, String scope) {
         var t = SqlTables.SYS_IDEMPOTENCY_RECORD;
-        return DSL.and(t.field("idempotency_key", String.class).eq(key),
+        Condition base = DSL.and(t.field("idempotency_key", String.class).eq(key),
                 t.field("api_scope", String.class).eq(scope));
+        // 读写同口径：find() 经 SqlWriters.fetchOne 自带租户条件，写路径必须显式补齐，
+        // 否则不同租户使用相同 key/scope 时 markSuccess/markFailed/release 会互相污染。
+        return SqlWriters.withTenant(t, base);
     }
 
     private String toSnapshot(Object response) {

@@ -1288,6 +1288,27 @@ mvn -o test          # 预期 606 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bc 幂等记录写路径补齐租户隔离
+
+**目标**：强隔离下相同 `(key, scope)` 的幂等记录按租户互不干扰，读写口径一致。
+
+**验收标准**：`IdempotencyTenantScopeTest` 4 例全过；后端累计 610 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 成功写回 | `markSuccess` 的 UPDATE 带 `tenant_id` 条件，不写他租户响应快照 |
+| 失败写回 | `markFailed` 仅更新本租户记录的状态与错误码 |
+| 释放 | `release` 只删除本租户在途记录 |
+| 兼容 | `enforce=false` 时不注入租户条件；`purgeExpired` 仍为全局清理 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -Dtest='IdempotencyTenantScopeTest' test
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 610 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）
