@@ -199,7 +199,7 @@ public class FileService {
         try {
             dsl.update(FILE.table())
                     .set(SqlTables.SYS_FILE.field("download_count", Long.class), SqlTables.SYS_FILE.field("download_count", Long.class).plus(1))
-                    .where(SqlTables.SYS_FILE.field("id", Long.class).eq(id))
+                    .where(SqlWriters.withTenant(FILE, SqlTables.SYS_FILE.field("id", Long.class).eq(id)))
                     .execute();
         } catch (RuntimeException e) {
             log.warn("下载计数更新失败 fileId={}", id, e);
@@ -290,7 +290,7 @@ public class FileService {
         Result<Record3<String, Integer, BigDecimal>> rs = dsl
                 .select(SqlTables.SYS_FILE.field("source_module", String.class), DSL.count(), DSL.sum(SqlTables.SYS_FILE.field("file_size", Long.class)))
                 .from(FILE.table())
-                .where(SqlWriters.notDeleted(FILE))
+                .where(SqlWriters.withTenant(FILE, SqlWriters.notDeleted(FILE)))
                 .groupBy(SqlTables.SYS_FILE.field("source_module", String.class))
                 .orderBy(DSL.count().desc())
                 .fetch();
@@ -412,8 +412,8 @@ public class FileService {
         Result<Record2<String, Integer>> rs = dsl
                 .select(SqlTables.SYS_FILE.field("stored_name", String.class), DSL.count())
                 .from(FILE.table())
-                .where(DSL.and(SqlWriters.notDeleted(FILE),
-                        SqlTables.SYS_FILE.field("stored_name", String.class).in(names)))
+                .where(SqlWriters.withTenant(FILE, DSL.and(SqlWriters.notDeleted(FILE),
+                        SqlTables.SYS_FILE.field("stored_name", String.class).in(names))))
                 .groupBy(SqlTables.SYS_FILE.field("stored_name", String.class))
                 .fetch();
         Set<String> shared = new java.util.HashSet<>();

@@ -261,18 +261,19 @@ public final class SqlWriters {
     }
 
     // ------------------------------------------------------------------
-    // 内部实现
+    // 共享谓词与内部实现
     // ------------------------------------------------------------------
 
     /**
      * 租户隔离装饰（M19 P3）：仅当强制隔离生效时，向给定条件追加 {@code tenant_id = currentTenantId()}。
+     * 聚合、GROUP BY 等无法使用 {@code scopedSelect} 的直连 DSL 查询必须显式套用本方法。
      *
      * <p><b>生效条件</b>（全部满足才追加）：{@code app.tenant.enforce=true} 且目标表需隔离（非平台维表）
      * 且当前线程已设置租户作用域；否则原样返回条件，保证与既有单租户逻辑零回归。</p>
      *
      * <p>目标表若不存在 {@code tenant_id} 列，视为无需隔离，原样返回（避免无列场景 NPE）。</p>
      */
-    private static Condition withTenant(SqlTables.TableRef table, Condition cond) {
+    public static Condition withTenant(SqlTables.TableRef table, Condition cond) {
         if (!TenantEnforcement.shouldEnforce(table.name()) || !table.has("tenant_id")) {
             return cond;
         }

@@ -1184,6 +1184,27 @@ mvn -o test          # 预期 587 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ax 文件管理直连 DSL 补齐租户隔离
+
+**目标**：`app.tenant.enforce=true` 时，文件统计、共享标记引用数与下载计数更新都必须受当前租户约束，不能从列表过滤外的直连查询泄露或改写跨租户数据。
+
+**验收标准**：`FileServiceTenantScopeTest` 4 例全过；后端累计 591 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 统计聚合 | `stats()` 的 GROUP BY 查询注入 `tenant_id = 7` |
+| 共享标记 | `toViewsWithSharedFlag()` 的 stored_name 引用计数查询注入租户条件 |
+| 计数更新 | `download()` 的 `download_count + 1` UPDATE 注入租户条件 |
+| 兼容 | `enforce=false` 时不注入租户条件，单租户部署行为不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='FileServiceTenantScopeTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 591 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

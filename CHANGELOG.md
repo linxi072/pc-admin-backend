@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 文件管理直连 DSL 补齐租户隔离
+
+- **背景**：`FileService.stats()`、`toViewsWithSharedFlag()` 与下载计数更新直接使用 `DSLContext` 聚合/自增，
+  绕过了 `SqlWriters` 的租户条件装饰。强隔离开启时，文件列表已按租户过滤，但统计总量、来源模块分布、
+  共享标记引用数和下载计数仍跨租户，造成元数据泄露并可能误改其他租户记录。
+- **实现**：将 `SqlWriters.withTenant` 提升为公共谓词入口，供无法使用 `scopedSelect` 的 GROUP BY / UPDATE
+  直连查询复用；上述三处条件均追加 `tenant_id = currentTenantId()`。平台维表与隔离关闭时行为不变。
+- **测试**：新增 `FileServiceTenantScopeTest`（4 例），覆盖统计聚合、共享标记引用数、下载计数更新在
+  `enforce=true` 时带租户条件，以及关闭隔离时不注入条件。后端测试 587 → 591 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：文件物理存储路径不含租户前缀，隔离仅作用于 `sys_file` 元数据；新增直连 DSL 查询时必须显式调用
+  `SqlWriters.withTenant`，否则不会被现有门禁自动发现。
+
 ### 刷新令牌轮换改为原子占用防并发双花
 
 - **背景**：`RefreshTokenService.rotate` 原先先签发新令牌、再无条件按 id 把旧令牌置为 `ROTATED`，
