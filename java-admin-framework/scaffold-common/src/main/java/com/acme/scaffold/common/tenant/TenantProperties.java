@@ -32,7 +32,7 @@ public class TenantProperties {
     /** 平台管理员角色码（命中即视为平台管理员作用域，可跨租户）。默认 PLATFORM_ADMIN。 */
     private String platformAdminRoleCode = "PLATFORM_ADMIN";
 
-    /** 租户请求头名称（显式覆盖当前租户）。默认 X-Tenant-Id。 */
+    /** 租户请求头名称（仅平台管理员可显式覆盖当前租户）。默认 X-Tenant-Id。 */
     private String headerName = "X-Tenant-Id";
 
     /** JWT/Token 中承载租户 ID 的声明名。默认 tid。 */

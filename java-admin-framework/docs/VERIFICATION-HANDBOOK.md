@@ -1016,6 +1016,27 @@ mvn -o test          # 预期 552 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ap 租户请求头覆盖收敛为平台管理员专用
+
+**目标**：普通租户用户即使伪造 `X-Tenant-Id`，执行作用域仍以已签名 Token Claim 为准，避免跨租户越权读写。
+
+**验收标准**：`TenantResolverTest` 5 例与 `TenantInterceptorTest` 3 例全过；后端累计 560 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 普通用户 | 请求头覆盖被忽略，使用 Claim `tid=2`；非法覆盖尝试记录告警且不输出头值 |
+| 平台管理员 | 请求头可覆盖 Claim，租户上下文同时保留 `platformAdmin=true` |
+| 回落语义 | 非法头回落 Claim；隔离关闭回落默认租户；匿名请求回落默认租户 |
+| 兼容 | `resolveTenantIdFromClaims` 仍按配置 Claim 名解析，异步任务调用方式不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common,scaffold-framework -am test -Dtest='TenantResolverTest,TenantInterceptorTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 TenantResolverTest 5 例、TenantInterceptorTest 3 例，Failures: 0, Errors: 0
+mvn -o test          # 预期 560 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

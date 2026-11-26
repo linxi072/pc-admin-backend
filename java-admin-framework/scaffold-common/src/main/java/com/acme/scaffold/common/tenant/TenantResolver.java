@@ -6,7 +6,9 @@ import java.util.Set;
 /**
  * 租户解析器（M19 解析基础设施，纯逻辑、无 Spring 依赖，可直接离线单测）。
  *
- * <p><b>解析优先级</b>：请求头（显式覆盖）> JWT/Token Claim > 默认租户。
+ * <p><b>解析优先级</b>：经授权的请求头覆盖 &gt; JWT/Token Claim &gt; 默认租户。
+ * 请求头只有在调用方显式传入 {@code allowHeaderOverride=true} 时才参与解析；该标记必须由调用方
+ * 在完成身份鉴别后给出（仅平台管理员可为 true），普通用户伪造头不会覆盖其 Token Claim，避免跨租户越权。
  * 头/Claim 取值经 {@link TenantRules#normalizeTenantId} 归一，非法值（负数/非数字）不静默接受，
  * 回落默认租户（由调用方记录告警）。</p>
  *
@@ -28,10 +30,24 @@ public final class TenantResolver {
      * @return 解析到的租户 ID（永不返回 null；隔离关闭或未解析到时回落默认租户）
      */
     public static long resolveTenantId(String headerValue, Map<String, Object> claims, TenantProperties props) {
+        return resolveTenantId(headerValue, claims, props, false);
+    }
+
+    /**
+     * 解析当前租户 ID（显式指定是否允许请求头覆盖）。
+     *
+     * @param headerValue          请求头（如 X-Tenant-Id）原始值，可为 null
+     * @param claims               JWT/Token 声明映射（含 tid 等），可为 null
+     * @param props                租户配置（enabled / 默认租户 / claim 名）
+     * @param allowHeaderOverride  调用方是否已确认请求头覆盖权限；仅平台管理员可为 true
+     * @return 解析到的租户 ID（永不返回 null；隔离关闭或未解析到时回落默认租户）
+     */
+    public static long resolveTenantId(String headerValue, Map<String, Object> claims, TenantProperties props,
+                                       boolean allowHeaderOverride) {
         if (props == null || !props.isEnabled()) {
             return defaultTenantId(props);
         }
-        Long fromHeader = normalize(headerValue);
+        Long fromHeader = allowHeaderOverride ? normalize(headerValue) : null;
         if (fromHeader != null) {
             return fromHeader;
         }

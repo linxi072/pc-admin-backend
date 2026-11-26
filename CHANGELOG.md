@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 租户请求头覆盖收敛为平台管理员专用
+
+- **背景**：`TenantInterceptor` 先按 `X-Tenant-Id` 解析作用域、后计算平台管理员标记，
+  `TenantResolver` 又无条件让请求头优先于 JWT `tid`。普通租户用户只要附加任意 `X-Tenant-Id`，
+  就能把执行作用域切到别的租户；在 `app.tenant.enforce=true` 时会造成跨租户读写越权。
+- **实现**：`TenantResolver.resolveTenantId` 增加显式 `allowHeaderOverride` 标记，三参重载默认忽略请求头；
+  `TenantInterceptor` 先按角色判定平台管理员，仅平台管理员可让请求头覆盖 JWT 租户声明。
+  非管理员的覆盖尝试记录告警日志，不泄露请求头原始值；默认租户与关闭隔离语义不变。
+- **测试**：新增 `TenantResolverTest`（5 例）与 `TenantInterceptorTest`（3 例），覆盖普通用户头被忽略、
+  管理员头覆盖、非法头回落 Claim、隔离关闭回落默认租户、无主体匿名请求回落默认租户。
+  后端测试 552 → 560 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：平台管理员保留既有的显式跨租户能力；普通用户的租户身份始终以已签名 Token Claim 为准，
+  定时任务与异步线程仍按既有约定显式设置 `TenantContext`。
+
 ### OAuth2 自省端点畸形 Basic 头改为 401
 
 - **背景**：`/oauth2/introspect` 是匿名可达的公开端点，由控制器内部校验调用方。Basic 分支直接调用
