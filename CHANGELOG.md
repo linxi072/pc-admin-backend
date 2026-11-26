@@ -4,6 +4,18 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 权限门禁仅从生产源码采集权限码
+
+- **背景**：`check-permission.py` 的 `java_permission_codes()` 用 `walk_files(BACKEND_ROOT, (".java",))`
+  扫描全部 Java 文件，没有排除 `src/test`。测试夹具中若出现 `hasAuthority("system:xxx:yyy")`，就会被当作
+  后端已登记接口，使 P1「菜单权限码必须在 Java 侧登记」门禁假通过，与门禁自身的证据标准相悖。
+- **实现**：抽出 `PERMISSION_RE` 与 `permission_codes_from_text`，新增 `is_production_java` 只放行
+  `src/main/java` 下的源码；`java_permission_codes()` 仅合并生产源码提取结果。
+- **测试**：新增 `test_check_permission.py`（3 例），覆盖双引号权限码提取、生产/测试/资源路径过滤、
+  真实仓库扫描非为空；门禁 50 → 53 例。
+- **验证**：后端 531 例、前端 158 例、Lint 与 Vite 生产构建均通过，`check-permission EXIT=0`。
+- **注意**：该修复只收紧证据来源；若确有仅测试夹具声明的权限码，现在会正确报 P1 orphan 并要求补生产接口或登记豁免。
+
 ### 脱敏策略中心 fail-open 与租户默认策略修复
 
 - **背景**：策略已声明 `shouldMask=true` 但 `decideType` 因未知/空类型回落 `NONE` 时，

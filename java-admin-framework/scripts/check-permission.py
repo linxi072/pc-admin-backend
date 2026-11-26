@@ -29,6 +29,13 @@ EXEMPT = {
 }
 
 MENU_COLUMN_INDEX = 8  # sys_menu 列序中 permission_code 的下标（0 起）
+PERMISSION_RE = re.compile(r"hasAuthority\(\s*['\"]([^'\"]+)['\"]\s*\)")
+
+
+def is_production_java(path: str) -> bool:
+    """仅生产源码可证明权限码已在 Java 侧登记；测试夹具不算接口实现。"""
+    norm = path.replace("\\", "/")
+    return "/src/main/java/" in norm and "/src/test/" not in norm
 
 
 def split_sql_tuple(s: str) -> list:
@@ -105,12 +112,16 @@ def menu_permission_codes(sql_text: str) -> set:
     return codes
 
 
+def permission_codes_from_text(text: str) -> set:
+    return {m.group(1) for m in PERMISSION_RE.finditer(text)}
+
+
 def java_permission_codes() -> set:
-    codes = set()
-    pat = re.compile(r"hasAuthority\(\s*['\"]([^'\"]+)['\"]\s*\)")
+    codes: set[str] = set()
     for path in walk_files(BACKEND_ROOT, (".java",)):
-        for m in pat.finditer(read_text(path)):
-            codes.add(m.group(1))
+        if not is_production_java(path):
+            continue
+        codes |= permission_codes_from_text(read_text(path))
     return codes
 
 

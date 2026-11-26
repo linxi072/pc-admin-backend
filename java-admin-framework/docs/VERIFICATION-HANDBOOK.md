@@ -892,6 +892,27 @@ mvn -o test          # 预期 531 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6aj 权限门禁仅从生产源码采集权限码
+
+**目标**：P1 菜单权限码一致性门禁不得把 `src/test` 夹具中的 `hasAuthority` 当作生产接口实现。
+
+**验收标准**：`test_check_permission.py` 3 例全过；门禁累计 53 例、后端 531 例、前端 158 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `permission_codes_from_text` | 单双引号 `hasAuthority('...')` 提取 |
+| `is_production_java` | 仅 `src/main/java` 放行；`src/test` 与 `src/main/resources` 拒绝 |
+| 真实仓库扫描 | 生产源码提取结果非空 |
+
+```bash
+cd java-admin-framework
+python3 scripts/tests/test_check_permission.py
+# 预期 Ran 3 tests / OK
+python3 scripts/check-permission.py
+# 预期 EXIT=0
+python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 53/53
+```
+
 ---
 
 ## 3.7 组件库（已移除）
