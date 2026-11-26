@@ -1037,6 +1037,27 @@ mvn -o test          # 预期 560 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6aq 全局异常映射补齐 415/406
+
+**目标**：媒体类型不匹配属于调用方用法错误，不再被兜底 handler 记为 500「系统内部错误」。
+
+**验收标准**：`GlobalExceptionHandlerTest` 4 例全过；后端累计 564 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| Content-Type | `HttpMediaTypeNotSupportedException` → 415 + `COMMON_415` |
+| Accept | `HttpMediaTypeNotAcceptableException` → 406 + `COMMON_406` |
+| 兼容 | 请求体不可读仍为 400 + `COMMON_001`；未知异常仍为 500 + `COMMON_500` |
+| 响应包络 | 返回统一 `Result`，中文文案固定，不回传底层异常细节 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -Dtest='GlobalExceptionHandlerTest' test
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 564 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 全局异常映射补齐 415/406
+
+- **背景**：`GlobalExceptionHandler` 已覆盖参数校验、请求体格式、文件上传与参数类型不匹配等调用方错误，
+  但 `HttpMediaTypeNotSupportedException`（`Content-Type` 不匹配）与 `HttpMediaTypeNotAcceptableException`
+  （`Accept` 不可满足）仍落到兜底 handler，被记为 500「系统内部错误」，污染服务端错误率并掩盖真实故障。
+- **实现**：新增两个 `@ExceptionHandler`，分别返回 HTTP 415 + `COMMON_415`、HTTP 406 + `COMMON_406`，
+  文案为「不支持的媒体类型，请检查 Content-Type」「无法生成可接受的响应内容，请检查 Accept」；
+  保持统一 `Result` 包络与中文文案，仅记录 warn 日志，不回传异常细节。
+- **测试**：新增 `GlobalExceptionHandlerTest`（4 例），覆盖 415/406 映射及既有 400/500 行为不回归。
+  后端测试 560 → 564 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：仅改变调用方媒体类型错误的响应语义与错误码，未新增/修改 HTTP 端点、请求参数或成功响应字段。
+
 ### 租户请求头覆盖收敛为平台管理员专用
 
 - **背景**：`TenantInterceptor` 先按 `X-Tenant-Id` 解析作用域、后计算平台管理员标记，

@@ -15,6 +15,8 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -41,6 +43,8 @@ public class GlobalExceptionHandler {
     private static final String MSG_NOT_FOUND = "资源不存在";
     private static final String MSG_METHOD_NOT_ALLOWED = "请求方法不被允许";
     private static final String MSG_UNREADABLE = "请求体格式错误";
+    private static final String MSG_MEDIA_TYPE = "不支持的媒体类型，请检查 Content-Type";
+    private static final String MSG_NOT_ACCEPTABLE = "无法生成可接受的响应内容，请检查 Accept";
     private static final String MSG_MULTIPART =
             "请以 multipart/form-data 提交文件上传请求，并确认文件字段非空且未超出体积上限";
     private static final String MSG_ARGUMENT_TYPE = "请求参数 {0} 类型不正确，期望 {1}";
@@ -127,6 +131,25 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Result.error(CommonErrorCode.VALIDATION_ERROR.code(), MSG_UNREADABLE));
+    }
+
+    /**
+     * Content-Type 与端点不匹配（如以 text/plain 提交 JSON 请求体）属于调用方用法错误。
+     * 此前无映射会落到兜底 handler 变 500，污染服务端错误率；现按 415 返回统一包络。
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<Result<Void>> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
+        log.warn("不支持的媒体类型: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(Result.error("COMMON_415", MSG_MEDIA_TYPE));
+    }
+
+    /** Accept 与服务端可产出类型不匹配时按 406 返回，避免被误报为 500。 */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<Result<Void>> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex) {
+        log.warn("不可接受的响应媒体类型: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+                .body(Result.error("COMMON_406", MSG_NOT_ACCEPTABLE));
     }
 
     /**
