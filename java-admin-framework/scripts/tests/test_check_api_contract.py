@@ -3,7 +3,8 @@
 """check-api-contract.py 的扫描行为回归测试（仅标准库 unittest）。
 
 锁定：引号字面量与反引号模板双通道扫描、${expr} → {} 归一、单测夹具排除，
-以及真实仓库下 frontend_only=0 / backend_only 大幅下降的修复效果。
+request/requestRaw 对象字面量、axios sugar 与本地 POST helper 的方法解析，
+以及真实仓库下路径与方法级差异均为 0、backend_only 大幅下降的修复效果。
 可直接执行：python3 scripts/tests/test_check_api_contract.py
 """
 from __future__ import annotations
@@ -28,6 +29,8 @@ FRONT_TEMPLATE_RE = _contract.FRONT_TEMPLATE_RE
 norm = _contract.norm
 norm_frontend_url = _contract.norm_frontend_url
 frontend_urls = _contract.frontend_urls
+frontend_calls = _contract.frontend_calls
+frontend_calls_from_text = _contract.frontend_calls_from_text
 backend_routes = _contract.backend_routes
 
 
@@ -73,6 +76,57 @@ class ContractScannerTests(unittest.TestCase):
         self.assertEqual(frontend - backend, set())
         # 修复前 backend_only=144；模板串纳管后应大幅收敛（剩余为 OAuth2/探针/未接入端点）。
         self.assertLess(len(backend - frontend), 60)
+
+    def test_object_literal_method_with_nested_braces_and_template(self):
+        sample = """
+export const copy = (id) => request({
+  headers: { 'X-Test': '1' },
+  method: 'POST',
+  url: `/api/system/users/${id}/copy`
+})
+"""
+        self.assertEqual(
+            set(frontend_calls_from_text(sample)),
+            {("POST", "/api/system/users/{}/copy")},
+        )
+
+    def test_axios_sugar_method_is_captured(self):
+        sample = "return refreshAxios.post('/api/auth/refresh', { refreshToken })"
+        self.assertEqual(set(frontend_calls_from_text(sample)), {("POST", "/api/auth/refresh")})
+
+    def test_local_post_helper_method_is_captured_at_call_site(self):
+        sample = """
+function postWithIdempotencyKey(url, body) {
+  return request({ method: 'POST', url, headers: { 'Idempotency-Key': body.operationId } })
+}
+export const approve = (body) => postWithIdempotencyKey('/api/approval/actions/approve', body)
+"""
+        self.assertEqual(
+            set(frontend_calls_from_text(sample)),
+            {("POST", "/api/approval/actions/approve")},
+        )
+
+    def test_comments_and_missing_method_are_ignored(self):
+        sample = """
+// request({ method: 'POST', url: '/api/fake/comment' })
+export const bad = () => request({ url: '/api/fake/no-method' })
+"""
+        self.assertEqual(frontend_calls_from_text(sample), {})
+
+    def test_trailing_slash_concatenation_keeps_method(self):
+        sample = "request({ method: 'GET', url: '/api/system/files/download/' + fileId })"
+        self.assertEqual(
+            set(frontend_calls_from_text(sample)),
+            {("GET", "/api/system/files/download/{}")},
+        )
+
+    def test_repo_method_level_contract_is_clean(self):
+        backend = set(backend_routes())
+        calls = set(frontend_calls())
+        self.assertEqual(calls - backend, set())
+        self.assertIn(("POST", "/api/auth/refresh"), calls)
+        self.assertIn(("POST", "/api/approval/actions/approve"), calls)
+        self.assertIn(("GET", "/api/system/users/{}"), calls)
 
 
 if __name__ == "__main__":

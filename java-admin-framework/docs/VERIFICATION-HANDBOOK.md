@@ -43,14 +43,15 @@ npm run build                           # 预期 ✓ built in ...s
 ### 3.1 质量门禁 / 接口契约
 
 **优化目标**：契约扫描覆盖类级 `@RequestMapping` 数组形式、前端拼接 URL 与反引号模板串 `${...}`；
-`frontend_only` 归零，排除 `src/api/tests/` 夹具目录避免假 ID 误报。
-**验收标准**：`python3 scripts/check-api-contract.py --strict` → `EXIT=0`，输出 `frontend_only 0；duplicate 0`。
+在路径口径之外按 `(method, path)` 比对 `request/requestRaw`、axios sugar 与本地 helper；
+`frontend_only`、`method_mismatch` 均归零，排除 `src/api/tests/` 夹具目录避免假 ID 误报。
+**验收标准**：`python3 scripts/check-api-contract.py --strict` → `EXIT=0`，输出 `frontend_only 0；method_mismatch 0；duplicate 0`。
 
 ```bash
 cd java-admin-framework
 python3 scripts/check-api-contract.py --strict
 # 预期末行：[check-api-contract] EXIT=0
-# 预期汇总：后端路由 389 条；前端引用 299 条；frontend_only 0；duplicate 0
+# 预期汇总：后端路由 389 条；前端路径 299 条；方法级调用 353 条；frontend_only 0；method_mismatch 0；duplicate 0
 # 参考：backend_only 36 条（修复前 144），剩余为 OAuth2/探针/未接入端点
 python3 scripts/check-all.py --strict
 # 预期 check-all EXIT=0（契约步升级为阻断同样通过）
@@ -636,6 +637,30 @@ npm test -- --run src/utils/tests/auditLogSummary.test.js
 npm test -- --run
 # 预期 Test Files 24 passed / Tests 158 passed
 npm run build
+```
+
+### 3.6x API 契约门禁方法级比对
+
+**目标**：前后端契约校验不得因路径相同而忽略 HTTP 方法漂移；`--strict` 必须能拦截 method_mismatch。
+
+**验收标准**：`test_check_api_contract.py` 14 例全过；门禁累计 43 例全绿；真实仓库
+`frontend_only 0`、`method_mismatch 0`。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `frontend_calls_from_text` | `request/requestRaw` 对象字面量、跨行与嵌套花括号、模板串、尾斜杠拼接 |
+| 方法来源 | axios sugar（`.post(...)`）、本地 helper（函数体含 method、调用点传 url） |
+| 忽略项 | 注释 URL、缺少 method 的调用不进入方法级判定 |
+| 真实仓库 | 方法级调用 353 条、未识别方法 0 条、方法级差异为 0 |
+
+```bash
+cd java-admin-framework
+python3 scripts/tests/test_check_api_contract.py
+# 预期 Ran 14 tests / OK
+python3 scripts/check-api-contract.py --strict
+# 预期 method_mismatch 0；EXIT=0
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+python3 scripts/tests/run_all.py        # 预期 Ran 43 tests / OK
 ```
 
 ---

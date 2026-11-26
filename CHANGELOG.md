@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### API 契约门禁升级为方法级比对
+
+- **背景**：`check-api-contract.py` 的后端路由键已是 `(METHOD, path)`，但 `main()` 用
+  `{path for _, path in be}` 降维成路径集合，前端也只收集 URL。因此前端把 POST 写成 GET（或反向）
+  时，只要路径存在，`frontend_only` 仍为 0，`--strict` 也放行，问题只在运行时 405 暴露。
+- **实现**：新增 `frontend_calls()`，解析 `request/requestRaw` 对象字面量（支持跨行与嵌套花括号）、
+  axios sugar（`.post('/api/...')`）与本地 POST helper；按 `(method, path)` 与后端路由比对，
+  新增 `method_mismatch` 报告并纳入 `--strict` 阻断。无法解析方法的调用不进入方法级判定，
+  仍由原有路径口径兜底，避免误报。
+- **测试**：`test_check_api_contract.py` 新增 6 例，覆盖嵌套对象/模板 URL、axios sugar、本地 helper、
+  注释与缺方法忽略、尾斜杠拼接、真实仓库方法级差异为 0；门禁 37 → 43 例全过。
+- **验证**：真实仓库方法级调用 353 条、未识别方法 0 条、`frontend_only 0`、`method_mismatch 0`；
+  后端 485 例、前端 158 例、Lint 与 Vite 生产构建均通过。
+- **注意**：`backend_only` 仍为信息性；类级 `@RequestMapping` 使用常量而非字符串字面量的端点仍在后端
+  扫描盲区，只会形成 backend_only，不会造成方法级误报。
+
 ### 操作日志游标降级复用摘要结果
 
 - **背景**：`OperationLogView.loadOffsetPage()` 首屏并行请求分页与统计摘要；分页命中后端
