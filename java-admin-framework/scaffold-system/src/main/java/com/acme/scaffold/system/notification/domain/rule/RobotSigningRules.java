@@ -11,12 +11,11 @@ import javax.crypto.spec.SecretKeySpec;
  * 机器人渠道（企业微信 / 钉钉）加签规则（M35）：纯函数、无 Spring 依赖、无副作用，可离线单测。
  *
  * <p>两平台签名原语同源：以 secret 为 HMAC 密钥，对 {@code timestamp + "\n" + secret} 做 HMAC-SHA256，
- * 输出 base64。差异仅在于传输形态：
- * <ul>
- *   <li>企业微信：原始 base64（不 URL 编码），作为 query 参数 {@code sign} 追加，并带 {@code timestamp}；</li>
- *   <li>钉钉：base64 再经 URL 编码，同样作为 {@code sign} query 参数追加，并带 {@code timestamp}。</li>
- * </ul>
- * 二者均不引入 {@code sha256=} 前缀（与通用 Webhook 渠道的 {@link WebhookSignatureRules} 不同），
+ * 输出 base64。两者都将签名作为 {@code sign} query 参数追加，并带 {@code timestamp}；
+ * 由于标准 base64 可能含 {@code + / =}，query 参数必须 URL 编码，否则接收方会按表单语义把裸
+ * {@code +} 解为空格，导致偶发验签失败。</p>
+ *
+ * <p>二者均不引入 {@code sha256=} 前缀（与通用 Webhook 渠道的 {@link WebhookSignatureRules} 不同），
  * 签名统一以 query 参数形式落地，从而直接复用 {@code WebhookClient.post(url, body)} 端口，零新增 HTTP 依赖。</p>
  */
 public final class RobotSigningRules {
@@ -49,17 +48,17 @@ public final class RobotSigningRules {
         }
     }
 
-    /** 企业微信签名：原始 base64（不 URL 编码）。 */
+    /** 企业微信签名：base64 再经 URL 编码，可直接作为 query 参数值。 */
     public static String signWecom(String secret, long timestamp) {
-        return sign(secret, timestamp);
+        return querySign(secret, timestamp);
     }
 
-    /** 钉钉签名：base64 再经 URL 编码。 */
+    /** 钉钉签名：base64 再经 URL 编码，可直接作为 query 参数值。 */
     public static String signDingtalk(String secret, long timestamp) {
-        return URLEncoder.encode(sign(secret, timestamp), StandardCharsets.UTF_8);
+        return querySign(secret, timestamp);
     }
 
-    /** 企业微信：在 {@code baseUrl} 上追加 {@code timestamp} 与 {@code sign} 两个 query 参数（原始 base64）。 */
+    /** 企业微信：在 {@code baseUrl} 上追加 {@code timestamp} 与 URL 编码的 {@code sign} 两个 query 参数。 */
     public static String buildWecomUrl(String baseUrl, String secret, long timestamp) {
         String s = signWecom(secret, timestamp);
         return append(baseUrl, "timestamp", String.valueOf(timestamp), "sign", s);
@@ -69,6 +68,10 @@ public final class RobotSigningRules {
     public static String buildDingtalkUrl(String baseUrl, String secret, long timestamp) {
         String s = signDingtalk(secret, timestamp);
         return append(baseUrl, "timestamp", String.valueOf(timestamp), "sign", s);
+    }
+
+    private static String querySign(String secret, long timestamp) {
+        return URLEncoder.encode(sign(secret, timestamp), StandardCharsets.UTF_8);
     }
 
     private static String append(String baseUrl, String k1, String v1, String k2, String v2) {

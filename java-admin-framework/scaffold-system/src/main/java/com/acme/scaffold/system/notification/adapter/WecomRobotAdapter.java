@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
  * 经参数中心（sys_config）读取并热更新：参数中心有值优先于 yml，从而界面调参或直改库后
  * 经 {@code POST /api/system/configs/refresh} 即生效，无需重启。secret 仍走 yml/env（凭据不入参数表）。</p>
  *
- * <p>加签：secret 配置后对外发地址追加 {@code timestamp} / 原始 base64 {@code sign} 两个 query 参数
- * （{@code base64(HmacSHA256(secret, timestamp + "\n" + secret))}），详见 {@link RobotSigningRules}。</p>
+ * <p>加签：secret 配置后对外发地址追加 {@code timestamp} / URL 编码的 {@code sign} 两个 query 参数
+ * （{@code urlEncode(base64(HmacSHA256(secret, timestamp + "\n" + secret)))}），详见 {@link RobotSigningRules}。</p>
  */
 @Component
 public class WecomRobotAdapter extends AbstractRobotAdapter<WecomRobotProperties> {

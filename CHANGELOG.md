@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 企业微信机器人签名补齐 URL 编码
+
+- **背景**：`RobotSigningRules` 的共享原语输出标准 base64（可能含 `+ / =`），钉钉分支已做 URL 编码，
+  企业微信分支却把原始 base64 直接拼进 `sign` query 参数。裸 `+` 在接收方按表单语义会被解码为空格，
+  32 字节摘要出现 `+` 的概率约 50%，表现为企业微信机器人「偶发收不到通知」；类注释与适配器文档也误写为
+  「原始 base64」。
+- **实现**：`signWecom` 与 `signDingtalk` 统一走 `querySign`，即 `URLEncoder.encode(base64, UTF-8)`；
+  同步更正 `RobotSigningRules` 与 `WecomRobotAdapter` 文档。共享 HMAC 原语 `sign()` 仍返回原始 base64，
+  便于密码学层校验。
+- **测试**：新增 `RobotSigningRulesTest`（5 例），使用固定包含 `+ / =` 的摘要，锁定原始 base64、
+  两平台编码一致性、企业微信 URL 只含 `%2B/%2F/%3D`、无 query 基址拼接与空密钥拒绝。
+  定向 5 例全过，后端测试 485 → 490 例。
+- **验证**：前端 158 例、门禁 43/43、Lint 与 Vite 生产构建均通过。
+- **注意**：这是发送侧编码修复，接收方仍按标准 base64 验签；不引入 `sha256=` 前缀，也不改变钉钉链路行为。
+
 ### API 契约门禁升级为方法级比对
 
 - **背景**：`check-api-contract.py` 的后端路由键已是 `(METHOD, path)`，但 `main()` 用

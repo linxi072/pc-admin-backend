@@ -663,6 +663,27 @@ python3 scripts/check-all.py --strict   # 预期 EXIT=0
 python3 scripts/tests/run_all.py        # 预期 Ran 43 tests / OK
 ```
 
+### 3.6y 企业微信机器人签名 URL 编码
+
+**目标**：标准 base64 签名中的 `+ / =` 必须先 URL 编码再拼入 query，避免接收方把裸 `+` 解为空格导致偶发验签失败。
+
+**验收标准**：`RobotSigningRulesTest` 5 例全过；后端累计 490 例、前端 158 例、门禁 43 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `sign` | 固定 timestamp/secret 产出原始 base64（含 `+ / =`），HMAC 原语不变 |
+| `signWecom` / `signDingtalk` | 两平台均返回 URL 编码签名，编码结果一致 |
+| `buildWecomUrl` | query 仅含 `%2B/%2F/%3D`，不出现裸 base64；无 query 基址用 `?` 拼接 |
+| 参数边界 | 空/空白 secret 被拒绝 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='RobotSigningRulesTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+mvn -o test          # 预期 490 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）
