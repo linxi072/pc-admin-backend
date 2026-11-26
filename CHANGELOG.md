@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 异步导出任务补齐归属校验
+
+- **背景**：`ExportJob` 只保存 taskId/模板/状态，不记录提交人与租户；`status()` / `result()` 仅按 jobId 取任务。
+  任何持有 `system:export:read` 的用户只要拿到 jobId，就能查询他人在职导出任务状态并下载产物。
+  产物本身已按提交者身份与租户生成，因此这是直接的数据越权下载。
+- **实现**：`ExportJob` 增加 `submitterUserId` / `tenantId`，`submit()` 在请求线程固化归属；
+  `status()` / `result()` 统一校验“同一提交人 + 同一租户”，不匹配与不存在统一返回 `COMMON_404`，
+  不泄露任务存在性。异步回调沿用快照中的归属字段，不依赖执行线程的上下文。
+- **测试**：`ExportJobServiceTest` 由 3 例扩到 6 例，新增其他用户、其他租户与匿名访问均被拒绝。
+  后端测试 610 → 613 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：`ExportJob` 状态接口响应新增两个归属字段（向后兼容的增量字段）；当前不支持管理员代查他人任务，
+  如后续需要可通过显式授权策略扩展，不在此次默认放行。
+
 ### 幂等记录写路径补齐租户隔离
 
 - **背景**：`IdempotencyService.find()` 经 `SqlWriters.fetchOne` 带租户条件，但 `markSuccess` / `markFailed` /

@@ -1309,6 +1309,27 @@ mvn -o test          # 预期 610 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bd 异步导出任务补齐归属校验
+
+**目标**：仅任务提交人在同一租户下可查询状态或下载导出产物；越权与不存在统一返回 404。
+
+**验收标准**：`ExportJobServiceTest` 6 例全过；后端累计 613 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 归属固化 | 提交时记录 `submitterUserId` 与 `tenantId`，异步回调沿用快照 |
+| 本人访问 | 提交人可查询状态、读取产物字节 |
+| 越权 | 其他用户、其他租户、匿名主体均返回 `COMMON_404` |
+| 兼容 | 状态响应新增两个归属字段；未实现管理员代查，需显式授权后再扩展 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='ExportJobServiceTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 613 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

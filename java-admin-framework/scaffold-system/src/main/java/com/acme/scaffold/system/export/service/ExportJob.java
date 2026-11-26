@@ -4,7 +4,9 @@ package com.acme.scaffold.system.export.service;
  * 异步导出任务快照（E5）。任务状态保存在内存中，重启后需重新提交；
  * 产物字节通过 {@code FileStoragePort} 落盘，状态仅保存存储名，故不随大文件膨胀。
  *
- * @param jobId        任务 ID（UUID 去横线）
+ * @param jobId           任务 ID（UUID 去横线）
+ * @param submitterUserId 提交人用户 ID（仅提交人可查询/下载产物）
+ * @param tenantId        提交时租户 ID（跨租户不得访问）
  * @param templateCode 导出模板编码
  * @param format       导出格式（CSV/XLSX/PDF）
  * @param status       任务状态
@@ -16,6 +18,8 @@ package com.acme.scaffold.system.export.service;
  */
 public record ExportJob(
         String jobId,
+        Long submitterUserId,
+        Long tenantId,
         String templateCode,
         String format,
         Status status,
