@@ -93,7 +93,11 @@ public class RefreshTokenService {
         return userId;
     }
 
-    /** 轮换：校验旧令牌后签发新令牌并令旧令牌失效，返回新原始令牌。 */
+    /**
+     * 轮换：先以条件更新原子「占用」旧令牌，成功后才签发新令牌。
+     * <p>条件包含 {@code revoked_at IS NULL}，并发刷新只有一个请求能影响 1 行；落败者按重放处理并吊销家族，
+     * 避免同一 refresh token 被并发兑换出多个可用令牌。</p>
+     */
     public String rotate(String rawToken) {
         SysRefreshToken old = findByRaw(rawToken);
         if (old.getRevokedAt() != null) {
@@ -106,15 +110,19 @@ public class RefreshTokenService {
         // 继承旧令牌家族，保证同族令牌可被重放检测连带吊销（历史数据 familyId 为空时回落新家族）
         String inheritedFamily = (old.getFamilyId() == null || old.getFamilyId().isBlank())
                 ? randomHex(16) : old.getFamilyId();
-        String newRaw = issueWithFamily(old.getUserId(), old.getClientId(), old.getDeviceId(),
-                old.getUserAgent(), old.getIpAddress(), inheritedFamily);
-        // 标记旧令牌已被本次轮换取代
-        dsl.update(RT.table())
+        // 先原子占用旧令牌：只有把未吊销行更新为 ROTATED 成功的请求才允许签发新令牌。
+        // 条件更新同时消除 verify/rotate 之间的 TOCTOU 窗口，落败请求按重放处理并吊销整个家族。
+        int claimed = dsl.update(RT.table())
                 .set(revokedAtField(), Timestamp.valueOf(LocalDateTime.now()))
                 .set(revokeReasonField(), "ROTATED")
-                .where(idField().eq(old.getId()))
+                .where(idField().eq(old.getId()).and(revokedAtField().isNull()))
                 .execute();
-        return newRaw;
+        if (claimed == 0) {
+            revokeFamily(old.getFamilyId());
+            throw new BusinessException(SecurityErrorCode.TOKEN_REVOKED, "凭证已失效，请重新登录");
+        }
+        return issueWithFamily(old.getUserId(), old.getClientId(), old.getDeviceId(),
+                old.getUserAgent(), old.getIpAddress(), inheritedFamily);
     }
 
     /** 吊销某用户所有刷新令牌（登出/改密时使用）。 */

@@ -1163,6 +1163,27 @@ mvn -o test          # 预期 583 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6aw 刷新令牌轮换改为原子占用防并发双花
+
+**目标**：同一 refresh token 并发刷新时只有一个请求能成功轮换；落败请求按重放吊销家族且不签发新令牌。
+
+**验收标准**：`RefreshTokenRotationConcurrencyTest` 4 例全过；后端累计 587 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 占用顺序 | 先以 `id + revoked_at IS NULL` 条件更新占用，成功后才签发新令牌 |
+| 占用失败 | 影响行数 0 时吊销家族并返回 `TOKEN_REVOKED`，不产生新凭证 |
+| 已吊销 | 已吊销令牌直接进入重放检测，不触发占用与签发 |
+| 并发 | 双线程同时轮换，仅一个成功、仅一次插入、家族吊销一次 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='RefreshTokenRotationConcurrencyTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 587 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

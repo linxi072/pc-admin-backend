@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 刷新令牌轮换改为原子占用防并发双花
+
+- **背景**：`RefreshTokenService.rotate` 原先先签发新令牌、再无条件按 id 把旧令牌置为 `ROTATED`，
+  既不检查影响行数也不带 `revoked_at IS NULL` 条件。同一 refresh token 并发刷新时，两个事务可能都读到未吊销
+  快照并各自签发新令牌；`verify` 与 `rotate` 之间也存在 TOCTOU，家族重放检测会被并发双花绕过。
+- **实现**：轮换先用 `WHERE id=? AND revoked_at IS NULL` 条件更新原子占用旧令牌，只有影响行数 1 的请求才
+  继承家族并签发新令牌；影响行数 0 视为重放，吊销整个家族并返回 `TOKEN_REVOKED`。签发顺序调整为先占用后签发，
+  占用失败不产生新凭证。
+- **测试**：新增 `RefreshTokenRotationConcurrencyTest`（4 例），覆盖占用成功顺序、占用失败不签发、
+  已吊销令牌吊销家族及双线程并发仅一个成功。后端测试 583 → 587 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：占用后的新令牌签发若因其他异常失败，调用方事务会整体回滚；独立调用 `rotate` 时需保证外层事务语义，
+  不建议在无事务上下文下单独使用。
+
 ### OAuth2 password 授权补齐强制改密门禁
 
 - **背景**：交互式登录与令牌刷新都会拒绝 `password_expired=1` 的初始/重置密码用户，但
