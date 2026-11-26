@@ -36,8 +36,9 @@ import javax.xml.stream.XMLStreamReader;
  *
  * <p>实现上一次性读入 ZIP 各条目到内存，换取「与条目顺序无关」的稳健解析
  * ——若改为单遍流式读取，一旦 {@code sharedStrings.xml} 排在工作表之后，字符串索引将无法解析。
- * 为防止压缩炸弹，解压过程强制限制条目数量与累计解压字节数，超限直接抛
- * {@link IllegalArgumentException}（由上层转 400），不让输入决定 JVM 堆分配。</p>
+ * 为防止压缩炸弹与稀疏列引用放大，解压过程限制条目数量与累计解压字节数，解析过程限制逻辑列数
+ * 不超过 Excel 规范上限（XFD），超限直接抛 {@link IllegalArgumentException}（由上层转 400），
+ * 不让几十字节输入决定 JVM 堆分配。</p>
  *
  * <p>本类是纯函数工具，不依赖 Spring 容器，便于离线单测。</p>
  */
@@ -55,6 +56,9 @@ public final class XlsxDataReader {
 
     /** 解压缓冲区大小。 */
     private static final int COPY_BUFFER_SIZE = 8192;
+
+    /** Excel 规范单表最大列数（XFD，0 基下标最大 16383），防稀疏列引用放大内存。 */
+    private static final int MAX_COLUMNS = 16384;
 
     private XlsxDataReader() {
     }
@@ -137,6 +141,9 @@ public final class XlsxDataReader {
             return new TabularData(List.of(), List.of());
         }
         int width = rows.stream().mapToInt(List::size).max().orElse(0);
+        if (width > MAX_COLUMNS) {
+            throw new IllegalArgumentException("不是有效的 XLSX 文件：列数超过上限（" + MAX_COLUMNS + "）");
+        }
         List<List<String>> padded = new ArrayList<>(rows.size());
         for (List<String> r : rows) {
             List<String> fixed = new ArrayList<>(width);
@@ -367,6 +374,9 @@ public final class XlsxDataReader {
 
     private static void putCell(List<String> row, int col, String value) {
         int target = Math.max(col, 0);
+        if (target >= MAX_COLUMNS) {
+            throw new IllegalArgumentException("不是有效的 XLSX 文件：列数超过上限（" + MAX_COLUMNS + "）");
+        }
         while (row.size() <= target) {
             row.add("");
         }
@@ -380,7 +390,7 @@ public final class XlsxDataReader {
         if (ref == null || ref.isEmpty()) {
             return Math.max(fallback, 0);
         }
-        int col = 0;
+        long col = 0;
         boolean any = false;
         for (int i = 0; i < ref.length(); i++) {
             char c = ref.charAt(i);
@@ -393,8 +403,11 @@ public final class XlsxDataReader {
             } else {
                 break;
             }
+            if (col > MAX_COLUMNS) {
+                throw new IllegalArgumentException("不是有效的 XLSX 文件：列数超过上限（" + MAX_COLUMNS + "）");
+            }
         }
-        return any ? col - 1 : Math.max(fallback, 0);
+        return any ? (int) col - 1 : Math.max(fallback, 0);
     }
 
     private static String attr(XMLStreamReader r, String name) {

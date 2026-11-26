@@ -1205,6 +1205,27 @@ mvn -o test          # 预期 591 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ay XLSX 稀疏列引用增加逻辑列数上限
+
+**目标**：极小 XLSX 中的超长列引用不能放大为数亿个逻辑列并耗尽堆内存，必须在解析阶段快速失败为 400。
+
+**验收标准**：`XlsxDataReaderSafetyTest` 6 例全过；后端累计 594 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 超长列引用 | `r="ZZZZZZ1"` 在 `read()` 中抛“列数超过上限（16384）” |
+| 合法边界 | 最大合法列 `XFD1` 正常解析，表头长度为 16384 |
+| 多段路径 | `readWorkbook()` 经 workbook/rels 解析时同样拒绝超长列引用 |
+| 纵深防御 | `putCell` 与 `toTabular` 均保留上限校验，列号解析用 long 防溢出 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -Dtest='XlsxDataReaderSafetyTest' test
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 594 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

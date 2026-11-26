@@ -16,7 +16,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
 
-/** XLSX 读取安全回归：高压缩比 ZIP bomb 必须在解析前被有界解压拒绝。 */
+/** XLSX 读取安全回归：高压缩比 ZIP bomb 与稀疏列引用放大都必须在解析阶段快速拒绝。 */
 class XlsxDataReaderSafetyTest {
 
     private static final int CHUNK_SIZE = 8192;
@@ -42,6 +42,63 @@ class XlsxDataReaderSafetyTest {
                 () -> XlsxDataReader.read(bomb));
 
         assertTrue(ex.getMessage().contains("解压后内容过大"));
+    }
+
+    @Test
+    void sparseCellWithHugeColumnRefShouldBeRejected() throws IOException {
+        String sheet = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <worksheet><sheetData>
+                  <row r="1"><c r="ZZZZZZ1" t="inlineStr"><is><t>x</t></is></c></row>
+                </sheetData></worksheet>
+                """;
+        byte[] xlsx = zipText(Map.of("xl/worksheets/sheet1.xml", sheet));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> XlsxDataReader.read(xlsx));
+
+        assertTrue(ex.getMessage().contains("列数超过上限"));
+    }
+
+    @Test
+    void maxExcelColumnShouldStillParse() throws IOException {
+        String sheet = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <worksheet><sheetData>
+                  <row r="1"><c r="XFD1" t="inlineStr"><is><t>last</t></is></c></row>
+                </sheetData></worksheet>
+                """;
+        byte[] xlsx = zipText(Map.of("xl/worksheets/sheet1.xml", sheet));
+
+        TabularData data = XlsxDataReader.read(xlsx);
+
+        assertEquals(16384, data.headers().size());
+        assertEquals("last", data.headers().get(16383));
+    }
+
+    @Test
+    void readWorkbookShouldRejectHugeColumnRef() throws IOException {
+        Map<String, String> entries = new LinkedHashMap<>();
+        entries.put("xl/workbook.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" r:id="rId1"/></sheets></workbook>
+                """);
+        entries.put("xl/_rels/workbook.xml.rels", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>
+                """);
+        entries.put("xl/worksheets/sheet1.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <worksheet><sheetData>
+                  <row r="1"><c r="ZZZZZZ1" t="inlineStr"><is><t>x</t></is></c></row>
+                </sheetData></worksheet>
+                """);
+        byte[] xlsx = zipText(entries);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> XlsxDataReader.readWorkbook(xlsx));
+
+        assertTrue(ex.getMessage().contains("列数超过上限"));
     }
 
     @Test

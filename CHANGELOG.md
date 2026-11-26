@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### XLSX 稀疏列引用增加逻辑列数上限
+
+- **背景**：`XlsxDataReader.columnIndex` 解析 `r` 属性时无上限，`putCell` 又按列号无界扩表；
+  一个不到 1 KB 的工作表只要包含 `r="ZZZZZZ1"`，就会让单行逻辑列数达到数亿，`toTabular` 再补齐一次，
+  直接耗尽堆内存。已有的 32 MB 解压上限无法约束这种逻辑稀疏放大。
+- **实现**：列号解析改用 `long` 累加并在超过 Excel 规范上限 16384（XFD）时立即抛异常；
+  `putCell` 与 `toTabular` 各保留一道硬上限校验，确保单表逻辑列数不可能由极小输入放大到 OOM。
+  超限统一抛 `IllegalArgumentException`，由导入链路转为 400。
+- **测试**：`XlsxDataReaderSafetyTest` 由 3 例扩到 6 例，新增超长列引用被拒、合法最大列 `XFD1`
+  仍可解析以及 `readWorkbook` 多段路径同样拒绝。后端测试 591 → 594 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：上限采用 Excel 2007+ 规范的 16384 列；旧版 `.xls` 不经过本读取器，不受影响。
+
 ### 文件管理直连 DSL 补齐租户隔离
 
 - **背景**：`FileService.stats()`、`toViewsWithSharedFlag()` 与下载计数更新直接使用 `DSLContext` 聚合/自增，
