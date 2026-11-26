@@ -1079,6 +1079,27 @@ mvn -o test          # 预期 569 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6as 会话无关改密补齐防爆破防护
+
+**目标**：公开 `change-password` 端点不再成为登录限流/锁定绕过入口，旧密码猜解同样受 IP 限流与渐进式锁定约束。
+
+**验收标准**：`AuthChangePasswordSecurityTest` 3 例与 `RateLimitFilterChangePasswordTest` 2 例全过；后端累计 574 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 失败计数 | 旧密码错误累计失败次数并写审计日志；达到阈值后置 `LOCKED` 并设置 `lockedUntil` |
+| 成功路径 | 正确旧密码走独立短事务写入，密码哈希/tokenVersion 更新且刷新令牌与在线会话失效 |
+| IP 限流 | 改密端点使用独立 `change-password:<ip>` 键，第 11 次请求返回 429 |
+| 兼容 | 登录继续使用 `login:<ip>` 键；请求体未新增验证码字段，错误文案仍统一 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='AuthChangePasswordSecurityTest,RateLimitFilterChangePasswordTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+mvn -o test          # 预期 574 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

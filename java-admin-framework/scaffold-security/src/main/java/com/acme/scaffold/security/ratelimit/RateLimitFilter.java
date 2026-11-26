@@ -14,8 +14,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * 认证接口限流过滤器：针对 {@code /api/auth/login} 与 {@code /api/auth/refresh} 按客户端 IP 限流，
- * 防暴力破解与重放。超出阈值返回 429（JSON 体）。其余接口不限制。
+ * 认证接口限流过滤器：针对 {@code /api/auth/login}、{@code /api/auth/refresh}、
+ * {@code /api/auth/forgot-password} 与 {@code /api/auth/change-password} 按客户端 IP 限流，
+ * 防暴力破解与重放。会话无关改密使用独立计数键，避免与登录互相挤占配额。超出阈值返回 429（JSON 体）。
  *
  * <p>阈值当前为常量（{@link #MAX_PER_WINDOW} / {@link #WINDOW_SECONDS}），后续可外置到配置。
  * 单实例内存计数；多实例部署建议替换为 Redis 共享计数。
@@ -45,13 +46,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String uri = request.getRequestURI();
         String method = request.getMethod();
+        boolean changePassword = "/api/auth/change-password".equals(uri) && "POST".equals(method);
         boolean authEndpoint = ("/api/auth/login".equals(uri) && "POST".equals(method))
                 || ("/api/auth/refresh".equals(uri) && "POST".equals(method))
                 // 忘记密码自助重置：按用户名+手机号/邮箱核验，与登录同阈值限流防撞库
-                || ("/api/auth/forgot-password".equals(uri) && "POST".equals(method));
+                || ("/api/auth/forgot-password".equals(uri) && "POST".equals(method))
+                // 会话无关改密：同样以旧密码认证，必须与登录同阈值限流，使用独立键避免互相挤占
+                || changePassword;
         if (authEndpoint) {
             String ip = clientIp(request);
-            if (!rateLimiter.tryAcquire("login:" + ip, MAX_PER_WINDOW, WINDOW_SECONDS)) {
+            String key = (changePassword ? "change-password:" : "login:") + ip;
+            if (!rateLimiter.tryAcquire(key, MAX_PER_WINDOW, WINDOW_SECONDS)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write("{\"code\":\"AUTH_010\",\"message\":\"请求过于频繁，请稍后再试\"}");

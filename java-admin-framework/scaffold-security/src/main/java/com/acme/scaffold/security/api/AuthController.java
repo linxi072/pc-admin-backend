@@ -58,8 +58,10 @@ public class AuthController {
 
     @Operation(summary = "会话无关改密（强制改密闭环）：以用户名+原密码认证后修改密码，无需已登录会话")
     @PostMapping("/change-password")
-    public Result<Void> changePassword(@Valid @RequestBody AuthChangePasswordRequest request) {
-        authApplicationService.changePassword(request.username(), request.oldPassword(), request.newPassword());
+    public Result<Void> changePassword(@Valid @RequestBody AuthChangePasswordRequest request,
+                                       HttpServletRequest httpRequest) {
+        authApplicationService.changePassword(request.username(), request.oldPassword(), request.newPassword(),
+                clientIp(httpRequest), httpRequest.getHeader("User-Agent"));
         return Result.success();
     }
 

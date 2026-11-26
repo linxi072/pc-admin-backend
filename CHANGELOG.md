@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 会话无关改密补齐防爆破防护
+
+- **背景**：`POST /api/auth/change-password` 是公开端点，以「用户名 + 原密码」完成身份认证，但
+  `RateLimitFilter` 未覆盖该路径，`AuthService.changePassword` 的旧密码错误也不计入登录失败次数；
+  攻击者可对已知账号无限在线猜解原密码，登录侧的 IP 限流与渐进式锁定被完全绕过。
+- **实现**：改密端点加入独立 IP 限流键（10 次/60 秒，不与登录共用配额）；控制器传递客户端 IP/UA，
+  旧密码错误复用 `recordLoginFailure` 累计失败并触发渐进式锁定。成功改密写入收窄到独立短事务，
+  bcrypt 仍在事务外执行，避免失败计数随异常回滚。
+- **测试**：新增 `AuthChangePasswordSecurityTest`（3 例）与 `RateLimitFilterChangePasswordTest`（2 例），
+  覆盖错误密码累计失败、达到阈值锁定、成功改密写入、改密独立 429 限流及登录键不变。
+  后端测试 569 → 574 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：未新增验证码字段，保持前端请求契约不变；防爆破由「独立 IP 限流 + 与登录同源的失败锁定」
+  两层承担。用户不存在与原密码错误仍返回统一 `BAD_CREDENTIALS`，不泄露账号枚举信息。
+
 ### 强隔离无租户上下文时改为默认租户收紧
 
 - **背景**：`TenantEnforcement.shouldEnforce` 在 `app.tenant.enforce=true` 但线程未设置 `TenantContext`

@@ -251,15 +251,25 @@ public class AuthService {
      * {@code password_expired=1}、无法走正常登录的用户，也能先改密再进入系统，
      * 避免「登录被拦却无法改密」的死锁。改密成功后清除 {@code password_expired} 并吊销全部刷新令牌。
      *
+     * <p>该端点与登录共享「旧密码认证」语义，因此旧密码错误与登录同口径计入渐进式锁定，
+     * 并由 IP 限流过滤器独立限流。本方法不持有事务：bcrypt 在事务外执行，成功写入与失败计数分别经
+     * {@code self} 进入短事务，避免失败计数随异常回滚而失效。
+     *
      * @param username     用户名
      * @param oldPassword  原密码（身份认证用）
      * @param newPassword  新密码
+     * @param ip           客户端 IP（失败审计用）
+     * @param userAgent    客户端 User-Agent（失败审计用）
      */
-    @Transactional
-    public void changePassword(String username, String oldPassword, String newPassword) {
+    public void changePassword(String username, String oldPassword, String newPassword,
+                               String ip, String userAgent) {
         UserAccount user = accountPort.loadByUsername(username);
+        boolean passwordMatches = user != null && passwordEncoder.matches(oldPassword, user.passwordHash());
         // 统一返回 BAD_CREDENTIALS，防止账号枚举（不区分「用户不存在」与「原密码错误」）
-        if (user == null || !passwordEncoder.matches(oldPassword, user.passwordHash())) {
+        if (!passwordMatches) {
+            if (user != null) {
+                self.recordLoginFailure(user, ip, userAgent);
+            }
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
         }
         if (isLocked(user)) {
@@ -273,11 +283,16 @@ public class AuthService {
 
         String encoded = passwordEncoder.encode(newPassword);
         int nextVersion = (user.tokenVersion() == null ? 1 : user.tokenVersion()) + 1;
-        accountPort.updateById(user.id(), new UserAccountPatch(encoded, LocalDateTime.now(), 0, 0, null,
-                nextVersion, null, null));
+        self.commitPasswordChange(user, encoded, nextVersion);
+    }
 
+    /** 改密成功短事务：账号更新 / 密码历史 / 刷新令牌吊销 / 在线会话下线一次性提交。 */
+    @Transactional
+    public void commitPasswordChange(UserAccount user, String encodedPassword, int nextVersion) {
+        accountPort.updateById(user.id(), new UserAccountPatch(encodedPassword, LocalDateTime.now(), 0, 0, null,
+                nextVersion, null, null));
         // 记录本次改密后的口令到密码历史，纳入「禁止复用最近 5 次」基线
-        passwordHistoryService.record(user.id(), encoded);
+        passwordHistoryService.record(user.id(), encodedPassword);
         // 改密后吊销全部刷新令牌，强制使用新口令重新登录
         refreshTokenService.revokeByUser(user.id());
         // V27：在线会话同步置离线，管理端「在线用户」列表即时反映
