@@ -33,7 +33,7 @@ class FileValidatorTest {
         assertMagicOk("jpg", new byte[]{(byte) 0xFF, (byte) 0xD8, 1, 2, 3, 4, 5, 6});
         assertMagicOk("jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, 1, 2, 3, 4, 5, 6});
         assertMagicOk("gif", "GIF89a!!".getBytes(StandardCharsets.US_ASCII));
-        assertMagicOk("webp", "RIFFxxxx".getBytes(StandardCharsets.US_ASCII));
+        assertMagicOk("webp", "RIFFxxxxWEBP".getBytes(StandardCharsets.US_ASCII));
         assertMagicOk("pdf", "%PDF-1.7".getBytes(StandardCharsets.US_ASCII));
     }
 
@@ -45,6 +45,12 @@ class FileValidatorTest {
                 new ByteArrayInputStream(new byte[]{(byte) 0x89, 'P', 'N', 'G'})));
         assertThrows(BusinessException.class, () -> FileValidator.verifyContent("png",
                 new ByteArrayInputStream(new byte[]{1, 2, 3})), "不足 4 字节应判损坏");
+        assertThrows(BusinessException.class, () -> FileValidator.verifyContent("webp",
+                new ByteArrayInputStream("RIFFxxxxWAVE".getBytes(StandardCharsets.US_ASCII))),
+                "RIFF/WAV 不得伪装为 WebP");
+        assertThrows(BusinessException.class, () -> FileValidator.verifyContent("webp",
+                new ByteArrayInputStream("RIFFxxxxWEB".getBytes(StandardCharsets.US_ASCII))),
+                "WebP 不足 12 字节应判损坏");
     }
 
     @Test

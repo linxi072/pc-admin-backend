@@ -39,21 +39,24 @@ public final class FileValidator {
      * 魔数二次校验，杜绝「改扩展名伪装」。仅校验图片与 PDF，其余类型按扩展名放行。
      */
     public static void verifyContent(String ext, InputStream in) {
-        byte[] header = new byte[8];
+        // RIFF 是容器格式，WAV/AVI 也以 RIFF 开头；WebP 必须再读偏移 8~11 的 WEBP fourcc。
+        int headerSize = "webp".equals(ext) ? 12 : 8;
+        byte[] header = new byte[headerSize];
         int read;
         try {
             read = in.readNBytes(header, 0, header.length);
         } catch (IOException e) {
             throw BusinessException.of(FileErrorCode.FILE_CONTENT_MISMATCH, "文件读取失败");
         }
-        if (read < 4) {
+        if (read < 4 || ("webp".equals(ext) && read < 12)) {
             throw BusinessException.of(FileErrorCode.FILE_CONTENT_MISMATCH, "文件内容为空或已损坏");
         }
         boolean ok = switch (ext) {
             case "jpg", "jpeg" -> (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8;
             case "png" -> (header[0] & 0xFF) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G';
             case "gif" -> "GIF8".equalsIgnoreCase(new String(header, 0, 4));
-            case "webp" -> header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F';
+            case "webp" -> header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                    && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P';
             case "pdf" -> "%PDF".equalsIgnoreCase(new String(header, 0, 4));
             default -> true;
         };

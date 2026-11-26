@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### WebP 上传魔数校验补齐 WEBP fourcc
+
+- **背景**：`FileValidator.verifyContent("webp")` 与 `ProfileController.validateImageContent` 只检查前 4 字节
+  `RIFF`。RIFF 是容器格式，WAV/AVI 同样以此开头，把非图片文件改名为 `.webp` 即可通过「魔数二次校验」，
+  与类注释「杜绝改扩展名伪装」相悖。现有单测还把 `RIFFxxxx` 固化为合法 WebP。
+- **实现**：两处都改为读取 12 字节，校验偏移 8~11 为 `WEBP` fourcc；`FileValidator` 对 WebP 要求至少
+  12 字节，头像上传同步判定读取长度。非 WebP 类型仍保持原有 8 字节头与放行口径。
+- **测试**：更新 `FileValidatorTest` 合法头为 `RIFFxxxxWEBP`，新增 WAV fourcc（`RIFFxxxxWAVE`）与
+  截断头（`RIFFxxxxWEB`）拒绝断言；新增静态门禁 `test_file_upload_security.py`（3 例），扫描生产 Java
+  源码，禁止只校验 RIFF 前缀而不读 `header[11] == 'P'`。门禁 43 → 46 例。
+- **验证**：后端 502 例、前端 158 例、Lint 与 Vite 生产构建均通过。
+- **注意**：真实 WebP 文件头均为 `RIFF....WEBP`，合法上传不受影响；仅收紧 webp 扩展名，不扩大白名单。
+
 ### 修复渐进式锁定到期后永久锁账号
 
 - **背景**：`AuthService.isLocked` 原为 `"LOCKED".equals(status) || lockedUntil.isAfter(now)`。

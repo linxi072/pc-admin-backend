@@ -214,8 +214,9 @@ public class ProfileController {
      */
     private void validateImageContent(MultipartFile file, String ext) {
         byte[] header = new byte[12];
+        int read;
         try (InputStream in = file.getInputStream()) {
-            int read = in.readNBytes(header, 0, header.length);
+            read = in.readNBytes(header, 0, header.length);
             if (read < 4) {
                 throw BusinessException.badRequest("头像文件内容为空或已损坏");
             }
@@ -225,7 +226,9 @@ public class ProfileController {
         boolean jpeg = (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8;
         boolean png = (header[0] & 0xFF) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G';
         boolean gif = "GIF8".equalsIgnoreCase(new String(header, 0, 4));
-        boolean webp = header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F';
+        // RIFF 是容器格式，WAV/AVI 也以 RIFF 开头；WebP 需校验偏移 8~11 的 WEBP fourcc。
+        boolean webp = read >= 12 && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P';
 
         boolean valid = switch (ext) {
             case "jpg", "jpeg" -> jpeg;

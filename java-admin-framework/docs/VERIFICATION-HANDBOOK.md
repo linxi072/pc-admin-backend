@@ -745,6 +745,27 @@ mvn -o test          # 预期 502 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ac WebP 上传魔数校验补齐 fourcc
+
+**目标**：webp 扩展名上传必须校验 `RIFF....WEBP`，不得让 WAV/AVI 等 RIFF 容器改扩展名绕过。
+
+**验收标准**：`FileValidatorTest` 4 例、`test_file_upload_security.py` 3 例全过；后端 502 例、前端 158 例、门禁 46 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `FileValidator.verifyContent` | 合法 `RIFFxxxxWEBP` 放行；`RIFFxxxxWAVE` 与 11 字节截断头拒绝 |
+| `ProfileController.validateImageContent` | 头像上传同步校验偏移 8~11 与读取长度 |
+| 静态门禁 | 生产 Java 源码禁止 RIFF-only WebP 判定 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='FileValidatorTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+python3 scripts/tests/test_file_upload_security.py
+# 预期 Ran 3 tests / OK
+python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 46/46
+```
+
 ---
 
 ## 3.7 组件库（已移除）
