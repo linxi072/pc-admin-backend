@@ -11,6 +11,8 @@ import com.acme.scaffold.mybatis.dsl.DSLContext;
 import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
+import com.acme.scaffold.security.permission.DataScope;
+import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.online.domain.model.SysLoginRestriction;
@@ -43,6 +45,7 @@ import org.springframework.util.StringUtils;
 @Service
 @RequiredArgsConstructor
 public class LoginRestrictionService {
+    private static final String RESOURCE_CODE = "system:online";
     private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     private static final SqlTables.TableRef LR = SqlTables.SYS_LOGIN_RESTRICTION;
@@ -54,9 +57,11 @@ public class LoginRestrictionService {
     private final TokenVersionService tokenVersionService;
 
     /** 分页查询登录限制记录（结构化操作日志）。 */
+    @DataScope(resourceCode = RESOURCE_CODE, name = "在线用户管理")
     public PageResult<LoginRestrictionView> restrictionPage(int page, int size, String username,
                                                             String status) {
         List<Condition> conds = new ArrayList<>();
+        conds.add(DataScopeConditions.of(LR, null, "user_id"));
         String kw = username == null ? null : username.trim();
         if (StringUtils.hasText(kw)) {
             conds.add(SqlTables.SYS_LOGIN_RESTRICTION.field("username", String.class).like("%" + kw + "%"));

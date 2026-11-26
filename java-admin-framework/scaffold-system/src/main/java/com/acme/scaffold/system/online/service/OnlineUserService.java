@@ -12,6 +12,8 @@ import com.acme.scaffold.mybatis.dsl.Field;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.jwt.JwtProperties;
+import com.acme.scaffold.security.permission.DataScope;
+import com.acme.scaffold.security.permission.DataScopeConditions;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
 import com.acme.scaffold.security.token.service.TokenVersionService;
@@ -52,6 +54,7 @@ import org.springframework.util.StringUtils;
 @Service
 @RequiredArgsConstructor
 public class OnlineUserService implements OnlineSessionReleasePort {
+    private static final String RESOURCE_CODE = "system:online";
     private static final SqlTables.TableRef USER = SqlTables.SYS_USER;
 
     /** 下线原因（sys_online_session.offline_reason）。 */
@@ -193,6 +196,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
      * 分页查询在线会话。状态筛选口径与 {@link OnlineSessionRules#displayStatus} 一致：
      * RESTRICTED 优先于 IDLE/ONLINE。
      */
+    @DataScope(resourceCode = RESOURCE_CODE, name = "在线用户管理")
     public PageResult<OnlineUserView> page(OnlineUserQuery query) {
         LocalDateTime now = LocalDateTime.now();
         String username = OnlineUserQuery.normalize(query.username());
@@ -204,6 +208,8 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         List<Condition> conds = new ArrayList<>();
         conds.add(OS.field("status", String.class)
                 .eq(SysOnlineSession.STATUS_ONLINE));
+        // 在线会话表无机构列，但有 user_id：机构范围按可见用户集合过滤，SELF 按本人会话过滤。
+        conds.add(DataScopeConditions.of(OS, null, "user_id"));
         if (username != null) {
             conds.add(OS.field("username", String.class)
                     .like("%" + username + "%"));
@@ -270,15 +276,33 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     }
 
     /** 设置临时限制登录：写入限制记录并同步强制下线该用户全部在线会话。 */
+    @DataScope(resourceCode = RESOURCE_CODE, name = "在线用户管理")
     @Transactional
     public Long restrict(Long userId, RestrictLoginRequest request) {
+        assertTargetUserInScope(userId);
         return loginRestrictionService.restrict(userId, request);
     }
 
     /** 手动解除登录限制（幂等）。 */
+    @DataScope(resourceCode = RESOURCE_CODE, name = "在线用户管理")
     @Transactional
     public int release(Long userId) {
+        assertTargetUserInScope(userId);
         return loginRestrictionService.release(userId);
+    }
+
+    /** 数据权限内的目标用户才允许被限制/解除；越权与不存在统一为 NOT_FOUND。 */
+    private void assertTargetUserInScope(Long userId) {
+        if (userId == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "目标用户不存在");
+        }
+        SysUser target = SqlWriters.fetchOne(dsl, USER, SysUser.class,
+                DSL.and(SqlWriters.notDeleted(USER),
+                        USER.field("id", Long.class).eq(userId),
+                        DataScopeConditions.of(USER, "org_id", "id")));
+        if (target == null) {
+            throw new BusinessException(CommonErrorCode.NOT_FOUND, "目标用户不存在");
+        }
     }
 
     /** 到期自动解除（定时任务）。 */
@@ -294,13 +318,15 @@ public class OnlineUserService implements OnlineSessionReleasePort {
     /**
      * 批量强制下线：吊销目标会话对应设备的刷新令牌并置会话离线。
      */
+    @DataScope(resourceCode = RESOURCE_CODE, name = "在线用户管理")
     @Transactional
     public int forceLogout(List<Long> sessionIds) {
         List<SysOnlineSession> rows = SqlWriters.fetchList(dsl, OS,
                 SysOnlineSession.class,
                 DSL.and(OS.field("id", Long.class).in(sessionIds),
                         OS.field("status", String.class)
-                                .eq(SysOnlineSession.STATUS_ONLINE)));
+                                .eq(SysOnlineSession.STATUS_ONLINE),
+                        DataScopeConditions.of(OS, null, "user_id")));
         if (rows.isEmpty()) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "目标会话不存在或已下线");
         }

@@ -3,6 +3,7 @@ package com.acme.scaffold.security.token.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -93,7 +94,8 @@ class RefreshTokenRotationConcurrencyTest {
 
             assertEquals(1, List.of(a, b).stream().filter(String.class::isInstance).count());
             assertEquals(1, mapper.inserts.get());
-            assertEquals(2, mapper.claimCalls.get());
+            // 第二个请求可能在读取阶段就看到已被占用的行，也可能在条件更新阶段才落败。
+            assertTrue(mapper.claimCalls.get() >= 1 && mapper.claimCalls.get() <= 2);
             assertEquals(1, mapper.familyRevokes.get());
         } finally {
             pool.shutdownNow();

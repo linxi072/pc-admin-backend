@@ -1247,6 +1247,27 @@ mvn -o test          # 预期 597 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ba 在线用户管理补齐数据权限
+
+**目标**：在线会话/登录限制的分页与写操作必须叠加 `system:online` 数据权限，不能只靠功能权限放行全量目标。
+
+**验收标准**：`DataScopeConditionsUserIdTableTest` 3 例与 `OnlineUserScopeTest` 3 例全过；后端累计 603 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 条件构造 | 带 `user_id` 无机构列的表支持 SELF 与机构用户集合过滤；无上下文仍不限制 |
+| 查询 | 在线会话分页与登录限制分页注入作用域条件 |
+| 写操作 | 强制下线目标会话按作用域过滤；限制/解除目标用户越权返回 `COMMON_404` |
+| 兼容 | 超管与显式 ALL 规则保持全量；未配置规则沿用默认 SELF 兜底 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security,scaffold-system -am test -Dtest='DataScopeConditionsUserIdTableTest,OnlineUserScopeTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 603 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

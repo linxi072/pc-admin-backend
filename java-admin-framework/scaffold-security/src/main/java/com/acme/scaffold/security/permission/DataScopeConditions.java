@@ -16,7 +16,8 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>无上下文 / {@code ALL} → 不加条件；</li>
  *   <li>{@code SELF} → 有「本人」列时按 {@code userColumn = 当前用户}；没有时退化为
  *       「本人所属部门」子查询（如部门树），用户未挂部门则查不到任何行；</li>
- *   <li>{@code DEPT / DEPT_AND_CHILD / CUSTOM} → {@code orgColumn IN (机构集合)}；</li>
+ *   <li>{@code DEPT / DEPT_AND_CHILD / CUSTOM} → {@code orgColumn IN (机构集合)}；表无机构列但有
+ *       {@code user_id} 时改按可见用户集合过滤；</li>
  *   <li>机构集合为空 → 不加条件（与 Provider 的「配了空集合降级为不限」保持一致）。</li>
  * </ul>
  *
@@ -72,6 +73,15 @@ public final class DataScopeConditions {
                     return DSL.trueCondition();
                 }
                 return USER.field("id", Long.class).in(userIdsInOrgs(orgIds));
+            }
+            // 会话/限制记录等表没有机构列，但带有 user_id：按可见用户集合过滤，
+            // 避免「列缺失 → 不加条件」把机构范围用户放宽到全量数据。
+            if (table.has("user_id")) {
+                Set<Long> orgIds = result.orgIds();
+                if (orgIds == null || orgIds.isEmpty()) {
+                    return DSL.trueCondition();
+                }
+                return table.field("user_id", Long.class).in(userIdsInOrgs(orgIds));
             }
             log.warn("数据权限列缺失，本次查询不加过滤: table={}, orgColumn={}", table.name(), orgColumn);
             return DSL.trueCondition();
