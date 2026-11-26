@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 告警 Webhook 令牌改用恒定时间比较
+
+- **背景**：`AlertWebhookController.webhook` 是公开匿名端点，`X-Alert-Token` 是唯一鉴权凭证，但令牌校验用
+  `expected.equals(token)`。`String.equals` 遇首个不同字节即短路，响应时间随匹配前缀长度变化，
+  对匿名可达端点构成时序侧信道。仓库已有单一事实来源 `ConstantTime.equals`（TokenCodec、
+  WebhookSignatureRules、UnsubscribeTokenRules 均已使用），此处是遗漏。
+- **实现**：改为 `ConstantTime.equals(expected, token)`，令牌缺失/空白的 fail-closed 分支保持不变。
+- **测试**：新增 `AlertWebhookControllerTest` 4 例，覆盖令牌匹配 202、错误/空令牌 401 且服务不被调用、
+  空配置 503；新增静态门禁 `test_token_comparison.py`（3 例），禁止生产 Java 直接
+  `.equals(token|secret|signature)`。后端测试 531 → 535 例，门禁 53 → 56 例。
+- **验证**：前端 158 例、Lint 与 Vite 生产构建均通过。
+- **注意**：仅改变比较算法，不改变鉴权结果与错误码；网络隔离/网关加固仍需保留。
+
 ### 权限门禁仅从生产源码采集权限码
 
 - **背景**：`check-permission.py` 的 `java_permission_codes()` 用 `walk_files(BACKEND_ROOT, (".java",))`

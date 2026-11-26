@@ -1,6 +1,7 @@
 package com.acme.scaffold.monitor.alert;
 
 import com.acme.scaffold.common.api.Result;
+import com.acme.scaffold.common.security.ConstantTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.MDC;
@@ -48,7 +49,7 @@ public class AlertWebhookController {
             return ResponseEntity.status(503)
                     .body(Result.error("ALERT_WEBHOOK_TOKEN_MISSING", "告警接收端未配置令牌，拒绝启用"));
         }
-        if (!expected.equals(token)) {
+        if (!ConstantTime.equals(expected, token)) {
             return ResponseEntity.status(401)
                     .body(Result.error("ALERT_TOKEN_INVALID", "告警令牌不匹配"));
         }

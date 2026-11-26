@@ -913,6 +913,28 @@ python3 scripts/check-permission.py
 python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 53/53
 ```
 
+### 3.6ak 告警 Webhook 令牌恒定时间比较
+
+**目标**：匿名可达的 webhook 端点不得用 `String.equals` 比较共享令牌，统一走 `ConstantTime.equals`。
+
+**验收标准**：`AlertWebhookControllerTest` 4 例、`test_token_comparison.py` 3 例全过；后端 535 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 鉴权结果 | 匹配 202；错误/空令牌 401 且服务不被调用；空配置 503 |
+| 比较原语 | `ConstantTime.equals(expected, token)`，无 `String.equals(token)` 短路比较 |
+| 静态门禁 | 生产 Java 禁止直接比较 token/secret/signature |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-monitor -am test -Dtest='AlertWebhookControllerTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+python3 scripts/tests/test_token_comparison.py
+# 预期 Ran 3 tests / OK
+mvn -o test          # 预期 535 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 56/56
+```
+
 ---
 
 ## 3.7 组件库（已移除）
