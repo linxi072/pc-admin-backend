@@ -14,6 +14,7 @@ import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.jwt.JwtProperties;
 import com.acme.scaffold.security.token.port.OnlineSessionReleasePort;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.online.domain.model.SysLoginRestriction;
 import com.acme.scaffold.system.online.domain.model.SysOnlineSession;
 import com.acme.scaffold.system.online.domain.rule.OnlineSessionRules;
@@ -64,6 +65,7 @@ public class OnlineUserService implements OnlineSessionReleasePort {
 
     private final DSLContext dsl;
     private final RefreshTokenService refreshTokenService;
+    private final TokenVersionService tokenVersionService;
     private final SecurityContextFacade securityContextFacade;
     private final JwtProperties jwtProperties;
     private final LoginRestrictionService loginRestrictionService;
@@ -151,13 +153,17 @@ public class OnlineUserService implements OnlineSessionReleasePort {
         if (userId == null) {
             return 0;
         }
-        return dsl.update(OS.table())
+        int affected = dsl.update(OS.table())
                 .set(OS.field("status", String.class), SysOnlineSession.STATUS_OFFLINE)
                 .set(OS.field("offline_reason", String.class), reason)
                 .where(OS.field("user_id", Long.class).eq(userId)
                         .and(OS.field("status", String.class)
                                 .eq(SysOnlineSession.STATUS_ONLINE)))
                 .execute();
+        // 访问令牌不携带 deviceId，客户端可省略/伪造 X-Device-Id 绕过在线会话校验。
+        // 递增 tokenVersion 后 TokenVersionVerifier 会在下一个请求统一失效全部旧凭证。
+        tokenVersionService.bumpUsers(List.of(userId));
+        return affected;
     }
 
     /**
@@ -312,6 +318,8 @@ public class OnlineUserService implements OnlineSessionReleasePort {
             log.info("强制下线会话 userId={} deviceId={} ip={}", row.getUserId(), row.getDeviceId(),
                     row.getLoginIp());
         }
+        // 定向强制下线同样必须让旧 access token 立即失效；否则客户端省略 X-Device-Id 即可继续使用。
+        tokenVersionService.bumpUsers(rows.stream().map(SysOnlineSession::getUserId).distinct().toList());
         return affected;
     }
 

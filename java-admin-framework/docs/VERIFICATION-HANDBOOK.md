@@ -1226,6 +1226,27 @@ mvn -o test          # 预期 594 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6az 强制下线补齐访问令牌即时失效
+
+**目标**：强制下线、限制登录与登出后，旧 access token 在下一个请求即失效，客户端不能靠省略/伪造 X-Device-Id 绕过在线会话校验。
+
+**验收标准**：`OnlineKickTokenVersionTest` 3 例全过；后端累计 597 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 定向强退 | `forceLogout()` 递增受影响用户 tokenVersion 并按设备吊销刷新令牌 |
+| 全量下线 | `markOfflineByUser()` 覆盖登出、密码变更与用户禁用等调用方 |
+| 限制登录 | `restrict()` 持久化限制记录、置离线并递增 tokenVersion |
+| 兼容 | 在线会话表与刷新令牌表原有语义不变；tokenVersion 校验在原请求链自动生效 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='OnlineKickTokenVersionTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 597 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

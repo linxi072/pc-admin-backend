@@ -12,6 +12,7 @@ import com.acme.scaffold.mybatis.dsl.FetchSupport;
 import com.acme.scaffold.mybatis.dsl.SqlTables;
 import com.acme.scaffold.mybatis.dsl.SqlWriters;
 import com.acme.scaffold.security.token.service.RefreshTokenService;
+import com.acme.scaffold.security.token.service.TokenVersionService;
 import com.acme.scaffold.system.online.domain.model.SysLoginRestriction;
 import com.acme.scaffold.system.online.domain.model.SysOnlineSession;
 import com.acme.scaffold.system.online.domain.rule.RestrictionRules;
@@ -50,6 +51,7 @@ public class LoginRestrictionService {
     private final DSLContext dsl;
     private final SecurityContextFacade securityContextFacade;
     private final RefreshTokenService refreshTokenService;
+    private final TokenVersionService tokenVersionService;
 
     /** 分页查询登录限制记录（结构化操作日志）。 */
     public PageResult<LoginRestrictionView> restrictionPage(int page, int size, String username,
@@ -135,6 +137,8 @@ public class LoginRestrictionService {
                         .and(OS.field("status", String.class)
                                 .eq(SysOnlineSession.STATUS_ONLINE)))
                 .execute();
+        // access token 不携带 deviceId，仅清会话行无法阻止客户端省略/伪造设备头继续使用旧令牌。
+        tokenVersionService.bumpUsers(List.of(userId));
         return restriction.getId();
     }
 

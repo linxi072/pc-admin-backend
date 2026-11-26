@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 强制下线补齐访问令牌即时失效
+
+- **背景**：`OnlineSessionFilter` 依赖客户端 `X-Device-Id` 定位会话；缺失头会直接放行，伪造/未知设备号查不到
+  会话行也按 fail-open 放行。由于 access token 不携带 deviceId，强制下线只把会话置 `OFFLINE`、吊销刷新令牌，
+  不递增 tokenVersion，被踢用户仍可在令牌有效期内省略或伪造设备头继续调用受保护 API。
+- **实现**：`OnlineUserService.forceLogout` / `markOfflineByUser` 与 `LoginRestrictionService.restrict` 在置离线和
+  吊销刷新令牌后统一调用 `TokenVersionService.bumpUsers`。`TokenVersionVerifier` 在下一个请求即拒绝旧
+  access token，不再依赖客户端是否上报设备头；刷新令牌吊销与会话离线语义保持不变。
+- **测试**：新增 `OnlineKickTokenVersionTest`（3 例），覆盖定向强制下线、全量下线/登出与限制登录三条路径。
+  后端测试 594 → 597 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：tokenVersion 是用户级版本，任一强制下线/限制操作会让该用户所有旧 access token 立即失效，
+  其他在线设备需重新登录；这是为消除设备头绕过而采取的 fail-closed 取舍。DB 异常时在线会话校验仍保持既有 fail-open。
+
 ### XLSX 稀疏列引用增加逻辑列数上限
 
 - **背景**：`XlsxDataReader.columnIndex` 解析 `r` 属性时无上限，`putCell` 又按列号无界扩表；
