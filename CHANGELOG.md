@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### XLSX 导出净化 XML 非法控制字符
+
+- **背景**：`XlsxDataExporter.xmlEscape` 只处理 `& < > "`，C0 控制字符原样写入 `inlineStr` 文本节点。
+  XML 1.0 仅允许 `\t \n \r` 与 `\u0020` 以上字符；任一导出字段含 `\u0001`、`\u000B`、`\u001F` 等，
+  生成的 `sheetN.xml` 即非法，Excel/WPS 会判定整个工作簿损坏并拒绝打开。CSV 路径已有公式注入防护，
+  XLSX 这条序列化路径此前无对应净化。
+- **实现**：`xmlEscape` 的 `default` 分支丢弃除 Tab/LF/CR 外的所有 `c < 0x20` 字符，转义与合法文本
+  逻辑保持不变；单表 `export` 与多 Sheet `exportWorkbook` 共用该函数，同步受益。
+- **测试**：新增 `XlsxDataExporterTest`（2 例），用 JDK `DocumentBuilder` 解析 ZIP 内全部 XML/rels part，
+  断言含控制字符的字段不再产生非法 XML、合法空白与实体转义仍保留；后端测试 535 → 537 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：净化只针对 XML 1.0 非法 C0 字符，不改变业务文本语义；换行/制表符按原样保留（由
+  `xml:space="preserve"` 承载）。
+
 ### 告警 Webhook 令牌改用恒定时间比较
 
 - **背景**：`AlertWebhookController.webhook` 是公开匿名端点，`X-Alert-Token` 是唯一鉴权凭证，但令牌校验用

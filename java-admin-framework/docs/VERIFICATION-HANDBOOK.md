@@ -935,6 +935,26 @@ mvn -o test          # 预期 535 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 56/56
 ```
 
+### 3.6al XLSX 导出净化 XML 非法控制字符
+
+**目标**：任意导出字段含 C0 控制字符时仍生成可被 Excel/WPS 打开的工作簿，合法文本与实体转义不丢失。
+
+**验收标准**：`XlsxDataExporterTest` 2 例全过；后端累计 537 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 单表导出 | `\u0001/\u000B/\u001F` 被剔除；`& < > "`、中文与合法空白保留 |
+| 多 Sheet 导出 | 每个 sheet XML part 均可被 `DocumentBuilder` 解析 |
+| XML part | ZIP 内全部 `.xml` / `.rels` 无 `SAXParseException` |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -am test -Dtest='XlsxDataExporterTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 2, Failures: 0, Errors: 0
+mvn -o test          # 预期 537 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

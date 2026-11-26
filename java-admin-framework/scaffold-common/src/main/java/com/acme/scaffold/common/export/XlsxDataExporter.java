@@ -19,7 +19,8 @@ import java.util.zip.ZipOutputStream;
  * <ul>
  *   <li>采用 <b>inlineStr</b>（单元格内联字符串 {@code <c t="inlineStr"><is><t>...</t></is></c>}），
  *       省去 {@code sharedStrings.xml} 共享字符串表，结构最简；</li>
- *   <li>文本经 XML 转义（{@code & < > "}），避免公式注入与非法 XML；</li>
+ *   <li>文本经 XML 转义（{@code & < > "}），并剔除 XML 1.0 不允许的 C0 控制字符
+ *       （保留 Tab/LF/CR），避免单个字段污染整个 sheet XML 导致工作簿打不开；</li>
  *   <li>{@link #export} 输出单工作表 {@code Sheet1}（无样式最小产物，与导入端
  *       {@code XlsxDataReader} 往返字节兼容）；</li>
  *   <li>{@link #exportWorkbook} 输出多 Sheet 工作簿（表头加粗灰底样式 + 列宽自适应），
@@ -380,7 +381,14 @@ public final class XlsxDataExporter {
                 case '<' -> sb.append("&lt;");
                 case '>' -> sb.append("&gt;");
                 case '"' -> sb.append("&quot;");
-                default -> sb.append(c);
+                default -> {
+                    // XML 1.0 仅允许 #x9/#xA/#xD 与 #x20 以上；其余 C0 字符必须丢弃，
+                    // 否则 sheetN.xml 非法，Excel/WPS 会判定整个工作簿损坏并拒绝打开。
+                    if (c < 0x20 && c != '\t' && c != '\n' && c != '\r') {
+                        continue;
+                    }
+                    sb.append(c);
+                }
             }
         }
         return sb.toString();
