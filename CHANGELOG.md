@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 列权限脱敏 fail-open 修复
+
+- **背景**：列权限存在两条脱敏路径。`ColumnPermissionApplier` 已用通用掩码兜底 `null/NONE`，但
+  `UserService.applyColumnMask` 仍调用 `SensitiveMasker.mask(value, type)`，类型为空时原样返回；
+  记录重建失败时 `applyRecord` 记 WARN 后返回原对象，字段读取/写入失败也只是跳过。开启
+  `column-permission.enforce` 后，这些场景都会把受控字段明文直接返回。
+- **实现**：`ColumnPermissionApplier.maskValue` 提升为统一公开入口（null/NONE 走 `genericMask`），
+  `UserService.applyColumnMask` 改为复用该入口；`applyRecord` 改用 record 组件类型数组定位规范构造器，
+  重建/读取/写入失败统一抛 `IllegalStateException`，以 fail-closed 口径拒绝返回未脱敏数据。
+- **测试**：补齐文档声称存在但仓库缺失的 `ColumnPermissionApplierTest`（3 例），覆盖通用掩码兜底、
+  record 重建脱敏副本、紧凑构造器拒绝掩码值时不得回落明文。后端测试 519 → 522 例。
+- **验证**：前端 158 例、门禁 50/50、Lint 与 Vite 生产构建均通过。
+- **注意**：开关关闭时行为不变；开启后若字段读写或 record 重建失败将直接抛异常（500），
+  这是为避免明文泄漏而有意选择的失败策略。
+
 ### 生产代码大小写归一全面锁定 Locale.ROOT
 
 - **背景**：上一轮规则层修复后，门禁仍只扫 `/rule/` 与 `/rules/`，生产代码另有 33 处无参

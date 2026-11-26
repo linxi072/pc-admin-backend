@@ -28,6 +28,7 @@ import com.acme.scaffold.security.password.PasswordHistoryService;
 import com.acme.scaffold.security.password.PasswordPolicy;
 import com.acme.scaffold.security.permission.ColumnField;
 import com.acme.scaffold.security.permission.ColumnPermission;
+import com.acme.scaffold.security.permission.ColumnPermissionApplier;
 import com.acme.scaffold.security.permission.ColumnPermissionFieldView;
 import com.acme.scaffold.security.permission.ColumnPermissionResourceRegistry;
 import com.acme.scaffold.security.permission.ColumnPermissionRules;
@@ -514,7 +515,8 @@ public class UserService {
                 .filter(f -> f.field().equals(field))
                 .map(ColumnPermissionFieldView::sensitiveType)
                 .findFirst().orElse(null);
-        return SensitiveMasker.mask(value, type);
+        // 与 ColumnPermissionApplier 共用统一入口：null/NONE 必须回落通用掩码，不能原样返回。
+        return (String) ColumnPermissionApplier.maskValue(value, type);
     }
 
     /**

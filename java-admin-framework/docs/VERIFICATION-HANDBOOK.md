@@ -852,6 +852,26 @@ mvn -o test          # 预期 519 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 50/50
 ```
 
+### 3.6ah 列权限脱敏 fail-open 修复
+
+**目标**：开启列级权限后，任何未声明敏感类型、字段读写失败或 record 重建失败都不得返回受控字段明文。
+
+**验收标准**：`ColumnPermissionApplierTest` 3 例全过；后端累计 522 例、前端 158 例、门禁 50 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `maskValue` | null / NONE 走 `genericMask`，两条脱敏路径口径一致 |
+| record 副本 | 按组件类型定位规范构造器，原 record 不变、副本已脱敏 |
+| 失败安全 | 紧凑构造器拒绝掩码值时抛 `IllegalStateException`，不回落原对象 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='ColumnPermissionApplierTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 522 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

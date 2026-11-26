@@ -27,10 +27,11 @@ import org.springframework.util.ReflectionUtils;
  *
  * <p><b>可变对象</b>：用反射就地读写字段脱敏/隐藏。<b>不可变 {@code record}</b>：本执行器不会就地改写，
  * 而是按受控字段清单经其规范构造器<b>重建一个脱敏副本</b>并返回（原 record 不变），调用方须使用返回值；
- * 重建失败（反射异常）时记 WARN 并回落原对象，不抛异常、不影响其它字段。</p>
+ * 重建失败时抛 {@link IllegalStateException}，绝不回落原对象，避免把明文误当脱敏结果返回。</p>
  * <p>集合入参会逐元素处理（批次端点友好）。record 元素同样走重建副本路径。</p>
  *
- * <p><b>失败安全</b>：字段不存在/不可访问/类型为 record 不可写时仅跳过该字段，不抛异常、不影响其它字段。</p>
+ * <p><b>失败安全</b>：字段不存在时跳过；字段存在但读取/写入失败，或 record 重建失败时直接抛异常，
+ * 以 fail-closed 口径拒绝返回未脱敏数据。</p>
  */
 @Slf4j
 @Component
@@ -134,12 +135,17 @@ public class ColumnPermissionApplier {
                 }
                 args[i] = value;
             }
-            Constructor<?> ctor = clazz.getDeclaredConstructors()[0];
+            Class<?>[] types = new Class<?>[components.length];
+            for (int i = 0; i < components.length; i++) {
+                types[i] = components[i].getType();
+            }
+            Constructor<?> ctor = clazz.getDeclaredConstructor(types);
             ctor.setAccessible(true);
             return (T) ctor.newInstance(args);
         } catch (Exception e) {
-            log.warn("字段级权限：record 重建失败（{}），回落原对象不脱敏: {}", clazz.getName(), e.getMessage());
-            return target;
+            // fail-closed：调用方可能把返回值直接对外序列化，回落原对象会泄漏明文。
+            throw new IllegalStateException(
+                    "字段级权限：record 重建失败，拒绝返回未脱敏数据: " + clazz.getName(), e);
         }
     }
 
@@ -154,8 +160,7 @@ public class ColumnPermissionApplier {
         try {
             value = ReflectionUtils.getField(field, target);
         } catch (Exception e) {
-            log.warn("字段级权限：读取字段 {} 失败，跳过: {}", f.field(), e.getMessage());
-            return;
+            throw new IllegalStateException("字段级权限：读取字段失败，拒绝返回未脱敏数据: " + f.field(), e);
         }
         if (value == null) {
             return;
@@ -168,11 +173,12 @@ public class ColumnPermissionApplier {
         try {
             ReflectionUtils.setField(field, target, masked);
         } catch (Exception e) {
-            log.warn("字段级权限：写入字段 {} 失败（不可变类型？），跳过: {}", f.field(), e.getMessage());
+            throw new IllegalStateException("字段级权限：写入字段失败，拒绝返回未脱敏数据: " + f.field(), e);
         }
     }
 
-    private Object maskValue(Object value, SensitiveType type) {
+    /** 统一掩码入口：null/NONE 走框架级通用掩码，保证所有列权限路径口径一致。 */
+    public static Object maskValue(Object value, SensitiveType type) {
         if (!(value instanceof String s)) {
             // 非字符串（数值/枚举等）无法按字符脱敏，统一置空（隐藏）。
             return null;
