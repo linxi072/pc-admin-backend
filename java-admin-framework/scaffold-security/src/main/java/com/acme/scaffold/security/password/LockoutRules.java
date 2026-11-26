@@ -1,6 +1,7 @@
 package com.acme.scaffold.security.password;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 
 /**
  * 登录失败渐进式锁定纯规则（无 Spring / 无 DB 依赖，便于离线单测）。
@@ -17,6 +18,19 @@ public final class LockoutRules {
     /** 是否达到锁定阈值（连续失败次数 ≥ 阈值）。 */
     public static boolean shouldLock(int consecutiveFailures, int maxFailures) {
         return consecutiveFailures >= maxFailures;
+    }
+
+    /**
+     * 当前时刻是否仍处于锁定态。
+     *
+     * <p>{@code status=LOCKED} 有两种来源：带 {@code lockedUntil} 的渐进式临时锁，以及不带到期时间的
+     * 人工长期锁。临时锁到期后必须放行，否则账号会永久无法登录；人工锁仍需持续阻断。</p>
+     */
+    public static boolean isLocked(String status, LocalDateTime lockedUntil, LocalDateTime now) {
+        if ("LOCKED".equals(status)) {
+            return lockedUntil == null || lockedUntil.isAfter(now);
+        }
+        return lockedUntil != null && lockedUntil.isAfter(now);
     }
 
     /**

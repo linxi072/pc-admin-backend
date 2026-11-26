@@ -725,6 +725,26 @@ mvn -o test          # 预期 497 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ab 渐进式锁定到期放行
+
+**目标**：带 `lockedUntil` 的临时锁到期后账号可重新登录，不得因残留 `status=LOCKED` 永久锁定。
+
+**验收标准**：`LockoutRulesTest` + `AuthServiceLockoutTest` 9 例全过；后端累计 502 例、前端 158 例、门禁 43 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `LockoutRules.isLocked` | 临时锁未到期/到期/边界；人工锁无到期时间；ACTIVE + 未来到期 |
+| `AuthService.isLocked` | 登录/改密/忘记密码统一调用到期感知判定 |
+| `resetLoginFailure` | 成功登录两个分支均把 `status` 归一为 `ACTIVE` 并清空计数/到期时间 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='LockoutRulesTest,AuthServiceLockoutTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 9, Failures: 0, Errors: 0
+mvn -o test          # 预期 502 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

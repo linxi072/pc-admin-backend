@@ -4,6 +4,23 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 修复渐进式锁定到期后永久锁账号
+
+- **背景**：`AuthService.isLocked` 原为 `"LOCKED".equals(status) || lockedUntil.isAfter(now)`。
+  `handleLoginFailure` 达到阈值时会同时把 `sys_user.status` 写成 `LOCKED` 并设置 `lockedUntil`，
+  但没有任何逻辑在临时锁到期后把状态改回 `ACTIVE`；由于 status 分支短路，到期时间被永远忽略，
+  用户 15 分钟后仍被判定锁定，只能人工改库恢复。`changePassword` / `forgotPassword` 还各自用
+  status-only 判断，口径与登录分叉。
+- **实现**：新增纯函数 `LockoutRules.isLocked(status, lockedUntil, now)`：带到期时间的临时锁到期即放行，
+  `status=LOCKED` 且无到期时间的人工长期锁仍持续阻断；`AuthService` 登录/改密/忘记密码统一走该函数。
+  登录成功时 `resetLoginFailure` 除清空失败计数与到期时间外，把状态归一回 `ACTIVE`。
+- **测试**：`LockoutRulesTest` 新增 3 例（到期/未到期/边界、人工锁、ACTIVE+未来到期），
+  新增 `AuthServiceLockoutTest` 2 例（成功登录两个分支均落库 `ACTIVE`、服务层调用到期感知判定）；
+  后端测试 497 → 502 例。
+- **验证**：前端 158 例、门禁 43/43、Lint 与 Vite 生产构建均通过。
+- **注意**：人工长期锁（`LOCKED` 且 `lockedUntil=null`）行为不变；临时锁到期后首次密码校验通过即清除
+  残留状态，失败重试会按当前失败次数重新进入渐进式锁定。
+
 ### 通知渠道归一锁定 Locale.ROOT
 
 - **背景**：`ChannelNormalizeRules.normalizeChannel` 用平台默认 Locale 的 `toUpperCase()` 匹配

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -43,5 +44,27 @@ class LockoutRulesTest {
     void baseBeyondMaxShouldBeClamped() {
         Duration max = Duration.ofMinutes(30);
         assertEquals(max, LockoutRules.computeDuration(5, 5, Duration.ofHours(2), max));
+    }
+
+    @Test
+    void temporaryLockShouldExpireInsteadOfBecomingPermanent() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 26, 10, 0);
+        assertTrue(LockoutRules.isLocked("LOCKED", now.plusMinutes(15), now));
+        assertFalse(LockoutRules.isLocked("LOCKED", now.minusMinutes(1), now));
+        assertFalse(LockoutRules.isLocked("LOCKED", now, now));
+    }
+
+    @Test
+    void manualLockWithoutExpiryShouldRemainLocked() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 26, 10, 0);
+        assertTrue(LockoutRules.isLocked("LOCKED", null, now));
+    }
+
+    @Test
+    void futureExpiryShouldLockEvenWhenStatusIsActive() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 26, 10, 0);
+        assertTrue(LockoutRules.isLocked("ACTIVE", now.plusSeconds(1), now));
+        assertFalse(LockoutRules.isLocked("ACTIVE", null, now));
+        assertFalse(LockoutRules.isLocked("DISABLED", now.minusSeconds(1), now));
     }
 }

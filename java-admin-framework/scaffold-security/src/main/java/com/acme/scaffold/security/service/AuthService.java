@@ -262,7 +262,7 @@ public class AuthService {
         if (user == null || !passwordEncoder.matches(oldPassword, user.passwordHash())) {
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或密码错误");
         }
-        if ("LOCKED".equals(user.status())) {
+        if (isLocked(user)) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
         }
         // 设计文档 §5.3：禁止复用最近 5 次密码
@@ -310,7 +310,7 @@ public class AuthService {
         if (user == null || !ForgotPasswordRules.verified(user.mobile(), user.email(), mobile, email)) {
             throw new BusinessException(SecurityErrorCode.BAD_CREDENTIALS, "用户名或验证信息不匹配");
         }
-        if ("LOCKED".equals(user.status())) {
+        if (isLocked(user)) {
             throw new BusinessException(SecurityErrorCode.ACCOUNT_LOCKED, "账号已锁定，请稍后再试");
         }
         if ("DISABLED".equals(user.status())) {
@@ -364,8 +364,7 @@ public class AuthService {
     }
 
     private boolean isLocked(UserAccount user) {
-        return "LOCKED".equals(user.status())
-                || (user.lockedUntil() != null && user.lockedUntil().isAfter(LocalDateTime.now()));
+        return LockoutRules.isLocked(user.status(), user.lockedUntil(), LocalDateTime.now());
     }
 
     private void handleLoginFailure(UserAccount user) {
@@ -391,12 +390,14 @@ public class AuthService {
     }
 
     private void resetLoginFailure(UserAccount user) {
+        // 成功的密码校验意味着渐进式临时锁已解除：除清空失败计数/到期时间外，
+        // 必须把 LOCKED 归一回 ACTIVE，否则状态列会让账号在锁到期后仍永久不可登录。
         if (user.failedLoginCount() != null && user.failedLoginCount() > 0) {
             accountPort.updateById(user.id(), new UserAccountPatch(null, null, null, 0, null, null,
-                    LocalDateTime.now(), null));
+                    LocalDateTime.now(), "ACTIVE"));
         } else {
             accountPort.updateById(user.id(), new UserAccountPatch(null, null, null, null, null, null,
-                    LocalDateTime.now(), null));
+                    LocalDateTime.now(), "ACTIVE"));
         }
     }
 }
