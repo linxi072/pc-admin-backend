@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 告警 severity 筛选与汇总口径统一
+
+- **背景**：`AlertInboxRules` 对 severity 存在三套口径：查询值 `normalizeSeverity` 做
+  trim + 小写 + 32 字符截断；`filter` 却拿归一后的查询值与条目原始 `getSeverity()` 做
+  `equalsIgnoreCase`；`summarize` 又只做 trim + 小写、不截断。于是汇总里可见的桶
+  （`" critical "` 或超长自定义值）点击筛选恒为空，出现「汇总可见、筛选无结果」的排障误导。
+- **实现**：抽出共用纯函数 `normalizeEntrySeverity`（trim + 小写 + 截断），`normalizeSeverity` 委托它；
+  `filter` 比较条目归一值，`summarize` 的桶键也复用它，空值仍归 `UNKNOWN_SEVERITY`。
+- **测试**：`AlertInboxRulesTest` 新增 2 例，覆盖条目值带首尾空格与超过 32 字符的自定义 severity，
+  同时验证筛选命中与汇总桶键一致。后端测试 537 → 539 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：标准短 severity（critical/warning/info）行为不变；超长自定义值现在按截断后的桶键筛选，
+  与汇总展示一致。
+
 ### XLSX 导出净化 XML 非法控制字符
 
 - **背景**：`XlsxDataExporter.xmlEscape` 只处理 `& < > "`，C0 控制字符原样写入 `inlineStr` 文本节点。

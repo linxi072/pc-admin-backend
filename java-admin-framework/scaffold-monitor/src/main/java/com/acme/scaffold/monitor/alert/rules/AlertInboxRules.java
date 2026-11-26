@@ -62,6 +62,16 @@ public final class AlertInboxRules {
      * info / page ……），不做白名单——白名单会把自定义等级误杀为「不筛选」。
      */
     public static String normalizeSeverity(String severity) {
+        return normalizeEntrySeverity(severity);
+    }
+
+    /**
+     * 条目 severity 与查询 severity 共用的归一键：trim + 小写 + 截断到 {@value #MAX_SEVERITY_LEN}。
+     *
+     * <p>此前条目原值未归一，导致汇总里可见的 severity（如 `" critical "` 或超长自定义值）
+     * 用同一字符串筛选时恒为空。筛选与汇总必须共用本函数。</p>
+     */
+    public static String normalizeEntrySeverity(String severity) {
         if (severity == null || severity.isBlank()) {
             return null;
         }
@@ -99,7 +109,7 @@ public final class AlertInboxRules {
             if (st != null && !st.equalsIgnoreCase(e.getStatus())) {
                 continue;
             }
-            if (sv != null && !sv.equalsIgnoreCase(e.getSeverity())) {
+            if (sv != null && !sv.equals(normalizeEntrySeverity(e.getSeverity()))) {
                 continue;
             }
             out.add(e);
@@ -130,9 +140,8 @@ public final class AlertInboxRules {
             } else if (STATUS_RESOLVED.equalsIgnoreCase(e.getStatus())) {
                 resolved++;
             }
-            String key = e.getSeverity() == null || e.getSeverity().isBlank()
-                    ? UNKNOWN_SEVERITY : e.getSeverity().trim().toLowerCase(Locale.ROOT);
-            bySeverity.merge(key, 1, Integer::sum);
+            String key = normalizeEntrySeverity(e.getSeverity());
+            bySeverity.merge(key == null ? UNKNOWN_SEVERITY : key, 1, Integer::sum);
             long millis = toEpochMilli(e.getReceivedAt());
             if (millis > 0) {
                 mostRecent = Math.max(mostRecent, millis);

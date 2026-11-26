@@ -955,6 +955,26 @@ mvn -o test          # 预期 537 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6am 告警 severity 筛选与汇总口径统一
+
+**目标**：同一 severity label 在汇总里可见时，使用展示值筛选必须命中，不再出现「汇总可见、筛选为空」。
+
+**验收标准**：`AlertInboxRulesTest` 新增 2 例全过；后端累计 539 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 首尾空格 | 条目 `"  CRITICAL  "` 用 `critical` 筛选命中，汇总桶键为 `critical` |
+| 超长值 | 50 字符自定义 severity 与 32 字符截断桶键筛选/汇总一致 |
+| 兼容 | 标准短 severity 与空值 `unknown` 桶行为不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-monitor -am test -Dtest='AlertInboxRulesTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 11, Failures: 0, Errors: 0
+mvn -o test          # 预期 539 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -116,6 +116,26 @@ class AlertInboxRulesTest {
         assertEquals(0L, s.oldestRetainedEpochMillis());
     }
 
+    @Test
+    void filterShouldMatchSeverityWithSurroundingSpacesInEntry() {
+        List<AlertInboxEntry> entries = List.of(
+                entry("firing", "  CRITICAL  ", 1), entry("firing", "warning", 2));
+
+        assertEquals(List.of(entries.get(0)), AlertInboxRules.filter(entries, null, "critical"));
+        assertEquals(1, AlertInboxRules.summarize(entries, 200).severityCounts().get("critical"));
+    }
+
+    @Test
+    void filterShouldMatchLongCustomSeverityStoredInEntry() {
+        String longSeverity = "S".repeat(50);
+        String bucket = "s".repeat(AlertInboxRules.MAX_SEVERITY_LEN);
+        List<AlertInboxEntry> entries = List.of(
+                entry("firing", longSeverity, 1), entry("firing", "warning", 2));
+
+        assertEquals(List.of(entries.get(0)), AlertInboxRules.filter(entries, null, longSeverity));
+        assertEquals(1, AlertInboxRules.summarize(entries, 200).severityCounts().get(bucket));
+    }
+
     private static AlertInboxEntry entry(String status, String severity, long receivedAtMillis) {
         return new AlertInboxEntry(
                 "id-" + receivedAtMillis,
