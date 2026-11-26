@@ -810,6 +810,26 @@ mvn -o test          # 预期 512 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 49/49
 ```
 
+### 3.6af 审计摘要凭证别名与银行卡脱敏
+
+**目标**：审计落库/查询共用的 `maskSummary()` 必须抹除常见凭证别名与银行卡号，避免明文泄漏。
+
+**验收标准**：`SensitiveMaskerTest` 15 例全过；后端累计 515 例、前端 158 例、门禁 49 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 凭证键别名 | apiKey / api_key / x-api-key / accessKey / secretKey / idToken / sessionId / cookie / previewToken |
+| 银行卡 | 16 位卡号保留后 4 位、等长星号；重复调用幂等 |
+| 顺序安全 | 已掩码的 18 位身份证不会被银行卡规则二次处理 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -am test -Dtest='SensitiveMaskerTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 15, Failures: 0, Errors: 0
+mvn -o test          # 预期 515 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

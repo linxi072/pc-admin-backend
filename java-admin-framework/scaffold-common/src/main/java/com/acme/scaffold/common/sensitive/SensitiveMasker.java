@@ -36,10 +36,13 @@ public final class SensitiveMasker {
      */
     private static final Pattern CREDENTIAL_KEYS = Pattern.compile(
             // [_-]? 兼容 snake_case / kebab-case / camelCase 三种命名风格；长键名排在前面，
-            // 避免 "access_token" 被更短的 "token" 先匹配掉导致漏脱敏
-            "\"(refresh[_-]?token|access[_-]?token|old[_-]?password|new[_-]?password"
-                    + "|confirm[_-]?password|client[_-]?secret|private[_-]?key|auth[_-]?code"
-                    + "|sms[_-]?code|password|passwd|pwd|token|jwt|secret|authorization|captcha|pin)"
+            // 避免 "access_token" 被更短的 "token" 先匹配掉导致漏脱敏。
+            "\"(refresh[_-]?token|access[_-]?token|preview[_-]?token|id[_-]?token"
+                    + "|old[_-]?password|new[_-]?password|confirm[_-]?password"
+                    + "|client[_-]?secret|secret[_-]?key|private[_-]?key|access[_-]?key"
+                    + "|client[_-]?key|x[_-]?api[_-]?key|api[_-]?key|session[_-]?id"
+                    + "|auth[_-]?code|sms[_-]?code|password|passwd|pwd|token|jwt|secret"
+                    + "|authorization|cookie|captcha|pin)"
                     + "\"\\s*:\\s*",
             Pattern.CASE_INSENSITIVE);
 
@@ -107,6 +110,8 @@ public final class SensitiveMasker {
         out = PHONE.matcher(out).replaceAll(mr -> mr.group(1).substring(0, 3) + "****" + mr.group(1).substring(7));
         out = EMAIL.matcher(out).replaceAll(mr -> maskEmail(mr.group(0)));
         out = ID_CARD.matcher(out).replaceAll(mr -> "**************" + mr.group(2));
+        // 放在身份证之后：18 位身份证已变成仅剩 4 位数字，不会被卡号规则二次处理。
+        out = BANK_CARD.matcher(out).replaceAll(mr -> maskDigitsKeepLast4(mr.group(1)));
         return out;
     }
 
@@ -156,7 +161,11 @@ public final class SensitiveMasker {
         if (!m.matches()) {
             return bankCard;
         }
-        String digits = m.group(1);
+        return maskDigitsKeepLast4(m.group(1));
+    }
+
+    /** 数字串保留后 4 位，前置部分等长星号替换（供银行卡号与摘要内卡号共用）。 */
+    private static String maskDigitsKeepLast4(String digits) {
         int keep = 4;
         return "*".repeat(digits.length() - keep) + digits.substring(digits.length() - keep);
     }

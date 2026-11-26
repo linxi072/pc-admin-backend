@@ -3,8 +3,10 @@ package com.acme.scaffold.common.sensitive;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 脱敏器单测（V1.1.0 测试覆盖重建立项：scaffold-common 批次）。
@@ -90,5 +92,39 @@ class SensitiveMaskerTest {
         assertNull(SensitiveMasker.maskSummary(null));
         String once = SensitiveMasker.maskSummary("hi 13812341234");
         assertEquals(once, SensitiveMasker.maskSummary(once));
+    }
+
+    @Test
+    void maskSummaryShouldEraseCommonCredentialAliases() {
+        String text = "{\"apiKey\":\"ALIAS_API_KEY\",\"api_key\":\"ALIAS_SNAKE\","
+                + "\"x-api-key\":\"ALIAS_X_API_KEY\",\"accessKey\":\"ALIAS_ACCESS\","
+                + "\"secretKey\":\"ALIAS_SECRET_KEY\",\"idToken\":\"ALIAS_ID_TOKEN\","
+                + "\"sessionId\":\"ALIAS_SESSION\",\"cookie\":\"ALIAS_COOKIE\","
+                + "\"previewToken\":\"ALIAS_PREVIEW\",\"name\":\"tom\"}";
+
+        String out = SensitiveMasker.maskSummary(text);
+
+        for (String secret : new String[]{"ALIAS_API_KEY", "ALIAS_SNAKE", "ALIAS_X_API_KEY",
+                "ALIAS_ACCESS", "ALIAS_SECRET_KEY", "ALIAS_ID_TOKEN", "ALIAS_SESSION",
+                "ALIAS_COOKIE", "ALIAS_PREVIEW"}) {
+            assertFalse(out.contains(secret), secret);
+        }
+        assertTrue(out.contains("\"name\":\"tom\""));
+    }
+
+    @Test
+    void maskSummaryShouldMaskBankCardAndStayIdempotent() {
+        String out = SensitiveMasker.maskSummary("卡号 6222600265612345 已提交");
+
+        assertFalse(out.contains("6222600265612345"));
+        assertTrue(out.contains("************2345"));
+        assertEquals(out, SensitiveMasker.maskSummary(out));
+    }
+
+    @Test
+    void maskSummaryShouldNotTreatMaskedIdCardAsBankCard() {
+        String out = SensitiveMasker.maskSummary("身份证 110101199001011234");
+        assertEquals("身份证 **************1234", out);
+        assertEquals(out, SensitiveMasker.maskSummary(out));
     }
 }

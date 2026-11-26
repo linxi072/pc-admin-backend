@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 审计摘要补齐凭证别名与银行卡脱敏
+
+- **背景**：`SensitiveMasker.CREDENTIAL_KEYS` 原来只覆盖 `password/token/secret/authorization` 等精确键名，
+  `apiKey`、`secretKey`、`idToken`、`sessionId`、`cookie`、`previewToken` 等常见凭证字段会原样写入审计摘要；
+  类里已定义的 `BANK_CARD` 模式也从未被 `maskSummary()` 调用。审计落库与查询返回都只经过 `maskSummary()`，
+  持有审计查询权限的人可直接读回这些敏感值。
+- **实现**：扩展凭证键正则（兼容 snake/kebab/camel，长键优先）覆盖 `api[_-]?key`、`x-api-key`、
+  `access[_-]?key`、`secret[_-]?key`、`id[_-]?token`、`session[_-]?id`、`cookie`、`preview[_-]?token` 等；
+  `maskSummary()` 在身份证之后追加银行卡号替换，复用 `maskBankCard` 的「保留后 4 位、等长星号」口径，
+  避免 18 位身份证被二次处理。
+- **测试**：`SensitiveMaskerTest` 新增 3 例，覆盖九类凭证别名、16 位银行卡号脱敏与幂等、
+  已掩码身份证不被当作卡号二次处理。后端测试 512 → 515 例。
+- **验证**：前端 158 例、门禁 49/49、Lint 与 Vite 生产构建均通过。
+- **注意**：银行卡规则沿用既有 12~19 位、前后非数字的形态约束，仍可能把同形态订单号一并掩码；
+  本次只扩大脱敏覆盖面，不改变存储层原文与 `SensitiveType` 分派契约。
+
 ### 规则层枚举归一全面锁定 Locale.ROOT
 
 - **背景**：此前只修复了 `ChannelNormalizeRules`，但规则层仍有 18 处无参 `toUpperCase()` / `toLowerCase()`
