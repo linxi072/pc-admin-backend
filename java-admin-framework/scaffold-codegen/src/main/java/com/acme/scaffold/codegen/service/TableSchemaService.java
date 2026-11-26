@@ -5,6 +5,7 @@ import com.acme.scaffold.codegen.domain.TableMetaView;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 
 import lombok.extern.slf4j.Slf4j;
@@ -56,7 +57,7 @@ public class TableSchemaService {
                     String dataType = r.get("DATA_TYPE", String.class);
                     String columnType = r.get("COLUMN_TYPE", String.class);
                     boolean tinyintOne = "tinyint".equalsIgnoreCase(dataType)
-                            && columnType != null && columnType.toLowerCase().contains("(1)");
+                            && columnType != null && columnType.toLowerCase(Locale.ROOT).contains("(1)");
                     String extra = r.get("EXTRA", String.class);
                     columns.add(new ColumnMetaView(
                             r.get("COLUMN_NAME", String.class),
@@ -66,7 +67,7 @@ public class TableSchemaService {
                             r.get("COLUMN_COMMENT", String.class),
                             "PRI".equalsIgnoreCase(r.get("COLUMN_KEY", String.class)),
                             "YES".equalsIgnoreCase(r.get("IS_NULLABLE", String.class)),
-                            extra != null && extra.toLowerCase().contains("auto_increment")));
+                            extra != null && extra.toLowerCase(Locale.ROOT).contains("auto_increment")));
                 });
         return new TableMetaView(tableName, JavaTypeMapper.toClassName(tableName), comment, columns);
     }

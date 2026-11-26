@@ -5,6 +5,7 @@ import com.acme.scaffold.ai.domain.TableSpec;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 迁移 SQL 渲染器：表规格 → 带引号小写 snake_case 标识符的 CREATE TABLE + 独立 CREATE INDEX。
@@ -49,7 +50,7 @@ public final class DdlRenderer {
     }
 
     private static String jdbcType(ColumnSpec c) {
-        return switch (c.dataType().toLowerCase()) {
+        return switch (c.dataType().toLowerCase(Locale.ROOT)) {
             case "decimal" -> "DECIMAL(10,2)";
             case "varchar" -> "VARCHAR(255)";
             case "text" -> "TEXT";
@@ -70,7 +71,7 @@ public final class DdlRenderer {
         }
         List<String> attrs = new ArrayList<>();
         attrs.add(c.nullable() ? "NULL" : "NOT NULL");
-        if (!c.nullable() && "tinyint".equals(c.dataType().toLowerCase())) {
+        if (!c.nullable() && "tinyint".equals(c.dataType().toLowerCase(Locale.ROOT))) {
             attrs.add("DEFAULT 0");
         }
         if (c.comment() != null && !c.comment().isBlank()) {

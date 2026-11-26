@@ -4,6 +4,7 @@ import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -61,7 +62,7 @@ public final class PasswordPolicy {
         if (config.requireSpecial() && !HAS_SPECIAL.matcher(raw).find()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "密码必须包含特殊字符");
         }
-        if (config.denyCommon() && COMMON_WEAK.contains(raw.toLowerCase())) {
+        if (config.denyCommon() && COMMON_WEAK.contains(raw.toLowerCase(Locale.ROOT))) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "密码过于常见，请更换");
         }
     }

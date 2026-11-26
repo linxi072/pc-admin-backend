@@ -20,6 +20,7 @@ import com.acme.scaffold.system.online.domain.RestrictLoginRequest;
 import com.acme.scaffold.system.user.domain.model.SysUser;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.List;
 import java.util.Set;
 
@@ -59,7 +60,7 @@ public class LoginRestrictionService {
             conds.add(SqlTables.SYS_LOGIN_RESTRICTION.field("username", String.class).like("%" + kw + "%"));
         }
         if (StringUtils.hasText(status)) {
-            conds.add(SqlTables.SYS_LOGIN_RESTRICTION.field("status", String.class).eq(status.trim().toUpperCase()));
+            conds.add(SqlTables.SYS_LOGIN_RESTRICTION.field("status", String.class).eq(status.trim().toUpperCase(Locale.ROOT)));
         }
         var pageQuery = PageQuery.of(page, size);
         PageResult<SysLoginRestriction> result = SqlWriters.page(dsl, LR,

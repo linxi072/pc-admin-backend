@@ -830,6 +830,28 @@ mvn -o test          # 预期 515 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ag 生产代码大小写归一锁定 Locale.ROOT
+
+**目标**：全部生产 Java 源码中的标识符/枚举/状态码归一不受 JVM 默认 Locale 影响，门禁不留规则包盲区。
+
+**验收标准**：新增 4 例 tr-TR 回归测试与 4 例静态门禁全过；后端累计 519 例、前端 158 例、门禁 50 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 任务与报表 | `minutes` / `simple` 解析；`api_call` 不回落 `USAGE` |
+| 配置与口令 | `inactive` 判定为停用；`ADMIN123` 仍命中弱口令 |
+| 静态门禁 | 扫描所有 `src/main/java`，排除 `src/test`；仅允许带 `Locale.ROOT` 的大小写转换 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-job,scaffold-workbench,scaffold-system,scaffold-security -am test -Dtest='JobLocaleTest,ReportExportTaskLocaleTest,SystemConfigPortLocaleTest,PasswordPolicyLocaleTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 BUILD SUCCESS
+python3 scripts/tests/test_rule_locale_security.py
+# 预期 Ran 4 tests / OK
+mvn -o test          # 预期 519 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 50/50
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -216,7 +217,7 @@ public class WorkflowDesignService {
         if (size <= 0) {
             return 0;
         }
-        String mode = node.approvalMode() == null ? "ANY" : node.approvalMode().toUpperCase();
+        String mode = node.approvalMode() == null ? "ANY" : node.approvalMode().toUpperCase(Locale.ROOT);
         return switch (mode) {
             case "ALL" -> size;
             case "RATIO" -> {

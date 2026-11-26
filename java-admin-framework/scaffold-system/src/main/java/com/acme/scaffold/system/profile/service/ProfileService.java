@@ -21,6 +21,7 @@ import com.acme.scaffold.system.user.domain.model.SysUserOrg;
 import com.acme.scaffold.system.user.domain.model.SysUserRole;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import java.util.regex.Pattern;
@@ -88,7 +89,7 @@ public class ProfileService {
             }
         }
         if (request.email() != null) {
-            String email = normalize(request.email()).toLowerCase();
+            String email = normalize(request.email()).toLowerCase(Locale.ROOT);
             if (!email.isEmpty()) {
                 assertEmailFormat(email);
                 assertContactAvailable("email", email, current.getId());

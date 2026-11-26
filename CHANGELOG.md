@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 生产代码大小写归一全面锁定 Locale.ROOT
+
+- **背景**：上一轮规则层修复后，门禁仍只扫 `/rule/` 与 `/rules/`，生产代码另有 33 处无参
+  `toUpperCase()` / `toLowerCase()`。`tr-TR` 下 `MINUTES`、`API_CALL`、`INACTIVE`、`ADMIN123`、
+  `INITIATOR`、`tinyint` 等标识符会被错误映射，造成定时任务解析失败、报表静默导出错误类型、
+  已禁用配置被当作启用、弱口令绕过与 DDL 类型识别失败。
+- **实现**：将全部 `src/main/java` 中的 33 处调用改为 `Locale.ROOT`，覆盖任务、报表导出、系统配置、
+  登录限制、密码策略、API 资源、个人中心、数据源、代码生成/AI 脚手架与工作流适配层；保留原有 trim、
+  白名单、回退与容错逻辑不变。
+- **测试**：新增 4 例 tr-TR 回归测试（任务枚举、报表类型、配置停用态、弱口令）；
+  `test_rule_locale_security.py` 从规则包扩展为扫描全部生产源码并排除 `src/test`，新增 1 例路径筛选断言。
+  后端测试 515 → 519 例，门禁 49 → 50 例。
+- **验证**：前端 158 例、Lint 与 Vite 生产构建均通过。
+- **注意**：只固定大小写映射语义，不改变业务白名单、默认值与回退策略；测试源码不纳入静态门禁。
+
 ### 审计摘要补齐凭证别名与银行卡脱敏
 
 - **背景**：`SensitiveMasker.CREDENTIAL_KEYS` 原来只覆盖 `password/token/secret/authorization` 等精确键名，

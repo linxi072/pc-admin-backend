@@ -14,6 +14,7 @@ import com.acme.scaffold.system.profile.domain.DeviceView;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -197,7 +198,7 @@ public class ProfileDeviceService {
         if (ua.contains("Linux")) {
             return "Linux 设备";
         }
-        String lower = ua.toLowerCase();
+        String lower = ua.toLowerCase(Locale.ROOT);
         if (lower.contains("curl")) {
             return "curl 客户端";
         }

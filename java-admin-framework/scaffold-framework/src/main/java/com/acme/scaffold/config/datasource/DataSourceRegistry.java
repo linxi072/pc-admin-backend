@@ -2,6 +2,7 @@ package com.acme.scaffold.config.datasource;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.util.Collection;
+import java.util.Locale;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,7 +34,7 @@ public class DataSourceRegistry {
     private HikariDataSource build(String name, MultiDataSourceProperties.DataSourceProperties p) {
         if (p.getUrl() == null || p.getUrl().isBlank()) {
             throw new IllegalStateException("数据源 [" + name + "] 缺少 url，"
-                    + "请通过环境变量注入（约定：DB_" + name.toUpperCase().replace('-', '_') + "_URL）");
+                    + "请通过环境变量注入（约定：DB_" + name.toUpperCase(Locale.ROOT).replace('-', '_') + "_URL）");
         }
         HikariDataSource ds = new HikariDataSource();
         ds.setPoolName("hikari-" + name);

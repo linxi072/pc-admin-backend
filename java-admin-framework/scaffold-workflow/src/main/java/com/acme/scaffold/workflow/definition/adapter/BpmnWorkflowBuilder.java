@@ -7,6 +7,7 @@ import com.acme.scaffold.workflow.support.WorkflowNodeType;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.flowable.bpmn.converter.BpmnXMLConverter;
@@ -213,7 +214,7 @@ public class BpmnWorkflowBuilder {
     }
 
     private static String resolveRejectTarget(WorkflowNodeView node, List<WorkflowNodeView> nodes, String startNodeId) {
-        String policy = orDefault(node.rejectPolicy(), "NONE").toUpperCase();
+        String policy = orDefault(node.rejectPolicy(), "NONE").toUpperCase(Locale.ROOT);
         return switch (policy) {
             case "END" -> "rejectedEnd";
             case "SPECIFIC" -> {

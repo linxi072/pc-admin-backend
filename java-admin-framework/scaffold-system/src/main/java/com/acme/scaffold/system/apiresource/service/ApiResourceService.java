@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 
 import java.util.Map;
 import java.util.Objects;
@@ -61,7 +62,7 @@ public class ApiResourceService {
         SysApiResource api = new SysApiResource();
         api.setResourceName(request.resourceName());
         api.setPermissionCode(request.permissionCode());
-        api.setHttpMethod(request.httpMethod().toUpperCase());
+        api.setHttpMethod(request.httpMethod().toUpperCase(Locale.ROOT));
         api.setPathPattern(request.pathPattern());
         api.setAuthMode(request.authMode() == null ? "REQUIRED" : request.authMode());
         api.setRiskLevel(request.riskLevel() == null ? "NORMAL" : request.riskLevel());
@@ -84,7 +85,7 @@ public class ApiResourceService {
         api.setTenantId(existing.getTenantId());
         api.setResourceName(request.resourceName());
         api.setPermissionCode(request.permissionCode());
-        api.setHttpMethod(request.httpMethod().toUpperCase());
+        api.setHttpMethod(request.httpMethod().toUpperCase(Locale.ROOT));
         api.setPathPattern(request.pathPattern());
         api.setAuthMode(request.authMode() == null ? existing.getAuthMode() : request.authMode());
         api.setStatus(RecordStatus.mergeOrKeep(request.status(), existing.getStatus()));
@@ -252,7 +253,7 @@ public class ApiResourceService {
             if (row.getHttpMethod() == null || row.getPathPattern() == null) {
                 continue;
             }
-            map.put(row.getHttpMethod().toUpperCase() + " " + row.getPathPattern(), row);
+            map.put(row.getHttpMethod().toUpperCase(Locale.ROOT) + " " + row.getPathPattern(), row);
         }
         return map;
     }

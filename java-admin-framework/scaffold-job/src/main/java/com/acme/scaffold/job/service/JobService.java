@@ -32,6 +32,7 @@ import java.time.ZoneId;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -409,11 +410,11 @@ public class JobService {
             cond = DSL.and(cond, t.field("job_group", String.class).eq(query.jobGroup().trim()));
         }
         if (notBlank(query.status())) {
-            cond = DSL.and(cond, t.field("status", String.class).eq(query.status().trim().toUpperCase()));
+            cond = DSL.and(cond, t.field("status", String.class).eq(query.status().trim().toUpperCase(Locale.ROOT)));
         }
         if (notBlank(query.triggerType())) {
             cond = DSL.and(cond, t.field("trigger_type", String.class)
-                    .eq(query.triggerType().trim().toUpperCase()));
+                    .eq(query.triggerType().trim().toUpperCase(Locale.ROOT)));
         }
         if (notBlank(query.taskKey())) {
             cond = DSL.and(cond, t.field("task_key", String.class).eq(query.taskKey().trim()));
@@ -431,7 +432,7 @@ public class JobService {
             return null;
         }
         try {
-            return JobTriggerType.valueOf(value.trim().toUpperCase());
+            return JobTriggerType.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -443,7 +444,7 @@ public class JobService {
             return null;
         }
         try {
-            return JobIntervalUnit.valueOf(value.trim().toUpperCase());
+            return JobIntervalUnit.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }

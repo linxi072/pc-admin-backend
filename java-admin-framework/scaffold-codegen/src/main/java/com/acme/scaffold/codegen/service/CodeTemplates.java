@@ -9,6 +9,7 @@ import com.acme.scaffold.codegen.domain.TableMetaView;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -182,8 +183,8 @@ public final class CodeTemplates {
     private static String querySource(Ctx c) {
         StringBuilder params = new StringBuilder();
         for (ColumnMetaView col : c.fields) {
-            String f = col.javaField().toLowerCase();
-            String cn = col.columnName().toLowerCase();
+            String f = col.javaField().toLowerCase(Locale.ROOT);
+            String cn = col.columnName().toLowerCase(Locale.ROOT);
             if (QUERY_EXCLUDE.contains(f) || QUERY_EXCLUDE.contains(cn)) {
                 continue;
             }
@@ -706,8 +707,8 @@ public final class CodeTemplates {
     private static String buildConditionBody(Ctx c) {
         StringBuilder sb = new StringBuilder();
         for (ColumnMetaView col : c.fields) {
-            String f = col.javaField().toLowerCase();
-            String cn = col.columnName().toLowerCase();
+            String f = col.javaField().toLowerCase(Locale.ROOT);
+            String cn = col.columnName().toLowerCase(Locale.ROOT);
             if (QUERY_EXCLUDE.contains(f) || QUERY_EXCLUDE.contains(cn)) {
                 continue;
             }

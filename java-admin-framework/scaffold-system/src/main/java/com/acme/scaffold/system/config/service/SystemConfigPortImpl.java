@@ -4,6 +4,7 @@ import com.acme.scaffold.common.config.SystemConfigPort;
 import com.acme.scaffold.common.config.SystemConfigs;
 import com.acme.scaffold.system.config.domain.ConfigView;
 import jakarta.annotation.PostConstruct;
+import java.util.Locale;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
@@ -45,7 +46,7 @@ public class SystemConfigPortImpl implements SystemConfigPort {
         if (status == null || status.isBlank()) {
             return true;
         }
-        String s = status.trim().toUpperCase();
+        String s = status.trim().toUpperCase(Locale.ROOT);
         return !"DISABLED".equals(s) && !"INACTIVE".equals(s) && !"0".equals(s) && !"FALSE".equals(s);
     }
 }

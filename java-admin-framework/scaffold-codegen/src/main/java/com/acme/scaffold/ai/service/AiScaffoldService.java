@@ -15,6 +15,7 @@ import com.acme.scaffold.codegen.domain.TableMetaView;
 import com.acme.scaffold.codegen.service.CodeTemplates;
 import com.acme.scaffold.codegen.service.JavaTypeMapper;
 import java.util.List;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -123,7 +124,7 @@ public class AiScaffoldService {
     }
 
     private static String deriveModule(String tableName) {
-        String t = tableName.trim().toLowerCase();
+        String t = tableName.trim().toLowerCase(Locale.ROOT);
         if (t.startsWith("sys_")) {
             t = t.substring(4);
         }

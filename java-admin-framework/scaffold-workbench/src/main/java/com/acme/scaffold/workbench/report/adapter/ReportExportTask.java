@@ -14,6 +14,7 @@ import com.acme.scaffold.workbench.report.domain.ReportRange;
 import com.acme.scaffold.workbench.report.domain.ReportType;
 import com.acme.scaffold.workbench.report.domain.ReportView;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
@@ -126,7 +127,7 @@ public class ReportExportTask implements ExportTask {
             return fallback;
         }
         try {
-            return Enum.valueOf(enumType, raw.trim().toUpperCase());
+            return Enum.valueOf(enumType, raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return fallback;
         }

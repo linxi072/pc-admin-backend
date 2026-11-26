@@ -7,6 +7,7 @@ import java.util.ArrayList;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -131,17 +132,17 @@ public class HeuristicLlmProvider implements LlmProvider {
         if (s == null || s.isBlank()) {
             return "biz";
         }
-        String cleaned = s.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        String cleaned = s.replaceAll("[^a-zA-Z0-9]", "").toLowerCase(Locale.ROOT);
         return cleaned.isEmpty() ? "biz" : cleaned;
     }
 
     private static ColumnSpec pk(String name, String jdbc, String comment) {
-        return new ColumnSpec(name, jdbc.toLowerCase(), JavaTypeMapper.toJavaType(jdbc, false),
+        return new ColumnSpec(name, jdbc.toLowerCase(Locale.ROOT), JavaTypeMapper.toJavaType(jdbc, false),
                 JavaTypeMapper.toJavaField(name), comment, true, false, true);
     }
 
     private static ColumnSpec biz(String name, String jdbc, String comment) {
-        return new ColumnSpec(name, jdbc.toLowerCase(), JavaTypeMapper.toJavaType(jdbc, false),
+        return new ColumnSpec(name, jdbc.toLowerCase(Locale.ROOT), JavaTypeMapper.toJavaType(jdbc, false),
                 JavaTypeMapper.toJavaField(name), comment, false, true, false);
     }
 

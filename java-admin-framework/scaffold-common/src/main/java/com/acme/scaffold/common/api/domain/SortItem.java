@@ -3,6 +3,7 @@ package com.acme.scaffold.common.api.domain;
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 分页排序项。字段名由服务端白名单映射为数据库列，禁止直接使用客户端传入的列名。
@@ -13,7 +14,7 @@ public record SortItem(String field, String direction) {
     public static final String DESC = "DESC";
 
     public SortItem {
-        direction = (direction == null || direction.isBlank()) ? ASC : direction.toUpperCase();
+        direction = (direction == null || direction.isBlank()) ? ASC : direction.toUpperCase(Locale.ROOT);
     }
 
     public boolean ascending() {
@@ -32,7 +33,7 @@ public record SortItem(String field, String direction) {
         if (field == null || field.isBlank()) {
             return List.of();
         }
-        String dir = (direction == null || direction.isBlank()) ? ASC : direction.trim().toUpperCase();
+        String dir = (direction == null || direction.isBlank()) ? ASC : direction.trim().toUpperCase(Locale.ROOT);
         if (!ASC.equals(dir) && !DESC.equals(dir)) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
                     "排序方向仅支持 ASC/DESC，当前为：" + direction);

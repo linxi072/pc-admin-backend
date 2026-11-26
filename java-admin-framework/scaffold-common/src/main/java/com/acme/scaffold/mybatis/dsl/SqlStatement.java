@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -237,7 +238,7 @@ public class SqlStatement<R extends Record> implements Select<R>, SelectConditio
         List<Boolean> asc = new ArrayList<>();
         for (OrderField<?> o : orderBy) {
             String s = o.sql();
-            boolean a = !s.toUpperCase().endsWith(" DESC");
+            boolean a = !s.toUpperCase(Locale.ROOT).endsWith(" DESC");
             cols.add(s.replaceAll("(?i)\s+(ASC|DESC)$", "").trim());
             asc.add(a);
         }
