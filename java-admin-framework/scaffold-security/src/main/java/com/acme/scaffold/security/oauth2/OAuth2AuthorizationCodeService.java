@@ -23,7 +23,8 @@ import org.springframework.stereotype.Component;
  * <p>授权码为 RS256 签名的 JWT（承载 client_id / redirect_uri / scope / 资源拥有者身份与权限），
  * 由 {@link RsaKeyProvider} 私钥签发、公钥解码（复用同一密钥对，与访问令牌同源）。
  * 兑换时校验签名/过期后，以内存 {@code usedJtis} 保证一次性使用（防重放），并比对
- * client_id 与 redirect_uri 与授权时一致。</p>
+ * client_id 与 redirect_uri 与授权时一致；同一 jti 的「检查 → 校验 → 标记」按独占锁串行化，
+ * 避免并发兑换双花。</p>
  *
  * <p>内存态一次性集合：重启即失效，符合授权码「极短生命周期」语义；生产多实例可替换为共享缓存，
  * 当前离线优先、零新依赖。</p>
@@ -37,6 +38,8 @@ public class OAuth2AuthorizationCodeService {
     private final RsaKeyProvider keys;
     private final NimbusJwtDecoder rs256Decoder;
     private final Set<String> usedJtis = ConcurrentHashMap.newKeySet();
+    /** 每个 jti 独占锁：把「检查未使用 → 全部校验 → 标记已使用」串成原子临界区。 */
+    private final ConcurrentHashMap<String, Object> consumeLocks = new ConcurrentHashMap<>();
 
     public OAuth2AuthorizationCodeService(RsaKeyProvider keys) {
         this.keys = keys;
@@ -94,54 +97,62 @@ public class OAuth2AuthorizationCodeService {
             throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "授权码无效或已过期");
         }
         String jti = jwt.getId();
-        if (jti == null || usedJtis.contains(jti)) {
+        if (jti == null) {
             throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "授权码已被使用");
         }
-        String jwtClientId = jwt.getClaimAsString("client_id");
-        if (!clientId.equals(jwtClientId)) {
-            throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "授权码与客户端不匹配");
-        }
-        String jwtRedirect = jwt.getClaimAsString("redirect_uri");
-        if (jwtRedirect == null) {
-            jwtRedirect = "";
-        }
-        String reqRedirect = redirectUri == null ? "" : redirectUri;
-        if (!jwtRedirect.equals(reqRedirect)) {
-            throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "redirect_uri 不匹配");
-        }
-
-        // PKCE 校验（RFC 7636）：授权码绑定了 code_challenge 时，兑换必须携带匹配的 code_verifier
-        String challenge = jwt.getClaimAsString("code_challenge");
-        if (challenge != null && !challenge.isBlank()) {
-            String method = jwt.getClaimAsString("code_challenge_method");
-            if (codeVerifier == null || codeVerifier.isBlank()) {
-                throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "缺少 code_verifier");
+        // contains → 校验 → add 非原子会让并发兑换双花；按 jti 串行化整个临界区。
+        // 锁随 usedJtis 同生命周期（进程重启即失效），不提前移除以免等待线程与新线程拿到不同锁。
+        Object lock = consumeLocks.computeIfAbsent(jti, key -> new Object());
+        synchronized (lock) {
+            if (usedJtis.contains(jti)) {
+                throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "授权码已被使用");
             }
-            if (OAuth2TokenRules.CODE_CHALLENGE_METHOD_S256.equals(method)) {
-                if (!OAuth2TokenRules.s256(codeVerifier).equals(challenge)) {
-                    throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "code_verifier 校验失败");
-                }
-            } else if (OAuth2TokenRules.CODE_CHALLENGE_METHOD_PLAIN.equals(method)) {
-                if (!codeVerifier.equals(challenge)) {
-                    throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "code_verifier 校验失败");
-                }
-            } else {
-                throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "不支持的 PKCE 方法");
+            String jwtClientId = jwt.getClaimAsString("client_id");
+            if (!clientId.equals(jwtClientId)) {
+                throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "授权码与客户端不匹配");
             }
+            String jwtRedirect = jwt.getClaimAsString("redirect_uri");
+            if (jwtRedirect == null) {
+                jwtRedirect = "";
+            }
+            String reqRedirect = redirectUri == null ? "" : redirectUri;
+            if (!jwtRedirect.equals(reqRedirect)) {
+                throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "redirect_uri 不匹配");
+            }
+
+            // PKCE 校验（RFC 7636）：授权码绑定了 code_challenge 时，兑换必须携带匹配的 code_verifier
+            String challenge = jwt.getClaimAsString("code_challenge");
+            if (challenge != null && !challenge.isBlank()) {
+                String method = jwt.getClaimAsString("code_challenge_method");
+                if (codeVerifier == null || codeVerifier.isBlank()) {
+                    throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "缺少 code_verifier");
+                }
+                if (OAuth2TokenRules.CODE_CHALLENGE_METHOD_S256.equals(method)) {
+                    if (!OAuth2TokenRules.s256(codeVerifier).equals(challenge)) {
+                        throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "code_verifier 校验失败");
+                    }
+                } else if (OAuth2TokenRules.CODE_CHALLENGE_METHOD_PLAIN.equals(method)) {
+                    if (!codeVerifier.equals(challenge)) {
+                        throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "code_verifier 校验失败");
+                    }
+                } else {
+                    throw new BusinessException(SecurityErrorCode.OAUTH2_INVALID_GRANT, "不支持的 PKCE 方法");
+                }
+            }
+
+            // 全部校验通过后才标记已消费，保证非法请求不消耗授权码（仍可重试至过期）
+            usedJtis.add(jti);
+
+            Long userId = Long.valueOf(jwt.getSubject());
+            int tokenVersion = jwt.getClaim("tokenVersion") instanceof Number n ? n.intValue() : 1;
+            Set<String> authorities = split(jwt.getClaimAsString("authorities"));
+            Set<String> roles = split(jwt.getClaimAsString("roles"));
+            String scope = jwt.getClaimAsString("scope");
+            String retChallenge = jwt.getClaimAsString("code_challenge");
+            String retMethod = jwt.getClaimAsString("code_challenge_method");
+            return new CodeContext(userId, jwt.getClaimAsString("username"), tokenVersion,
+                    authorities, roles, clientId, scope, jwtRedirect, retChallenge, retMethod);
         }
-
-        // 全部校验通过后才标记已消费，保证非法请求不消耗授权码（仍可重试至过期）
-        usedJtis.add(jti);
-
-        Long userId = Long.valueOf(jwt.getSubject());
-        int tokenVersion = jwt.getClaim("tokenVersion") instanceof Number n ? n.intValue() : 1;
-        Set<String> authorities = split(jwt.getClaimAsString("authorities"));
-        Set<String> roles = split(jwt.getClaimAsString("roles"));
-        String scope = jwt.getClaimAsString("scope");
-        String retChallenge = jwt.getClaimAsString("code_challenge");
-        String retMethod = jwt.getClaimAsString("code_challenge_method");
-        return new CodeContext(userId, jwt.getClaimAsString("username"), tokenVersion,
-                authorities, roles, clientId, scope, jwtRedirect, retChallenge, retMethod);
     }
 
     private static Set<String> split(String s) {

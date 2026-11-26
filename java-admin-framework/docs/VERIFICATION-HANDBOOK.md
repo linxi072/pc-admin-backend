@@ -766,6 +766,26 @@ python3 scripts/tests/test_file_upload_security.py
 python3 scripts/check-all.py --strict   # 预期 EXIT=0，gate-tests 46/46
 ```
 
+### 3.6ad OAuth2 授权码并发兑换防双花
+
+**目标**：同一授权码的「检查 → 校验 → 标记已使用」必须原子化，并发兑换只能成功一次；非法请求不得消耗授权码。
+
+**验收标准**：`OAuth2AuthorizationCodeServiceTest` 3 例全过；后端累计 505 例、前端 158 例、门禁 46 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 顺序重放 | 同一 code 首次兑换成功，第二次抛出 INVALID_GRANT |
+| 并发兑换 | 4 线程栅栏同步兑换，成功数恰为 1 |
+| 非法请求 | client_id 不匹配抛错且不消耗，原 code 仍可正常兑换 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='OAuth2AuthorizationCodeServiceTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 505 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### OAuth2 授权码并发兑换防双花
+
+- **背景**：`OAuth2AuthorizationCodeService.consume` 原先用 `usedJtis.contains(jti)` 前置校验，
+  全部校验通过后再 `add(jti)`。两个并发请求可同时通过 contains 检查并各自签发 access token，
+  授权码「一次性」在竞态下失效。
+- **实现**：新增按 `jti` 的 `ConcurrentHashMap` 独占锁，把「未使用检查 → 客户端/回调/PKCE 校验 →
+  标记已使用 → 构造上下文」整体放在同一临界区；非法请求仍不标记已使用，可重试至过期。
+  锁与 `usedJtis` 同生命周期，不提前移除，避免等待线程与后到线程拿到不同锁对象。
+- **测试**：新增 `OAuth2AuthorizationCodeServiceTest`（3 例），覆盖顺序重放拒绝、4 线程栅栏并发兑换
+  仅 1 次成功、非法 client 不消耗授权码。后端测试 502 → 505 例。
+- **验证**：前端 158 例、门禁 46/46、Lint 与 Vite 生产构建均通过。
+- **注意**：该修复为单进程内存态防护；多实例部署仍需共享 Store 或粘性会话才能真正保证跨节点一次性。
+
 ### WebP 上传魔数校验补齐 WEBP fourcc
 
 - **背景**：`FileValidator.verifyContent("webp")` 与 `ProfileController.validateImageContent` 只检查前 4 字节
