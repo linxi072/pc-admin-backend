@@ -705,6 +705,26 @@ mvn -o test          # 预期 494 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6aa 通知渠道归一锁定 Locale.ROOT
+
+**目标**：渠道名大小写归一不得受 JVM 默认 Locale 影响，避免 `tr-TR` 下 `in_app` / `dingtalk` 静默筛选失败。
+
+**验收标准**：`ChannelNormalizeRulesTest` 3 例全过；后端累计 497 例、前端 158 例、门禁 43 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 全渠道归一 | 所有 `Channel` 枚举名以 ROOT Locale 小写后均可还原 |
+| Locale 隔离 | 默认 `tr-TR` 时 `in_app` / `dingtalk` 仍归一为枚举名 |
+| 边界值 | null、空白、未知值返回 null |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -am test -Dtest='ChannelNormalizeRulesTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 497 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

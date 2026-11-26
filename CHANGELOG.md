@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 通知渠道归一锁定 Locale.ROOT
+
+- **背景**：`ChannelNormalizeRules.normalizeChannel` 用平台默认 Locale 的 `toUpperCase()` 匹配
+  `Channel` 枚举。JVM 默认 `tr-TR` 时，`in_app` / `dingtalk` 会被转成带点大写 `İ` 的
+  `İN_APP` / `DİNGTALK`，与枚举名永不相等，通知记录/模板按渠道筛选会静默变成未过滤。
+  同仓库其他规则类已统一使用 `Locale.ROOT`，此处是口径遗漏。
+- **实现**：改为 `channel.trim().toUpperCase(Locale.ROOT)`，与 `NotificationPreferenceRules` 等规则一致；
+  委托方 `NotificationTemplateRules` / `NotificationRecordRules` 零改动。
+- **测试**：新增 `ChannelNormalizeRulesTest`（3 例），覆盖全渠道大小写不敏感归一、`tr-TR` 下
+  `in_app`/`dingtalk` 正确归一、空白与未知值返回 null；测试结束恢复原默认 Locale。
+  后端测试 494 → 497 例。
+- **验证**：前端 158 例、门禁 43/43、Lint 与 Vite 生产构建均通过。
+- **注意**：该修复只影响大小写转换的 Locale 语义，不改变渠道白名单、委托关系与筛选 API 契约。
+
 ### OAuth2 redirect_uri 支持 IPv6 回环地址
 
 - **背景**：`OpenApiClientRules.isValidRedirectUri` 的注释声明 http 允许 `localhost / 127.0.0.1 / [::1]`，

@@ -1,6 +1,7 @@
 package com.acme.scaffold.common.notification;
 
 import com.acme.scaffold.common.notification.Channel;
+import java.util.Locale;
 
 /**
  * 渠道名归一共享规则。
@@ -19,7 +20,7 @@ public final class ChannelNormalizeRules {
         if (channel == null || channel.isBlank()) {
             return null;
         }
-        String c = channel.trim().toUpperCase();
+        String c = channel.trim().toUpperCase(Locale.ROOT);
         for (Channel value : Channel.values()) {
             if (value.name().equals(c)) {
                 return c;
