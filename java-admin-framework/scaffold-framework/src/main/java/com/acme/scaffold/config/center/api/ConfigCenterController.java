@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 配置中心管理接口（R16）。
  *
  * <p>能力：运行态状态（类型 / 动态刷新支持 / 生效配置项数）、按前缀的配置快照、触发热刷新并发布变更事件。
- * 快照仅暴露白名单前缀（默认 app.*）下的配置项，避免敏感配置回显。</p>
+ * 快照仅暴露白名单前缀（默认 app.*）下的配置项，且敏感键统一掩码，避免密钥/口令回显。</p>
  *
  * <p><b>装配</b>：本控制器随 {@code app.config-center.enabled=true} 才注册；关闭时完全不存在，零回归。
  * 权限码 {@code system:config-center:read} / {@code system:config-center:manage} 由

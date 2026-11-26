@@ -17,7 +17,8 @@ import lombok.extern.slf4j.Slf4j;
  * 发布经 {@link EventPublisher} 错误隔离，订阅方异常不影响刷新返回值。</p>
  *
  * <p>快照默认仅暴露 {@link ConfigCenterProperties#getSnapshotPrefix()} 白名单前缀下的配置项，
- * 避免把敏感配置（密钥、口令）回显到管理接口。</p>
+ * 且无论前缀如何配置，含密钥/口令语义的键一律由 {@link ConfigSnapshotSanitizer} 掩码，
+ * 避免把敏感配置回显到管理接口。</p>
  */
 @Slf4j
 public class ConfigCenterService {
@@ -59,7 +60,8 @@ public class ConfigCenterService {
      * @param explicitPrefix 显式前缀（逗号分隔）；为空时回落到 {@link ConfigCenterProperties#getSnapshotPrefix()}
      */
     public Map<String, String> snapshot(String explicitPrefix) {
-        Map<String, String> all = port.snapshot();
+        // 先脱敏再过滤：即使调用方传入空前缀 / 显式 app.security 前缀，也无法取回密钥明文。
+        Map<String, String> all = ConfigSnapshotSanitizer.sanitize(port.snapshot());
         List<String> prefixes = parsePrefixes(explicitPrefix != null && !explicitPrefix.isBlank()
                 ? explicitPrefix : properties.getSnapshotPrefix());
         if (prefixes.isEmpty()) {

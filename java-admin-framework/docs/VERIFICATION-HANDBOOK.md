@@ -1330,6 +1330,27 @@ mvn -o test          # 预期 613 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6be 配置中心快照补齐敏感键脱敏
+
+**目标**：配置中心快照不回显 `app.security.*` 及口令/密钥类配置值；空前缀或显式安全前缀不能绕过。
+
+**验收标准**：`ConfigCenterSnapshotSafetyTest` 6 例全过；后端累计 619 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 本地适配器 | `app.*` 范围内的 `jwt-secret` / `private-key` 掩码，非 `app.*` 系统配置不进入快照 |
+| 服务层兜底 | 先脱敏再过滤，远端端口实现也必须经同一门禁 |
+| 绕过防护 | `snapshot-prefix` 置空、`prefix=app.security` 均不能取回明文 |
+| 审计兼容 | 敏感键保留键名、值固定为 `******`；普通键原值不受影响 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-framework -am test -Dtest='ConfigCenterSnapshotSafetyTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 619 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

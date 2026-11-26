@@ -4,6 +4,23 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 配置中心快照补齐敏感键脱敏
+
+- **背景**：配置中心快照仅按 `app.*` 白名单前缀过滤，`app.security.jwt-secret`、
+  `app.security.oauth2.private-key`、`app.xxx.password` 等同样位于应用命名空间，
+  会被原值回显到 `GET /api/system/config-center/snapshot`；显式传 `prefix=app.security`
+  或把 `snapshot-prefix` 置空也都能绕过白名单取回密钥明文。
+- **实现**：新增 `ConfigSnapshotSanitizer`，对 `app.security.*` 及含 secret/password/private-key/
+  api-key/token/credential 等语义的键统一掩码为 `******`。`ConfigCenterService.snapshot()`
+  先脱敏再按前缀过滤，`LocalConfigCenterAdapter` 在生成快照时同步脱敏；远端端口由服务层兜底，
+  不依赖具体实现自觉。键名保留供审计，值不再回显。
+- **测试**：新增 `ConfigCenterSnapshotSafetyTest`（6 例），覆盖本地适配器、`app.*` 默认前缀、
+  空前缀、显式 `app.security` 前缀、状态计数/刷新一致性与常见敏感键模式。
+  后端测试 613 → 619 例。
+- **验证**：前端 158 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：这是展示层脱敏，不改变 `ConfigCenterPort.getProperty()` 的内部读取语义；
+  管理接口不提供单键读取，敏感键在快照中仍可见键名但值为固定掩码。
+
 ### 异步导出任务补齐归属校验
 
 - **背景**：`ExportJob` 只保存 taskId/模板/状态，不记录提交人与租户；`status()` / `result()` 仅按 jobId 取任务。

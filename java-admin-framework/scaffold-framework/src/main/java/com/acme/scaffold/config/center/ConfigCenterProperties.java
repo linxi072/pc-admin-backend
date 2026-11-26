@@ -18,7 +18,7 @@ public class ConfigCenterProperties {
     /** 配置中心类型：local（默认）/ nacos / apollo。 */
     private String type = "local";
 
-    /** 快照暴露的键前缀白名单（逗号分隔）；仅暴露该命名空间下的配置项，避免泄露敏感配置。 */
+    /** 快照暴露的键前缀白名单（逗号分隔）；仅暴露该命名空间下的配置项，敏感键仍会被掩码。 */
     private String snapshotPrefix = "app";
 
     public boolean isEnabled() {

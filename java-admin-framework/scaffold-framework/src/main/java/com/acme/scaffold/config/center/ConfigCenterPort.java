@@ -27,7 +27,7 @@ public interface ConfigCenterPort {
         return getProperty(key).orElse(defaultValue);
     }
 
-    /** 当前生效的配置项快照（key → value），通常仅含应用命名空间（如 app.*），避免泄露敏感配置。 */
+    /** 当前生效的配置项快照（key → value）；通常仅含应用命名空间（如 app.*），敏感键须掩码。 */
     Map<String, String> snapshot();
 
     /**

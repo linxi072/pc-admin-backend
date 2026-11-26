@@ -14,8 +14,9 @@ import org.springframework.core.env.PropertySource;
  * {@link #refresh()} 仅重新遍历一次 {@link PropertySource} 重建快照，不会从远端拉取，
  * 返回值反映「当前 Environment 中已存在」的配置项数量。</p>
  *
- * <p><b>安全口径</b>：快照仅暴露应用命名空间（{@code app.*}）下的配置项，
- * 避免把系统属性 / 环境变量中的敏感信息（如密钥、数据库口令）混入回显。</p>
+ * <p><b>安全口径</b>：快照仅暴露应用命名空间（{@code app.*}）下的配置项，避免混入系统属性 /
+ * 环境变量；其中密钥、口令等敏感键再经 {@link ConfigSnapshotSanitizer} 掩码，
+ * 避免 {@code app.security.jwt-secret} 等应用配置被回显。</p>
  */
 public class LocalConfigCenterAdapter implements ConfigCenterPort {
 
@@ -58,7 +59,7 @@ public class LocalConfigCenterAdapter implements ConfigCenterPort {
                     }
                     String key = String.valueOf(e.getKey());
                     if (key.startsWith(KEY_PREFIX) && !result.containsKey(key)) {
-                        result.put(key, String.valueOf(v));
+                        result.put(key, ConfigSnapshotSanitizer.mask(key, String.valueOf(v)));
                     }
                 }
             }
