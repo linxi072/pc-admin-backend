@@ -995,6 +995,27 @@ mvn -o test          # 预期 543 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ao OAuth2 自省端点畸形 Basic 头返回 401
+
+**目标**：公开自省端点遇到畸形 Basic Base64 头时不再穿透为 500，与调用方未认证统一返回 401 `invalid_client`。
+
+**验收标准**：`OAuth2IntrospectionEndpointTest` 9 例全过；后端累计 552 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 畸形 Basic | `Basic !!!` 返回 401 `invalid_client`，不触达 JWT 解码器与客户端端口 |
+| 凭证形态 | 无冒号 Basic、错误 Basic 凭证、缺失 Authorization 均返回 401 |
+| 合法调用方 | 合法 Basic / Bearer 可继续自省；非法 Bearer 返回 401 |
+| 自省语义 | 调用方合法但 token 为空返回 400 `invalid_request`；token 无效仍返回 200 + `active=false` |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='OAuth2IntrospectionEndpointTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 9, Failures: 0, Errors: 0
+mvn -o test          # 预期 552 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

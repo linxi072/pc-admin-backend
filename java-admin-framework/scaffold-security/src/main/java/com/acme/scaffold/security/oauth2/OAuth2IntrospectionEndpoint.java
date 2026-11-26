@@ -81,8 +81,14 @@ public class OAuth2IntrospectionEndpoint {
             }
         }
         if (authorization.startsWith("Basic ")) {
-            String decoded = new String(Base64.getDecoder().decode(authorization.substring(6)),
-                    StandardCharsets.UTF_8);
+            String decoded;
+            try {
+                decoded = new String(Base64.getDecoder().decode(authorization.substring(6)),
+                        StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException ex) {
+                // 公开端点：畸形 Base64 不能穿透为 500，统一按调用方未认证处理。
+                return false;
+            }
             int idx = decoded.indexOf(':');
             if (idx < 0) {
                 return false;

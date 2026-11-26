@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### OAuth2 自省端点畸形 Basic 头改为 401
+
+- **背景**：`/oauth2/introspect` 是匿名可达的公开端点，由控制器内部校验调用方。Basic 分支直接调用
+  `Base64.getDecoder().decode(...)`，畸形 Base64（如 `Authorization: Basic !!!`）会抛
+  `IllegalArgumentException` 穿透为 500；`/oauth2/token` 同类输入已按 `invalid_client` 处理，两个公开端点口径不一致。
+- **实现**：`OAuth2IntrospectionEndpoint.callerAuthorized` 捕获 Base64 解码异常并返回未认证，
+  外层统一返回 HTTP 401 + `{"error":"invalid_client"}`；缺少凭据、无冒号、凭证错误仍沿用同一响应，
+  不泄露具体失败原因。
+- **测试**：新增 `OAuth2IntrospectionEndpointTest`（9 例），覆盖畸形 Base64、无冒号 Basic、错误凭证、
+  缺失头、合法 Basic/Bearer 调用方、非法 Bearer、空 token 与被自省 token 无效等路径。
+  后端测试 543 → 552 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：本次只修调用方鉴权的异常穿透；令牌自省失败仍按 RFC 7662 返回 200 + `active=false`，
+  `/oauth2/token` 畸形 Basic 头仍保持既有 400 `invalid_client` 口径。
+
 ### OAuth2 password 授权补齐锁定到期语义
 
 - **背景**：此前已让交互式登录通过 `LockoutRules.isLocked` 区分到期临时锁与人工长期锁，但
