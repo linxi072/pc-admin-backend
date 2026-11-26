@@ -203,7 +203,7 @@ public final class OpenApiClientRules {
                 continue;
             }
             if (!isValidRedirectUri(uri)) {
-                errors.add("redirect_uri 非法（须为 https，或 http 的 localhost/127.0.0.1）：" + uri);
+                errors.add("redirect_uri 非法（须为 https，或 http 的 localhost/127.0.0.1/[::1]）：" + uri);
             }
         }
         return errors;
@@ -228,17 +228,60 @@ public final class OpenApiClientRules {
             return uri.length() > "https://".length();
         }
         if (uri.startsWith("http://")) {
-            String host = uri.substring("http://".length());
-            int slash = host.indexOf('/');
-            if (slash >= 0) {
-                host = host.substring(0, slash);
+            String authority = uri.substring("http://".length());
+            int end = authority.length();
+            for (char delimiter : new char[] {'/', '?', '#'}) {
+                int idx = authority.indexOf(delimiter);
+                if (idx >= 0) {
+                    end = Math.min(end, idx);
+                }
             }
-            int colon = host.indexOf(':');
-            if (colon >= 0) {
-                host = host.substring(0, colon);
+            authority = authority.substring(0, end);
+            // userinfo 会让「看上去是回环、实际指向其他主机」的 URI 通过校验，直接拒绝。
+            if (authority.isEmpty() || authority.indexOf('@') >= 0) {
+                return false;
             }
-            return "localhost".equals(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
+            String host;
+            if (authority.startsWith("[")) {
+                int close = authority.indexOf(']');
+                if (close < 0) {
+                    return false;
+                }
+                host = authority.substring(0, close + 1);
+                if (!validPort(authority.substring(close + 1))) {
+                    return false;
+                }
+            } else {
+                int colon = authority.indexOf(':');
+                host = colon >= 0 ? authority.substring(0, colon) : authority;
+                if (colon >= 0 && !validPort(authority.substring(colon))) {
+                    return false;
+                }
+            }
+            return "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
         }
         return false;
+    }
+
+    /** authority 尾部必须为空或为 1~65535 的十进制端口。 */
+    private static boolean validPort(String tail) {
+        if (tail.isEmpty()) {
+            return true;
+        }
+        if (tail.length() < 2 || tail.length() > 6 || tail.charAt(0) != ':') {
+            return false;
+        }
+        for (int i = 1; i < tail.length(); i++) {
+            char c = tail.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        try {
+            int port = Integer.parseInt(tail.substring(1));
+            return port > 0 && port <= 65535;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
     }
 }

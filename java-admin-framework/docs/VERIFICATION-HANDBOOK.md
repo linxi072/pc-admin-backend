@@ -684,6 +684,27 @@ mvn -o test          # 预期 490 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6z OAuth2 redirect_uri IPv6 回环支持
+
+**目标**：注释声明允许的 `http://[::1]` 必须通过校验，同时不得因括号解析放宽 userinfo 或非回环主机。
+
+**验收标准**：`OpenApiClientRulesTest` 4 例全过；后端累计 494 例、前端 158 例、门禁 43 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 合法 URI | https 任意主机；http 的 localhost / 127.0.0.1 / `[::1]`（含端口与路径） |
+| 拒绝项 | 非回环 http、`[::1]@evil.com`、畸形 IPv6、非法端口、`https://` |
+| 错误文案 | 允许形态提示包含 `[::1]` |
+| 白名单匹配 | 非空白名单精确匹配；空白名单保持向后兼容 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -am test -Dtest='OpenApiClientRulesTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 494 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

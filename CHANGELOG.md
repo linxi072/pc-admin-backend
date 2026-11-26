@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### OAuth2 redirect_uri 支持 IPv6 回环地址
+
+- **背景**：`OpenApiClientRules.isValidRedirectUri` 的注释声明 http 允许 `localhost / 127.0.0.1 / [::1]`，
+  但剥离端口时用 `host.indexOf(':')` 命中了方括号内的第一个冒号，把 `[::1]` 截成 `[`，导致文档允许的
+  地址永远校验失败；错误文案也漏写了 `[::1]`。该类此前没有单测。
+- **实现**：重写 authority 解析：先按 `/ ? #` 截取 authority，拒绝 userinfo；对方括号包裹的 IPv6
+  先取完整 `[::1]`，再仅对 `]` 后的尾部做端口校验；普通主机继续剥离端口。新增端口范围校验（1~65535）
+  并允许 `localhost` 大小写不敏感；错误文案补全 `[::1]`。
+- **测试**：新增 `OpenApiClientRulesTest`（4 例），覆盖 https/回环 http/IPv6 回环放行、
+  `[::1]@evil.com`、畸形 IPv6、非法端口与 `https://` 拒绝，以及白名单精确匹配与存量兼容。
+  后端测试 490 → 494 例。
+- **验证**：前端 158 例、门禁 43/43、Lint 与 Vite 生产构建均通过。
+- **注意**：该修复只放宽文档已声明的 IPv6 本地回环场景；非回环 http、userinfo 与畸形端口仍被拒绝。
+
 ### 企业微信机器人签名补齐 URL 编码
 
 - **背景**：`RobotSigningRules` 的共享原语输出标准 base64（可能含 `+ / =`），钉钉分支已做 URL 编码，
