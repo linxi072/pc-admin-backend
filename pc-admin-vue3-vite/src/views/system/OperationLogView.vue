@@ -281,6 +281,7 @@ import {
 } from '@/utils/keyset'
 import { downloadExport } from '@/api/export'
 import { saveBlobFromResponse } from '@/utils/download'
+import { settlePageWithSummary } from '@/utils/auditLogSummary'
 
 const loading = ref(false)
 const rows = ref([])
@@ -390,18 +391,18 @@ function applySummary(summaryResult) {
 }
 
 async function loadOffsetPage() {
-  const [pageResult, summaryResult] = await Promise.allSettled([
+  const { pageResult, summaryResult } = await settlePageWithSummary(
     pageAuditLogs(buildParams()),
-    auditLogSummary(buildParams())
-  ])
+    () => auditLogSummary(buildParams())
+  )
   if (pageResult.status === 'fulfilled') {
     rows.value = pageResult.value?.records || []
     total.value = pageResult.value?.total || 0
   } else if (isOffsetLimitError(pageResult.reason)) {
     // 兜底：后端「偏移过大，请改用游标分页」的错误提示原本指向前端根本没有的 UI，
-    // 这里自动切到 /keyset 端点完成闭环，不再把错误甩给用户。
+    // 这里自动切到 /keyset 端点完成闭环；首屏已结算的摘要直接复用，避免重复请求。
     enterKeysetMode()
-    await loadKeysetPage()
+    await loadKeysetPage(summaryResult)
     return
   } else {
     rows.value = []
@@ -411,11 +412,12 @@ async function loadOffsetPage() {
   applySummary(summaryResult)
 }
 
-async function loadKeysetPage() {
-  const [pageResult, summaryResult] = await Promise.allSettled([
+async function loadKeysetPage(prefetchedSummaryResult = null) {
+  const { pageResult, summaryResult } = await settlePageWithSummary(
     pageAuditLogsKeyset(buildKeysetParams()),
-    auditLogSummary(buildParams())
-  ])
+    () => auditLogSummary(buildParams()),
+    prefetchedSummaryResult
+  )
   if (pageResult.status === 'fulfilled') {
     rows.value = pageResult.value?.records || []
     cursorStack.value = setNextCursor(cursorStack.value, pageResult.value?.nextCursor)

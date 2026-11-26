@@ -616,6 +616,28 @@ python3 scripts/tests/test_frontend_export_consistency.py
 python3 scripts/check-all.py   # 预期 EXIT=0，gate-tests 37/37
 ```
 
+### 3.6w 操作日志游标降级摘要复用
+
+**目标**：OFFSET 分页触发游标降级时不得重复请求统计摘要，也不得丢弃首屏已成功的摘要结果。
+
+**验收标准**：`auditLogSummary.test.js` 4 例全过；前端累计 158 例、后端 485 例、门禁 37 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `settlePageWithSummary` 正常路径 | 分页与摘要并行结算，两者均返回 fulfilled |
+| 成功预取复用 | 降级时不再调用 `fetchSummary`，直接返回首屏已结算结果 |
+| 失败预取重试 | 预取 rejected 时在游标模式重试一次并采用新结果 |
+| 分页失败隔离 | 分页 rejected 不阻断摘要结算，错误对象原样返回 |
+
+```bash
+cd pc-admin-vue3-vite
+npm test -- --run src/utils/tests/auditLogSummary.test.js
+# 预期 Test Files 1 passed / Tests 4 passed
+npm test -- --run
+# 预期 Test Files 24 passed / Tests 158 passed
+npm run build
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 操作日志游标降级复用摘要结果
+
+- **背景**：`OperationLogView.loadOffsetPage()` 首屏并行请求分页与统计摘要；分页命中后端
+  「偏移过大，请改用游标分页」护栏时，转入 `loadKeysetPage()` 前提前 `return`，首屏已结算的摘要被丢弃，
+  而 `loadKeysetPage()` 又独立请求一次摘要。一次降级产生两次摘要查询；若第二次失败，页面会出现
+  「有日志、无摘要」甚至误报加载失败。
+- **实现**：新增纯函数 `settlePageWithSummary(pagePromise, fetchSummary, prefetchedSummaryResult)`，
+  已结算摘要为 `fulfilled` 时直接复用且不再调用摘要工厂；无预取或预取失败时保持在游标模式重试一次的
+  原有语义。两个加载函数统一走该编排，降级路径把首屏结果传入游标加载。
+- **测试**：新增 `src/utils/tests/auditLogSummary.test.js`（4 例），覆盖正常并行结算、成功预取复用、
+  失败预取重试、分页失败不阻断摘要；前端测试 154 → 158 例全过。
+- **验证**：后端 485 例、门禁 37/37、Lint 与 Vite 生产构建均通过。
+- **注意**：仅复用已成功的预取结果；预取失败仍重试一次，避免改变既有失败恢复语义。分页/摘要请求参数
+  与后端契约不变。
+
 ### 前端下载通道收敛与门禁补强
 
 - **背景**：`CodegenView.onDownload` 与 `ReportPanel.download` 仍各自手写
