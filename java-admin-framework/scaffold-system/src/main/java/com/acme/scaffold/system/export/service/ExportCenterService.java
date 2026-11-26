@@ -8,6 +8,7 @@ import com.acme.scaffold.common.export.ExportTask;
 import com.acme.scaffold.common.export.PdfExporter;
 import com.acme.scaffold.common.export.XlsxDataExporter;
 import com.acme.scaffold.common.export.XlsxSheet;
+import com.acme.scaffold.common.tenant.TenantContext;
 import com.acme.scaffold.system.export.config.ExportProperties;
 import com.acme.scaffold.system.export.domain.ExportTemplateView;
 
@@ -21,6 +22,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -54,10 +57,35 @@ public class ExportCenterService {
         return download(allParams);
     }
 
-    /** 异步导出：返回 future；失败以异常完成，由调用方决定降级（重试/提示）。 */
+    /**
+     * 异步导出：返回 future；失败以异常完成，由调用方决定降级（重试/提示）。
+     *
+     * <p>提交时刻显式捕获 SecurityContext 与 TenantContext 快照，在导出线程执行前恢复、结束后还原，
+     * 避免异步查询丢失登录主体导致数据范围放行，或丢失租户作用域导致按默认租户/全表导出。
+     * 数据权限切面会在导出线程内基于传播后的主体重新解析，不直接传播 DataScopeContext。</p>
+     */
     public CompletableFuture<ExportedFile> downloadAsync(Map<String, String> allParams) {
         Executor ex = exportExecutor != null ? exportExecutor : Runnable::run;
-        return CompletableFuture.supplyAsync(() -> download(allParams), ex);
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        TenantContext.TenantScope tenantScope = TenantContext.current();
+        return CompletableFuture.supplyAsync(() -> {
+            SecurityContext previous = SecurityContextHolder.getContext();
+            SecurityContext copy = SecurityContextHolder.createEmptyContext();
+            if (securityContext.getAuthentication() != null) {
+                copy.setAuthentication(securityContext.getAuthentication());
+            }
+            SecurityContextHolder.setContext(copy);
+            try {
+                if (tenantScope == null) {
+                    return download(allParams);
+                }
+                ExportedFile[] result = new ExportedFile[1];
+                TenantContext.runWith(tenantScope, () -> result[0] = download(allParams));
+                return result[0];
+            } finally {
+                SecurityContextHolder.setContext(previous);
+            }
+        }, ex);
     }
 
     /** 列出全部已注册模板及其支持的格式。 */

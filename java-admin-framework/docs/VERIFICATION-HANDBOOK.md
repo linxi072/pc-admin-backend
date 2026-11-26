@@ -1121,6 +1121,27 @@ mvn -o test          # 预期 577 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6au 异步导出继承租户与认证上下文
+
+**目标**：异步导出在独立线程内仍按提交者的租户与数据权限执行，不再因 ThreadLocal 丢失而回落到默认租户/无限制范围。
+
+**验收标准**：`ExportContextPropagationTest` 3 例全过；后端累计 580 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 跨线程继承 | 导出任务读到的 `TenantContext` 与主体用户 ID 与提交线程一致 |
+| 工作线程清理 | 任务结束后同一worker线程不再持有租户/认证上下文，避免串台 |
+| 无上下文 | 提交方无登录主体/租户时导出仍能完成，不抛空指针 |
+| 数据权限 | 不传播 `DataScopeContext`，由切面在导出线程基于传播后的主体重新解析 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='ExportContextPropagationTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 580 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

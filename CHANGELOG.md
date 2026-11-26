@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 异步导出继承租户与认证上下文
+
+- **背景**：`ExportCenterService.downloadAsync` 直接把查询物化提交到 `exportExecutor`，但 `TenantContext` 与
+  Spring Security 的 `SecurityContextHolder` 都是线程局部变量，异步线程拿不到提交者的身份。于是异步导出会按
+  默认租户/无主体执行：强隔离下可能导出错误租户数据，数据权限切面无主体时按「不限制」放行，形成越权导出。
+- **实现**：提交时刻捕获 `SecurityContext` 认证快照与 `TenantContext.TenantScope`，在导出任务执行前恢复、
+  `finally` 中还原工作线程原上下文。数据权限不直接传播 `DataScopeContext`，而是在导出线程内由切面基于传播后的
+  主体重新解析，避免携带过期范围。
+- **测试**：新增 `ExportContextPropagationTest`（3 例），覆盖跨线程继承租户/主体、任务结束后工作线程上下文清理、
+  无提交者上下文时仍能完成导出。后端测试 577 → 580 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：仅改变异步导出的执行上下文，未新增/修改导出模板、请求参数或文件格式；同步导出与调用方线程上下文不受影响。
+
 ### XLSX 导入解压增加压缩炸弹边界
 
 - **背景**：`XlsxDataReader.unzip` 对每个 ZIP entry 直接调用 `readAllBytes()`，注释误以为上传文件大小能约束
