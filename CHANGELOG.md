@@ -4,6 +4,19 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### OAuth2 password 授权补齐强制改密门禁
+
+- **背景**：交互式登录与令牌刷新都会拒绝 `password_expired=1` 的初始/重置密码用户，但
+  `OAuth2UserAuthenticator` 只校验禁用/锁定状态和密码匹配，匿名 `/oauth2/token` 的 password 授权可签发带完整
+  权限的用户令牌，完全绕过「先改密再使用」闭环。
+- **实现**：密码匹配成功后复用 `SecurityErrorCode.MUST_CHANGE_PASSWORD` 拒绝签发；错误经令牌端点既有
+  `BusinessException` 映射返回 400 `invalid_grant`。判定放在密码校验之后，未认证方无法借此探测账号状态。
+- **测试**：`OAuth2UserAuthenticatorTest` 由 4 例扩到 7 例，新增需改密拒绝、无需改密放行、`null` 兼容放行。
+  后端测试 580 → 583 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：公开改密端点 `/api/auth/change-password` 仍可在未登录状态下凭用户名+原密码完成改密，因此新门禁
+  不会造成「无法登录也无法改密」死锁；OAuth2 机器调用应在改用新密码后重试。
+
 ### 异步导出继承租户与认证上下文
 
 - **背景**：`ExportCenterService.downloadAsync` 直接把查询物化提交到 `exportExecutor`，但 `TenantContext` 与

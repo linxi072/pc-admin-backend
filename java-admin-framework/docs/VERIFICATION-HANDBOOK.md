@@ -1142,6 +1142,27 @@ mvn -o test          # 预期 580 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6av OAuth2 password 授权补齐强制改密门禁
+
+**目标**：`password_expired=1` 的用户不能通过匿名 OAuth2 password 授权绕过交互式登录的强制改密门禁。
+
+**验收标准**：`OAuth2UserAuthenticatorTest` 7 例全过；后端累计 583 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 需改密 | `passwordExpired=1` 且密码正确时抛 `AUTH_014`，令牌端点映射为 400 `invalid_grant` |
+| 无需改密 | `passwordExpired=0` 或 `null` 时认证通过，旧用户数据兼容 |
+| 判定位置 | 在密码匹配后判定，未认证方无法借此探测账号状态 |
+| 闭环 | 公开改密端点仍可使用，改密后 OAuth2 授权可正常重试 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='OAuth2UserAuthenticatorTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 7, Failures: 0, Errors: 0
+mvn -o test          # 预期 583 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

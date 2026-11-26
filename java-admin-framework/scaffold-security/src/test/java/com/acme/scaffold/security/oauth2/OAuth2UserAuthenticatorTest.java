@@ -1,11 +1,13 @@
 package com.acme.scaffold.security.oauth2;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.security.error.SecurityErrorCode;
 import com.acme.scaffold.security.permission.PermissionService;
 import com.acme.scaffold.security.user.UserAccount;
 import com.acme.scaffold.security.user.UserAccountDataPort;
@@ -45,6 +47,30 @@ class OAuth2UserAuthenticatorTest {
         assertThrows(BusinessException.class, () -> authenticator.authenticate("alice", "pw"));
     }
 
+    @Test
+    void passwordExpiredShouldRejectAuthentication() {
+        OAuth2UserAuthenticator authenticator = authenticator(userWithPasswordExpired(1));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> authenticator.authenticate("alice", "pw"));
+
+        assertEquals(SecurityErrorCode.MUST_CHANGE_PASSWORD.code(), ex.getErrorCode().code());
+    }
+
+    @Test
+    void passwordNotExpiredShouldAuthenticate() {
+        OAuth2UserAuthenticator authenticator = authenticator(userWithPasswordExpired(0));
+
+        assertNotNull(authenticator.authenticate("alice", "pw"));
+    }
+
+    @Test
+    void nullPasswordExpiredShouldAuthenticateForCompatibility() {
+        OAuth2UserAuthenticator authenticator = authenticator(userWithPasswordExpired(null));
+
+        assertNotNull(authenticator.authenticate("alice", "pw"));
+    }
+
     private static OAuth2UserAuthenticator authenticator(UserAccount user) {
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         PermissionService permissions = mock(PermissionService.class);
@@ -59,5 +85,12 @@ class OAuth2UserAuthenticatorTest {
     private static UserAccount user(String status, LocalDateTime lockedUntil) {
         return new UserAccount(42L, "alice", "Alice", 1L, status, "hash", 1, 0,
                 null, null, lockedUntil, 5, null);
+    }
+
+    private static UserAccount userWithPasswordExpired(Integer passwordExpired) {
+        UserAccount base = user("ACTIVE", null);
+        return new UserAccount(base.id(), base.username(), base.displayName(), base.tenantId(), base.status(),
+                base.passwordHash(), base.tokenVersion(), passwordExpired, base.mobile(), base.email(),
+                base.lockedUntil(), base.failedLoginCount(), base.lastLoginAt());
     }
 }
