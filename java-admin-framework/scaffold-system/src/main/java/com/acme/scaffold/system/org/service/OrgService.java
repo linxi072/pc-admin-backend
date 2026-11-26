@@ -2,6 +2,7 @@ package com.acme.scaffold.system.org.service;
 
 import com.acme.scaffold.common.error.CommonErrorCode;
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.tenant.TenantEnforcement;
 import com.acme.scaffold.common.tree.TreeBuilder;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.mybatis.dsl.Condition;
@@ -51,7 +52,7 @@ public class OrgService {
     /** 部门资源的编码，与 {@code sys_role_data_scope.resource_code} 对应。 */
     public static final String RESOURCE_CODE = "system:org";
 
-    /** 机构树缓存名；键为数据权限范围签名（见 {@link #orgScopeKey()}），确保不同权限用户互不串缓存。 */
+    /** 机构树缓存名；键为「租户 + 数据权限范围签名」（见 {@link #orgScopeKey()}），确保跨租户/跨权限互不串缓存。 */
     public static final String ORG_TREE_CACHE = "org-tree";
 
     /** 数据权限范围签名的「不限制」键。 */
@@ -100,12 +101,22 @@ public class OrgService {
     }
 
     /**
-     * 机构树缓存键：以数据权限范围签名隔离，避免跨权限缓存串味。
+     * 机构树缓存键：以「租户 + 数据权限范围签名」隔离，避免跨租户/跨权限缓存串味。
      * 与 {@link DataScopeConditions#of} 的 org 维度语义保持一致：
      * 不限制 / 空集合降级 → {@value #SCOPE_ALL_KEY}；仅本人 → {@code SELF:<userId>}；
      * 机构集合 → {@code ORG:<升序逗号分隔的 id>}。
+     *
+     * <p>{@code sys_org} 不是平台共享维表，强隔离下查询会按 tenant_id 过滤；若缓存键只含数据范围，
+     * 租户 A 的 ALL 树会被租户 B 的 ALL 请求命中。隔离关闭时固定使用 {@code T0} 前缀，保持单租户行为不变。</p>
      */
     public String orgScopeKey() {
+        String tenantPrefix = TenantEnforcement.isEnabled()
+                ? "T" + TenantEnforcement.currentTenantId()
+                : "T0";
+        return tenantPrefix + "|" + dataScopeKey();
+    }
+
+    private String dataScopeKey() {
         DataScopeContext.Scope scope = DataScopeContext.current();
         if (scope == null || scope.result() == null || scope.result().unrestricted()) {
             return SCOPE_ALL_KEY;

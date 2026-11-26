@@ -1268,6 +1268,26 @@ mvn -o test          # 预期 603 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bb 机构树缓存键加入租户维度
+
+**目标**：强隔离开启时，不同租户的机构树缓存互不命中，尤其是数据范围同为 `ALL` 的超管请求。
+
+**验收标准**：`OrgCacheKeyTenantTest` 3 例全过；后端累计 606 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 跨租户 | 租户 1/2 的 ALL 范围键分别为 `T1|ALL` / `T2|ALL` |
+| 权限隔离 | 同租户 SELF 键为 `T<tenantId>|SELF:<userId>` 且稳定 |
+| 兼容 | `enforce=false` 时固定 `T0` 前缀，单租户部署行为不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='OrgCacheKeyTenantTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 606 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）
