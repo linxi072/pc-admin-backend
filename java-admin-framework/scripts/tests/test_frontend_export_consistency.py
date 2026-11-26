@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""前端导出一致性回归：导出失败不得写入页面主错误状态 error.value。
+"""前端导出/下载一致性回归。
 
-导出是旁路操作，失败应仅用 ElMessage 提示；写入 error.value 会让 v-if="error"
-替换整块已加载数据，迫使用户重新查询。本测试纳入 check-all.py 的 gate-tests。
+1. 导出失败不得写入页面主错误状态 error.value：旁路操作失败应仅用 ElMessage 提示，
+   写入 error.value 会让 v-if="error" 替换整块已加载数据，迫使用户重新查询。
+2. 视图与组件不得自行调用 URL.createObjectURL：Blob 下载统一收敛到 utils/download，
+   避免空内容、业务错误 JSON、content-disposition 文件名等分支再次出现手写口径。
+
+本测试纳入 check-all.py 的 gate-tests。
 """
 from __future__ import annotations
 
@@ -16,9 +20,12 @@ VIEWS_DIR = os.path.join(REPO_ROOT, "pc-admin-vue3-vite", "src")
 SKIP_DIRS = {".git", "node_modules", "dist"}
 
 EXPORT_FN_RE = re.compile(
-    r"(?:async\s+)?function\s+(?:download|onExport\w*|export\w*)\s*\([^)]*\)\s*\{", re.I
+    r"(?:(?:async\s+)?function\s+(?:download\w*|onDownload\w*|onExport\w*|export\w*)\s*\([^)]*\)"
+    r"|const\s+(?:download\w*|onDownload\w*|onExport\w*|export\w*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)\s*\{",
+    re.I,
 )
 ERROR_ASSIGN_RE = re.compile(r"\berror\.value\s*=")
+MANUAL_OBJECT_URL_RE = re.compile(r"\bURL\.createObjectURL\s*\(")
 
 
 def iter_vue_files():
@@ -46,9 +53,23 @@ def find_offending(text: str) -> list[int]:
     return hits
 
 
+def find_manual_object_urls(text: str) -> list[int]:
+    """返回视图/组件中直接创建 Blob 对象 URL 的行号。"""
+    return [text.count("\n", 0, m.start()) + 1 for m in MANUAL_OBJECT_URL_RE.finditer(text)]
+
+
+def read_text(path: str) -> str:
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
+
+
 class FrontendExportConsistencyTests(unittest.TestCase):
     def test_detector_flags_error_assignment_in_export_handler(self):
         sample = "async function download() { try { error.value = '导出失败' } finally {} }"
+        self.assertEqual(find_offending(sample), [1])
+
+    def test_detector_flags_error_assignment_in_arrow_download_handler(self):
+        sample = "const onDownload = async () => { error.value = '下载失败' }"
         self.assertEqual(find_offending(sample), [1])
 
     def test_detector_accepts_message_only_export_handler(self):
@@ -64,7 +85,25 @@ class FrontendExportConsistencyTests(unittest.TestCase):
         scanned = 0
         for path in iter_vue_files():
             scanned += 1
-            for line in find_offending(open(path, encoding="utf-8").read()):
+            for line in find_offending(read_text(path)):
+                violations.append(f"{os.path.relpath(path, REPO_ROOT)}:{line}")
+        self.assertGreater(scanned, 0, "应扫描到前端视图文件")
+        self.assertEqual(violations, [])
+
+    def test_detector_flags_manual_object_url_creation(self):
+        sample = "const url = URL.createObjectURL(blob)"
+        self.assertEqual(find_manual_object_urls(sample), [1])
+
+    def test_detector_accepts_shared_download_helper(self):
+        sample = "await saveBlobFromResponse(resp, 'report', 'csv')"
+        self.assertEqual(find_manual_object_urls(sample), [])
+
+    def test_all_vue_files_use_shared_blob_download(self):
+        violations: list[str] = []
+        scanned = 0
+        for path in iter_vue_files():
+            scanned += 1
+            for line in find_manual_object_urls(read_text(path)):
                 violations.append(f"{os.path.relpath(path, REPO_ROOT)}:{line}")
         self.assertGreater(scanned, 0, "应扫描到前端视图文件")
         self.assertEqual(violations, [])

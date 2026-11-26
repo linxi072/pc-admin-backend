@@ -120,6 +120,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick, Download, CopyDocument } from '@element-plus/icons-vue'
 import { codegenTables, codegenTableMeta, codegenPreview, codegenDownload } from '@/api/codegen'
+import { saveBlobFromResponse } from '@/utils/download'
 
 const tables = ref([])
 const tablesLoading = ref(false)
@@ -210,31 +211,10 @@ async function onDownload() {
   downloading.value = true
   try {
     const resp = await codegenDownload(currentOption())
-    // requestRaw 不拆包：业务错误时 content-type 为 application/json，需转文本提示
-    const blob = resp.data instanceof Blob ? resp.data : new Blob([resp.data])
-    if (blob.type && blob.type.includes('application/json')) {
-      const text = await blob.text()
-      ElMessage.error(parseErrMsg(text))
-      return
-    }
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'codegen-' + form.tableName + '.zip'
-    a.click()
-    URL.revokeObjectURL(url)
-    ElMessage.success('已开始下载')
+    const ok = await saveBlobFromResponse(resp, `codegen-${form.tableName}`, 'zip', '下载失败')
+    if (ok) ElMessage.success('已开始下载')
   } catch (e) { /* 已提示 */ } finally {
     downloading.value = false
-  }
-}
-
-function parseErrMsg(text) {
-  try {
-    const j = JSON.parse(text)
-    return j.message || '下载失败'
-  } catch (e) {
-    return '下载失败'
   }
 }
 

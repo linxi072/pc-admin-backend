@@ -4,6 +4,23 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 前端下载通道收敛与门禁补强
+
+- **背景**：`CodegenView.onDownload` 与 `ReportPanel.download` 仍各自手写
+  「Blob 包装 → JSON 错误解析 → createObjectURL → 点击链接 → revoke」流程。CodegenView 缺空响应/空内容
+  拦截且文件名硬编码，ReportPanel 重复实现了 `utils/download` 已有逻辑；导出门禁也认不出 `onDownload`
+  和箭头函数，更管不到视图内的 `URL.createObjectURL`。
+- **实现**：两处统一改用 `saveBlobFromResponse`，按返回值决定是否提示成功；CodegenView 删除本地
+  `parseErrMsg`，ReportPanel 保留 `parseFileName` 仅用于成功文案。后端 codegen 下载端点本身已下发
+  `filename*=UTF-8''codegen-<table>.zip`，因此回退文件名与既有用户可见行为一致。
+- **测试**：新增 `src/utils/tests/download.test.js`（10 例），覆盖文件名解析优先级/解码兜底、
+  `saveBlob` 对象 URL 生命周期，以及 `saveBlobFromResponse` 的空响应、空内容、JSON 错误、非 JSON 错误、
+  正常文件和非 Blob 响应；门禁新增 4 例，扩展 `onDownload*`/箭头函数识别并禁止视图/组件直接
+  `URL.createObjectURL`。
+- **验证**：前端 154 例、后端 485 例、门禁 37/37、Lint 与 Vite 生产构建均通过。
+- **注意**：ReportPanel 的空响应/空内容错误文案统一为工具口径「导出失败」/「导出失败：内容为空」；
+  HTTP/网络异常仍由调用方 catch 与拦截器统一提示。
+
 ### 生产外部密钥缺失 fail-fast 守卫
 
 - **背景**：`JwtProperties.resolveSigningKey()` 与 `RsaKeyProvider` 在密钥未配置时只告警并生成

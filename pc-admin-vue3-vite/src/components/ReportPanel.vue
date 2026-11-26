@@ -124,7 +124,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import BaseChart from '@/components/BaseChart.vue'
 import DrillDrawer from '@/components/DrillDrawer.vue'
-import { parseFileName } from '@/utils/download'
+import { parseFileName, saveBlobFromResponse } from '@/utils/download'
 import { reportData, reportExport } from '@/api/report'
 
 /**
@@ -340,38 +340,11 @@ async function download() {
   try {
     const params = buildParams()
     const resp = await reportExport(params)
-    // requestRaw 不拆包：业务错误时 content-type 为 application/json，需转文本提示。
-    // 正常导出才是 CSV Blob——非 Blob 一律显式包装，杜绝 createObjectURL 类型不匹配。
-    const raw = resp?.data
-    if (raw == null) {
-      ElMessage.error('导出失败：服务端未返回文件内容')
-      return
+    const ok = await saveBlobFromResponse(resp, '报表管理', 'csv', '导出失败')
+    if (ok) {
+      const filename = parseFileName(resp, '报表管理', 'csv')
+      ElMessage.success(`已导出：${filename}`)
     }
-    const blob = raw instanceof Blob ? raw : new Blob([raw])
-    if (!blob.size) {
-      ElMessage.error('导出内容为空')
-      return
-    }
-    if (blob.type && blob.type.includes('application/json')) {
-      const text = await blob.text()
-      let msg = '导出失败'
-      try {
-        msg = JSON.parse(text).message || msg
-      } catch (e) { /* 非 JSON 错误体，保留通用文案 */ }
-      ElMessage.error(msg)
-      return
-    }
-    // 复用 utils/download 的 parseFileName（支持 RFC 5987 filename*，中文报表名不回退硬编码名）
-    const filename = parseFileName(resp, '报表管理', 'csv')
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-    ElMessage.success(`已导出：${filename}`)
   } catch (e) {
     ElMessage.error(e.message || '导出失败')
   } finally {

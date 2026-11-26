@@ -590,6 +590,32 @@ mvn -o test          # 预期 485 例全过，BUILD SUCCESS
 python3 scripts/check-all.py   # 预期 EXIT=0，门禁全过
 ```
 
+### 3.6v 前端下载通道收敛与门禁补强
+
+**目标**：视图/组件不得手写 Blob 下载链路，空内容、JSON 业务错误与文件名解析统一由 `utils/download` 负责。
+
+**验收标准**：`download.test.js` 10 例全过；前端累计 154 例、门禁累计 37 例、后端 485 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| `parseFileName` | `filename*` 优先并解码、普通 `filename`、非法编码与回退名 |
+| `saveBlob` | 创建临时链接、点击、`removeChild`、`revokeObjectURL` 生命周期 |
+| `saveBlobFromResponse` | 空响应、空 Blob、JSON 错误 message、非 JSON 兜底、正常文件、非 Blob 包装 |
+| 导出门禁 | `onDownload*`/箭头函数识别；视图/组件禁止直接 `URL.createObjectURL` |
+
+```bash
+cd pc-admin-vue3-vite
+npm test -- --run src/utils/tests/download.test.js
+# 预期 Test Files 1 passed / Tests 10 passed
+npm test -- --run
+# 预期 Test Files 23 passed / Tests 154 passed
+npm run build
+cd ../java-admin-framework
+python3 scripts/tests/test_frontend_export_consistency.py
+# 预期 Ran 8 tests / OK
+python3 scripts/check-all.py   # 预期 EXIT=0，gate-tests 37/37
+```
+
 ---
 
 ## 3.7 组件库（已移除）
