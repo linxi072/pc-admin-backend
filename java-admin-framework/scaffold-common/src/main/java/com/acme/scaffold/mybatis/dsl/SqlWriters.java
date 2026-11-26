@@ -285,14 +285,16 @@ public final class SqlWriters {
      * 与 {@link #insert} 保持一致；id 回填至 POJO 后返回，供批量场景复用。
      *
      * <p>抽取自 {@code insert} / {@code batchInsert} 的重复片段，保证单条/批量写入口径同源：
-     * 主键由 {@link IdGenerator} 统一生成并回填；租户列依据强制隔离开关写入当前租户或平台租户 0。</p>
+     * 主键由 {@link IdGenerator} 统一生成并回填；租户列依据强制隔离开关写入当前租户、
+     * 无作用域时的默认租户或平台租户 0。</p>
      */
     private static <T> void fillAutoColumns(T pojo, SqlTables.TableRef table, Map<String, Object> values) {
         // 主键回填：与 MyBatis-Plus 的 ASSIGN_ID 行为一致，写入后 POJO 可拿到 id
         Long id = IdGenerator.nextId();
         setIdIfPresent(pojo, id);
         putIfPresent(values, table, "id", id);
-        // 租户隔离：enforce 开启且当前表需隔离时写入当前租户；否则维持既有行为（平台租户 0）
+        // 租户隔离：enforce 开启且当前表需隔离时写入当前租户（无作用域时为默认租户）；
+        // 隔离关闭、平台维表或显式旁路维持既有行为（平台租户 0）
         if (TenantEnforcement.shouldEnforce(table.name())) {
             putIfPresent(values, table, "tenant_id", TenantEnforcement.currentTenantId());
         } else {

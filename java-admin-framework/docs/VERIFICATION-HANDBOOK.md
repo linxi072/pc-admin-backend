@@ -1058,6 +1058,27 @@ mvn -o test          # 预期 564 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ar 强隔离无租户上下文时按默认租户收紧
+
+**目标**：`enforce=true` 但线程未设置 `TenantContext` 时不再绕过行级隔离，读取/写入按配置默认租户收紧，并给出一次性告警。
+
+**验收标准**：`TenantEnforcementTest` 5 例全过；后端累计 569 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 无作用域 | 强隔离开启时 `shouldEnforce(businessTable)=true`，`currentTenantId()` 返回 `defaultTenantId` |
+| 显式作用域 | 已设置 `TenantContext` 时优先使用作用域租户，行为不变 |
+| 豁免 | 平台共享维表与 bypass 作用域仍不强制；写入侧继续写平台租户 0 |
+| 关闭隔离 | `enforce=false` 时不强制；无作用域调用 `currentTenantId()` 仍严格抛异常 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -Dtest='TenantEnforcementTest' test
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+mvn -o test          # 预期 569 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

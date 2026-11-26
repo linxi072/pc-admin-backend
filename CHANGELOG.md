@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 强隔离无租户上下文时改为默认租户收紧
+
+- **背景**：`TenantEnforcement.shouldEnforce` 在 `app.tenant.enforce=true` 但线程未设置 `TenantContext`
+  时直接返回 false，定时任务、MQ 消费、异步线程或内部直调会绕过所有 `tenant_id` 过滤，形成静默全租户可见/可写；
+  而同一批路径在写入侧又会把 `tenant_id` 写成 0，读写口径分裂。
+- **实现**：无作用域且强隔离开启时不再放行：读取按 `defaultTenantId` 追加过滤，写入同一业务表也取该默认值；
+  首次触发记录一次性 warn 日志，提示异步任务显式设置作用域。平台共享维表与 `@TenantIgnorable` 旁路仍豁免并写平台租户 0；
+  隔离关闭时行为不变，`currentTenantId()` 在无作用域的关闭场景仍严格抛异常。
+- **测试**：新增 `TenantEnforcementTest`（5 例），覆盖隔离关闭、无作用域收紧、显式作用域、
+  平台维表豁免与 bypass 豁免。后端测试 564 → 569 例。
+- **验证**：前端 158 例、门禁 56/56、Lint 与 Vite 生产构建均通过。
+- **注意**：该策略仅在显式开启 `app.tenant.enforce=true` 时生效；异步任务若需跨租户处理，应显式
+  `TenantContext.runWith(...)` 或在平台管理员作用域下使用 `@TenantIgnorable`，否则只能看到默认租户数据。
+
 ### 全局异常映射补齐 415/406
 
 - **背景**：`GlobalExceptionHandler` 已覆盖参数校验、请求体格式、文件上传与参数类型不匹配等调用方错误，

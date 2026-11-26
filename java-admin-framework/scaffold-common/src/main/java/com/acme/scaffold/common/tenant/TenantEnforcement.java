@@ -1,6 +1,8 @@
 package com.acme.scaffold.common.tenant;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 租户隔离强制策略（M19 P3）：集中裁决「某次数据访问是否应追加 tenant_id 约束」。
@@ -13,7 +15,8 @@ import java.util.List;
  * <p><b>生效条件（全部满足才对给定表强制隔离）</b>：
  * <ol>
  *   <li>{@code app.tenant.enforce=true}（默认 false，需显式开启，避免对既有单租户数据与测试回归）；</li>
- *   <li>当前线程已设置租户作用域（{@link TenantContext#isSet()}）；</li>
+ *   <li>当前线程已设置租户作用域（{@link TenantContext#isSet()}）；未设置时不放行全表访问，
+ *       而是收紧到配置默认租户并告警，异步任务应显式设置作用域；</li>
  *   <li>未处于 {@code @TenantIgnorable} 跨租户旁路（{@link TenantContext#isBypass()}）；</li>
  *   <li>目标表非「平台共享维表」（{@code app.tenant.platform-tables}）。</li>
  * </ol>
@@ -22,8 +25,10 @@ import java.util.List;
  * 校验配置自洽（默认租户合法、平台维表非空），否则 fail-fast 阻止「配置不全却开启强制隔离」上线。
  * 由 framework 模块的 {@code TenantEnforcementValidator}（{@code CommandLineRunner}）在启动时调用。</p>
  */
+@Slf4j
 public final class TenantEnforcement {
 
+    private static final AtomicBoolean NO_SCOPE_WARNED = new AtomicBoolean();
     private static volatile TenantProperties properties;
 
     private TenantEnforcement() {
@@ -94,20 +99,39 @@ public final class TenantEnforcement {
         }
         TenantContext.TenantScope scope = TenantContext.current();
         if (scope == null) {
-            // 非请求线程（定时任务/内部无主体调用）未解析租户，不强制，避免打断；作业侧应显式 set 作用域
+            if (NO_SCOPE_WARNED.compareAndSet(false, true)) {
+                log.warn("租户隔离已开启(enforce=true)但未设置 TenantContext：数据访问按默认租户 {} 收紧，"
+                        + "异步任务/定时任务应显式设置作用域", defaultTenantId());
+            }
+        } else if (scope.bypass()) {
             return false;
         }
-        if (scope.bypass()) {
-            return false;
-        }
-        if (tableName != null && properties.getPlatformTables().contains(tableName)) {
+        List<String> platformTables = properties.getPlatformTables();
+        if (tableName != null && platformTables != null && platformTables.contains(tableName)) {
             return false;
         }
         return true;
     }
 
-    /** 当前生效租户 ID（调用方需先经 {@link #shouldEnforce} 确认上下文已设置）。 */
+    /**
+     * 当前生效租户 ID：优先取显式作用域；强制隔离开启但无作用域时收紧到配置默认租户。
+     * 隔离关闭且无作用域时仍走严格模式抛异常，保持既有调用契约。
+     */
     public static long currentTenantId() {
-        return TenantContext.requireTenantId();
+        TenantContext.TenantScope scope = TenantContext.current();
+        if (scope != null) {
+            return scope.tenantId();
+        }
+        return isEnabled() ? defaultTenantId() : TenantContext.requireTenantId();
+    }
+
+    private static long defaultTenantId() {
+        TenantProperties props = properties;
+        Long id = props == null ? null : props.getDefaultTenantId();
+        if (!TenantRules.isValidTenantId(id)) {
+            throw new IllegalStateException("租户隔离已开启(enforce=true)但未设置 TenantContext，"
+                    + "且配置默认租户 ID 非法：" + id + "；请设置 TenantContext 或修正 app.tenant.default-tenant-id");
+        }
+        return id;
     }
 }
