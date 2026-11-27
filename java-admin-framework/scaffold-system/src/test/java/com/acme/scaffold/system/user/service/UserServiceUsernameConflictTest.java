@@ -58,7 +58,9 @@ class UserServiceUsernameConflictTest {
         UserService service = service();
 
         try (MockedStatic<SqlWriters> writers = mockStatic(SqlWriters.class)) {
-            writers.when(() -> SqlWriters.count(any(DSLContext.class), any(), any())).thenReturn(0L);
+            // 请求未带手机/邮箱（无预校验 count）：预校验 existsByUsername 放行，冲突定位重查命中用户名
+            writers.when(() -> SqlWriters.count(any(DSLContext.class), any(), any()))
+                    .thenReturn(0L, 1L);
             writers.when(() -> SqlWriters.fetchById(any(DSLContext.class), eq(SqlTables.SYS_ROLE),
                     eq(SysRole.class), eq(1L))).thenReturn(activeRole());
             writers.when(() -> SqlWriters.fetchById(any(DSLContext.class), eq(SqlTables.SYS_ORG),

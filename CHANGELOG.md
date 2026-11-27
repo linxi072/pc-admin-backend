@@ -4,6 +4,29 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 用户手机号 / 邮箱补齐数据库唯一约束
+
+- **背景**：`sys_user` 的手机号 / 邮箱没有任何唯一索引，`UserService.assertContactAvailable` 与
+  `ProfileService.assertContactAvailable` 先查再写，两个并发绑定同一手机号 / 邮箱的请求可双双落库。
+  手机号承载找回密码 / 核验链路，重复绑定后核验命中哪个账号取决于返回顺序；此前
+  `UserService` 注释声称「手机有 uk_tenant_mobile 兜底」，经核对 DDL 该索引并不存在，属注释漂移。
+- **实现**：新库 `ddl.sql` 增加生成列 `mobile_active` / `email_active`（`deleted=0` 且值非空时取原值，
+  否则 NULL）与唯一索引 `uk_user_tenant_mobile_active(tenant_id, mobile_active)`、
+  `uk_user_tenant_email_active(tenant_id, email_active)`——未绑定（NULL）可多行共存，
+  解绑后原值可复用，逻辑删除行退出唯一键；存量库提供 `upgrade_user_contact_unique_index.sql`
+  （加列 → 手机号 / 邮箱各自去重 → 建索引）。服务层四处写路径
+  （`UserService.create/update`、`ProfileService.updateProfile/bindContact`）捕获唯一键冲突后
+  重查定位冲突字段（用户名 → 手机 → 邮箱），转换为与预校验一致的 409 文案，均不命中时给出
+  可重试的通用占用提示；同步修正 `UserService` 的注释漂移。
+- **测试**：新增 `UserContactUniqueIndexDdlTest`（3 例）、`UserServiceContactConflictTest`（3 例）、
+  `ProfileServiceContactConflictTest`（3 例），覆盖生成列 / NULL 语义、升级脚本顺序、创建与更新
+  路径的冲突定位文案、个人中心绑定冲突与兜底文案；`UserServiceUsernameConflictTest` 的冲突
+  stub 适配冲突定位逻辑。后端测试 691 → 700 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且先去重
+  （同一租户内重复手机号 / 邮箱只保留高版本 / 最新 id 行）；唯一键不含原列而是生成列，
+  业务逻辑无需感知；HTTP 端点与请求字段不变。
+
 ### 用户名补齐数据库唯一约束
 
 - **背景**：`sys_user` 没有用户名唯一索引，`UserService.existsByUsername()` 先查再写；

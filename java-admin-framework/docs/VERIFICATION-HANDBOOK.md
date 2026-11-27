@@ -1669,6 +1669,28 @@ mvn -o test          # 预期 691 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bu 用户手机号 / 邮箱补齐数据库唯一约束
+
+**目标**：同一租户内未删除且已绑定的手机号 / 邮箱唯一；并发绑定由数据库兜底并返回可读 409。
+
+**验收标准**：`UserContactUniqueIndexDdlTest` 3 例 + `UserServiceContactConflictTest` 3 例 +
+`ProfileServiceContactConflictTest` 3 例全过；后端累计 700 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `mobile_active` / `email_active` 使逻辑删除行与未绑定（NULL）退出唯一键，解绑后原值可复用 |
+| 新库 | `ddl.sql` 内联生成列与 `uk_user_tenant_mobile_active` / `uk_user_tenant_email_active` |
+| 存量库 | 升级脚本按「加列 → 手机号去重 → 邮箱去重 → 建索引」顺序执行 |
+| 冲突定位 | 四处写路径捕获唯一键冲突后重查定位（用户名 → 手机 → 邮箱），返回与预校验一致的 409 文案 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='UserContactUniqueIndexDdlTest,UserServiceContactConflictTest,ProfileServiceContactConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 9, Failures: 0, Errors: 0
+mvn -o test          # 预期 700 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

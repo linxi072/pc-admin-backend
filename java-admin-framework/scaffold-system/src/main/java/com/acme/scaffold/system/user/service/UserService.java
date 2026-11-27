@@ -118,7 +118,7 @@ public class UserService {
 
     @Transactional
     public Long create(CreateUserRequest request) {
-        if (existsByUsername(request.username())) {
+        if (existsByUsername(request.username(), null)) {
             throw new BusinessException(CommonErrorCode.CONFLICT, "用户名已存在");
         }
         if (request.roleIds() == null || request.roleIds().isEmpty()) {
@@ -133,8 +133,8 @@ public class UserService {
         request.roleIds().forEach(this::requireRole);
         request.deptIds().forEach(this::requireOrg);
         // 手机 / 邮箱唯一性预校验：与 ProfileService.bindContact/updateProfile 同一契约。
-        // 手机有 uk_tenant_mobile 兜底（冲突时 409 但提示不可读），邮箱无唯一索引，
-        // 不预校验会静默落入库，与个人中心「该邮箱已被其他账号绑定」的承诺相悖。
+        // 数据库侧由 uk_user_tenant_mobile_active / uk_user_tenant_email_active 兜底，
+        // 不预校验会把可读的 409 退化成通用冲突文案，与个人中心的提示承诺相悖。
         assertContactAvailable("mobile", request.mobile(), null);
         assertContactAvailable("email", request.email(), null);
 
@@ -152,9 +152,10 @@ public class UserService {
         try {
             SqlWriters.insert(dsl, USER, user);
         } catch (DataIntegrityViolationException e) {
-            // 并发同用户名创建：应用层查重与插入的时间窗由数据库唯一键 uk_user_tenant_username_active
-            // 兜底裁决，转换为与预校验一致的清晰 409，避免落到通用异常文案。
-            throw new BusinessException(CommonErrorCode.CONFLICT, "用户名已存在");
+            // 并发创建：用户名/手机/邮箱的唯一键（uk_user_tenant_username_active /
+            // uk_user_tenant_mobile_active / uk_user_tenant_email_active）在应用层查重与
+            // 插入的时间窗内兜底裁决；冲突定位重查转换为与预校验一致的清晰 409。
+            throw resolveUserConflict(user);
         }
 
         // 记录初始口令到密码历史，纳入「禁止复用最近 5 次」安全基线
@@ -201,7 +202,11 @@ public class UserService {
             user.setStatus(request.status());
             permissionChanged = true;
         }
-        SqlWriters.updateById(dsl, USER, id, user);
+        try {
+            SqlWriters.updateById(dsl, USER, id, user);
+        } catch (DataIntegrityViolationException e) {
+            throw resolveUserConflict(user);
+        }
 
         // 跨域副作用解耦（ROADMAP R2）：用户被禁用时发布领域事件，由 security/notification 等订阅方响应
         // （踢下线 / 发通知）。system 不再直连下游；事件总线错误隔离，订阅方故障不影响本事务提交。
@@ -599,31 +604,50 @@ public class UserService {
         return result;
     }
 
-    private boolean existsByUsername(String username) {
-        return SqlWriters.count(dsl, USER,
-                DSL.and(SqlWriters.notDeleted(USER),
-                        USER.field("username", String.class).eq(username))) > 0;
+    private boolean existsByUsername(String username, Long excludeId) {
+        Condition cond = DSL.and(SqlWriters.notDeleted(USER),
+                USER.field("username", String.class).eq(username));
+        if (excludeId != null) {
+            cond = DSL.and(cond, USER.field("id", Long.class).ne(excludeId));
+        }
+        return SqlWriters.count(dsl, USER, cond) > 0;
     }
 
-    /**
-     * 手机 / 邮箱唯一性预校验：排除自身（selfId 为空表示新建），冲突时给出可读提示。
-     *
-     * <p>与 {@code ProfileService.assertContactAvailable} 同一契约同一命名——两端都写
-     * 用户表，唯一性承诺必须一致，不能「个人中心拦、后台管理放」。空白值跳过（表示不绑定）。
-     */
-    private void assertContactAvailable(String column, String value, Long selfId) {
+    /** 手机 / 邮箱在租户内是否已被其他未删除账号占用（selfId 非空时排除自身；空白值视为未绑定）。 */
+    private boolean contactTaken(String column, String value, Long selfId) {
         if (!StringUtils.hasText(value)) {
-            return;
+            return false;
         }
         Condition cond = USER.field(column, String.class).eq(value.trim())
                 .and(SqlWriters.notDeleted(USER));
         if (selfId != null) {
             cond = cond.and(USER.field("id", Long.class).ne(selfId));
         }
-        if (SqlWriters.count(dsl, USER, cond) > 0) {
+        return SqlWriters.count(dsl, USER, cond) > 0;
+    }
+
+    private void assertContactAvailable(String column, String value, Long selfId) {
+        if (contactTaken(column, value, selfId)) {
             throw BusinessException.conflict("mobile".equals(column)
                     ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
         }
+    }
+
+    /**
+     * 数据库唯一键冲突定位（用户名 → 手机 → 邮箱）：转换为与预校验一致的 409 文案；
+     * 三项均不命中（极小概率的并发窗口漂移）时给出可重试的通用占用提示。
+     */
+    private BusinessException resolveUserConflict(SysUser user) {
+        if (existsByUsername(user.getUsername(), user.getId())) {
+            return new BusinessException(CommonErrorCode.CONFLICT, "用户名已存在");
+        }
+        if (contactTaken("mobile", user.getMobile(), user.getId())) {
+            return new BusinessException(CommonErrorCode.CONFLICT, "该手机号已被其他账号绑定");
+        }
+        if (contactTaken("email", user.getEmail(), user.getId())) {
+            return new BusinessException(CommonErrorCode.CONFLICT, "该邮箱已被其他账号绑定");
+        }
+        return new BusinessException(CommonErrorCode.CONFLICT, "账号信息已被其他请求占用，请重试");
     }
 
     private SysUser get(Long id) {

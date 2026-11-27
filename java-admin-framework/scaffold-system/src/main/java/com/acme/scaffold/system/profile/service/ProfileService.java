@@ -26,6 +26,7 @@ import java.util.Set;
 
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -100,7 +101,13 @@ public class ProfileService {
             }
         }
 
-        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        try {
+            SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        } catch (DataIntegrityViolationException e) {
+            // 并发绑定：uk_user_tenant_mobile_active / uk_user_tenant_email_active 在
+            // 预校验与写入的时间窗内兜底裁决，冲突定位重查给出可读 409。
+            throw resolveContactConflict(patch, current.getId());
+        }
         return getProfile();
     }
 
@@ -138,7 +145,13 @@ public class ProfileService {
                 patch.setNotifyEmail(0);
             }
         }
-        SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        try {
+            SqlWriters.updateByIdWithNulls(dsl, USER, current.getId(), patch, nullColumns);
+        } catch (DataIntegrityViolationException e) {
+            // 并发绑定：uk_user_tenant_mobile_active / uk_user_tenant_email_active 在
+            // 预校验与写入的时间窗内兜底裁决，冲突定位重查给出可读 409。
+            throw resolveContactConflict(patch, current.getId());
+        }
         return getProfile();
     }
 
@@ -218,19 +231,38 @@ public class ProfileService {
     }
 
     /** 手机/邮箱唯一性校验：排除自身，冲突时给出可读提示。 */
-    private void assertContactAvailable(String column, String value, Long selfId) {
+    /** 手机 / 邮箱在租户内是否已被其他未删除账号占用（selfId 非空时排除自身；空白值视为未绑定）。 */
+    private boolean contactTaken(String column, String value, Long selfId) {
         if (!StringUtils.hasText(value)) {
-            return;
+            return false;
         }
         Condition cond = USER.field(column, String.class).eq(value)
                 .and(SqlWriters.notDeleted(USER));
         if (selfId != null) {
             cond = cond.and(USER.field("id", Long.class).ne(selfId));
         }
-        if (SqlWriters.count(dsl, USER, cond) > 0) {
+        return SqlWriters.count(dsl, USER, cond) > 0;
+    }
+
+    private void assertContactAvailable(String column, String value, Long selfId) {
+        if (contactTaken(column, value, selfId)) {
             throw BusinessException.conflict("MOBILE".equalsIgnoreCase(column) || "mobile".equals(column)
                     ? "该手机号已被其他账号绑定" : "该邮箱已被其他账号绑定");
         }
+    }
+
+    /**
+     * 数据库唯一键冲突定位（手机 → 邮箱）：转换为与预校验一致的 409 文案；
+     * 两项均不命中（极小概率的并发窗口漂移）时给出可重试的通用占用提示。
+     */
+    private BusinessException resolveContactConflict(SysUser patch, Long selfId) {
+        if (contactTaken("mobile", patch.getMobile(), selfId)) {
+            return BusinessException.conflict("该手机号已被其他账号绑定");
+        }
+        if (contactTaken("email", patch.getEmail(), selfId)) {
+            return BusinessException.conflict("该邮箱已被其他账号绑定");
+        }
+        return BusinessException.conflict("联系方式已被其他请求占用，请重试");
     }
 
     private void assertMobileFormat(String mobile) {

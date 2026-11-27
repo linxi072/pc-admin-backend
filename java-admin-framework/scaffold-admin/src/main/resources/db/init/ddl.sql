@@ -35,6 +35,9 @@ CREATE TABLE `sys_user` (
     `display_name` VARCHAR(100) NOT NULL,
     `mobile` VARCHAR(32) NULL,
     `email` VARCHAR(128) NULL,
+    -- 逻辑删除/未绑定行不参与唯一性：deleted=0 且值非空时取原值，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `mobile_active` VARCHAR(32) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `mobile` ELSE NULL END) STORED,
+    `email_active` VARCHAR(128) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `email` ELSE NULL END) STORED,
     `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     `failed_login_count` INT UNSIGNED NOT NULL DEFAULT 0,
     `locked_until` DATETIME(3) NULL,
@@ -60,6 +63,11 @@ CREATE TABLE `sys_user` (
 -- 用户名租户内唯一（仅未删除行）：与 UserService.existsByUsername 口径一致，
 -- 并发创建同名账号由数据库唯一键兜底；逻辑删除后可用同用户名重建。
 CREATE UNIQUE INDEX `uk_user_tenant_username_active` ON `sys_user` (`tenant_id`, `username_active`);
+-- 手机号 / 邮箱租户内唯一（仅未删除且已绑定行）：与 UserService / ProfileService 的
+-- assertContactAvailable 口径一致，并发绑定同一手机号/邮箱由数据库唯一键兜底；
+-- NULL（未绑定）可多行共存，逻辑删除行退出唯一键，解绑后原值可复用。
+CREATE UNIQUE INDEX `uk_user_tenant_mobile_active` ON `sys_user` (`tenant_id`, `mobile_active`);
+CREATE UNIQUE INDEX `uk_user_tenant_email_active` ON `sys_user` (`tenant_id`, `email_active`);
 
 CREATE TABLE `sys_org` (
     `id` BIGINT UNSIGNED NOT NULL,
