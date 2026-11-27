@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,7 +72,20 @@ public class WorkflowDesignService {
         e.setVersion(0);
         e.setNodesJson("[]");
         e.setEdgesJson("[]");
-        SqlWriters.insert(dsl, WF_WORKFLOW_DESIGN, e);
+        try {
+            SqlWriters.insert(dsl, WF_WORKFLOW_DESIGN, e);
+        } catch (DataIntegrityViolationException ex) {
+            // 并发同 key 创建：应用层查重与插入的时间窗由唯一键 uk_tenant_key(tenant_id, process_key_active)
+            // 兜底裁决。create 为幂等语义（同 key 返回既有设计而非 409），冲突时重查返回既有行；
+            // 重查仍为空（并发删除窗口）才以 409 显式失败。
+            WfWorkflowDesign winner = SqlWriters.fetchOne(dsl, WF_WORKFLOW_DESIGN, WfWorkflowDesign.class,
+                    SqlWriters.notDeleted(WF_WORKFLOW_DESIGN)
+                            .and(WF_WORKFLOW_DESIGN.field("process_key", String.class).eq(req.processKey())));
+            if (winner == null) {
+                throw new BusinessException(CommonErrorCode.CONFLICT, "流程编码已存在");
+            }
+            return get(winner.getId());
+        }
         return get(e.getId());
     }
 

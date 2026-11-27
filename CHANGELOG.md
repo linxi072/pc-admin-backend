@@ -4,6 +4,32 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 工作流流程编码补齐数据库唯一约束
+
+- **背景**：`wf_workflow_design` 没有流程编码唯一索引，但 `WorkflowDesignService.delete()`
+  的墓碑机制注释明确假设存在 `uk_tenant_key(tenant_id, process_key)`——删除前先给 key 加
+  `_<id>_del_<id>` 后缀「释放唯一键」，实际 DDL 无任何唯一索引，墓碑空转；
+  `create()` 先查再写（幂等语义：同 key 返回既有设计），同租户内并发创建同 key 设计可双双落库。
+  `process_key` 是 BPMN 部署与发起实例（`getPublished` 按 key 找已发布设计）的绑定键，
+  重复后发起命中哪条取决于返回顺序，审批路由可能作用到错误流程。
+- **实现**：新库 `ddl.sql` 增加生成列 `process_key_active`（`deleted=0` 时取 `process_key`，
+  否则 NULL）与唯一索引 `uk_tenant_key(tenant_id, process_key_active)`——索引名与
+  `delete()` 墓碑注释假设一致，`wf_workflow_design` 为业务表（每租户一个 process_key 一条
+  设计行，版本经 `version` 列原地递增），唯一键含 tenant 维度；存量库提供
+  `upgrade_workflow_process_key_unique_index.sql`（加列 → 去重 → 建索引）。create 冲突
+  兜底沿用幂等语义：捕获唯一键冲突后重查返回既有设计（与预校验行为一致），
+  重查仍为空（并发删除窗口）才显式 409「流程编码已存在」；墓碑改名 + 生成列置 NULL
+  双重退出唯一键，删除后同 key 可重建。
+- **测试**：新增 `WorkflowProcessKeyUniqueIndexDdlTest`（3 例）与
+  `WorkflowDesignServiceKeyConflictTest`（3 例），覆盖生成列 / NULL 语义、租户内唯一口径、
+  升级脚本顺序、冲突返回既有设计 / 无既有行显式 409 / 正常路径不被误伤。
+  后端测试 745 → 751 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  租户 + 高版本 / 最新 id 去重重复 key（被去重行的草稿内容须人工确认归并）；
+  唯一键不含 `process_key` 原列而是生成列，业务逻辑无需感知；HTTP 端点、请求字段与
+  权限码不变。
+
 ### 通知模板编码补齐数据库唯一约束
 
 - **背景**：`sys_notification_template` 没有模板编码唯一索引，`NotificationTemplateService.create()`

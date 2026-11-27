@@ -490,6 +490,8 @@ CREATE TABLE `wf_workflow_design` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `process_key` VARCHAR(128) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 process_key，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `process_key_active` VARCHAR(128) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `process_key` ELSE NULL END) STORED,
     `process_name` VARCHAR(200) NOT NULL,
     `description` VARCHAR(500) NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
@@ -506,6 +508,10 @@ CREATE TABLE `wf_workflow_design` (
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     `deleted` TINYINT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- wf_workflow_design 为业务表：每租户内一个 process_key 仅一条设计行（版本经 version 列原地递增），
+-- 编码租户内唯一；与 WorkflowDesignService#delete 墓碑机制假设的唯一键名 uk_tenant_key 一致。
+CREATE UNIQUE INDEX `uk_tenant_key` ON `wf_workflow_design` (`tenant_id`, `process_key_active`);
 
 CREATE TABLE `sys_idempotency_record` (
     `id` BIGINT UNSIGNED NOT NULL,

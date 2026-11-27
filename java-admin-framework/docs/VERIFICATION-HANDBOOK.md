@@ -1873,6 +1873,29 @@ mvn -o test          # 预期 745 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6cd 工作流流程编码补齐数据库唯一约束
+
+**目标**：同租户内未删除流程编码唯一；并发创建同 key 由数据库兜底并按幂等语义返回既有设计。
+
+**验收标准**：`WorkflowProcessKeyUniqueIndexDdlTest` 3 例 +
+`WorkflowDesignServiceKeyConflictTest` 3 例全过；后端累计 751 例、前端 161 例、
+门禁 --strict 全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `process_key_active` 使逻辑删除行退出唯一键；墓碑改名 + 生成列双重退出，删除后同 key 可重建 |
+| 租户内唯一 | `wf_workflow_design` 为业务表（每租户一个 process_key 一条设计行，版本原地递增），唯一索引 `uk_tenant_key(tenant_id, process_key_active)` 含 tenant 维度，索引名与 delete 墓碑注释假设一致 |
+| 存量库 | 升级脚本按「加列 → 去重（tenant + version/id）→ 建索引」顺序执行；被去重行草稿须人工归并 |
+| 冲突映射 | create 捕获 `DataIntegrityViolationException` 后重查返回既有设计（幂等语义）；重查为空才 409「流程编码已存在」；update（save）不改 process_key，冲突面仅创建路径 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-workflow -am test -Dtest='WorkflowProcessKeyUniqueIndexDdlTest,WorkflowDesignServiceKeyConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 751 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -22,6 +22,7 @@
 | `upgrade_dict_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 字典类型表补生成列 `dict_code_active` 与字典编码全局唯一索引；新库无需执行 |
 | `upgrade_mask_strategy_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 脱敏策略表补生成列 `strategy_code_active` 与 `(tenant_id, strategy_code_active)` 唯一索引；新库无需执行 |
 | `upgrade_notification_template_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 通知模板表补生成列 `template_code_active` 与 `(tenant_id, template_code_active)` 唯一索引；新库无需执行 |
+| `upgrade_workflow_process_key_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 工作流设计表补生成列 `process_key_active` 与 `(tenant_id, process_key_active)` 唯一索引 `uk_tenant_key`；新库无需执行 |
 
 原 `00_create_database.sql`、`01_full_schema.sql`、`02_backfill_tenant_id.sql`，以及
 `db/reference/{schema_ddl,data_dml}.sql`、`db/migration/V*.sql` 已归并进上述两个文件，
@@ -118,6 +119,11 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
   唯一键含 tenant 维度）；存量库按 `upgrade_notification_template_code_unique_index.sql`
   先去重再建索引。逻辑删除后可用同编码重建。`NotificationTemplateService.existsByCode`
   的租户隔离查重与索引口径一致。
+- **流程编码唯一索引**：新库由 `ddl.sql` 内联生成列 `process_key_active`（逻辑删除行为 NULL）
+  与 `uk_tenant_key`（租户内唯一：每租户一个 process_key 一条设计行，版本经 version 列原地
+  递增；索引名与 `WorkflowDesignService#delete` 墓碑机制假设的唯一键名一致）；存量库按
+  `upgrade_workflow_process_key_unique_index.sql` 先去重再建索引。逻辑删除行以墓碑后缀
+  `_<id>_del_<id>` 改名 + 生成列置 NULL 双重退出唯一键，同 key 可重建。
 
 ## 5. 校验
 
