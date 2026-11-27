@@ -684,6 +684,8 @@ CREATE TABLE `sys_notification_template` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `template_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 template_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `template_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `template_code` ELSE NULL END) STORED,
     `template_name` VARCHAR(100) NOT NULL,
     `channel` VARCHAR(16) NOT NULL,
     `title` VARCHAR(200) NULL,
@@ -698,6 +700,10 @@ CREATE TABLE `sys_notification_template` (
     `updated_by` BIGINT UNSIGNED NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- sys_notification_template 为业务表：发送侧（send-with-template）按 template_code 经租户隔离查询取模板，
+-- 编码租户内唯一，唯一键含 tenant 维度，与 existsByCode 的租户隔离查重口径一致。
+CREATE UNIQUE INDEX `uk_notification_template_code_active` ON `sys_notification_template` (`tenant_id`, `template_code_active`);
 
 CREATE TABLE `sys_notification_record` (
     `id` BIGINT UNSIGNED NOT NULL,

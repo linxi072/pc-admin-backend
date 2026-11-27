@@ -25,6 +25,7 @@ import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -142,7 +143,13 @@ public class NotificationTemplateService {
         d.setMsgType(StringUtils.hasText(req.msgType()) ? req.msgType() : "NOTICE");
         d.setEnabled(req.enabled() != null && req.enabled() ? 1 : 0);
         d.setRemark(req.remark());
-        SqlWriters.insert(dsl, TEMPLATE, d);
+        try {
+            SqlWriters.insert(dsl, TEMPLATE, d);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同编码创建：应用层查重与插入的时间窗由唯一键 uk_notification_template_code_active
+            // 兜底裁决，转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "模板编码已存在");
+        }
         return d.getId();
     }
 
@@ -189,7 +196,13 @@ public class NotificationTemplateService {
         if (req.remark() != null) {
             patch.setRemark(req.remark());
         }
-        SqlWriters.updateById(dsl, TEMPLATE, id, patch);
+        try {
+            SqlWriters.updateById(dsl, TEMPLATE, id, patch);
+        } catch (DataIntegrityViolationException e) {
+            // 并发改码 / 并发同码创建：唯一键 uk_notification_template_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409（update 允许改写 template_code，冲突面含更新路径）。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "模板编码已存在");
+        }
     }
 
     /** 删除模板（逻辑删除，便于审计与恢复）。 */

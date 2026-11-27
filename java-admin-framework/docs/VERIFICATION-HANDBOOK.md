@@ -1850,6 +1850,29 @@ mvn -o test          # 预期 739 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6cc 通知模板编码补齐数据库唯一约束
+
+**目标**：同租户内未删除模板编码唯一；并发创建/改码由数据库兜底并返回清晰 409。
+
+**验收标准**：`NotificationTemplateCodeUniqueIndexDdlTest` 3 例 +
+`NotificationTemplateServiceCodeConflictTest` 3 例全过；后端累计 745 例、前端 161 例、
+门禁 --strict 全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `template_code_active` 使逻辑删除行退出唯一键，删除后可用同编码重建 |
+| 租户内唯一 | `sys_notification_template` 为业务表，发送侧经租户隔离查询取模板，唯一索引 `uk_notification_template_code_active(tenant_id, template_code_active)` 含 tenant 维度，与 `existsByCode` 租户隔离查重口径一致 |
+| 存量库 | 升级脚本按「加列 → 去重（tenant + version/id）→ 建索引」顺序执行 |
+| 冲突映射 | create/update 捕获 `DataIntegrityViolationException` → 409「模板编码已存在」；`update` 允许改写 `template_code`，冲突面含更新路径 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='NotificationTemplateCodeUniqueIndexDdlTest,NotificationTemplateServiceCodeConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 745 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -4,6 +4,28 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 通知模板编码补齐数据库唯一约束
+
+- **背景**：`sys_notification_template` 没有模板编码唯一索引，`NotificationTemplateService.create()`
+  与 `update()` 先查再写（`update` 允许改写 `template_code`）；同租户内并发创建或并发改码可
+  双双落库。`template_code` 是发送侧（M11 `send-with-template`）按编码取模板渲染投递的查找键，
+  重复后发送命中哪个模板取决于返回顺序，通知内容与渠道可能错乱。
+- **实现**：新库 `ddl.sql` 增加生成列 `template_code_active`（`deleted=0` 时取 `template_code`，
+  否则 NULL）与唯一索引 `uk_notification_template_code_active(tenant_id, template_code_active)`
+  ——`sys_notification_template` 为业务表，发送侧经租户隔离查询取模板，唯一键含 tenant 维度，
+  与 `existsByCode` 的租户隔离查重口径一致；存量库提供
+  `upgrade_notification_template_code_unique_index.sql`（加列 → 去重 → 建索引）。
+  冲突面含创建与更新路径（`update` 允许改码）：`create` / `update` 捕获唯一键冲突并转换为
+  与预校验一致的 409「模板编码已存在」。
+- **测试**：新增 `NotificationTemplateCodeUniqueIndexDdlTest`（3 例）与
+  `NotificationTemplateServiceCodeConflictTest`（3 例），覆盖生成列 / NULL 语义、租户内唯一
+  口径（去重按租户分组）、升级脚本顺序、并发创建与改码冲突文案及正常路径不被误伤。
+  后端测试 739 → 745 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  租户 + 高版本 / 最新 id 去重重复编码；唯一键不含 `template_code` 原列而是生成列，
+  业务逻辑无需感知；HTTP 端点、请求字段与权限码不变。
+
 ### 脱敏策略编码补齐数据库唯一约束
 
 - **背景**：`sys_mask_strategy` 没有策略编码唯一索引，`MaskStrategyService.create()` 与
