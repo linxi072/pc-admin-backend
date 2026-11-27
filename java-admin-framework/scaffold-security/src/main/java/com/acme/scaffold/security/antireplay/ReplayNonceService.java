@@ -1,6 +1,5 @@
 package com.acme.scaffold.security.antireplay;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
@@ -12,13 +11,19 @@ import org.springframework.stereotype.Service;
  * <ul>
  *   <li>nonce 在 {@code ttlSeconds} 内视为已占用，重复提交直接判为重放；</li>
  *   <li>超过 TTL 后允许 reuse（被惰性清理）；</li>
- *   <li>缓存达到上限时按过期时间惰性淘汰，避免无界增长；</li>
+ *   <li>缓存达到上限时仅淘汰已过期条目；若全部仍在 TTL 内则 fail-closed 拒绝新请求，
+ *       绝不丢弃仍然有效的重放历史（否则攻击者可用噪声 nonce 挤掉证据并绕过检测）；</li>
  *   <li>纯内存存储，适用于单实例；多实例部署建议替换为 Redis（按 nonce 维度共享）。</li>
  * </ul>
  * 算法与 Spring 解耦，便于离线单测。
  */
 @Service
 public class ReplayNonceService {
+
+    /** nonce 占用结果：放行 / 命中重放历史 / 缓存已满需 fail-closed。 */
+    public enum AcquireResult {
+        ACQUIRED, REPLAY, CACHE_FULL
+    }
 
     private final ConcurrentHashMap<String, Long> seen = new ConcurrentHashMap<>();
     private final int ttlSeconds;
@@ -29,55 +34,52 @@ public class ReplayNonceService {
         this.maxSize = Math.max(1, props.getMaxNonceCacheSize());
     }
 
+    /** 兼容旧调用方：缓存满也按「不可放行」处理，避免绕过检测。 */
     public boolean isReplay(String nonce) {
         return isReplay(nonce, System.currentTimeMillis());
     }
 
+    boolean isReplay(String nonce, long now) {
+        return tryAcquire(nonce, now) != AcquireResult.ACQUIRED;
+    }
+
+    /** 带明确结果的 nonce 占用：过滤器据此区分重放与缓存饱和。 */
+    public AcquireResult tryAcquire(String nonce) {
+        return tryAcquire(nonce, System.currentTimeMillis());
+    }
+
     /**
-     * 判断 nonce 是否为重放。
+     * 尝试占用 nonce。
      *
      * @param nonce 客户端提交的一次性随机数
      * @param now   当前毫秒时间戳（注入以便测试）
-     * @return true 表示命中已使用记录（重放），false 表示放行（首次或已过期）
      */
-    boolean isReplay(String nonce, long now) {
+    AcquireResult tryAcquire(String nonce, long now) {
         if (nonce == null || nonce.isBlank()) {
-            return false;
+            return AcquireResult.ACQUIRED;
         }
         long expiry = now + (long) ttlSeconds * 1000L;
-        // putIfAbsent 原子完成「检查-占用」：并发同 nonce 只有一个请求能写入成功，
-        // 原 get+put 非原子会让并发重放请求双双放行。
+        // putIfAbsent 原子完成「检查-占用」：并发同 nonce 只有一个请求能写入成功。
         Long existing = seen.putIfAbsent(nonce, expiry);
         if (existing != null) {
             if (existing > now) {
-                return true;
+                return AcquireResult.REPLAY;
             }
-            // 已过期：原子覆盖，允许 reuse
-            seen.put(nonce, expiry);
-            return false;
-        }
-        if (seen.size() >= maxSize) {
-            // 先淘汰已过期条目；若全部仍在 TTL 内（高频请求场景）仍会突破上限，
-            // 则按过期时间升序额外淘汰最早过期的条目，保证内存严格有界。
-            seen.entrySet().removeIf(e -> e.getValue() < now);
-            while (seen.size() >= maxSize) {
-                String oldest = null;
-                long earliest = Long.MAX_VALUE;
-                for (Map.Entry<String, Long> e : seen.entrySet()) {
-                    if (e.getKey().equals(nonce)) {
-                        continue; // 不淘汰刚写入的条目，否则本次占用立即失效
-                    }
-                    if (e.getValue() < earliest) {
-                        earliest = e.getValue();
-                        oldest = e.getKey();
-                    }
-                }
-                if (oldest == null) {
-                    break; // 仅剩当前条目，无可淘汰项
-                }
-                seen.remove(oldest);
+            // 已过期：条件覆盖，只有仍持有旧到期值的线程可以 reuse；
+            // 覆盖失败说明另一个并发请求已续期，本请求应判为重放。
+            if (seen.replace(nonce, existing, expiry)) {
+                return AcquireResult.ACQUIRED;
             }
+            Long refreshed = seen.get(nonce);
+            return refreshed != null && refreshed > now
+                    ? AcquireResult.REPLAY : AcquireResult.ACQUIRED;
         }
-        return false;
+        // 新插入后只清理过期项；绝不淘汰仍在 TTL 内的记录，否则重放历史可被噪声 nonce 挤出。
+        seen.entrySet().removeIf(e -> e.getValue() < now);
+        if (seen.size() > maxSize) {
+            seen.remove(nonce);
+            return AcquireResult.CACHE_FULL;
+        }
+        return AcquireResult.ACQUIRED;
     }
 }

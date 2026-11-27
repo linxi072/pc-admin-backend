@@ -1414,6 +1414,27 @@ mvn -o test          # 预期 638 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bi 防重放缓存饱和改为 fail-closed
+
+**目标**：缓存满时不淘汰仍有效的重放历史；饱和请求返回 429，命中重放仍返回 409。
+
+**验收标准**：`ReplayNonceServiceTest` 7 例 + `AntiReplayFilterCacheFullTest` 2 例全过；后端累计 643 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 有界与可信 | 缓存严格 ≤ maxSize；满时新 nonce 被拒而非挤掉有效记录 |
+| 过期语义 | 只清理过期项；过期 nonce 复用由条件覆盖保证并发只放行一次 |
+| 过滤器 | `CACHE_FULL` → 429 / AUTH_014；`REPLAY` → 409 / AUTH_013；均不执行后续链路 |
+| 兼容 | `isReplay()` 在缓存满时也返回 true（fail-closed），配置键不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='ReplayNonceServiceTest,AntiReplayFilterCacheFullTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 9, Failures: 0, Errors: 0
+mvn -o test          # 预期 643 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

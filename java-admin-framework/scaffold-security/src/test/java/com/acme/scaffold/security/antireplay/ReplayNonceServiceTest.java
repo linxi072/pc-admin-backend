@@ -1,5 +1,6 @@
 package com.acme.scaffold.security.antireplay;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,13 +51,45 @@ class ReplayNonceServiceTest {
 
     @Test
     void cacheShouldStayBoundedWhenAllEntriesUnexpired() throws Exception {
-        // 回归缺陷：原实现仅在条目过期时淘汰；高频请求下全部条目均在 TTL 内，
-        // seen 会持续超过 maxSize 无界增长。修复后严格有界。
+        // 缓存严格有界；饱和后新 nonce 被拒绝，而不是挤掉仍有效的重放历史。
         ReplayNonceService svc = service(600, 5);
         long now = 1_700_000_000_000L;
         for (int i = 0; i < 200; i++) {
             svc.isReplay("nonce-" + i, now);
         }
         assertTrue(cacheSize(svc) <= 5, "即使全部未过期，缓存也不得超过 maxSize");
+    }
+
+    @Test
+    void liveNonceShouldStillBeReplayAfterCacheFull() {
+        ReplayNonceService svc = service(60, 5);
+        long now = 1_700_000_000_000L;
+        for (int i = 0; i < 5; i++) {
+            assertEquals(ReplayNonceService.AcquireResult.ACQUIRED, svc.tryAcquire("nonce-" + i, now));
+        }
+
+        assertEquals(ReplayNonceService.AcquireResult.CACHE_FULL, svc.tryAcquire("noise", now));
+        assertEquals(ReplayNonceService.AcquireResult.REPLAY, svc.tryAcquire("nonce-0", now));
+        assertEquals(ReplayNonceService.AcquireResult.REPLAY, svc.tryAcquire("nonce-4", now));
+    }
+
+    @Test
+    void expiredEntriesShouldBePurgedBeforeCapacityCheck() {
+        ReplayNonceService svc = service(1, 2);
+        long now = 1_700_000_000_000L;
+        assertEquals(ReplayNonceService.AcquireResult.ACQUIRED, svc.tryAcquire("old", now));
+
+        assertEquals(ReplayNonceService.AcquireResult.ACQUIRED, svc.tryAcquire("fresh", now + 2_000L));
+        assertEquals(ReplayNonceService.AcquireResult.REPLAY, svc.tryAcquire("fresh", now + 2_000L));
+        assertEquals(ReplayNonceService.AcquireResult.ACQUIRED, svc.tryAcquire("old", now + 2_000L));
+    }
+
+    @Test
+    void isReplayShouldFailClosedWhenCacheFull() {
+        ReplayNonceService svc = service(60, 1);
+        long now = 1_700_000_000_000L;
+        svc.tryAcquire("occupied", now);
+
+        assertTrue(svc.isReplay("brand-new", now), "缓存满时旧接口也必须拒绝放行");
     }
 }

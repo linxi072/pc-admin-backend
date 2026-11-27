@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 防重放缓存饱和改为 fail-closed
+
+- **背景**：`ReplayNonceService` 在 nonce 缓存达到上限时会按过期时间淘汰“最早过期的未过期条目”。
+  攻击者只要先用一个合法 nonce 调用登录/刷新，再用大量噪声 nonce 填满缓存，就能把仍有效的重放证据挤出；
+  随后重放原请求即被放行，防重放形同虚设。过期分支的 `get + put` 也在并发边界下可能双双放行。
+- **实现**：新增 `AcquireResult`（`ACQUIRED` / `REPLAY` / `CACHE_FULL`）；缓存满时只清理过期条目，
+  若全部仍在 TTL 内则拒绝新 nonce 并 fail-closed，不再淘汰有效记录；过期复用改为 `replace` 条件覆盖，
+  并发续期只有一个请求放行。`AntiReplayFilter` 对饱和场景返回 429 / `AUTH_014`，重放仍为 409 / `AUTH_013`；
+  兼容旧调用方的 `isReplay()` 在缓存满时同样返回 true。
+- **测试**：`ReplayNonceServiceTest` 由 4 例扩到 7 例，新增有效 nonce 不被挤出、过期项优先清理、
+  旧接口 fail-closed；新增 `AntiReplayFilterCacheFullTest`（2 例）验证 429 / 409 映射与链路不继续执行。
+  后端测试 638 → 643 例。
+- **验证**：前端 158 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：启用防重放且请求峰值超过 `max-nonce-cache-size` 时，多余请求会收到 429，需调大缓存或缩短 TTL；
+  配置项与 HTTP 端点不变，新增的是错误码 `AUTH_014` 响应语义。
+
 ### OAuth2 用户令牌补齐租户与角色声明
 
 - **背景**：`OAuth2TokenProvider.issueUserToken()` 只写 `sub/client_id/scope/authorities/username/tokenVersion`，

@@ -27,6 +27,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>仅当 {@link AntiReplayProperties#isEnabled()} 为 true 时生效（默认关闭，opt-in），
  * 以避免在没有前端配合时阻断现有登录链路。未开启时 {@link #shouldNotFilter} 直接放行。
+ * nonce 缓存饱和且无可清理条目时 fail-closed 返回 429 / AUTH_014，不淘汰仍有效的重放历史。
  *
  * <p>执行顺序贴近 {@link com.acme.scaffold.security.ratelimit.RateLimitFilter}（HIGHEST_PRECEDENCE+5），
  * 这里取 +4，先于限流执行，使非法/重放请求尽早被拒。
@@ -84,8 +85,14 @@ public class AntiReplayFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (nonceService.isReplay(nonce)) {
+        ReplayNonceService.AcquireResult result = nonceService.tryAcquire(nonce);
+        if (result == ReplayNonceService.AcquireResult.REPLAY) {
             writeError(response, HttpStatus.CONFLICT, "AUTH_013", "检测到重复请求（nonce 已被使用，疑似重放）");
+            return;
+        }
+        if (result == ReplayNonceService.AcquireResult.CACHE_FULL) {
+            // fail-closed：宁可让合法请求稍后重试，也不淘汰仍有效的重放历史。
+            writeError(response, HttpStatus.TOO_MANY_REQUESTS, "AUTH_014", "防重放缓存已满，请稍后重试");
             return;
         }
 
