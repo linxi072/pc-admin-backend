@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.cache.annotation.CacheEvict;
 
 import org.springframework.cache.annotation.Cacheable;
@@ -124,7 +125,13 @@ public class TenantService {
         d.setStatus(status);
         d.setExpireAt(req.expireAt());
         d.setRemark(req.remark());
-        SqlWriters.insert(dsl, TN, d);
+        try {
+            SqlWriters.insert(dsl, TN, d);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同名租户创建：应用层查重与插入的时间窗由唯一键 uk_tenant_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409；tenant_code 不可变更，冲突面仅此一处。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "租户编码已存在");
+        }
         return d.getId();
     }
 

@@ -1713,6 +1713,28 @@ mvn -o test          # 预期 706 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bw 租户编码补齐数据库唯一约束
+
+**目标**：未删除租户编码全局唯一；并发创建同名租户由数据库兜底并返回清晰 409。
+
+**验收标准**：`TenantCodeUniqueIndexDdlTest` 3 例 + `TenantServiceCodeConflictTest` 2 例全过；
+后端累计 711 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `tenant_code_active` 使逻辑删除行退出唯一键，删除后可用同编码重建 |
+| 全局单列 | `sys_tenant` 为平台维表，唯一索引 `uk_tenant_code_active(tenant_code_active)` 不含 tenant 维度 |
+| 存量库 | 升级脚本按「加列 → 去重（version/id）→ 建索引」顺序执行 |
+| 冲突映射 | create 捕获 `DataIntegrityViolationException` → 409「租户编码已存在」；tenant_code 不可变更，冲突面仅创建路径 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='TenantCodeUniqueIndexDdlTest,TenantServiceCodeConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+mvn -o test          # 预期 711 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

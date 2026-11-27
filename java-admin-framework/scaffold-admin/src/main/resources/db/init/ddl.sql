@@ -826,6 +826,8 @@ CREATE TABLE `sys_tenant` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `tenant_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 tenant_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `tenant_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `tenant_code` ELSE NULL END) STORED,
     `tenant_name` VARCHAR(128) NOT NULL,
     `contact_name` VARCHAR(64) NULL,
     `contact_phone` VARCHAR(32) NULL,
@@ -840,6 +842,10 @@ CREATE TABLE `sys_tenant` (
     `updated_by` VARCHAR(64) NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 租户编码全局唯一（仅未删除行）：sys_tenant 为平台维表（租户豁免隔离），与 TenantService
+-- existsByTenantCode 的全局口径一致；tenant_code 不可变更，并发创建同名租户由数据库唯一键兜底，
+-- 防止开通 / 多区域路由 / 租户治理按编码命中不确定的租户。
+CREATE UNIQUE INDEX `uk_tenant_code_active` ON `sys_tenant` (`tenant_code_active`);
 
 CREATE TABLE `sys_form_submission` (
     `id` BIGINT UNSIGNED NOT NULL,

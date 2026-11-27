@@ -4,6 +4,26 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 租户编码补齐数据库唯一约束
+
+- **背景**：`sys_tenant` 没有租户编码唯一索引，`TenantService.existsByTenantCode()` 先查再写；
+  两个并发创建同名租户的请求都能通过应用层查重并落库。`tenant_code` 是租户开通（provision）、
+  多区域数据源路由与租户治理的外部绑定键，重复后按编码命中哪个租户取决于返回顺序，
+  路由与治理操作可能作用到错误租户。
+- **实现**：新库 `ddl.sql` 增加生成列 `tenant_code_active`（`deleted=0` 时取 `tenant_code`，
+  否则 NULL）与唯一索引 `uk_tenant_code_active(tenant_code_active)`——`sys_tenant` 为平台维表
+  （租户豁免隔离），唯一键为全局单列，与 `existsByTenantCode` 全局口径一致；存量库提供
+  `upgrade_tenant_code_unique_index.sql`（加列 → 去重 → 建索引）。`tenant_code` 不可变更
+  （外部系统已按此绑定），冲突面仅在创建路径：`create` 捕获唯一键冲突并转换为与预校验一致的
+  409「租户编码已存在」。
+- **测试**：新增 `TenantCodeUniqueIndexDdlTest`（3 例）与 `TenantServiceCodeConflictTest`（2 例），
+  覆盖生成列 / NULL 语义、全局单列口径、升级脚本顺序、并发创建冲突文案及正常路径不被误伤。
+  后端测试 706 → 711 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  高版本 / 最新 id 去重重复编码；唯一键不含 `tenant_code` 原列而是生成列，业务逻辑无需感知；
+  HTTP 端点、请求字段与权限码不变。
+
 ### 系统参数配置键补齐数据库唯一约束
 
 - **背景**：`sys_config` 没有配置键唯一索引，`ConfigService.existsByKey()` 先查再写；
