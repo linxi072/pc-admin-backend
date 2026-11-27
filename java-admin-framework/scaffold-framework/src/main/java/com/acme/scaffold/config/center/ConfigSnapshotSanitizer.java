@@ -1,8 +1,7 @@
 package com.acme.scaffold.config.center;
 
+import com.acme.scaffold.common.sensitive.SensitiveConfigKeys;
 import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -16,33 +15,19 @@ import java.util.Map;
 public final class ConfigSnapshotSanitizer {
 
     /** 敏感配置统一替换为该掩码，既不回显值也能保留键名供审计。 */
-    public static final String MASKED_VALUE = "******";
-
-    private static final String SECURITY_NAMESPACE = "app.security.";
-
-    private static final List<String> SENSITIVE_FRAGMENTS = List.of(
-            "secret", "password", "passwd", "pwd", "privatekey", "apikey", "accesskey",
-            "credential", "keystore", "authorization", "bearer", "token");
+    public static final String MASKED_VALUE = SensitiveConfigKeys.MASKED_VALUE;
 
     private ConfigSnapshotSanitizer() {
     }
 
     /** 判断配置键是否含密钥/口令语义；null 键按非敏感处理。 */
     public static boolean isSensitiveKey(String key) {
-        if (key == null) {
-            return false;
-        }
-        String lower = key.toLowerCase(Locale.ROOT);
-        if (lower.startsWith(SECURITY_NAMESPACE)) {
-            return true;
-        }
-        String normalized = lower.replaceAll("[^a-z0-9]", "");
-        return SENSITIVE_FRAGMENTS.stream().anyMatch(normalized::contains);
+        return SensitiveConfigKeys.isSensitive(key);
     }
 
     /** 敏感键返回固定掩码，其它键原样返回。 */
     public static String mask(String key, String value) {
-        return isSensitiveKey(key) ? MASKED_VALUE : value;
+        return SensitiveConfigKeys.mask(key, value);
     }
 
     /** 返回脱敏后的新 Map，不修改入参，保持原有遍历顺序。 */

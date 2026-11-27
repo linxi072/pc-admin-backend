@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 系统变量管理端补齐配置值脱敏
+
+- **背景**：`GET /api/system/configs`、`/groups`、`/key/{key}` 原样回显 `configValue` / `defaultValue`，
+  `notification.wecom.webhook-url?key=...` 与 `notification.dingtalk.webhook-url?access_token=...`
+  等机器人密钥可被任何持有 `system:config:read` 的主体直接读取；配置中心快照虽已脱敏，
+  但那是另一模块、另一条数据路径，系统参数管理接口完全未接入。
+- **实现**：把敏感键判定提升为 common 的 `SensitiveConfigKeys`（新增 `webhook` 语义片段），
+  `ConfigSnapshotSanitizer` 改为委托以保持两端一致；`ConfigService` 新增 `listForDisplay()` /
+  `listGroupedForDisplay()` / `getByKeyForDisplay()`，仅管理端出口对配置值与默认值掩码，
+  内部 `getByKey()` 仍返回原文供机器人适配器与系统配置端口使用。
+- **测试**：新增 `ConfigListSecretMaskTest`（4 例），覆盖列表、按键、分组出口脱敏、内部读取零影响及
+  普通配置空值兼容。后端测试 682 → 686 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：密钥类配置现在显示为 `******`，管理端无法通过该接口查看或回写原值，需走数据库/配置中心；
+  HTTP 端点、请求字段与内部业务读取语义不变。
+
 ### TokenVersion 缓存回填补齐失效代际
 
 - **背景**：`TokenVersionService.currentVersion()` 缓存 miss 后回库读版本再 `cache.put()`；

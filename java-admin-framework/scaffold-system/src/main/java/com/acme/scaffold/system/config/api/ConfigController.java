@@ -23,7 +23,8 @@ import org.springframework.web.bind.annotation.*;
  * 系统参数配置接口（动态配置中心）。
  *
  * <p>提供配置项的增删改查与按配置键动态读取；配置支持运行时生效，
- * 供各业务模块读取开关、阈值等可配置参数。</p>
+ * 供各业务模块读取开关、阈值等可配置参数。读取类端点对密钥/口令类配置值与默认值统一掩码，
+ * 内部业务读取不受影响。</p>
  */
 @Tag(name = "系统变量（参数配置）")
 @RestController
@@ -37,14 +38,14 @@ public class ConfigController {
     @GetMapping
     @PreAuthorize("hasAuthority('system:config:read')")
     public Result<List<ConfigView>> list() {
-        return Result.success(configService.list());
+        return Result.success(configService.listForDisplay());
     }
 
     @Operation(summary = "配置分组列表（按 key 命名空间前缀聚合）")
     @GetMapping("/groups")
     @PreAuthorize("hasAuthority('system:config:read')")
     public Result<List<ConfigGroupView>> listGrouped() {
-        return Result.success(configService.listGrouped());
+        return Result.success(configService.listGroupedForDisplay());
     }
 
     @Operation(summary = "刷新配置缓存（热更新：直改库或参数中心界面调整后无需重启即生效）")
@@ -60,7 +61,7 @@ public class ConfigController {
     @GetMapping("/key/{key}")
     @PreAuthorize("hasAuthority('system:config:read')")
     public Result<ConfigView> getByKey(@PathVariable String key) {
-        ConfigView vo = configService.getByKey(key);
+        ConfigView vo = configService.getByKeyForDisplay(key);
         if (vo == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "配置不存在");
         }

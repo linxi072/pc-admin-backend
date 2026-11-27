@@ -1627,6 +1627,27 @@ mvn -o test          # 预期 682 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bs 系统变量管理端补齐配置值脱敏
+
+**目标**：系统参数管理端点不回显 Webhook/口令类配置值；内部业务读取仍拿原文。
+
+**验收标准**：`ConfigListSecretMaskTest` 4 例全过；后端累计 686 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 共用判定 | common `SensitiveConfigKeys` 统一键名语义；配置中心快照委托同一实现 |
+| 管理出口 | 列表 / 分组 / 按键三类只读端点掩码 `configValue` 与 `defaultValue` |
+| 内部读取 | `getByKey()` 保持原文，机器人适配器与系统配置端口行为不变 |
+| 兼容 | 普通配置空值不抛异常；端点、请求字段与权限码不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='ConfigListSecretMaskTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 686 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

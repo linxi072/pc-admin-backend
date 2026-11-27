@@ -2,6 +2,7 @@ package com.acme.scaffold.system.config.service;
 import com.acme.scaffold.common.error.CommonErrorCode;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.sensitive.SensitiveConfigKeys;
 import com.acme.scaffold.common.validation.RecordStatus;
 import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -100,6 +102,35 @@ public class ConfigService {
         ConfigView vo = toVO(c);
         cache.put(key, vo);
         return vo;
+    }
+
+    /** 管理端展示用列表：敏感配置值与默认值统一掩码，键名保留供审计。 */
+    public List<ConfigView> listForDisplay() {
+        return list().stream().map(this::maskForDisplay).toList();
+    }
+
+    /** 管理端分组展示：组内条目同样脱敏，分组维度不变。 */
+    public List<ConfigGroupView> listGroupedForDisplay() {
+        return listGrouped().stream()
+                .map(g -> new ConfigGroupView(g.group(), g.label(),
+                        g.items().stream().map(this::maskForDisplay).toList()))
+                .toList();
+    }
+
+    /** 管理端按键展示：内部读取仍走 {@link #getByKey(String)} 保持原文，不在此处改动。 */
+    public ConfigView getByKeyForDisplay(String key) {
+        ConfigView vo = getByKey(key);
+        return vo == null ? null : maskForDisplay(vo);
+    }
+
+    private ConfigView maskForDisplay(ConfigView vo) {
+        String value = SensitiveConfigKeys.mask(vo.configKey(), vo.configValue());
+        String defaultValue = SensitiveConfigKeys.mask(vo.configKey(), vo.defaultValue());
+        if (Objects.equals(value, vo.configValue()) && Objects.equals(defaultValue, vo.defaultValue())) {
+            return vo;
+        }
+        return new ConfigView(vo.id(), vo.configKey(), vo.configName(), value, defaultValue,
+                vo.configType(), vo.remark(), vo.editable(), vo.status());
     }
 
     @Transactional
