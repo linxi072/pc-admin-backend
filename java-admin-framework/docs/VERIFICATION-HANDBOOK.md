@@ -1351,6 +1351,27 @@ mvn -o test          # 预期 619 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bf 代码生成模板补齐不可信文本转义
+
+**目标**：管理端传入的功能名/作者与表列注释不能注入生成的 Java / Vue / JS 源码；类名不得穿越 zip 路径。
+
+**验收标准**：`CodeTemplatesInjectionTest` 6 例全过；后端累计 625 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| Java 上下文 | `*/` 被拆开，`@Tag` 字符串中的引号被收敛，作者不会闭合块注释 |
+| Vue / JS 上下文 | `-->`、`"`、`<script>`、`{{...}}` 均被收敛，注释与模板结构不被打破 |
+| 标识符与路径 | `SqlTables` 引用仅含大写字母/数字/下划线；元信息推导的非法类名 fail-fast |
+| 兼容性 | 普通中文/ASCII 文本原样保留；文件数量、命名与 API 响应结构不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-codegen -am test -Dtest='CodeTemplatesInjectionTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 625 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

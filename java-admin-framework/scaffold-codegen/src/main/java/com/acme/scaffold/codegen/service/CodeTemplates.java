@@ -42,11 +42,12 @@ public final class CodeTemplates {
 
     /** 全部生成文件（顺序即预览 Tab 顺序）。 */
     public static List<GeneratedFileView> renderAll(TableMetaView meta, GenOption option, CodeGenProperties props) {
-        String author = (option.author() == null || option.author().isBlank()) ? props.getAuthor() : option.author();
-        String functionName = (option.functionName() == null || option.functionName().isBlank())
+        String rawAuthor = (option.author() == null || option.author().isBlank()) ? props.getAuthor() : option.author();
+        String rawFunctionName = (option.functionName() == null || option.functionName().isBlank())
                 ? (meta.comment() == null || meta.comment().isBlank() ? meta.className() : meta.comment())
                 : option.functionName();
-        Ctx ctx = new Ctx(meta, option, props, author, functionName);
+        Ctx ctx = new Ctx(meta, option, props,
+                TemplateEscapes.safeText(rawAuthor), TemplateEscapes.safeText(rawFunctionName));
         String cls = ctx.cls;
 
         List<GeneratedFileView> files = new ArrayList<>();
@@ -93,10 +94,11 @@ public final class CodeTemplates {
             this.meta = meta;
             this.option = option;
             this.props = props;
-            this.author = author;
-            this.functionName = functionName;
-            this.cls = (option.className() == null || option.className().isBlank())
-                    ? meta.className() : option.className().trim();
+            this.author = TemplateEscapes.safeText(author);
+            this.functionName = TemplateEscapes.safeText(functionName);
+            String rawClass = (option.className() == null || option.className().isBlank())
+                    ? meta.className() : option.className();
+            this.cls = TemplateEscapes.safeClassName(rawClass);
             this.var = Character.toLowerCase(cls.charAt(0)) + cls.substring(1);
             this.pkgSeg = packageSegment(option.moduleName());
             this.pathSeg = pathSegment(option.moduleName());
@@ -110,7 +112,7 @@ public final class CodeTemplates {
         }
 
         String tableRef() {
-            return "SqlTables." + toUpperSnake(meta.tableName());
+            return "SqlTables." + TemplateEscapes.safeIdentifier(meta.tableName());
         }
 
         String pkJavaType() {
@@ -131,7 +133,7 @@ public final class CodeTemplates {
             }
         }
         StringBuilder sb = new StringBuilder();
-        sb.append(header(c, "数据实体（对应 " + c.meta.tableName() + "）"));
+        sb.append(header(c, "数据实体（对应 " + TemplateEscapes.safeText(c.meta.tableName()) + "）"));
         sb.append("import ").append(String.join(";\nimport ", imports)).append(";\n\n");
         sb.append("@Data\n");
         sb.append("public class ").append(c.cls).append("DO {\n\n");
@@ -425,7 +427,7 @@ public final class CodeTemplates {
                 """
                 <!-- %1$s（表 %2$s）——由代码生成器生成，业务规则请手工补齐 -->
                 <template>
-                """.formatted(c.functionName, c.meta.tableName())
+                """.formatted(c.functionName, TemplateEscapes.safeText(c.meta.tableName()))
                         + vueTemplateBody(c));
     }
 
@@ -657,7 +659,7 @@ public final class CodeTemplates {
                 // DELETE /api/system/%3$s/{id}
                 export const %4$sRemove = (id) =>
                   request({ method: 'DELETE', url: '/api/system/%3$s/' + id })
-                """.formatted(c.functionName, c.meta.tableName(), c.pathSeg, var));
+                """.formatted(c.functionName, TemplateEscapes.safeText(c.meta.tableName()), c.pathSeg, var));
     }
 
     // ------------------------------------------------------------------
@@ -679,8 +681,9 @@ public final class CodeTemplates {
         return "/**\n"
                 + " * " + c.cls + rolePart + "\n"
                 + " *\n"
-                + " * <p>由代码生成器基于表 {@code " + c.meta.tableName() + "} 生成"
-                + (c.meta.comment() == null || c.meta.comment().isBlank() ? "" : "（" + c.meta.comment() + "）")
+                + " * <p>由代码生成器基于表 {@code " + TemplateEscapes.safeText(c.meta.tableName()) + "} 生成"
+                + (c.meta.comment() == null || c.meta.comment().isBlank()
+                        ? "" : "（" + TemplateEscapes.safeText(c.meta.comment()) + "）")
                 + "，作者 " + c.author + "。生成代码为骨架，业务规则请手工补齐。</p>\n"
                 + " */\n";
     }
@@ -700,7 +703,8 @@ public final class CodeTemplates {
     }
 
     private static String commentOf(ColumnMetaView col) {
-        return (col.comment() == null || col.comment().isBlank()) ? col.columnName() : col.comment();
+        String raw = (col.comment() == null || col.comment().isBlank()) ? col.columnName() : col.comment();
+        return TemplateEscapes.safeText(raw);
     }
 
     /** 生成 buildCondition 的条件行（按字段可选等值/模糊匹配，字符串走 contains、其余走 eq）。 */
@@ -712,7 +716,8 @@ public final class CodeTemplates {
             if (QUERY_EXCLUDE.contains(f) || QUERY_EXCLUDE.contains(cn)) {
                 continue;
             }
-            String fieldRef = c.tableRef() + ".field(\"" + col.columnName() + "\", " + classLiteral(col.javaType()) + ".class)";
+            String fieldRef = c.tableRef() + ".field(\"" + TemplateEscapes.safeText(col.columnName())
+                    + "\", " + classLiteral(col.javaType()) + ".class)";
             if ("String".equals(col.javaType())) {
                 sb.append("                if (q.").append(col.javaField()).append("() != null && !q.")
                         .append(col.javaField()).append("().isBlank()) {\n");
@@ -758,9 +763,5 @@ public final class CodeTemplates {
             case "Boolean" -> "Boolean";
             default -> "String";
         };
-    }
-
-    private static String toUpperSnake(String tableName) {
-        return tableName.trim().toUpperCase(java.util.Locale.ROOT);
     }
 }
