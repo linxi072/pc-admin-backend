@@ -1435,6 +1435,27 @@ mvn -o test          # 预期 643 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bj 幂等记录补齐数据库唯一约束
+
+**目标**：新库 DDL 与存量库升级脚本都提供 `(tenant_id, api_scope, idempotency_key)` 唯一键，兜底并发同键登记。
+
+**验收标准**：`IdempotencyUniqueIndexDdlTest` 3 例全过；后端累计 646 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 新库 | `ddl.sql` 内联 `uk_idem_tenant_scope_key`，字段与 `keyCondition()` 一致 |
+| 存量库 | 升级脚本先按 SUCCESS > FAILED > PROCESSING 去重，再建同名唯一索引 |
+| 口径 | 唯一键不含 `user_id`；跨用户共享同 key/scope 仍视为同一幂等请求 |
+| 运维 | 停写窗口 + 备份后执行；脚本无索引存在性守卫，重复执行会报错 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin -am test -Dtest='IdempotencyUniqueIndexDdlTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 646 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

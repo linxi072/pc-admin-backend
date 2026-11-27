@@ -10,6 +10,7 @@
 | `ddl.sql` | 手工执行 | 是 | 建库 `scaffold`（utf8mb4 / utf8mb4_0900_ai_ci）+ 全部表、索引、结构变更与表重命名，末尾建 `schema_baseline` 基线表 |
 | `dml.sql` | 手工执行 | 是 | 菜单 / 权限码 / 角色 / 用户 / 字典 / 参数 / 用户-角色-组织绑定等种子数据，末尾写 `schema_baseline` 基线标记；文件末附可选的存量库 `tenant_id` 回填例程 |
 | `README.md` | 说明 | — | 本文件 |
+| `upgrade_idempotency_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 幂等记录去重后补 `(tenant_id, api_scope, idempotency_key)` 唯一索引；新库无需执行 |
 
 原 `00_create_database.sql`、`01_full_schema.sql`、`02_backfill_tenant_id.sql`，以及
 `db/reference/{schema_ddl,data_dml}.sql`、`db/migration/V*.sql` 已归并进上述两个文件，
@@ -61,6 +62,9 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
   需另行导入 Quartz 官方表结构脚本。
 - **客户端**：`ddl.sql`/`dml.sql` 均为标准 SQL（无 `DELIMITER $$`、无存储过程体），
   普通 MySQL 客户端即可执行，无需特殊指令支持。
+- **幂等唯一索引**：新库由 `ddl.sql` 内联创建 `uk_idem_tenant_scope_key`；存量库需在停写窗口
+  先按 `upgrade_idempotency_unique_index.sql` 去重再补索引，否则并发同键请求仍可能重复执行业务。
+  该升级脚本不做索引存在性守卫，重复执行前请先按文件头注释检查。
 
 ## 5. 校验
 

@@ -4,6 +4,22 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 幂等记录补齐数据库唯一约束
+
+- **背景**：`IdempotencyService.doAcquire()` 先 `find` 再 `insert`，并发兜底依赖
+  `DataIntegrityViolationException` 重查；但 `sys_idempotency_record` 的 DDL 中没有唯一索引，
+  两个同租户、同 `Idempotency-Key`、同 `api_scope` 的并发请求都能插入成功并双双 `PROCEED`，
+  审批/转办/消息发送类接口会被执行两次。此前只在写路径补了租户条件，数据库兜底始终缺失。
+- **实现**：新库 `db/init/ddl.sql` 增加 `uk_idem_tenant_scope_key`
+  （`tenant_id, api_scope, idempotency_key`），与 `keyCondition()` 读写口径一致；
+  存量库提供 `db/init/upgrade_idempotency_unique_index.sql`，先按 SUCCESS > FAILED > PROCESSING、
+  同级保留最新 id 的规则去重，再创建同名唯一索引。升级说明同步写入 `db/init/README.md`。
+- **测试**：新增 `IdempotencyUniqueIndexDdlTest`（3 例），校验新库 DDL 的唯一键定义、
+  表字段口径以及存量升级脚本「先去重后建索引」顺序。后端测试 643 → 646 例。
+- **验证**：前端 158 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库必须在停写窗口备份后执行升级脚本；脚本不做索引存在性守卫，重复执行会报索引已存在。
+  唯一键不含 `user_id`，因为幂等查询本身按租户 + key + scope 定位，跨用户共享同一 key 仍视为同一请求。
+
 ### 防重放缓存饱和改为 fail-closed
 
 - **背景**：`ReplayNonceService` 在 nonce 缓存达到上限时会按过期时间淘汰“最早过期的未过期条目”。

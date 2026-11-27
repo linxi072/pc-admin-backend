@@ -485,6 +485,9 @@ CREATE TABLE `sys_idempotency_record` (
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 幂等登记唯一键：与 IdempotencyService#keyCondition 的 (tenant_id, api_scope, idempotency_key) 读写口径一致，
+-- 并发同键请求由数据库唯一约束兜底，避免双写后重复执行业务。
+CREATE UNIQUE INDEX `uk_idem_tenant_scope_key` ON `sys_idempotency_record` (`tenant_id`, `api_scope`, `idempotency_key`);
 
 CREATE TABLE `sys_job` (
     `id` BIGINT UNSIGNED NOT NULL,
