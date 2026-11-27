@@ -1,6 +1,6 @@
 -- 存量库升级：为 sys_idempotency_record 补 (tenant_id, api_scope, idempotency_key) 唯一索引。
 -- 新库无需执行：db/init/ddl.sql 已内联同名唯一索引。
--- 执行约束：先备份、停写窗口内执行；本脚本不做索引存在性守卫，重复执行会报索引已存在。
+-- 执行约束：先备份、建议停写窗口内执行；加列与建索引均带存在性守卫（information_schema + PREPARE/EXECUTE 动态 SQL，非存储过程），可安全重复执行；去重 DELETE 天然幂等。
 -- 前置检查（应为 0 行）：
 --   SELECT index_name FROM information_schema.STATISTICS
 --   WHERE table_schema = DATABASE() AND table_name = 'sys_idempotency_record'
@@ -27,5 +27,12 @@ JOIN (
     WHERE rn > 1
 ) dup ON dup.id = r.id;
 
-CREATE UNIQUE INDEX `uk_idem_tenant_scope_key`
-    ON `sys_idempotency_record` (`tenant_id`, `api_scope`, `idempotency_key`);
+SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE table_schema = DATABASE() AND table_name = 'sys_idempotency_record' AND index_name = 'uk_idem_tenant_scope_key');
+SET @ddl := IF(@idx_exists = 0,
+    'CREATE UNIQUE INDEX `uk_idem_tenant_scope_key`
+    ON `sys_idempotency_record` (`tenant_id`, `api_scope`, `idempotency_key`)',
+    'SELECT ''uk_idem_tenant_scope_key 索引已存在，跳过建索引'' AS note');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

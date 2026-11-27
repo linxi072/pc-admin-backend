@@ -78,7 +78,7 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
   普通 MySQL 客户端即可执行，无需特殊指令支持。
 - **幂等唯一索引**：新库由 `ddl.sql` 内联创建 `uk_idem_tenant_scope_key`；存量库需在停写窗口
   先按 `upgrade_idempotency_unique_index.sql` 去重再补索引，否则并发同键请求仍可能重复执行业务。
-  该升级脚本不做索引存在性守卫，重复执行前请先按文件头注释检查。
+  升级脚本加列 / 建索引均带存在性守卫（information_schema + PREPARE/EXECUTE 动态 SQL），可安全重复执行。
 - **表单编码唯一索引**：新库由 `ddl.sql` 内联生成列 `form_code_active`（逻辑删除行为 NULL）与
   `uk_form_tenant_code_active`；存量库按 `upgrade_form_code_unique_index.sql` 先去重再建索引。
   唯一性只覆盖未删除行，逻辑删除后可用同编码重建。

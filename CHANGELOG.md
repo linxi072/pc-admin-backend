@@ -4,6 +4,25 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 升级脚本统一存在性守卫
+
+- **背景**：`db/init/` 下 15 个 `upgrade_*.sql` 存量库升级脚本的加列与建索引均为裸 DDL，
+  重复执行会报「重复列 / 索引已存在」中断；文件头注释依赖 DBA 手工做前置检查，
+  存量库升级容错性差。
+- **实现**：全部脚本的 `ALTER TABLE ... ADD COLUMN` 与 `CREATE UNIQUE INDEX` 统一改为
+  `information_schema` 存在性检查 + `IF(...)` 动态 SQL + `PREPARE/EXECUTE/DEALLOCATE` 执行
+  （标准 SQL，非存储过程，符合 no-procedure 门禁）；列守卫按表名 + 列名、索引守卫按
+  表名 + 索引名精确检查，已存在则输出跳过提示；去重 `DELETE` 天然幂等无需守卫。
+  双列脚本（`upgrade_user_contact_unique_index.sql`）按列拆分为两个独立守卫块，
+  单列已存在不影响另一列补齐。脚本头部「执行约束」注释与 init README 说明同步更新。
+- **测试**：新增 `UpgradeScriptGuardDdlTest`（3 例）扫描全部 15 个脚本，锁定「守卫必在、
+  无裸 DDL、守卫按表/列（索引）精确检查」契约；既有 15 个 `*UniqueIndexDdlTest`
+  （45 例）全过，确认脚本结构断言与守卫兼容。后端测试 763 → 766 例。
+- **验证**：前端 161 例、门禁 --strict 全过（含 no-procedure）、Lint（0 errors）与
+  Vite 生产构建均通过。
+- **注意**：守卫仅保证「重复执行不报错」，存量库升级仍须先备份并在停写窗口执行；
+  `PREPARE/EXECUTE` 为 MySQL 标准 SQL，普通客户端可执行，不引入存储过程。
+
 ### 字典数据值补齐数据库唯一约束
 
 - **背景**：`sys_dict_data` 没有字典值唯一索引，`DictDataService.create()` 与 `update()`

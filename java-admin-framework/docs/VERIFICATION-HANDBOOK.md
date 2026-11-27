@@ -1941,6 +1941,28 @@ mvn -o test          # 预期 763 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6cg 升级脚本统一存在性守卫
+
+**目标**：全部 `upgrade_*.sql` 加列 / 建索引带存在性守卫，可安全重复执行，不绕过 no-procedure 门禁。
+
+**验收标准**：`UpgradeScriptGuardDdlTest` 3 例 + 既有 15 个 `*UniqueIndexDdlTest`（45 例）
+全过；后端累计 766 例、前端 161 例、门禁 --strict 全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 守卫必在 | 每个脚本至少一个 `information_schema` 存在性守卫块（列：COLUMNS 按表+列；索引：STATISTICS 按表+索引名） |
+| 执行方式 | `IF(...)` 动态 SQL + `PREPARE stmt / EXECUTE stmt / DEALLOCATE PREPARE stmt`，标准 SQL 非存储过程 |
+| 无裸 DDL | 行首不得直接出现 `ALTER TABLE` / `CREATE UNIQUE INDEX` 语句（守卫字符串内除外） |
+| 脚本头注释 | 「执行约束」行说明守卫语义与可重复执行；init README 同步更新 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin -am test -Dtest='UpgradeScriptGuardDdlTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 766 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0（no-procedure 检查确认动态 SQL 合规）
+```
+
 ---
 
 ## 3.7 组件库（已移除）
