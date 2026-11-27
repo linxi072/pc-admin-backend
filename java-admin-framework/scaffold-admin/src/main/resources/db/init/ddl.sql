@@ -75,6 +75,8 @@ CREATE TABLE `sys_org` (
     `parent_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `ancestors` VARCHAR(1000) NOT NULL DEFAULT '0',
     `org_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 org_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `org_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `org_code` ELSE NULL END) STORED,
     `org_name` VARCHAR(128) NOT NULL,
     `org_type` VARCHAR(32) NOT NULL DEFAULT 'DEPARTMENT',
     `sort_no` INT NOT NULL DEFAULT 0,
@@ -87,6 +89,10 @@ CREATE TABLE `sys_org` (
     `updated_by` BIGINT UNSIGNED NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- sys_org 为业务表（按租户隔离，各租户独立机构树）：org_code 租户内唯一，
+-- 唯一键含 tenant 维度，与 OrgService.existsByCode 的租户隔离查重口径一致。
+CREATE UNIQUE INDEX `uk_org_tenant_code_active` ON `sys_org` (`tenant_id`, `org_code_active`);
 
 CREATE TABLE `sys_user_org` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

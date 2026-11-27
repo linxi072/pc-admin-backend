@@ -4,6 +4,27 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 机构编码补齐数据库唯一约束
+
+- **背景**：`sys_org` 没有机构编码唯一索引，`OrgService.create()` 与 `update()`
+  先查再写（`update` 允许改写 `org_code`）；同租户内两个并发创建或并发改码的请求都能通过
+  应用层查重并落库，同一租户出现两条同编码未删除机构。机构编码是数据权限
+  （`sys_role_data_scope` 部门维度）、审批主管解析与外部系统组织同步的事实键，
+  重复后按编码定位机构命中哪条取决于返回顺序，授权与审批路由可能作用到错误部门。
+- **实现**：新库 `ddl.sql` 增加生成列 `org_code_active`（`deleted=0` 时取 `org_code`，
+  否则 NULL）与唯一索引 `uk_org_tenant_code_active(tenant_id, org_code_active)`——
+  `sys_org` 为业务表（各租户独立机构树），唯一键含 tenant 维度，与
+  `existsByCode` 的租户隔离查重口径一致；存量库提供 `upgrade_org_code_unique_index.sql`
+  （加列 → 去重 → 建索引）。冲突面含创建与更新路径（`update` 允许改码）：
+  `create` / `update` 捕获唯一键冲突并转换为与预校验一致的 409「机构编码已存在」。
+- **测试**：新增 `OrgCodeUniqueIndexDdlTest`（3 例）与 `OrgServiceCodeConflictTest`（3 例），
+  覆盖生成列 / NULL 语义、租户内唯一口径（去重按租户分组）、升级脚本顺序、并发创建与
+  改码冲突文案及正常路径不被误伤。后端测试 721 → 727 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  租户 + 高版本 / 最新 id 去重重复编码；唯一键不含 `org_code` 原列而是生成列，业务逻辑无需感知；
+  HTTP 端点、请求字段与权限码不变。
+
 ### 开放平台客户端 ID 补齐数据库唯一约束
 
 - **背景**：`sys_openapi_client` 没有客户端 ID 唯一索引，`OpenApiClientService.create()`

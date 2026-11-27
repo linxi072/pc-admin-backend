@@ -33,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -173,7 +174,13 @@ public class OrgService {
         } else {
             org.setAncestors("0");
         }
-        SqlWriters.insert(dsl, ORG, org);
+        try {
+            SqlWriters.insert(dsl, ORG, org);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同编码创建：应用层查重与插入的时间窗由唯一键 uk_org_tenant_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "机构编码已存在");
+        }
         return org.getId();
     }
 
@@ -221,12 +228,18 @@ public class OrgService {
         org.setSortNo(request.sortNo() == null ? existing.getSortNo() : request.sortNo());
         org.setLeaderUserId(request.leaderUserId());
         org.setStatus(RecordStatus.mergeOrKeep(request.status(), existing.getStatus()));
-        if (request.leaderUserId() == null) {
-            // 清除负责人：updateById 的 NOT_NULL 策略会跳过 null 字段导致旧值残留，
-            // 须显式置空（与 ProfileService 解绑手机号/邮箱同一范式）
-            SqlWriters.updateByIdWithNulls(dsl, ORG, id, org, Set.of("leader_user_id"));
-        } else {
-            SqlWriters.updateById(dsl, ORG, id, org);
+        try {
+            if (request.leaderUserId() == null) {
+                // 清除负责人：updateById 的 NOT_NULL 策略会跳过 null 字段导致旧值残留，
+                // 须显式置空（与 ProfileService 解绑手机号/邮箱同一范式）
+                SqlWriters.updateByIdWithNulls(dsl, ORG, id, org, Set.of("leader_user_id"));
+            } else {
+                SqlWriters.updateById(dsl, ORG, id, org);
+            }
+        } catch (DataIntegrityViolationException e) {
+            // 并发改码 / 并发同码创建：唯一键 uk_org_tenant_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409（update 允许改写 org_code，冲突面含更新路径）。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "机构编码已存在");
         }
     }
 
