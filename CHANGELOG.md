@@ -4,6 +4,24 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 实时推送管理补齐租户可见范围
+
+- **背景**：`RealtimeController` 的在线会话列表、在线总数、定向推送与广播仅校验权限码，
+  `GatewayNode.onlineUserCounts()` 返回全网关 userId，`pushToUsers` 可向任意 userId 推送通知。
+  被授予 `system:realtime:*` 的非超管主体可跨租户枚举在线用户并注入“系统通知”，
+  与已修复的在线用户管理权限缺口同源。
+- **实现**：新增 `RealtimeUserDirectoryPort`（realtime 定义、system 以 `RealtimeUserDirectoryAdapter`
+  实现，保持 realtime → common 单向依赖），按当前主体租户查询活跃用户集合；强隔离开启时显式带
+  `tenant_id` 条件，未开启时保留平台视图。`RealtimeAdminService` 统一以该集合过滤在线会话、
+  计算在线数、限定广播目标；定向推送出现范围外 userId 即 403 拒绝整个请求。无登录主体或目录端口
+  缺失时 fail-closed 返回空集合。
+- **测试**：新增 `RealtimeAdminScopeTest`（5 例）与 `RealtimeUserDirectoryAdapterTest`（2 例），
+  覆盖会话过滤、在线数、越权推送拒绝、广播收敛、无主体 fail-closed 及适配器租户条件。
+  后端测试 663 → 670 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：广播改为“按可见用户逐人推送”，返回值为成功触达的用户数而非连接数；
+  定向推送越权统一返回 403 且不泄露目标是否存在。权限码与 HTTP 端点不变。
+
 ### 幂等 FAILED 重试补齐状态 CAS
 
 - **背景**：业务失败后记录置 `FAILED`，允许同 key 指纹重试。`doAcquire()` 判定 `PROCEED` 后

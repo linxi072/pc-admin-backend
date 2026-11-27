@@ -1543,6 +1543,27 @@ mvn -o test          # 预期 663 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bo 实时推送管理补齐租户可见范围
+
+**目标**：在线会话、在线数与推送目标按当前主体租户收敛；越权用户推送整单拒绝且无主体 fail-closed。
+
+**验收标准**：`RealtimeAdminScopeTest` 5 例 + `RealtimeUserDirectoryAdapterTest` 2 例全过；后端累计 670 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 端口倒置 | realtime 定义 `RealtimeUserDirectoryPort`，system 适配器查用户表，不引入反向模块依赖 |
+| 会话与计数 | 在线列表只含可见用户；在线总数按可见会话数求和 |
+| 推送边界 | 广播按可见用户逐人推送；定向推送含范围外用户即 403，不执行任何投递 |
+| 隔离与兜底 | 强隔离下用户查询带 `tenant_id`；无主体 / 无端口时 fail-closed |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-realtime,scaffold-system -am test -Dtest='RealtimeAdminScopeTest,RealtimeUserDirectoryAdapterTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 7, Failures: 0, Errors: 0
+mvn -o test          # 预期 670 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）
