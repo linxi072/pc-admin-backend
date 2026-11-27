@@ -1564,6 +1564,27 @@ mvn -o test          # 预期 670 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bp 表单定义缓存键补齐租户维度
+
+**目标**：强隔离下同名表单编码按租户分键缓存，避免跨租户渲染错误 Schema / 提交到错误目标。
+
+**验收标准**：`FormDefinitionCacheKeyTenantTest` 3 例全过；后端累计 673 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 租户分键 | `T{tenantId}|{formCode}`；不同租户同名编码产生两个独立缓存条目 |
+| 单租户兼容 | 隔离关闭时固定 `T0|{formCode}`，行为不变 |
+| 写路径 | create / update / delete 继续 `refreshCache()` 全量失效，覆盖所有租户 |
+| 边界 | 旧无前缀条目不会被命中，重启或写操作后清理 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='FormDefinitionCacheKeyTenantTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 673 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

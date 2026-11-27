@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 表单定义缓存键补齐租户维度
+
+- **背景**：`FormDefinitionService.codeCache` 以裸 `form_code` 为键，而数据库读取经
+  `SqlWriters.scopedSelect` 按租户过滤。强隔离下两个租户使用同一表单编码时，租户 A 先加载的
+  启用定义会被租户 B 的 `getEnabledByCode` 命中，导致渲染到另一租户的 Schema，甚至按 A 的
+  `targetType` 提交数据到错误目标。
+- **实现**：缓存键改为 `cacheKey(formCode)`，强隔离下为 `T{tenantId}|{formCode}`，隔离关闭时固定
+  `T0|{formCode}`；写操作继续全量失效，覆盖所有租户。单租户部署行为保持不变。
+- **测试**：新增 `FormDefinitionCacheKeyTenantTest`（3 例），覆盖同名编码跨租户生成两个缓存键、
+  隔离关闭固定 T0、当前租户键稳定。后端测试 670 → 673 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：旧的无前缀缓存条目不会被新口径命中，重启或任一写操作触发 `refreshCache()` 即可清理；
+  HTTP 端点、请求字段与 Schema 校验规则不变。
+
 ### 实时推送管理补齐租户可见范围
 
 - **背景**：`RealtimeController` 的在线会话列表、在线总数、定向推送与广播仅校验权限码，

@@ -2,6 +2,7 @@ package com.acme.scaffold.system.form.service;
 import com.acme.scaffold.common.error.CommonErrorCode;
 
 import com.acme.scaffold.common.exception.BusinessException;
+import com.acme.scaffold.common.tenant.TenantEnforcement;
 import com.acme.scaffold.mybatis.dsl.Condition;
 import com.acme.scaffold.mybatis.dsl.DSL;
 import com.acme.scaffold.mybatis.dsl.DSLContext;
@@ -25,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 表单定义应用服务（V47 低代码表单试点 / M22 spike → M22 深化：表单定义管理 CRUD）。
  *
- * <p><b>只读面</b>（list / getByCode / getEnabledByCode）+ 按编码缓存沿用 spike 实现。</p>
+ * <p><b>只读面</b>（list / getByCode / getEnabledByCode）+ 按「租户 + 编码」缓存沿用 spike 实现，
+ * 强隔离下同名表单编码不会跨租户串缓存。</p>
  *
  * <p><b>管理写面</b>（create / update / delete，本期正式立项）：落库前经
  * {@link FormSchemaRules#validate} 校验 Schema 结构（version / title / fields / 字段键 / 类型白名单 /
@@ -44,7 +46,7 @@ public class FormDefinitionService {
 
     private final DSLContext dsl;
 
-    /** 按编码缓存（spike 单租户 tenant=0 口径，键为 form_code）。 */
+    /** 按「租户 + 编码」缓存；单租户部署固定 T0 前缀，保持既有行为。 */
     private final Map<String, FormDefinition> codeCache = new ConcurrentHashMap<>();
 
     /** 全部表单定义（含停用，按 id 升序，供前端选择器/全量联动）。 */
@@ -68,12 +70,22 @@ public class FormDefinitionService {
 
     /** 按编码取「启用中」表单定义（渲染面入口；停用/不存在均抛 NOT_FOUND）。 */
     public FormDefinitionView getEnabledByCode(String formCode) {
-        FormDefinition d = codeCache.computeIfAbsent(formCode, this::loadEnabledByCode);
+        FormDefinition d = codeCache.computeIfAbsent(cacheKey(formCode), this::loadEnabledByCode);
         // 缓存可能来自写操作前的历史加载：停用态一律拒绝下发
         if (d == null) {
             throw new BusinessException(CommonErrorCode.NOT_FOUND, "表单定义不存在或已停用");
         }
         return FormDefinitionView.of(d);
+    }
+
+    /**
+     * 缓存键：强隔离下带当前租户前缀，避免租户 A 先加载的启用表单被租户 B 同名编码命中；
+     * 隔离关闭时固定 T0，保持单租户部署行为不变。
+     */
+    private String cacheKey(String formCode) {
+        String tenant = TenantEnforcement.isEnabled()
+                ? "T" + TenantEnforcement.currentTenantId() : "T0";
+        return tenant + "|" + formCode;
     }
 
     /** 全量失效缓存（写操作后调用）。 */
