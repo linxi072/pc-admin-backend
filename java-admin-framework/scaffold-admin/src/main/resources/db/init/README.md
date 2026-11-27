@@ -11,6 +11,7 @@
 | `dml.sql` | 手工执行 | 是 | 菜单 / 权限码 / 角色 / 用户 / 字典 / 参数 / 用户-角色-组织绑定等种子数据，末尾写 `schema_baseline` 基线标记；文件末附可选的存量库 `tenant_id` 回填例程 |
 | `README.md` | 说明 | — | 本文件 |
 | `upgrade_idempotency_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 幂等记录去重后补 `(tenant_id, api_scope, idempotency_key)` 唯一索引；新库无需执行 |
+| `upgrade_form_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 表单定义补生成列 `form_code_active` 与 `(tenant_id, form_code_active)` 唯一索引；新库无需执行 |
 
 原 `00_create_database.sql`、`01_full_schema.sql`、`02_backfill_tenant_id.sql`，以及
 `db/reference/{schema_ddl,data_dml}.sql`、`db/migration/V*.sql` 已归并进上述两个文件，
@@ -65,6 +66,9 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
 - **幂等唯一索引**：新库由 `ddl.sql` 内联创建 `uk_idem_tenant_scope_key`；存量库需在停写窗口
   先按 `upgrade_idempotency_unique_index.sql` 去重再补索引，否则并发同键请求仍可能重复执行业务。
   该升级脚本不做索引存在性守卫，重复执行前请先按文件头注释检查。
+- **表单编码唯一索引**：新库由 `ddl.sql` 内联生成列 `form_code_active`（逻辑删除行为 NULL）与
+  `uk_form_tenant_code_active`；存量库按 `upgrade_form_code_unique_index.sql` 先去重再建索引。
+  唯一性只覆盖未删除行，逻辑删除后可用同编码重建。
 
 ## 5. 校验
 

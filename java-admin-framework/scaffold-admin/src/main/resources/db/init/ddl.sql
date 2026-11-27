@@ -742,6 +742,8 @@ CREATE TABLE `sys_form_definition` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `form_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 form_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `form_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `form_code` ELSE NULL END) STORED,
     `form_name` VARCHAR(128) NOT NULL,
     `schema_json` JSON NOT NULL,
     `target_type` VARCHAR(32) NOT NULL DEFAULT 'NONE',
@@ -754,6 +756,9 @@ CREATE TABLE `sys_form_definition` (
     `updated_by` VARCHAR(64) NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 表单编码租户内唯一（仅启用中的逻辑未删除行）：与 FormDefinitionService.existsByCode 口径一致，
+-- 并发创建/改码由数据库唯一键兜底；逻辑删除后可用同编码重建。
+CREATE UNIQUE INDEX `uk_form_tenant_code_active` ON `sys_form_definition` (`tenant_id`, `form_code_active`);
 
 -- 表单定义版本快照（E8 低代码深化）：发布时固化不可变 schema，支持回滚；version 为乐观锁，version_no 为业务版本号。
 CREATE TABLE `sys_form_definition_version` (

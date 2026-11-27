@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -119,7 +120,12 @@ public class FormDefinitionService {
         d.setTargetType(target);
         d.setEnabled(req.enabled() != null && req.enabled() ? 1 : 0);
         d.setRemark(req.remark());
-        SqlWriters.insert(dsl, SqlTables.FORM_DEFINITION, d);
+        try {
+            SqlWriters.insert(dsl, SqlTables.FORM_DEFINITION, d);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同编码创建：应用层查重与插入的时间窗由唯一键裁决，避免落到通用 409 文案。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "表单编码已存在");
+        }
         refreshCache();
         return d.getId();
     }
@@ -148,7 +154,11 @@ public class FormDefinitionService {
         d.setEnabled(req.enabled() != null ? (req.enabled() ? 1 : 0)
                 : (existing.getEnabled() == null ? 0 : existing.getEnabled()));
         d.setRemark(req.remark());
-        SqlWriters.updateById(dsl, SqlTables.FORM_DEFINITION, id, d);
+        try {
+            SqlWriters.updateById(dsl, SqlTables.FORM_DEFINITION, id, d);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(CommonErrorCode.CONFLICT, "表单编码已存在");
+        }
         refreshCache();
     }
 

@@ -1585,6 +1585,27 @@ mvn -o test          # 预期 673 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bq 表单编码补齐数据库唯一约束
+
+**目标**：同一租户内未删除表单编码唯一；并发创建/改码由数据库兜底并返回清晰 409。
+
+**验收标准**：`FormDefinitionUniqueIndexDdlTest` 3 例 + `FormDefinitionCodeConflictTest` 2 例全过；后端累计 678 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `form_code_active` 使逻辑删除行退出唯一键，允许删除后同编码重建 |
+| 新库 | `ddl.sql` 内联生成列与 `uk_form_tenant_code_active(tenant_id, form_code_active)` |
+| 存量库 | 升级脚本按「加列 → 去重（version/id）→ 建索引」顺序执行 |
+| 冲突映射 | 服务层捕获 `DataIntegrityViolationException` → 409「表单编码已存在」 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='FormDefinitionUniqueIndexDdlTest,FormDefinitionCodeConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+mvn -o test          # 预期 678 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

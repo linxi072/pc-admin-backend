@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 表单编码补齐数据库唯一约束
+
+- **背景**：`FormDefinitionService.existsByCode()` 先查再写，但 `sys_form_definition` 没有唯一索引；
+  两个并发创建或改码请求都能通过应用层查重并落库，同一租户出现同名启用表单，渲染面按缓存键
+  取到的 Schema 取决于命中哪条记录，提交目标也可能随之漂移。
+- **实现**：新库 `ddl.sql` 增加生成列 `form_code_active`（`deleted=0` 时取 `form_code`，否则 NULL）
+  与唯一索引 `uk_form_tenant_code_active(tenant_id, form_code_active)`，只约束未删除行，逻辑删除后
+  仍可用同编码重建；存量库提供 `upgrade_form_code_unique_index.sql`，按高版本/最新 id 去重后建列建索引。
+  服务层捕获唯一键冲突并转换为清晰的 409「表单编码已存在」。
+- **测试**：新增 `FormDefinitionUniqueIndexDdlTest`（3 例）与 `FormDefinitionCodeConflictTest`（2 例），
+  覆盖生成列/NULL 语义、升级脚本顺序、并发创建与改码冲突文案。后端测试 673 → 678 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列/索引存在性守卫；唯一键不含 `form_code`
+  原列而是生成列，业务逻辑无需感知，请求字段与 HTTP 端点不变。
+
 ### 表单定义缓存键补齐租户维度
 
 - **背景**：`FormDefinitionService.codeCache` 以裸 `form_code` 为键，而数据库读取经
