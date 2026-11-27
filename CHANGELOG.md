@@ -4,6 +4,24 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 用户名补齐数据库唯一约束
+
+- **背景**：`sys_user` 没有用户名唯一索引，`UserService.existsByUsername()` 先查再写；
+  两个并发创建同名账号的请求都能通过应用层查重并落库，同一租户出现两个同名未删除账号。
+  登录与凭证链路按 `username` 查询命中哪条取决于返回顺序，身份、角色绑定与令牌失效
+  （`bumpUsers` 只作用于命中行）都可能作用在错误账号上。
+- **实现**：新库 `ddl.sql` 增加生成列 `username_active`（`deleted=0` 时取 `username`，否则 NULL）
+  与唯一索引 `uk_user_tenant_username_active(tenant_id, username_active)`，与 `existsByUsername`
+  「租户内、未删除行」口径一致；存量库提供 `upgrade_user_username_unique_index.sql`，
+  按高版本/最新 id 去重后加列建索引。服务层捕获唯一键冲突并转换为与预校验一致的
+  409「用户名已存在」，正常创建路径不受影响。
+- **测试**：新增 `UserUsernameUniqueIndexDdlTest`（3 例）与 `UserServiceUsernameConflictTest`（2 例），
+  覆盖生成列/NULL 语义、升级脚本顺序、并发创建冲突文案与正常路径不被误伤。后端测试 686 → 691 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列/索引存在性守卫；唯一键不含
+  `username` 原列而是生成列，业务逻辑无需感知，逻辑删除后可用同用户名重建；HTTP 端点与
+  请求字段不变。
+
 ### 系统变量管理端补齐配置值脱敏
 
 - **背景**：`GET /api/system/configs`、`/groups`、`/key/{key}` 原样回显 `configValue` / `defaultValue`，

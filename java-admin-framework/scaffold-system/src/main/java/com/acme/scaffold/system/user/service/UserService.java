@@ -60,6 +60,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -148,7 +149,13 @@ public class UserService {
         user.setPasswordChangedAt(LocalDateTime.now());
         // 设计文档 §5.3：首次登录强制改密（password_expired=1），新用户必须先改密再进入系统
         user.setPasswordExpired(1);
-        SqlWriters.insert(dsl, USER, user);
+        try {
+            SqlWriters.insert(dsl, USER, user);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同用户名创建：应用层查重与插入的时间窗由数据库唯一键 uk_user_tenant_username_active
+            // 兜底裁决，转换为与预校验一致的清晰 409，避免落到通用异常文案。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "用户名已存在");
+        }
 
         // 记录初始口令到密码历史，纳入「禁止复用最近 5 次」安全基线
         passwordHistoryService.record(user.getId(), encodedPassword);

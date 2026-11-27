@@ -29,6 +29,8 @@ CREATE TABLE `sys_user` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `username` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 username，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `username_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `username` ELSE NULL END) STORED,
     `password_hash` VARCHAR(255) NOT NULL,
     `display_name` VARCHAR(100) NOT NULL,
     `mobile` VARCHAR(32) NULL,
@@ -55,6 +57,9 @@ CREATE TABLE `sys_user` (
     `mask_mobile` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '对外展示时脱敏手机号',
     `discoverable` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '允许被其他用户搜索到'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 用户名租户内唯一（仅未删除行）：与 UserService.existsByUsername 口径一致，
+-- 并发创建同名账号由数据库唯一键兜底；逻辑删除后可用同用户名重建。
+CREATE UNIQUE INDEX `uk_user_tenant_username_active` ON `sys_user` (`tenant_id`, `username_active`);
 
 CREATE TABLE `sys_org` (
     `id` BIGINT UNSIGNED NOT NULL,
