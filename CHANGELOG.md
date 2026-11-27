@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 幂等 FAILED 重试补齐状态 CAS
+
+- **背景**：业务失败后记录置 `FAILED`，允许同 key 指纹重试。`doAcquire()` 判定 `PROCEED` 后
+  仅按 id + 租户把记录改回 `PROCESSING`，未带旧状态比较条件也不检查影响行数；两个并发重试
+  同时读到 `FAILED` 时会双双更新成功并执行业务。此前补的 DDL 唯一索引只兜底首次 INSERT，
+  对已存在记录的状态跃迁没有约束力，审批/转办/消息发送类接口仍可能重复执行。
+- **实现**：FAILED→PROCESSING 的 UPDATE 追加 `status = 'FAILED'` 比较并交换条件，按影响行数裁决；
+  CAS 失败时重查最新状态，映射为 REPLAY / CONFLICT / MISMATCH，且即使重查仍是 FAILED 也降级为
+  CONFLICT，绝不把抢占失败当成放行。命中匹配仍复用 `IdempotencyRules.decide()` 单一口径。
+- **测试**：新增 `IdempotencyFailedRetryConcurrencyTest`（4 例），覆盖 CAS 条件、抢占失败后的
+  PROCESSING / SUCCESS / FAILED 三种重查结果与响应快照重放。后端测试 659 → 663 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：并发重试中只有一个请求会执行业务，落败方收到 409（或已完成时的响应重放）；
+  客户端应把 409 视为“已有在途请求”而非系统错误，HTTP 端点与请求字段不变。
+
 ### 脱敏策略写操作改为全量失效缓存
 
 - **背景**：`MaskStrategyService.activeCache` 按租户缓存启用策略且无 TTL，四个写操作却只调用

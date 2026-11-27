@@ -1522,6 +1522,27 @@ mvn -o test          # 预期 659 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bn 幂等 FAILED 重试补齐状态 CAS
+
+**目标**：同 key 指纹的并发重试只有一个能进入 PROCESSING；CAS 落败方只能重放或冲突，不得重复执行业务。
+
+**验收标准**：`IdempotencyFailedRetryConcurrencyTest` 4 例全过；后端累计 663 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 状态 CAS | FAILED→PROCESSING 的 UPDATE 带旧状态条件并按影响行数裁决 |
+| 落败映射 | 重查 PROCESSING → CONFLICT；SUCCESS → REPLAY + 快照；FAILED → CONFLICT |
+| 唯一索引边界 | DDL 唯一键只防首次 INSERT，状态跃迁由 CAS 兜底 |
+| 口径复用 | 最新状态仍由 `IdempotencyRules.decide()` 判定，不复制规则 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -am test -Dtest='IdempotencyFailedRetryConcurrencyTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 663 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

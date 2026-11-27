@@ -153,8 +153,13 @@ public class IdempotencyService {
         boolean matched = Objects.equals(existing.getRequestFingerprint(), fingerprint);
         IdempotencyAction action = IdempotencyRules.decide(IdempotencyStatus.safeOf(existing.getStatus()), matched);
         if (action == IdempotencyAction.PROCEED) {
-            // FAILED → 重新进入 PROCESSING，清空上次结果避免误重放
-            dsl.update(t.table())
+            // FAILED → PROCESSING 必须带状态 CAS：两个并发重试同时读到 FAILED 时，
+            // 只有真正抢到状态跃迁的请求可以执行业务，否则会重复审批/转办/发消息。
+            // 唯一索引只兜底首次 INSERT，对已存在记录的状态跃迁无约束力。
+            Condition claim = SqlWriters.withTenant(t,
+                    t.field("id", Long.class).eq(existing.getId())
+                            .and(t.field("status", String.class).eq(IdempotencyStatus.FAILED.name())));
+            int claimed = dsl.update(t.table())
                     .set(t.field("status", String.class), IdempotencyStatus.PROCESSING.name())
                     .set(t.field("response_snapshot", String.class), (String) null)
                     .set(t.field("error_code", String.class), (String) null)
@@ -162,9 +167,20 @@ public class IdempotencyService {
                     .set(t.field("expires_at", LocalDateTime.class),
                             now.plusSeconds(Math.max(ttlSeconds, 1)))
                     .set(t.field("updated_at", LocalDateTime.class), now)
-                    .where(SqlWriters.withTenant(t,
-                            t.field("id", Long.class).eq(existing.getId())))
+                    .where(claim)
                     .execute();
+            if (claimed == 0) {
+                // 另一个重试者已抢占：按最新状态返回 REPLAY / CONFLICT / MISMATCH，
+                // 但绝不把 CAS 失败当成 PROCEED。
+                IdempotencyRecord latest = find(key, scope);
+                IdempotencyAction latestAction = latest == null
+                        ? IdempotencyAction.CONFLICT
+                        : IdempotencyRules.decide(IdempotencyStatus.safeOf(latest.getStatus()), matched);
+                if (latestAction == IdempotencyAction.PROCEED) {
+                    latestAction = IdempotencyAction.CONFLICT;
+                }
+                return new AcquireResult(latestAction, latest == null ? null : latest.getResponseSnapshot());
+            }
         }
         return new AcquireResult(action, existing.getResponseSnapshot());
     }
