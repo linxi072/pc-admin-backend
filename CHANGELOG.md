@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### TokenVersion 缓存回填补齐失效代际
+
+- **背景**：`TokenVersionService.currentVersion()` 缓存 miss 后回库读版本再 `cache.put()`；
+  `bumpUsers()` 会先递增数据库版本再 `invalidate()`。若请求 A 在失效前读到旧版本 v=1，
+  管理员强退/改密把版本升到 2 并清缓存，随后 A 再把 v=1 写回缓存，后续请求在 30 秒 TTL 内
+  仍会用 v=1 判定旧 token 有效，强制下线被缓存旁路。
+- **实现**：`TokenVersionCache` 增加单调 `generation`，`invalidate()` / `clear()` 先推进代际；
+  服务回源前记录代际，回填改用 `putIfUnchanged()`，仅当代际未变才写入。读旧值期间发生的任何
+  bump/clear 都会让该次回填失效，下一次校验重新回源拿到新版本。原有 TTL、统计口径与缓存 API 保持可用。
+- **测试**：新增 `TokenVersionCacheFillRaceTest`（4 例），覆盖失效后回填丢弃、clear 代际、
+  正常回填保留，以及服务级「读旧值 → bump → 旧值回填」交错。后端测试 678 → 682 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：并发强退后旧 token 的失效不再受 TTL 窗口影响；缓存命中率可能因回填放弃略降，
+  属于正确性优先的取舍。配置项、HTTP 端点与 JWT 声明不变。
+
 ### 表单编码补齐数据库唯一约束
 
 - **背景**：`FormDefinitionService.existsByCode()` 先查再写，但 `sys_form_definition` 没有唯一索引；

@@ -16,6 +16,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p><b>为什么不缓存「判定结果」而缓存「版本号」</b>：版本号是事实，不同 token 携带的版本不同，
  * 判定必须逐个请求做；缓存事实、不缓存结论，才不会把「某个旧 token 有效」误判成全局有效。
  *
+ * <p><b>失效代际</b>：invalidate / clear 会推进 generation，回源加载仅在代际未变时回填，
+ * 防止「读到旧版本 → 强退 bump → 旧值回填」让已失效令牌在 TTL 内继续通过校验。</p>
+ *
  * <p><b>命中统计</b>：hit/miss/evict 三个 {@link AtomicLong} 计数器支撑「缓存监控」页面
  * （V29）展示命中率与淘汰规模。计数器只增不减、无锁，置于关键路径上的代价可忽略；
  * {@link #stats()} 一次性快照返回，避免把内部结构暴露给调用方。
@@ -27,6 +30,8 @@ public class TokenVersionCache {
     private final AtomicLong hitCount = new AtomicLong();
     private final AtomicLong missCount = new AtomicLong();
     private final AtomicLong evictCount = new AtomicLong();
+    /** 失效代际：每次 invalidate / clear 自增，回源加载必须持加载前代际才能回填。 */
+    private final AtomicLong generation = new AtomicLong();
 
     public TokenVersionCache(long ttlMillis) {
         this.ttlMillis = Math.max(ttlMillis, 0L);
@@ -59,11 +64,28 @@ public class TokenVersionCache {
         entries.put(userId, new Entry(version, System.currentTimeMillis()));
     }
 
+    /** 当前失效代际；回源前读取，回填时用于判定期间是否发生过 bump / clear。 */
+    public long generation() {
+        return generation.get();
+    }
+
+    /**
+     * 仅当代际未变时回填，避免「读旧值 → bump → 写回旧值」把强制下线后的新版本压回缓存。
+     */
+    public void putIfUnchanged(Long userId, Integer version, long expectedGeneration) {
+        if (userId == null || version == null || generation.get() != expectedGeneration) {
+            return;
+        }
+        entries.put(userId, new Entry(version, System.currentTimeMillis()));
+    }
+
     /** 版本递增后主动失效，保证下一次读取拿到新值。 */
     public void invalidate(Collection<Long> userIds) {
         if (userIds == null) {
             return;
         }
+        // 先推进代际再删条目：回源加载若发生在失效之后，其回填携带新代际，不受影响。
+        generation.incrementAndGet();
         userIds.forEach(entries::remove);
     }
 
@@ -73,6 +95,7 @@ public class TokenVersionCache {
 
     /** 清空全部条目（缓存监控页「清理」操作，清理后下次读取回源 DB）。 */
     public void clear() {
+        generation.incrementAndGet();
         evictCount.addAndGet(entries.size());
         entries.clear();
     }

@@ -1606,6 +1606,27 @@ mvn -o test          # 预期 678 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6br TokenVersion 缓存回填补齐失效代际
+
+**目标**：回源加载期间发生强退/改密 bump 时，旧版本不得回填缓存；下一次校验必须看到新版本。
+
+**验收标准**：`TokenVersionCacheFillRaceTest` 4 例全过；后端累计 682 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 代际推进 | `invalidate()` / `clear()` 先自增 generation，再移除条目 |
+| 条件回填 | `putIfUnchanged(userId, version, generation)` 仅代际一致时写入 |
+| 服务路径 | `currentVersion()` 回源前记录代际，读旧值期间 bump 则丢弃该次结果 |
+| 兼容 | TTL、hit/miss/evict 统计与公开缓存 API 不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='TokenVersionCacheFillRaceTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 4, Failures: 0, Errors: 0
+mvn -o test          # 预期 682 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

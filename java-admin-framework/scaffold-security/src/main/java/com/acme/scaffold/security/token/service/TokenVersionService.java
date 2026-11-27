@@ -36,11 +36,17 @@ public class TokenVersionService {
 
     private final DSLContext dsl;
     private final TokenVersionDataPort tokenVersionDataPort;
-    private final TokenVersionCache cache = new TokenVersionCache(CACHE_TTL_MILLIS);
+    private final TokenVersionCache cache;
 
     public TokenVersionService(DSLContext dsl, TokenVersionDataPort tokenVersionDataPort) {
+        this(dsl, tokenVersionDataPort, new TokenVersionCache(CACHE_TTL_MILLIS));
+    }
+
+    /** 包级构造函数：允许测试注入可控缓存模拟回源与 bump 交错。 */
+    TokenVersionService(DSLContext dsl, TokenVersionDataPort tokenVersionDataPort, TokenVersionCache cache) {
         this.dsl = dsl;
         this.tokenVersionDataPort = tokenVersionDataPort;
+        this.cache = cache;
     }
 
     /** 读取用户当前版本；用户不存在（或已逻辑删除）返回 null，调用方据此判定失效。 */
@@ -52,6 +58,8 @@ public class TokenVersionService {
         if (cached != null) {
             return cached;
         }
+        // 记录回源前代际：期间若发生 bump/clear，旧版本不得回填，否则强退会被缓存旁路最长 TTL。
+        long generation = cache.generation();
         Record1<Integer> row = dsl.select(USER.field("token_version", Integer.class))
                 .from(USER.table())
                 .where(DSL.and(SqlWriters.notDeleted(USER),
@@ -59,7 +67,7 @@ public class TokenVersionService {
                 .fetchOne();
         Integer version = row == null ? null : row.value1();
         if (version != null) {
-            cache.put(userId, version);
+            cache.putIfUnchanged(userId, version, generation);
         }
         return version;
     }
