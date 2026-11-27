@@ -1456,6 +1456,27 @@ mvn -o test          # 预期 646 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bk WebSocket 握手补齐 tokenVersion 校验
+
+**目标**：强退/禁用后旧 JWT 不得再通过 WebSocket 握手建立连接；历史令牌按默认版本 1 兼容。
+
+**验收标准**：`JwtHandshakeAuthenticatorTokenVersionTest` 5 例全过；后端累计 651 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 版本门禁 | 解析 JWT 后校验 `tokenVersion`，与 HTTP 链路共用 `TokenVersionService` |
+| 兼容 | 无 `tokenVersion` 声明的历史令牌按版本 1 处理，仍受库内版本约束 |
+| 拒绝语义 | 版本过期 / 用户不存在 / 非法令牌均返回 null，由握手方拒绝 |
+| 副作用 | 非法令牌不触发版本查询；配置与 HTTP 端点不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='JwtHandshakeAuthenticatorTokenVersionTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+mvn -o test          # 预期 651 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

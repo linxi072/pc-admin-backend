@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### WebSocket 握手补齐 tokenVersion 校验
+
+- **背景**：`JwtHandshakeAuthenticator.resolveUserId()` 只验签并从 JWT 取 `userId`，
+  完全跳过 HTTP 链路强制执行的 `tokenVersion` 门禁。用户被强退、禁用或重置密码后，
+  虽然 access token 已失效，旧令牌仍可通过 WebSocket 握手建立连接并持续收发消息，
+  形成强制下线的绕过入口。
+- **实现**：握手鉴权器注入 `TokenVersionService`，解析 JWT 后读取 `tokenVersion`
+  声明（缺失按版本 1 兼容历史令牌），与库内版本比对；版本落后或用户不存在即返回 null，
+  由握手方拒绝连接。签名/格式异常仍按原口径静默拒绝，不泄露失败原因。
+- **测试**：新增 `JwtHandshakeAuthenticatorTokenVersionTest`（5 例），覆盖有效版本、
+  版本过期、历史令牌默认版本、已删除用户与非法令牌不打库。后端测试 646 → 651 例。
+- **验证**：前端 158 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：强退后已建立的 WebSocket 连接不会主动断开，只在下次握手/重连时按新版本校验；
+  配置与 HTTP 端点不变，客户端无需改造。
+
 ### 幂等记录补齐数据库唯一约束
 
 - **背景**：`IdempotencyService.doAcquire()` 先 `find` 再 `insert`，并发兜底依赖
