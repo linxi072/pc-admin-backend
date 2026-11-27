@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -170,7 +171,13 @@ public class MaskStrategyService {
         d.setPriority(req.priority() != null ? req.priority() : 0);
         d.setEnabled(req.enabled() != null && req.enabled() ? 1 : 0);
         d.setRemark(req.remark());
-        SqlWriters.insert(dsl, SqlTables.MASK_STRATEGY, d);
+        try {
+            SqlWriters.insert(dsl, SqlTables.MASK_STRATEGY, d);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同编码创建：应用层查重与插入的时间窗由唯一键 uk_mask_strategy_code_active
+            // 兜底裁决，转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "策略编码已存在");
+        }
         refreshCache();
         return d.getId();
     }
@@ -225,7 +232,13 @@ public class MaskStrategyService {
         if (req.remark() != null) {
             patch.setRemark(req.remark());
         }
-        SqlWriters.updateById(dsl, SqlTables.MASK_STRATEGY, id, patch);
+        try {
+            SqlWriters.updateById(dsl, SqlTables.MASK_STRATEGY, id, patch);
+        } catch (DataIntegrityViolationException e) {
+            // 并发改码 / 并发同码创建：唯一键 uk_mask_strategy_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409（update 允许改写 strategy_code，冲突面含更新路径）。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "策略编码已存在");
+        }
         refreshCache();
     }
 

@@ -4,6 +4,29 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 脱敏策略编码补齐数据库唯一约束
+
+- **背景**：`sys_mask_strategy` 没有策略编码唯一索引，`MaskStrategyService.create()` 与
+  `update()` 先查再写（`update` 允许改写 `strategy_code`）；同租户内并发创建或并发改码可
+  双双落库。`strategy_code` 是脱敏策略管理的业务标识（解析面按租户加载「启用中」策略、
+  供 `MaskStrategyResolver` 序列化/导出前高频命中），管理面按编码定位策略时命中哪条
+  取决于返回顺序，治理操作可能作用到错误策略。
+- **实现**：新库 `ddl.sql` 增加生成列 `strategy_code_active`（`deleted=0` 时取
+  `strategy_code`，否则 NULL）与唯一索引 `uk_mask_strategy_code_active(tenant_id,
+  strategy_code_active)`——`sys_mask_strategy` 为业务表，解析面按 tenant_id 显式过滤加载，
+  唯一键含 tenant 维度，与 `existsByCode` 的租户隔离查重口径一致；存量库提供
+  `upgrade_mask_strategy_code_unique_index.sql`（加列 → 去重 → 建索引）。冲突面含创建与
+  更新路径（`update` 允许改码）：`create` / `update` 捕获唯一键冲突并转换为与预校验一致的
+  409「策略编码已存在」；冲突发生在 `refreshCache` 之前，解析面缓存无需补偿。
+- **测试**：新增 `MaskStrategyCodeUniqueIndexDdlTest`（3 例）与
+  `MaskStrategyServiceCodeConflictTest`（3 例），覆盖生成列 / NULL 语义、租户内唯一口径
+  （去重按租户分组）、升级脚本顺序、并发创建与改码冲突文案及正常路径不被误伤。
+  后端测试 733 → 739 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  租户 + 高版本 / 最新 id 去重重复编码；唯一键不含 `strategy_code` 原列而是生成列，
+  业务逻辑无需感知；HTTP 端点、请求字段与权限码不变。
+
 ### 字典编码补齐数据库唯一约束
 
 - **背景**：`sys_dict_type` 没有字典编码唯一索引，`DictTypeService.create()` 与 `update()`

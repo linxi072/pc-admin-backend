@@ -759,6 +759,8 @@ CREATE TABLE `sys_mask_strategy` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `strategy_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 strategy_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `strategy_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `strategy_code` ELSE NULL END) STORED,
     `strategy_name` VARCHAR(128) NOT NULL,
     `field_key` VARCHAR(128) NOT NULL,
     `sensitive_type` VARCHAR(32) NOT NULL,
@@ -774,6 +776,10 @@ CREATE TABLE `sys_mask_strategy` (
     `updated_by` VARCHAR(64) NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- sys_mask_strategy 为业务表：解析面按 tenant_id 显式过滤加载启用策略（平台策略经租户继承复制），
+-- 策略编码租户内唯一，唯一键含 tenant 维度，与 existsByCode 的租户隔离查重口径一致。
+CREATE UNIQUE INDEX `uk_mask_strategy_code_active` ON `sys_mask_strategy` (`tenant_id`, `strategy_code_active`);
 
 CREATE TABLE `sys_form_definition` (
     `id` BIGINT UNSIGNED NOT NULL,

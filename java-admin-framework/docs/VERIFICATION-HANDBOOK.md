@@ -1827,6 +1827,29 @@ mvn -o test          # 预期 733 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6cb 脱敏策略编码补齐数据库唯一约束
+
+**目标**：同租户内未删除策略编码唯一；并发创建/改码由数据库兜底并返回清晰 409。
+
+**验收标准**：`MaskStrategyCodeUniqueIndexDdlTest` 3 例 +
+`MaskStrategyServiceCodeConflictTest` 3 例全过；后端累计 739 例、前端 161 例、
+门禁 --strict 全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `strategy_code_active` 使逻辑删除行退出唯一键，删除后可用同编码重建 |
+| 租户内唯一 | `sys_mask_strategy` 为业务表，解析面按 tenant_id 加载启用策略，唯一索引 `uk_mask_strategy_code_active(tenant_id, strategy_code_active)` 含 tenant 维度，与 `existsByCode` 租户隔离查重口径一致 |
+| 存量库 | 升级脚本按「加列 → 去重（tenant + version/id）→ 建索引」顺序执行 |
+| 冲突映射 | create/update 捕获 `DataIntegrityViolationException` → 409「策略编码已存在」；`update` 允许改写 `strategy_code`，冲突面含更新路径；冲突发生在 refreshCache 之前，解析面缓存无需补偿 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='MaskStrategyCodeUniqueIndexDdlTest,MaskStrategyServiceCodeConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 739 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）
