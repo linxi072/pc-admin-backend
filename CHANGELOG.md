@@ -4,6 +4,20 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### CSV 公式防护补齐前导空白绕过
+
+- **背景**：后端 `CsvExporter.neutralizeFormula()` 与前端 `csv.js` 只检查单元格第一个字符，
+  以 `  =1+1`、`\n@evil`、NBSP/全角空格开头的载荷会被当作普通文本放行；Excel / WPS 会忽略
+  这些前导空白并继续执行公式，导出中的用户名、备注等用户可控字段可绕过既有 CWE-1236 防护。
+- **实现**：两端统一先跳过可忽略的前导空白（空格、换行、NBSP、全角空格等），再判定
+  `= + - @` 危险首字符；命中时在原始值最前面补单引号。Tab / CR 本身仍按危险首字符处理，
+  数值例外（允许前导空格的 `-5` / `+3.14`）保持不变，避免破坏历史导出结果。
+- **测试**：新增 `CsvExporterFormulaWhitespaceTest`（5 例），前端 `csv.test.js` 由 8 例扩到 11 例；
+  覆盖空白变体、空格 + 数值、Tab 兼容与写出/toCsv 端到端口径。后端测试 651 → 656 例，
+  前端测试 158 → 161 例。
+- **验证**：门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：这是导出文本口径变更，不改动任何 HTTP 端点；含前导空白的公式类单元格现在会多一个前置单引号。
+
 ### WebSocket 握手补齐 tokenVersion 校验
 
 - **背景**：`JwtHandshakeAuthenticator.resolveUserId()` 只验签并从 JWT 取 `userId`，

@@ -1477,6 +1477,30 @@ mvn -o test          # 预期 651 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bl CSV 公式防护补齐前导空白绕过
+
+**目标**：跳过前导空白后判定公式首字符，前后端导出口径一致；Tab / CR 与数值例外保持历史行为。
+
+**验收标准**：`CsvExporterFormulaWhitespaceTest` 5 例 + `csv.test.js` 11 例全过；后端累计 656 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 空白绕过 | 空格 / 换行 / NBSP / 全角空格 + `= + - @` 均前置单引号 |
+| 兼容 | Tab / CR 仍按危险首字符；`-5` / `+3.14`（含前导空格）不被中和 |
+| 双端一致 | Java `CsvExporter` 与前端 `csv.js` 用同一判定顺序与例外口径 |
+| 端到端 | `CsvExporter.write()` 与 `toCsv()` 均逐单元格生效 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-common -am test -Dtest='CsvExporterFormulaWhitespaceTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+cd ../pc-admin-vue3-vite
+npx vitest run src/utils/tests/csv.test.js   # 预期 11 例全过
+cd ../java-admin-framework
+mvn -o test          # 预期 656 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

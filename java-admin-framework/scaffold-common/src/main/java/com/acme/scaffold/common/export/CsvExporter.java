@@ -90,23 +90,39 @@ public final class CsvExporter {
 
     /**
      * CSV 公式注入防护（CWE-1236）：以 {@code = + - @}、Tab、CR 开头的单元格在 Excel / WPS 打开时
-     * 会被当作公式执行，导出内容含用户可控字段（用户名、备注等）即构成注入面。前置单引号强制按文本处理。
+     * 会被当作公式执行。前置空白（空格、Tab、换行、NBSP、全角空格等）会被表格软件忽略，
+     * 因此必须跳过前导空白再判定危险首字符；命中时在原始值最前面补单引号强制按文本处理。
      *
-     * <p>例外：{@code -5}、{@code +3.14} 这类合法数值不中和，避免数值列被整体转成文本。</p>
+     * <p>例外：{@code -5}、{@code +3.14} 这类合法数值（允许前导空白）不中和，避免数值列被整体转成文本。</p>
      */
     static String neutralizeFormula(String value) {
         if (value.isEmpty()) {
             return value;
         }
-        char c = value.charAt(0);
+        int i = 0;
+        while (i < value.length() && isLeadingWhitespace(value.charAt(i))) {
+            i++;
+        }
+        if (i == value.length()) {
+            return value;
+        }
+        char c = value.charAt(i);
         boolean risky = c == '=' || c == '+' || c == '-' || c == '@' || c == '\t' || c == '\r';
         if (!risky) {
             return value;
         }
-        if ((c == '-' || c == '+') && isPlainNumber(value.substring(1))) {
+        if ((c == '-' || c == '+') && isPlainNumber(value.substring(i + 1))) {
             return value;
         }
         return "'" + value;
+    }
+
+    /**
+     * 可跳过的前导空白；Tab / CR 本身已是危险首字符（表格软件会据此解析公式），必须保留参与判定，
+     * 否则 {@code \tCMD} 这类既有防护会被新逻辑误放行。NBSP 不属于 Character.isWhitespace，单独覆盖。
+     */
+    private static boolean isLeadingWhitespace(char c) {
+        return c != '\t' && c != '\r' && (Character.isWhitespace(c) || c == '\u00A0');
     }
 
     /** 是否为「纯数字」（可含一个小数点），用于区分负数值与以 - 开头的公式。 */

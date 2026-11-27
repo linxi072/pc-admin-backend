@@ -41,7 +41,8 @@ function isPlainNumber(s) {
 
 /**
  * CSV 公式注入防护（CWE-1236）：以 = + - @、Tab、CR 开头的单元格在 Excel / WPS 中会被当作公式执行。
- * 前置单引号强制按文本处理；-5 / +3.14 这类合法数值例外，避免数值列整体转文本。
+ * 表格软件会忽略前导空白（空格/Tab/换行/NBSP/全角空格），因此先跳过空白再判定危险首字符；
+ * 命中时在原始值最前面补单引号强制按文本处理；-5 / +3.14（允许前导空白）这类合法数值例外。
  * 移植自后端 CsvExporter.neutralizeFormula，保持两端导出口径一致。
  *
  * @param {*} value 任意值
@@ -50,11 +51,14 @@ function isPlainNumber(s) {
 export function neutralizeFormula(value) {
   const s = String(value ?? '')
   if (!s) return s
-  const first = s[0]
+  // Tab / CR 本身已属于危险首字符，不能被跳过；其余空白（含 NBSP / 全角空格）跳过后再判定。
+  const offset = s.match(/^[^\S\t\r]*/)[0].length
+  if (offset === s.length) return s
+  const first = s[offset]
   if (first !== '=' && first !== '+' && first !== '-' && first !== '@' && first !== '\t' && first !== '\r') {
     return s
   }
-  if ((first === '-' || first === '+') && isPlainNumber(s.slice(1))) return s
+  if ((first === '-' || first === '+') && isPlainNumber(s.slice(offset + 1))) return s
   return `'${s}`
 }
 

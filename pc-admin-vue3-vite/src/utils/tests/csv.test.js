@@ -51,8 +51,27 @@ describe('CSV 导出工具', () => {
       expect(neutralizeFormula('-')).toBe("'-")
     })
 
-    it('内部危险字符不受影响，仅检查首字符', () => {
+    it('内部危险字符不受影响，仅检查首个非空白字符', () => {
       expect(neutralizeFormula('a=1+2')).toBe('a=1+2')
+    })
+
+    it('前导空白后的公式仍被中和', () => {
+      for (const ws of [' ', '\t', '\r', '\n', '\u00A0', '\u3000']) {
+        expect(neutralizeFormula(`${ws}=CMD`)).toBe(`'${ws}=CMD`)
+      }
+      expect(escapeCsvField('  =CMD')).toBe("'  =CMD")
+      expect(escapeCsvField('\r=CMD')).toBe('"\'\r=CMD"')
+    })
+
+    it('前导空格 + 合法数值保持原样；Tab 仍按危险首字符中和', () => {
+      expect(neutralizeFormula('  -5')).toBe('  -5')
+      expect(neutralizeFormula('\t+3.14')).toBe("'\t+3.14")
+      expect(neutralizeFormula('   ')).toBe('   ')
+      expect(neutralizeFormula('   \t')).toBe("'   \t")
+    })
+
+    it('toCsv 对前导空白公式逐单元格生效', () => {
+      expect(toCsv(['备注'], [['  =1+1']])).toBe("备注\r\n'  =1+1")
     })
   })
 
