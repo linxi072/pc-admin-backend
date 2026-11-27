@@ -1501,6 +1501,27 @@ mvn -o test          # 预期 656 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bm 脱敏策略写操作改为全量失效缓存
+
+**目标**：任一策略写操作后，所有租户的启用策略缓存均失效；平台租户策略变更也必须清掉业务租户缓存。
+
+**验收标准**：`MaskStrategyCacheInvalidationTest` 3 例全过；后端累计 659 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 全量失效 | create / update / delete / toggle 统一调用 `refreshCache()`，不再只清租户 0 |
+| 平台继承 | 租户 0 策略被业务租户继承，变更时业务租户缓存也必须清空 |
+| 可观测 | `cacheVersion()` 每次写操作递增；缓存无 TTL 的语义不变 |
+| 代价 | 写后首次解析回查一次数据库；管理写低频，可接受 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='MaskStrategyCacheInvalidationTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 3, Failures: 0, Errors: 0
+mvn -o test          # 预期 659 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

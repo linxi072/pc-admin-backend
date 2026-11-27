@@ -35,7 +35,8 @@ import org.springframework.util.StringUtils;
  *
  * <p><b>双数据源</b>：管理面（page/list/get）直接查库，覆盖全部状态（含停用）；解析面
  * （{@link #activeStrategies}）走按租户缓存的「启用中」策略列表，供 {@link MaskStrategyResolver}
- * 在序列化/导出前高频命中，避免每次请求回查数据库。任一写操作后立即失效对应租户缓存。</p>
+ * 在序列化/导出前高频命中，避免每次请求回查数据库。任一写操作后立即全量失效缓存
+ * （平台策略会被所有租户继承，只清单租户会留下旧策略残留）。</p>
  *
  * <p><b>默认安全回落</b>：解析面未命中策略时，{@code MaskStrategyResolver} 按调用方声明的
  * {@code SensitiveType} 默认掩码——与既有视图层脱敏口径一致，绝不因「未配置策略」而泄漏明文。</p>
@@ -80,13 +81,13 @@ public class MaskStrategyService {
         return SqlWriters.fetchList(dsl, SqlTables.MASK_STRATEGY, SysMaskStrategy.class, cond);
     }
 
-    /** 失效某租户缓存（写操作后调用）。 */
-    private void invalidate(long tenantId) {
-        activeCache.remove(tenantId);
-        cacheVersion.incrementAndGet();
-    }
-
-    /** 全量失效（管理端点主动触发，如跨租户批量变更后）。 */
+    /**
+     * 全量失效（写操作后与管理端点主动触发均调用）。
+     *
+     * <p>必须全清而非只清当前租户：平台租户 0 的策略会被所有业务租户继承，
+     * 仅失效租户 0 会让其他租户缓存继续持有旧平台策略；同理，租户侧策略也可能由跨租户管理操作变更。
+     * 写操作频率远低于解析命中，全清是最稳妥且实现最简单的口径。</p>
+     */
     public long refreshCache() {
         activeCache.clear();
         return cacheVersion.incrementAndGet();
@@ -170,7 +171,7 @@ public class MaskStrategyService {
         d.setEnabled(req.enabled() != null && req.enabled() ? 1 : 0);
         d.setRemark(req.remark());
         SqlWriters.insert(dsl, SqlTables.MASK_STRATEGY, d);
-        invalidate(0L);
+        refreshCache();
         return d.getId();
     }
 
@@ -225,14 +226,14 @@ public class MaskStrategyService {
             patch.setRemark(req.remark());
         }
         SqlWriters.updateById(dsl, SqlTables.MASK_STRATEGY, id, patch);
-        invalidate(0L);
+        refreshCache();
     }
 
     /** 删除策略（逻辑删除，便于审计与恢复）。 */
     public void delete(Long id) {
         requireById(id);
         SqlWriters.delete(dsl, SqlTables.MASK_STRATEGY, id, true);
-        invalidate(0L);
+        refreshCache();
     }
 
     /** 启停策略。 */
@@ -241,7 +242,7 @@ public class MaskStrategyService {
         SysMaskStrategy patch = new SysMaskStrategy();
         patch.setEnabled(enabled ? 1 : 0);
         SqlWriters.updateById(dsl, SqlTables.MASK_STRATEGY, id, patch);
-        invalidate(0L);
+        refreshCache();
     }
 
     // ------------------------------------------------------------------

@@ -4,6 +4,21 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 脱敏策略写操作改为全量失效缓存
+
+- **背景**：`MaskStrategyService.activeCache` 按租户缓存启用策略且无 TTL，四个写操作却只调用
+  `invalidate(0L)`。租户 7 管理员新增/启停策略后，租户 7 缓存永不刷新；
+  平台租户 0 的策略会被所有业务租户继承，但其变更也只清掉租户 0 自己的缓存。
+  结果新增的 MOBILE / ID_CARD 策略不生效，停用的策略继续脱敏，安全控制被静默旁路，
+  解析面回落到调用方兜底类型（常为 NONE）时甚至会让 PII 明文进入导出结果。
+- **实现**：`create` / `update` / `delete` / `toggle` 统一改为 `refreshCache()` 全量失效，
+  并删除只清单租户的私有 `invalidate()`。管理写操作频率远低于解析命中，全清以一次后续惰性加载
+  换取“平台策略继承 + 租户策略变更”两个维度都不残留旧快照。
+- **测试**：新增 `MaskStrategyCacheInvalidationTest`（3 例），覆盖创建、租户策略启停、
+  平台策略变更清业务租户缓存，并断言 `cacheVersion()` 递增。后端测试 656 → 659 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：写操作后首次解析会回查一次数据库；缓存无 TTL 的语义不变，但不再依赖重启/手工刷新纠正策略变更。
+
 ### CSV 公式防护补齐前导空白绕过
 
 - **背景**：后端 `CsvExporter.neutralizeFormula()` 与前端 `csv.js` 只检查单元格第一个字符，
