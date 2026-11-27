@@ -4,6 +4,27 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 字典编码补齐数据库唯一约束
+
+- **背景**：`sys_dict_type` 没有字典编码唯一索引，`DictTypeService.create()` 与 `update()`
+  先查再写（`update` 允许改写 `dict_code`）；并发创建或并发改码可双双落库，同一字典编码
+  出现两条未删除记录。`dict_code` 是字典数据（`sys_dict_data.dict_type_code`）与前端
+  枚举渲染的绑定键，重复后按编码取字典项命中哪条取决于返回顺序，枚举渲染与
+  状态翻译可能错乱。
+- **实现**：新库 `ddl.sql` 增加生成列 `dict_code_active`（`deleted=0` 时取 `dict_code`，
+  否则 NULL）与唯一索引 `uk_dict_code_active(dict_code_active)`——`sys_dict_type` 为平台维表
+  （租户豁免隔离），唯一键为全局单列，与 `existsByCode` 全局口径一致；存量库提供
+  `upgrade_dict_code_unique_index.sql`（加列 → 去重 → 建索引，被去重类型的字典数据须先归并）。
+  冲突面含创建与更新路径（`update` 允许改码）：`create` / `update` 捕获唯一键冲突并转换为
+  与预校验一致的 409「字典编码已存在」。
+- **测试**：新增 `DictCodeUniqueIndexDdlTest`（3 例）与 `DictTypeServiceCodeConflictTest`（3 例），
+  覆盖生成列 / NULL 语义、全局单列口径、升级脚本顺序、并发创建与改码冲突文案及正常路径
+  不被误伤。后端测试 727 → 733 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  高版本 / 最新 id 去重重复编码，被去重类型下的字典数据须先归并到保留类型再执行；
+  唯一键不含 `dict_code` 原列而是生成列，业务逻辑无需感知；HTTP 端点、请求字段与权限码不变。
+
 ### 机构编码补齐数据库唯一约束
 
 - **背景**：`sys_org` 没有机构编码唯一索引，`OrgService.create()` 与 `update()`

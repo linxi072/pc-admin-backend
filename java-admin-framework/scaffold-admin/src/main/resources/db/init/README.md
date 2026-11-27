@@ -19,6 +19,7 @@
 | `upgrade_role_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 角色表补生成列 `role_code_active` 与角色编码全局唯一索引；新库无需执行 |
 | `upgrade_openapi_client_id_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 开放平台客户端表补生成列 `client_id_active` 与客户端 ID 全局唯一索引；新库无需执行 |
 | `upgrade_org_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 机构表补生成列 `org_code_active` 与 `(tenant_id, org_code_active)` 唯一索引；新库无需执行 |
+| `upgrade_dict_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 字典类型表补生成列 `dict_code_active` 与字典编码全局唯一索引；新库无需执行 |
 
 原 `00_create_database.sql`、`01_full_schema.sql`、`02_backfill_tenant_id.sql`，以及
 `db/reference/{schema_ddl,data_dml}.sql`、`db/migration/V*.sql` 已归并进上述两个文件，
@@ -102,6 +103,10 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
   `uk_org_tenant_code_active`（租户内唯一：sys_org 为业务表，各租户独立机构树，唯一键含
   tenant 维度）；存量库按 `upgrade_org_code_unique_index.sql` 先去重再建索引。
   逻辑删除后可用同编码重建。`OrgService.existsByCode` 的租户隔离查重与索引口径一致。
+- **字典编码唯一索引**：新库由 `ddl.sql` 内联生成列 `dict_code_active`（逻辑删除行为 NULL）与
+  `uk_dict_code_active`（全局唯一，sys_dict_type 为平台维表）；存量库按
+  `upgrade_dict_code_unique_index.sql` 先去重再建索引（被去重类型的字典数据须先归并）。
+  逻辑删除后可用同编码重建。`DictTypeService.existsByCode` 的全局查重与索引口径一致。
 
 ## 5. 校验
 

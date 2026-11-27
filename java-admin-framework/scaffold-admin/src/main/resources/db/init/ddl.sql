@@ -355,6 +355,8 @@ CREATE TABLE `sys_dict_type` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `dict_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 dict_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `dict_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `dict_code` ELSE NULL END) STORED,
     `dict_name` VARCHAR(100) NOT NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     `sort_no` INT NOT NULL DEFAULT 0,
@@ -366,6 +368,10 @@ CREATE TABLE `sys_dict_type` (
     `updated_by` BIGINT UNSIGNED NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- sys_dict_type 为平台维表（租户豁免隔离）：dict_code 是字典数据（dict_type_code）与
+-- 前端枚举渲染的绑定键，唯一键为全局单列，与 DictTypeService.existsByCode 全局口径一致。
+CREATE UNIQUE INDEX `uk_dict_code_active` ON `sys_dict_type` (`dict_code_active`);
 
 CREATE TABLE `sys_dict_data` (
     `id` BIGINT UNSIGNED NOT NULL,

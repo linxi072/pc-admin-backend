@@ -1805,6 +1805,28 @@ mvn -o test          # 预期 727 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ca 字典编码补齐数据库唯一约束
+
+**目标**：未删除字典编码全局唯一；并发创建/改码由数据库兜底并返回清晰 409。
+
+**验收标准**：`DictCodeUniqueIndexDdlTest` 3 例 + `DictTypeServiceCodeConflictTest` 3 例全过；
+后端累计 733 例、前端 161 例、门禁 --strict 全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `dict_code_active` 使逻辑删除行退出唯一键，删除后可用同编码重建 |
+| 全局单列 | `sys_dict_type` 为平台维表，唯一索引 `uk_dict_code_active(dict_code_active)` 不含 tenant 维度，与 `existsByCode` 全局口径一致 |
+| 存量库 | 升级脚本按「加列 → 去重（version/id）→ 建索引」顺序执行；被去重类型的字典数据须先归并 |
+| 冲突映射 | create/update 捕获 `DataIntegrityViolationException` → 409「字典编码已存在」；`update` 允许改写 `dict_code`，冲突面含更新路径 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='DictCodeUniqueIndexDdlTest,DictTypeServiceCodeConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 733 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

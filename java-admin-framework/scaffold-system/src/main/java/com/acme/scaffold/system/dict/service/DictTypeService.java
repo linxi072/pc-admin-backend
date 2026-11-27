@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +51,13 @@ public class DictTypeService {
         t.setStatus(RecordStatus.normalize(req.status()));
         t.setSortNo(req.sortNo() == null ? 0 : req.sortNo());
         t.setRemark(req.remark());
-        SqlWriters.insert(dsl, TYPE, t);
+        try {
+            SqlWriters.insert(dsl, TYPE, t);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同编码创建：应用层查重与插入的时间窗由唯一键 uk_dict_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "字典编码已存在");
+        }
         return t.getId();
     }
 
@@ -66,7 +73,13 @@ public class DictTypeService {
         t.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
         t.setSortNo(req.sortNo() == null ? existing.getSortNo() : req.sortNo());
         t.setRemark(req.remark());
-        SqlWriters.updateById(dsl, TYPE, id, t);
+        try {
+            SqlWriters.updateById(dsl, TYPE, id, t);
+        } catch (DataIntegrityViolationException e) {
+            // 并发改码 / 并发同码创建：唯一键 uk_dict_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409（update 允许改写 dict_code，冲突面含更新路径）。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "字典编码已存在");
+        }
     }
 
     @Transactional
