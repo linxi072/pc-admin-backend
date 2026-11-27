@@ -4,6 +4,30 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 开放平台客户端 ID 补齐数据库唯一约束
+
+- **背景**：`sys_openapi_client` 没有客户端 ID 唯一索引，`OpenApiClientService.create()`
+  先查再写；两个并发注册同 `client_id` 客户端的请求都能通过应用层查重并落库。
+  `client_id` 是 OAuth2 授权服务器认证与范围校验的全局查询键
+  （`authenticateClient` / `getActiveClient` 均按 `client_id` 无租户维度 fetchOne），
+  重复后令牌签发可能命中错误客户端、scopes 校验可能套用错误授权范围，属安全敏感漂移。
+  此外 `existsByClientId()` 走 fetchOne 时会被租户隔离隐式追加租户条件，
+  强隔离开启下查不到他租户同 ID，查重口径与全局认证链路漂移。
+- **实现**：新库 `ddl.sql` 增加生成列 `client_id_active`（`deleted=0` 时取 `client_id`，
+  否则 NULL）与唯一索引 `uk_openapi_client_id_active(client_id_active)`——OAuth2 认证
+  无租户维度，唯一键为全局单列；存量库提供 `upgrade_openapi_client_id_unique_index.sql`
+  （加列 → 去重 → 建索引，去重丢弃的客户端须重新注册并换发密钥）。`update` 不允许改写
+  `client_id`，冲突面仅在创建路径：`create` 捕获唯一键冲突并转换为与预校验一致的
+  409「客户端 ID 已存在」；`existsByClientId()` 改用 `SqlWriters.countGlobal` 显式全局口径
+  （含逻辑删除过滤，不追加租户条件），与唯一索引口径对齐。
+- **测试**：新增 `OpenApiClientIdUniqueIndexDdlTest`（3 例）与
+  `OpenApiClientServiceIdConflictTest`（2 例），覆盖生成列 / NULL 语义、全局单列口径、
+  升级脚本顺序、并发注册冲突文案及正常路径不被误伤。后端测试 716 → 721 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  高版本 / 最新 id 去重重复 ID；被去重行对应的外部系统须重新注册换发密钥；唯一键不含
+  `client_id` 原列而是生成列，业务逻辑无需感知；HTTP 端点、请求字段与权限码不变。
+
 ### 角色编码补齐数据库唯一约束
 
 - **背景**：`sys_role` 没有角色编码唯一索引，`RoleService.create()` 先查再写；两个并发创建

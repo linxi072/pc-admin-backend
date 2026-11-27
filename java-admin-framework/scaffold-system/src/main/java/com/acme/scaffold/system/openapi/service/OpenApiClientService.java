@@ -25,6 +25,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -118,7 +119,13 @@ public class OpenApiClientService {
         d.setRedirectUris(OpenApiClientRules.normalizeRedirectUris(req.redirectUris()));
         d.setPkceRequired(req.pkceRequired() != null && req.pkceRequired() ? 1 : 0);
         d.setRemark(req.remark());
-        SqlWriters.insert(dsl, SqlTables.OPENAPI_CLIENT, d);
+        try {
+            SqlWriters.insert(dsl, SqlTables.OPENAPI_CLIENT, d);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同 client_id 注册：应用层查重与插入的时间窗由唯一键 uk_openapi_client_id_active
+            // 兜底裁决，转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "客户端 ID 已存在");
+        }
         return new ClientSecretView(d.getClientId(), plainSecret, now);
     }
 
@@ -202,10 +209,16 @@ public class OpenApiClientService {
         return d;
     }
 
+    /**
+     * client_id 查重走 {@link SqlWriters#countGlobal} 显式全局口径：OAuth2 授权服务器
+     * （{@link #authenticateClient} / {@link #getActiveClient}）按 client_id 无租户维度全局查询，
+     * 唯一键 uk_openapi_client_id_active 为全局单列。若走 {@link SqlWriters#count} 会被租户隔离
+     * 隐式追加租户条件，强隔离开启下查不到他租户同 ID，与唯一索引口径漂移。
+     */
     private boolean existsByClientId(String clientId) {
-        return SqlWriters.fetchOne(dsl, SqlTables.OPENAPI_CLIENT, OpenApiClient.class,
+        return SqlWriters.countGlobal(dsl, SqlTables.OPENAPI_CLIENT,
                 DSL.and(SqlWriters.notDeleted(SqlTables.OPENAPI_CLIENT),
-                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId))) != null;
+                        SqlTables.OPENAPI_CLIENT.field("client_id", String.class).eq(clientId))) > 0;
     }
 
     /**

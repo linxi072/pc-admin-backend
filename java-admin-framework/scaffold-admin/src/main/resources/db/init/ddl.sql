@@ -811,6 +811,8 @@ CREATE TABLE `sys_openapi_client` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `client_id` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 client_id，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `client_id_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `client_id` ELSE NULL END) STORED,
     `client_name` VARCHAR(128) NOT NULL,
     `client_secret_hash` VARCHAR(128) NOT NULL,
     `scopes` VARCHAR(512) NOT NULL DEFAULT 'read',
@@ -827,6 +829,10 @@ CREATE TABLE `sys_openapi_client` (
     `redirect_uris` VARCHAR(1024) NULL COMMENT '授权码回调地址白名单（逗号分隔，空白=不约束）',
     `pkce_required` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否强制 PKCE（授权码流程）'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- client_id 是 OAuth2 授权服务器认证/范围校验的全局查询键（无租户维度），
+-- 唯一键为全局单列：重复后令牌签发可能命中错误客户端。
+CREATE UNIQUE INDEX `uk_openapi_client_id_active` ON `sys_openapi_client` (`client_id_active`);
 
 CREATE TABLE `sys_tenant` (
     `id` BIGINT UNSIGNED NOT NULL,
