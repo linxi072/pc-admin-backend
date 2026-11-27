@@ -1372,6 +1372,27 @@ mvn -o test          # 预期 625 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bg 短信长度预算改为按含签名报文计算
+
+**目标**：短信长度门禁校验最终报文（含签名）；签名自身按含方括号总长不超过 32 字。
+
+**验收标准**：`SmsRulesContentBudgetTest` 7 例全过；后端累计 632 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 长度预算 | 先拼接签名再校验 500 字上限；超限文案含当前长度 |
+| 签名上限 | 先剥离方括号与控制符，再按含括号 32 字截断，括号完整保留 |
+| 边界 | 含签名恰好 500 字放行，501 字（含签名）拒绝，无签名 500/501 仍按原口径 |
+| 回归 | 退订链接追加继续复用 `MAX_CONTENT_LEN`；手机号归一与去重不变 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-system -am test -Dtest='SmsRulesContentBudgetTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 7, Failures: 0, Errors: 0
+mvn -o test          # 预期 632 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -25,10 +25,10 @@ public final class SmsRules {
     /** 单次群发手机号上限（防止误操作群发与网关限流）。 */
     public static final int MAX_MOBILES = 100;
 
-    /** 短信正文字符上限（超出由网关拆分长短信计费，此处只拦截明显异常）。 */
+    /** 最终待发短信正文字符上限（含签名；超出由网关拆分长短信计费，此处只拦截明显异常）。 */
     public static final int MAX_CONTENT_LEN = 500;
 
-    /** 短信签名长度上限（如【Acme】，含方括号）。 */
+    /** 短信签名长度上限（如【Acme】，含方括号，截断时保留完整括号形态）。 */
     public static final int MAX_SIGNATURE_LEN = 32;
 
     /** 大陆手机号：1 开头、第二位 3-9、共 11 位数字。 */
@@ -111,34 +111,36 @@ public final class SmsRules {
         if (content == null || content.isBlank()) {
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR, "短信内容不能为空");
         }
-        if (content.length() > MAX_CONTENT_LEN) {
+        String signed = appendSignature(content, signature);
+        if (signed.length() > MAX_CONTENT_LEN) {
+            String label = (signature == null || signature.isBlank()) ? "短信内容" : "短信内容（含签名）";
             throw new BusinessException(CommonErrorCode.VALIDATION_ERROR,
-                    "短信内容超过长度上限 " + MAX_CONTENT_LEN);
+                    label + "超过长度上限 " + MAX_CONTENT_LEN + "，当前 " + signed.length());
         }
-        return new SmsDraft(to, appendSignature(content, signature));
+        return new SmsDraft(to, signed);
     }
 
     /**
-     * 签名拼接与净化：剔除 CR/LF/TAB（防注入），限长截断；
-     * 空签名原样返回正文。形态为 {@code 【签名】正文}（缺方括号时补齐）。
+     * 签名拼接与净化：剔除 CR/LF/TAB（防注入），剥离已有方括号后按「含括号总长」限长截断；
+     * 空签名原样返回正文。形态恒为 {@code 【签名】正文}，签名部分不超过 {@link #MAX_SIGNATURE_LEN}。
      */
     public static String appendSignature(String content, String signature) {
         if (signature == null || signature.isBlank()) {
             return content;
         }
         String sign = CONTROL_CHARS.matcher(signature.trim()).replaceAll("").trim();
+        sign = sign.replace("【", "").replace("】", "").trim();
         if (sign.isEmpty()) {
             return content;
         }
-        if (sign.length() > MAX_SIGNATURE_LEN) {
-            sign = sign.substring(0, MAX_SIGNATURE_LEN);
+        int innerLimit = Math.max(MAX_SIGNATURE_LEN - 2, 0);
+        if (innerLimit == 0) {
+            return content;
         }
-        boolean wrapped = sign.length() >= 2 && sign.startsWith("【") && sign.endsWith("】");
-        if (!wrapped) {
-            // 缺方括号（或只带一侧）时补齐，先剥离已有方括号避免重复包裹
-            sign = "【" + sign.replace("【", "").replace("】", "") + "】";
+        if (sign.length() > innerLimit) {
+            sign = sign.substring(0, innerLimit);
         }
-        return sign + content;
+        return "【" + sign + "】" + content;
     }
 
     /** 待发短信草稿（号码已归一、内容已拼接签名）。 */

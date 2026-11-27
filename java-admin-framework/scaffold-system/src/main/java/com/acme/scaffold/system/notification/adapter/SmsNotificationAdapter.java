@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>与邮件适配器一致的门禁策略：仅当 {@code app.notifications.sms.enabled=true}
  * 才发送，否则抛校验异常，避免通知被静默丢弃（短信按条计费，静默失败不可接受）。
- * 发送前经 {@link SmsRules} 完成号码校验、内容长度约束与签名拼接，非法报文不外发。</p>
+ * 发送前经 {@link SmsRules} 完成号码校验、签名拼接与「含签名」内容长度约束，非法报文不外发。</p>
  *
  * <p>本渠道忽略 {@code receiverIds}/{@code roleIds}/{@code orgIds}/{@code title}——
  * 短信按号码维度投递且无主题，调用方需自行把用户解析为手机号。</p>
