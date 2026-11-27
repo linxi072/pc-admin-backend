@@ -24,6 +24,7 @@
 | `upgrade_notification_template_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 通知模板表补生成列 `template_code_active` 与 `(tenant_id, template_code_active)` 唯一索引；新库无需执行 |
 | `upgrade_workflow_process_key_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 工作流设计表补生成列 `process_key_active` 与 `(tenant_id, process_key_active)` 唯一索引 `uk_tenant_key`；新库无需执行 |
 | `upgrade_post_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 岗位表补生成列 `post_code_active` 与 `(tenant_id, post_code_active)` 唯一索引；新库无需执行 |
+| `upgrade_dict_data_value_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 字典数据表补生成列 `dict_value_active` 与 `(tenant_id, dict_type_code, dict_value_active)` 唯一索引；新库无需执行 |
 
 原 `00_create_database.sql`、`01_full_schema.sql`、`02_backfill_tenant_id.sql`，以及
 `db/reference/{schema_ddl,data_dml}.sql`、`db/migration/V*.sql` 已归并进上述两个文件，
@@ -129,6 +130,11 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
   `uk_post_tenant_code_active`（租户内唯一：与 `PostService#assertCodeAbsent` 的租户隔离查重
   口径一致）；存量库按 `upgrade_post_code_unique_index.sql` 先去重再建索引。
   逻辑删除后可用同编码重建。
+- **字典值唯一索引**：新库由 `ddl.sql` 内联生成列 `dict_value_active`（逻辑删除行为 NULL）与
+  `uk_dict_tenant_type_value_active`（租户 + 类型 + 值三元组唯一：与
+  `DictDataService#existsByTypeAndValue` 的租户隔离查重口径一致）；存量库按
+  `upgrade_dict_data_value_unique_index.sql` 先去重再建索引（被去重行须人工确认标签归并）。
+  逻辑删除后可用同值重建。
 
 ## 5. 校验
 

@@ -4,6 +4,29 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 字典数据值补齐数据库唯一约束
+
+- **背景**：`sys_dict_data` 没有字典值唯一索引，`DictDataService.create()` 与 `update()`
+  先查再写（`update` 允许改写 `dict_type_code` / `dict_value`）；同一租户同一字典类型下
+  并发创建或并发改值可双双落库。`dict_value` 是前端枚举渲染与状态翻译的取值键，
+  重复后按值取标签命中哪条取决于返回顺序，枚举渲染可能错乱。
+- **实现**：新库 `ddl.sql` 增加生成列 `dict_value_active`（`deleted=0` 时取 `dict_value`，
+  否则 NULL）与唯一索引 `uk_dict_tenant_type_value_active(tenant_id, dict_type_code,
+  dict_value_active)`——`sys_dict_data` 为业务表，同一租户同一类型下取值唯一（三元组键），
+  与 `existsByTypeAndValue` 的租户隔离查重口径一致；存量库提供
+  `upgrade_dict_data_value_unique_index.sql`（加列 → 去重 → 建索引）。冲突面含创建与更新
+  路径（`update` 允许改码/改值）：`create` / `update` 捕获唯一键冲突并转换为与预校验一致的
+  409「该字典类型下字典值已存在」；冲突发生在缓存更新之前，`dict-data` 缓存无需补偿。
+- **测试**：新增 `DictDataValueUniqueIndexDdlTest`（3 例）与
+  `DictDataServiceValueConflictTest`（3 例），覆盖生成列 / NULL 语义、三元组唯一口径
+  （去重按租户 + 类型分组）、升级脚本顺序、并发创建与改值冲突文案及正常路径不被误伤。
+  后端测试 757 → 763 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  租户 + 类型 + 高版本 / 最新 id 去重重复值，被去重行须人工确认标签归并；唯一键不含
+  `dict_value` 原列而是生成列，业务逻辑无需感知；HTTP 端点、请求字段与权限码不变。
+  至此「先查再写」并发缺口的唯一性加固系列全部收官（12 张表 / 14 个唯一键）。
+
 ### 岗位编码补齐数据库唯一约束
 
 - **背景**：`sys_post` 没有岗位编码唯一索引，`PostService.create()` 与 `update()` 先查再写

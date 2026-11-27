@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -91,7 +92,13 @@ public class DictDataService {
         d.setDictSort(req.dictSort() == null ? 0 : req.dictSort());
         d.setStatus(RecordStatus.normalize(req.status()));
         d.setRemark(req.remark());
-        SqlWriters.insert(dsl, DATA, d);
+        try {
+            SqlWriters.insert(dsl, DATA, d);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同值创建：应用层查重与插入的时间窗由唯一键 uk_dict_tenant_type_value_active
+            // 兜底裁决，转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "该字典类型下字典值已存在");
+        }
         return d.getId();
     }
 
@@ -114,7 +121,13 @@ public class DictDataService {
         d.setDictSort(req.dictSort() == null ? existing.getDictSort() : req.dictSort());
         d.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
         d.setRemark(req.remark());
-        SqlWriters.updateById(dsl, DATA, id, d);
+        try {
+            SqlWriters.updateById(dsl, DATA, id, d);
+        } catch (DataIntegrityViolationException e) {
+            // 并发改值 / 并发同值创建：唯一键 uk_dict_tenant_type_value_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409（update 允许改写 dict_type_code / dict_value，冲突面含更新路径）。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "该字典类型下字典值已存在");
+        }
     }
 
     /** 逻辑删除。删除前不额外回查类型码，统一整缓存驱逐。 */

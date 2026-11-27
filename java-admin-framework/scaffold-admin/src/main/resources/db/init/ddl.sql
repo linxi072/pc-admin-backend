@@ -379,6 +379,8 @@ CREATE TABLE `sys_dict_data` (
     `dict_type_code` VARCHAR(64) NOT NULL,
     `dict_label` VARCHAR(100) NOT NULL,
     `dict_value` VARCHAR(100) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 dict_value，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `dict_value_active` VARCHAR(100) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `dict_value` ELSE NULL END) STORED,
     `dict_sort` INT NOT NULL DEFAULT 0,
     `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     `remark` VARCHAR(255) NULL,
@@ -389,6 +391,10 @@ CREATE TABLE `sys_dict_data` (
     `updated_by` BIGINT UNSIGNED NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- sys_dict_data 为业务表：同一租户同一字典类型下 dict_value 唯一
+-- （与 DictDataService#existsByTypeAndValue 的租户隔离查重口径一致）。
+CREATE UNIQUE INDEX `uk_dict_tenant_type_value_active` ON `sys_dict_data` (`tenant_id`, `dict_type_code`, `dict_value_active`);
 
 CREATE TABLE `sys_config` (
     `id` BIGINT UNSIGNED NOT NULL,
