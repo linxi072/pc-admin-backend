@@ -148,7 +148,7 @@ public class OAuth2TokenEndpoint {
         Set<String> granted = resolveScopes(client.scopes(), scope);
         String jti = UUID.randomUUID().toString();
         String accessToken = tokenProvider.issueUserToken(client.clientId(), user.userId(), user.username(),
-                user.tokenVersion(), granted, user.authorities(), jti);
+                user.tenantId(), user.tokenVersion(), granted, user.authorities(), user.roles(), jti);
         String scopeStr = granted.isEmpty() ? "" : granted.stream().sorted().collect(Collectors.joining(" "));
         recordIssuance(jti, client.clientId(), user.userId(), user.username(), granted, "USER", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);
@@ -163,7 +163,7 @@ public class OAuth2TokenEndpoint {
                 : OpenApiClientRules.parseScopes(ctx.scope());
         String jti = UUID.randomUUID().toString();
         String accessToken = tokenProvider.issueUserToken(client.clientId(), ctx.userId(), ctx.username(),
-                ctx.tokenVersion(), granted, ctx.authorities(), jti);
+                ctx.tenantId(), ctx.tokenVersion(), granted, ctx.authorities(), ctx.roles(), jti);
         String scopeStr = granted.isEmpty() ? "" : granted.stream().sorted().collect(Collectors.joining(" "));
         recordIssuance(jti, client.clientId(), ctx.userId(), ctx.username(), granted, "USER", ttlSeconds);
         return ok(accessToken, scopeStr, ttlSeconds);

@@ -1393,6 +1393,27 @@ mvn -o test          # 预期 632 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bh OAuth2 用户令牌补齐租户与角色声明
+
+**目标**：password / authorization_code 用户令牌携带 `tenantId` / `roles` / `client_id`，上下文还原后不再回落默认租户。
+
+**验收标准**：`OAuth2UserTokenTenantClaimTest` 6 例全过；后端累计 638 例、前端 158 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 令牌声明 | 用户令牌写入 `tenantId`、`roles`、`client_id`；客户端令牌保持无租户 |
+| 授权码 | `CodeContext.tenantId` 随授权码签发/兑换往返，不依赖客户端回传 |
+| 端点透传 | password 取认证用户租户，authorization_code 取兑换上下文租户 |
+| 上下文转换 | `JwtAuthConverter` 同时兼容 `client_id` / `clientId`，无租户时不硬编码 0 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-security -am test -Dtest='OAuth2UserTokenTenantClaimTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 638 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

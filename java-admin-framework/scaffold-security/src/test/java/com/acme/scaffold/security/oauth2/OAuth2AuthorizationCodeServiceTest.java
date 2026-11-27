@@ -81,6 +81,6 @@ class OAuth2AuthorizationCodeServiceTest {
 
     private static CodeContext context() {
         return new CodeContext(42L, "alice", 1, Set.of("read"), Set.of("USER"),
-                CLIENT_ID, "read", REDIRECT, "", "");
+                CLIENT_ID, "read", REDIRECT, "", "", 7L);
     }
 }

@@ -84,7 +84,7 @@ public class OAuth2ConsentEndpoint {
         OAuth2AuthorizationCodeService.CodeContext ctx = new OAuth2AuthorizationCodeService.CodeContext(
                 principal.userId(), principal.username(), principal.tokenVersion(),
                 principal.permissions(), principal.roles(), clientId, scope, redirectUri,
-                codeChallenge, codeChallengeMethod);
+                codeChallenge, codeChallengeMethod, principal.tenantId());
         String code = codeService.issue(clientId, redirectUri, ctx);
 
         Map<String, Object> resp = new LinkedHashMap<>();

@@ -1,6 +1,7 @@
 package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.security.jwt.JwtProperties;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import java.security.interfaces.RSAPrivateKey;
 
@@ -57,14 +58,16 @@ public class OAuth2TokenProvider {
      * <ul>
      *   <li>{@code sub} 为数值 userId，使 {@link com.acme.scaffold.security.jwt.JwtAuthConverter}
      *       识别为用户身份（携带真实 {@code authorities} 权限码，可访问 {@code system:*} 受保护接口）；</li>
-     *   <li>携带 {@code username} / {@code tokenVersion} / {@code authorities} 声明，
-     *       其中 {@code tokenVersion} 与库中版本对齐，使 Token 版本校验过滤器在改密后正确失效；</li>
+     *   <li>携带 {@code username} / {@code tenantId} / {@code roles} / {@code tokenVersion} /
+     *       {@code authorities} / {@code client_id} 声明，使 TenantInterceptor 不再回落默认租户、
+     *       JwtAuthConverter 可还原角色与客户端；{@code tokenVersion} 与库中版本对齐，
+     *       使 Token 版本校验过滤器在改密后正确失效；</li>
      *   <li>{@code OnlineSessionFilter} 以「无 X-Device-Id 头」为前置守卫，机器客户端不发送该头，
      *       故不会因缺少在线会话而被误拒。</li>
      * </ul>
      */
-    public String issueUserToken(String clientId, Long userId, String username, int tokenVersion,
-                                 Set<String> scopes, Set<String> authorities) {
+    public String issueUserToken(String clientId, Long userId, String username, Long tenantId, int tokenVersion,
+                                 Set<String> scopes, Set<String> authorities, Set<String> roles) {
         RSAPrivateKey key = keys.getPrivateKey();
         Date now = new Date();
         long ttlMillis = properties.getOauth2TokenTtl().toMillis();
@@ -73,7 +76,9 @@ public class OAuth2TokenProvider {
                 ? "read" : scopes.stream().sorted().collect(Collectors.joining(" "));
         String auth = (authorities == null || authorities.isEmpty())
                 ? "" : authorities.stream().sorted().collect(Collectors.joining(","));
-        return Jwts.builder()
+        String roleStr = (roles == null || roles.isEmpty())
+                ? "" : roles.stream().sorted().collect(Collectors.joining(","));
+        JwtBuilder builder = Jwts.builder()
                 .setHeaderParam("kid", keys.getKeyId())
                 .subject(String.valueOf(userId))
                 .issuer(properties.getOauth2Issuer())
@@ -83,9 +88,13 @@ public class OAuth2TokenProvider {
                 .claim("client_id", clientId)
                 .claim("scope", scope)
                 .claim("authorities", auth)
+                .claim("roles", roleStr)
                 .claim("username", username)
-                .claim("tokenVersion", tokenVersion)
-                .id(UUID.randomUUID().toString())
+                .claim("tokenVersion", tokenVersion);
+        if (tenantId != null) {
+            builder.claim("tenantId", tenantId);
+        }
+        return builder.id(UUID.randomUUID().toString())
                 .signWith(key, Jwts.SIG.RS256)
                 .compact();
     }
@@ -118,10 +127,10 @@ public class OAuth2TokenProvider {
 
     /**
      * 签发代表资源拥有者的 OAuth2 令牌（jti 由调用方透传，便于 {@code OAuth2TokenEndpoint} 落库注册表）。
-     * 其余语义与 {@link #issueUserToken(String, Long, String, int, Set, Set)} 一致。
+     * 其余语义与上方用户令牌重载一致。
      */
-    public String issueUserToken(String clientId, Long userId, String username, int tokenVersion,
-                                 Set<String> scopes, Set<String> authorities, String jti) {
+    public String issueUserToken(String clientId, Long userId, String username, Long tenantId, int tokenVersion,
+                                 Set<String> scopes, Set<String> authorities, Set<String> roles, String jti) {
         RSAPrivateKey key = keys.getPrivateKey();
         Date now = new Date();
         long ttlMillis = properties.getOauth2TokenTtl().toMillis();
@@ -130,7 +139,9 @@ public class OAuth2TokenProvider {
                 ? "read" : scopes.stream().sorted().collect(Collectors.joining(" "));
         String auth = (authorities == null || authorities.isEmpty())
                 ? "" : authorities.stream().sorted().collect(Collectors.joining(","));
-        return Jwts.builder()
+        String roleStr = (roles == null || roles.isEmpty())
+                ? "" : roles.stream().sorted().collect(Collectors.joining(","));
+        JwtBuilder builder = Jwts.builder()
                 .setHeaderParam("kid", keys.getKeyId())
                 .subject(String.valueOf(userId))
                 .issuer(properties.getOauth2Issuer())
@@ -140,9 +151,13 @@ public class OAuth2TokenProvider {
                 .claim("client_id", clientId)
                 .claim("scope", scope)
                 .claim("authorities", auth)
+                .claim("roles", roleStr)
                 .claim("username", username)
-                .claim("tokenVersion", tokenVersion)
-                .id(jti)
+                .claim("tokenVersion", tokenVersion);
+        if (tenantId != null) {
+            builder.claim("tenantId", tenantId);
+        }
+        return builder.id(jti)
                 .signWith(key, Jwts.SIG.RS256)
                 .compact();
     }

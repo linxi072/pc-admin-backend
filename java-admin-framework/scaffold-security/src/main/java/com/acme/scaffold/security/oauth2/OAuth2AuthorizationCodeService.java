@@ -2,6 +2,7 @@ package com.acme.scaffold.security.oauth2;
 
 import com.acme.scaffold.common.exception.BusinessException;
 import com.acme.scaffold.security.error.SecurityErrorCode;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import java.security.interfaces.RSAPrivateKey;
 import java.time.Duration;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
 /**
  * OAuth2 {@code authorization_code} 授权码签发 / 兑换（一次性、短时效）。
  *
- * <p>授权码为 RS256 签名的 JWT（承载 client_id / redirect_uri / scope / 资源拥有者身份与权限），
+ * <p>授权码为 RS256 签名的 JWT（承载 client_id / redirect_uri / scope / 资源拥有者身份、租户与权限），
  * 由 {@link RsaKeyProvider} 私钥签发、公钥解码（复用同一密钥对，与访问令牌同源）。
  * 兑换时校验签名/过期后，以内存 {@code usedJtis} 保证一次性使用（防重放），并比对
  * client_id 与 redirect_uri 与授权时一致；同一 jti 的「检查 → 校验 → 标记」按独占锁串行化，
@@ -49,7 +50,7 @@ public class OAuth2AuthorizationCodeService {
     public record CodeContext(Long userId, String username, int tokenVersion,
                               Set<String> authorities, Set<String> roles,
                               String clientId, String scope, String redirectUri,
-                              String codeChallenge, String codeChallengeMethod) {
+                              String codeChallenge, String codeChallengeMethod, Long tenantId) {
     }
 
     /** 签发授权码（RS256 签名 JWT，绑定 client/redirect/scope 与资源拥有者上下文，含可选 PKCE 挑战）。 */
@@ -62,7 +63,7 @@ public class OAuth2AuthorizationCodeService {
         String roles = ctx.roles() == null ? "" : String.join(",", ctx.roles());
         String challenge = ctx.codeChallenge() == null ? "" : ctx.codeChallenge();
         String challengeMethod = ctx.codeChallengeMethod() == null ? "" : ctx.codeChallengeMethod();
-        return Jwts.builder()
+        JwtBuilder builder = Jwts.builder()
                 .setHeaderParam("kid", keys.getKeyId())
                 .subject(ctx.userId().toString())
                 .claim("client_id", clientId)
@@ -73,8 +74,11 @@ public class OAuth2AuthorizationCodeService {
                 .claim("roles", roles)
                 .claim("tokenVersion", ctx.tokenVersion())
                 .claim("code_challenge", challenge)
-                .claim("code_challenge_method", challengeMethod)
-                .id(UUID.randomUUID().toString())
+                .claim("code_challenge_method", challengeMethod);
+        if (ctx.tenantId() != null) {
+            builder.claim("tenantId", ctx.tenantId());
+        }
+        return builder.id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(exp)
                 .signWith(key, Jwts.SIG.RS256)
@@ -145,13 +149,15 @@ public class OAuth2AuthorizationCodeService {
 
             Long userId = Long.valueOf(jwt.getSubject());
             int tokenVersion = jwt.getClaim("tokenVersion") instanceof Number n ? n.intValue() : 1;
+            Object tenantClaim = jwt.getClaim("tenantId");
+            Long tenantId = tenantClaim instanceof Number n ? n.longValue() : null;
             Set<String> authorities = split(jwt.getClaimAsString("authorities"));
             Set<String> roles = split(jwt.getClaimAsString("roles"));
             String scope = jwt.getClaimAsString("scope");
             String retChallenge = jwt.getClaimAsString("code_challenge");
             String retMethod = jwt.getClaimAsString("code_challenge_method");
             return new CodeContext(userId, jwt.getClaimAsString("username"), tokenVersion,
-                    authorities, roles, clientId, scope, jwtRedirect, retChallenge, retMethod);
+                    authorities, roles, clientId, scope, jwtRedirect, retChallenge, retMethod, tenantId);
         }
     }
 

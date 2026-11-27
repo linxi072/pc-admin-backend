@@ -129,7 +129,7 @@ public class OAuth2AuthorizeEndpoint {
         OAuth2AuthorizationCodeService.CodeContext ctx = new OAuth2AuthorizationCodeService.CodeContext(
                 principal.userId(), principal.username(), principal.tokenVersion(),
                 principal.permissions(), principal.roles(), clientId, grantedScope, redirectUri,
-                codeChallenge, codeChallengeMethod);
+                codeChallenge, codeChallengeMethod, principal.tenantId());
         String code = codeService.issue(clientId, redirectUri, ctx);
 
         Map<String, Object> body = new LinkedHashMap<>();

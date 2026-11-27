@@ -69,7 +69,11 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
         // 统一按 Number 取值再 intValue()，缺失或非数值回落为 1（兼容历史 token）。
         Object tokenVersionClaim = jwt.getClaim("tokenVersion");
         Integer tokenVersion = tokenVersionClaim instanceof Number n ? n.intValue() : 1;
+        // OAuth2 令牌使用标准 client_id 声明，交互式登录令牌使用 clientId；两者都映射便于审计与租户策略。
         String clientId = jwt.getClaimAsString("clientId");
+        if (clientId == null || clientId.isBlank()) {
+            clientId = jwt.getClaimAsString("client_id");
+        }
         // 租户 ID 从令牌声明读取（数值声明按 Number 处理）；OAuth2 客户端令牌无租户声明则保留 null，
         // 由 TenantInterceptor / MaskStrategyResolver 按「无租户」语义处理。禁止硬编码 0，否则多租户隔离失效。
         Object tenantIdClaim = jwt.getClaim("tenantId");

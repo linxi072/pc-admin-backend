@@ -4,6 +4,23 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### OAuth2 用户令牌补齐租户与角色声明
+
+- **背景**：`OAuth2TokenProvider.issueUserToken()` 只写 `sub/client_id/scope/authorities/username/tokenVersion`，
+  不写 `tenantId` / `roles`。`JwtAuthConverter` 只从 JWT `tenantId` 声明还原租户，
+  导致 password 与 authorization_code 授权签发的用户令牌进入 `TenantInterceptor` 时租户为空，
+  随后回落到默认租户 0：非默认租户用户查不到本租户数据，默认租户存在数据时还可能越权读写。
+  授权码上下文未携带租户，`CodeContext.roles()` 也未写入访问令牌；`client_id` 声明同样未被转换器读取。
+- **实现**：两个用户令牌签发重载增加 `tenantId` / `roles` 参数并写入 JWT；授权码 `CodeContext` 增加
+  `tenantId` 并在 `issue()` / `consume()` 双向透传；`OAuth2TokenEndpoint` 与授权/同意端点从认证用户、
+  当前 principal 传递租户与角色；`JwtAuthConverter` 兼容 `client_id` / `clientId` 两种声明。
+- **测试**：新增 `OAuth2UserTokenTenantClaimTest`（6 例），覆盖令牌声明、无租户不硬编码默认租户、
+  授权码往返、password/authorization_code 两条端点路径与客户端令牌零回归。
+  后端测试 632 → 638 例。
+- **验证**：前端 158 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：历史 OAuth2 用户令牌不含 `tenantId`，仍按旧口径回落默认租户，需重新签发后生效；
+  client_credentials 令牌保持无租户语义，不受影响。HTTP 端点与响应结构不变。
+
 ### 短信长度预算改为按含签名报文计算
 
 - **背景**：`SmsRules.validateAndNormalize()` 先校验原始正文 ≤500 再调用 `appendSignature()`，
