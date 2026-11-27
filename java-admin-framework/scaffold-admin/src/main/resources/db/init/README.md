@@ -16,6 +16,7 @@
 | `upgrade_user_contact_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 用户表补生成列 `mobile_active` / `email_active` 与手机号、邮箱唯一索引；新库无需执行 |
 | `upgrade_config_key_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 系统参数表补生成列 `config_key_active` 与配置键唯一索引；新库无需执行 |
 | `upgrade_tenant_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 租户表补生成列 `tenant_code_active` 与租户编码唯一索引；新库无需执行 |
+| `upgrade_role_code_unique_index.sql` | 存量库升级（可选） | 仅升级时 | 角色表补生成列 `role_code_active` 与角色编码全局唯一索引；新库无需执行 |
 
 原 `00_create_database.sql`、`01_full_schema.sql`、`02_backfill_tenant_id.sql`，以及
 `db/reference/{schema_ddl,data_dml}.sql`、`db/migration/V*.sql` 已归并进上述两个文件，
@@ -86,6 +87,10 @@ DDL / DML 各自的语句**保持原版本链的相对执行顺序**，绝大多
 - **租户编码唯一索引**：新库由 `ddl.sql` 内联生成列 `tenant_code_active`（逻辑删除行为 NULL）与
   `uk_tenant_code_active`（全局唯一，sys_tenant 为平台维表）；存量库按
   `upgrade_tenant_code_unique_index.sql` 先去重再建索引。逻辑删除后可用同编码重建。
+- **角色编码唯一索引**：新库由 `ddl.sql` 内联生成列 `role_code_active`（逻辑删除行为 NULL）与
+  `uk_role_code_active`（全局唯一：租户管理员编码前缀规则依赖该约束）；存量库按
+  `upgrade_role_code_unique_index.sql` 先去重再建索引。逻辑删除后可用同编码重建。
+  `RoleService.existsByCode` 走 `SqlWriters.countGlobal` 显式全局查重，与索引口径一致。
 
 ## 5. 校验
 

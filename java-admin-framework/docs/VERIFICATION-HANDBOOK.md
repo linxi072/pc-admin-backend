@@ -1735,6 +1735,30 @@ mvn -o test          # 预期 711 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bx 角色编码补齐数据库唯一约束
+
+**目标**：未删除角色编码全局唯一；并发创建同编码角色由数据库兜底并返回清晰 409；
+`existsByCode` 查重口径与唯一索引一致（显式全局，不被租户隔离收窄）。
+
+**验收标准**：`RoleCodeUniqueIndexDdlTest` 3 例 + `RoleServiceCodeConflictTest` 2 例全过；
+后端累计 716 例、前端 161 例、门禁 --strict 全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `role_code_active` 使逻辑删除行退出唯一键，删除后可用同编码重建 |
+| 全局单列 | `sys_role` 为平台维表，唯一索引 `uk_role_code_active(role_code_active)` 不含 tenant 维度，与租户开通前缀规则的全局绑定键语义一致 |
+| 存量库 | 升级脚本按「加列 → 去重（version/id）→ 建索引」顺序执行 |
+| 冲突映射 | create 捕获 `DataIntegrityViolationException` → 409「角色编码已存在」；update 不改 `role_code`，冲突面仅创建路径 |
+| 查重口径 | `existsByCode` 改用 `SqlWriters.countGlobal` 显式全局，避免强隔离开启时被隐式收窄导致跨租户同编码漏检 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='RoleCodeUniqueIndexDdlTest,RoleServiceCodeConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 5, Failures: 0, Errors: 0
+mvn -o test          # 预期 716 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -101,6 +101,8 @@ CREATE TABLE `sys_role` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `role_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 role_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `role_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `role_code` ELSE NULL END) STORED,
     `role_name` VARCHAR(100) NOT NULL,
     `role_type` VARCHAR(20) NOT NULL DEFAULT 'BUSINESS',
     `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
@@ -112,6 +114,10 @@ CREATE TABLE `sys_role` (
     `updated_by` BIGINT UNSIGNED NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 角色编码全局唯一（仅未删除行）：角色编码按设计全局唯一（租户管理员编码前缀规则依赖该约束），
+-- 与 RoleService.existsByCode 的 countGlobal 显式全局口径一致；并发创建同编码角色由数据库唯一键
+-- 兜底，防止权限聚合与内置角色判定按编码命中不确定的行。
+CREATE UNIQUE INDEX `uk_role_code_active` ON `sys_role` (`role_code_active`);
 
 CREATE TABLE `sys_user_role` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

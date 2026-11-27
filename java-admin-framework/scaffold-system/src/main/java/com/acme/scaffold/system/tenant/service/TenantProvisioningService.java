@@ -75,7 +75,7 @@ public class TenantProvisioningService {
         String roleCode = TenantProvisioningRules.deriveRoleCode(tenant.tenantCode());
         String deptCode = TenantProvisioningRules.deriveDeptCode(tenant.tenantCode());
 
-        // 3) 幂等守卫：@TenantIgnorable 作用域下全局可见，可跨租户查重
+        // 3) 幂等守卫：existsByCode 走 countGlobal 显式全局口径，可跨租户查重（与 uk_role_code_active 一致）
         if (roleService.existsByCode(roleCode)) {
             throw new BusinessException(CommonErrorCode.CONFLICT,
                     "该租户已开通（管理员角色 " + roleCode + " 已存在）");

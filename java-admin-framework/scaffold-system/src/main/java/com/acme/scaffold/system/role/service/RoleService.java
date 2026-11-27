@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,7 +58,13 @@ public class RoleService {
         role.setRoleType(request.roleType() == null ? "BUSINESS" : request.roleType());
         role.setStatus(RecordStatus.normalize(request.status()));
         role.setSortNo(request.sortNo() == null ? 0 : request.sortNo());
-        SqlWriters.insert(dsl, ROLE, role);
+        try {
+            SqlWriters.insert(dsl, ROLE, role);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同编码创建：应用层查重与插入的时间窗由唯一键 uk_role_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "角色编码已存在");
+        }
         assignMenus(role.getId(), request.menuIds());
         assignApis(role.getId(), request.apiIds());
         return role.getId();
@@ -182,9 +189,16 @@ public class RoleService {
         }
     }
 
-    /** 角色编码是否已存在（全局唯一，含逻辑删除过滤）。开通流程用于幂等查重。 */
+    /**
+     * 角色编码是否已存在（全局唯一口径，含逻辑删除过滤）。开通流程用于幂等查重。
+     *
+     * <p>角色编码按设计全局唯一（{@code TenantProvisioningRules} 的租户管理员编码前缀规则
+     * 即依赖该约束），与数据库唯一键 {@code uk_role_code_active} 一致；因此本查询走
+     * {@link SqlWriters#countGlobal} 显式不追加租户条件，避免强隔离开启时被隐式收窄为
+     * 「租户内统计」，与唯一索引口径漂移、开通幂等守卫失效。</p>
+     */
     public boolean existsByCode(String code) {
-        return SqlWriters.count(dsl, ROLE,
+        return SqlWriters.countGlobal(dsl, ROLE,
                 DSL.and(SqlWriters.notDeleted(ROLE),
                         ROLE.field("role_code", String.class).eq(code))) > 0;
     }

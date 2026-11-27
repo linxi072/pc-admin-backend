@@ -241,6 +241,18 @@ public final class SqlWriters {
         return total == null ? 0L : total.longValue();
     }
 
+    /**
+     * 按条件统计数量（显式全局口径：不追加 tenant_id 条件）。
+     *
+     * <p>用于「键按设计全局唯一」的查重场景（如角色编码、平台维表编码键），
+     * 与数据库全局唯一索引保持同一口径；避免强隔离开启时 {@link #count} 被隐式收窄为
+     * 「租户内统计」，导致预校验与唯一索引口径漂移、幂等守卫失效。</p>
+     */
+    public static long countGlobal(DSLContext dsl, SqlTables.TableRef table, Condition cond) {
+        Integer total = dsl.selectCount().from(table.table()).where(cond).fetchOne(0, int.class);
+        return total == null ? 0L : total.longValue();
+    }
+
     /** 分页查询（count + limit/offset），等价于 MyBatis-Plus 的 selectPage。 */
     public static <E> PageResult<E> page(DSLContext dsl, SqlTables.TableRef table, Class<E> type,
                                          Condition cond, PageQuery q, OrderField<?>... orderBy) {

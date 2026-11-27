@@ -4,6 +4,28 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 角色编码补齐数据库唯一约束
+
+- **背景**：`sys_role` 没有角色编码唯一索引，`RoleService.create()` 先查再写；两个并发创建
+  同编码角色的请求都能通过应用层查重并落库。角色编码是租户开通
+  （`TenantProvisioningRules` 前缀规则）的全局绑定键，重复后开通派生与按编码定位角色
+  命中哪条取决于返回顺序。此外 `existsByCode()` 走 count 时会被租户隔离隐式追加租户条件，
+  强隔离开启下查不到他租户同编码，查重口径与全局唯一约束漂移。
+- **实现**：新库 `ddl.sql` 增加生成列 `role_code_active`（`deleted=0` 时取 `role_code`，
+  否则 NULL）与唯一索引 `uk_role_code_active(role_code_active)`——`sys_role` 为平台维表
+  （租户豁免隔离），唯一键为全局单列；存量库提供 `upgrade_role_code_unique_index.sql`
+  （加列 → 去重 → 建索引）。`update` 不允许改写 `role_code`，冲突面仅在创建路径：
+  `create` 捕获唯一键冲突并转换为与预校验一致的 409「角色编码已存在」；
+  `existsByCode()` 改用 `SqlWriters.countGlobal` 显式全局口径（不追加租户条件），
+  与唯一索引口径对齐。
+- **测试**：新增 `RoleCodeUniqueIndexDdlTest`（3 例）与 `RoleServiceCodeConflictTest`（2 例），
+  覆盖生成列 / NULL 语义、全局单列口径、升级脚本顺序、并发创建冲突文案及正常路径不被误伤。
+  后端测试 711 → 716 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  高版本 / 最新 id 去重重复编码；唯一键不含 `role_code` 原列而是生成列，业务逻辑无需感知；
+  HTTP 端点、请求字段与权限码不变。
+
 ### 租户编码补齐数据库唯一约束
 
 - **背景**：`sys_tenant` 没有租户编码唯一索引，`TenantService.existsByTenantCode()` 先查再写；
