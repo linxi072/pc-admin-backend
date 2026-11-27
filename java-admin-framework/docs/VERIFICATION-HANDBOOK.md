@@ -1691,6 +1691,28 @@ mvn -o test          # 预期 700 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6bv 系统参数配置键补齐数据库唯一约束
+
+**目标**：未删除配置键全局唯一；并发创建/改键由数据库兜底并返回清晰 409。
+
+**验收标准**：`ConfigKeyUniqueIndexDdlTest` 3 例 + `ConfigServiceKeyConflictTest` 3 例全过；
+后端累计 706 例、前端 161 例、门禁 56 例全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `config_key_active` 使逻辑删除行退出唯一键，删除后可用同键重建 |
+| 全局单列 | `sys_config` 为平台维表，唯一索引 `uk_config_key_active(config_key_active)` 不含 tenant 维度 |
+| 存量库 | 升级脚本按「加列 → 去重（version/id）→ 建索引」顺序执行 |
+| 冲突映射 | 服务层 create/update 捕获 `DataIntegrityViolationException` → 409「配置键已存在」，旧缓存无需补偿 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='ConfigKeyUniqueIndexDdlTest,ConfigServiceKeyConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 706 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）

@@ -4,6 +4,27 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 系统参数配置键补齐数据库唯一约束
+
+- **背景**：`sys_config` 没有配置键唯一索引，`ConfigService.existsByKey()` 先查再写；
+  两个并发创建或并发改键（`update` 允许改写 `configKey`）都能通过应用层查重并落库，
+  同一配置键出现两条未删除记录。`getByKey()` 与内存缓存均以 `config_key` 为键，
+  `SystemConfigs.getString` 等全仓动态配置读取命中哪条取决于返回顺序 / 缓存重建时序，
+  热更新语义随之错乱。
+- **实现**：新库 `ddl.sql` 增加生成列 `config_key_active`（`deleted=0` 时取 `config_key`，
+  否则 NULL）与唯一索引 `uk_config_key_active(config_key_active)`——`sys_config` 为平台维表
+  （租户豁免隔离），唯一键为全局单列，与 `existsByKey` 全局口径一致；存量库提供
+  `upgrade_config_key_unique_index.sql`（加列 → 去重 → 建索引）。服务层 `create` / `update`
+  捕获唯一键冲突并转换为与预校验一致的 409「配置键已存在」；冲突发生在缓存更新之前，
+  旧缓存无需补偿。
+- **测试**：新增 `ConfigKeyUniqueIndexDdlTest`（3 例）与 `ConfigServiceKeyConflictTest`（3 例），
+  覆盖生成列 / NULL 语义、全局单列口径、升级脚本顺序、并发创建与改键冲突文案及正常路径
+  不被误伤。后端测试 700 → 706 例。
+- **验证**：前端 161 例、门禁 56/56、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  高版本 / 最新 id 去重重复键；唯一键不含 `config_key` 原列而是生成列，业务逻辑无需感知；
+  HTTP 端点、请求字段与权限码不变。
+
 ### 用户手机号 / 邮箱补齐数据库唯一约束
 
 - **背景**：`sys_user` 的手机号 / 邮箱没有任何唯一索引，`UserService.assertContactAvailable` 与

@@ -376,6 +376,8 @@ CREATE TABLE `sys_config` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `config_key` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 config_key，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `config_key_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `config_key` ELSE NULL END) STORED,
     `config_name` VARCHAR(100) NOT NULL,
     `config_value` VARCHAR(500) NULL,
     `config_type` VARCHAR(20) NOT NULL DEFAULT 'STRING',
@@ -390,6 +392,10 @@ CREATE TABLE `sys_config` (
     `default_value` VARCHAR(500) NULL COMMENT '参数默认值（工厂默认值，区别于当前生效值 config_value）',
     `editable` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '是否可编辑：1=运行时可改，0=系统内置不可改'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 配置键全局唯一（仅未删除行）：sys_config 为平台维表（租户豁免隔离），与 ConfigService.existsByKey
+-- 的全局口径一致；并发创建/改键由数据库唯一键兜底，防止 getByKey 缓存与 SystemConfigs
+-- 动态读取在同一键上命中不确定的行。
+CREATE UNIQUE INDEX `uk_config_key_active` ON `sys_config` (`config_key_active`);
 
 CREATE TABLE `sys_announcement` (
     `id` BIGINT UNSIGNED NOT NULL,

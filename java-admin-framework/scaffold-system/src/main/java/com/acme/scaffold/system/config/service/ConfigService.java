@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -147,7 +148,13 @@ public class ConfigService {
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? 1 : req.editable());
         c.setStatus(RecordStatus.normalize(req.status()));
-        SqlWriters.insert(dsl, CONFIG, c);
+        try {
+            SqlWriters.insert(dsl, CONFIG, c);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同键创建：应用层查重与插入的时间窗由唯一键 uk_config_key_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409，避免落到通用异常文案。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "配置键已存在");
+        }
         cache.put(req.configKey(), toVO(c));
         return c.getId();
     }
@@ -168,7 +175,12 @@ public class ConfigService {
         c.setRemark(req.remark());
         c.setEditable(req.editable() == null ? existing.getEditable() : req.editable());
         c.setStatus(RecordStatus.mergeOrKeep(req.status(), existing.getStatus()));
-        SqlWriters.updateById(dsl, CONFIG, id, c);
+        try {
+            SqlWriters.updateById(dsl, CONFIG, id, c);
+        } catch (DataIntegrityViolationException e) {
+            // 并发改键/建键：唯一键兜底裁决，转换为清晰 409；异常发生在缓存更新之前，旧缓存无需补偿。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "配置键已存在");
+        }
         cache.remove(oldKey);
         cache.put(req.configKey(), toVO(c));
     }
