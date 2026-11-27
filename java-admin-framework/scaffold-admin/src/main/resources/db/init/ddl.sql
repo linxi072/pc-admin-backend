@@ -641,6 +641,8 @@ CREATE TABLE `sys_post` (
     `id` BIGINT UNSIGNED NOT NULL,
     `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
     `post_code` VARCHAR(64) NOT NULL,
+    -- 逻辑删除行不参与唯一性：deleted=0 时取 post_code，否则为 NULL（MySQL 唯一索引忽略多行 NULL）。
+    `post_code_active` VARCHAR(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = 0 THEN `post_code` ELSE NULL END) STORED,
     `post_name` VARCHAR(100) NOT NULL,
     `post_sort` INT NOT NULL DEFAULT 0,
     `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
@@ -652,6 +654,9 @@ CREATE TABLE `sys_post` (
     `updated_by` BIGINT UNSIGNED NULL,
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- sys_post 为业务表：岗位编码租户内唯一（与 PostService#assertCodeAbsent 的租户隔离查重口径一致）。
+CREATE UNIQUE INDEX `uk_post_tenant_code_active` ON `sys_post` (`tenant_id`, `post_code_active`);
 
 CREATE TABLE `sys_user_post` (
     `id` BIGINT UNSIGNED NOT NULL,

@@ -4,6 +4,27 @@
 版本号以仓库根 `CHANGELOG.md` 为准，与后端根 POM、前端 package.json 强制一致
 （由门禁 `scripts/check-version.py` 守护）。格式参考 Keep a Changelog。
 
+### 岗位编码补齐数据库唯一约束
+
+- **背景**：`sys_post` 没有岗位编码唯一索引，`PostService.create()` 与 `update()` 先查再写
+  （`assertCodeAbsent` 租户隔离查重、`update` 允许改写 `post_code`）；同租户内并发创建或
+  并发改码可双双落库。岗位编码是用户岗位分配（`sys_user_post`）与人员档案展示的业务标识，
+  重复后按编码定位岗位命中哪条取决于返回顺序，分配与展示可能错乱。
+- **实现**：新库 `ddl.sql` 增加生成列 `post_code_active`（`deleted=0` 时取 `post_code`，
+  否则 NULL）与唯一索引 `uk_post_tenant_code_active(tenant_id, post_code_active)`——
+  `sys_post` 为业务表，编码租户内唯一（与 `assertCodeAbsent` 的租户隔离查重口径一致）；
+  存量库提供 `upgrade_post_code_unique_index.sql`（加列 → 去重 → 建索引）。冲突面含创建与
+  更新路径（`update` 允许改码）：`create` / `update` 捕获唯一键冲突并转换为与预校验一致的
+  409「岗位编码已存在」。
+- **测试**：新增 `PostCodeUniqueIndexDdlTest`（3 例）与 `PostServiceCodeConflictTest`（3 例），
+  覆盖生成列 / NULL 语义、租户内唯一口径（去重按租户分组）、升级脚本顺序、并发创建与
+  改码冲突文案及正常路径不被误伤。后端测试 751 → 757 例。
+- **验证**：前端 161 例、门禁 --strict 全过、Lint（0 errors）与 Vite 生产构建均通过。
+- **注意**：存量库须在停写窗口备份后执行升级脚本，脚本无列 / 索引存在性守卫，且按
+  租户 + 高版本 / 最新 id 去重重复编码；唯一键不含 `post_code` 原列而是生成列，
+  业务逻辑无需感知；HTTP 端点、请求字段与权限码不变。另经核实：`sys_job.task_key` 为
+  处理器路由键（Quartz 注册键按 jobId 构造、同一处理器可多任务复用），**不应**加唯一约束。
+
 ### 工作流流程编码补齐数据库唯一约束
 
 - **背景**：`wf_workflow_design` 没有流程编码唯一索引，但 `WorkflowDesignService.delete()`

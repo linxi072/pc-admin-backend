@@ -28,6 +28,7 @@ import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -136,7 +137,13 @@ public class PostService {
         post.setPostSort(request.postSort() != null ? request.postSort() : 0);
         post.setStatus(ACTIVE);
         post.setRemark(request.remark());
-        SqlWriters.insert(dsl, POST, post);
+        try {
+            SqlWriters.insert(dsl, POST, post);
+        } catch (DataIntegrityViolationException e) {
+            // 并发同编码创建：应用层查重与插入的时间窗由唯一键 uk_post_tenant_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "岗位编码已存在");
+        }
         return post.getId();
     }
 
@@ -173,7 +180,13 @@ public class PostService {
         if (request.remark() != null) {
             post.setRemark(request.remark());
         }
-        SqlWriters.updateById(dsl, POST, id, post);
+        try {
+            SqlWriters.updateById(dsl, POST, id, post);
+        } catch (DataIntegrityViolationException e) {
+            // 并发改码 / 并发同码创建：唯一键 uk_post_tenant_code_active 兜底裁决，
+            // 转换为与预校验一致的清晰 409（update 允许改写 post_code，冲突面含更新路径）。
+            throw new BusinessException(CommonErrorCode.CONFLICT, "岗位编码已存在");
+        }
     }
 
     /** 删除岗位（逻辑删除），并物理清理该岗位的全部用户关联。 */

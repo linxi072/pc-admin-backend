@@ -1896,6 +1896,29 @@ mvn -o test          # 预期 751 例全过，BUILD SUCCESS
 python3 scripts/check-all.py --strict   # 预期 EXIT=0
 ```
 
+### 3.6ce 岗位编码补齐数据库唯一约束
+
+**目标**：同租户内未删除岗位编码唯一；并发创建/改码由数据库兜底并返回清晰 409。
+
+**验收标准**：`PostCodeUniqueIndexDdlTest` 3 例 + `PostServiceCodeConflictTest` 3 例全过；
+后端累计 757 例、前端 161 例、门禁 --strict 全绿。
+
+| 契约 | 覆盖点 |
+|---|---|
+| 唯一口径 | 生成列 `post_code_active` 使逻辑删除行退出唯一键，删除后可用同编码重建 |
+| 租户内唯一 | `sys_post` 为业务表，唯一索引 `uk_post_tenant_code_active(tenant_id, post_code_active)` 含 tenant 维度，与 `assertCodeAbsent` 租户隔离查重口径一致 |
+| 存量库 | 升级脚本按「加列 → 去重（tenant + version/id）→ 建索引」顺序执行 |
+| 冲突映射 | create/update 捕获 `DataIntegrityViolationException` → 409「岗位编码已存在」；`update` 允许改写 `post_code`，冲突面含更新路径 |
+| 负向结论 | `sys_job.task_key` 为处理器路由键（Quartz 注册键按 jobId 构造），不加唯一约束 |
+
+```bash
+cd java-admin-framework
+mvn -o -pl scaffold-admin,scaffold-system -am test -Dtest='PostCodeUniqueIndexDdlTest,PostServiceCodeConflictTest' -Dsurefire.failIfNoSpecifiedTests=false
+# 预期 Tests run: 6, Failures: 0, Errors: 0
+mvn -o test          # 预期 757 例全过，BUILD SUCCESS
+python3 scripts/check-all.py --strict   # 预期 EXIT=0
+```
+
 ---
 
 ## 3.7 组件库（已移除）
